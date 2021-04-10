@@ -1,0 +1,55 @@
+= tblite(1)
+:doctype: manpage
+
+== name
+tblite - Light-weight tight-binding framework
+
+== Synopsis
+*tblite* [_options_] _input_
+
+
+== Description
+
+Evaluates the tight binding model on the provided input structure.
+Periodic calculations are performed automatically for periodic input formats.
+
+Supported geometry input formats are:
+
+- Xmol/xyz files (xyz, log)
+- Turbomole's coord, riper's periodic coord (tmol, coord)
+- DFTB+ genFormat geometry inputs as cluster, supercell or fractional (gen)
+- VASP's POSCAR/CONTCAR input files (vasp, poscar, contcar)
+- Protein Database files, only single files (pdb)
+- Connection table files, molfile (mol) and structure data format (sdf)
+- Gaussian's external program input (ein)
+
+
+== Options
+
+*-c, --charge* _integer_::
+     Set charge to molecule,
+     overrides charge in .CHRG file
+
+*--spin* _integer_::
+     Set number of unpaired electrons for molecule,
+     overrides spin in .UHF file
+
+*--method* _string_::
+     Name of the parametrisation to use, supported are
+     _gfn1_ and _gfn2_ (default).
+
+*--grad* [_file_]::
+     Evaluates analytical gradient,
+     results are stored in _file_ (default: tblite.txt)
+
+*--json* [_file_]::
+     Dump results as JSON output to _file_ (default: tblite.json)
+
+*-i, --input* _format_::
+     Hint for the format of the input file
+
+*--version*::
+     Prints version number and citation
+
+*-h, --help*::
+     Show this message

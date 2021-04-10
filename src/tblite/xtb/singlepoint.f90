@@ -1,0 +1,236 @@
+! This file is part of tblite.
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+module tblite_xtb_singlepoint
+   use mctc_env, only : wp, error_type, fatal_error
+   use mctc_io, only : structure_type
+   use tblite_basis_type, only : get_cutoff, basis_type
+   use tblite_blas, only : gemv
+   use tblite_context_type, only : context_type
+   use tblite_coulomb_cache, only : coulomb_cache
+   use tblite_cutoff, only : get_lattice_points
+   use tblite_disp_cache, only : dispersion_cache
+   use tblite_lapack_sygvd, only : sygvd_solver
+   use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
+      & ascii_quadrupole_moments
+   use tblite_output_property, only : property, write(formatted)
+   use tblite_output_format, only : format_string
+   use tblite_scf_broyden, only : broyden_mixer, new_broyden
+   use tblite_scf_info, only : scf_info
+   use tblite_scf_iterator, only : next_scf, get_mixer_dimension
+   use tblite_scf_potential, only : potential_type, new_potential
+   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
+      & get_hamiltonian_gradient
+   implicit none
+   private
+
+   public :: xtb_singlepoint
+
+   real(wp), parameter :: cn_cutoff = 25.0_wp
+
+contains
+
+
+subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosity)
+   type(context_type), intent(inout) :: ctx
+   type(structure_type), intent(in) :: mol
+   type(xtb_calculator), intent(in) :: calc
+   type(wavefunction_type), intent(inout) :: wfn
+   real(wp), intent(out) :: energy
+   real(wp), contiguous, intent(out), optional :: gradient(:, :)
+   real(wp), contiguous, intent(out), optional :: sigma(:, :)
+   integer, intent(in), optional :: verbosity
+
+   logical :: grad, converged
+   real(wp) :: edisp, erep
+   integer :: prlevel
+   integer, parameter :: maxscf = 50
+   real(wp), parameter :: econv = 1.0e-7_wp, pconv = 1.0e-7_wp
+   real(wp) :: cutoff, eelec, elast, dpmom(3), qpmom(6)
+   real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
+   real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :)
+   real(wp), allocatable :: overlap(:, :), hamiltonian(:, :), coeff(:, :)
+   real(wp), allocatable :: dpint(:, :, :), qpint(:, :, :)
+   real(wp), allocatable :: tmp(:)
+   type(potential_type) :: pot
+   type(coulomb_cache) :: cache
+   type(dispersion_cache) :: dcache
+   type(broyden_mixer) :: mixer
+   type(error_type), allocatable :: error
+
+   type(scf_info) :: info
+   type(sygvd_solver) :: sygvd
+   integer :: iscf
+
+   if (present(verbosity)) then
+      prlevel = verbosity
+   else
+      prlevel = ctx%verbosity
+   end if
+
+   sygvd = sygvd_solver()
+
+   grad = present(gradient) .and. present(sigma)
+
+   erep = 0.0_wp
+   edisp = 0.0_wp
+   energy = 0.0_wp
+   if (grad) then
+      gradient(:, :) = 0.0_wp
+      sigma(:, :) = 0.0_wp
+   end if
+
+   if (allocated(calc%repulsion)) then
+      cutoff = 25.0_wp
+      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+      call calc%repulsion%get_engrad(mol, lattr, cutoff, erep, gradient, sigma)
+      if (prlevel > 1) print *, property("repulsion energy", erep, "Eh")
+      energy = energy + erep
+   end if
+
+   if (allocated(calc%dispersion)) then
+      call calc%dispersion%update(mol, dcache)
+      call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
+      if (prlevel > 1) print *, property("dispersion energy", edisp, "Eh")
+      energy = energy + edisp
+   end if
+
+   call new_potential(pot, mol, calc%bas)
+   if (allocated(calc%coulomb)) then
+      call calc%coulomb%update(mol, cache)
+   end if
+
+   call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
+   if (mod(mol%uhf, 2) == mod(nint(sum(wfn%n0at)), 2)) then
+      wfn%nuhf = mol%uhf
+   else
+      wfn%nuhf = mod(nint(sum(wfn%n0at)), 2)
+   end if
+
+   if (prlevel > 1) print *, property("number of electrons", wfn%nocc, "e")
+
+   if (allocated(calc%ncoord)) then
+      allocate(cn(mol%nat))
+      if (grad) then
+         allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
+      end if
+      call calc%ncoord%get_cn(mol, cn, dcndr, dcndL)
+   end if
+
+   allocate(selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh))
+   call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy, dsedcn=dsedcn)
+
+   cutoff = get_cutoff(calc%bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+
+   if (prlevel > 1) then
+      print *, property("integral cutoff", cutoff, "bohr")
+      print *
+   end if
+
+   allocate(overlap(calc%bas%nao, calc%bas%nao), hamiltonian(calc%bas%nao, calc%bas%nao), &
+      & coeff(calc%bas%nao, calc%bas%nao), dpint(3, calc%bas%nao, calc%bas%nao), &
+      & qpint(6, calc%bas%nao, calc%bas%nao))
+   call get_hamiltonian(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
+      & overlap, dpint, qpint, hamiltonian)
+
+   eelec = 0.0_wp
+   iscf = 0
+   converged = .false.
+   info = calc%variable_info()
+   call new_broyden(mixer, maxscf, get_mixer_dimension(mol, calc%bas, info), 0.4_wp)
+   if (prlevel > 0) then
+      call ctx%message(repeat("-", 60))
+      call ctx%message("  cycle        total energy    energy error   density error")
+      call ctx%message(repeat("-", 60))
+   end if
+   do while(.not.converged .and. iscf < maxscf)
+      elast = eelec
+      call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
+         & calc%coulomb, calc%dispersion, hamiltonian, overlap, dpint, qpint, coeff, &
+         & pot, cache, dcache, eelec, error)
+      converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
+      if (prlevel > 0) then
+         call ctx%message(format_string(iscf, "(i7)") // &
+            & format_string(eelec + energy, "(g24.13)") // &
+            & format_string(eelec - elast, "(es16.7)") // &
+            & format_string(mixer%get_error(), "(es16.7)"))
+      end if
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         exit
+      end if
+   end do
+   if (prlevel > 0) then
+      call ctx%message(repeat("-", 60) // new_line('a'))
+   end if
+   energy = energy + eelec
+
+   if (prlevel > 1) then
+      print *, property("electronic energy", eelec, "Eh")
+      print *, property("total energy", energy, "Eh")
+      print *
+   end if
+
+   if (ctx%failed()) return
+
+   call get_molecular_dipole_moment(mol, wfn%qat, wfn%dpat, dpmom)
+   call get_molecular_quadrupole_moment(mol, wfn%qat, wfn%dpat, wfn%qpat, qpmom)
+   if (prlevel > 2) then
+      call ascii_dipole_moments(6, 1, mol, wfn%dpat, dpmom)
+      call ascii_quadrupole_moments(6, 1, mol, wfn%qpat, qpmom)
+   end if
+
+   if (grad) then
+      if (allocated(calc%coulomb)) then
+         call calc%coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+      end if
+
+      if (allocated(calc%dispersion)) then
+         call calc%dispersion%get_gradient(mol, dcache, wfn, gradient, sigma)
+      end if
+
+      allocate(dEdcn(mol%nat))
+      dEdcn(:) = 0.0_wp
+
+      tmp = wfn%focc * wfn%emo
+      call get_density_matrix(tmp, coeff, hamiltonian)
+      !print '(3es20.13)', sigma
+      call get_hamiltonian_gradient(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
+         & dsedcn, pot, wfn%density, hamiltonian, dEdcn, gradient, sigma)
+
+      if (allocated(dcndr)) then
+         call gemv(dcndr, dEdcn, gradient, beta=1.0_wp)
+      end if
+      if (allocated(dcndL)) then
+         call gemv(dcndL, dEdcn, sigma, beta=1.0_wp)
+      end if
+   end if
+
+   if (.not.converged) then
+      call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
+      call ctx%set_error(error)
+   end if
+
+end subroutine xtb_singlepoint
+
+
+end module tblite_xtb_singlepoint
