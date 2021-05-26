@@ -59,7 +59,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosi
    integer, intent(in), optional :: verbosity
 
    logical :: grad, converged
-   real(wp) :: edisp, erep
+   real(wp) :: edisp, erep, nel
    integer :: prlevel
    integer, parameter :: maxscf = 50
    real(wp), parameter :: econv = 1.0e-7_wp, pconv = 1.0e-7_wp
@@ -118,10 +118,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosi
    end if
 
    call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
-   if (mod(mol%uhf, 2) == mod(nint(sum(wfn%n0at)), 2)) then
+   nel = sum(wfn%n0at) - mol%charge
+   if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
       wfn%nuhf = mol%uhf
    else
-      wfn%nuhf = mod(nint(sum(wfn%n0at)), 2)
+      wfn%nuhf = mod(nint(nel), 2)
    end if
 
    if (prlevel > 1) print *, property("number of electrons", wfn%nocc, "e")

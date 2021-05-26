@@ -1,0 +1,78 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  BUILD_DIR: _build
+  PIP_PACKAGES: >-
+    meson==0.58.0
+    ninja
+    gcovr
+
+jobs:
+  gcc-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        gcc_v: [10]
+
+    env:
+      FC: gfortran
+      CC: gcc
+      GCC_V: ${{ matrix.gcc_v }}
+      OMP_NUM_THREADS: 2,1
+      PYTHON_V: 3.8
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - uses: actions/setup-python@v1
+      with:
+        python-version: ${{ env.PYTHON_V }}
+
+    - name: Install GCC (OSX)
+      if: contains(matrix.os, 'macos')
+      run: |
+        ln -s /usr/local/bin/gfortran-${{ env.GCC_V }} /usr/local/bin/gfortran
+        ln -s /usr/local/bin/gcc-${{ env.GCC_V }} /usr/local/bin/gcc
+        ln -s /usr/local/bin/g++-${{ env.GCC_V }} /usr/local/bin/g++
+
+    - name: Install GCC (Linux)
+      if: contains(matrix.os, 'ubuntu')
+      run: >-
+        sudo update-alternatives
+        --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100
+        --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
+        --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
+
+    - name: Install meson and test dependencies
+      run: pip3 install ${{ env.PIP_PACKAGES }}
+
+    - name: Configure build
+      run: >-
+        meson setup ${{ env.BUILD_DIR }}
+        --buildtype=debug
+        --prefix=$PWD/_dist
+        --libdir=lib
+        --warnlevel=0
+        -Db_coverage=true
+        -Dlapack=netlib
+
+    - name: Build library
+      run: meson compile -C ${{ env.BUILD_DIR }}
+
+    - name: Run unit tests
+      run: |
+         meson test -C ${{ env.BUILD_DIR }} --print-errorlogs --no-rebuild --num-processes 2 -t 2
+         ninja -C ${{ env.BUILD_DIR }} coverage
+
+    - name: Install project
+      run: |
+        meson install -C ${{ env.BUILD_DIR }} --no-rebuild
+        echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV
+
+    - name: Upload coverage report
+      uses: codecov/codecov-action@v1

@@ -185,7 +185,10 @@ subroutine test_e_pse(error)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
-      call check(error, energy, ref(izp), thr=thr, &
+      call check(error, .not.ctx%failed(), &
+         & message="SCF does not converge for "//trim(mol%sym(1)))
+      if (allocated(error)) exit
+      call check(error, energy, ref(izp), thr=thr2, &
          & message="Atomic energy does not match for "//trim(mol%sym(1)))
       if (allocated(error)) exit
    end do
@@ -253,7 +256,10 @@ subroutine test_e_pse_cation(error)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
-      call check(error, energy, ref(izp), thr=thr, &
+      call check(error, .not.ctx%failed(), &
+         & message="SCF does not converge for "//trim(mol%sym(1)))
+      if (allocated(error)) exit
+      call check(error, energy, ref(izp), thr=thr2, &
          & message="Atomic energy does not match for "//trim(mol%sym(1)))
       if (allocated(error)) exit
    end do
@@ -322,7 +328,10 @@ subroutine test_e_pse_anion(error)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
-      call check(error, energy, ref(izp), thr=thr, &
+      call check(error, .not.ctx%failed(), &
+         & message="SCF does not converge for "//trim(mol%sym(1)))
+      if (allocated(error)) exit
+      call check(error, energy, ref(izp), thr=thr2, &
          & message="Atomic energy does not match for "//trim(mol%sym(1)))
       if (allocated(error)) exit
    end do

@@ -1,5 +1,8 @@
 # Light-weight tight-binding framework
 
+[![License](https://img.shields.io/github/license/awvwgk/tblite)](https://github.com/awvwgk/tblite/blob/master/COPYING.LESSER)
+[![Build Status](https://github.com/awvwgk/tblite/workflows/CI/badge.svg)](https://github.com/awvwgk/tblite/actions)
+
 This project is an effort to create a library implementation of the
 extended tight binding (xTB) Hamiltonian which can be shared between
 [``xtb``](https://github.com/grimme-lab/xtb) and
