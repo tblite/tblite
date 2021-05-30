@@ -28,6 +28,7 @@ program tester
    use test_hamiltonian, only : collect_hamiltonian
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
+   use test_ipea1_xtb, only : collect_ipea1_xtb
    use test_ncoord_gfn, only : collect_ncoord_gfn
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
@@ -50,6 +51,7 @@ program tester
       new_testsuite("integral-multipole", collect_integral_multipole), &
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
+      new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
       new_testsuite("gfn2-xtb", collect_gfn2_xtb) &
       ]
 

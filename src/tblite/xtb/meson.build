@@ -20,6 +20,7 @@ srcs += files(
   'gfn1.f90',
   'gfn2.f90',
   'h0.f90',
+  'ipea1.f90',
   'singlepoint.f90',
   'spec.f90',
 )

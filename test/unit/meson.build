@@ -38,6 +38,7 @@ tests = [
   'hamiltonian',
   'integral-overlap',
   'integral-multipole',
+  'ipea1-xtb',
   'ncoord-gfn',
   'repulsion',
   'slater-expansion',

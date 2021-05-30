@@ -25,6 +25,7 @@ program main_driver
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_ipea1, only : new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_version, only : get_tblite_version
    implicit none
@@ -122,6 +123,8 @@ program main_driver
       call new_gfn2_calculator(calc, mol)
    case("gfn1")
       call new_gfn1_calculator(calc, mol)
+   case("ipea1")
+      call new_ipea1_calculator(calc, mol)
    end select
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, &
