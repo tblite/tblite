@@ -65,6 +65,7 @@ target_link_libraries(
   "${lib-deps}"
   "OpenMP::OpenMP_Fortran"
   "LAPACK::LAPACK"
+  "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
 )
 target_include_directories(
   "${PROJECT_NAME}-lib"

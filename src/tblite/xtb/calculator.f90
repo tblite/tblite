@@ -28,6 +28,9 @@ module tblite_xtb_calculator
 
    public :: xtb_calculator
 
+   real(wp), parameter :: mixer_damping_default = 0.4_wp
+   integer, parameter :: max_iter_default = 250
+
    type :: xtb_calculator
       type(basis_type) :: bas
       type(tb_hamiltonian) :: h0
@@ -35,6 +38,8 @@ module tblite_xtb_calculator
       type(tb_repulsion), allocatable :: repulsion
       type(tb_coulomb), allocatable :: coulomb
       class(dispersion_type), allocatable :: dispersion
+      real(wp) :: mixer_damping = mixer_damping_default
+      integer :: max_iter = max_iter_default
    contains
       procedure :: variable_info
    end type xtb_calculator

@@ -30,6 +30,7 @@ module test_gfn2_xtb
 
    public :: collect_gfn2_xtb
 
+   real(wp), parameter :: acc = 0.01_wp
    real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
@@ -112,7 +113,7 @@ subroutine test_e_pse(error)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
 
       energy = 0.0_wp
-      call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
+      call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
       call check(error, .not.ctx%failed(), &
          & message="SCF does not converge for "//trim(mol%sym(1)))
       if (allocated(error)) exit
@@ -183,7 +184,7 @@ subroutine test_e_pse_cation(error)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
 
       energy = 0.0_wp
-      call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
+      call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
       call check(error, .not.ctx%failed(), &
          & message="SCF does not converge for "//trim(mol%sym(1)))
       if (allocated(error)) exit
@@ -254,7 +255,7 @@ subroutine test_e_pse_anion(error)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
 
       energy = 0.0_wp
-      call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
+      call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
       call check(error, .not.ctx%failed(), &
          & message="SCF does not converge for "//trim(mol%sym(1)))
       if (allocated(error)) exit
@@ -284,7 +285,7 @@ subroutine test_e_mb01(error)
 
    call new_gfn2_calculator(calc, mol)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
-   call xtb_singlepoint(ctx, mol, calc, wfn, energy, verbosity=0)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
    call check(error, energy, ref, thr=1e-7_wp)
 
@@ -330,7 +331,7 @@ subroutine test_g_mb02(error)
 
    call new_gfn2_calculator(calc, mol)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
-   call xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, 0)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
    if (any(abs(gradient - ref) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")

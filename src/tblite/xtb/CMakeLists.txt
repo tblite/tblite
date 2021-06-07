@@ -23,6 +23,7 @@ list(
   "${dir}/gfn1.f90"
   "${dir}/gfn2.f90"
   "${dir}/h0.f90"
+  "${dir}/ipea1.f90"
   "${dir}/singlepoint.f90"
   "${dir}/spec.f90"
 )

@@ -36,7 +36,11 @@ Supported geometry input formats are:
 
 *--method* _string_::
      Name of the parametrisation to use, supported are
-     _gfn1_ and _gfn2_ (default).
+     _gfn1_, _ipea1_ and _gfn2_ (default).
+
+*--acc* _real_::
+     Accuracy of the calculation,
+     lower values set tighter convergence criteria.
 
 *--grad* [_file_]::
      Evaluates analytical gradient,

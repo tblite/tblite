@@ -42,6 +42,7 @@ program main_driver
       character(len=:), allocatable :: method
       logical :: json = .false.
       character(len=:), allocatable :: json_output
+      real(wp) :: accuracy = 1.0_wp
    end type driver_config
 
    type(driver_config) :: config
@@ -130,7 +131,7 @@ program main_driver
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, &
       & 300.0_wp * 3.166808578545117e-06_wp)
 
-   call xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, 2)
+   call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, 2)
    if (ctx%failed()) then
       write(error_unit, '("[Fatal]", 1x, a)') "Singlepoint calculation failed"
       do while(ctx%failed())
@@ -318,6 +319,10 @@ subroutine get_arguments(config, error)
             call fatal_error(error, "Missing argument for method")
             exit
          end if
+      case("--acc")
+         iarg = iarg + 1
+         call get_argument_as_real(iarg, config%accuracy, error)
+         if (allocated(error)) exit
       case("--grad")
          config%grad = .true.
          config%grad_output = "tblite.txt"

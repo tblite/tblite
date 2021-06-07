@@ -6,6 +6,7 @@ env:
   BUILD_DIR: _build
   PIP_PACKAGES: >-
     meson==0.58.0
+    cmake
     ninja
     gcovr
 
@@ -16,7 +17,21 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
+        build: [meson, cmake]
         gcc_v: [10]
+
+        include:
+        - os: ubuntu-latest
+          build: meson
+          gcc_v: 10
+
+        - os: ubuntu-latest
+          build: cmake
+          gcc_v: 10
+
+        - os: macos-latest
+          build: cmake
+          gcc_v: 10
 
     env:
       FC: gfortran
@@ -52,6 +67,7 @@ jobs:
       run: pip3 install ${{ env.PIP_PACKAGES }}
 
     - name: Configure build
+      if: contains(matrix.build, 'meson')
       run: >-
         meson setup ${{ env.BUILD_DIR }}
         --buildtype=debug
@@ -61,18 +77,35 @@ jobs:
         -Db_coverage=true
         -Dlapack=netlib
 
+    - name: Configure build
+      if: contains(matrix.build, 'cmake')
+      run: >-
+        cmake -B${{ env.BUILD_DIR }}
+        -GNinja
+        -DCMAKE_BUILD_TYPE=Debug
+        -DCMAKE_INSTALL_PREFIX=$PWD/_dist
+        -DCMAKE_INSTALL_LIBDIR=lib
+
     - name: Build library
-      run: meson compile -C ${{ env.BUILD_DIR }}
+      run: ninja -C ${{ env.BUILD_DIR }}
 
     - name: Run unit tests
+      if: contains(matrix.build, 'meson')
       run: |
          meson test -C ${{ env.BUILD_DIR }} --print-errorlogs --no-rebuild --num-processes 2 -t 2
          ninja -C ${{ env.BUILD_DIR }} coverage
 
+    - name: Run unit tests
+      if: contains(matrix.build, 'cmake')
+      run: |
+         ctest --output-on-failure --parallel 2
+      working-directory: ${{ env.BUILD_DIR }}
+
     - name: Install project
       run: |
-        meson install -C ${{ env.BUILD_DIR }} --no-rebuild
+        ninja -C ${{ env.BUILD_DIR }} install
         echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV
 
     - name: Upload coverage report
+      if: contains(matrix.build, 'meson')
       uses: codecov/codecov-action@v1

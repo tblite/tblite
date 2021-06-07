@@ -48,11 +48,12 @@ module tblite_xtb_singlepoint
 contains
 
 
-subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosity)
+subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, verbosity)
    type(context_type), intent(inout) :: ctx
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    type(wavefunction_type), intent(inout) :: wfn
+   real(wp), intent(in) :: accuracy
    real(wp), intent(out) :: energy
    real(wp), contiguous, intent(out), optional :: gradient(:, :)
    real(wp), contiguous, intent(out), optional :: sigma(:, :)
@@ -61,9 +62,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosi
    logical :: grad, converged
    real(wp) :: edisp, erep, nel
    integer :: prlevel
-   integer, parameter :: maxscf = 50
-   real(wp), parameter :: econv = 1.0e-7_wp, pconv = 1.0e-7_wp
-   real(wp) :: cutoff, eelec, elast, dpmom(3), qpmom(6)
+   real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :)
    real(wp), allocatable :: overlap(:, :), hamiltonian(:, :), coeff(:, :)
@@ -84,6 +83,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosi
    else
       prlevel = ctx%verbosity
    end if
+
+   econv = 1.e-6_wp*accuracy
+   pconv = 2.e-5_wp*accuracy
 
    sygvd = sygvd_solver()
 
@@ -157,13 +159,14 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, energy, gradient, sigma, verbosi
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_broyden(mixer, maxscf, get_mixer_dimension(mol, calc%bas, info), 0.4_wp)
+   call new_broyden(mixer, calc%max_iter, get_mixer_dimension(mol, calc%bas, info), &
+      & calc%mixer_damping)
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("  cycle        total energy    energy error   density error")
       call ctx%message(repeat("-", 60))
    end if
-   do while(.not.converged .and. iscf < maxscf)
+   do while(.not.converged .and. iscf < calc%max_iter)
       elast = eelec
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
          & calc%coulomb, calc%dispersion, hamiltonian, overlap, dpint, qpint, coeff, &
