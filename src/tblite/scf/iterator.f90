@@ -39,7 +39,7 @@ contains
 
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
-      & h0, sint, dpint, qpint, coeff, pot, cache, dcache, &
+      & h0, sint, dpint, qpint, pot, cache, dcache, &
       & energy, error)
    !> Current iteration count
    integer, intent(inout) :: iscf
@@ -68,8 +68,6 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    real(wp), contiguous, intent(in) :: dpint(:, :, :)
    !> Quadrupole moment integrals
    real(wp), contiguous, intent(in) :: qpint(:, :, :)
-   !> Molecular orbital coefficient matrix
-   real(wp), contiguous, intent(inout) :: coeff(:, :)
    !> Density dependent potential shifts
    type(potential_type), intent(inout) :: pot
    !> Restart data for coulombic interactions
@@ -98,16 +96,16 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(dispersion)) then
       call dispersion%get_potential(mol, dcache, wfn, pot)
    end if
-   call add_pot_to_h1(bas, h0, sint, dpint, qpint, pot, coeff)
+   call add_pot_to_h1(bas, h0, sint, dpint, qpint, pot, wfn%coeff)
 
-   call solver%solve(coeff, sint, wfn%emo, error)
+   call solver%solve(wfn%coeff, sint, wfn%emo, error)
    if (allocated(error)) return
 
    call set_mixer(mixer, wfn, info)
 
    call get_fermi_filling(wfn%nocc, wfn%nuhf, wfn%kt, wfn%emo, &
       & wfn%homoa, wfn%homob, wfn%focc, e_fermi, ts)
-   call get_density_matrix(wfn%focc, coeff, wfn%density)
+   call get_density_matrix(wfn%focc, wfn%coeff, wfn%density)
 
    call get_mulliken_shell_charges(bas, sint, wfn%density, wfn%n0sh, wfn%qsh)
 

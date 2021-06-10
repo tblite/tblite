@@ -41,6 +41,8 @@ module tblite_wavefunction_type
 
       !> Density matrix, shape: [nao, nao]
       real(wp), allocatable :: density(:, :)
+      !> Orbital coefficients, shape: [nao, nao]
+      real(wp), allocatable :: coeff(:, :)
       !> Orbital energies, eigenvalues, shape: [nao]
       real(wp), allocatable :: emo(:)
       !> Occupation numbers, shape: [nao]
@@ -73,6 +75,7 @@ subroutine new_wavefunction(self, nat, nsh, nao, kt)
    allocate(self%n0sh(nsh))
 
    allocate(self%density(nao, nao))
+   allocate(self%coeff(nao, nao))
    allocate(self%emo(nao))
    allocate(self%focc(nao))
 

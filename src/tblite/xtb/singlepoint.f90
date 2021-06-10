@@ -65,7 +65,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :)
-   real(wp), allocatable :: overlap(:, :), hamiltonian(:, :), coeff(:, :)
+   real(wp), allocatable :: overlap(:, :), hamiltonian(:, :)
    real(wp), allocatable :: dpint(:, :, :), qpint(:, :, :)
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
@@ -150,8 +150,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    allocate(overlap(calc%bas%nao, calc%bas%nao), hamiltonian(calc%bas%nao, calc%bas%nao), &
-      & coeff(calc%bas%nao, calc%bas%nao), dpint(3, calc%bas%nao, calc%bas%nao), &
-      & qpint(6, calc%bas%nao, calc%bas%nao))
+      & dpint(3, calc%bas%nao, calc%bas%nao), qpint(6, calc%bas%nao, calc%bas%nao))
    call get_hamiltonian(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
       & overlap, dpint, qpint, hamiltonian)
 
@@ -169,7 +168,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = eelec
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
-         & calc%coulomb, calc%dispersion, hamiltonian, overlap, dpint, qpint, coeff, &
+         & calc%coulomb, calc%dispersion, hamiltonian, overlap, dpint, qpint, &
          & pot, cache, dcache, eelec, error)
       converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
       if (prlevel > 0) then
@@ -216,7 +215,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       dEdcn(:) = 0.0_wp
 
       tmp = wfn%focc * wfn%emo
-      call get_density_matrix(tmp, coeff, hamiltonian)
+      call get_density_matrix(tmp, wfn%coeff, hamiltonian)
       !print '(3es20.13)', sigma
       call get_hamiltonian_gradient(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
          & dsedcn, pot, wfn%density, hamiltonian, dEdcn, gradient, sigma)
