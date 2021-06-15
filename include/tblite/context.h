@@ -17,9 +17,26 @@
 
 #pragma once
 
+#include "tblite/macros.h"
 #include "tblite/error.h"
-#include "tblite/context.h"
-#include "tblite/structure.h"
-#include "tblite/calculator.h"
-#include "tblite/result.h"
-#include "tblite/version.h"
+
+/// Context manager for the library usage
+typedef struct _tblite_context* tblite_context;
+
+/// Create new calculation environment object
+TBLITE_API_ENTRY tblite_context TBLITE_API_CALL
+tblite_new_context(void);
+
+/// Delete a calculation environment object
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_delete_context(tblite_context* /* ctx */);
+
+/// Check calculation environment status
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_check_context(tblite_context /* ctx */);
+
+/// Get error message from calculation environment
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_context_error(tblite_context /* ctx */,
+                         char* /* buffer */,
+                         const int* /* buffersize */);

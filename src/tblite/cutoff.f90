@@ -17,10 +17,11 @@
 !> Realspace cutoff and lattice point generator utilities
 module tblite_cutoff
    use mctc_env, only : wp
+   use mctc_io_math, only : matinv_3x3
    implicit none
    private
 
-   public :: get_lattice_points
+   public :: get_lattice_points, wrap_to_central_cell
 
 
    interface get_lattice_points
@@ -156,6 +157,41 @@ contains
    end subroutine crossproduct
 
 end subroutine get_translations
+
+
+subroutine wrap_to_central_cell(xyz, lattice, periodic)
+   real(wp), intent(inout) :: xyz(:, :)
+   real(wp), intent(in) :: lattice(:, :)
+   logical, intent(in) :: periodic(:)
+   real(wp) :: invlat(3, 3), vec(3)
+   integer :: iat, idir
+
+   if (.not.any(periodic)) return
+
+   invlat = matinv_3x3(lattice)
+   do iat = 1, size(xyz, 2)
+      vec(:) = matmul(invlat, xyz(:, iat))
+      vec(:) = shift_back_abc(vec)
+      xyz(:, iat) = matmul(lattice, vec)
+   end do
+
+end subroutine wrap_to_central_cell
+
+
+elemental function shift_back_abc(in) result(out)
+   !> fractional coordinate in (-∞,+∞)
+   real(wp),intent(in) :: in
+   !> fractional coordinate in [0,1)
+   real(wp) :: out
+   real(wp),parameter :: p_pbc_eps = 1.0e-14_wp
+   out = in
+   if(in < (0.0_wp - p_pbc_eps)) &
+      out = in + real(ceiling(-in),wp)
+   if(in > (1.0_wp + p_pbc_eps)) &
+      out = in - real(floor  ( in),wp)
+   if (abs(in - 1.0_wp) < p_pbc_eps) &
+      out = in - 1.0_wp
+end function shift_back_abc
 
 
 end module tblite_cutoff

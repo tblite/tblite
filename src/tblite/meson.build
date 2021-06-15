@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+if get_option('api') or get_option('python')
+  subdir('api')
+endif
 subdir('basis')
 subdir('blas')
 subdir('context')

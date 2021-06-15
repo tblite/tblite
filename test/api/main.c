@@ -1,0 +1,731 @@
+/* This file is part of tblite.
+ * SPDX-Identifier: LGPL-3.0-or-later
+ *
+ * tblite is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * tblite is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+**/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <assert.h>
+
+#include "tblite.h"
+
+static inline double
+norm2(int n, double* vec)
+{
+   double norm = 0.0;
+   for (int i = 0; i != n; i++) norm += vec[i]*vec[i];
+   return sqrt(norm);
+}
+
+static inline void
+show_error(tblite_error error)
+{
+   char message[512];
+   tblite_get_error(error, message, NULL);
+   printf("[Message] %s\n", message);
+}
+
+static inline void
+show_context_error(tblite_context ctx)
+{
+   char message[512];
+   tblite_get_context_error(ctx, message, NULL);
+   printf("[Message] %s\n", message);
+}
+
+int
+test_version (void)
+{
+   printf("Start test: version\n");
+   return tblite_get_version() > 0 ? 0 : 1;
+}
+
+int
+test_uninitialized_error (void)
+{
+   printf("Start test: uninitialized error\n");
+   tblite_error error = NULL;
+   return tblite_check_error(error) ? 0 : 1;
+}
+
+int
+test_uninitialized_context (void)
+{
+   printf("Start test: uninitialized context\n");
+   tblite_context ctx = NULL;
+   return tblite_check_context(ctx) ? 0 : 1;
+}
+
+int
+test_uninitialized_structure (void)
+{
+   printf("Start test: uninitialized structure\n");
+   tblite_error error = NULL;
+   tblite_structure mol = NULL;
+
+   error = tblite_new_error();
+
+   double xyz[6] = {0.0};
+   tblite_update_structure_geometry(error, mol, xyz, NULL);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   double charge = 0.0;
+   tblite_update_structure_charge(error, mol, &charge);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   int uhf = 1;
+   tblite_update_structure_uhf(error, mol, &uhf);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for unititalized-structure test\n");
+   tblite_delete_error(&error);
+   return 1;
+}
+
+int
+test_uninitialized_result (void)
+{
+   printf("Start test: uninitialized result\n");
+   tblite_error error = NULL;
+   tblite_result res = NULL;
+
+   error = tblite_new_error();
+
+   double energy;
+   tblite_get_result_energy(error, res, &energy);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   double gradient[12];
+   tblite_get_result_gradient(error, res, gradient);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   double sigma[12];
+   tblite_get_result_virial(error, res, sigma);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for unititalized-result test\n");
+   tblite_delete_error(&error);
+   return 1;
+}
+
+int
+test_uninitialized_calculator (void)
+{
+   printf("Start test: uninitialized calculator\n");
+   tblite_context ctx = NULL;
+   tblite_calculator calc = NULL;
+
+   ctx = tblite_new_context();
+
+   tblite_set_calculator_accuracy(ctx, calc, 1.0);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_set_calculator_temperature(ctx, calc, 0.0);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_set_calculator_max_iter(ctx, calc, 12);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_set_calculator_mixer_damping(ctx, calc, 0.2);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_delete_context(&ctx);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for unititalized-calculator test\n");
+   tblite_delete_context(&ctx);
+   return 1;
+}
+
+int
+test_empty_result (void)
+{
+   printf("Start test: empty result\n");
+   tblite_error error = NULL;
+   tblite_result res = NULL;
+
+   error = tblite_new_error();
+   res = tblite_new_result();
+
+   double energy;
+   tblite_get_result_energy(error, res, &energy);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   double gradient[12];
+   tblite_get_result_gradient(error, res, gradient);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   double sigma[12];
+   tblite_get_result_virial(error, res, sigma);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for empty-result test\n");
+   tblite_delete_error(&error);
+   return 1;
+}
+
+int
+test_invalid_structure (void)
+{
+   printf("Start test: invalid structure\n");
+   tblite_error error = NULL;
+   tblite_structure mol = NULL;
+
+   int natoms = 2;
+   int num[2] = {1, 1};
+   double xyz[6] = {0.0};
+
+   error = tblite_new_error();
+
+   mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   tblite_delete_structure(&mol);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for invalid-structure test\n");
+   tblite_delete_error(&error);
+   tblite_delete_structure(&mol);
+   return 1;
+}
+
+int
+test_calc_restart (void)
+{
+   printf("Start test: calculator-restart\n");
+   tblite_error error = NULL;
+   tblite_context ctx = NULL;
+   tblite_structure mol = NULL;
+   tblite_calculator calc = NULL;
+   tblite_result res = NULL;
+
+   const double thr = 1.0e-9;
+   int natoms = 22;
+   int num[22] = {7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1};
+   double xyz[3*22] = {
+       2.65893135608838, -2.39249423371715, -3.66065400053935,
+       3.49612941769371, -0.88484673975624, -2.85194146578362,
+      -0.06354076626069, -2.63180732150005, -3.28819116275323,
+      -1.07444177498884, -1.92306930149582, -4.93716401361053,
+      -0.83329925447427, -5.37320588052218, -2.81379718546920,
+      -0.90691285352090, -1.04371377845950, -1.04918016247507,
+      -2.86418317801214, -5.46484901686185, -2.49961410229771,
+      -0.34235262692151, -6.52310417728877, -4.43935278498325,
+       0.13208660968384, -6.10946566962768, -1.15032982743173,
+      -2.96060093623907,  0.01043357425890, -0.99937552379387,
+       3.76519127865000, -3.27106236675729, -5.83678272799149,
+       6.47957316843231, -2.46911747464509, -6.21176914665408,
+       7.32688324906998, -1.67889171278096, -4.51496113512671,
+       6.54881843238363, -1.06760660462911, -7.71597456720663,
+       7.56369260941896, -4.10015651865148, -6.82588105651977,
+       2.64916867837331, -4.60764575400925, -7.35167957128511,
+       0.77231592220237, -0.92788783332000,  0.90692539619101,
+       2.18437036702702, -2.20200039553542,  0.92105755612696,
+       0.01367202674183,  0.22095199845428,  3.27728206652909,
+       1.67849497305706,  0.53855308534857,  4.43416031916610,
+      -0.89254709011762,  2.01704896333243,  2.87780123699499,
+      -1.32658751691561, -0.95404596601807,  4.30967630773603,
+   };
+   double energy;
+
+   error = tblite_new_error();
+   ctx = tblite_new_context();
+   res = tblite_new_result();
+
+   mol = tblite_new_structure(
+      error,
+      natoms,
+      num,
+      xyz,
+      NULL,
+      NULL,
+      NULL,
+      NULL
+   );
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_gfn1_calculator(ctx, mol);
+   if (!calc) goto err;
+
+   tblite_set_calculator_accuracy(ctx, calc, 2.0);
+   tblite_set_calculator_max_iter(ctx, calc, 50);
+   tblite_set_calculator_mixer_damping(ctx, calc, 0.2);
+   tblite_set_calculator_temperature(ctx, calc, 0.0);
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-34.98079463818 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   // reset calculator
+   tblite_delete_calculator(&calc);
+   calc = tblite_new_gfn2_calculator(ctx, mol);
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-32.96247211794 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_set_calculator_max_iter(ctx, calc, 3);
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-32.96247199299 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 0;
+
+err:
+   if (tblite_check_error(error)) {
+      char message[512];
+      tblite_get_error(error, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   if (tblite_check_context(ctx)) {
+      char message[512];
+      tblite_get_context_error(ctx, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 1;
+}
+
+int
+test_gfn2_si5h12 (void)
+{
+   printf("Start test: GFN2-xTB\n");
+   tblite_error error = NULL;
+   tblite_context ctx = NULL;
+   tblite_structure mol = NULL;
+   tblite_calculator calc = NULL;
+   tblite_result res = NULL;
+
+   const double thr = 1.0e-9;
+   int natoms = 17;
+   int num[17] = {14, 14, 14, 14, 14, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+   double xyz[3*17] = {
+      +1.19317075263240, +2.10734582303615, -3.94069302326331,
+      +1.32974747794452, +5.74383319654784, -1.40646299357997,
+      +1.36246249005040, -1.51437759946738, -1.38835921669240,
+      -1.86383433000121, -1.43677027343543, +1.65343257587405,
+      -1.84846922430006, -5.11625835608814, +4.12639172175940,
+      -1.21073388457482, +2.08204436847949, -5.39986048218966,
+      +3.32212225093368, +2.13580609828116, -5.77918927003773,
+      +3.84368159195704, -1.60306480080261, -0.06684474846163,
+      +1.13319183423377, -3.84842795885741, -2.94128196218086,
+      -4.34788687075438, -1.16479029631036, +0.36221328927203,
+      -1.50552338174053, +0.81829285234045, +3.29535409206112,
+      -3.87198157702809, -5.06545254280118, +6.07282119819235,
+      -2.23981149763562, -7.36061632570679, +2.48584729172346,
+      +0.63031417166410, -5.37888394172819, +5.41803105663996,
+      +1.37439281298519, +8.08088049648159, -2.96190852429966,
+      -0.92666191369478, +5.81989514634268, +0.26140479183806,
+      +3.62581929732841, +5.70054411368805, +0.20910420334480,
+   };
+   double energy;
+   double gradient[3*17] = {0.0};
+
+
+   error = tblite_new_error();
+   ctx = tblite_new_context();
+   res = tblite_new_result();
+
+   mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_gfn2_calculator(ctx, mol);
+   if (!calc) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-14.7042098026524 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_get_result_gradient(error, res, gradient);
+
+   if (fabs(0.0283783086422 - norm2(3*17, gradient)) > thr) {
+      printf("[Fatal] gradient error: %lf\n", norm2(3*17, gradient));
+      goto err;
+   }
+
+   double xyz_2[3*17] = {
+      +1.79735083062742, -4.42665143396774, +0.00000000000000,
+      +5.47735160077691, -1.95257593092707, +0.00000000000000,
+      -1.87902462147155, -1.89828871441757, +0.00000000000000,
+      -0.96120535979079, +2.44146318756260, +0.00000000000000,
+      -4.66879760562471, +4.87274102808145, +0.00000000000000,
+      +1.79476797598653, -6.08411129731253, -2.27178821177621,
+      +1.79476797598653, -6.08411129731253, +2.27178821177621,
+      -3.43213700587973, -2.48796105064581, +2.26922051661074,
+      -3.43213700587973, -2.48796105064581, -2.26922051661074,
+      +0.58302096074950, +3.05710624847502, -2.26863281575249,
+      +0.58302096074950, +3.05710624847502, +2.26863281575249,
+      -4.10211039714465, +7.62280080181539, +0.00000000000000,
+      -6.19547097682738, +4.27265764500722, -2.27794345710076,
+      -6.19547097682738, +4.27265764500722, +2.27794345710076,
+      +7.78350996936708, -3.55410309152337, +0.00000000000000,
+      +5.52628183760127, -0.31038446883577, -2.27576215506289,
+      +5.52628183760127, -0.31038446883577, +2.27576215506289,
+   };
+   tblite_update_structure_geometry(error, mol, xyz_2, NULL);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-14.7039683607488 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_get_result_gradient(error, res, gradient);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(0.0279191562471 - norm2(3*17, gradient)) > thr) {
+      printf("[Fatal] gradient error: %lf\n", norm2(3*17, gradient));
+      goto err;
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 0;
+
+err:
+   if (tblite_check_error(error)) {
+      char message[512];
+      tblite_get_error(error, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   if (tblite_check_context(ctx)) {
+      char message[512];
+      tblite_get_context_error(ctx, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 1;
+}
+
+int
+test_ipea1_ch4 (void)
+{
+   printf("Start test: IPEA1-xTB\n");
+   tblite_error error = NULL;
+   tblite_context ctx = NULL;
+   tblite_structure mol = NULL;
+   tblite_calculator calc = NULL;
+   tblite_result res = NULL;
+
+   const double thr = 1.0e-9;
+   int natoms = 5;
+   int num[17] = {6, 1, 1, 1, 1};
+   double charge_cation = 1.0;
+   int uhf_cation = 1;
+   double xyz_cation[3*5] = {
+       0.00084274718833, -0.00015740451438,  0.00006401702382,
+      -1.55577637922762,  1.24722361298503, -0.70873815063999,
+       1.24747864259928,  1.55718783736300,  0.70764030938274,
+       1.55611738014180, -1.24919736758084, -0.70740441319739,
+      -1.24866239070178, -1.55505667825279,  0.70843823743083,
+   };
+   double charge_neutral = 0.0;
+   int uhf_neutral = 0;
+   double xyz_neutral[3*5] = {
+       0.00000000000000,  0.00000000000000,  0.00000000000000,
+       1.18771160655551, -1.18771160655551,  1.18771160655551,
+      -1.18771160655551,  1.18771160655551,  1.18771160655551,
+      -1.18771160655551, -1.18771160655551, -1.18771160655551,
+       1.18771160655551,  1.18771160655551, -1.18771160655551,
+   };
+   double energy;
+
+   error = tblite_new_error();
+   ctx = tblite_new_context();
+   res = tblite_new_result();
+
+   mol = tblite_new_structure(
+      error,
+      natoms,
+      num,
+      xyz_cation,
+      &charge_cation,
+      &uhf_cation,
+      NULL,
+      NULL
+   );
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_ipea1_calculator(ctx, mol);
+   if (!calc) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-4.027631971332 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_update_structure_geometry(error, mol, xyz_neutral, NULL);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_update_structure_charge(error, mol, &charge_neutral);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_update_structure_uhf(error, mol, &uhf_neutral);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-4.670465980661 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 0;
+
+err:
+   if (tblite_check_error(error)) {
+      char message[512];
+      tblite_get_error(error, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   if (tblite_check_context(ctx)) {
+      char message[512];
+      tblite_get_context_error(ctx, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 1;
+}
+
+int
+test_gfn1_co2 (void)
+{
+   printf("Start test: GFN1-xTB\n");
+   tblite_error error = NULL;
+   tblite_context ctx = NULL;
+   tblite_structure mol = NULL;
+   tblite_calculator calc = NULL;
+   tblite_result res = NULL;
+
+   const double thr = 1.0e-9;
+   int natoms = 12;
+   int num[12] = {6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8};
+   double xyz[3*12] = {
+       0.00000000000000,  0.00000000000000,  0.00000000000000,
+       5.47113387782808,  0.00000000000000,  5.47113387782808,
+       5.47113387782808,  5.47113387782808,  0.00000000000000,
+       0.00000000000000,  5.47113387782808,  5.47113387782808,
+       1.27461999191594,  1.27461999191594,  1.27461999191594,
+       6.74556489717295,  1.27461999191594,  4.19651388591214,
+       6.74556489717295,  4.19651388591214,  9.66764776374022,
+       9.66764776374022,  6.74556489717295,  4.19651388591214,
+       9.66764776374022,  9.66764776374022,  9.66764776374022,
+       4.19651388591214,  9.66764776374022,  6.74556489717295,
+       4.19651388591214,  6.74556489717295,  1.27461999191594,
+       1.27461999191594,  4.19651388591214,  6.74556489717295,
+   };
+   double lattice[3*3] = {
+      10.94216438765978,  0.00000000000000,  0.00000000000000,
+       0.00000000000000, 10.94216438765978,  0.00000000000000,
+       0.00000000000000,  0.00000000000000, 10.94216438765978,
+   };
+   bool periodic[3] = {true};
+   double energy;
+
+   error = tblite_new_error();
+   ctx = tblite_new_context();
+   res = tblite_new_result();
+
+   mol = tblite_new_structure(
+      error,
+      natoms,
+      num,
+      xyz,
+      NULL,
+      NULL,
+      lattice,
+      periodic
+   );
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_gfn1_calculator(ctx, mol);
+   if (!calc) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (fabs(-46.19943811059 - energy) > thr) {
+      printf("[Fatal] energy error: %lf\n", energy);
+      goto err;
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 0;
+
+err:
+   if (tblite_check_error(error)) {
+      char message[512];
+      tblite_get_error(error, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   if (tblite_check_context(ctx)) {
+      char message[512];
+      tblite_get_context_error(ctx, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   tblite_delete_error(&error);
+   tblite_delete_context(&ctx);
+   tblite_delete_structure(&mol);
+   tblite_delete_calculator(&calc);
+   tblite_delete_result(&res);
+   return 1;
+}
+
+int
+main (void)
+{
+   int stat = 0;
+   stat += test_version();
+   stat += test_uninitialized_error();
+   stat += test_uninitialized_context();
+   stat += test_uninitialized_structure();
+   stat += test_uninitialized_result();
+   stat += test_uninitialized_calculator();
+   stat += test_empty_result();
+   stat += test_invalid_structure();
+   stat += test_gfn2_si5h12();
+   stat += test_ipea1_ch4();
+   stat += test_gfn1_co2();
+   stat += test_calc_restart();
+
+   return stat;
+}

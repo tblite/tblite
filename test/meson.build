@@ -15,3 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 subdir('unit')
+
+if get_option('api')
+  subdir('api')
+endif

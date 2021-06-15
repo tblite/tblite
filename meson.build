@@ -77,6 +77,10 @@ if install
   install_headers(
     tblite_header,
   )
+  install_subdir(
+    'include/tblite',
+    install_dir: get_option('includedir'),
+  )
 
   module_id = meson.project_name() / fc_id + '-' + fc.version()
   meson.add_install_script(
@@ -105,3 +109,6 @@ endif
 
 # add the testsuite
 subdir('test')
+
+if get_option('python')
+endif

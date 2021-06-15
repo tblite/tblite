@@ -17,9 +17,10 @@
 
 #pragma once
 
-#include "tblite/error.h"
-#include "tblite/context.h"
-#include "tblite/structure.h"
-#include "tblite/calculator.h"
-#include "tblite/result.h"
-#include "tblite/version.h"
+#ifdef __cplusplus
+#define TBLITE_API_ENTRY extern "C"
+#else
+#define TBLITE_API_ENTRY extern
+#include <stdbool.h>
+#endif
+#define TBLITE_API_CALL

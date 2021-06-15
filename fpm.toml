@@ -9,6 +9,7 @@ copyright = "Copyright 2021 S. Ehlert"
 
 [build]
 link = ["lapack", "blas"]
+auto-tests = false
 
 [dependencies]
 mctc-lib.git = "https://github.com/grimme-lab/mctc-lib"
@@ -17,3 +18,7 @@ s-dftd3.git = "https://github.com/awvwgk/simple-dftd3"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"
+
+[[test]]
+name = "unit-tester"
+source-dir = "test/unit"

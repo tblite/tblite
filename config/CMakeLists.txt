@@ -16,6 +16,7 @@
 
 option(BUILD_SHARED_LIBS "Whether the libraries built should be shared" FALSE)
 
+option(WITH_API "Enable export of C-API" TRUE)
 option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" TRUE)
 
 set(

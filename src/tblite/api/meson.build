@@ -14,36 +14,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-if(WITH_API)
-  add_subdirectory("api")
-endif()
-add_subdirectory("basis")
-add_subdirectory("blas")
-add_subdirectory("context")
-add_subdirectory("coulomb")
-add_subdirectory("disp")
-add_subdirectory("integral")
-add_subdirectory("lapack")
-add_subdirectory("ncoord")
-add_subdirectory("output")
-add_subdirectory("param")
-add_subdirectory("repulsion")
-add_subdirectory("scf")
-add_subdirectory("wavefunction")
-add_subdirectory("xtb")
-
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
-
-list(
-  APPEND srcs
-  "${dir}/blas.f90"
-  "${dir}/cutoff.f90"
-  "${dir}/disp.f90"
-  "${dir}/lapack.f90"
-  "${dir}/ncoord.f90"
-  "${dir}/repulsion.f90"
-  "${dir}/version.f90"
-  "${dir}/wignerseitz.f90"
+srcs += files(
+  'calculator.f90',
+  'context.f90',
+  'error.f90',
+  'result.f90',
+  'structure.f90',
+  'utils.f90',
+  'version.f90',
 )
-
-set(srcs "${srcs}" PARENT_SCOPE)

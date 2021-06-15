@@ -17,9 +17,25 @@
 
 #pragma once
 
-#include "tblite/error.h"
-#include "tblite/context.h"
-#include "tblite/structure.h"
-#include "tblite/calculator.h"
-#include "tblite/result.h"
-#include "tblite/version.h"
+#include "tblite/macros.h"
+
+/// Error instance
+typedef struct _tblite_error* tblite_error;
+
+/// Create new xtb calculation environment object
+TBLITE_API_ENTRY tblite_error TBLITE_API_CALL
+tblite_new_error(void);
+
+/// Delete a xtb calculation environment object
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_delete_error(tblite_error* /* error */);
+
+/// Check error handle status
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_check_error(tblite_error /* error */);
+
+/// Get error message from error handle
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_error(tblite_error /* error */,
+                 char* /* buffer */,
+                 const int* /* buffersize */);

@@ -17,9 +17,8 @@
 
 #pragma once
 
-#include "tblite/error.h"
-#include "tblite/context.h"
-#include "tblite/structure.h"
-#include "tblite/calculator.h"
-#include "tblite/result.h"
-#include "tblite/version.h"
+#include "tblite/macros.h"
+
+/// Retrieve version of library used
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_get_version(void);
