@@ -361,7 +361,7 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
    !> Quadrupole moment integrals for the given pair i  and j
    real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l, k
+   integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
@@ -402,7 +402,6 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
    call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint)
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
-   !$omp simd collapse(2) private(tr)
    do mli = 1, msao(cgtoi%ang)
       do mlj = 1, msao(cgtoj%ang)
          tr = 0.5_wp * (qpint(1, mlj, mli) + qpint(3, mlj, mli) + qpint(6, mlj, mli))
@@ -515,7 +514,6 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    call transform2(cgtoj%ang, cgtoi%ang, dq3di, dqpinti)
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
-   !$omp simd collapse(2) private(tr)
    do mli = 1, msao(cgtoi%ang)
       do mlj = 1, msao(cgtoj%ang)
          tr = 0.5_wp * (qpint(1, mlj, mli) + qpint(3, mlj, mli) + qpint(6, mlj, mli))
@@ -529,7 +527,6 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    end do
 
    ! remove trace from quadrupole integral derivatives
-   !$omp simd collapse(2) private(dtr)
    do mli = 1, msao(cgtoi%ang)
       do mlj = 1, msao(cgtoj%ang)
          dtr = dqpinti(:, 1, mlj, mli) + dqpinti(:, 3, mlj, mli) + dqpinti(:, 6, mlj, mli)
@@ -543,7 +540,6 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    end do
 
    ! remove trace from quadrupole integral derivatives
-   !$omp simd collapse(2) private(dtr)
    do mli = 1, msao(cgtoi%ang)
       do mlj = 1, msao(cgtoj%ang)
          dtr = dqpintj(:, 1, mlj, mli) + dqpintj(:, 3, mlj, mli) + dqpintj(:, 6, mlj, mli)
