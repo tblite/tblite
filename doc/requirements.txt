@@ -1,0 +1,4 @@
+pydata-sphinx-theme
+sphinxcontrib-bibtex
+numpy
+ase
