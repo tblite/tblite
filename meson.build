@@ -111,4 +111,5 @@ endif
 subdir('test')
 
 if get_option('python')
+  subdir('python/tblite')
 endif

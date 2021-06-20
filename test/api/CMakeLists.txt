@@ -14,12 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
-
-list(
-  APPEND srcs
-  "${dir}/logger.f90"
-  "${dir}/type.f90"
+add_executable(
+  "${PROJECT_NAME}-api-tester"
+  "main.c"
 )
-
-set(srcs "${srcs}" PARENT_SCOPE)
+target_link_libraries(
+  "${PROJECT_NAME}-api-tester"
+  PRIVATE
+  "${PROJECT_NAME}-lib"
+)
+add_test("C-API" "${PROJECT_NAME}-api-tester")

@@ -27,9 +27,31 @@ typedef struct _tblite_result* tblite_result;
 TBLITE_API_ENTRY tblite_result TBLITE_API_CALL
 tblite_new_result(void);
 
+/// Create new result contains
+TBLITE_API_ENTRY tblite_result TBLITE_API_CALL
+tblite_copy_result(tblite_result /* res */);
+
 /// Delete a calculation environment object
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_delete_result(tblite_result* /* res */);
+
+/// Retrieve number of atoms from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_atoms(tblite_error /* err */,
+                                  tblite_result /* res */,
+                                  int* /* nat */);
+
+/// Retrieve number of shells from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_shells(tblite_error /* err */,
+                                   tblite_result /* res */,
+                                   int* /* nsh */);
+
+/// Retrieve number of orbitals from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_orbitals(tblite_error /* err */,
+                                     tblite_result /* res */,
+                                     int* /* nao */);
 
 /// Retrieve energy from result container
 TBLITE_API_ENTRY void TBLITE_API_CALL
@@ -41,10 +63,46 @@ tblite_get_result_energy(tblite_error /* err */,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_gradient(tblite_error /* err */,
                            tblite_result /* res */,
-                           double* /* gradient[n][3] */);
+                           double* /* gradient[nat][3] */);
 
 /// Retrieve virial from result container
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_virial(tblite_error /* err */,
                          tblite_result /* res */,
                          double* /* sigma[3][3] */);
+
+/// Retrieve atomic charges from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_charges(tblite_error /* err */,
+                          tblite_result /* res */,
+                          double* /* charges[nat] */);
+
+/// Retrieve dipole moment from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_dipole(tblite_error /* err */,
+                         tblite_result /* res */,
+                         double* /* dipole[3] */);
+
+/// Retrieve traceless quadrupole moment from result container (packed xx, xy, yy, xz, yz, zz)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_quadrupole(tblite_error /* err */,
+                             tblite_result /* res */,
+                             double* /* quadrupole[6] */);
+
+/// Retrieve orbital energies from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_orbital_energies(tblite_error /* err */,
+                                   tblite_result /* res */,
+                                   double* /* emo[nao] */);
+
+/// Retrieve orbital occupations from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_orbital_occupations(tblite_error /* err */,
+                                      tblite_result /* res */,
+                                      double* /* occ[nao] */);
+
+/// Retrieve orbital coefficients from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_orbital_coefficients(tblite_error /* err */,
+                                       tblite_result /* res */,
+                                       double* /* cmo[nao][nao] */);

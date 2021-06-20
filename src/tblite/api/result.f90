@@ -23,7 +23,12 @@ module tblite_api_result
    implicit none
    private
 
-   public :: vp_result
+   public :: vp_result, new_result_api, copy_result_api, delete_result_api
+   public :: get_result_number_of_atoms_api, get_result_number_of_shells_api, &
+      & get_result_number_of_orbitals_api, get_result_energy_api, get_result_gradient_api, &
+      & get_result_virial_api, get_result_charges_api, get_result_dipole_api, &
+      & get_result_quadrupole_api, get_result_orbital_energies_api, &
+      & get_result_orbital_occupations_api, get_result_orbital_coefficients_api
 
 
    !> Void pointer holding results of a calculation
@@ -36,6 +41,12 @@ module tblite_api_result
 
       !> Virial
       real(wp), allocatable :: sigma(:, :)
+
+      !> Dipole moment
+      real(wp), allocatable :: dipole(:)
+
+      !> Quadrupole moment
+      real(wp), allocatable :: quadrupole(:)
 
       !> Wavefunction
       type(wavefunction_type), allocatable :: wfn
@@ -62,6 +73,26 @@ function new_result_api() result(vres) &
 end function new_result_api
 
 
+!> Create copy result container
+function copy_result_api(vold) result(vnew) &
+      & bind(C, name=namespace//"copy_result")
+   type(vp_result), pointer :: new
+   type(c_ptr), value :: vold
+   type(vp_result), pointer :: old
+   type(c_ptr) :: vnew
+
+   if (debug) print'("[Info]", 1x, a)', "copy_result"
+
+   vnew = c_null_ptr
+   if (c_associated(vold)) then
+      call c_f_pointer(vold, old)
+      allocate(new, source=old)
+      vnew = c_loc(new)
+   end if
+
+end function copy_result_api
+
+
 !> Delete result container
 subroutine delete_result_api(vres) &
       & bind(C, name=namespace//"delete_result")
@@ -79,24 +110,88 @@ subroutine delete_result_api(vres) &
 end subroutine delete_result_api
 
 
-subroutine get_result_energy(verror, vres, energy) &
+subroutine get_result_number_of_atoms_api(verror, vres, natoms) &
+      & bind(C, name=namespace//"get_result_number_of_atoms")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: natoms
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_atoms"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain number of atoms")
+      return
+   end if
+
+   natoms = size(res%wfn%qat)
+end subroutine get_result_number_of_atoms_api
+
+
+subroutine get_result_number_of_shells_api(verror, vres, nshells) &
+      & bind(C, name=namespace//"get_result_number_of_shells")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: nshells
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_shells"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain number of shells")
+      return
+   end if
+
+   nshells = size(res%wfn%qsh)
+end subroutine get_result_number_of_shells_api
+
+
+subroutine get_result_number_of_orbitals_api(verror, vres, norb) &
+      & bind(C, name=namespace//"get_result_number_of_orbitals")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: norb
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_orbitals"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain number of orbitals")
+      return
+   end if
+
+   norb = size(res%wfn%emo)
+end subroutine get_result_number_of_orbitals_api
+
+
+subroutine get_result_energy_api(verror, vres, energy) &
       & bind(C, name=namespace//"get_result_energy")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: energy
+   logical :: ok
 
    if (debug) print'("[Info]", 1x, a)', "get_result_energy"
 
-   if (.not.c_associated(verror)) return
-   call c_f_pointer(verror, error)
-
-   if (.not.c_associated(vres)) then
-      call fatal_error(error%ptr, "Result container is missing")
-      return
-   end if
-   call c_f_pointer(vres, res)
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
    if (.not.allocated(res%energy)) then
       call fatal_error(error%ptr, "Result does not contain energy")
@@ -104,27 +199,22 @@ subroutine get_result_energy(verror, vres, energy) &
    end if
 
    energy = res%energy
-end subroutine get_result_energy
+end subroutine get_result_energy_api
 
 
-subroutine get_result_gradient(verror, vres, gradient) &
+subroutine get_result_gradient_api(verror, vres, gradient) &
       & bind(C, name=namespace//"get_result_gradient")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: gradient(*)
+   logical :: ok
 
    if (debug) print'("[Info]", 1x, a)', "get_result_gradient"
 
-   if (.not.c_associated(verror)) return
-   call c_f_pointer(verror, error)
-
-   if (.not.c_associated(vres)) then
-      call fatal_error(error%ptr, "Result container is missing")
-      return
-   end if
-   call c_f_pointer(vres, res)
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
    if (.not.allocated(res%gradient)) then
       call fatal_error(error%ptr, "Result does not contain gradient")
@@ -132,19 +222,178 @@ subroutine get_result_gradient(verror, vres, gradient) &
    end if
 
    gradient(:size(res%gradient)) = reshape(res%gradient, [size(res%gradient)])
-end subroutine get_result_gradient
+end subroutine get_result_gradient_api
 
 
-subroutine get_result_virial(verror, vres, sigma) &
+subroutine get_result_virial_api(verror, vres, sigma) &
       & bind(C, name=namespace//"get_result_virial")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: sigma(*)
+   logical :: ok
 
    if (debug) print'("[Info]", 1x, a)', "get_result_virial"
 
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%sigma)) then
+      call fatal_error(error%ptr, "Result does not contain virial")
+      return
+   end if
+
+   sigma(:size(res%sigma)) = reshape(res%sigma, [size(res%sigma)])
+end subroutine get_result_virial_api
+
+
+subroutine get_result_charges_api(verror, vres, charges) &
+      & bind(C, name=namespace//"get_result_charges")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: charges(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_charges"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain atomic charges")
+      return
+   end if
+
+   charges(:size(res%wfn%qat)) = res%wfn%qat
+end subroutine get_result_charges_api
+
+
+subroutine get_result_dipole_api(verror, vres, dipole) &
+      & bind(C, name=namespace//"get_result_dipole")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: dipole(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_dipole"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%dipole)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
+
+   dipole(:size(res%dipole)) = res%dipole
+end subroutine get_result_dipole_api
+
+
+subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
+      & bind(C, name=namespace//"get_result_quadrupole")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: quadrupole(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_quadrupole"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%quadrupole)) then
+      call fatal_error(error%ptr, "Result does not contain quadrupole moment")
+      return
+   end if
+
+   quadrupole(:size(res%quadrupole)) = res%quadrupole
+end subroutine get_result_quadrupole_api
+
+
+subroutine get_result_orbital_energies_api(verror, vres, emo) &
+      & bind(C, name=namespace//"get_result_orbital_energies")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: emo(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_energies"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain orbital energies")
+      return
+   end if
+
+   emo(:size(res%wfn%emo)) = res%wfn%emo
+end subroutine get_result_orbital_energies_api
+
+
+subroutine get_result_orbital_occupations_api(verror, vres, occ) &
+      & bind(C, name=namespace//"get_result_orbital_occupations")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: occ(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_occupations"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain orbital occupations")
+      return
+   end if
+
+   occ(:size(res%wfn%focc)) = res%wfn%focc
+end subroutine get_result_orbital_occupations_api
+
+
+subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
+      & bind(C, name=namespace//"get_result_orbital_coefficients")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: cmo(*)
+   logical :: ok
+
+   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_coefficients"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain orbital coefficients")
+      return
+   end if
+
+   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff, [size(res%wfn%coeff)])
+end subroutine get_result_orbital_coefficients_api
+
+
+subroutine get_result(verror, vres, error, res, ok)
+   type(c_ptr), intent(in) :: verror
+   type(c_ptr), intent(in) :: vres
+   type(vp_error), pointer, intent(out) :: error
+   type(vp_result), pointer, intent(out) :: res
+   logical, intent(out) :: ok
+
+   ok = .false.
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
 
@@ -153,14 +402,8 @@ subroutine get_result_virial(verror, vres, sigma) &
       return
    end if
    call c_f_pointer(vres, res)
-
-   if (.not.allocated(res%sigma)) then
-      call fatal_error(error%ptr, "Result does not contain virial")
-      return
-   end if
-
-   sigma(:size(res%sigma)) = reshape(res%sigma, [size(res%sigma)])
-end subroutine get_result_virial
+   ok = .true.
+end subroutine get_result
 
 
 end module tblite_api_result

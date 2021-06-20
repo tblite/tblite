@@ -14,12 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
-
-list(
-  APPEND srcs
-  "${dir}/logger.f90"
-  "${dir}/type.f90"
+project(
+  'tblite',
+  'c',
 )
+install = true
 
-set(srcs "${srcs}" PARENT_SCOPE)
+tblite_dep = dependency('tblite', version: '>=3.2.0')
+tblite_header = files('..'/'include'/'tblite.h')
+
+subdir('tblite')

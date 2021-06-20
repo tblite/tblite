@@ -23,6 +23,9 @@
 /// Context manager for the library usage
 typedef struct _tblite_context* tblite_context;
 
+/// Define callback function for use in custom logger
+typedef void (*tblite_logger_callback)(char*, void*);
+
 /// Create new calculation environment object
 TBLITE_API_ENTRY tblite_context TBLITE_API_CALL
 tblite_new_context(void);
@@ -40,3 +43,9 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_context_error(tblite_context /* ctx */,
                          char* /* buffer */,
                          const int* /* buffersize */);
+
+/// Set custom logger function
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_logger(tblite_context /* ctx */,
+                          tblite_logger_callback /* callback */,
+                          void* /* userdata */);

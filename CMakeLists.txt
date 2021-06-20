@@ -18,7 +18,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(
   "tblite"
-  LANGUAGES "Fortran"
+  LANGUAGES "Fortran" "C"
   VERSION "0.1.0"
   DESCRIPTION "Light-weight tight-binding framework"
 )
@@ -70,7 +70,9 @@ target_link_libraries(
 target_include_directories(
   "${PROJECT_NAME}-lib"
   PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-id}>
 )
 

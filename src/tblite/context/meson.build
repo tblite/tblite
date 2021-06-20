@@ -15,5 +15,6 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
+  'logger.f90',
   'type.f90',
 )

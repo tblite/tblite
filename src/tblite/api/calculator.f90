@@ -23,6 +23,8 @@ module tblite_api_calculator
    use tblite_api_result, only : vp_result
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
+   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
@@ -288,10 +290,16 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%energy = 0.0_wp
    res%gradient = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, mol%ptr%nat)
    res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
+   res%dipole = spread(0.0_wp, 1, 3)
+   res%quadrupole = spread(0.0_wp, 1, 6)
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp)
 
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
       & res%gradient, res%sigma)
+
+   call get_molecular_dipole_moment(mol%ptr, res%wfn%qat, res%wfn%dpat, res%dipole)
+   call get_molecular_quadrupole_moment(mol%ptr, res%wfn%qat, res%wfn%dpat, res%wfn%qpat, &
+      & res%quadrupole)
 
 end subroutine get_singlepoint_api
 

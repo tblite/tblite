@@ -18,6 +18,7 @@
 module tblite_context_type
    use iso_fortran_env, only : output_unit
    use mctc_env, only : error_type
+   use tblite_context_logger, only : context_logger
    implicit none
    private
 
@@ -27,6 +28,7 @@ module tblite_context_type
       integer :: unit = output_unit
       integer :: verbosity = 1
       type(error_type), allocatable :: error_log(:)
+      class(context_logger), allocatable :: io
    contains
       procedure :: message
       procedure :: set_error
@@ -62,7 +64,11 @@ subroutine message(self, msg)
    class(context_type), intent(inout) :: self
    character(len=*), intent(in) :: msg
 
-   write(self%unit, '(a)') msg
+   if (allocated(self%io)) then
+      call self%io%message(msg)
+   else
+      write(self%unit, '(a)') msg
+   end if
 end subroutine message
 
 pure function failed(self)

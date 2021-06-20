@@ -13,13 +13,11 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+"""General checks for the library interface and its wrappers."""
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+from tblite.library import get_version
 
-list(
-  APPEND srcs
-  "${dir}/logger.f90"
-  "${dir}/type.f90"
-)
+def test_version():
+    """Check if we can retrieve some version from the library"""
 
-set(srcs "${srcs}" PARENT_SCOPE)
+    assert get_version() > (0, 0, 0)

@@ -18,6 +18,7 @@
 module tblite_api_context
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error
+   use tblite_context_logger, only : context_logger
    use tblite_context_type, only : context_type
    use tblite_api_error, only : vp_error
    use tblite_api_version, only : namespace
@@ -27,6 +28,7 @@ module tblite_api_context
 
    public :: vp_context
    public :: new_context_api, check_context_api, get_context_error_api, delete_context_api
+   public :: set_context_logger_api
 
 
    !> Void pointer to manage calculation context
@@ -34,6 +36,30 @@ module tblite_api_context
       !> Actual payload
       type(context_type) :: ptr
    end type vp_context
+
+
+   abstract interface
+      !> Interface for callbacks used in custom logger
+      subroutine callback(msg, udata)
+         import :: c_char, c_ptr
+         !> Message payload to be displayed
+         character(kind=c_char) :: msg(*)
+         !> Data pointer for callback
+         type(c_ptr), value :: udata
+      end subroutine callback
+   end interface
+
+
+   !> Custom logger for calculation context to display messages
+   type, extends(context_logger) :: callback_logger
+      !> Data pointer for callback
+      type(c_ptr) :: udata = c_null_ptr
+      !> Custom callback function to display messages
+      procedure(callback), pointer, nopass :: callback => null()
+   contains
+      !> Entry point for context instance to log message
+      procedure :: message
+   end type callback_logger
 
 
    logical, parameter :: debug = .false.
@@ -123,6 +149,58 @@ subroutine delete_context_api(vctx) &
    end if
 
 end subroutine delete_context_api
+
+
+!> Create a new custom logger for the calculation context
+subroutine set_context_logger_api(vctx, vproc, vdata) &
+      & bind(C, name=namespace//"set_context_logger")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_funptr), value :: vproc
+   procedure(callback), pointer :: fptr
+   type(c_ptr), value :: vdata
+
+   if (debug) print'("[Info]", 1x, a)', "set_context_logger"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (c_associated(vproc)) then
+      call c_f_procpointer(vproc, fptr)
+      ctx%ptr%io = new_callback_logger(fptr, vdata)
+   else
+      if (allocated(ctx%ptr%io)) deallocate(ctx%ptr%io)
+   end if
+
+end subroutine set_context_logger_api
+
+
+!> Create a new custom logger
+function new_callback_logger(fptr, udata) result(self)
+   !> Actual function used to display messages
+   procedure(callback) :: fptr
+   !> Data pointer used inside the callback function
+   type(c_ptr), intent(in) :: udata
+   !> New instance of the custom logger
+   type(callback_logger) :: self
+
+   self%callback => fptr
+   self%udata = udata
+end function new_callback_logger
+
+
+!> Entry point for context type logger, transfers message from context to callback
+subroutine message(self, msg)
+   !> Instance of the custom logger with the actual logger callback function
+   class(callback_logger), intent(inout) :: self
+   !> Message payload from the calculation context
+   character(len=*), intent(in) :: msg
+   character(kind=c_char) :: charptr(len(msg)+1)
+
+   call f_c_character(msg, charptr, size(charptr))
+
+   call self%callback(charptr, self%udata)
+end subroutine message
 
 
 end module tblite_api_context

@@ -9,6 +9,13 @@ env:
     cmake
     ninja
     gcovr
+  PIP_EXTRAS: >-
+    pkgconfig
+    pytest
+    pytest-cov
+    cffi
+    numpy
+    ase
 
 jobs:
   gcc-build:
@@ -63,10 +70,10 @@ jobs:
         --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
         --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
 
-    - name: Install meson and test dependencies
-      run: pip3 install ${{ env.PIP_PACKAGES }}
+    - name: Install build and test dependencies
+      run: pip3 install ${{ env.PIP_PACKAGES }} ${{ env.PIP_EXTRAS }}
 
-    - name: Configure build
+    - name: Configure build (meson)
       if: contains(matrix.build, 'meson')
       run: >-
         meson setup ${{ env.BUILD_DIR }}
@@ -77,7 +84,7 @@ jobs:
         -Db_coverage=true
         -Dlapack=netlib
 
-    - name: Configure build
+    - name: Configure build (CMake)
       if: contains(matrix.build, 'cmake')
       run: >-
         cmake -B${{ env.BUILD_DIR }}
@@ -106,6 +113,92 @@ jobs:
         ninja -C ${{ env.BUILD_DIR }} install
         echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV
 
+    - name: Create package
+      if: contains(matrix.build, 'meson')
+      run: |
+        tar cvf ${{ env.OUTPUT }} _dist
+        xz -T0 ${{ env.OUTPUT }}
+        echo "TBLITE_OUTPUT=${{ env.OUTPUT }}.xz" >> $GITHUB_ENV
+      env:
+        OUTPUT: tblite-gcc-${{ matrix.gcc_v }}-${{ matrix.os }}.tar
+
+    - name: Upload package
+      if: contains(matrix.build, 'meson')
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.TBLITE_OUTPUT }}
+        path: ${{ env.TBLITE_OUTPUT }}
+
     - name: Upload coverage report
       if: contains(matrix.build, 'meson')
+      uses: codecov/codecov-action@v1
+
+
+  python-build:
+    needs:
+      - gcc-build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        gcc_v: [10]
+        python_v: ['3.6', '3.7', '3.8', '3.9']
+
+    env:
+      FC: gfortran
+      CC: gcc
+      GCC_V: ${{ matrix.gcc_v }}
+      PYTHON_V: ${{ matrix.python_v }}
+      OMP_NUM_THREADS: 2,1
+      TBLITE_OUTPUT: tblite-gcc-${{ matrix.gcc_v }}-${{ matrix.os }}.tar.xz
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python_v }}
+
+    - name: Install GCC (OSX)
+      if: contains(matrix.os, 'macos')
+      run: |
+        ln -s /usr/local/bin/gfortran-${{ env.GCC_V }} /usr/local/bin/gfortran
+        ln -s /usr/local/bin/gcc-${{ env.GCC_V }} /usr/local/bin/gcc
+        ln -s /usr/local/bin/g++-${{ env.GCC_V }} /usr/local/bin/g++
+
+    - name: Install GCC (Linux)
+      if: contains(matrix.os, 'ubuntu')
+      run: >-
+        sudo update-alternatives
+        --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100
+        --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
+        --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
+
+    - name: Install meson and test dependencies
+      run: pip3 install ${{ env.PIP_EXTRAS }}
+
+    - name: Download package
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ env.TBLITE_OUTPUT }}
+
+    - name: Unpack package
+      run: |
+        tar xvf ${{ env.TBLITE_OUTPUT }}
+        echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV
+
+    - name: Install Python extension module (pip)
+      run: pip3 install . --user
+      working-directory: python
+      env:
+        PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}:${{ env.TBLITE_PREFIX }}/lib/pkgconfig
+
+    - name: Test Python API
+      run: pytest --pyargs tblite --cov=tblite -vv
+      env:
+        LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
+
+    - name: Upload coverage report
       uses: codecov/codecov-action@v1
