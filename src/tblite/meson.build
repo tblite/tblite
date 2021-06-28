@@ -19,6 +19,7 @@ if get_option('api') or get_option('python')
 endif
 subdir('basis')
 subdir('blas')
+subdir('classical')
 subdir('context')
 subdir('coulomb')
 subdir('disp')

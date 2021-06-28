@@ -484,7 +484,7 @@ subroutine get_dipole_dipole_matrix_0d(mol, rad, kdmp, amat)
    type(structure_type), intent(in) :: mol
    real(wp), intent(in) :: rad(:)
    real(wp), intent(in) :: kdmp
-   real(wp), intent(out) :: amat(:, :, :, :)
+   real(wp), intent(inout) :: amat(:, :, :, :)
 
    integer :: iat, jat
    real(wp) :: r1, r2, vec(3), rr, fdmp, g3, g5
@@ -514,7 +514,7 @@ subroutine get_dipole_dipole_matrix_3d(mol, rad, kdmp, wsc, alpha, amat)
    real(wp), intent(in) :: kdmp
    type(wignerseitz_cell), intent(in) :: wsc
    real(wp), intent(in) :: alpha
-   real(wp), intent(out) :: amat(:, :, :, :)
+   real(wp), intent(inout) :: amat(:, :, :, :)
 
    integer :: iat, jat, img, k
    real(wp) :: vec(3), rr, wsw, dtmp(3, 3), rtmp(3, 3), vol

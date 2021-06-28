@@ -65,7 +65,7 @@ pure subroutine orthogonalize(cgtoi, cgtoj)
       end do
    end do
 
-   cgtoj%coeff(:) = cgtoj%coeff / sqrt(overlap)
+   cgtoj%coeff(:cgtoj%nprim) = cgtoj%coeff(:cgtoj%nprim) / sqrt(overlap)
 
 end subroutine orthogonalize
 

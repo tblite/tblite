@@ -20,6 +20,7 @@ module tblite_xtb_gfn1
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_classical_halogen, only : new_halogen_correction
    use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
@@ -386,14 +387,41 @@ module tblite_xtb_gfn1
       & shape(p_selfenergy)) * evtoau
 
    integer, parameter :: gfn1_kinds(max_elem) = [&
-   &  1,                                                 1, &! H-He
-   &  0, 0,                               0, 1, 1, 1, 1, 1, &! Li-Ne
-   &  0, 0,                               0, 1, 1, 1, 1, 1, &! Na-Ar
-   &  0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! K-Kr
-   &  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! Rb-Xe
-   &  0, 0, &! Cs/Ba
-   &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &!La-Lu
-   &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1]  ! Lu-Rn
+      &  1,                                                 1, &! H-He
+      &  0, 0,                               0, 1, 1, 1, 1, 1, &! Li-Ne
+      &  0, 0,                               0, 1, 1, 1, 1, 1, &! Na-Ar
+      &  0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! K-Kr
+      &  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! Rb-Xe
+      &  0, 0, &! Cs/Ba
+      &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &!La-Lu
+      &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1]  ! Lu-Rn
+
+   !> Scaling factor of the atomic radii
+   real(wp), parameter :: halogen_radscale = 1.3_wp
+
+   !> Damping parameter for the halogen bond interactions
+   real(wp), parameter :: halogen_damping = 0.44_wp
+
+   !> Strength of the halogen bond
+   real(wp), parameter :: halogen_bond(1:max_elem) = 0.1_wp * [ &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.381742_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.321944_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.220000_wp, &
+      & 0.000000_wp]
 
    !> Specification of the GFN1-xTB effective Hamiltonian
    type, extends(tb_h0spec) :: gfn1_h0spec
@@ -432,6 +460,7 @@ subroutine new_gfn1_calculator(calc, mol)
    call add_repulsion(calc, mol)
    call add_dispersion(calc, mol)
    call add_coulomb(calc, mol)
+   call add_halogen(calc, mol)
 
 end subroutine new_gfn1_calculator
 
@@ -588,6 +617,20 @@ subroutine get_shell_hardness(mol, bas, hardness)
       end do
    end do
 end subroutine get_shell_hardness
+
+subroutine add_halogen(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   real(wp), allocatable :: bond_strength(:)
+
+   allocate(calc%halogen)
+   bond_strength = halogen_bond(mol%num)
+   call new_halogen_correction(calc%halogen, mol, halogen_damping, halogen_radscale, &
+      & bond_strength)
+end subroutine add_halogen
 
 
 pure function new_gfn1_h0spec(mol) result(self)

@@ -60,7 +60,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
 
    logical :: grad, converged
-   real(wp) :: edisp, erep, nel
+   real(wp) :: edisp, erep, exbond, nel
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
@@ -94,9 +94,18 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    erep = 0.0_wp
    edisp = 0.0_wp
    energy = 0.0_wp
+   exbond = 0.0_wp
    if (grad) then
       gradient(:, :) = 0.0_wp
       sigma(:, :) = 0.0_wp
+   end if
+
+   if (allocated(calc%halogen)) then
+      cutoff = 20.0_wp
+      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+      call calc%halogen%get_engrad(mol, lattr, cutoff, exbond, gradient, sigma)
+      if (prlevel > 1) print *, property("halogen-bonding energy", exbond, "Eh")
+      energy = energy + exbond
    end if
 
    if (allocated(calc%repulsion)) then

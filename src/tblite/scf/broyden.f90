@@ -79,9 +79,9 @@ end subroutine new_broyden
 
 subroutine set_2d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in) :: qvec(:, :)
+   real(wp), contiguous, intent(in), target :: qvec(:, :)
    real(wp), pointer :: qptr(:)
-   call ref(qptr, qvec)
+   qptr(1:size(qvec)) => qvec
    call self%set(qptr)
 end subroutine set_2d
 
@@ -94,9 +94,9 @@ end subroutine set_1d
 
 subroutine diff_2d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in) :: qvec(:, :)
+   real(wp), contiguous, intent(in), target :: qvec(:, :)
    real(wp), pointer :: qptr(:)
-   call ref(qptr, qvec)
+   qptr(1:size(qvec)) => qvec
    call self%diff(qptr)
 end subroutine diff_2d
 
@@ -120,9 +120,9 @@ end subroutine next
 
 subroutine get_2d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(out) :: qvec(:, :)
+   real(wp), contiguous, intent(out), target :: qvec(:, :)
    real(wp), pointer :: qptr(:)
-   call ref(qptr, qvec)
+   qptr(1:size(qvec)) => qvec
    call self%get(qptr)
 end subroutine get_2d
 
@@ -132,12 +132,6 @@ subroutine get_1d(self, qvec)
    qvec(:) = self%q_in(self%iget+1:self%iget+size(qvec))
    self%iget = self%iget + size(qvec)
 end subroutine get_1d
-
-subroutine ref(ptr, arr)
-   real(wp), pointer, intent(out) :: ptr(:)
-   real(wp), contiguous, target, intent(in) :: arr(:, :)
-   ptr(1:size(arr)) => arr
-end subroutine ref
 
 subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a)
    integer, intent(in) :: n

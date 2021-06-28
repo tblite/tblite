@@ -18,6 +18,7 @@ module tblite_xtb_calculator
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
+   use tblite_classical_halogen, only : halogen_correction
    use tblite_disp, only : dispersion_type
    use tblite_ncoord, only : ncoord_type
    use tblite_repulsion_effective, only : tb_repulsion
@@ -37,6 +38,7 @@ module tblite_xtb_calculator
       class(ncoord_type), allocatable :: ncoord
       type(tb_repulsion), allocatable :: repulsion
       type(tb_coulomb), allocatable :: coulomb
+      type(halogen_correction), allocatable :: halogen
       class(dispersion_type), allocatable :: dispersion
       real(wp) :: mixer_damping = mixer_damping_default
       integer :: max_iter = max_iter_default
