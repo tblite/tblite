@@ -2,6 +2,8 @@
 
 [![License](https://img.shields.io/github/license/awvwgk/tblite)](https://github.com/awvwgk/tblite/blob/master/COPYING.LESSER)
 [![Build Status](https://github.com/awvwgk/tblite/workflows/CI/badge.svg)](https://github.com/awvwgk/tblite/actions)
+[![Documentation Status](https://readthedocs.org/projects/tblite/badge/?version=latest)](https://tblite.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/awvwgk/tblite/branch/main/graph/badge.svg?token=JXIE6myqNH)](https://codecov.io/gh/awvwgk/tblite)
 
 This project is an effort to create a library implementation of the
 extended tight binding (xTB) Hamiltonian which can be shared between
@@ -79,6 +81,11 @@ tblite --method gfn2 coord
 ```
 
 For more details checkout the [``tblite(1)``](man/tblite.1.adoc) man page.
+
+
+## Documentation
+
+User and developer documentation is available [here](https://tblite.readthedocs.io).
 
 
 ## License
