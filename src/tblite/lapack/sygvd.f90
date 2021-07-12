@@ -16,6 +16,7 @@
 
 module tblite_lapack_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error
+   use tblite_output_format, only : format_string
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -127,7 +128,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
 
-   call lapack_sygvd(1, 'v', 'l', self%n, hmat, self%n, self%dbmat, self%n, eval, &
+   call lapack_sygvd(1, 'v', 'u', self%n, hmat, self%n, self%dbmat, self%n, eval, &
       & self%dwork, ldwork, self%iwork, liwork, info)
 
    call handle_info(error, info)
@@ -139,8 +140,8 @@ subroutine handle_info(error, info)
    integer, intent(in) :: info
 
    if (info /= 0) then
-      print *, info
-      call fatal_error(error, "(sygvd) failed to solve eigenvalue problem")
+      call fatal_error(error, "(sygvd) failed to solve eigenvalue problem.&
+         & info="//format_string(info, '(i0)'))
    end if
 end subroutine handle_info
 
