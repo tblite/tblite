@@ -31,6 +31,7 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_type, only : integral_type, new_integral
+   use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
    use tblite_results, only : results_type
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &

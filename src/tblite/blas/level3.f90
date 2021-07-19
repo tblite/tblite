@@ -23,7 +23,7 @@ module tblite_blas_level3
    implicit none
    private
 
-   public :: wrap_gemm
+   public :: wrap_gemm, wrap_trsm
 
 
    !> Performs one of the matrix-matrix operations
@@ -47,6 +47,20 @@ module tblite_blas_level3
       module procedure :: wrap_dgemm332
    end interface wrap_gemm
 
+   !> Solves one of the matrix equations
+   !>
+   !>    op( A )*X = alpha*B,   or   X*op( A ) = alpha*B,
+   !>
+   !> where alpha is a scalar, X and B are m by n matrices, A is a unit, or
+   !> non-unit,  upper or lower triangular matrix  and  op( A )  is one  of
+   !>
+   !>    op( A ) = A   or   op( A ) = A**T.
+   !>
+   !> The matrix X is overwritten on B.
+   interface wrap_trsm
+      module procedure :: wrap_strsm
+      module procedure :: wrap_dtrsm
+   end interface wrap_trsm
 
    !> Performs one of the matrix-matrix operations
    !>
@@ -94,6 +108,47 @@ module tblite_blas_level3
          integer, intent(in) :: ldc
       end subroutine dgemm
    end interface blas_gemm
+
+   !> Solves one of the matrix equations
+   !>
+   !>    op( A )*X = alpha*B,   or   X*op( A ) = alpha*B,
+   !>
+   !> where alpha is a scalar, X and B are m by n matrices, A is a unit, or
+   !> non-unit,  upper or lower triangular matrix  and  op( A )  is one  of
+   !>
+   !>    op( A ) = A   or   op( A ) = A**T.
+   !>
+   !> The matrix X is overwritten on B.
+   interface blas_trsm
+      pure subroutine strsm(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb)
+         import :: sp
+         integer, intent(in) :: ldb
+         integer, intent(in) :: lda
+         character(len=1), intent(in) :: side
+         character(len=1), intent(in) :: uplo
+         character(len=1), intent(in) :: transa
+         character(len=1), intent(in) :: diag
+         integer, intent(in) :: m
+         integer, intent(in) :: n
+         real(sp), intent(in) :: alpha
+         real(sp), intent(in) :: a(lda, *)
+         real(sp), intent(inout) :: b(ldb, *)
+      end subroutine strsm
+      pure subroutine dtrsm(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb)
+         import :: dp
+         integer, intent(in) :: ldb
+         integer, intent(in) :: lda
+         character(len=1), intent(in) :: side
+         character(len=1), intent(in) :: uplo
+         character(len=1), intent(in) :: transa
+         character(len=1), intent(in) :: diag
+         integer, intent(in) :: m
+         integer, intent(in) :: n
+         real(dp), intent(in) :: alpha
+         real(dp), intent(in) :: a(lda, *)
+         real(dp), intent(inout) :: b(ldb, *)
+      end subroutine dtrsm
+   end interface blas_trsm
 
 
 contains
@@ -355,6 +410,94 @@ subroutine wrap_dgemm332(amat, bmat, cmat, transa, transb, alpha, beta)
    end if
    call wrap_gemm(aptr, bptr, cmat, tra, trb, alpha, beta)
 end subroutine wrap_dgemm332
+
+
+pure subroutine wrap_strsm(amat, bmat, side, uplo, transa, diag, alpha)
+   real(sp), contiguous, intent(in) :: amat(:,  :)
+   real(sp), contiguous, intent(inout) :: bmat(:, :)
+   real(sp), intent(in), optional :: alpha
+   character(len=1), intent(in), optional :: side
+   character(len=1), intent(in), optional :: uplo
+   character(len=1), intent(in), optional :: transa
+   character(len=1), intent(in), optional :: diag
+   real(sp) :: a
+   character(len=1) :: sda, ula, tra, dga
+   integer :: m, n, lda, ldb
+   if (present(alpha)) then
+      a = alpha
+   else
+      a = 1.0_sp
+   end if
+   if (present(diag)) then
+      dga = diag
+   else
+      dga = 'n'
+   end if
+   if (present(side)) then
+      sda = side
+   else
+      sda = 'l'
+   end if
+   if (present(transa)) then
+      tra = transa
+   else
+      tra = 'n'
+   end if
+   if (present(uplo)) then
+      ula = uplo
+   else
+      ula = 'u'
+   end if
+   lda = max(1, size(amat, 1))
+   ldb = max(1, size(bmat, 1))
+   m = size(bmat, 1)
+   n = size(bmat, 2)
+   call blas_trsm(sda, ula, tra, dga, m, n, a, amat, lda, bmat, ldb)
+end subroutine wrap_strsm
+
+
+pure subroutine wrap_dtrsm(amat, bmat, side, uplo, transa, diag, alpha)
+   real(dp), contiguous, intent(in) :: amat(:,  :)
+   real(dp), contiguous, intent(inout) :: bmat(:, :)
+   real(dp), intent(in), optional :: alpha
+   character(len=1), intent(in), optional :: side
+   character(len=1), intent(in), optional :: uplo
+   character(len=1), intent(in), optional :: transa
+   character(len=1), intent(in), optional :: diag
+   real(dp) :: a
+   character(len=1) :: sda, ula, tra, dga
+   integer :: m, n, lda, ldb
+   if (present(alpha)) then
+      a = alpha
+   else
+      a = 1.0_dp
+   end if
+   if (present(diag)) then
+      dga = diag
+   else
+      dga = 'n'
+   end if
+   if (present(side)) then
+      sda = side
+   else
+      sda = 'l'
+   end if
+   if (present(transa)) then
+      tra = transa
+   else
+      tra = 'n'
+   end if
+   if (present(uplo)) then
+      ula = uplo
+   else
+      ula = 'u'
+   end if
+   lda = max(1, size(amat, 1))
+   ldb = max(1, size(bmat, 1))
+   m = size(bmat, 1)
+   n = size(bmat, 2)
+   call blas_trsm(sda, ula, tra, dga, m, n, a, amat, lda, bmat, ldb)
+end subroutine wrap_dtrsm
 
 
 end module tblite_blas_level3
