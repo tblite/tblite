@@ -97,13 +97,20 @@ if install
 
   asciidoc = find_program('asciidoctor', required: false)
   if asciidoc.found()
-    install_man(
-      configure_file(
-        command: [asciidoc, '-b', 'manpage', '@INPUT@', '-o', '@OUTPUT@'],
-        input: files('man/tblite.1.adoc'),
-        output: '@BASENAME@',
-      )
+    man_srcs = files(
+      'man/tblite.1.adoc',
+      'man/tblite-run.1.adoc',
+      'man/tblite-param.1.adoc',
     )
+    foreach man : man_srcs
+      install_man(
+        configure_file(
+          command: [asciidoc, '-b', 'manpage', '@INPUT@', '-o', '@OUTPUT@'],
+          input: man,
+          output: '@BASENAME@',
+        )
+      )
+    endforeach
   endif
 endif
 

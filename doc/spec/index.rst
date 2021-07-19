@@ -9,3 +9,4 @@ Parameter Specification
    repulsion
    coulomb
    dispersion
+   parameter

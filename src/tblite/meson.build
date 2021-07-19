@@ -22,6 +22,7 @@ subdir('blas')
 subdir('classical')
 subdir('context')
 subdir('coulomb')
+subdir('data')
 subdir('disp')
 subdir('integral')
 subdir('lapack')
@@ -39,7 +40,9 @@ srcs += files(
   'disp.f90',
   'lapack.f90',
   'ncoord.f90',
+  'param.f90',
   'repulsion.f90',
+  'toml.f90',
   'version.f90',
   'wignerseitz.f90',
 )

@@ -21,7 +21,7 @@ module test_ncoord_gfn
    use mctc_io_structure, only : structure_type
    use mstore, only : get_structure
    use tblite_cutoff, only : get_lattice_points
-   use tblite_param_covrad, only : get_covalent_rad
+   use tblite_data_covrad, only : get_covalent_rad
    use tblite_ncoord_gfn
    implicit none
    private

@@ -15,6 +15,7 @@ auto-tests = false
 mctc-lib.git = "https://github.com/grimme-lab/mctc-lib"
 dftd4.git = "https://github.com/dftd4/dftd4"
 s-dftd3.git = "https://github.com/awvwgk/simple-dftd3"
+toml-f.git = "https://github.com/toml-f/toml-f"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"

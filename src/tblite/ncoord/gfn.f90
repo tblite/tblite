@@ -18,8 +18,8 @@ module tblite_ncoord_gfn
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_cutoff, only : get_lattice_points
+   use tblite_data_covrad, only : get_covalent_rad
    use tblite_ncoord_type, only : ncoord_type
-   use tblite_param_covrad, only : get_covalent_rad
    implicit none
    private
 

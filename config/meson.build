@@ -177,3 +177,22 @@ if install
     install_dir: get_option('datadir')/'licenses'/meson.project_name()/'dftd3'
   )
 endif
+
+# Create TOML Fortran as subproject
+tomlf_prj = subproject(
+  'toml-f',
+  version: '>=0.2',
+  default_options: [
+    'default_library=static',
+  ],
+)
+tomlf_dep = tomlf_prj.get_variable('tomlf_dep')
+lib_deps += tomlf_dep
+inc_dirs += tomlf_prj.get_variable('tomlf_inc')
+
+if install
+  install_data(
+    tomlf_prj.get_variable('tomlf_lic'),
+    install_dir: get_option('datadir')/'licenses'/meson.project_name()/'toml-f'
+  )
+endif

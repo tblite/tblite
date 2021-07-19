@@ -20,7 +20,7 @@
 !> in CRC Handbook of Chemistry and Physics, 91st Edition (2010-2011),
 !> edited by W. M. Haynes (CRC Press, Boca Raton, FL, 2010), pages 9-49-9-50;
 !> corrected Nov. 17, 2010 for the 92nd edition.
-module tblite_param_atomicrad
+module tblite_data_atomicrad
    use mctc_env, only : wp
    use mctc_io_convert, only : aatoau
    use mctc_io_symbols, only : to_number
@@ -93,4 +93,4 @@ elemental function get_atomic_rad_number(number) result(radius)
 end function get_atomic_rad_number
 
 
-end module tblite_param_atomicrad
+end module tblite_data_atomicrad

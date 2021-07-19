@@ -17,15 +17,17 @@
 module tblite_xtb_gfn1
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_symbols, only : to_symbol
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : new_halogen_correction
    use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
+   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
    use tblite_ncoord, only : new_ncoord
-   use tblite_param_paulingen, only : get_pauling_en
+   use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
@@ -34,13 +36,20 @@ module tblite_xtb_gfn1
    private
 
    public :: new_gfn1_calculator
-   public :: gfn1_h0spec
+   public :: gfn1_h0spec, export_gfn1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3
 
    !> Use older eV to Eh conversion for consistency
    real(wp), parameter :: evtoau = 1.0_wp / 27.21138505_wp
+
+   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.4_wp, a1 = 0.63_wp, a2 = 5.0_wp, s9 = 0.0_wp
+   real(wp), parameter :: rep_kexp = 1.5_wp, rep_rexp = 1.0_wp
+   real(wp), parameter :: gexp = 2.0_wp
+   real(wp), parameter :: kdiag(0:4) = [1.85_wp, 2.25_wp, spread(2.0_wp, 1, 3)]
+   real(wp), parameter :: enscale = -7.0e-3_wp
+   real(wp), parameter :: kdiff = 2.85_wp
 
    !> Exponents of repulsion term for GFN1-xTB repulsion
    real(wp), parameter :: rep_alpha(max_elem) = [&
@@ -212,6 +221,22 @@ module tblite_xtb_gfn1
       & 5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6, &
       & 5, 6, 6,  5, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 5, &
       & 6, 6, 5,  6, 6, 5], shape(principal_quantum_number))
+
+   !> Number of primitive gaussians per shell
+   integer, parameter :: number_of_primitives(max_shell, max_elem) = reshape([&
+      & 4, 3, 0,  4, 0, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0, &
+      & 6, 6, 0,  6, 6, 0,  6, 6, 4,  6, 6, 0,  6, 6, 0,  6, 6, 4,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 0,  6, 6, 4,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  6, 6, 0,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 0,  6, 6, 4,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  6, 6, 0,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 0,  6, 6, 4, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4], shape(number_of_primitives))
 
    !> Shell polynomials to scale Hamiltonian elements
    real(wp), parameter :: p_shpoly(0:2, max_elem) = reshape([&
@@ -386,15 +411,52 @@ module tblite_xtb_gfn1
       &-21.752193_wp,-10.031093_wp, -0.852571_wp,-18.381647_wp,-10.236606_wp, -0.973687_wp],&
       & shape(p_selfenergy)) * evtoau
 
-   integer, parameter :: gfn1_kinds(max_elem) = [&
-      &  1,                                                 1, &! H-He
-      &  0, 0,                               0, 1, 1, 1, 1, 1, &! Li-Ne
-      &  0, 0,                               0, 1, 1, 1, 1, 1, &! Na-Ar
-      &  0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! K-Kr
-      &  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, &! Rb-Xe
-      &  0, 0, &! Cs/Ba
-      &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &!La-Lu
-      &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1]  ! Lu-Rn
+   !> CN dependence of the level energies
+   real(wp), parameter :: p_kcn(max_shell, max_elem) = reshape([&
+      & 6.5540712_wp, 1.3031412_wp, 0.0000000_wp,13.2726090_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 8.1523260_wp,-3.0158355_wp, 0.0000000_wp, &
+      &12.0348000_wp,-3.8667978_wp, 0.0000000_wp,14.0390256_wp,-5.3659662_wp, 0.0000000_wp, &
+      &14.8657050_wp,-5.1823245_wp, 0.0000000_wp,18.7004922_wp,-5.4806925_wp, 0.7439920_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 8.7036768_wp,-2.2672011_wp,-1.2540565_wp, &
+      &11.3193522_wp,-2.8159392_wp,-0.3369945_wp,14.2914078_wp,-3.6360408_wp,-0.8556305_wp, &
+      &14.6712978_wp,-3.8651142_wp,-0.5950475_wp,18.8372562_wp,-5.2238703_wp,-0.5596995_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 3.5860105_wp, 5.7797658_wp,-0.2089884_wp, 3.8086715_wp, 4.7688966_wp,-0.2706429_wp, &
+      & 3.3387815_wp, 5.4000000_wp,-0.0324024_wp, 3.6785860_wp, 4.2146628_wp,-1.1799399_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 7.5349716_wp,-2.4107388_wp,-1.3761355_wp, &
+      &10.5091506_wp,-2.4818118_wp,-0.6228880_wp,13.8000000_wp,-3.1196904_wp,-0.4109020_wp, &
+      &11.9254512_wp,-3.8455965_wp,-1.6740565_wp,12.1680102_wp,-4.5600465_wp,-2.1269930_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp,14.4988908_wp,-2.2920288_wp,-0.9542655_wp, &
+      &12.3903168_wp,-2.2608060_wp,-1.0929420_wp,17.9398518_wp,-3.0078288_wp,-0.1860275_wp, &
+      &14.2995786_wp,-3.4813326_wp,-1.0126635_wp,13.1814384_wp,-3.5612934_wp,-1.3488980_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 8.6978010_wp,-1.7545752_wp, 0.0000000_wp, &
+      &10.9197174_wp,-2.0207787_wp, 0.0000000_wp,14.3450532_wp,-2.6668644_wp,-0.4606255_wp, &
+      &13.0513158_wp,-3.0093279_wp,-0.4262855_wp,11.0289882_wp,-3.0709818_wp,-0.4868435_wp],&
+      & shape(p_kcn)) * evtoau * 0.01_wp
 
    !> Scaling factor of the atomic radii
    real(wp), parameter :: halogen_radscale = 1.3_wp
@@ -483,7 +545,7 @@ subroutine add_basis(calc, mol)
       izp = mol%num(isp)
       do ish = 1, nsh_id(isp)
          il = ang_shell(ish, izp)
-         ng = number_of_primitives(ish, izp, ang_idx(il) == 0)
+         ng = number_of_primitives(ish, izp)
          if (ang_idx(il) > 0) then
             ortho(ish) = ang_idx(il)
          else
@@ -504,33 +566,6 @@ subroutine add_basis(calc, mol)
 
 end subroutine add_basis
 
-pure function number_of_primitives(ish, izp, valence) result(nprim)
-   integer, intent(in) :: ish
-   integer, intent(in) :: izp
-   logical, intent(in) :: valence
-   integer :: nprim
-
-   nprim = 0
-   if (izp <= 2) then
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = merge(4, 3, valence)
-      case(1:)
-         nprim = 3
-      end select
-   else
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = merge(6, 3, principal_quantum_number(ish, izp) > 5 .or. valence)
-      case(1)
-         nprim = 6
-      case(2:)
-         nprim = 4
-      end select
-   end if
-
-end function number_of_primitives
-
 subroutine add_hamiltonian(calc, mol)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
@@ -546,7 +581,6 @@ subroutine add_dispersion(calc, mol)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
 
-   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.4_wp, a1 = 0.63_wp, a2 = 5.0_wp, s9 = 0.0_wp
    type(d3_dispersion), allocatable :: tmp
 
    allocate(tmp)
@@ -574,7 +608,7 @@ subroutine add_repulsion(calc, mol)
    allocate(calc%repulsion)
    alpha = rep_alpha(mol%num)
    zeff = rep_zeff(mol%num)
-   call new_repulsion(calc%repulsion, mol, alpha, zeff, 1.5_wp, 1.5_wp, 1.0_wp)
+   call new_repulsion(calc%repulsion, mol, alpha, zeff, rep_kexp, rep_kexp, rep_rexp)
 end subroutine add_repulsion
 
 subroutine add_coulomb(calc, mol)
@@ -588,7 +622,7 @@ subroutine add_coulomb(calc, mol)
    allocate(calc%coulomb)
    allocate(calc%coulomb%es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, 2.0_wp, hardness, harmonic_average, &
+   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, harmonic_average, &
       & calc%bas%nsh_id)
 
    allocate(calc%coulomb%es3)
@@ -639,7 +673,6 @@ pure function new_gfn1_h0spec(mol) result(self)
    !> Instance of the Hamiltonian specification
    type(gfn1_h0spec) :: self
 
-   real(wp), parameter :: kshell(0:2) = [1.85_wp, 2.25_wp, 2.0_wp]
    integer :: isp, jsp, il, jl, izp, ish
    integer :: ang_idx(0:2)
 
@@ -652,11 +685,9 @@ pure function new_gfn1_h0spec(mol) result(self)
 
    do il = 0, 2
       do jl = 0, 2
-         self%kshell(jl, il) = 0.5_wp * (kshell(jl) + kshell(il))
+         self%kshell(jl, il) = kshell(jl, il)
       end do
    end do
-   self%kshell(0, 1) = 2.08_wp
-   self%kshell(1, 0) = 2.08_wp
 
    allocate(self%valence(3, mol%nid))
    do isp = 1, mol%nid
@@ -731,8 +762,6 @@ subroutine get_hscale(self, mol, bas, hscale)
    !> Scaling parameters for the Hamiltonian elements
    real(wp), intent(out) :: hscale(:, :, :, :)
 
-   real(wp), parameter :: enscale = -7.0e-3_wp
-   real(wp), parameter :: kdiff = 2.85_wp
    integer :: isp, jsp, izp, jzp, ish, jsh, il, jl
    real(wp) :: den, enp, km
 
@@ -800,22 +829,14 @@ subroutine get_cnshift(self, mol, bas, kcn)
    !> Coordination number dependent shift
    real(wp), intent(out) :: kcn(:, :)
 
-   integer :: isp, izp, ish, il, ik
-
-   real(wp), parameter :: cnshell(2, 0:2) = reshape(&
-      &[0.6_wp, 0.6_wp,-0.3_wp,-0.3_wp,-0.5_wp, 0.5_wp], &
-      & shape(cnshell)) * 0.01_wp
+   integer :: isp, izp, ish
 
    kcn(:, :) = 0.0_wp
    do isp = 1, mol%nid
       izp = mol%num(isp)
-      ik = gfn1_kinds(izp)
-      if (ik > 0) then
-         do ish = 1, bas%nsh_id(isp)
-            il = bas%cgto(ish, isp)%ang
-            kcn(ish, isp) = - p_selfenergy(ish, izp) * cnshell(ik, il)
-         end do
-      end if
+      do ish = 1, bas%nsh_id(isp)
+         kcn(ish, isp) = p_kcn(ish, izp)
+      end do
    end do
 end subroutine get_cnshift
 
@@ -871,27 +892,113 @@ subroutine get_reference_occ(self, mol, bas, refocc)
 end subroutine get_reference_occ
 
 
-subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Basis set information
-   type(basis_type), intent(in) :: bas
-   !> Shell resolved Hubbard derivatives
-   real(wp), allocatable, intent(out) :: hubbard_derivs(:, :)
+subroutine export_gfn1_param(param)
+   type(param_record), intent(out) :: param
 
-   real(wp), parameter :: shell_hubbard_derivs(0:2) = [1.0_wp, 0.5_wp, 0.25_wp]
+   integer :: izp, jzp, i, il, jl
 
-   integer :: isp, izp, ish, il
+   param%version = 1
+   param%name = "GFN1-xTB"
+   param%reference = "S. Grimme, C. Bannwarth, P. Shushkov, J. Chem. Theory Comput., &
+      &2017, 13, 1989-2009. DOI: 10.1021/acs.jctc.7b00118"
 
-   allocate(hubbard_derivs(maxval(bas%nsh_id), mol%nid))
-   hubbard_derivs(:, :) = 0.0_wp
-   do isp = 1, mol%nid
-      izp = mol%num(isp)
-      do ish = 1, bas%nsh_id(isp)
-         il = bas%cgto(ish, isp)%ang
-         hubbard_derivs(ish, isp) = p_hubbard_derivs(izp) * shell_hubbard_derivs(il)
+   associate(par => param%hamiltonian)
+      par%cn = "exp"
+      par%enscale = enscale
+      par%wexp = 0.0_wp
+      par%lmax = 2
+      do il = 0, 4
+         do jl = 0, 4
+            par%ksh(jl, il) = kshell(jl, il)
+         end do
       end do
+      par%kpol = kdiff
+      par%sym = to_symbol([(izp, izp=1, max_elem)])
+      allocate(par%kpair(max_elem, max_elem))
+      do izp = 1, max_elem
+         do jzp = 1, max_elem
+            par%kpair(jzp, izp) = get_pair_param(jzp, izp)
+         end do
+      end do
+   end associate
+
+   allocate(param%dispersion)
+   associate(par => param%dispersion)
+      par%s6 = s6
+      par%s8 = s8
+      par%a1 = a1
+      par%a2 = a2
+      par%s9 = s9
+      par%sc = .false.
+      par%d3 = .true.
+   end associate
+
+   allocate(param%repulsion)
+   associate(par => param%repulsion)
+      par%kexp = rep_kexp
+      par%klight = rep_kexp
+   end associate
+
+   allocate(param%charge)
+   associate(par => param%charge)
+      par%gexp = gexp
+      par%average = "harmonic"
+   end associate
+
+   allocate(param%thirdorder)
+   associate(par => param%thirdorder)
+      par%lmax = 0
+      par%shell = .false.
+   end associate
+
+   allocate(param%record(max_elem))
+   do izp = 1, max_elem
+      associate(par => param%record(izp))
+         par%sym = to_symbol(izp)
+         par%num = izp
+
+         par%zeff = rep_zeff(izp)
+         par%alpha = rep_alpha(izp)
+
+         par%nsh = nshell(izp)
+         allocate(par%lsh(par%nsh))
+         allocate(par%pqn(par%nsh))
+         allocate(par%ngauss(par%nsh))
+         allocate(par%levels(par%nsh))
+         allocate(par%slater(par%nsh))
+         allocate(par%refocc(par%nsh))
+         allocate(par%kcn(par%nsh))
+         allocate(par%shpoly(par%nsh))
+         allocate(par%lgam(par%nsh))
+
+         par%lsh = ang_shell(:par%nsh, izp)
+         par%pqn = principal_quantum_number(:par%nsh, izp)
+         par%ngauss = number_of_primitives(:par%nsh, izp)
+         par%levels = p_selfenergy(:par%nsh, izp)
+         par%slater = slater_exponent(:par%nsh, izp)
+         par%refocc = reference_occ(par%lsh, izp)
+         par%kcn = p_kcn(:par%nsh, izp)
+         par%shpoly = p_shpoly(par%lsh, izp)
+
+         par%gam = chemical_hardness(izp)
+         par%lgam = shell_hardness(par%lsh, izp)
+
+         par%gam3 = p_hubbard_derivs(izp)
+
+         par%mpvcn = 0.0_wp
+         par%mprad = 0.0_wp
+         par%dkernel = 0.0_wp
+         par%qkernel = 0.0_wp
+      end associate
    end do
-end subroutine get_hubbard_derivs
+
+
+end subroutine export_gfn1_param
+
+elemental function kshell(k, l)
+   integer, intent(in) :: k, l
+   real(wp) :: kshell
+   kshell = merge(2.08_wp, (kdiag(l) + kdiag(k))/2, k==0.and.l==1.or.l==0.and.k==1)
+end function kshell
 
 end module tblite_xtb_gfn1

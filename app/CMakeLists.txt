@@ -16,6 +16,10 @@
 
 add_executable(
   "${PROJECT_NAME}-exe"
+  "argument.f90"
+  "cli.f90"
+  "cli_help.f90"
+  "driver.f90"
   "main.f90"
 )
 set_target_properties(

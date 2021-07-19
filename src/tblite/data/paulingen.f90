@@ -15,7 +15,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> Pauling electronegativities
-module tblite_param_paulingen
+module tblite_data_paulingen
    use mctc_env, only : wp
    use mctc_io_symbols, only : to_number
    implicit none
@@ -96,4 +96,4 @@ elemental function get_pauling_en_number(number) result(en)
 end function get_pauling_en_number
 
 
-end module tblite_param_paulingen
+end module tblite_data_paulingen

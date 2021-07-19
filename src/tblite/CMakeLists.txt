@@ -23,6 +23,7 @@ add_subdirectory("classical")
 add_subdirectory("context")
 add_subdirectory("coulomb")
 add_subdirectory("disp")
+add_subdirectory("data")
 add_subdirectory("integral")
 add_subdirectory("lapack")
 add_subdirectory("ncoord")
@@ -42,7 +43,9 @@ list(
   "${dir}/disp.f90"
   "${dir}/lapack.f90"
   "${dir}/ncoord.f90"
+  "${dir}/param.f90"
   "${dir}/repulsion.f90"
+  "${dir}/toml.f90"
   "${dir}/version.f90"
   "${dir}/wignerseitz.f90"
 )

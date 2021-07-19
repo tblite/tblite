@@ -17,14 +17,16 @@
 module tblite_xtb_ipea1
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_symbols, only : to_symbol
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
+   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
    use tblite_ncoord, only : new_ncoord
-   use tblite_param_paulingen, only : get_pauling_en
+   use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
@@ -33,10 +35,17 @@ module tblite_xtb_ipea1
    private
 
    public :: new_ipea1_calculator
-   public :: ipea1_h0spec
+   public :: ipea1_h0spec, export_ipea1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3
+
+   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.4_wp, a1 = 0.63_wp, a2 = 5.0_wp, s9 = 0.0_wp
+   real(wp), parameter :: rep_kexp = 1.5_wp, rep_rexp = 1.0_wp
+   real(wp), parameter :: gexp = 1.0_wp
+   real(wp), parameter :: kdiag(0:4) = [2.15_wp, 2.30_wp, spread(2.0_wp, 1, 3)]
+   real(wp), parameter :: enscale = -7.0e-3_wp
+   real(wp), parameter :: kdiff = 2.25_wp
 
    !> Use older eV to Eh conversion for consistency
    real(wp), parameter :: evtoau = 1.0_wp / 27.21138505_wp
@@ -212,6 +221,22 @@ module tblite_xtb_ipea1
       & 5, 6, 6,  5, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 5, &
       & 6, 6, 5,  6, 6, 5], shape(principal_quantum_number))
 
+   !> Number of primitive gaussians per shell
+   integer, parameter :: number_of_primitives(max_shell, max_elem) = reshape([&
+      & 4, 3, 0,  4, 0, 0,  6, 6, 0,  6, 6, 0,  6, 6, 3,  6, 6, 3,  6, 6, 3, &
+      & 6, 6, 3,  6, 6, 3,  6, 6, 4,  6, 6, 0,  6, 6, 0,  6, 6, 4,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 0,  6, 6, 4,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  6, 6, 0,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 0,  6, 6, 4,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  6, 6, 0,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 0,  6, 6, 4, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6,  4, 6, 6, &
+      & 4, 6, 6,  4, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 4, &
+      & 6, 6, 4,  6, 6, 4], shape(number_of_primitives))
+
    !> Shell polynomials to scale Hamiltonian elements
    real(wp), parameter :: p_shpoly(0:2, max_elem) = 0.01_wp * reshape([&
       &  0.000000_wp,  0.000000_wp,  0.000000_wp,   8.084149_wp,  0.000000_wp,  0.000000_wp, &
@@ -385,6 +410,53 @@ module tblite_xtb_ipea1
       &-21.752193_wp,-10.031093_wp, -0.852571_wp, -18.381647_wp,-10.236606_wp, -0.973687_wp],&
       & shape(p_selfenergy))
 
+   !> CN dependence of the level energies
+   real(wp), parameter :: p_kcn(max_shell, max_elem) = reshape([&
+      &10.5219410_wp, 3.5601510_wp, 0.0000000_wp,22.1210150_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp,15.9681000_wp,-2.9331321_wp, 3.3669900_wp, &
+      &24.0407760_wp,-4.3279560_wp, 5.8822780_wp,26.6951200_wp,-4.8043371_wp, 6.6220580_wp, &
+      &27.5659980_wp,-5.2317714_wp, 6.1205000_wp,31.1674870_wp,-5.4806925_wp, 0.7439920_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp,14.5061280_wp,-2.2672011_wp,-1.2540565_wp, &
+      &16.9542060_wp,-2.9600178_wp,-0.4985760_wp,24.4888210_wp,-3.6409920_wp,-0.8980350_wp, &
+      &24.4521630_wp,-4.0396353_wp,-0.9180325_wp,31.3954270_wp,-5.2238703_wp,-0.5596995_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 3.3005445_wp, 3.5418030_wp,-0.5061627_wp, 3.0855780_wp, 4.6472800_wp,-0.1818003_wp, &
+      & 3.1571000_wp,12.8341590_wp, 0.0107376_wp, 4.0475845_wp, 6.6627370_wp,-0.7942983_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp,15.7952870_wp,-3.0150015_wp,-2.1105485_wp, &
+      &21.3975160_wp,-2.9150067_wp,-1.1260225_wp,23.0000000_wp,-3.4061262_wp,-0.4894610_wp, &
+      &19.8757520_wp,-3.8455965_wp,-1.6740565_wp,20.2800170_wp,-4.5600465_wp,-2.1269930_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp,22.2419450_wp,-2.3403795_wp,-1.6534815_wp, &
+      &19.9599120_wp,-2.3111286_wp,-1.0126335_wp,27.7985300_wp,-3.1488426_wp,-0.5402320_wp, &
+      &23.8326310_wp,-3.4813326_wp,-1.0126635_wp,21.9690640_wp,-3.5612934_wp,-1.3488980_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 8.2646050_wp,-1.9976952_wp, 0.0000000_wp, &
+      &18.1995290_wp,-2.5224168_wp, 0.0000000_wp,23.9084220_wp,-2.6668644_wp,-0.4606255_wp, &
+      &21.7521930_wp,-3.0093279_wp,-0.4262855_wp,18.3816470_wp,-3.0709818_wp,-0.4868435_wp],&
+      & shape(p_kcn)) * evtoau * 0.01_wp
+
    integer, parameter :: ipea1_kinds(max_elem) = [&
       &  1,                                                 1, &! H-He
       &  0, 0,                               0, 1, 1, 1, 1, 1, &! Li-Ne
@@ -454,7 +526,7 @@ subroutine add_basis(calc, mol)
       izp = mol%num(isp)
       do ish = 1, nsh_id(isp)
          il = ang_shell(ish, izp)
-         ng = number_of_primitives(ish, izp, ang_idx(il) == 0)
+         ng = number_of_primitives(ish, izp)
          if (ang_idx(il) > 0) then
             ortho(ish) = ang_idx(il)
          else
@@ -475,33 +547,6 @@ subroutine add_basis(calc, mol)
 
 end subroutine add_basis
 
-pure function number_of_primitives(ish, izp, valence) result(nprim)
-   integer, intent(in) :: ish
-   integer, intent(in) :: izp
-   logical, intent(in) :: valence
-   integer :: nprim
-
-   nprim = 0
-   if (izp <= 2) then
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = merge(4, 3, valence)
-      case(1:)
-         nprim = 3
-      end select
-   else
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = merge(6, 3, principal_quantum_number(ish, izp) > 5 .or. valence)
-      case(1)
-         nprim = 6
-      case(2:)
-         nprim = 4
-      end select
-   end if
-
-end function number_of_primitives
-
 subroutine add_hamiltonian(calc, mol)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
@@ -517,7 +562,6 @@ subroutine add_dispersion(calc, mol)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
 
-   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.4_wp, a1 = 0.63_wp, a2 = 5.0_wp, s9 = 0.0_wp
    type(d3_dispersion), allocatable :: tmp
 
    allocate(tmp)
@@ -545,7 +589,7 @@ subroutine add_repulsion(calc, mol)
    allocate(calc%repulsion)
    alpha = rep_alpha(mol%num)
    zeff = rep_zeff(mol%num)
-   call new_repulsion(calc%repulsion, mol, alpha, zeff, 1.5_wp, 1.5_wp, 1.0_wp)
+   call new_repulsion(calc%repulsion, mol, alpha, zeff, rep_kexp, rep_kexp, rep_rexp)
 end subroutine add_repulsion
 
 subroutine add_coulomb(calc, mol)
@@ -559,7 +603,7 @@ subroutine add_coulomb(calc, mol)
    allocate(calc%coulomb)
    allocate(calc%coulomb%es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, 1.0_wp, hardness, harmonic_average, &
+   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, harmonic_average, &
       & calc%bas%nsh_id)
 
    allocate(calc%coulomb%es3)
@@ -596,7 +640,6 @@ pure function new_ipea1_h0spec(mol) result(self)
    !> Instance of the Hamiltonian specification
    type(ipea1_h0spec) :: self
 
-   real(wp), parameter :: kshell(0:2) = [2.15_wp, 2.30_wp, 2.0_wp]
    integer :: isp, jsp, il, jl, izp, ish
    integer :: ang_idx(0:2)
 
@@ -609,11 +652,9 @@ pure function new_ipea1_h0spec(mol) result(self)
 
    do il = 0, 2
       do jl = 0, 2
-         self%kshell(jl, il) = 0.5_wp * (kshell(jl) + kshell(il))
+         self%kshell(jl, il) = kshell(jl, il)
       end do
    end do
-   self%kshell(0, 1) = 2.25_wp
-   self%kshell(1, 0) = 2.25_wp
 
    allocate(self%valence(3, mol%nid))
    do isp = 1, mol%nid
@@ -670,8 +711,6 @@ subroutine get_hscale(self, mol, bas, hscale)
    !> Scaling parameters for the Hamiltonian elements
    real(wp), intent(out) :: hscale(:, :, :, :)
 
-   real(wp), parameter :: enscale = -7.0e-3_wp
-   real(wp), parameter :: kdiff = 2.25_wp
    integer :: isp, jsp, izp, jzp, ish, jsh, il, jl
    real(wp) :: den, enp, km
 
@@ -739,22 +778,14 @@ subroutine get_cnshift(self, mol, bas, kcn)
    !> Coordination number dependent shift
    real(wp), intent(out) :: kcn(:, :)
 
-   integer :: isp, izp, ish, il, ik
-
-   real(wp), parameter :: cnshell(2, 0:2) = reshape(&
-      &[1.0_wp, 1.0_wp,-0.3_wp,-0.3_wp,-0.5_wp, 0.5_wp], &
-      & shape(cnshell)) * 0.01_wp
+   integer :: isp, izp, ish
 
    kcn(:, :) = 0.0_wp
    do isp = 1, mol%nid
       izp = mol%num(isp)
-      ik = ipea1_kinds(izp)
-      if (ik > 0) then
-         do ish = 1, bas%nsh_id(isp)
-            il = bas%cgto(ish, isp)%ang
-            kcn(ish, isp) = - p_selfenergy(ish, izp) * cnshell(ik, il)
-         end do
-      end if
+      do ish = 1, bas%nsh_id(isp)
+         kcn(ish, isp) = p_kcn(ish, izp)
+      end do
    end do
 end subroutine get_cnshift
 
@@ -832,5 +863,113 @@ subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
       end do
    end do
 end subroutine get_hubbard_derivs
+
+
+subroutine export_ipea1_param(param)
+   type(param_record), intent(out) :: param
+
+   integer :: izp, jzp, i, il, jl
+
+   param%version = 1
+   param%name = "IPEA1-xTB"
+   param%reference = "V. Asgeirsson, C. Bauer and S. Grimme, Chem. Sci., &
+      &2017, 8, 4879. DOI: 10.1039/c7sc00601b"
+
+   associate(par => param%hamiltonian)
+      par%cn = "exp"
+      par%enscale = enscale
+      par%wexp = 0.0_wp
+      par%lmax = 2
+      do il = 0, 4
+         do jl = 0, 4
+            par%ksh(jl, il) = kshell(jl, il)
+         end do
+      end do
+      par%kpol = kdiff
+      par%sym = to_symbol([(izp, izp=1, max_elem)])
+      allocate(par%kpair(max_elem, max_elem))
+      do izp = 1, max_elem
+         do jzp = 1, max_elem
+            par%kpair(jzp, izp) = get_pair_param(jzp, izp)
+         end do
+      end do
+   end associate
+
+   allocate(param%dispersion)
+   associate(par => param%dispersion)
+      par%s6 = s6
+      par%s8 = s8
+      par%a1 = a1
+      par%a2 = a2
+      par%s9 = s9
+      par%sc = .false.
+      par%d3 = .true.
+   end associate
+
+   allocate(param%repulsion)
+   associate(par => param%repulsion)
+      par%kexp = rep_kexp
+      par%klight = rep_kexp
+   end associate
+
+   allocate(param%charge)
+   associate(par => param%charge)
+      par%gexp = gexp
+      par%average = "harmonic"
+   end associate
+
+   allocate(param%thirdorder)
+   associate(par => param%thirdorder)
+      par%lmax = 0
+      par%shell = .false.
+   end associate
+
+   allocate(param%record(max_elem))
+   do izp = 1, max_elem
+      associate(par => param%record(izp))
+         par%sym = to_symbol(izp)
+         par%num = izp
+
+         par%zeff = rep_zeff(izp)
+         par%alpha = rep_alpha(izp)
+
+         par%nsh = nshell(izp)
+         allocate(par%lsh(par%nsh))
+         allocate(par%pqn(par%nsh))
+         allocate(par%ngauss(par%nsh))
+         allocate(par%levels(par%nsh))
+         allocate(par%slater(par%nsh))
+         allocate(par%refocc(par%nsh))
+         allocate(par%kcn(par%nsh))
+         allocate(par%shpoly(par%nsh))
+         allocate(par%lgam(par%nsh))
+
+         par%lsh = ang_shell(:par%nsh, izp)
+         par%pqn = principal_quantum_number(:par%nsh, izp)
+         par%ngauss = number_of_primitives(:par%nsh, izp)
+         par%levels = p_selfenergy(:par%nsh, izp)
+         par%slater = slater_exponent(:par%nsh, izp)
+         par%refocc = reference_occ(par%lsh, izp)
+         par%kcn = p_kcn(:par%nsh, izp)
+         par%shpoly = p_shpoly(par%lsh, izp)
+
+         par%gam = chemical_hardness(izp)
+         par%lgam = shell_hardness(par%lsh, izp)
+
+         par%gam3 = p_hubbard_derivs(izp)
+
+         par%mpvcn = 0.0_wp
+         par%mprad = 0.0_wp
+         par%dkernel = 0.0_wp
+         par%qkernel = 0.0_wp
+      end associate
+   end do
+end subroutine export_ipea1_param
+
+elemental function kshell(k, l)
+   integer, intent(in) :: k, l
+   real(wp) :: kshell
+   kshell = merge(2.25_wp, (kdiag(l) + kdiag(k))/2, k==0.and.l==1.or.l==0.and.k==1)
+end function kshell
 
 end module tblite_xtb_ipea1

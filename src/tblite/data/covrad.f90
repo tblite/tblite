@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-module tblite_param_covrad
+module tblite_data_covrad
    use mctc_env, only : wp
    use mctc_io_convert, only : aatoau
    use mctc_io_symbols, only : to_number
@@ -99,4 +99,4 @@ elemental function get_covalent_rad_num(num) result(rad)
 end function get_covalent_rad_num
 
 
-end module tblite_param_covrad
+end module tblite_data_covrad

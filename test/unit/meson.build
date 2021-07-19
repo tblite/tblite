@@ -43,6 +43,7 @@ tests = [
   'ncoord-gfn',
   'repulsion',
   'slater-expansion',
+  'xtb-param',
 ]
 
 test_srcs = files(

@@ -17,14 +17,16 @@
 module tblite_xtb_gfn2
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_symbols, only : to_symbol
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_coulomb_charge, only : new_effective_coulomb, arithmetic_average
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
+   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d4_dispersion, new_d4_dispersion
    use tblite_ncoord, only : new_ncoord
-   use tblite_param_paulingen, only : get_pauling_en
+   use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
@@ -33,7 +35,7 @@ module tblite_xtb_gfn2
    private
 
    public :: new_gfn2_calculator
-   public :: gfn2_h0spec
+   public :: gfn2_h0spec, export_gfn2_param
 
 
    integer, parameter :: max_elem = 86
@@ -41,6 +43,16 @@ module tblite_xtb_gfn2
 
    !> Use older eV to Eh conversion for consistency
    real(wp), parameter :: evtoau = 1.0_wp / 27.21138505_wp
+
+   !> Dispersion parameters
+   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.7_wp, a1 = 0.52_wp, a2 = 5.0_wp, s9 = 5.0_wp
+
+   !> Repulsion parameters
+   real(wp), parameter :: rep_kexp = 1.5_wp, rep_kexp_light = 1.0_wp, rep_rexp = 1.0_wp
+
+   real(wp), parameter :: wexp = 0.5_wp
+   real(wp), parameter :: enscale = 2.0e-2_wp
+   real(wp), parameter :: kdiag(0:4) = [1.85_wp, 2.23_wp, spread(2.23_wp, 1, 3)]
 
    !> Exponents of repulsion term for GFN2-xTB repulsion
    real(wp), parameter :: rep_alpha(max_elem) = [&
@@ -83,6 +95,8 @@ module tblite_xtb_gfn2
       & 62.809871_wp, 56.045639_wp, 53.881425_wp, 14.711475_wp, 51.577544_wp, &
       & 58.801614_wp,102.368258_wp,132.896832_wp, 52.301232_wp, 81.771063_wp, &
       &128.133580_wp]
+
+   real(wp), parameter :: gexp = 2.0_wp
 
    real(wp), parameter :: chemical_hardness(max_elem) = [&
       & 0.405771_wp, 0.642029_wp, 0.245006_wp, 0.684789_wp, 0.513556_wp, &
@@ -150,6 +164,8 @@ module tblite_xtb_gfn2
       & 0.0_wp,-0.2532073_wp, 0.2500000_wp, 0.0_wp,-0.0302388_wp,-0.2300000_wp],&
       & shape(shell_hardness))
 
+   real(wp), parameter :: shell_hubbard_derivs(0:4) = [1.0_wp, 0.5_wp, spread(0.25_wp, 1, 3)]
+
    real(wp), parameter :: p_hubbard_derivs(max_elem) = 0.1_wp * [&
       & 0.800000_wp, 2.000000_wp, 1.303821_wp, 0.574239_wp, 0.946104_wp, &
       & 1.500000_wp,-0.639780_wp,-0.517134_wp, 1.426212_wp, 0.500000_wp, &
@@ -209,6 +225,22 @@ module tblite_xtb_gfn2
       & 5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6,  5, 6, 6, &
       & 5, 6, 6,  5, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0, &
       & 6, 6, 5,  6, 6, 5], shape(principal_quantum_number))
+
+   !> Number of primitive gaussians per shell
+   integer, parameter :: number_of_primitives(max_shell, max_elem) = reshape([&
+      & 3, 0, 0,  3, 4, 0,  4, 4, 0,  4, 4, 0,  4, 4, 0,  4, 4, 0,  4, 4, 0, &
+      & 4, 4, 0,  4, 4, 0,  4, 4, 3,  4, 4, 0,  4, 4, 3,  4, 4, 3,  4, 4, 3, &
+      & 4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 0,  4, 4, 3,  3, 4, 4, &
+      & 3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4, &
+      & 3, 4, 4,  4, 4, 0,  4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 3, &
+      & 4, 4, 3,  4, 4, 0,  4, 4, 3,  3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4, &
+      & 3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4,  3, 4, 4,  4, 4, 0,  4, 4, 3, &
+      & 4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 3,  4, 4, 3,  6, 6, 0,  6, 6, 3, &
+      & 3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6, &
+      & 3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6, &
+      & 3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6,  3, 6, 6, &
+      & 3, 6, 6,  3, 6, 6,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0,  6, 6, 0, &
+      & 6, 6, 3,  6, 6, 3], shape(number_of_primitives))
 
    !> Shell polynomials to scale Hamiltonian elements
    real(wp), parameter :: p_shpoly(0:2, max_elem) = reshape([&
@@ -429,153 +461,8 @@ module tblite_xtb_gfn2
       &-17.050229_wp, -9.499822_wp,-0.096063_wp,-21.000000_wp,-10.496406_wp,-1.415056_wp],&
       & shape(p_selfenergy)) * evtoau
 
-
-   !> Specification of the
-   type, extends(tb_h0spec) :: gfn2_h0spec
-      real(wp) :: kshell(0:2, 0:2)
-      real(wp), allocatable :: kpair(:, :)
-   contains
-      !> Generator for the self energy / atomic levels of the Hamiltonian
-      procedure :: get_selfenergy
-      !> Generator for the coordination number dependent shift of the self energy
-      procedure :: get_cnshift
-      !> Generator for the enhancement factor to for scaling Hamiltonian elements
-      procedure :: get_hscale
-      !> Generator for the polynomial parameters for the distant dependent scaling
-      procedure :: get_shpoly
-      !> Generator for the reference occupation numbers of the atoms
-      procedure :: get_reference_occ
-   end type gfn2_h0spec
-
-   interface gfn2_h0spec
-      module procedure :: new_gfn2_h0spec
-   end interface gfn2_h0spec
-
-contains
-
-
-subroutine new_gfn2_calculator(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(out) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   call add_basis(calc, mol)
-   call add_ncoord(calc, mol)
-   call add_hamiltonian(calc, mol)
-   call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol)
-   call add_coulomb(calc, mol)
-
-end subroutine new_gfn2_calculator
-
-subroutine add_basis(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   integer :: isp, izp, ish, stat, ng
-   integer, allocatable :: nsh_id(:)
-   type(cgto_type), allocatable :: cgto(:, :)
-
-   nsh_id = nshell(mol%num)
-   allocate(cgto(maxval(nsh_id), mol%nid))
-   do isp = 1, mol%nid
-      izp = mol%num(isp)
-      do ish = 1, nsh_id(isp)
-         ng = number_of_primitives(ish, izp)
-         call slater_to_gauss(ng, principal_quantum_number(ish, izp), ang_shell(ish, izp), &
-            & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
-      end do
-   end do
-
-   call new_basis(calc%bas, mol, nsh_id, cgto, 1.0_wp)
-
-end subroutine add_basis
-
-pure function number_of_primitives(ish, izp) result(nprim)
-   integer, intent(in) :: ish
-   integer, intent(in) :: izp
-   integer :: nprim
-
-   nprim = 0
-   if (izp <= 2) then
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = 3
-      case(1:)
-         nprim = 4
-      end select
-   else
-      select case(ang_shell(ish, izp))
-      case(0)
-         nprim = merge(6, 4, principal_quantum_number(ish, izp) > 5)
-      case(1)
-         nprim = merge(6, 4, principal_quantum_number(ish, izp) > 5)
-      case(2)
-         nprim = 3
-      case(3:)
-         nprim = 4
-      end select
-   end if
-
-end function number_of_primitives
-
-subroutine add_ncoord(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   call new_ncoord(calc%ncoord, mol, cn_type="gfn")
-end subroutine add_ncoord
-
-subroutine add_hamiltonian(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn2_h0spec(mol))
-end subroutine add_hamiltonian
-
-subroutine add_dispersion(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   real(wp), parameter :: s6 = 1.0_wp, s8 = 2.7_wp, a1 = 0.52_wp, a2 = 5.0_wp, s9 = 5.0_wp
-   type(d4_dispersion), allocatable :: tmp
-
-   allocate(tmp)
-   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
-   call move_alloc(tmp, calc%dispersion)
-end subroutine add_dispersion
-
-subroutine add_repulsion(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   real(wp), allocatable :: alpha(:), zeff(:)
-
-   allocate(calc%repulsion)
-   alpha = rep_alpha(mol%num)
-   zeff = rep_zeff(mol%num)
-   call new_repulsion(calc%repulsion, mol, alpha, zeff, 1.5_wp, 1.0_wp, 1.0_wp)
-end subroutine add_repulsion
-
-subroutine add_coulomb(calc, mol)
-   !> Instance of the xTB evaluator
-   type(xtb_calculator), intent(inout) :: calc
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   real(wp), parameter :: kdmp3 = 3.0_wp, kdmp5 = 4.0_wp
-   real(wp), parameter :: shift = 1.2_wp, kexp = 4.0_wp, rmax = 5.0_wp
+   real(wp), parameter :: mp_dmp3 = 3.0_wp, mp_dmp5 = 4.0_wp
+   real(wp), parameter :: mp_shift = 1.2_wp, mp_kexp = 4.0_wp, mp_rmax = 5.0_wp
    !> Dipole exchange-correlation kernel
    real(wp), parameter :: p_dkernel(*) = 0.01_wp * [&
       & 5.563889_wp,-1.000000_wp,-0.500000_wp,-0.613341_wp,-0.481186_wp, &
@@ -649,13 +536,129 @@ subroutine add_coulomb(calc, mol)
       & 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, 5.0_wp, &
       & 5.0_wp]
 
+
+   !> Specification of the
+   type, extends(tb_h0spec) :: gfn2_h0spec
+      real(wp) :: kshell(0:2, 0:2)
+      real(wp), allocatable :: kpair(:, :)
+   contains
+      !> Generator for the self energy / atomic levels of the Hamiltonian
+      procedure :: get_selfenergy
+      !> Generator for the coordination number dependent shift of the self energy
+      procedure :: get_cnshift
+      !> Generator for the enhancement factor to for scaling Hamiltonian elements
+      procedure :: get_hscale
+      !> Generator for the polynomial parameters for the distant dependent scaling
+      procedure :: get_shpoly
+      !> Generator for the reference occupation numbers of the atoms
+      procedure :: get_reference_occ
+   end type gfn2_h0spec
+
+   interface gfn2_h0spec
+      module procedure :: new_gfn2_h0spec
+   end interface gfn2_h0spec
+
+contains
+
+
+subroutine new_gfn2_calculator(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(out) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   call add_basis(calc, mol)
+   call add_ncoord(calc, mol)
+   call add_hamiltonian(calc, mol)
+   call add_repulsion(calc, mol)
+   call add_dispersion(calc, mol)
+   call add_coulomb(calc, mol)
+
+end subroutine new_gfn2_calculator
+
+subroutine add_basis(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   integer :: isp, izp, ish, stat, ng
+   integer, allocatable :: nsh_id(:)
+   type(cgto_type), allocatable :: cgto(:, :)
+
+   nsh_id = nshell(mol%num)
+   allocate(cgto(maxval(nsh_id), mol%nid))
+   do isp = 1, mol%nid
+      izp = mol%num(isp)
+      do ish = 1, nsh_id(isp)
+         ng = number_of_primitives(ish, izp)
+         call slater_to_gauss(ng, principal_quantum_number(ish, izp), ang_shell(ish, izp), &
+            & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
+      end do
+   end do
+
+   call new_basis(calc%bas, mol, nsh_id, cgto, 1.0_wp)
+
+end subroutine add_basis
+
+subroutine add_ncoord(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   call new_ncoord(calc%ncoord, mol, cn_type="gfn")
+end subroutine add_ncoord
+
+subroutine add_hamiltonian(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn2_h0spec(mol))
+end subroutine add_hamiltonian
+
+subroutine add_dispersion(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   type(d4_dispersion), allocatable :: tmp
+
+   allocate(tmp)
+   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
+   call move_alloc(tmp, calc%dispersion)
+end subroutine add_dispersion
+
+subroutine add_repulsion(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   real(wp), allocatable :: alpha(:), zeff(:)
+
+   allocate(calc%repulsion)
+   alpha = rep_alpha(mol%num)
+   zeff = rep_zeff(mol%num)
+   call new_repulsion(calc%repulsion, mol, alpha, zeff, rep_kexp, rep_kexp_light, rep_rexp)
+end subroutine add_repulsion
+
+subroutine add_coulomb(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
    real(wp), allocatable :: dkernel(:), qkernel(:), rad(:), vcn(:)
 
    allocate(calc%coulomb)
    allocate(calc%coulomb%es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, 2.0_wp, hardness, arithmetic_average, &
+   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, arithmetic_average, &
       & calc%bas%nsh_id)
 
    allocate(calc%coulomb%es3)
@@ -667,8 +670,8 @@ subroutine add_coulomb(calc, mol)
    qkernel = p_qkernel(mol%num)
    rad = p_rad(mol%num)
    vcn = p_vcn(mol%num)
-   call new_damped_multipole(calc%coulomb%aes2, mol, kdmp3, kdmp5, dkernel, qkernel, &
-      & shift, kexp, rmax, rad, vcn)
+   call new_damped_multipole(calc%coulomb%aes2, mol, mp_dmp3, mp_dmp5, dkernel, qkernel, &
+      & mp_shift, mp_kexp, mp_rmax, rad, vcn)
 
 end subroutine add_coulomb
 
@@ -700,7 +703,6 @@ pure function new_gfn2_h0spec(mol) result(self)
    !> Instance of the Hamiltonian specification
    type(gfn2_h0spec) :: self
 
-   real(wp), parameter :: kshell(0:2) = [1.85_wp, 2.23_wp, 2.23_wp]
    integer :: il, jl
 
    allocate(self%kpair(mol%nid, mol%nid))
@@ -708,13 +710,9 @@ pure function new_gfn2_h0spec(mol) result(self)
 
    do il = 0, 2
       do jl = 0, 2
-         self%kshell(jl, il) = 0.5_wp * (kshell(jl) + kshell(il))
+         self%kshell(jl, il) = kshell(jl, il)
       end do
    end do
-   self%kshell(0, 2) = 2.0_wp
-   self%kshell(2, 0) = 2.0_wp
-   self%kshell(1, 2) = 2.0_wp
-   self%kshell(2, 1) = 2.0_wp
 
 end function new_gfn2_h0spec
 
@@ -730,8 +728,6 @@ subroutine get_hscale(self, mol, bas, hscale)
    !> Scaling parameters for the Hamiltonian elements
    real(wp), intent(out) :: hscale(:, :, :, :)
 
-   real(wp), parameter :: wexp = 0.5_wp
-   real(wp), parameter :: enscale = 2.0e-2_wp
    integer :: isp, jsp, izp, jzp, ish, jsh, il, jl
    real(wp) :: zi, zj, zij, den, enp, km
 
@@ -862,8 +858,6 @@ subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
    !> Shell resolved Hubbard derivatives
    real(wp), allocatable, intent(out) :: hubbard_derivs(:, :)
 
-   real(wp), parameter :: shell_hubbard_derivs(0:2) = [1.0_wp, 0.5_wp, 0.25_wp]
-
    integer :: isp, izp, ish, il
 
    allocate(hubbard_derivs(maxval(bas%nsh_id), mol%nid))
@@ -876,5 +870,118 @@ subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
       end do
    end do
 end subroutine get_hubbard_derivs
+
+
+subroutine export_gfn2_param(param)
+   type(param_record), intent(out) :: param
+
+   integer :: izp, i, il, jl
+
+   param%version = 1
+   param%name = "GFN2-xTB"
+   param%reference = "C. Bannwarth, S. Ehlert and S. Grimme., J. Chem. Theory Comput., &
+      &2019, 15, 1652-1671. DOI: 10.1021/acs.jctc.8b01176"
+
+   associate(par => param%hamiltonian)
+      par%cn = "gfn"
+      par%enscale = enscale
+      par%wexp = wexp
+      par%lmax = 2
+      do il = 0, 4
+         do jl = 0, 4
+            par%ksh(jl, il) = kshell(jl, il)
+         end do
+      end do
+      par%kpol = 2.0_wp
+      par%sym = to_symbol([(izp, izp=1, max_elem)])
+      allocate(par%kpair(max_elem, max_elem), source=1.0_wp)
+   end associate
+
+   allocate(param%dispersion)
+   associate(par => param%dispersion)
+      par%s6 = s6
+      par%s8 = s8
+      par%a1 = a1
+      par%a2 = a2
+      par%s9 = s9
+      par%sc = .true.
+      par%d3 = .false.
+   end associate
+
+   allocate(param%repulsion)
+   associate(par => param%repulsion)
+      par%kexp = rep_kexp
+      par%klight = rep_kexp_light
+   end associate
+
+   allocate(param%charge)
+   associate(par => param%charge)
+      par%gexp = gexp
+      par%average = "arithmetic"
+   end associate
+
+   allocate(param%thirdorder)
+   associate(par => param%thirdorder)
+      par%lmax = 2
+      par%shell = .true.
+      par%ksh = shell_hubbard_derivs
+   end associate
+
+   allocate(param%multipole)
+   associate(par => param%multipole)
+      par%dmp3 = mp_dmp3
+      par%dmp5 = mp_dmp5
+      par%kexp = mp_kexp
+      par%shift = mp_shift
+      par%rmax = mp_rmax
+   end associate
+
+   allocate(param%record(max_elem))
+   do izp = 1, max_elem
+      associate(par => param%record(izp))
+         par%sym = to_symbol(izp)
+         par%num = izp
+
+         par%zeff = rep_zeff(izp)
+         par%alpha = rep_alpha(izp)
+
+         par%nsh = nshell(izp)
+         allocate(par%lsh(par%nsh))
+         allocate(par%pqn(par%nsh))
+         allocate(par%ngauss(par%nsh))
+         allocate(par%levels(par%nsh))
+         allocate(par%slater(par%nsh))
+         allocate(par%refocc(par%nsh))
+         allocate(par%kcn(par%nsh))
+         allocate(par%shpoly(par%nsh))
+         allocate(par%lgam(par%nsh))
+
+         par%lsh = ang_shell(:par%nsh, izp)
+         par%pqn = principal_quantum_number(:par%nsh, izp)
+         par%ngauss = number_of_primitives(:par%nsh, izp)
+         par%levels = p_selfenergy(:par%nsh, izp)
+         par%slater = slater_exponent(:par%nsh, izp)
+         par%refocc = reference_occ(par%lsh, izp)
+         par%kcn = p_kcn(par%lsh, izp)
+         par%shpoly = p_shpoly(par%lsh, izp)
+
+         par%gam = chemical_hardness(izp)
+         par%lgam = shell_hardness(par%lsh, izp)
+
+         par%gam3 = p_hubbard_derivs(izp)
+
+         par%mpvcn = p_vcn(izp)
+         par%mprad = p_rad(izp)
+         par%dkernel = p_dkernel(izp)
+         par%qkernel = p_qkernel(izp)
+      end associate
+   end do
+end subroutine export_gfn2_param
+
+elemental function kshell(k, l)
+   integer, intent(in) :: k, l
+   real(wp) :: kshell
+   kshell = merge(2.0_wp, (kdiag(l)+kdiag(k))/2, k==2.and.any(l==[0,1]).or.l==2.and.any(k==[0,1]))
+end function kshell
 
 end module tblite_xtb_gfn2

@@ -28,6 +28,19 @@ Spherical harmonics ordering
 ================== ===============================
 
 
+Potential definition
+--------------------
+
+The potential shift vectors are defined with respect the partial charge and cumulative atomic moments.
+This is the negative of the potential with respect to the populations.
+The sign is applied when adding the potential shifts to the Hamiltonian.
+
+.. note::
+
+   This convention is in line with the sign convention for partial charges, but is unintuitive from a population / density perspective.
+   The sign convention might change to the latter case as the latter convention is more in line with usual density functional theory.
+
+
 Overlap integrals
 -----------------
 
@@ -37,7 +50,7 @@ The overlap integral is defined as
 
    S_{\mu\nu} = \langle \mu | \nu \rangle
 
-Normalisation of the basis function in practise is accurate to 10:sup:`-10`, due to the precision of the tabulated STO-NG contraction coefficients.
+Normalisation of the basis function in practise is accurate to 10:sup:`-10`, due to the precision of the tabulated STO-NG contraction coefficients.\ :footcite:`stewart1970`
 
 
 Atomic partial charges
@@ -49,7 +62,7 @@ Orbital populations are obtained by Mulliken population analysis
 
    q_\nu = n^0_\nu - \sum_\kappa^{N_\text{ao}} P_{\nu\kappa} S_{\kappa\nu}
 
-and summed up to respecitive shell-resolved or atomic partial charges.
+and summed up to respective shell-resolved or atomic partial charges.
 
 
 Dipole moment integrals
@@ -73,7 +86,7 @@ The dipole moments are evaluated from the dipole moment integrals using Mulliken
 
    \vec\mu_\nu = -\sum_\kappa^{N_\text{ao}} P_{\nu\kappa} D_{\kappa\nu}
 
-and summed up to respecitive cummulative shell-resolved or atomic dipole moments.
+and summed up to respective cumulative shell-resolved or atomic dipole moments.
 
 
 Quadrupole moment integrals
@@ -92,10 +105,16 @@ Only the lower triangle of the traceless quadrupole integrals are saved packed (
 Cumulative quadrupole moments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The dipole moments are evaluated from the dipole moment integrals using Mulliken population analysis
+The quadrupole moments are evaluated from the quadrupole moment integrals using Mulliken population analysis
 
 .. math::
 
    \vec\theta_\nu = -\sum_\kappa^{N_\text{ao}} P_{\nu\kappa} Q_{\kappa\nu}
 
-and summed up to respecitive cummulative shell-resolved or atomic quadrupole moments.
+and summed up to respective cumulative shell-resolved or atomic quadrupole moments.
+
+
+Literature
+----------
+
+.. footbibliography::

@@ -120,3 +120,27 @@ list(
 )
 
 set(lib-deps "${lib-deps}" PARENT_SCOPE)
+
+# Include the TOML Fortran project
+if(NOT TARGET toml-f)
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/toml-f/CMakeLists.txt)
+    add_subdirectory("toml-f")
+  else()
+    set("toml-f-url" "https://github.com/toml-f/toml-f")
+    message(STATUS "Retrieving toml-f from ${toml-f-url}")
+    include(FetchContent)
+    FetchContent_Declare(
+      "toml-f"
+      GIT_REPOSITORY "${toml-f-url}"
+      GIT_TAG "HEAD"
+    )
+    FetchContent_MakeAvailable("toml-f")
+  endif()
+endif()
+
+list(
+  APPEND lib-deps
+  "toml-f"
+)
+
+set(lib-deps "${lib-deps}" PARENT_SCOPE)

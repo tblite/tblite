@@ -19,7 +19,7 @@ module tblite_classical_halogen
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_repulsion_type, only : repulsion_type
-   use tblite_param_atomicrad, only : get_atomic_rad
+   use tblite_data_atomicrad, only : get_atomic_rad
    implicit none
 
    public :: halogen_correction, new_halogen_correction

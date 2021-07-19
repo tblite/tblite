@@ -18,9 +18,15 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/atomicrad.f90"
-  "${dir}/covrad.f90"
-  "${dir}/paulingen.f90"
+  "${dir}/charge.f90"
+  "${dir}/dispersion.f90"
+  "${dir}/element.f90"
+  "${dir}/halogen.f90"
+  "${dir}/hamiltonian.f90"
+  "${dir}/multipole.f90"
+  "${dir}/repulsion.f90"
+  "${dir}/serde.f90"
+  "${dir}/thirdorder.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

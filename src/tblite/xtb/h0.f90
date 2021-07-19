@@ -150,55 +150,6 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, d
 end subroutine get_selfenergy
 
 
-subroutine get_h0scale(mol, bas, en, enscale2, enscale4, zeta, wexp, valence, &
-      & kpair, kshell, kdiff, hscale)
-   type(structure_type), intent(in) :: mol
-   type(basis_type), intent(in) :: bas
-   real(wp), intent(in) :: en(:)
-   real(wp), intent(in) :: enscale2(0:, 0:)
-   real(wp), intent(in) :: enscale4(0:, 0:)
-   real(wp), intent(in) :: zeta(:, :)
-   real(wp), intent(in) :: wexp
-   logical, intent(in) :: valence(:, :)
-   real(wp), intent(in) :: kpair(:, :)
-   real(wp), intent(in) :: kshell(0:, 0:)
-   real(wp), intent(in) :: kdiff
-   real(wp), intent(out) :: hscale(:, :, :, :)
-
-   integer :: izp, jzp, ish, jsh, il, jl
-   real(wp) :: zi, zj, zij, den, enp, km
-
-   hscale(:, :, :, :) = 0.0_wp
-
-   do izp = 1, mol%nid
-      do jzp = 1, mol%nid
-         den = (en(izp) - en(jzp))**2
-         do ish = 1, bas%nsh_id(izp)
-            il = bas%cgto(ish, izp)%ang
-            do jsh = 1, bas%nsh_id(jzp)
-               jl = bas%cgto(jsh, jzp)%ang
-               zi = zeta(ish, izp)
-               zj = zeta(jsh, jzp)
-               zij = (2*sqrt(zi*zj)/(zi+zj))**wexp
-               if (valence(ish, izp) .and. valence(jsh, jzp)) then
-                  enp = 1.0_wp + enscale2(jl, il) * den * (1.0_wp + enscale4(jl, il) * den)
-                  km = kpair(jzp, izp) * kshell(jl, il) * enp
-               else if (valence(ish, izp)) then
-                  km = 0.5_wp * (kshell(il, il) + kdiff)
-               else if (valence(jsh, jzp)) then
-                  km = 0.5_wp * (kshell(jl, jl) + kdiff)
-               else
-                  km = kdiff
-               end if
-               hscale(jsh, ish, jzp, izp) = zij * km
-            end do
-         end do
-      end do
-   end do
-
-end subroutine get_h0scale
-
-
 subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpint, qpint, &
       & hamiltonian)
    !> Molecular structure data

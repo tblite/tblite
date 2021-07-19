@@ -16,7 +16,13 @@
 
 executable(
   meson.project_name(),
-  sources: files('main.f90'),
+  sources: files(
+    'argument.f90',
+    'cli.f90',
+    'cli_help.f90',
+    'driver.f90',
+    'main.f90',
+  ),
   dependencies: tblite_dep,
   install: install,
 )

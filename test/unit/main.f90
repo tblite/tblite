@@ -33,6 +33,7 @@ program tester
    use test_ncoord_gfn, only : collect_ncoord_gfn
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
+   use test_xtb_param, only : collect_xtb_param
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
@@ -54,7 +55,8 @@ program tester
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
-      new_testsuite("gfn2-xtb", collect_gfn2_xtb) &
+      new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
+      new_testsuite("xtb-param", collect_xtb_param) &
       ]
 
    call get_argument(1, suite_name)

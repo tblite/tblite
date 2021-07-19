@@ -23,10 +23,10 @@ module test_hamiltonian
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_cutoff, only : get_lattice_points
+   use tblite_data_covrad, only : get_covalent_rad
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
    use tblite_ncoord_gfn, only : get_coordination_number
-   use tblite_param_covrad, only : get_covalent_rad
    use tblite_xtb_gfn2
    use tblite_xtb_h0
    implicit none

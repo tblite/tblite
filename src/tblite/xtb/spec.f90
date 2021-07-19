@@ -19,7 +19,7 @@ module tblite_xtb_spec
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_param_atomicrad, only : get_atomic_rad
+   use tblite_data_atomicrad, only : get_atomic_rad
    implicit none
    private
 
