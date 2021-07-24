@@ -50,7 +50,7 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
-   call get_value(table, k_classical, child)
+   call get_value(table, k_classical, child, requested=.false.)
    if (.not.associated(child)) then
       call fatal_error(error, "No entry for classical halogen bonding correction found")
       return

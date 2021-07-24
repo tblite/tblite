@@ -1,6 +1,8 @@
 @PACKAGE_INIT@
 
 set("@PROJECT_NAME@_WITH_OpenMP" @WITH_OpenMP@)
+set("@PROJECT_NAME@_WITH_API" @WITH_API@)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
 if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
@@ -13,5 +15,21 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
 
   if(NOT TARGET "LAPACK::LAPACK")
     find_dependency("LAPACK")
+  endif()
+
+  if(NOT TARGET "mctc-lib::mctc-lib")
+    find_dependency("mctc-lib")
+  endif()
+
+  if(NOT TARGET "toml-f::toml-f")
+    find_dependency("toml-f")
+  endif()
+
+  if(NOT TARGET "s-dftd3::s-dftd3")
+    find_dependency("s-dftd3")
+  endif()
+
+  if(NOT TARGET "dftd4::dftd4")
+    find_dependency("dftd4")
   endif()
 endif()

@@ -59,7 +59,7 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
-   call get_value(table, k_xtb, child)
+   call get_value(table, k_xtb, child, requested=.false.)
    if (.not.associated(child)) then
       call fatal_error(error, "No entry for xTB Hamiltonian found")
       return
@@ -118,7 +118,7 @@ subroutine get_kpair(self, table, error)
 
    do ir = 1, size(self%sym)
       do jr = 1, ir
-         key = trim(self%sym(jr))//"-"//trim(self%sym(jr))
+         key = trim(self%sym(jr))//"-"//trim(self%sym(ir))
          if (.not.child%has_key(key)) key = trim(self%sym(ir))//"-"//trim(self%sym(jr))
          if (child%has_key(key)) then
             call get_value(child, key, tmp, 1.0_wp)
@@ -221,7 +221,7 @@ subroutine dump_to_toml(self, table, error)
       do ir = 1, size(self%sym)
          do jr = 1, ir
             if (abs(self%kpair(jr, ir) - 1.0_wp) > epsilon(1.0_wp)) then
-               key = trim(self%sym(jr))//"-"//trim(self%sym(ir))
+               key = trim(self%sym(ir))//"-"//trim(self%sym(jr))
                call set_value(sub, key, self%kpair(jr, ir))
             end if
          end do

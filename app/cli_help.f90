@@ -26,6 +26,14 @@ module tblite_cli_help
    !> Name of the main executable
    character(len=*), parameter :: prog_name = "tblite"
 
+   !> General help text regarding response file support
+   character(len=*), parameter :: help_text_response = &
+      "Command line arguments can be read from an indirect file / response file"//nl//&
+      "by specifying the file with @name in the command line. Each line in the file"//nl//&
+      "is interpreted as command line argument, shell like escape sequences are not"//nl//&
+      "available. The file can contain further @name inputs. If the file cannot be"//nl//&
+      "found the argument is used literally."
+
    !> General help text for version and help commands
    character(len=*), parameter :: help_text_general = &
       "      --version           Print program version and exit"//nl//&
@@ -45,13 +53,16 @@ module tblite_cli_help
       "Options"//nl//&
       ""//nl//&
       help_text_general//nl//&
-      ""
+      ""//nl//&
+      help_text_response
 
    !> Help text for param command
    character(len=*), parameter :: help_text_param = &
       "Usage: "//prog_name//" param [options] <input>"//nl//&
       ""//nl//&
       "Import, export and manipulate tight-binding parameter files."//nl//&
+      "An input parameter file must be present as positional argument or"//nl//&
+      "an internal parametrization should be selected."//nl//&
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
@@ -59,7 +70,8 @@ module tblite_cli_help
       "                          Available methods: gfn1, gfn2, ipea1"//nl//&
       "      --output <file>     Output file for writing parametrization"//nl//&
       help_text_general//nl//&
-      ""
+      ""//nl//&
+      help_text_response
 
    !> Help text for run command
    character(len=*), parameter :: help_text_run = &
@@ -90,6 +102,7 @@ module tblite_cli_help
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
       "  -i, --input <format>    Hint for the format of the input file"//nl//&
       help_text_general//nl//&
-      ""
+      ""//nl//&
+      help_text_response
 
 end module tblite_cli_help

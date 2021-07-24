@@ -224,10 +224,22 @@ subroutine param_main(config, error)
    end if
    if (allocated(error)) return
 
+   if (config%verbosity > 1) then
+      if (allocated(param%name)) &
+         write(output_unit, '(a)') param%name
+      if (allocated(param%reference)) &
+         write(output_unit, '(a)') param%reference
+   end if
+
    if (allocated(config%output)) then
       call param%dump(config%output, error)
+      if (.not.allocated(error)) then
+         if (config%verbosity > 0) write(output_unit, '(a)') &
+            "[Info] Parameter file written to '"//config%output//"'"
+      end if
    end if
    if (allocated(error)) return
+
 end subroutine param_main
 
 

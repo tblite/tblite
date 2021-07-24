@@ -15,12 +15,14 @@ This library depends on several Fortran modules to provide the desired functiona
 - `dftd4`_: Reference implementation of the generally applicable charge-dependent London-dispersion correction, DFT-D4
 - `s-dftd3`_: Reimplementation of the DFT-D3 dispersion correction
 - `mstore`_: Molecular structure store (testing only)
+- `toml-f`_: Library for processing and emitting TOML data
 
 .. _dftd4: https://github.com/dftd4/dftd4
 .. _s-dftd3: https://github.com/awvwgk/simple-dftd3
 .. _multicharge: https://github.com/grimme-lab/multicharge
 .. _mctc-lib: https://github.com/grimme-lab/mctc-lib
 .. _mstore: https://github.com/grimme-lab/mstore
+.. _toml-f: https://github.com/toml-f/toml-f
 
 .. _meson: https://mesonbuild.com
 .. _ninja: https://ninja-build.org
@@ -53,7 +55,7 @@ To setup a new build run
    meson setup _build --prefix=$HOME/.local
 
 The Fortran and C compiler can be selected with the ``FC`` and ``CC`` environment variable, respectively.
-For Intel Fortran oneAPI builds with MKL backend the ``-Dfortran_link_args=-qopenmp`` option has to be added.
+For Intel Fortran oneAPI (2021 or newer) builds with MKL backend the ``-Dfortran_link_args=-qopenmp`` option has to be added.
 To produce statically linked binaries set ``--default-library=static`` and add ``-Dfortran_link_args=-static`` as well.
 The installation location is selected using the ``--prefix`` option.
 The required Fortran modules will be fetched automatically from the upstream repositories and checked out in the *subprojects* directory.

@@ -21,6 +21,7 @@
 #include "tblite/context.h"
 #include "tblite/structure.h"
 #include "tblite/result.h"
+#include "tblite/param.h"
 
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
@@ -39,6 +40,12 @@ tblite_new_gfn1_calculator(tblite_context /* ctx */,
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_ipea1_calculator(tblite_context /* ctx */,
                             tblite_structure /* mol */);
+
+/// Construct calculator from parametrization records
+TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
+tblite_new_xtb_calculator(tblite_context /* ctx */,
+                          tblite_structure /* mol */,
+                          tblite_param /* param */);
 
 /// Delete calculator
 TBLITE_API_ENTRY void TBLITE_API_CALL

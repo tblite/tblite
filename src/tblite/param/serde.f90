@@ -86,7 +86,10 @@ subroutine load_from_file(self, file, error)
    logical :: exist
 
    inquire(file=file, exist=exist)
-   if (.not.exist) return
+   if (.not.exist) then
+     call fatal_error(error, "Could not find parameter file '"//file//"'")
+     return
+   end if
 
    open(file=file, newunit=unit)
    call self%load(unit, error)

@@ -55,7 +55,7 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
-   call get_value(table, k_effective, child)
+   call get_value(table, k_effective, child, requested=.false.)
    if (.not.associated(child)) then
       call fatal_error(error, "No entry for effective repulsion found")
       return

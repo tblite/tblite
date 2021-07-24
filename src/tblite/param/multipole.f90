@@ -63,7 +63,7 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
-   call get_value(table, k_damped, child)
+   call get_value(table, k_damped, child, requested=.false.)
    if (.not.associated(child)) then
       call fatal_error(error, "No entry for damped multipole electrostatic found")
       return

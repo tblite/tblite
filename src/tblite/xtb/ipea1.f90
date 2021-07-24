@@ -21,6 +21,7 @@ module tblite_xtb_ipea1
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_classical_halogen, only : new_halogen_correction
    use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_data_paulingen, only : get_pauling_en
@@ -91,6 +92,33 @@ module tblite_xtb_ipea1
       & 76.000000_wp, 77.000000_wp, 78.000000_wp, 79.000000_wp, 80.000000_wp, &
       & 84.050696_wp,101.661715_wp, 83.000000_wp, 84.000000_wp, 85.000000_wp, &
       & 86.000000_wp]
+
+   !> Scaling factor of the atomic radii
+   real(wp), parameter :: halogen_radscale = 1.3_wp
+
+   !> Damping parameter for the halogen bond interactions
+   real(wp), parameter :: halogen_damping = 0.44_wp
+
+   !> Strength of the halogen bond
+   real(wp), parameter :: halogen_bond(1:max_elem) = 0.1_wp * [ &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.381742_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.321944_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
+      & 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, 0.220000_wp, &
+      & 0.000000_wp]
 
    !> Atomic hardnesses used in second order electrostatics
    real(wp), parameter :: chemical_hardness(max_elem) = [&
@@ -504,6 +532,7 @@ subroutine new_ipea1_calculator(calc, mol)
    call add_repulsion(calc, mol)
    call add_dispersion(calc, mol)
    call add_coulomb(calc, mol)
+   call add_halogen(calc, mol)
 
 end subroutine new_ipea1_calculator
 
@@ -632,6 +661,21 @@ subroutine get_shell_hardness(mol, bas, hardness)
       end do
    end do
 end subroutine get_shell_hardness
+
+
+subroutine add_halogen(calc, mol)
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   real(wp), allocatable :: bond_strength(:)
+
+   allocate(calc%halogen)
+   bond_strength = halogen_bond(mol%num)
+   call new_halogen_correction(calc%halogen, mol, halogen_damping, halogen_radscale, &
+      & bond_strength)
+end subroutine add_halogen
 
 
 pure function new_ipea1_h0spec(mol) result(self)
@@ -924,6 +968,12 @@ subroutine export_ipea1_param(param)
       par%shell = .false.
    end associate
 
+   allocate(param%halogen)
+   associate(par => param%halogen)
+      par%damping = halogen_damping
+      par%rscale = halogen_radscale
+   end associate
+
    allocate(param%record(max_elem))
    do izp = 1, max_elem
       associate(par => param%record(izp))
@@ -962,6 +1012,8 @@ subroutine export_ipea1_param(param)
          par%mprad = 0.0_wp
          par%dkernel = 0.0_wp
          par%qkernel = 0.0_wp
+
+         par%xbond = halogen_bond(izp)
       end associate
    end do
 end subroutine export_ipea1_param

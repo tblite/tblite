@@ -220,6 +220,117 @@ unexpected:
 }
 
 int
+test_uninitialized_table (void)
+{
+   printf("Start test: uninitialized table\n");
+   tblite_error error = NULL;
+   tblite_param param = NULL;
+   tblite_table table = NULL;
+   char key[] = "some-key";
+
+   error = tblite_new_error();
+   param = tblite_new_param();
+
+   tblite_load_param(error, param, table);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_dump_param(error, param, table);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   double dval = 0.0;
+   tblite_table_set_double(error, table, key, &dval, 0);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   long ival = 0;
+   tblite_table_set_long(error, table, key, &ival, 0);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   bool lval = 0;
+   tblite_table_set_bool(error, table, key, &lval, 0);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   char cval[] = "some-val";
+   tblite_table_set_char(error, table, key, cval);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_table tval = tblite_new_table();
+   tblite_table_set_table(error, table, key, &tval);
+   tblite_delete_table(&tval);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   tblite_delete_param(&param);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for unititalized-table test\n");
+   tblite_delete_error(&error);
+   tblite_delete_param(&param);
+   return 1;
+}
+
+int
+test_uninitialized_param (void)
+{
+   printf("Start test: uninitialized param\n");
+   tblite_error error = NULL;
+   tblite_param param = NULL;
+   tblite_table table = NULL;
+
+   error = tblite_new_error();
+   table = tblite_new_table();
+
+   tblite_load_param(error, param, table);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_dump_param(error, param, table);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_export_gfn2_param(error, param);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_export_gfn1_param(error, param);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_export_ipea1_param(error, param);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   return 0;
+
+unexpected:
+   printf("[Fatal] Unexpected pass for unititalized-param test\n");
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   return 1;
+}
+
+int
 test_empty_result (void)
 {
    printf("Start test: empty result\n");
@@ -282,6 +393,132 @@ unexpected:
    printf("[Fatal] Unexpected pass for invalid-structure test\n");
    tblite_delete_error(&error);
    tblite_delete_structure(&mol);
+   return 1;
+}
+
+int
+test_table_builder (void)
+{
+   printf("Start test: table-builder\n");
+   tblite_error error = NULL;
+   tblite_table table = NULL, child1 = NULL, child2 = NULL, child3 = NULL;
+   double dval;
+   double darr[2];
+   long iarr[2];
+
+   error = tblite_new_error();
+
+   child3 = tblite_new_table();
+   dval = 1.85;
+   tblite_table_set_double(error, child3, "ss", &dval, 0);
+   if (tblite_check_error(error)) goto err;
+
+   dval = 2.23;
+   tblite_table_set_double(error, child3, "pp", &dval, 0);
+   if (tblite_check_error(error)) goto err;
+
+   child2 = tblite_new_table();
+   tblite_table_set_table(error, child2, "shell", &child3);
+   if (tblite_check_error(error)) goto err;
+   if (!!child3) goto err;
+
+   dval = 0.5;
+   tblite_table_set_double(error, child2, "wexp", &dval, 0);
+   if (tblite_check_error(error)) goto err;
+
+   dval = 2.0e-2;
+   tblite_table_set_double(error, child2, "enscale", &dval, 0);
+   if (tblite_check_error(error)) goto err;
+
+   child1 = tblite_new_table();
+   tblite_table_set_table(error, child1, "xtb", &child2);
+   if (tblite_check_error(error)) goto err;
+   if (!!child2) goto err;
+
+   table = tblite_new_table();
+   tblite_table_set_table(error, table, "hamiltonian", &child1);
+   if (tblite_check_error(error)) goto err;
+   if (!!child1) goto err;
+
+   child2 = tblite_new_table();
+   darr[0] = -13.970922; darr[1] = -10.063292;
+   tblite_table_set_double(error, child2, "levels", darr, 2);
+   if (tblite_check_error(error)) goto err;
+
+   darr[0] = 2.096432; darr[1] = 1.8;
+   tblite_table_set_double(error, child2, "slater", darr, 2);
+   if (tblite_check_error(error)) goto err;
+
+   iarr[0] = 4; iarr[1] = 4;
+   tblite_table_set_long(error, child2, "ngauss", iarr, 2);
+   if (tblite_check_error(error)) goto err;
+
+   child1 = tblite_new_table();
+   tblite_table_set_table(error, child1, "C", &child2);
+   if (tblite_check_error(error)) goto err;
+   if (!!child2) goto err;
+
+   tblite_table_set_table(error, table, "element", &child1);
+   if (tblite_check_error(error)) goto err;
+   if (!!child1) goto err;
+
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   tblite_delete_table(&child1);
+   tblite_delete_table(&child2);
+   tblite_delete_table(&child3);
+
+   return 0;
+
+err:
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   tblite_delete_table(&child1);
+   tblite_delete_table(&child2);
+   tblite_delete_table(&child3);
+   return 1;
+}
+
+int
+test_param_load (void)
+{
+   printf("Start test: param-load\n");
+   tblite_error error = NULL;
+   tblite_param param = NULL;
+   tblite_table table = NULL;
+
+   error = tblite_new_error();
+   param = tblite_new_param();
+
+   tblite_export_gfn1_param(error, param);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_export_gfn2_param(error, param);
+   if (tblite_check_error(error)) goto err;
+
+   table = tblite_new_table();
+   tblite_dump_param(error, param, table);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_delete_param(&param);
+   param = tblite_new_param();
+
+   tblite_load_param(error, param, table);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_export_ipea1_param(error, param);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   tblite_delete_param(&param);
+
+   return 0;
+
+err:
+   tblite_delete_error(&error);
+   tblite_delete_table(&table);
+   tblite_delete_param(&param);
    return 1;
 }
 
@@ -892,8 +1129,12 @@ main (void)
    stat += test_uninitialized_structure();
    stat += test_uninitialized_result();
    stat += test_uninitialized_calculator();
+   stat += test_uninitialized_table();
+   stat += test_uninitialized_param();
    stat += test_empty_result();
    stat += test_invalid_structure();
+   stat += test_table_builder();
+   stat += test_param_load();
    stat += test_gfn2_si5h12();
    stat += test_ipea1_ch4();
    stat += test_gfn1_co2();

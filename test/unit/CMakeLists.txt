@@ -49,7 +49,7 @@ target_link_libraries(
   "${PROJECT_NAME}-tester"
   PRIVATE
   "${PROJECT_NAME}-lib"
-  "mstore"
+  "mstore::mstore"
 )
 
 foreach(t IN LISTS tests)

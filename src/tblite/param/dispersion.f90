@@ -68,6 +68,11 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
+   if (.not.any([table%has_key(k_d3), table%has_key(k_d4)])) then
+      call fatal_error(error, "Dispersion model not provided in dispersion table")
+      return
+   end if
+
    call get_value(table, k_d3, child, requested=.false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read D3 dispersion table")

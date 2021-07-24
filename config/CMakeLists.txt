@@ -18,6 +18,12 @@ option(BUILD_SHARED_LIBS "Whether the libraries built should be shared" FALSE)
 
 option(WITH_API "Enable export of C-API" TRUE)
 option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" TRUE)
+if(NOT DEFINED "${PROJECT_NAME}-dependeny-method")
+  set(
+    "${PROJECT_NAME}-dependency-method"
+    "subproject" "cmake" "pkgconf" "fetch"
+  )
+endif()
 
 set(
   module-dir
@@ -37,6 +43,14 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Setting build type to '${CMAKE_BUILD_TYPE}' as none was specified."
   )
 endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
+install(
+  DIRECTORY
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+)
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(

@@ -137,6 +137,44 @@ def new_structure(natoms, numbers, positions, charge, uhf, lattice, periodic):
 update_structure_geometry = error_check(lib.tblite_update_structure_geometry)
 
 
+def _delete_table(table):
+    """Delete a tblite data table object"""
+    ptr = ffi.new("tblite_table *")
+    ptr[0] = table
+    lib.tblite_delete_table(ptr)
+
+
+def new_table():
+    """Create a tblite data table object"""
+    return ffi.gc(lib.tblite_new_table(), _delete_table)
+
+
+table_set_double = error_check(lib.tblite_table_set_double)
+table_set_long = error_check(lib.tblite_table_set_long)
+table_set_bool = error_check(lib.tblite_table_set_bool)
+table_set_char = error_check(lib.tblite_table_set_char)
+table_set_table = error_check(lib.tblite_table_set_table)
+
+
+def _delete_param(param):
+    """Delete a tblite parametrization record object"""
+    ptr = ffi.new("tblite_param *")
+    ptr[0] = param
+    lib.tblite_delete_param(ptr)
+
+
+def new_param():
+    """Create a tblite data table object"""
+    return ffi.gc(lib.tblite_new_param(), _delete_param)
+
+
+load_param = error_check(lib.tblite_load_param)
+dump_param = error_check(lib.tblite_dump_param)
+export_gfn2_param = error_check(lib.tblite_export_gfn2_param)
+export_gfn1_param = error_check(lib.tblite_export_gfn1_param)
+export_ipea1_param = error_check(lib.tblite_export_ipea1_param)
+
+
 def _delete_result(result) -> None:
     """Delete a tblite result container object"""
     ptr = ffi.new("tblite_result *")
@@ -250,6 +288,12 @@ def new_gfn1_calculator(ctx, mol):
 def new_ipea1_calculator(ctx, mol):
     """Create new tblite calculator loaded with IPEA1-xTB parametrization data"""
     return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol), _delete_calculator)
+
+
+@context_check
+def new_xtb_calculator(ctx, mol, param):
+    """Create new tblite calculator from parametrization records"""
+    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
 
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)

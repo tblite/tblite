@@ -18,8 +18,10 @@ srcs += files(
   'calculator.f90',
   'context.f90',
   'error.f90',
+  'param.f90',
   'result.f90',
   'structure.f90',
+  'table.f90',
   'utils.f90',
   'version.f90',
 )

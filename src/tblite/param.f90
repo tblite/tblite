@@ -20,18 +20,20 @@ module tblite_param
    use mctc_io_symbols, only : to_number, symbol_length
    use tblite_param_charge, only : charge_record
    use tblite_param_dispersion, only : dispersion_record
+   use tblite_param_element, only : element_record
    use tblite_param_halogen, only : halogen_record
+   use tblite_param_hamiltonian, only : hamiltonian_record
    use tblite_param_multipole, only : multipole_record
    use tblite_param_repulsion, only : repulsion_record
-   use tblite_param_thirdorder, only : thirdorder_record
-   use tblite_param_hamiltonian, only : hamiltonian_record
-   use tblite_param_element, only : element_record
    use tblite_param_serde, only : serde_record
+   use tblite_param_thirdorder, only : thirdorder_record
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none(type, external)
    private
 
    public :: param_record
+   public :: charge_record, dispersion_record, element_record, halogen_record, &
+      & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record
 
 
    character(len=*), parameter :: k_dispersion = "dispersion", k_repulsion = "repulsion", &

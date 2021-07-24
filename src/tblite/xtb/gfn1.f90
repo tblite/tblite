@@ -895,7 +895,9 @@ end subroutine get_reference_occ
 subroutine export_gfn1_param(param)
    type(param_record), intent(out) :: param
 
-   integer :: izp, jzp, i, il, jl
+   integer :: izp, jzp, i, il, jl, ish
+   integer :: ang_idx(0:2)
+   logical, allocatable :: valence(:)
 
    param%version = 1
    param%name = "GFN1-xTB"
@@ -951,6 +953,12 @@ subroutine export_gfn1_param(param)
       par%shell = .false.
    end associate
 
+   allocate(param%halogen)
+   associate(par => param%halogen)
+      par%damping = halogen_damping
+      par%rscale = halogen_radscale
+   end associate
+
    allocate(param%record(max_elem))
    do izp = 1, max_elem
       associate(par => param%record(izp))
@@ -971,12 +979,20 @@ subroutine export_gfn1_param(param)
          allocate(par%shpoly(par%nsh))
          allocate(par%lgam(par%nsh))
 
+         valence = spread(.true., 1, par%nsh)
+         ang_idx = 0
+         do ish = 1, par%nsh
+            il = ang_shell(ish, izp)
+            valence(ish) = ang_idx(il) == 0
+            if (valence(ish)) ang_idx(il) = ish
+         end do
+
          par%lsh = ang_shell(:par%nsh, izp)
          par%pqn = principal_quantum_number(:par%nsh, izp)
          par%ngauss = number_of_primitives(:par%nsh, izp)
          par%levels = p_selfenergy(:par%nsh, izp)
          par%slater = slater_exponent(:par%nsh, izp)
-         par%refocc = reference_occ(par%lsh, izp)
+         par%refocc = merge(reference_occ(par%lsh, izp), 0.0_wp, valence)
          par%kcn = p_kcn(:par%nsh, izp)
          par%shpoly = p_shpoly(par%lsh, izp)
 
@@ -989,6 +1005,8 @@ subroutine export_gfn1_param(param)
          par%mprad = 0.0_wp
          par%dkernel = 0.0_wp
          par%qkernel = 0.0_wp
+
+         par%xbond = halogen_bond(izp)
       end associate
    end do
 
@@ -998,7 +1016,7 @@ end subroutine export_gfn1_param
 elemental function kshell(k, l)
    integer, intent(in) :: k, l
    real(wp) :: kshell
-   kshell = merge(2.08_wp, (kdiag(l) + kdiag(k))/2, k==0.and.l==1.or.l==0.and.k==1)
+   kshell = merge(2.08_wp, (kdiag(l) + kdiag(k))/2, (k==0.and.l==1).or.(l==0.and.k==1))
 end function kshell
 
 end module tblite_xtb_gfn1

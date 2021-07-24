@@ -19,7 +19,7 @@ module tblite_api_utils
    implicit none
    private
 
-   public :: f_c_character
+   public :: f_c_character, c_f_character
 
 
 contains
@@ -36,5 +36,21 @@ subroutine f_c_character(rhs, lhs, len)
    lhs(length+1:length+1) = c_null_char
 
 end subroutine f_c_character
+
+subroutine c_f_character(rhs, lhs)
+   character(kind=c_char), intent(in) :: rhs(*)
+   character(len=:), allocatable, intent(out) :: lhs
+
+   integer :: ii
+
+   do ii = 1, huge(ii) - 1
+      if (rhs(ii) == c_null_char) then
+         exit
+      end if
+   end do
+   allocate(character(len=ii-1) :: lhs)
+   lhs = transfer(rhs(1:ii-1), lhs)
+
+end subroutine c_f_character
 
 end module tblite_api_utils

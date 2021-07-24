@@ -22,4 +22,6 @@
 #include "tblite/structure.h"
 #include "tblite/calculator.h"
 #include "tblite/result.h"
+#include "tblite/table.h"
+#include "tblite/param.h"
 #include "tblite/version.h"

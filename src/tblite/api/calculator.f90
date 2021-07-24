@@ -20,13 +20,14 @@ module tblite_api_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use tblite_api_context, only : vp_context
+   use tblite_api_param, only : vp_param
    use tblite_api_result, only : vp_result
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
@@ -35,7 +36,8 @@ module tblite_api_calculator
    private
 
    public :: vp_calculator, delete_calculator_api
-   public :: new_gfn2_calculator_api, new_ipea1_calculator_api, new_gfn1_calculator_api
+   public :: new_gfn2_calculator_api, new_ipea1_calculator_api, new_gfn1_calculator_api, &
+      & new_xtb_calculator_api
    public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api
    public :: get_singlepoint_api
@@ -131,6 +133,42 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    vcalc = c_loc(calc)
 
 end function new_gfn1_calculator_api
+
+
+function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
+      & bind(C, name=namespace//"new_xtb_calculator")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vparam
+   type(vp_param), pointer :: param
+   type(c_ptr) :: vcalc
+   type(vp_calculator), pointer :: calc
+
+   type(error_type), allocatable :: error
+
+   if (debug) print'("[Info]", 1x, a)', "new_xtb_calculator"
+
+   vcalc = c_null_ptr
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vmol)) return
+   call c_f_pointer(vmol, mol)
+
+   if (.not.c_associated(vparam)) return
+   call c_f_pointer(vparam, param)
+
+   allocate(calc)
+   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error)
+   if (allocated(error)) then
+      deallocate(calc)
+   else
+      vcalc = c_loc(calc)
+   end if
+
+end function new_xtb_calculator_api
 
 
 subroutine delete_calculator_api(vcalc) &

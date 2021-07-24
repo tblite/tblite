@@ -26,10 +26,6 @@ project(
 # Follow GNU conventions for installing directories
 include(GNUInstallDirs)
 
-# Collect subprojects
-set(lib-deps)
-add_subdirectory("subprojects" EXCLUDE_FROM_ALL)
-
 # General configuration information
 add_subdirectory("config")
 
@@ -40,6 +36,37 @@ endif()
 if(NOT TARGET "LAPACK::LAPACK")
   find_package("LAPACK" REQUIRED)
 endif()
+
+# Collect subprojects
+if(NOT TARGET "mctc-lib::mctc-lib")
+  find_package("mctc-lib" REQUIRED)
+endif()
+if(NOT TARGET "mstore::mstore")
+  find_package("mstore" REQUIRED)
+endif()
+if(NOT TARGET "multicharge::multicharge")
+  find_package("multicharge" REQUIRED)
+endif()
+if(NOT TARGET "toml-f::toml-f")
+  find_package("toml-f" REQUIRED)
+endif()
+if(NOT TARGET "dftd4::dftd4")
+  find_package("dftd4" REQUIRED)
+endif()
+if(NOT TARGET "s-dftd3::s-dftd3")
+  find_package("s-dftd3" REQUIRED)
+endif()
+
+set(
+  lib-deps
+  "OpenMP::OpenMP_Fortran"
+  "LAPACK::LAPACK"
+  "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
+  "toml-f::toml-f"
+  "mctc-lib::mctc-lib"
+  "dftd4::dftd4"
+  "s-dftd3::s-dftd3"
+)
 
 # Collect source of the project
 set(srcs)
@@ -63,9 +90,6 @@ target_link_libraries(
   "${PROJECT_NAME}-lib"
   PUBLIC
   "${lib-deps}"
-  "OpenMP::OpenMP_Fortran"
-  "LAPACK::LAPACK"
-  "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
 )
 target_include_directories(
   "${PROJECT_NAME}-lib"
@@ -73,7 +97,7 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-id}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
 )
 
 # Add example application
@@ -100,8 +124,13 @@ install(
 )
 install(
   DIRECTORY
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+install(
+  DIRECTORY
   "${CMAKE_CURRENT_BINARY_DIR}/include/"
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}"
 )
 # Package license files
 install(

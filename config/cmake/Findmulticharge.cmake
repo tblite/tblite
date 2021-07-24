@@ -14,19 +14,27 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+set(_lib "multicharge")
+set(_pkg "MULTICHARGE")
+set(_url "https://github.com/grimme-lab/multicharge")
 
-list(
-  APPEND srcs
-  "${dir}/calculator.f90"
-  "${dir}/context.f90"
-  "${dir}/error.f90"
-  "${dir}/param.f90"
-  "${dir}/result.f90"
-  "${dir}/structure.f90"
-  "${dir}/table.f90"
-  "${dir}/utils.f90"
-  "${dir}/version.f90"
-)
+if(NOT DEFINED "${_pkg}_FIND_METHOD")
+  if(DEFINED "${PROJECT_NAME}-dependency-method")
+    set("${_pkg}_FIND_METHOD" "${${PROJECT_NAME}-dependency-method}")
+  else()
+    set("${_pkg}_FIND_METHOD" "cmake" "pkgconf" "subproject" "fetch")
+  endif()
+  set("_${_pkg}_FIND_METHOD")
+endif()
 
-set(srcs "${srcs}" PARENT_SCOPE)
+include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
+
+tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}")
+
+if(DEFINED "_${_pkg}_FIND_METHOD")
+  unset("${_pkg}_FIND_METHOD")
+  unset("_${_pkg}_FIND_METHOD")
+endif()
+unset(_lib)
+unset(_pkg)
+unset(_url)

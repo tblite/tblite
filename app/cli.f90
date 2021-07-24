@@ -47,6 +47,7 @@ module tblite_cli
    end type run_config
 
    type, extends(driver_config) :: param_config
+      integer :: verbosity = 2
       character(len=:), allocatable :: input
       character(len=:), allocatable :: output
       character(len=:), allocatable :: method
@@ -307,8 +308,7 @@ subroutine get_param_arguments(config, list, start, error)
       end select
    end do
 
-   if (.not.any([allocated(config%output), allocated(config%input), &
-      & allocated(config%method)])) then
+   if (.not.any([allocated(config%input), allocated(config%method)])) then
       if (.not.allocated(error)) then
          write(output_unit, '(a)') help_text_param
          error stop
