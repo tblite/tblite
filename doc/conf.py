@@ -94,7 +94,22 @@ html_theme = "pydata_sphinx_theme"
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-  "navbar_end": ["search-field", "navbar-icon-links"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": f"https://github.com/awvwgk/{project}",
+            "icon": "fab fa-github",
+        },
+    ],
+    "navbar_end": ["search-field", "navbar-icon-links"],
+    "use_edit_page_button": True,
+}
+
+html_context = {
+  "github_user": "awvwgk",
+  "github_repo": project,
+  "github_version": "main",
+  "doc_path": "doc",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -110,7 +125,9 @@ html_static_path = ["_static"]
 # default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
 # 'searchbox.html']``.
 #
-# html_sidebars = {}
+html_sidebars = {
+    "**": ["sidebar-nav-bs.html"],
+}
 
 # -- Extension configuration -------------------------------------------------
 

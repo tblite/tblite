@@ -160,7 +160,7 @@ subroutine read_data(file, actual, reference)
    idata = 0
    stat = 0
    do while(stat == 0)
-      if (idata > min(size(reference), size(actual))) then
+      if (idata >= min(size(reference), size(actual))) then
          call resize(actual)
          call resize(reference)
       end if
