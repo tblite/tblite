@@ -21,7 +21,7 @@ module tblite_param_halogen
    implicit none(type, external)
    private
 
-   public :: halogen_record
+   public :: halogen_record, halogen_mask, count
 
    character(len=*), parameter :: k_classical = "classical", k_damping = "damping", &
       & k_rscale = "rscale"
@@ -30,9 +30,26 @@ module tblite_param_halogen
       real(wp) :: damping
       real(wp) :: rscale
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
+      !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
+      !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: halogen_mask
+   end type halogen_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -84,5 +101,37 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_damping, self%damping)
    call set_value(child, k_rscale, self%rscale)
 end subroutine dump_to_toml
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(halogen_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(halogen_record), intent(in) :: base
+   type(halogen_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (halogen_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(halogen_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(halogen_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(halogen_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
 
 end module tblite_param_halogen

@@ -20,15 +20,17 @@ module tblite_cli
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : filetype, get_filetype, to_symbol
    use tblite_argument, only : argument_list, len
-   use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param
+   use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
+      & help_text_fit, help_text_tagdiff
    use tblite_version, only : get_tblite_version
    implicit none
    private
 
-   public :: get_arguments, driver_config, run_config, param_config
+   public :: get_arguments, driver_config, run_config, param_config, fit_config, &
+      & tagdiff_config
 
 
-   type :: driver_config
+   type, abstract :: driver_config
    end type driver_config
 
    type, extends(driver_config) :: run_config
@@ -52,6 +54,21 @@ module tblite_cli
       character(len=:), allocatable :: output
       character(len=:), allocatable :: method
    end type param_config
+
+   type, extends(driver_config) :: fit_config
+      integer :: verbosity = 2
+      character(len=:), allocatable :: prog
+      character(len=:), allocatable :: param
+      character(len=:), allocatable :: input
+      character(len=:), allocatable :: copy_input
+      logical :: dry_run = .false.
+   end type fit_config
+
+   type, extends(driver_config) :: tagdiff_config
+      character(len=:), allocatable :: actual
+      character(len=:), allocatable :: reference
+      logical :: fit = .false.
+   end type tagdiff_config
 
 contains
 
@@ -87,11 +104,17 @@ subroutine get_arguments(config, error)
          iarg = iarg - 1
          allocate(run_config :: config)
          exit
-      case("run")
-         allocate(run_config :: config)
+      case("fit")
+         allocate(fit_config :: config)
          exit
       case("param")
          allocate(param_config :: config)
+         exit
+      case("run")
+         allocate(run_config :: config)
+         exit
+      case("tagdiff")
+         allocate(tagdiff_config :: config)
          exit
       end select
    end do
@@ -103,10 +126,14 @@ subroutine get_arguments(config, error)
    end if
 
    select type(config)
-   type is (run_config)
-      call get_run_arguments(config, list, iarg, error)
+   type is (fit_config)
+      call get_fit_arguments(config, list, iarg, error)
    type is (param_config)
       call get_param_arguments(config, list, iarg, error)
+   type is (run_config)
+      call get_run_arguments(config, list, iarg, error)
+   type is (tagdiff_config)
+      call get_tagdiff_arguments(config, list, iarg, error)
    end select
 
 end subroutine get_arguments
@@ -293,14 +320,14 @@ subroutine get_param_arguments(config, list, start, error)
          exit
       case("--method")
          iarg = iarg + 1
-          call list%get(iarg, config%method)
+         call list%get(iarg, config%method)
          if (.not.allocated(config%method)) then
             call fatal_error(error, "Missing argument for method")
             exit
          end if
       case("--output")
          iarg = iarg + 1
-          call list%get(iarg, config%output)
+         call list%get(iarg, config%output)
          if (.not.allocated(config%output)) then
             call fatal_error(error, "Missing argument for output")
             exit
@@ -315,6 +342,161 @@ subroutine get_param_arguments(config, list, start, error)
       end if
    end if
 end subroutine get_param_arguments
+
+
+subroutine get_fit_arguments(config, list, start, error)
+
+   !> Command line options
+   type(fit_config), intent(out) :: config
+
+   !> List of command line arguments
+   type(argument_list), intent(in) :: list
+
+   !> First command line argument
+   integer, intent(in) :: start
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: iarg, narg
+   logical :: getopts
+   character(len=:), allocatable :: arg
+
+   config%prog = list%prog
+
+   iarg = start
+   getopts = .true.
+   narg = len(list)
+   do while(iarg < narg)
+      iarg = iarg + 1
+      call list%get(iarg, arg)
+      if (.not.getopts) then
+         if (.not.allocated(config%param)) then
+            call move_alloc(arg, config%param)
+            cycle
+         end if
+         if (.not.allocated(config%input)) then
+            call move_alloc(arg, config%input)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+      end if
+      select case(arg)
+      case("--")
+         getopts = .false.
+      case("--help")
+         write(output_unit, '(a)') help_text_fit
+         stop
+      case("--version")
+         call version(output_unit)
+         stop
+      case("--dry-run")
+         config%dry_run = .true.
+      case("-v", "-vv", "--verbose")
+         config%verbosity = config%verbosity + 1
+         if (arg == "-vv") config%verbosity = config%verbosity + 1
+      case("-s", "-ss", "--silent")
+         config%verbosity = config%verbosity - 1
+         if (arg == "-ss") config%verbosity = config%verbosity - 1
+      case("--copy")
+         iarg = iarg + 1
+         call list%get(iarg, config%copy_input)
+         if (.not.allocated(config%copy_input)) then
+            call fatal_error(error, "Missing argument for copy")
+            exit
+         end if
+      case default
+         if (.not.allocated(config%param)) then
+            call move_alloc(arg, config%param)
+            cycle
+         end if
+         if (.not.allocated(config%input)) then
+            call move_alloc(arg, config%input)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+      end select
+   end do
+
+   if (.not.allocated(config%input)) then
+      if (.not.allocated(error)) then
+         write(output_unit, '(a)') help_text_fit
+         error stop
+      end if
+   end if
+end subroutine get_fit_arguments
+
+
+subroutine get_tagdiff_arguments(config, list, start, error)
+
+   !> Command line options
+   type(tagdiff_config), intent(out) :: config
+
+   !> List of command line arguments
+   type(argument_list), intent(in) :: list
+
+   !> First command line argument
+   integer, intent(in) :: start
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: iarg, narg
+   logical :: getopts
+   character(len=:), allocatable :: arg
+
+   iarg = start
+   getopts = .true.
+   narg = len(list)
+   do while(iarg < narg)
+      iarg = iarg + 1
+      call list%get(iarg, arg)
+      if (.not.getopts) then
+         if (.not.allocated(config%actual)) then
+            call move_alloc(arg, config%actual)
+            cycle
+         end if
+         if (.not.allocated(config%reference)) then
+            call move_alloc(arg, config%reference)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+      end if
+      select case(arg)
+      case("--")
+         getopts = .false.
+      case("--help")
+         write(output_unit, '(a)') help_text_tagdiff
+         stop
+      case("--version")
+         call version(output_unit)
+         stop
+      case("--fit")
+         config%fit = .true.
+      case default
+         if (.not.allocated(config%actual)) then
+            call move_alloc(arg, config%actual)
+            cycle
+         end if
+         if (.not.allocated(config%reference)) then
+            call move_alloc(arg, config%reference)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+      end select
+   end do
+
+   if (.not.(allocated(config%actual).and.allocated(config%reference))) then
+      if (.not.allocated(error)) then
+         write(output_unit, '(a)') help_text_tagdiff
+         error stop
+      end if
+   end if
+end subroutine get_tagdiff_arguments
 
 
 subroutine get_argument_as_real(arg, val, error)

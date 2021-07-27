@@ -21,10 +21,10 @@ env:
   MACOS_HPCKIT_URL: >-
     https://registrationcenter-download.intel.com/akdlm/irc_nas/17890/m_HPCKit_p_2021.3.0.3226_offline.dmg
   LINUX_INTEL_COMPONENTS: >-
-    intel-oneapi-compiler-fortran
-    intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
-    intel-oneapi-mkl
-    intel-oneapi-mkl-devel
+    intel-oneapi-compiler-fortran-2021.2.0
+    intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2021.2.0
+    intel-oneapi-mkl-2021.2.0
+    intel-oneapi-mkl-devel-2021.2.0
 
 jobs:
   build:
@@ -55,7 +55,7 @@ jobs:
           build: meson
           build-type: debug
           compiler: intel
-          version: 2021
+          version: 2021.2.0
 
     defaults:
       run:
@@ -65,7 +65,7 @@ jobs:
       FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
       CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
       GCC_V: ${{ matrix.version }}
-      OMP_NUM_THREADS: 2,1
+      OMP_NUM_THREADS: 1,2,1
       PYTHON_V: 3.8
 
     steps:

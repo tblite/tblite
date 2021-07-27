@@ -23,7 +23,7 @@ module tblite_param_element
    implicit none
    private
 
-   public :: element_record
+   public :: element_record, element_mask, count
 
 
    !> The conversion factor from eV to Hartree is used for compatibility with older
@@ -91,11 +91,62 @@ module tblite_param_element
       !> Multipole valence CN
       real(wp) :: mpvcn = 0.0_wp
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: element_mask
+      !> Element symbol of specie represented by this record
+      character(len=symbol_length) :: sym = ''
+      !> Atomic number of the specie represented by this record
+      integer :: num = 0
+
+      !> Effective nuclear charge used in repulsion
+      logical :: zeff
+      !> Repulsion exponent
+      logical :: alpha
+
+      !> Halogen bonding strength
+      logical :: xbond
+
+      !> Number of valence and polarization shells
+      integer :: nsh
+      !> Atomic level energies for each shell
+      logical, allocatable :: levels(:)
+      !> Slater exponents of the STO-NG functions for each shell
+      logical, allocatable :: slater(:)
+      !> CN dependent shift of the self energy for each shell
+      logical, allocatable :: kcn(:)
+      !> Polynomial enhancement for Hamiltonian elements
+      logical, allocatable :: shpoly(:)
+
+      !> Chemical hardness / Hubbard parameter
+      logical :: gam
+      !> Relative chemical hardness for each shell
+      logical, allocatable :: lgam(:)
+
+      !> Atomic Hubbard derivative
+      logical :: gam3
+
+      !> Dipolar exchange-correlation kernel
+      logical :: dkernel
+      !> Quadrupolar exchange-correlation kernel
+      logical :: qkernel
+   end type element_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -537,5 +588,133 @@ subroutine dump_to_toml(self, table, error)
    call set_value(table, k_mpvcn, self%mpvcn)
 
 end subroutine dump_to_toml
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(element_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(element_record), intent(in) :: base
+   type(element_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (element_record)
+      self = base
+   end select
+
+   call load_atom_par(self%zeff, mask%zeff, array, offset)
+   call load_atom_par(self%alpha, mask%alpha, array, offset)
+
+   call load_atom_par(self%xbond, mask%xbond, array, offset)
+
+   call load_shell_par(self%levels, mask%levels, array, offset)
+   call load_shell_par(self%slater, mask%slater, array, offset)
+   call load_shell_par(self%kcn, mask%kcn, array, offset)
+   call load_shell_par(self%shpoly, mask%shpoly, array, offset)
+
+   call load_atom_par(self%gam, mask%gam, array, offset)
+   call load_shell_par(self%lgam, mask%lgam, array, offset)
+
+   call load_atom_par(self%gam3, mask%gam3, array, offset)
+
+   call load_atom_par(self%dkernel, mask%dkernel, array, offset)
+   call load_atom_par(self%qkernel, mask%qkernel, array, offset)
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(element_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(element_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   call dump_atom_par(self%zeff, mask%zeff, array, offset)
+   call dump_atom_par(self%alpha, mask%alpha, array, offset)
+
+   call dump_atom_par(self%xbond, mask%xbond, array, offset)
+
+   call dump_shell_par(self%levels, mask%levels, array, offset)
+   call dump_shell_par(self%slater, mask%slater, array, offset)
+   call dump_shell_par(self%kcn, mask%kcn, array, offset)
+   call dump_shell_par(self%shpoly, mask%shpoly, array, offset)
+
+   call dump_atom_par(self%gam, mask%gam, array, offset)
+   call dump_shell_par(self%lgam, mask%lgam, array, offset)
+
+   call dump_atom_par(self%gam3, mask%gam3, array, offset)
+
+   call dump_atom_par(self%dkernel, mask%dkernel, array, offset)
+   call dump_atom_par(self%qkernel, mask%qkernel, array, offset)
+end subroutine dump_to_array
+
+pure subroutine load_atom_par(par, mask, array, ii)
+   real(wp), intent(inout) :: par
+   logical, intent(in) :: mask
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: ii
+   if (mask) then
+      ii = ii+1
+      par = array(ii)
+   end if
+end subroutine load_atom_par
+
+pure subroutine load_shell_par(par, mask, array, ii)
+   real(wp), intent(inout) :: par(:)
+   logical, intent(in) :: mask(:)
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: ii
+   integer :: ish
+   do ish = 1, size(par)
+      if (mask(ish)) then
+         ii = ii+1
+         par(ish) = array(ii)
+      end if
+   end do
+end subroutine load_shell_par
+
+pure subroutine dump_atom_par(par, mask, array, ii)
+   real(wp), intent(in) :: par
+   logical, intent(in) :: mask
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: ii
+   if (mask) then
+      ii = ii+1
+      array(ii) = par
+   end if
+end subroutine dump_atom_par
+
+pure subroutine dump_shell_par(par, mask, array, ii)
+   real(wp), intent(in) :: par(:)
+   logical, intent(in) :: mask(:)
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: ii
+   integer :: ish
+   do ish = 1, size(par)
+      if (mask(ish)) then
+         ii = ii+1
+         array(ii) = par(ish)
+      end if
+   end do
+end subroutine dump_shell_par
+
+elemental function count_mask(mask) result(ncount)
+   type(element_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = count([ &
+      mask%zeff, &
+      mask%alpha, &
+      mask%xbond, &
+      mask%levels, &
+      mask%slater, &
+      mask%kcn, &
+      mask%shpoly, &
+      mask%gam, &
+      mask%lgam, &
+      mask%gam3, &
+      mask%dkernel, &
+      mask%qkernel])
+end function count_mask
 
 end module tblite_param_element

@@ -22,7 +22,7 @@ module tblite_param_charge
    implicit none
    private
 
-   public :: charge_record
+   public :: charge_record, charge_mask, count
 
 
    character(len=*), parameter :: k_effective = "effective", k_gexp = "gexp", &
@@ -35,11 +35,26 @@ module tblite_param_charge
       !> Exponent manipulating the long range behaviour of the Coulombic kernel
       real(wp) :: gexp
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: charge_mask
+   end type charge_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -99,5 +114,37 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_average, self%average)
 end subroutine dump_to_toml
 
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(charge_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(charge_record), intent(in) :: base
+   type(charge_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (charge_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(charge_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(charge_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(charge_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
 
 end module tblite_param_charge

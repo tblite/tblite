@@ -15,9 +15,10 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 program main_driver
-   use, intrinsic :: iso_fortran_env, only : output_unit, error_unit, input_unit
+   use, intrinsic :: iso_fortran_env, only : error_unit
    use mctc_env, only : error_type
-   use tblite_cli, only : get_arguments, driver_config, run_config, param_config
+   use tblite_cli, only : get_arguments, driver_config, run_config, param_config, &
+      & fit_config, tagdiff_config
    use tblite_context_type, only : context_type
    use tblite_driver, only : main
    implicit none
@@ -31,9 +32,13 @@ program main_driver
    end if
 
    select type(config)
-   type is (run_config)
+   type is (fit_config)
       call main(config, error)
    type is (param_config)
+      call main(config, error)
+   type is (run_config)
+      call main(config, error)
+   type is (tagdiff_config)
       call main(config, error)
    end select
    if (allocated(error)) then

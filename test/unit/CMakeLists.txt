@@ -20,6 +20,7 @@ set(
   "cgto-ortho"
   "coulomb-charge"
   "coulomb-multipole"
+  "fit"
   "gfn1-xtb"
   "gfn2-xtb"
   "hamiltonian"
@@ -30,6 +31,7 @@ set(
   "ncoord-gfn"
   "repulsion"
   "slater-expansion"
+  "tagged-io"
   "xtb-param"
 )
 set(

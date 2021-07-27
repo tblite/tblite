@@ -24,7 +24,9 @@ subdir('context')
 subdir('coulomb')
 subdir('data')
 subdir('disp')
+subdir('fit')
 subdir('integral')
+subdir('io')
 subdir('lapack')
 subdir('ncoord')
 subdir('output')
@@ -40,6 +42,7 @@ srcs += files(
   'disp.f90',
   'lapack.f90',
   'ncoord.f90',
+  'os.F90',
   'param.f90',
   'repulsion.f90',
   'toml.f90',

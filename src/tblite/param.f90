@@ -23,6 +23,7 @@ module tblite_param
    use tblite_param_element, only : element_record
    use tblite_param_halogen, only : halogen_record
    use tblite_param_hamiltonian, only : hamiltonian_record
+   use tblite_param_mask, only : param_mask, count
    use tblite_param_multipole, only : multipole_record
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
@@ -31,7 +32,7 @@ module tblite_param
    implicit none(type, external)
    private
 
-   public :: param_record
+   public :: param_record, param_mask, count
    public :: charge_record, dispersion_record, element_record, halogen_record, &
       & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record
 
@@ -71,10 +72,16 @@ module tblite_param
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
       !> Get element record
       procedure :: get
    end type param_record
@@ -309,5 +316,115 @@ pure subroutine get(self, sym, num, pos)
    if (pos /= 0) return
 end subroutine get
 
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, base, mask, error)
+   class(param_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   type(param_record), intent(in) :: base
+   type(param_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: ii, ir
+   integer :: offset
+
+   select type(self)
+   type is (param_record)
+      self = base
+   end select
+
+   offset = 0
+   call self%hamiltonian%load(array, offset, base%hamiltonian, mask%hamiltonian, error)
+   if (allocated(error)) return
+
+   if (allocated(self%dispersion)) then
+      call self%dispersion%load(array, offset, base%dispersion, mask%dispersion, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%repulsion)) then
+      call self%repulsion%load(array, offset, base%repulsion, mask%repulsion, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%halogen)) then
+      call self%halogen%load(array, offset, base%halogen, mask%halogen, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%charge)) then
+      call self%charge%load(array, offset, base%charge, mask%charge, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%thirdorder)) then
+      call self%thirdorder%load(array, offset, base%thirdorder, mask%thirdorder, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%multipole)) then
+      call self%multipole%load(array, offset, base%multipole, mask%multipole, error)
+      if (allocated(error)) return
+   end if
+
+   do ii = 1, size(mask%record)
+      call self%get(mask%record(ii)%sym, mask%record(ii)%num, ir)
+      call self%record(ir)%load(array, offset, base%record(ir), mask%record(ii), error)
+      if (allocated(error)) exit
+   end do
+   if (allocated(error)) return
+end subroutine load_from_array
+
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, mask, error)
+   class(param_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   type(param_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: ii, ir
+   integer :: offset
+
+   offset = 0
+   call self%hamiltonian%dump(array, offset, mask%hamiltonian, error)
+   if (allocated(error)) return
+
+   if (allocated(self%dispersion)) then
+      call self%dispersion%dump(array, offset, mask%dispersion, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%repulsion)) then
+      call self%repulsion%dump(array, offset, mask%repulsion, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%halogen)) then
+      call self%halogen%dump(array, offset, mask%halogen, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%charge)) then
+      call self%charge%dump(array, offset, mask%charge, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%thirdorder)) then
+      call self%thirdorder%dump(array, offset, mask%thirdorder, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%multipole)) then
+      call self%multipole%dump(array, offset, mask%multipole, error)
+      if (allocated(error)) return
+   end if
+
+   do ii = 1, size(mask%record)
+      call self%get(mask%record(ii)%sym, mask%record(ii)%num, ir)
+      call self%record(ir)%dump(array, offset, mask%record(ii), error)
+      if (allocated(error)) exit
+   end do
+   if (allocated(error)) return
+end subroutine dump_to_array
 
 end module tblite_param

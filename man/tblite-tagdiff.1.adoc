@@ -1,28 +1,23 @@
-= tblite-param(1)
+= tblite-tagdiff(1)
 Sebastian Ehlert (@awvwgk)
 :doctype: manpage
 
 == Name
-tblite-param - Export, import and manipulate tight-binding parameter files
+tblite-tagdiff - Auxilary tool to compute differences between data outputs
 
 == Synopsis
-*tblite param* [_options_] _input_
+*tblite tagdiff* [_options_] _actual_ _reference_
 
 
 == Description
 
-Allows to export parameter files from the internal storage or merge parameter files with an internal base parametrization.
-The _input_ variable must be present or an internal parametrization should be selected.
+Takes two data files in tblite-tag(7) format and computes the difference between the data sets based on the tags present in the _reference_ data file.
 
 
 == Options
 
-*--output* _string_::
-     Output file to write parameters
-
-*--method* _string_::
-     Name of the parametrisation to use, supported are
-     _gfn1_, _ipea1_ and _gfn2_
+*--fit*::
+     Produce compatible output for tblite-fit(1) script
 
 *--version*::
      Prints version number and citation
@@ -38,4 +33,6 @@ The file can contain further @_name_ inputs. If the file cannot be the argument 
 
 == See also
 
-*tblite*(1)
+*tblite*(1),
+*tblite-fit*(1),
+*tblite-tag*(7)

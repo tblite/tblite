@@ -145,7 +145,7 @@ endif
 lib_deps += multicharge_dep
 
 # Create DFT-D4 library as subproject
-dftd4_dep = dependency('toml-f', required: false)
+dftd4_dep = dependency('dftd4', required: false)
 if not dftd4_dep.found()
   dftd4_prj = subproject(
     'dftd4',

@@ -23,6 +23,7 @@ program tester
    use test_cgto_ortho, only : collect_cgto_ortho
    use test_coulomb_charge, only : collect_coulomb_charge
    use test_coulomb_multipole, only : collect_coulomb_multipole
+   use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
    use test_hamiltonian, only : collect_hamiltonian
@@ -33,6 +34,7 @@ program tester
    use test_ncoord_gfn, only : collect_ncoord_gfn
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
+   use test_tagged_io, only : collect_tagged_io
    use test_xtb_param, only : collect_xtb_param
    implicit none
    integer :: stat, is
@@ -43,6 +45,8 @@ program tester
    stat = 0
 
    testsuites = [ &
+      new_testsuite("tagged-io", collect_tagged_io), &
+      new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
       new_testsuite("ncoord-gfn", collect_ncoord_gfn), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &

@@ -19,7 +19,8 @@ module tblite_cli_help
    implicit none
    private
 
-   public :: prog_name, help_text, help_text_run, help_text_param
+   public :: prog_name, help_text, help_text_run, help_text_param, help_text_fit, &
+      & help_text_tagdiff
 
    character(len=*), parameter :: nl = new_line('a')
 
@@ -39,16 +40,32 @@ module tblite_cli_help
       "      --version           Print program version and exit"//nl//&
       "      --help              Show this help message"
 
+   !> General help text regarding geometry input formats
+   character(len=*), parameter :: help_text_geometry = &
+      "Supported geometry input formats are:"//nl//&
+      ""//nl//&
+      "- Xmol/xyz files (xyz, log)"//nl//&
+      "- Turbomole's coord, riper's periodic coord (tmol, coord)"//nl//&
+      "- DFTB+ genFormat geometry inputs as cluster, supercell or fractional (gen)"//nl//&
+      "- VASP's POSCAR/CONTCAR input files (vasp, poscar, contcar)"//nl//&
+      "- Protein Database files, only single files (pdb)"//nl//&
+      "- Connection table files, molfile (mol) and structure data format (sdf)"//nl//&
+      "- Gaussian's external program input (ein)"
+
    !> Help text for main driver
    character(len=*), parameter :: help_text = &
-      "Usage: "//prog_name//" <run|param> [options]"//nl//&
+      "Usage: "//prog_name//" <run|param|fit|tagdiff> [options]"//nl//&
       ""//nl//&
       "Commands"//nl//&
       ""//nl//&
-      "  run       Evaluate tight binding module on the provided input structure."//nl//&
+      "  run       Evaluate tight-binding module on the provided input structure."//nl//&
       "            If no command is specified run is selected by default."//nl//&
       ""//nl//&
-      "  param     Inspect and manipulate tight binding parametrization data."//nl//&
+      "  param     Inspect and manipulate tight-binding parametrization data."//nl//&
+      ""//nl//&
+      "  fit       Optimize tight-binding parameters."//nl//&
+      ""//nl//&
+      "  tagdiff   Auxilary tool to compute differences between data outputs."//nl//&
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
@@ -77,18 +94,10 @@ module tblite_cli_help
    character(len=*), parameter :: help_text_run = &
       "Usage: "//prog_name//" [run] [options] <input>"//nl//&
       ""//nl//&
-      "Evaluates the tight binding model on the provided input structure."//nl//&
+      "Evaluates the tight-binding model on the provided input structure."//nl//&
       "Periodic calculations are performed automatically for periodic input formats."//nl//&
       ""//nl//&
-      "Supported geometry input formats are:"//nl//&
-      ""//nl//&
-      "- Xmol/xyz files (xyz, log)"//nl//&
-      "- Turbomole's coord, riper's periodic coord (tmol, coord)"//nl//&
-      "- DFTB+ genFormat geometry inputs as cluster, supercell or fractional (gen)"//nl//&
-      "- VASP's POSCAR/CONTCAR input files (vasp, poscar, contcar)"//nl//&
-      "- Protein Database files, only single files (pdb)"//nl//&
-      "- Connection table files, molfile (mol) and structure data format (sdf)"//nl//&
-      "- Gaussian's external program input (ein)"//nl//&
+      help_text_geometry//nl//&
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
@@ -101,6 +110,40 @@ module tblite_cli_help
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
       "  -i, --input <format>    Hint for the format of the input file"//nl//&
+      help_text_general//nl//&
+      ""//nl//&
+      help_text_response
+
+   !> Help text for fit command
+   character(len=*), parameter :: help_text_fit = &
+      "Usage: "//prog_name//" fit [options] <param-file> <input-file>"//nl//&
+      ""//nl//&
+      "Takes the name of the starting parameter file as first positional argument and"//nl//&
+      "an input file for the settings of the run as second positional argument."//nl//&
+      "A starting parameter file can be produced using the tblite-param(1) command."//nl//&
+      ""//nl//&
+      "Options"//nl//&
+      ""//nl//&
+      "      --dry-run           Do not run start the fitting procedure"//nl//&
+      "      --copy <file>       Write the full representation of the input to <file>,"//nl//&
+      "                          all defaults will be filled in and the mask expanded"//nl//&
+      "  -v, --verbose           Increase verbosity of printout"//nl//&
+      "  -s, --silent            Reduce verbosity of printout"//nl//&
+      help_text_general//nl//&
+      ""//nl//&
+      help_text_response
+
+   !> Help text for tagdiff command
+   character(len=*), parameter :: help_text_tagdiff = &
+      "Usage: "//prog_name//" tagdiff [options] <actual> <reference>"//nl//&
+      ""//nl//&
+      "Takes two positional arguments and computes the difference between the"//nl//&
+      "entries in the reference and the actual data files. Only keys of the"//nl//&
+      "reference data file are used from the actual one."//nl//&
+      ""//nl//&
+      "Options"//nl//&
+      ""//nl//&
+      "      --fit               Produce output for fit command"//nl//&
       help_text_general//nl//&
       ""//nl//&
       help_text_response

@@ -14,7 +14,7 @@ TOML quickstart
 .. note::
 
    This guide will only cover the aspects of TOML relevant for representing the parameter file in this project.
-   For an extensive guide on TOML visit its `homepage <https://toml.io>`.
+   For an extensive guide on TOML visit its `homepage <https://toml.io>`_.
 
 We choose TOML to represent our parameter files since it produces both human and machine readable files and has good support over all major progamming languages.
 TOML is a configuration file format, which allows to represent data in tables, arrays and values.

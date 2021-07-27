@@ -24,7 +24,9 @@ add_subdirectory("context")
 add_subdirectory("coulomb")
 add_subdirectory("disp")
 add_subdirectory("data")
+add_subdirectory("fit")
 add_subdirectory("integral")
+add_subdirectory("io")
 add_subdirectory("lapack")
 add_subdirectory("ncoord")
 add_subdirectory("output")
@@ -43,6 +45,7 @@ list(
   "${dir}/disp.f90"
   "${dir}/lapack.f90"
   "${dir}/ncoord.f90"
+  "${dir}/os.F90"
   "${dir}/param.f90"
   "${dir}/repulsion.f90"
   "${dir}/toml.f90"

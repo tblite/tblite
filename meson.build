@@ -99,8 +99,11 @@ if install
   if asciidoc.found()
     man_srcs = files(
       'man/tblite.1.adoc',
+      'man/tblite-fit.1.adoc',
       'man/tblite-run.1.adoc',
       'man/tblite-param.1.adoc',
+      'man/tblite-tagdiff.1.adoc',
+      'man/tblite-tag.5.adoc',
     )
     foreach man : man_srcs
       install_man(

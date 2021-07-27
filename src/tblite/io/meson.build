@@ -15,14 +15,5 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'charge.f90',
-  'dispersion.f90',
-  'element.f90',
-  'halogen.f90',
-  'hamiltonian.f90',
-  'mask.f90',
-  'multipole.f90',
-  'repulsion.f90',
-  'serde.f90',
-  'thirdorder.f90',
+  'tag.f90'
 )

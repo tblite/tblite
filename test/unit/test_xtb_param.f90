@@ -23,7 +23,7 @@ module test_xtb_param
    use tblite_context_type, only : context_type
    use tblite_param, only : param_record, charge_record, dispersion_record, element_record, &
       & halogen_record, hamiltonian_record, multipole_record, repulsion_record, &
-      & thirdorder_record
+      & thirdorder_record, param_mask, count
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
@@ -61,6 +61,8 @@ subroutine collect_xtb_param(testsuite)
       new_unittest("multipole-empty", test_multipole_empty, should_fail=.true.), &
       new_unittest("repulsion-empty", test_repulsion_empty, should_fail=.true.), &
       new_unittest("thirdorder-empty", test_thirdorder_empty), &
+      new_unittest("mask-a", test_mask_gfn2), &
+      new_unittest("mask-b", test_mask_gfn1), &
       new_unittest("gfn2-xtb-a", test_gfn2_mb02), &
       new_unittest("gfn2-xtb-b", test_gfn2_mb05), &
       new_unittest("gfn2-xtb-c", test_gfn2_round_trip), &
@@ -263,6 +265,104 @@ subroutine test_thirdorder_empty(error)
    table = toml_table()
    call param%load(table, error)
 end subroutine test_thirdorder_empty
+
+
+subroutine test_mask_gfn2(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(param_record), target :: param, base
+   type(param_mask) :: mask1, mask2
+   real(wp), allocatable :: array(:)
+   type(toml_table) :: table
+   integer :: io
+
+   call export_gen_param("gfn2", base)
+
+   mask1%ref => base%record
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+      "hamiltonian = {}", &
+      "dispersion = {}", &
+      "repulsion = {}", &
+      "charge = {}", &
+      "thirdorder = {}", &
+      "multipole = {}", &
+      "[element]", &
+      "H = {slater=[false]}", &
+      "C = {}", &
+      ""
+   rewind io
+
+   call mask1%load(io, error)
+   close(io)
+   if (allocated(error)) return
+
+   call check(error, count(mask1), 26)
+   if (allocated(error)) return
+
+   table = toml_table()
+   call mask1%dump(table, error)
+   if (allocated(error)) return
+
+   mask2%ref => base%record
+   call mask2%load(table, error)
+   if (allocated(error)) return
+
+   call check(error, count(mask2), 26)
+   if (allocated(error)) return
+
+   allocate(array(count(mask2)))
+   call base%dump(array, mask2, error)
+   if (allocated(error)) return
+
+   call param%load(array, base, mask2, error)
+   if (allocated(error)) return
+
+end subroutine test_mask_gfn2
+
+
+subroutine test_mask_gfn1(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(param_record), target :: param, base
+   type(param_mask) :: mask
+   real(wp), allocatable :: array(:)
+   integer :: io
+
+   call export_gen_param("gfn1", base)
+
+   mask%ref => base%record
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+      "hamiltonian = {}", &
+      "dispersion = {}", &
+      "repulsion = {}", &
+      "charge = {}", &
+      "thirdorder = {}", &
+      "halogen = {}", &
+      "[element]", &
+      "H = {slater=[false, true], gam3=false}", &
+      "C = {}", &
+      ""
+   rewind io
+
+   call mask%load(io, error)
+   close(io)
+   if (allocated(error)) return
+
+   call check(error, count(mask), 28)
+   if (allocated(error)) return
+
+   allocate(array(count(mask)))
+   call base%dump(array, mask, error)
+   if (allocated(error)) return
+
+   call param%load(array, base, mask, error)
+   if (allocated(error)) return
+
+end subroutine test_mask_gfn1
 
 
 subroutine export_gen_param(method, param)

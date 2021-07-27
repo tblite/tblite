@@ -22,7 +22,7 @@ module tblite_param_hamiltonian
    implicit none
    private
 
-   public :: hamiltonian_record
+   public :: hamiltonian_record, hamiltonian_mask, count
 
    character(len=*), parameter :: k_xtb = "xtb", k_ang(0:4) = ["s", "p", "d", "f", "g"], &
       & k_enscale = "enscale", k_shell = "shell", k_wexp = "wexp", k_cn = "cn", &
@@ -39,9 +39,26 @@ module tblite_param_hamiltonian
       real(wp) :: wexp
       integer :: lmax
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
+      !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
+      !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: hamiltonian_mask
+   end type hamiltonian_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -228,5 +245,39 @@ subroutine dump_to_toml(self, table, error)
       end do
    end if
 end subroutine dump_to_toml
+
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(hamiltonian_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(hamiltonian_record), intent(in) :: base
+   type(hamiltonian_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (hamiltonian_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(hamiltonian_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(hamiltonian_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(hamiltonian_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
+
 
 end module tblite_param_hamiltonian

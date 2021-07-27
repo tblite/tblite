@@ -20,6 +20,10 @@ add_executable(
   "cli.f90"
   "cli_help.f90"
   "driver.f90"
+  "driver_fit.f90"
+  "driver_param.f90"
+  "driver_run.f90"
+  "driver_tagdiff.f90"
   "main.f90"
 )
 set_target_properties(

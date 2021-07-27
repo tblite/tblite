@@ -22,7 +22,7 @@ module tblite_param_thirdorder
    implicit none
    private
 
-   public :: thirdorder_record
+   public :: thirdorder_record, thirdorder_mask, count
 
 
    character(len=*), parameter :: k_shell = "shell", k_ang(0:4) = ["s", "p", "d", "f", "g"]
@@ -33,11 +33,26 @@ module tblite_param_thirdorder
       logical :: shell
       real(wp) :: ksh(0:4)
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: thirdorder_mask
+   end type thirdorder_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -104,6 +119,39 @@ subroutine dump_to_toml(self, table, error)
       call set_value(table, k_shell, .false.)
    end if
 end subroutine dump_to_toml
+
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(thirdorder_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(thirdorder_record), intent(in) :: base
+   type(thirdorder_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (thirdorder_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(thirdorder_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(thirdorder_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(thirdorder_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
 
 
 end module tblite_param_thirdorder

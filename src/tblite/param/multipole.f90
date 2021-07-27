@@ -22,7 +22,7 @@ module tblite_param_multipole
    implicit none
    private
 
-   public :: multipole_record
+   public :: multipole_record, multipole_mask, count
 
 
    character(len=*), parameter :: k_damped = "damped", k_dmp3 = "dmp3", k_dmp5 = "dmp5", &
@@ -41,11 +41,26 @@ module tblite_param_multipole
       !> Maximum multipole radus
       real(wp) :: rmax
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: multipole_mask
+   end type multipole_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -115,5 +130,39 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_shift, self%shift)
    call set_value(child, k_rmax, self%rmax)
 end subroutine dump_to_toml
+
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(multipole_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(multipole_record), intent(in) :: base
+   type(multipole_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (multipole_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(multipole_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(multipole_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(multipole_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
+
 
 end module tblite_param_multipole

@@ -22,7 +22,7 @@ module tblite_param_repulsion
    implicit none
    private
 
-   public :: repulsion_record
+   public :: repulsion_record, repulsion_mask, count
 
 
    character(len=*), parameter :: k_effective = "effective", k_kexp = "kexp", &
@@ -33,11 +33,26 @@ module tblite_param_repulsion
       real(wp) :: kexp
       real(wp) :: klight
    contains
+      generic :: load => load_from_array
+      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
+      !> Read parametrization data from parameter array
+      procedure, private :: load_from_array
+      !> Write parametrization data to parameter array
+      procedure, private :: dump_to_array
    end type
+
+
+   type :: repulsion_mask
+   end type repulsion_mask
+
+
+   interface count
+      module procedure :: count_mask
+   end interface count
 
 
 contains
@@ -93,6 +108,39 @@ subroutine dump_to_toml(self, table, error)
    end if
 
 end subroutine dump_to_toml
+
+
+!> Read parametrization data from parameter array
+subroutine load_from_array(self, array, offset, base, mask, error)
+   class(repulsion_record), intent(inout) :: self
+   real(wp), intent(in) :: array(:)
+   integer, intent(inout) :: offset
+   type(repulsion_record), intent(in) :: base
+   type(repulsion_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+   select type(self)
+   type is (repulsion_record)
+      self = base
+   end select
+
+end subroutine load_from_array
+
+!> Write parametrization data to parameter array
+subroutine dump_to_array(self, array, offset, mask, error)
+   class(repulsion_record), intent(in) :: self
+   real(wp), intent(inout) :: array(:)
+   integer, intent(inout) :: offset
+   type(repulsion_mask), intent(in) :: mask
+   type(error_type), allocatable, intent(out) :: error
+
+end subroutine dump_to_array
+
+elemental function count_mask(mask) result(ncount)
+   type(repulsion_mask), intent(in) :: mask
+   integer :: ncount
+   ncount = 0
+end function count_mask
 
 
 end module tblite_param_repulsion
