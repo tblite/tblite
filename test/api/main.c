@@ -26,7 +26,8 @@ static inline double
 norm2(int n, double* vec)
 {
    double norm = 0.0;
-   for (int i = 0; i != n; i++) norm += vec[i]*vec[i];
+   int i;
+   for (i = 0; i != n; i++) norm += vec[i]*vec[i];
    return sqrt(norm);
 }
 
