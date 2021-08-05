@@ -26,6 +26,7 @@ project(
   ],
 )
 install = not (meson.is_subproject() and get_option('default_library') == 'static')
+has_cc = add_languages('c', required: get_option('api') or get_option('python'), native: false)
 
 # General configuration information
 lib_deps = []

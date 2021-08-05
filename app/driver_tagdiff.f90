@@ -54,6 +54,7 @@ subroutine tagdiff_main(config, error)
       return
    end if
 
+   stat = 0
    do it = 1, size(reference%val)
       call actual%get(reference%val(it)%tag, ptr)
       if (.not.associated(ptr)) then
@@ -61,6 +62,7 @@ subroutine tagdiff_main(config, error)
             write(output_unit, '(a)') &
                & "Data field '"//reference%val(it)%tag//"' not found in actual data"
          end if
+         stat = stat + 1
          cycle
       end if
       select type(aval => ptr%raw)
@@ -79,6 +81,10 @@ subroutine tagdiff_main(config, error)
          end select
       end select
    end do
+   if (stat /= 0) then
+      call fatal_error(error, "Data fields from reference are missing in actual data")
+      return
+   end if
 
 end subroutine tagdiff_main
 
