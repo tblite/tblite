@@ -94,7 +94,8 @@ subroutine test_newuoa(error)
          x(i) = real(i, wp) / real(n+1, wp)
       end do
       rhobeg = 0.2_wp * x(1)
-      call newuoa(n, npt, x, rhobeg, rhoend, 0, maxfun, calfun_chebyquad, h)
+      call newuoa(n, npt, x, rhobeg, rhoend, 0, maxfun, calfun_chebyquad, h, error)
+      if (allocated(error)) exit
       do i = 1, n
          call check(error, x(i), ref(i, n/2), thr=thr)
          if (allocated(error)) exit
@@ -107,10 +108,11 @@ end subroutine test_newuoa
 
 
 !> The Chebyquad test problem (Fletcher, 1965)
-function calfun_chebyquad(n, x, h) result(f)
+function calfun_chebyquad(n, x, h, error) result(f)
    integer, intent(in) :: n
    real(wp), intent(in) :: x(*)
    class(*), intent(in) :: h
+   type(error_type), allocatable, intent(out) :: error
    real(wp) :: f
 
    real(wp) :: y(10, 10)

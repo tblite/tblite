@@ -81,7 +81,8 @@ subroutine fit_main(config, error)
 
    handle => set
    call newuoa(npar, 2*npar, array, set%trustr, conv, config%verbosity, set%max_iter*npar, &
-      & eval, handle)
+      & eval, handle, error)
+   if (allocated(error)) return
 
    call param%load(array, set%base, set%mask, error)
    if (allocated(error)) return
@@ -107,14 +108,14 @@ subroutine summary(unit, config, set)
 end subroutine summary
 
 
-function eval(n, x, h) result(f)
+function eval(n, x, h, error) result(f)
    integer, intent(in) :: n
    real(wp), intent(in) :: x(*)
    class(*), intent(in) :: h
+   type(error_type), allocatable, intent(out) :: error
    real(wp) :: f
 
    type(param_record) :: param
-   type(error_type), allocatable :: error
    integer :: stat
    real(wp), allocatable :: actual(:), reference(:)
 

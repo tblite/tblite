@@ -48,19 +48,20 @@
 !>}
 !>```
 module tblite_fit_newuoa
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    implicit none
 
    private
    public :: newuoa, objective_function
 
    abstract interface
-      function objective_function(n, x, h) result(f)
-         import :: wp
+      function objective_function(n, x, h, error) result(f)
+         import :: wp, error_type
          implicit none
          integer, intent(in) :: n
          real(wp), intent(in) :: x(*)
          class(*), intent(in) :: h
+         type(error_type), allocatable, intent(out) :: error
          real(wp) :: f
       end function objective_function
    end interface
@@ -72,7 +73,7 @@ contains
 !> by a trust region method that forms quadratic models by interpolation.
 !> There can be some freedom in the interpolation conditions, which is
 !> taken up by minimizing the Frobenius norm of the change to the second
-subroutine newuoa(n, npt, x, rhobeg, rhoend, iprint, maxfun, calfun, handle)
+subroutine newuoa(n, npt, x, rhobeg, rhoend, iprint, maxfun, calfun, handle, error)
    !> The number of variables. Must be at least 2.
    integer, intent(in) :: n
    !> The number of interpolation conditions.
@@ -106,6 +107,7 @@ subroutine newuoa(n, npt, x, rhobeg, rhoend, iprint, maxfun, calfun, handle)
    integer, intent(in) :: maxfun
    procedure(objective_function) :: calfun
    class(*), intent(in) :: handle
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), dimension(:), allocatable :: w
    integer :: np, nptm, ndim, ixb, ixo, ixn, ixp, ifv, igq, ihq, ipq, ibmat, izmat, &
@@ -145,7 +147,7 @@ subroutine newuoa(n, npt, x, rhobeg, rhoend, iprint, maxfun, calfun, handle)
 
    call newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, w(ixb), w(ixo), w(ixn), &
       w(ixp), w(ifv), w(igq), w(ihq), w(ipq), w(ibmat), w(izmat), ndim, &
-      w(id), w(ivl), w(iw), calfun, handle)
+      w(id), w(ivl), w(iw), calfun, handle, error)
 
    deallocate(w)
 
@@ -153,7 +155,7 @@ end subroutine newuoa
 
 
 subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, xpt, &
-      fval, gq, hq, pq, bmat, zmat, ndim, d, vlag, w, calfun, handle)
+      fval, gq, hq, pq, bmat, zmat, ndim, d, vlag, w, calfun, handle, error)
    !> The number of variables. Must be at least 2.
    integer, intent(in) :: n
    !> The number of interpolation conditions.
@@ -204,6 +206,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
    real(wp), intent(inout) :: w(*)
    procedure(objective_function) :: calfun
    class(*), intent(in) :: handle
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), parameter :: half = 0.5_wp, one = 1.0_wp, tenth = 0.1_wp, zero = 0.0_wp
    integer :: np, nh, nptm, nftest, i, j, k, ih, idz, ip, ipt, itemp, itest, jp, jpt, &
@@ -535,7 +538,8 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
          &" called MAXFUN times.")'
       go to 530
    end if
-   f = calfun(n, x, handle)
+   f = calfun(n, x, handle, error)
+   if (allocated(error)) goto 530
    if (iprint == 3) then
       print '(/, 4x, "Function number", i6, "    F =", 1 es18.10, &
          &"    The corresponding X is:" / (2 x, 5es15.6))', nf, f, (x(i), i=1, n)
@@ -778,7 +782,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
    !     it is too short to have been tried before.
    !
    if (knew ==-1) go to 290
-   530     if (fopt <= f) then
+   530 if (fopt <= f) then
       do i = 1, n
          x(i) = xbase(i) + xopt(i)
       end do

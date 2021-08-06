@@ -29,7 +29,7 @@ module tblite_param
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
-   implicit none(type, external)
+   implicit none
    private
 
    public :: param_record, param_mask, count

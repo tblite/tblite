@@ -18,7 +18,7 @@ module tblite_param_halogen
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, get_value, set_value, add_table
-   implicit none(type, external)
+   implicit none
    private
 
    public :: halogen_record, halogen_mask, count

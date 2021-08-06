@@ -15,7 +15,7 @@ Goals of this project are
 
 - create a high-level interface to the extended tight binding methods
 - allow low-level access to the components forming the actual energy expression
-- provide a framework to handle and manipulate parametrisation data
+- provide a framework to handle and manipulate parametrization data
 
 Explicit non-goals are
 

@@ -608,18 +608,18 @@ subroutine load_from_array(self, array, offset, base, mask, error)
 
    call load_atom_par(self%xbond, mask%xbond, array, offset)
 
-   call load_shell_par(self%levels, mask%levels, array, offset)
+   call load_shell_par(self%levels, mask%levels, array, offset, scale=evtoau)
    call load_shell_par(self%slater, mask%slater, array, offset)
-   call load_shell_par(self%kcn, mask%kcn, array, offset)
-   call load_shell_par(self%shpoly, mask%shpoly, array, offset)
+   call load_shell_par(self%kcn, mask%kcn, array, offset, scale=evtoau)
+   call load_shell_par(self%shpoly, mask%shpoly, array, offset, scale=0.01_wp)
 
    call load_atom_par(self%gam, mask%gam, array, offset)
    call load_shell_par(self%lgam, mask%lgam, array, offset)
 
-   call load_atom_par(self%gam3, mask%gam3, array, offset)
+   call load_atom_par(self%gam3, mask%gam3, array, offset, scale=0.1_wp)
 
-   call load_atom_par(self%dkernel, mask%dkernel, array, offset)
-   call load_atom_par(self%qkernel, mask%qkernel, array, offset)
+   call load_atom_par(self%dkernel, mask%dkernel, array, offset, scale=0.01_wp)
+   call load_atom_par(self%qkernel, mask%qkernel, array, offset, scale=0.01_wp)
 end subroutine load_from_array
 
 !> Write parametrization data to parameter array
@@ -635,66 +635,82 @@ subroutine dump_to_array(self, array, offset, mask, error)
 
    call dump_atom_par(self%xbond, mask%xbond, array, offset)
 
-   call dump_shell_par(self%levels, mask%levels, array, offset)
+   call dump_shell_par(self%levels, mask%levels, array, offset, scale=evtoau)
    call dump_shell_par(self%slater, mask%slater, array, offset)
-   call dump_shell_par(self%kcn, mask%kcn, array, offset)
-   call dump_shell_par(self%shpoly, mask%shpoly, array, offset)
+   call dump_shell_par(self%kcn, mask%kcn, array, offset, scale=evtoau)
+   call dump_shell_par(self%shpoly, mask%shpoly, array, offset, scale=0.01_wp)
 
    call dump_atom_par(self%gam, mask%gam, array, offset)
    call dump_shell_par(self%lgam, mask%lgam, array, offset)
 
-   call dump_atom_par(self%gam3, mask%gam3, array, offset)
+   call dump_atom_par(self%gam3, mask%gam3, array, offset, scale=0.1_wp)
 
-   call dump_atom_par(self%dkernel, mask%dkernel, array, offset)
-   call dump_atom_par(self%qkernel, mask%qkernel, array, offset)
+   call dump_atom_par(self%dkernel, mask%dkernel, array, offset, scale=0.01_wp)
+   call dump_atom_par(self%qkernel, mask%qkernel, array, offset, scale=0.01_wp)
 end subroutine dump_to_array
 
-pure subroutine load_atom_par(par, mask, array, ii)
+pure subroutine load_atom_par(par, mask, array, ii, scale)
    real(wp), intent(inout) :: par
    logical, intent(in) :: mask
    real(wp), intent(in) :: array(:)
    integer, intent(inout) :: ii
+   real(wp), intent(in), optional :: scale
+   real(wp) :: scale_
+   scale_ = 1.0_wp
+   if (present(scale)) scale_ = scale
    if (mask) then
       ii = ii+1
-      par = array(ii)
+      par = array(ii) * scale_
    end if
 end subroutine load_atom_par
 
-pure subroutine load_shell_par(par, mask, array, ii)
+pure subroutine load_shell_par(par, mask, array, ii, scale)
    real(wp), intent(inout) :: par(:)
    logical, intent(in) :: mask(:)
    real(wp), intent(in) :: array(:)
    integer, intent(inout) :: ii
+   real(wp), intent(in), optional :: scale
+   real(wp) :: scale_
    integer :: ish
+   scale_ = 1.0_wp
+   if (present(scale)) scale_ = scale
    do ish = 1, size(par)
       if (mask(ish)) then
          ii = ii+1
-         par(ish) = array(ii)
+         par(ish) = array(ii) * scale_
       end if
    end do
 end subroutine load_shell_par
 
-pure subroutine dump_atom_par(par, mask, array, ii)
+pure subroutine dump_atom_par(par, mask, array, ii, scale)
    real(wp), intent(in) :: par
    logical, intent(in) :: mask
    real(wp), intent(inout) :: array(:)
    integer, intent(inout) :: ii
+   real(wp), intent(in), optional :: scale
+   real(wp) :: scale_
+   scale_ = 1.0_wp
+   if (present(scale)) scale_ = scale
    if (mask) then
       ii = ii+1
-      array(ii) = par
+      array(ii) = par / scale_
    end if
 end subroutine dump_atom_par
 
-pure subroutine dump_shell_par(par, mask, array, ii)
+pure subroutine dump_shell_par(par, mask, array, ii, scale)
    real(wp), intent(in) :: par(:)
    logical, intent(in) :: mask(:)
    real(wp), intent(inout) :: array(:)
    integer, intent(inout) :: ii
+   real(wp), intent(in), optional :: scale
+   real(wp) :: scale_
    integer :: ish
+   scale_ = 1.0_wp
+   if (present(scale)) scale_ = scale
    do ish = 1, size(par)
       if (mask(ish)) then
          ii = ii+1
-         array(ii) = par(ish)
+         array(ii) = par(ish) / scale_
       end if
    end do
 end subroutine dump_shell_par
