@@ -47,7 +47,7 @@ function new_error_api() &
    type(vp_error), pointer :: error
    type(c_ptr) :: verror
 
-   if (debug) print'("[Info]", 1x, a)', "new_error"
+   if (debug) print '("[Info]", 1x, a)', "new_error"
 
    allocate(error)
    verror = c_loc(error)
@@ -61,7 +61,7 @@ subroutine delete_error_api(verror) &
    type(c_ptr), intent(inout) :: verror
    type(vp_error), pointer :: error
 
-   if (debug) print'("[Info]", 1x, a)', "delete_error"
+   if (debug) print '("[Info]", 1x, a)', "delete_error"
 
    if (c_associated(verror)) then
       call c_f_pointer(verror, error)
@@ -80,7 +80,7 @@ function check_error_api(verror) result(status) &
    type(vp_error), pointer :: error
    integer(c_int) :: status
 
-   if (debug) print'("[Info]", 1x, a)', "check_error"
+   if (debug) print '("[Info]", 1x, a)', "check_error"
 
    if (c_associated(verror)) then
       call c_f_pointer(verror, error)
@@ -106,7 +106,7 @@ subroutine get_error_api(verror, charptr, buffersize) &
    integer(c_int), intent(in), optional :: buffersize
    integer :: max_length
 
-   if (debug) print'("[Info]", 1x, a)', "get_error"
+   if (debug) print '("[Info]", 1x, a)', "get_error"
 
    if (c_associated(verror)) then
       call c_f_pointer(verror, error)

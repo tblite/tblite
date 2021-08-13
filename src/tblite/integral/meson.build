@@ -19,4 +19,5 @@ srcs += files(
   'multipole.f90',
   'overlap.f90',
   'trafo.f90',
+  'type.f90',
 )

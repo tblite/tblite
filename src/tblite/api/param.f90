@@ -51,7 +51,7 @@ function new_param_api() &
    type(vp_param), pointer :: param
    type(c_ptr) :: vparam
 
-   if (debug) print'("[Info]", 1x, a)', "new_param"
+   if (debug) print '("[Info]", 1x, a)', "new_param"
 
    allocate(param)
    vparam = c_loc(param)
@@ -63,7 +63,7 @@ subroutine delete_param_api(vparam) &
    type(c_ptr), intent(inout) :: vparam
    type(vp_param), pointer :: param
 
-   if (debug) print'("[Info]", 1x, a)', "delete_param"
+   if (debug) print '("[Info]", 1x, a)', "delete_param"
 
    if (c_associated(vparam)) then
       call c_f_pointer(vparam, param)
@@ -84,7 +84,7 @@ subroutine load_param_api(verror, vparam, vtable) &
    type(c_ptr), value :: vtable
    type(vp_table), pointer :: table
 
-   if (debug) print'("[Info]", 1x, a)', "load_param"
+   if (debug) print '("[Info]", 1x, a)', "load_param"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -115,7 +115,7 @@ subroutine dump_param_api(verror, vparam, vtable) &
    type(c_ptr), value :: vtable
    type(vp_table), pointer :: table
 
-   if (debug) print'("[Info]", 1x, a)', "dump_param"
+   if (debug) print '("[Info]", 1x, a)', "dump_param"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -144,7 +144,7 @@ subroutine export_gfn1_param_api(verror, vparam) &
    type(c_ptr), value :: vparam
    type(vp_param), pointer :: param
 
-   if (debug) print'("[Info]", 1x, a)', "export_gfn1_param"
+   if (debug) print '("[Info]", 1x, a)', "export_gfn1_param"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -166,7 +166,7 @@ subroutine export_gfn2_param_api(verror, vparam) &
    type(c_ptr), value :: vparam
    type(vp_param), pointer :: param
 
-   if (debug) print'("[Info]", 1x, a)', "export_gfn2_param"
+   if (debug) print '("[Info]", 1x, a)', "export_gfn2_param"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -188,7 +188,7 @@ subroutine export_ipea1_param_api(verror, vparam) &
    type(c_ptr), value :: vparam
    type(vp_param), pointer :: param
 
-   if (debug) print'("[Info]", 1x, a)', "ipea1_param"
+   if (debug) print '("[Info]", 1x, a)', "ipea1_param"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)

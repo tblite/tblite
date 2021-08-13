@@ -65,7 +65,7 @@ function new_result_api() result(vres) &
    type(vp_result), pointer :: res
    type(c_ptr) :: vres
 
-   if (debug) print'("[Info]", 1x, a)', "new_result"
+   if (debug) print '("[Info]", 1x, a)', "new_result"
 
    allocate(res)
    vres = c_loc(res)
@@ -81,7 +81,7 @@ function copy_result_api(vold) result(vnew) &
    type(vp_result), pointer :: old
    type(c_ptr) :: vnew
 
-   if (debug) print'("[Info]", 1x, a)', "copy_result"
+   if (debug) print '("[Info]", 1x, a)', "copy_result"
 
    vnew = c_null_ptr
    if (c_associated(vold)) then
@@ -99,7 +99,7 @@ subroutine delete_result_api(vres) &
    type(c_ptr), intent(inout) :: vres
    type(vp_result), pointer :: res
 
-   if (debug) print'("[Info]", 1x, a)', "delete_result"
+   if (debug) print '("[Info]", 1x, a)', "delete_result"
 
    if (c_associated(vres)) then
       call c_f_pointer(vres, res)
@@ -119,7 +119,7 @@ subroutine get_result_number_of_atoms_api(verror, vres, natoms) &
    integer(c_int), intent(out) :: natoms
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_atoms"
+   if (debug) print '("[Info]", 1x, a)', "get_result_number_of_atoms"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -142,7 +142,7 @@ subroutine get_result_number_of_shells_api(verror, vres, nshells) &
    integer(c_int), intent(out) :: nshells
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_shells"
+   if (debug) print '("[Info]", 1x, a)', "get_result_number_of_shells"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -165,7 +165,7 @@ subroutine get_result_number_of_orbitals_api(verror, vres, norb) &
    integer(c_int), intent(out) :: norb
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_number_of_orbitals"
+   if (debug) print '("[Info]", 1x, a)', "get_result_number_of_orbitals"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -188,7 +188,7 @@ subroutine get_result_energy_api(verror, vres, energy) &
    real(c_double), intent(out) :: energy
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_energy"
+   if (debug) print '("[Info]", 1x, a)', "get_result_energy"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -211,7 +211,7 @@ subroutine get_result_gradient_api(verror, vres, gradient) &
    real(c_double), intent(out) :: gradient(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_gradient"
+   if (debug) print '("[Info]", 1x, a)', "get_result_gradient"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -234,7 +234,7 @@ subroutine get_result_virial_api(verror, vres, sigma) &
    real(c_double), intent(out) :: sigma(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_virial"
+   if (debug) print '("[Info]", 1x, a)', "get_result_virial"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -257,7 +257,7 @@ subroutine get_result_charges_api(verror, vres, charges) &
    real(c_double), intent(out) :: charges(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_charges"
+   if (debug) print '("[Info]", 1x, a)', "get_result_charges"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -280,7 +280,7 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
    real(c_double), intent(out) :: dipole(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_dipole"
+   if (debug) print '("[Info]", 1x, a)', "get_result_dipole"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -303,7 +303,7 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
    real(c_double), intent(out) :: quadrupole(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_quadrupole"
+   if (debug) print '("[Info]", 1x, a)', "get_result_quadrupole"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -326,7 +326,7 @@ subroutine get_result_orbital_energies_api(verror, vres, emo) &
    real(c_double), intent(out) :: emo(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_energies"
+   if (debug) print '("[Info]", 1x, a)', "get_result_orbital_energies"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -349,7 +349,7 @@ subroutine get_result_orbital_occupations_api(verror, vres, occ) &
    real(c_double), intent(out) :: occ(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_occupations"
+   if (debug) print '("[Info]", 1x, a)', "get_result_orbital_occupations"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
@@ -372,7 +372,7 @@ subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
    real(c_double), intent(out) :: cmo(*)
    logical :: ok
 
-   if (debug) print'("[Info]", 1x, a)', "get_result_orbital_coefficients"
+   if (debug) print '("[Info]", 1x, a)', "get_result_orbital_coefficients"
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return

@@ -21,4 +21,5 @@ test(
     sources: files('main.c'),
     dependencies: tblite_dep,
   ),
+  suite: 'api',
 )

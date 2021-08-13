@@ -45,6 +45,7 @@ srcs += files(
   'os.F90',
   'param.f90',
   'repulsion.f90',
+  'scf.f90',
   'toml.f90',
   'version.f90',
   'wignerseitz.f90',

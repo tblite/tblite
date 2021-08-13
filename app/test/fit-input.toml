@@ -1,0 +1,12 @@
+[mask]
+hamiltonian = {}
+dispersion = {}
+repulsion = {}
+charge = {}
+thirdorder = {}
+multipole = {}
+[mask.element]
+H = {lgam=false}
+C = {lgam=[false, true]}
+N = {lgam=[false, true]}
+O = {lgam=[false, true]}

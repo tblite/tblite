@@ -19,7 +19,7 @@ module tblite_api_table
    use mctc_env, only : fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_version, only : namespace
-   use tblite_api_utils, only : c_f_character
+   use tblite_api_utils, only : c_f_character, strlen
    use tblite_toml, only : toml_table, toml_array, toml_value, add_array, set_value
    implicit none
    private
@@ -46,7 +46,7 @@ function new_table_api() &
    type(vp_table), pointer :: table
    type(c_ptr) :: vtable
 
-   if (debug) print'("[Info]", 1x, a)', "new_table"
+   if (debug) print '("[Info]", 1x, a)', "new_table"
 
    allocate(table)
    table%ptr = toml_table()
@@ -59,7 +59,7 @@ subroutine delete_table_api(vtable) &
    type(c_ptr), intent(inout) :: vtable
    type(vp_table), pointer :: table
 
-   if (debug) print'("[Info]", 1x, a)', "delete_table"
+   if (debug) print '("[Info]", 1x, a)', "delete_table"
 
    if (c_associated(vtable)) then
       call c_f_pointer(vtable, table)
@@ -83,7 +83,7 @@ subroutine table_set_double_api(verror, vtable, ckey, val, n) &
    type(toml_array), pointer :: array
    integer :: i, stat
 
-   if (debug) print'("[Info]", 1x, a)', "table_set_double"
+   if (debug) print '("[Info]", 1x, a)', "table_set_double"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -126,7 +126,7 @@ subroutine table_set_long_api(verror, vtable, ckey, val, n) &
    type(toml_array), pointer :: array
    integer :: i, stat
 
-   if (debug) print'("[Info]", 1x, a)', "table_set_long"
+   if (debug) print '("[Info]", 1x, a)', "table_set_long"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -169,7 +169,7 @@ subroutine table_set_bool_api(verror, vtable, ckey, val, n) &
    type(toml_array), pointer :: array
    integer :: i, stat
 
-   if (debug) print'("[Info]", 1x, a)', "table_set_bool"
+   if (debug) print '("[Info]", 1x, a)', "table_set_bool"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -199,7 +199,7 @@ subroutine table_set_bool_api(verror, vtable, ckey, val, n) &
    end if
 end subroutine table_set_bool_api
 
-subroutine table_set_char_api(verror, vtable, ckey, cval) &
+subroutine table_set_char_api(verror, vtable, ckey, cval, n) &
       & bind(C, name=namespace//"table_set_char")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
@@ -207,10 +207,13 @@ subroutine table_set_char_api(verror, vtable, ckey, cval) &
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key, val
-   character(kind=c_char), intent(in) :: cval(*)
-   integer :: stat
+   type(c_ptr), value :: cval
+   character(kind=c_char), pointer :: carr(:, :)
+   integer(c_int), value :: n
+   type(toml_array), pointer :: array
+   integer :: i, stat
 
-   if (debug) print'("[Info]", 1x, a)', "table_set_char"
+   if (debug) print '("[Info]", 1x, a)', "table_set_char"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -222,11 +225,21 @@ subroutine table_set_char_api(verror, vtable, ckey, cval) &
 
    call c_f_pointer(vtable, table)
    call c_f_character(ckey, key)
-   call c_f_character(cval, val)
+   call c_f_pointer(cval, carr, [strlen(cval)+1, min(n, 1)])
 
    if (table%ptr%has_key(key)) call table%ptr%delete(key)
 
-   call set_value(table%ptr, key, val, stat=stat)
+   if (n > 0) then
+      call add_array(table%ptr, key, array)
+      do i = 1, n
+         call c_f_character(carr(:, i), val)
+         call set_value(array, i, val, stat=stat)
+         if (stat /= 0) exit
+      end do
+   else
+      call c_f_character(carr(:, 1), val)
+      call set_value(table%ptr, key, val, stat=stat)
+   end if
 
    if (stat /= 0) then
       call fatal_error(error%ptr, "Failed to push back character string to data table")
@@ -246,7 +259,7 @@ subroutine table_set_table_api(verror, vtable, ckey, vval) &
    class(toml_value), allocatable :: tmp
    integer :: stat
 
-   if (debug) print'("[Info]", 1x, a)', "table_set_table"
+   if (debug) print '("[Info]", 1x, a)', "table_set_table"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)

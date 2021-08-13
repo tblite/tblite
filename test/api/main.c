@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
 
 #include "tblite.h"
 
@@ -115,6 +116,18 @@ test_uninitialized_result (void)
 
    int natoms;
    tblite_get_result_number_of_atoms(error, res, &natoms);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   int nshells;
+   tblite_get_result_number_of_shells(error, res, &nshells);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   int norbs;
+   tblite_get_result_number_of_orbitals(error, res, &norbs);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
@@ -261,7 +274,7 @@ test_uninitialized_table (void)
    show_error(error);
 
    char cval[] = "some-val";
-   tblite_table_set_char(error, table, key, cval);
+   tblite_table_set_char(error, table, key, &cval, 0);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
@@ -405,6 +418,8 @@ test_table_builder (void)
    tblite_table table = NULL, child1 = NULL, child2 = NULL, child3 = NULL;
    double dval;
    double darr[2];
+   char cval[4];
+   char carr[3][2];
    long iarr[2];
 
    error = tblite_new_error();
@@ -431,6 +446,10 @@ test_table_builder (void)
    tblite_table_set_double(error, child2, "enscale", &dval, 0);
    if (tblite_check_error(error)) goto err;
 
+   strcpy(cval, "gfn");
+   tblite_table_set_char(error, child2, "cn", &cval, 0);
+   if (tblite_check_error(error)) goto err;
+
    child1 = tblite_new_table();
    tblite_table_set_table(error, child1, "xtb", &child2);
    if (tblite_check_error(error)) goto err;
@@ -442,6 +461,10 @@ test_table_builder (void)
    if (!!child1) goto err;
 
    child2 = tblite_new_table();
+   strcpy(carr[0], "2s"); strcpy(carr[1], "2p");
+   tblite_table_set_char(error, child2, "shells", carr, 2);
+   if (tblite_check_error(error)) goto err;
+
    darr[0] = -13.970922; darr[1] = -10.063292;
    tblite_table_set_double(error, child2, "levels", darr, 2);
    if (tblite_check_error(error)) goto err;
@@ -673,7 +696,7 @@ test_callback (void)
    tblite_result res = NULL;
 
    const double thr = 1.0e-9;
-   int natoms = 22;
+   int natoms = 22, nshells, norb;
    int num[22] = {7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1};
    double xyz[3*22] = {
        2.65893135608838, -2.39249423371715, -3.66065400053935,
@@ -730,6 +753,22 @@ test_callback (void)
 
    if (natoms != 22) {
       printf("[Fatal] dimension error: %d\n", natoms);
+      goto err;
+   }
+
+   tblite_get_result_number_of_shells(error, res, &nshells);
+   if (tblite_check_error(error)) goto err;
+
+   if (nshells != 32) {
+      printf("[Fatal] dimension error: %d\n", nshells);
+      goto err;
+   }
+
+   tblite_get_result_number_of_orbitals(error, res, &norb);
+   if (tblite_check_error(error)) goto err;
+
+   if (norb != 52) {
+      printf("[Fatal] dimension error: %d\n", norb);
       goto err;
    }
 
@@ -792,6 +831,7 @@ test_gfn2_si5h12 (void)
    tblite_structure mol = NULL;
    tblite_calculator calc = NULL;
    tblite_result res = NULL;
+   tblite_param param = NULL;
 
    const double thr = 1.0e-9;
    int natoms = 17;
@@ -822,11 +862,15 @@ test_gfn2_si5h12 (void)
    error = tblite_new_error();
    ctx = tblite_new_context();
    res = tblite_new_result();
+   param = tblite_new_param();
 
    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
    if (tblite_check_error(error)) goto err;
 
-   calc = tblite_new_gfn2_calculator(ctx, mol);
+   tblite_export_gfn2_param(error, param);
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_xtb_calculator(ctx, mol, param);
    if (!calc) goto err;
 
    tblite_get_singlepoint(ctx, mol, calc, res);
@@ -893,6 +937,7 @@ test_gfn2_si5h12 (void)
    tblite_delete_structure(&mol);
    tblite_delete_calculator(&calc);
    tblite_delete_result(&res);
+   tblite_delete_param(&param);
    return 0;
 
 err:
@@ -913,6 +958,7 @@ err:
    tblite_delete_structure(&mol);
    tblite_delete_calculator(&calc);
    tblite_delete_result(&res);
+   tblite_delete_param(&param);
    return 1;
 }
 

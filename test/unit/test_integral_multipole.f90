@@ -126,7 +126,7 @@ subroutine test_dipole_ss(error)
    call dipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, overlap, dipolei)
 
    do i = 1, 3
-      call check(error, dipolei(i, 1, 1) + vec(i) * overlap(1, 1), dipolej(i, 1, 1))
+      call check(error, dipolei(i, 1, 1) + vec(i) * overlap(1, 1), dipolej(i, 1, 1), thr=thr)
       if (allocated(error)) return
    end do
 
@@ -161,7 +161,7 @@ subroutine test_dipole_pp(error)
    do i = 1, 3
       do j = 1, 3
          do k = 1, 3
-            call check(error, dipolei(k, j, i) + vec(k) * overlap(j, i), dipolej(k, i, j))
+            call check(error, dipolei(k, j, i) + vec(k) * overlap(j, i), dipolej(k, i, j), thr=thr)
             if (allocated(error)) return
          end do
       end do
@@ -198,7 +198,7 @@ subroutine test_dipole_dd(error)
    do i = 1, 5
       do j = 1, 5
          do k = 1, 3
-            call check(error, dipolei(k, j, i) + vec(k) * overlap(j, i), dipolej(k, i, j))
+            call check(error, dipolei(k, j, i) + vec(k) * overlap(j, i), dipolej(k, i, j), thr=thr)
             if (allocated(error)) return
          end do
       end do

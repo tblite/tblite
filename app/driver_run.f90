@@ -151,7 +151,7 @@ subroutine run_main(config, error)
       close(unit)
       if (config%verbosity > 0) then
          write(output_unit, '(a)') &
-            & "[Info] Dispersion results written to '"//config%grad_output//"'"
+            & "[Info] Tight-binding results written to '"//config%grad_output//"'"
       end if
    end if
 

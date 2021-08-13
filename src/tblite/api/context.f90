@@ -75,7 +75,7 @@ function new_context_api() &
    type(vp_context), pointer :: ctx
    type(c_ptr) :: vctx
 
-   if (debug) print'("[Info]", 1x, a)', "new_context"
+   if (debug) print '("[Info]", 1x, a)', "new_context"
 
    allocate(ctx)
    vctx = c_loc(ctx)
@@ -90,7 +90,7 @@ function check_context_api(vctx) result(status) &
    type(c_ptr), value :: vctx
    integer(c_int) :: status
 
-   if (debug) print'("[Info]", 1x, a)', "check_context"
+   if (debug) print '("[Info]", 1x, a)', "check_context"
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
@@ -113,7 +113,7 @@ subroutine get_context_error_api(vctx, charptr, buffersize) &
    integer :: max_length
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "get_context_error"
+   if (debug) print '("[Info]", 1x, a)', "get_context_error"
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
@@ -139,7 +139,7 @@ subroutine delete_context_api(vctx) &
    type(c_ptr), intent(inout) :: vctx
    type(vp_context), pointer :: ctx
 
-   if (debug) print'("[Info]", 1x, a)', "delete_context"
+   if (debug) print '("[Info]", 1x, a)', "delete_context"
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
@@ -160,7 +160,7 @@ subroutine set_context_logger_api(vctx, vproc, vdata) &
    procedure(callback), pointer :: fptr
    type(c_ptr), value :: vdata
 
-   if (debug) print'("[Info]", 1x, a)', "set_context_logger"
+   if (debug) print '("[Info]", 1x, a)', "set_context_logger"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)

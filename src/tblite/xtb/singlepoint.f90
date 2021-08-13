@@ -24,14 +24,13 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_lapack_sygvd, only : sygvd_solver
+   use tblite_integral_type, only : integral_type, new_integral
    use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
       & ascii_quadrupole_moments
    use tblite_output_property, only : property, write(formatted)
    use tblite_output_format, only : format_string
-   use tblite_scf_broyden, only : broyden_mixer, new_broyden
-   use tblite_scf_info, only : scf_info
-   use tblite_scf_iterator, only : next_scf, get_mixer_dimension
-   use tblite_scf_potential, only : potential_type, new_potential
+   use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
+      & get_mixer_dimension, potential_type, new_potential
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
@@ -65,8 +64,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :)
-   real(wp), allocatable :: overlap(:, :), hamiltonian(:, :)
-   real(wp), allocatable :: dpint(:, :, :), qpint(:, :, :)
+   type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
    type(coulomb_cache) :: cache
@@ -158,10 +156,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       print *
    end if
 
-   allocate(overlap(calc%bas%nao, calc%bas%nao), hamiltonian(calc%bas%nao, calc%bas%nao), &
-      & dpint(3, calc%bas%nao, calc%bas%nao), qpint(6, calc%bas%nao, calc%bas%nao))
+   call new_integral(ints, calc%bas%nao)
    call get_hamiltonian(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
-      & overlap, dpint, qpint, hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
 
    eelec = 0.0_wp
    iscf = 0
@@ -177,8 +174,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = eelec
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
-         & calc%coulomb, calc%dispersion, hamiltonian, overlap, dpint, qpint, &
-         & pot, cache, dcache, eelec, error)
+         & calc%coulomb, calc%dispersion, ints, pot, cache, dcache, eelec, error)
       converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
@@ -224,10 +220,10 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       dEdcn(:) = 0.0_wp
 
       tmp = wfn%focc * wfn%emo
-      call get_density_matrix(tmp, wfn%coeff, hamiltonian)
+      call get_density_matrix(tmp, wfn%coeff, ints%hamiltonian)
       !print '(3es20.13)', sigma
       call get_hamiltonian_gradient(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, hamiltonian, dEdcn, gradient, sigma)
+         & dsedcn, pot, wfn%density, ints%hamiltonian, dEdcn, gradient, sigma)
 
       if (allocated(dcndr)) then
          call gemv(dcndr, dEdcn, gradient, beta=1.0_wp)

@@ -34,12 +34,24 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        build: [meson, cmake]
+        build: [meson, cmake, fpm]
         build-type: [debug]
         compiler: [gnu]
         version: [10]
 
         include:
+        - os: macos-latest
+          build: cmake
+          build-type: debug
+          compiler: gnu
+          version: 8
+
+        - os: macos-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          version: 9
+
         - os: ubuntu-latest
           build: meson
           build-type: coverage
@@ -55,6 +67,12 @@ jobs:
         - os: ubuntu-latest
           build: meson
           build-type: debug
+          compiler: gnu
+          version: 11
+
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
           compiler: intel
           version: 2021.2.0
 
@@ -66,7 +84,6 @@ jobs:
       FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
       CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
       GCC_V: ${{ matrix.version }}
-      OMP_NUM_THREADS: 1,2,1
       PYTHON_V: 3.8
 
     steps:
@@ -80,17 +97,22 @@ jobs:
     - name: Install GCC (OSX)
       if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'gnu' }}
       run: |
+        brew install gcc@${{ env.GCC_V }} openblas
         ln -s /usr/local/bin/gfortran-${{ env.GCC_V }} /usr/local/bin/gfortran
         ln -s /usr/local/bin/gcc-${{ env.GCC_V }} /usr/local/bin/gcc
         ln -s /usr/local/bin/g++-${{ env.GCC_V }} /usr/local/bin/g++
+        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
 
     - name: Install GCC (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && matrix.compiler == 'gnu' }}
-      run: >-
-        sudo update-alternatives
-        --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100
-        --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
-        --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install -y gcc-${{ env.GCC_V}} gfortran-${{ env.GCC_V }}
+        sudo update-alternatives \
+          --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100 \
+          --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }} \
+          --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
 
     - name: Install GCC (Windows)
       if: ${{ contains(matrix.os, 'windows') && matrix.compiler == 'gnu' }}
@@ -106,6 +128,12 @@ jobs:
           mingw-w64-x86_64-cmake
           mingw-w64-x86_64-meson
           mingw-w64-x86_64-ninja
+
+    - name: Install fpm
+      if: ${{ matrix.build == 'fpm' }}
+      uses: fortran-lang/setup-fpm@v3
+      with:
+        fpm-version: 'v0.2.0'
 
     - name: Prepare for cache restore
       if: ${{ matrix.compiler == 'intel' }}
@@ -194,7 +222,9 @@ jobs:
         ${{ env.MESON_ARGS }}
       env:
         COVERAGE: ${{ matrix.build-type == 'coverage' }}
-        MESON_ARGS: ${{ matrix.compiler == 'intel' && '-Dfortran_link_args=-qopenmp' || '' }}
+        MESON_ARGS: >-
+          ${{ matrix.compiler == 'intel' && '-Dfortran_link_args=-qopenmp' || '' }}
+          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
 
     - name: Configure build (CMake)
       if: ${{ matrix.build == 'cmake' }}
@@ -205,19 +235,48 @@ jobs:
         -DCMAKE_INSTALL_PREFIX=$PWD/_dist
         -DCMAKE_INSTALL_LIBDIR=lib
 
+    - name: Build library (fpm)
+      if: ${{ matrix.build == 'fpm' }}
+      run: fpm build
+
     - name: Build library
+      if: ${{ matrix.build != 'fpm' }}
       run: ninja -C ${{ env.BUILD_DIR }}
 
-    - name: Run unit tests
-      if: ${{ matrix.build == 'meson' }}
-      run: |
-         meson test -C ${{ env.BUILD_DIR }} --print-errorlogs --no-rebuild --num-processes 2 -t 2
+    - name: Run unit tests (fpm)
+      if: ${{ matrix.build == 'fpm' }}
+      run: fpm test
 
-    - name: Run unit tests
+    - name: Run unit tests (meson)
+      if: ${{ matrix.build == 'meson' }}
+      run: >-
+         meson test
+         -C ${{ env.BUILD_DIR }}
+         --print-errorlogs
+         --no-rebuild
+         --num-processes 2
+         -t 2
+      env:
+        OMP_NUM_THREADS: 1,2,1
+
+    - name: Run benchmarks
+      if: ${{ matrix.build == 'meson' }}
+      run: >-
+         meson test
+         -C ${{ env.BUILD_DIR }}
+         --print-errorlogs
+         --no-rebuild
+         --num-processes 2
+         -t 2
+         --benchmark
+
+    - name: Run unit tests (ctest)
       if: ${{ matrix.build == 'cmake' }}
       run: |
          ctest --output-on-failure --parallel 2
       working-directory: ${{ env.BUILD_DIR }}
+      env:
+        OMP_NUM_THREADS: 1,2,1
 
     - name: Create coverage report
       if: ${{ matrix.build == 'meson' && matrix.build-type == 'coverage' }}
@@ -225,6 +284,7 @@ jobs:
          ninja -C ${{ env.BUILD_DIR }} coverage
 
     - name: Install project
+      if: ${{ matrix.build != 'fpm' }}
       run: |
         ninja -C ${{ env.BUILD_DIR }} install
         echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV

@@ -15,6 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 subdir('unit')
+subdir('validation')
 
 if get_option('api')
   subdir('api')

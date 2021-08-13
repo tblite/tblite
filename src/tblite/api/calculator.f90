@@ -69,7 +69,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
 
-   if (debug) print'("[Info]", 1x, a)', "new_gfn2_calculator"
+   if (debug) print '("[Info]", 1x, a)', "new_gfn2_calculator"
 
    vcalc = c_null_ptr
    if (.not.c_associated(vctx)) return
@@ -94,7 +94,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
 
-   if (debug) print'("[Info]", 1x, a)', "new_ipea1_calculator"
+   if (debug) print '("[Info]", 1x, a)', "new_ipea1_calculator"
 
    vcalc = c_null_ptr
    if (.not.c_associated(vctx)) return
@@ -119,7 +119,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
 
-   if (debug) print'("[Info]", 1x, a)', "new_gfn1_calculator"
+   if (debug) print '("[Info]", 1x, a)', "new_gfn1_calculator"
 
    vcalc = c_null_ptr
    if (.not.c_associated(vctx)) return
@@ -148,7 +148,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
 
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "new_xtb_calculator"
+   if (debug) print '("[Info]", 1x, a)', "new_xtb_calculator"
 
    vcalc = c_null_ptr
    if (.not.c_associated(vctx)) return
@@ -176,7 +176,7 @@ subroutine delete_calculator_api(vcalc) &
    type(c_ptr), intent(inout) :: vcalc
    type(vp_calculator), pointer :: calc
 
-   if (debug) print'("[Info]", 1x, a)', "delete_context"
+   if (debug) print '("[Info]", 1x, a)', "delete_context"
 
    if (c_associated(vcalc)) then
       call c_f_pointer(vcalc, calc)
@@ -196,7 +196,7 @@ subroutine set_calculator_mixer_damping_api(vctx, vcalc, damping) &
    real(c_double), value :: damping
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "set_calculator_mixer_damping"
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_mixer_damping"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)
@@ -221,7 +221,7 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
    integer(c_int), value :: max_iter
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "get_calculator_max_iter"
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_max_iter"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)
@@ -246,7 +246,7 @@ subroutine set_calculator_accuracy_api(vctx, vcalc, accuracy) &
    real(c_double), value :: accuracy
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "set_calculator_accuracy"
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_accuracy"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)
@@ -271,7 +271,7 @@ subroutine set_calculator_temperature_api(vctx, vcalc, etemp) &
    real(c_double), value :: etemp
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "get_calculator_temperature"
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_temperature"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)
@@ -299,7 +299,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    type(vp_result), pointer :: res
    type(error_type), allocatable :: error
 
-   if (debug) print'("[Info]", 1x, a)', "get_singlepoint"
+   if (debug) print '("[Info]", 1x, a)', "get_singlepoint"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)

@@ -63,7 +63,7 @@ function new_structure_api(verror, natoms, numbers, positions, c_charge, c_uhf, 
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vmol
 
-   if (debug) print'("[Info]",1x, a)', "new_structure"
+   if (debug) print '("[Info]",1x, a)', "new_structure"
 
    vmol = c_null_ptr
 
@@ -103,7 +103,7 @@ subroutine delete_structure_api(vmol) &
    type(c_ptr), intent(inout) :: vmol
    type(vp_structure), pointer :: mol
 
-   if (debug) print'("[Info]",1x, a)', "delete_structure"
+   if (debug) print '("[Info]",1x, a)', "delete_structure"
 
    if (c_associated(vmol)) then
       call c_f_pointer(vmol, mol)
@@ -125,11 +125,9 @@ subroutine update_structure_geometry_api(verror, vmol, positions, lattice) &
    real(c_double), intent(in) :: positions(3, *)
    real(c_double), intent(in), optional :: lattice(3, 3)
 
-   if (debug) print'("[Info]",1x, a)', "update_structure"
+   if (debug) print '("[Info]",1x, a)', "update_structure"
 
-   if (.not.c_associated(verror)) then
-      return
-   end if
+   if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
 
    if (.not.c_associated(vmol)) then
@@ -165,11 +163,9 @@ subroutine update_structure_charge_api(verror, vmol, c_charge) &
    type(vp_structure), pointer :: mol
    real(c_double), intent(in), optional :: c_charge
 
-   if (debug) print'("[Info]",1x, a)', "update_structure_charge"
+   if (debug) print '("[Info]",1x, a)', "update_structure_charge"
 
-   if (.not.c_associated(verror)) then
-      return
-   end if
+   if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
 
    if (.not.c_associated(vmol)) then
@@ -200,11 +196,9 @@ subroutine update_structure_uhf_api(verror, vmol, c_uhf) &
    type(vp_structure), pointer :: mol
    integer(c_int), intent(in), optional :: c_uhf
 
-   if (debug) print'("[Info]",1x, a)', "update_structure_uhf"
+   if (debug) print '("[Info]",1x, a)', "update_structure_uhf"
 
-   if (.not.c_associated(verror)) then
-      return
-   end if
+   if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
 
    if (.not.c_associated(vmol)) then

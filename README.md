@@ -32,6 +32,7 @@ To compile this version of *tblite* the following programs are needed
 
 To build this project from the source code in this repository you need to have
 - a Fortran compiler supporting Fortran 2008
+  (GCC 8 and newer or Intel 18 and newer are supported)
 - [meson](https://mesonbuild.com) version 0.55 or newer
 - a build-system backend, *i.e.* [ninja](https://ninja-build.org) version 1.7 or newer
 - a LAPACK / BLAS provider, like MKL or OpenBLAS
@@ -73,14 +74,36 @@ The simplest way to check out this project is by using the command line driver.
 
 ### Command line interface
 
-The ``tblite`` runner executable provides full access to the implemented Hamiltonians.
+The ``tblite`` runner executable provides full access to the implemented Hamiltonians, with the [``tblite-run``](man/tblite-run.1.adoc) subcommand.
 You can run a single point calculation by providing a geometry input with
 
 ```
-tblite --method gfn2 coord
+tblite run --method gfn2 coord
 ```
 
-For more details checkout the [``tblite(1)``](man/tblite.1.adoc) man page.
+To export a parametrization use the [``tblite-param``](man/tblite-param.1.adoc) subcommand
+
+```
+tblite param --method gfn2 --output gfn2-xtb.toml
+```
+
+The parameter file can be inspected or modified and than used to perform single point calculations with
+
+```
+tblite run --param gfn2-xtb.toml coord
+```
+
+A preliminary interfaces for the parameter optimization is provided by the [``tblite-fit``](man/tblite-fit.1.adoc) subcommand.
+By providing a external command to evaluate the data set in the input file and setting the parameters to relax the fit can be started with
+
+```
+tblite fit gfn2-xtb.toml input.toml
+```
+
+The provided external program can callback to the main program to evaluate single points or create differences between data outputs using the [``tblite-tagdiff``](man/tblite-tagdiff.1.adoc) subcommand.
+By adding the ``--dry-run`` option the setup of the parameter optimization can be inspected and with ``--copy copy.toml`` the input settings can be dumped for user inspection and tweaking.
+
+For more details on all available subcommands checkout the [``tblite(1)``](man/tblite.1.adoc) man page and the respective subcommand man pages.
 
 
 ## Documentation

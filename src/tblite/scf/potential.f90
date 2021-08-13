@@ -20,6 +20,7 @@ module tblite_scf_potential
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
+   use tblite_integral_type, only : integral_type
    implicit none
    private
 
@@ -78,17 +79,11 @@ subroutine reset(self)
 end subroutine reset
 
 !> Add the collected potential shifts to the effective Hamiltonian
-subroutine add_pot_to_h1(bas, h0, sint, dpint, qpint, pot, h1)
+subroutine add_pot_to_h1(bas, ints, pot, h1)
    !> Basis set information
    type(basis_type), intent(in) :: bas
-   !> Effective one-electron Hamiltonian
-   real(wp), intent(in) :: h0(:, :)
-   !> Overlap integrals
-   real(wp), intent(in) :: sint(:, :)
-   !> Dipole moment integrals, moment operator is centered on last index
-   real(wp), intent(in) :: dpint(:, :, :)
-   !> Quadrupole moment integrals, moment operator is centered on last index
-   real(wp), intent(in) :: qpint(:, :, :)
+   !> Integral container
+   type(integral_type), intent(in) :: ints
    !> Density dependent potential-shifts
    type(potential_type), intent(inout) :: pot
    !> Effective Hamiltonian
@@ -96,9 +91,9 @@ subroutine add_pot_to_h1(bas, h0, sint, dpint, qpint, pot, h1)
 
    call add_vat_to_vsh(bas, pot%vat, pot%vsh)
    call add_vsh_to_vao(bas, pot%vsh, pot%vao)
-   call add_vao_to_h1(bas, h0, sint, pot%vao, h1)
-   call add_vmp_to_h1(bas, dpint, pot%vdp, h1)
-   call add_vmp_to_h1(bas, qpint, pot%vqp, h1)
+   call add_vao_to_h1(bas, ints%hamiltonian, ints%overlap, pot%vao, h1)
+   call add_vmp_to_h1(bas, ints%dipole, pot%vdp, h1)
+   call add_vmp_to_h1(bas, ints%quadrupole, pot%vqp, h1)
 end subroutine add_pot_to_h1
 
 !> Expand an atom-resolved potential shift to a shell-resolved potential shift

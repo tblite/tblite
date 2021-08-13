@@ -20,6 +20,7 @@ module tblite_scf_iterator
    use tblite_basis_type, only : basis_type
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_disp, only : dispersion_type, dispersion_cache
+   use tblite_integral_type, only : integral_type
    use tblite_scf_broyden, only : broyden_mixer, new_broyden
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_fermi, only : get_fermi_filling
@@ -39,7 +40,7 @@ contains
 
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
-      & h0, sint, dpint, qpint, pot, cache, dcache, &
+      & ints, pot, cache, dcache, &
       & energy, error)
    !> Current iteration count
    integer, intent(inout) :: iscf
@@ -60,14 +61,8 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Container for dispersion interactions
    class(dispersion_type), intent(in), optional :: dispersion
 
-   !> Hamiltonian integrals
-   real(wp), contiguous, intent(in) :: h0(:, :)
-   !> Overlap integrals
-   real(wp), contiguous, intent(in) :: sint(:, :)
-   !> Dipole moment integrals
-   real(wp), contiguous, intent(in) :: dpint(:, :, :)
-   !> Quadrupole moment integrals
-   real(wp), contiguous, intent(in) :: qpint(:, :, :)
+   !> Integral container
+   type(integral_type), intent(in) :: ints
    !> Density dependent potential shifts
    type(potential_type), intent(inout) :: pot
    !> Restart data for coulombic interactions
@@ -96,9 +91,9 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(dispersion)) then
       call dispersion%get_potential(mol, dcache, wfn, pot)
    end if
-   call add_pot_to_h1(bas, h0, sint, dpint, qpint, pot, wfn%coeff)
+   call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
-   call solver%solve(wfn%coeff, sint, wfn%emo, error)
+   call solver%solve(wfn%coeff, ints%overlap, wfn%emo, error)
    if (allocated(error)) return
 
    call set_mixer(mixer, wfn, info)
@@ -107,10 +102,10 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
       & wfn%homoa, wfn%homob, wfn%focc, e_fermi, ts)
    call get_density_matrix(wfn%focc, wfn%coeff, wfn%density)
 
-   call get_mulliken_shell_charges(bas, sint, wfn%density, wfn%n0sh, wfn%qsh)
+   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, wfn%qsh)
 
-   call get_mulliken_atomic_multipoles(bas, dpint, wfn%density, wfn%dpat)
-   call get_mulliken_atomic_multipoles(bas, qpint, wfn%density, wfn%qpat)
+   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, wfn%dpat)
+   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, wfn%qpat)
 
    call diff_mixer(mixer, wfn, info)
 
@@ -118,7 +113,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    edisp = 0.0_wp
    eelec = 0.0_wp
    elast = energy
-   call get_electronic_energy(h0, wfn%density, eelec)
+   call get_electronic_energy(ints%hamiltonian, wfn%density, eelec)
    if (present(coulomb)) then
       call coulomb%get_energy(mol, cache, wfn, ees)
       energy = energy + ees

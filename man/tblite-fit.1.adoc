@@ -37,6 +37,10 @@ The input file is provided in TOML format it contains the input to the optimizat
 |Optimization method to be used, available optimizers are _newuoa_
 |_string_ (`"newuoa"`)
 
+|relative
+|Use relative parameter optimization instead of absolute
+|_boolean_
+
 |script
 |Command to invoke the script to evaluate the data set
 |_string_
@@ -72,6 +76,7 @@ max-iter = 100
 damping = 0.1
 trust-rad = 0.1
 method = "newuao"
+relative = true
 script = "./run.sh"
 data-file = ".data"
 param-file = "fitpar.toml"

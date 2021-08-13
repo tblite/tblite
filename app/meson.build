@@ -31,8 +31,45 @@ tblite_exe = executable(
   install: install,
 )
 
-test('app-help', tblite_exe, args: '--help')
-test('app-fit-help', tblite_exe, args: ['fit', '--help'])
-test('app-param-help', tblite_exe, args: ['param', '--help'])
-test('app-run-help', tblite_exe, args: ['run', '--help'])
-test('app-tagdiff-help', tblite_exe, args: ['tagdiff', '--help'])
+test('help', tblite_exe, args: '--help', suite: 'app')
+test('version', tblite_exe, args: '--version', suite: 'app')
+test('noargs', tblite_exe, should_fail: true, suite: 'app')
+test('fit-help', tblite_exe, args: ['fit', '--help'], suite: 'app')
+test('param-help', tblite_exe, args: ['param', '--help'], suite: 'app')
+test('run-help', tblite_exe, args: ['run', '--help'], suite: 'app')
+test('tagdiff-help', tblite_exe, args: ['tagdiff', '--help'], suite: 'app')
+
+test(
+  'tagdiff-example',
+  tblite_exe,
+  args: [
+    'tagdiff',
+    files('test'/'results.tag'),
+    files('test'/'reference.tag'),
+  ],
+  suite: 'app',
+)
+
+test(
+  'fit-example',
+  tblite_exe,
+  args: [
+    'fit', '--dry-run',
+    files('test'/'simple-xtb.toml'),
+    files('test'/'fit-input.toml'),
+  ],
+  suite: 'app',
+)
+
+foreach m : ['gfn2', 'gfn1', 'ipea1']
+  test(
+    'param-@0@'.format(m),
+    tblite_exe,
+    args: [
+      'param',
+      '--method', m,
+      '--output', '@0@-xtb.toml',
+    ],
+    suite: 'app',
+  )
+endforeach

@@ -19,8 +19,16 @@ module tblite_api_utils
    implicit none
    private
 
-   public :: f_c_character, c_f_character
+   public :: f_c_character, c_f_character, strlen
 
+
+   interface
+      function strlen(str) result(len) bind(c)
+         import :: c_ptr, c_int
+         type(c_ptr), value :: str
+         integer(c_int) :: len
+      end function strlen
+   end interface
 
 contains
 

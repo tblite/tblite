@@ -48,7 +48,6 @@ subroutine fit_main(config, error)
    type(param_record) :: param
    type(context_type) :: ctx
    integer :: stat, npar
-   real(wp) :: fval
    real(wp), allocatable :: array(:)
    class(*), pointer :: handle
    real(wp), parameter :: conv = 1.0e-5_wp
@@ -118,13 +117,23 @@ function eval(n, x, h, error) result(f)
    type(param_record) :: param
    integer :: stat
    real(wp), allocatable :: actual(:), reference(:)
+   real(wp), allocatable :: p(:)
 
    f = huge(0.0_wp)
 
    select type(set => h)
    type is (fit_settings)
-      call param%load(x(1:n), set%base, set%mask, error)
-      if (allocated(error)) return
+      if (set%relative) then
+         allocate(p(n))
+         call set%base%dump(p, set%mask, error)
+         if (allocated(error)) return
+         p = x(1:n) * p
+         call param%load(p, set%base, set%mask, error)
+         if (allocated(error)) return
+      else
+         call param%load(x(1:n), set%base, set%mask, error)
+         if (allocated(error)) return
+      end if
 
       call param%dump(set%fitpar, error)
       if (allocated(error)) return

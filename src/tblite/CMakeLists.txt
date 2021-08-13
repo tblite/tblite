@@ -48,6 +48,7 @@ list(
   "${dir}/os.F90"
   "${dir}/param.f90"
   "${dir}/repulsion.f90"
+  "${dir}/scf.f90"
   "${dir}/toml.f90"
   "${dir}/version.f90"
   "${dir}/wignerseitz.f90"

@@ -22,6 +22,7 @@ list(
   "${dir}/multipole.f90"
   "${dir}/overlap.f90"
   "${dir}/trafo.f90"
+  "${dir}/type.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

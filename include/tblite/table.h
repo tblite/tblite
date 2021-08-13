@@ -35,7 +35,7 @@ tblite_delete_table(tblite_table* /* table */);
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_double(tblite_error /* error */,
                         tblite_table /* table */,
-                        char* /* key */,
+                        char[] /* key */,
                         double* /* value */,
                         int /* n */);
 
@@ -43,7 +43,7 @@ tblite_table_set_double(tblite_error /* error */,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_long(tblite_error /* error */,
                       tblite_table /* table */,
-                      char* /* key */,
+                      char[] /* key */,
                       long* /* value */,
                       int /* n */);
 
@@ -51,7 +51,7 @@ tblite_table_set_long(tblite_error /* error */,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_bool(tblite_error /* error */,
                       tblite_table /* table */,
-                      char* /* key */,
+                      char[] /* key */,
                       bool* /* value */,
                       int /* n */);
 
@@ -59,12 +59,13 @@ tblite_table_set_bool(tblite_error /* error */,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_char(tblite_error /* error */,
                       tblite_table /* table */,
-                      char* /* key */,
-                      char* /* value */);
+                      char[] /* key */,
+                      char(*)[] /* value */,
+                      int /* n */);
 
 /// Set data table to data table, value table reference is destroyed on success
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_table(tblite_error /* error */,
                        tblite_table /* table */,
-                       char* /* key */,
+                       char[] /* key */,
                        tblite_table* /* value */);

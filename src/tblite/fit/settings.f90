@@ -29,6 +29,7 @@ module tblite_fit_settings
       character(len=:), allocatable :: script
       character(len=:), allocatable :: output
       character(len=:), allocatable :: fitpar
+      logical :: relative
       integer :: max_iter
       real(wp) :: trustr
       type(param_record), allocatable :: base
@@ -65,6 +66,8 @@ subroutine load_from_toml(self, table, error)
       return
    end if
 
+   call get_value(table, "relative", self%relative, .true.)
+
    call get_value(table, "trust-rad", self%trustr, 0.1_wp)
    if (self%trustr <= 0.0_wp) then
       call fatal_error(error, "Positive value for trust radius required")
@@ -100,6 +103,7 @@ subroutine dump_to_toml(self, table, error)
 
    call set_value(table, "max-iter", self%max_iter)
    call set_value(table, "method", self%method)
+   call set_value(table, "relative", self%relative)
    call set_value(table, "trust-rad", self%trustr)
    call set_value(table, "script", self%script)
    call set_value(table, "data-file", self%output)
