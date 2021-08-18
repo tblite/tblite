@@ -48,7 +48,7 @@ subroutine fit_main(config, error)
    type(param_record) :: param
    type(context_type) :: ctx
    integer :: stat, npar
-   real(wp), allocatable :: array(:)
+   real(wp), allocatable :: array(:), p(:)
    class(*), pointer :: handle
    real(wp), parameter :: conv = 1.0e-5_wp
 
@@ -56,12 +56,18 @@ subroutine fit_main(config, error)
    call set%base%load(config%param, error)
    if (allocated(error)) return
 
+   call clear_metadata(set%base)
+
    call set%load(config%input, error)
    if (allocated(error)) return
 
    npar = count(set%mask)
    allocate(array(npar))
-   call set%base%dump(array, set%mask, error)
+   if (set%relative) then
+      array(:) = 1.0_wp
+   else
+      call set%base%dump(array, set%mask, error)
+   end if
    if (allocated(error)) return
 
    call summary(ctx%unit, config, set)
@@ -76,17 +82,20 @@ subroutine fit_main(config, error)
       call ctx%message("[Info] Input settings dumped to '"//config%copy_input//"'")
    end if
 
-   if (config%dry_run) return
+   call write_param(set, array, error)
+   if (allocated(error)) return
+
+   if (config%dry_run) then
+      call ctx%message("[Info] Initial parameters written to '"//set%fitpar//"'")
+      return
+   end if
 
    handle => set
    call newuoa(npar, 2*npar, array, set%trustr, conv, config%verbosity, set%max_iter*npar, &
       & eval, handle, error)
    if (allocated(error)) return
 
-   call param%load(array, set%base, set%mask, error)
-   if (allocated(error)) return
-
-   call param%dump(set%fitpar, error)
+   call write_param(set, array, error)
    if (allocated(error)) return
    call ctx%message("[Info] Final parameters written to '"//set%fitpar//"'")
 end subroutine fit_main
@@ -123,19 +132,7 @@ function eval(n, x, h, error) result(f)
 
    select type(set => h)
    type is (fit_settings)
-      if (set%relative) then
-         allocate(p(n))
-         call set%base%dump(p, set%mask, error)
-         if (allocated(error)) return
-         p = x(1:n) * p
-         call param%load(p, set%base, set%mask, error)
-         if (allocated(error)) return
-      else
-         call param%load(x(1:n), set%base, set%mask, error)
-         if (allocated(error)) return
-      end if
-
-      call param%dump(set%fitpar, error)
+      call write_param(set, x(1:n), error)
       if (allocated(error)) return
 
       call delete_file(set%output)
@@ -183,6 +180,41 @@ subroutine read_data(file, actual, reference)
    call resize(actual, idata)
    call resize(reference, idata)
 end subroutine read_data
+
+
+!> Make sure no stale meta data is present in parameter file
+subroutine clear_metadata(param)
+   type(param_record), intent(inout) :: param
+
+   param%version = 0
+   if (allocated(param%name)) deallocate(param%name)
+   if (allocated(param%reference)) deallocate(param%reference)
+end subroutine clear_metadata
+
+
+subroutine write_param(set, array, error)
+   type(fit_settings), intent(in) :: set
+   real(wp), intent(in) :: array(:)
+   type(error_type), allocatable, intent(out) :: error
+
+   type(param_record) :: param
+   real(wp), allocatable :: p(:)
+
+   if (set%relative) then
+      allocate(p(size(array)))
+      call set%base%dump(p, set%mask, error)
+      if (allocated(error)) return
+      p(:) = array * p
+      call param%load(p, set%base, set%mask, error)
+      if (allocated(error)) return
+   else
+      call param%load(array, set%base, set%mask, error)
+      if (allocated(error)) return
+   end if
+
+   call param%dump(set%fitpar, error)
+   if (allocated(error)) return
+end subroutine write_param
 
 
 end module tblite_driver_fit
