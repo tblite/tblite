@@ -99,7 +99,7 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
 
    self%nsh_id = nshell
    self%cgto = cgto
-   self%intcut = 25.0_wp - 10.0_wp*log10(acc)
+   self%intcut = integral_cutoff(acc)
 
    ! Make count of shells for each atom
    self%nsh_at = nshell(mol%id)
@@ -161,15 +161,46 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
 end subroutine new_basis
 
 !> Determine required real space cutoff for the basis set
-pure function get_cutoff(self) result(cutoff)
+pure function get_cutoff(self, acc) result(cutoff)
    !> Instance of the basis set data
    type(basis_type), intent(in) :: self
+   !> Accuracy for the integral cutoff
+   real(wp), intent(in), optional :: acc
    !> Required realspace cutoff
    real(wp) :: cutoff
 
+   real(wp) :: intcut
+   real(wp), parameter :: max_cutoff = 40.0_wp
+
+   if (present(acc)) then
+      intcut = integral_cutoff(acc)
+   else
+      intcut = self%intcut
+   end if
    ! ai * aj * cutoff2 / (ai + aj) == intcut
-   cutoff = sqrt(2.0_wp*self%intcut/self%min_alpha)
+   cutoff = min(sqrt(2.0_wp*intcut/self%min_alpha), max_cutoff)
 
 end function get_cutoff
+
+
+!> Create integral cutoff from accuracy value
+pure function integral_cutoff(acc) result(intcut)
+   !> Accuracy for the integral cutoff
+   real(wp), intent(in) :: acc
+   !> Integral cutoff
+   real(wp) :: intcut
+
+   real(wp), parameter :: min_intcut = 5.0_wp, max_intcut = 25.0_wp, &
+      & max_acc = 1.0e-4_wp, min_acc = 1.0e+3_wp
+
+   intcut = clip(max_intcut - 10*log10(clip(acc, min_acc, max_acc)), min_intcut, max_intcut)
+end function integral_cutoff
+
+
+pure function clip(val, min_val, max_val) result(res)
+   real(wp), intent(in) :: val, min_val, max_val
+   real(wp) :: res
+   res = min(max(val, min_val), max_val)
+end function clip
 
 end module tblite_basis_type

@@ -173,63 +173,84 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
    !> Effective Hamiltonian
    real(wp), intent(out) :: hamiltonian(:, :)
 
-   integer :: iat, jat, izp, jzp, itr
-   integer :: ish, jsh, is, js, ii, jj, iao, jao, nao
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly
-   real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)
+   integer :: iat, jat, izp, jzp, itr, k
+   integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
+   real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dtmpj(3), qtmpj(6)
+   real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
 
    overlap(:, :) = 0.0_wp
    dpint(:, :, :) = 0.0_wp
    qpint(:, :, :) = 0.0_wp
    hamiltonian(:, :) = 0.0_wp
 
-   allocate(stmp(msao(bas%maxl)**2), dtmp(3, msao(bas%maxl)**2), qtmp(6, msao(bas%maxl)**2))
+   allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), qtmpi(6, msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
    !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
-   !$omp private(r2, vec, stmp, dtmp, qtmp, hij, shpoly, rr)
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, k) &
+   !$omp private(r2, vec, stmp, dtmpi, qtmpi, dtmpj, qtmpj, hij, shpoly, rr)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      do jat = 1, mol%nat
+      do jat = 1, iat - 1
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
          do itr = 1, size(trans, 2)
             vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
-            if (r2 > cutoff2) cycle
+            if (r2 > cutoff2 .or. r2 < epsilon(cutoff2)) cycle
             rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
             do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
                   call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmp, qtmp)
+                     & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
 
                   shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                     & * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
+                     * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
 
                   hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
-                     * merge(1.0_wp, h0%hscale(jsh, ish, jzp, izp), r2 < epsilon(cutoff2)) &
-                     * shpoly
-
+                     * h0%hscale(jsh, ish, jzp, izp) * shpoly
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
+                        ij = jao + nao*(iao-1)
+                        call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
+                           & dtmpj, qtmpj)
+                        !$omp atomic
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
-                           & + stmp(jao + nao*(iao-1))
+                           + stmp(ij)
+                        !$omp atomic
+                        overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
+                           + stmp(ij)
 
-                        dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
-                           & + dtmp(:, jao + nao*(iao-1))
+                        do k = 1, 3
+                           !$omp atomic
+                           dpint(k, jj+jao, ii+iao) = dpint(k, jj+jao, ii+iao) &
+                              + dtmpi(k, ij)
+                           !$omp atomic
+                           dpint(k, ii+iao, jj+jao) = dpint(k, ii+iao, jj+jao) &
+                              + dtmpj(k)
+                        end do
 
-                        qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
-                           & + qtmp(:, jao + nao*(iao-1))
+                        do k = 1, 6
+                           !$omp atomic
+                           qpint(k, jj+jao, ii+iao) = qpint(k, jj+jao, ii+iao) &
+                              + qtmpi(k, ij)
+                           !$omp atomic
+                           qpint(k, ii+iao, jj+jao) = qpint(k, ii+iao, jj+jao) &
+                              + qtmpj(k)
+                        end do
 
+                        !$omp atomic
                         hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                           & + stmp(jao + nao*(iao-1)) * hij
+                           + stmp(ij) * hij
+                        !$omp atomic
+                        hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
+                           + stmp(ij) * hij
                      end do
                   end do
 
@@ -238,6 +259,109 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
 
          end do
       end do
+   end do
+
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
+   !$omp private(iat, izp, itr, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
+   !$omp private(r2, vec, stmp, dtmpi, qtmpi, hij, shpoly, rr)
+   do iat = 1, mol%nat
+      izp = mol%id(iat)
+      is = bas%ish_at(iat)
+      do itr = 1, size(trans, 2)
+         vec(:) = -trans(:, itr)
+         r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
+         if (r2 > cutoff2 .or. r2 < epsilon(cutoff2)) cycle
+         rr = sqrt(sqrt(r2) / (h0%rad(izp) + h0%rad(izp)))
+         do ish = 1, bas%nsh_id(izp)
+            ii = bas%iao_sh(is+ish)
+            do jsh = 1, bas%nsh_id(izp)
+               jj = bas%iao_sh(is+jsh)
+               call multipole_cgto(bas%cgto(jsh, izp), bas%cgto(ish, izp), &
+                  & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
+
+               shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
+                  * (1.0_wp + h0%shpoly(jsh, izp)*rr)
+
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh)) &
+                  * h0%hscale(jsh, ish, izp, izp) * shpoly
+
+               nao = msao(bas%cgto(jsh, izp)%ang)
+               do iao = 1, msao(bas%cgto(ish, izp)%ang)
+                  do jao = 1, nao
+                     ij = jao + nao*(iao-1)
+                     !$omp atomic
+                     overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
+                        + stmp(ij)
+
+                     do k = 1, 3
+                        !$omp atomic
+                        dpint(k, jj+jao, ii+iao) = dpint(k, jj+jao, ii+iao) &
+                           + dtmpi(k, ij)
+                     end do
+
+                     do k = 1, 6
+                        !$omp atomic
+                        qpint(k, jj+jao, ii+iao) = qpint(k, jj+jao, ii+iao) &
+                           + qtmpi(k, ij)
+                     end do
+
+                     !$omp atomic
+                     hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
+                        + stmp(ij) * hij
+                  end do
+               end do
+
+            end do
+         end do
+
+      end do
+   end do
+
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
+   !$omp private(iat, izp, itr, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
+   !$omp private(r2, vec, stmp, dtmpi, qtmpi, hij, shpoly, rr)
+   do iat = 1, mol%nat
+      izp = mol%id(iat)
+      is = bas%ish_at(iat)
+      vec(:) = 0.0_wp
+      r2 = 0.0_wp
+      rr = sqrt(sqrt(r2) / (h0%rad(izp) + h0%rad(izp)))
+      do ish = 1, bas%nsh_id(izp)
+         ii = bas%iao_sh(is+ish)
+         do jsh = 1, bas%nsh_id(izp)
+            jj = bas%iao_sh(is+jsh)
+            call multipole_cgto(bas%cgto(jsh, izp), bas%cgto(ish, izp), &
+               & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
+
+            shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
+               * (1.0_wp + h0%shpoly(jsh, izp)*rr)
+
+            hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh)) &
+               * shpoly
+
+            nao = msao(bas%cgto(jsh, izp)%ang)
+            do iao = 1, msao(bas%cgto(ish, izp)%ang)
+               do jao = 1, nao
+                  ij = jao + nao*(iao-1)
+                  overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
+                     + stmp(ij)
+
+                  dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
+                     + dtmpi(:, ij)
+
+                  qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
+                     + qtmpi(:, ij)
+
+                  hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
+                     + stmp(ij) * hij
+               end do
+            end do
+
+         end do
+      end do
+
    end do
 
 end subroutine get_hamiltonian
@@ -332,14 +456,14 @@ subroutine get_hamiltonian_gradient(mol, trans, cutoff, bas, h0, selfenergy, dse
                         pij = pmat(jj+jao, ii+iao)
                         hpij = pij * hij * shpoly
                         sval = 2*hpij - 2*xmat(jj+jao, ii+iao) &
-                           & - pij * (pot%vao(jj+jao) + pot%vao(ii+iao))
+                           - pij * (pot%vao(jj+jao) + pot%vao(ii+iao))
 
                         dG(:) = dG + sval * dstmp(:, ij) &
-                           & + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
-                           & - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat)) &
-                           & - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat)) &
-                           & - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat)) &
-                           & - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat))
+                           + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
+                           - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat)) &
+                           - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat)) &
+                           - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat)) &
+                           - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat))
 
                         dcni = dcni + dhdcni * pmat(jj+jao, ii+iao) * stmp(ij)
                         dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao) * stmp(ij)
@@ -350,7 +474,7 @@ subroutine get_hamiltonian_gradient(mol, trans, cutoff, bas, h0, selfenergy, dse
                   gradient(:, iat) = gradient(:, iat) + dG
                   gradient(:, jat) = gradient(:, jat) - dG
                   sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
-                     & + spread(dG, 1, 3) * spread(vec, 2, 3))
+                     + spread(dG, 1, 3) * spread(vec, 2, 3))
 
                end do
             end do
@@ -409,6 +533,55 @@ subroutine get_occupation(mol, bas, h0, nocc, n0at, n0sh)
    end do
 
 end subroutine get_occupation
+
+
+!> Shift multipole operator from Ket function (center i) to Bra function (center j),
+!> the multipole operator on the Bra function can be assembled from the lower moments
+!> on the Ket function and the displacement vector using horizontal shift rules.
+pure subroutine shift_operator(vec, s, di, qi, dj, qj)
+   !> Displacement vector of center i and j
+   real(wp),intent(in) :: vec(:)
+   !> Overlap integral between basis functions
+   real(wp),intent(in) :: s
+   !> Dipole integral with operator on Ket function (center i)
+   real(wp),intent(in) :: di(:)
+   !> Quadrupole integral with operator on Ket function (center i)
+   real(wp),intent(in) :: qi(:)
+   !> Dipole integral with operator on Bra function (center j)
+   real(wp),intent(out) :: dj(:)
+   !> Quadrupole integral with operator on Bra function (center j)
+   real(wp),intent(out) :: qj(:)
+
+   real(wp) :: tr
+
+   ! Create dipole operator on Bra function from Ket function and shift contribution
+   ! due to monopol displacement
+   dj(1) = di(1) + vec(1)*s
+   dj(2) = di(2) + vec(2)*s
+   dj(3) = di(3) + vec(3)*s
+
+   ! For the quadrupole operator on the Bra function we first construct the shift
+   ! contribution from the dipole and monopol displacement, since we have to remove
+   ! the trace contribution from the shift and the moment integral on the Ket function
+   ! is already traceless
+   qj(1) = 2*vec(1)*di(1) + vec(1)**2*s
+   qj(3) = 2*vec(2)*di(2) + vec(2)**2*s
+   qj(6) = 2*vec(3)*di(3) + vec(3)**2*s
+   qj(2) = vec(1)*di(2) + vec(2)*di(1) + vec(1)*vec(2)*s
+   qj(4) = vec(1)*di(3) + vec(3)*di(1) + vec(1)*vec(3)*s
+   qj(5) = vec(2)*di(3) + vec(3)*di(2) + vec(2)*vec(3)*s
+   ! Now collect the trace of the shift contribution
+   tr = 0.5_wp * (qj(1) + qj(3) + qj(6))
+
+   ! Finally, assemble the quadrupole operator on the Bra function from the operator
+   ! on the Ket function and the traceless shift contribution
+   qj(1) = qi(1) + 1.5_wp * qj(1) - tr
+   qj(2) = qi(2) + 1.5_wp * qj(2)
+   qj(3) = qi(3) + 1.5_wp * qj(3) - tr
+   qj(4) = qi(4) + 1.5_wp * qj(4)
+   qj(5) = qi(5) + 1.5_wp * qj(5)
+   qj(6) = qi(6) + 1.5_wp * qj(6) - tr
+end subroutine shift_operator
 
 
 end module tblite_xtb_h0

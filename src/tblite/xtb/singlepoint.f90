@@ -148,7 +148,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
       & selfenergy=selfenergy, dsedcn=dsedcn)
 
-   cutoff = get_cutoff(calc%bas)
+   cutoff = get_cutoff(calc%bas, accuracy)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
    if (prlevel > 1) then
