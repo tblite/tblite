@@ -27,19 +27,32 @@ Explicit non-goals are
 
 ### Building from source
 
-To compile this version of *tblite* the following programs are needed
-(the number in parentheses specifies the tested versions).
+To build *tblite* from the source code in this repository you need to have
+a Fortran compiler supporting Fortran 2008 and one of the supported build systems:
+
+- [meson](https://mesonbuild.com) version 0.57.2 or newer, with
+  a build-system backend, *i.e.* [ninja](https://ninja-build.org) version 1.10 or newer
+- [cmake](https://cmake.org) version 3.14 or newer, with
+  a build-system backend, *i.e.* [ninja](https://ninja-build.org) version 1.10 or newer
+- [fpm](https://github.com/fortran-lang/fpm) version 0.2.0 or newer
 
 To build this project from the source code in this repository you need to have
 - a Fortran compiler supporting Fortran 2008
-  (GCC 8 and newer or Intel 18 and newer are supported)
-- [meson](https://mesonbuild.com) version 0.55 or newer
-- a build-system backend, *i.e.* [ninja](https://ninja-build.org) version 1.7 or newer
+- [meson](https://mesonbuild.com) version 0.57.2 or newer
+- a build-system backend, *i.e.* [ninja](https://ninja-build.org) version 1.10 or newer
 - a LAPACK / BLAS provider, like MKL or OpenBLAS
+
+Meson is the primary build system and provides feature-complete functionality of this project.
+CMake and fpm support are available but the functionality of the project is limited.
+Currently, *tblite* support GCC 8 and newer or Intel 18 and newer.
+
+Detailed installation instruction are available in the project documentation under the [installation category](https://tblite.readthedocs.io/en/latest/installation.html).
+
+
+#### Building with meson
 
 Optional dependencies are
 - asciidoctor to build the manual page
-- FORD to build the developer documentation
 - C compiler to test the C-API and compile the Python extension module
 - Python 3.6 or newer with the CFFI package installed to build the Python API
 
@@ -56,7 +69,13 @@ To compile and run the projects testsuite use
 meson test -C _build --print-errorlogs
 ```
 
-If the testsuite passes you can install with
+To run the more extensive testing for the available parametrizations use
+
+```sh
+meson test -C _build --print-errorlogs --benchmark
+```
+
+If the testsuites pass you can install with
 
 ```sh
 meson configure _build --prefix=/path/to/install
@@ -64,6 +83,7 @@ meson install -C _build
 ```
 
 This might require administrator access depending on the chosen install prefix.
+For more details see the [meson installation instructions](https://tblite.readthedocs.io/en/latest/installation.html#meson-based-build).
 
 
 ## Usage

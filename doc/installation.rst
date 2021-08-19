@@ -29,7 +29,12 @@ This library depends on several Fortran modules to provide the desired functiona
 .. _asciidoctor: https://asciidoctor.org
 .. _cmake: https://cmake.org
 .. _fpm: https://github.com/fortran-lang/fpm
+.. _cffi: https://cffi.readthedocs.io/
+.. _numpy: https://numpy.org/
+.. _pkgconfig: https://pypi.org/project/pkgconfig/
 
+
+.. _meson-build:
 
 Meson based build
 ~~~~~~~~~~~~~~~~~
@@ -39,14 +44,15 @@ For the full feature-complete build it is highly recommended to perform the buil
 To setup a build the following software is required
 
 - A Fortran 2008 compliant compiler, like GCC Fortran and Intel Fortran classic
-- `meson`_, version 0.55 or newer, better version 0.57.2 for the improved Fortran support
-- `ninja`_, version 1.7 or newer, better version 1.10 for the dynamic dependency support
+- `meson`_, version 0.57.2 or newer
+- `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
 
 Optional dependencies are
 
 - `asciidoctor`_, to build the manual pages
-- A C compiler to test the C API
+- A C compiler to test the C API and compile the Python extension module
+- Python 3.6 or newer with the `CFFI`_ package installed to build the Python API
 
 To setup a new build run
 
@@ -55,10 +61,16 @@ To setup a new build run
    meson setup _build --prefix=$HOME/.local
 
 The Fortran and C compiler can be selected with the ``FC`` and ``CC`` environment variable, respectively.
-For Intel Fortran oneAPI (2021 or newer) builds with MKL backend the ``-Dfortran_link_args=-qopenmp`` option has to be added.
-To produce statically linked binaries set ``--default-library=static`` and add ``-Dfortran_link_args=-static`` as well.
 The installation location is selected using the ``--prefix`` option.
 The required Fortran modules will be fetched automatically from the upstream repositories and checked out in the *subprojects* directory.
+
+.. note::
+
+   For Intel Fortran oneAPI (2021 or newer) builds with MKL backend the ``-Dfortran_link_args=-qopenmp`` option has to be added.
+
+.. tip::
+
+   To produce statically linked binaries set ``--default-library=static`` and add ``-Dfortran_link_args=-static`` as well.
 
 To compile the project run
 
@@ -70,10 +82,16 @@ Verify that the resulting projects is working correctly by running the testsuite
 
 .. code:: text
 
-   meson test -C _build
+   meson test -C _build --print-errorlogs
 
 In case meson is spawning to main concurrent test jobs limit the number of processes with the ``--num-processes`` option when running the test command.
 By default the whole library and its subprojects are tested, to limit the testing to the project itself add ``--suite tblite`` as option.
+
+To verify the included parametrizations are working correctly run the extra testsuite by passing the ``--benchmark`` argument
+
+.. code:: text
+
+   meson test -C _build --print-errorlogs --benchmark
 
 Finally, you can make the project available by installation with
 
@@ -151,3 +169,122 @@ To make the installation accessible install the project with
 .. code:: text
 
    fpm install --profile release --prefix $HOME/.local
+
+
+Python extension module
+-----------------------
+
+The Python API is available as Python extension module.
+The easiest way to setup is to add ``-Dpython=true`` to a meson tree build and follow the :ref:`meson installation instructions <meson-build>`.
+The extension module will become available once the project is installed.
+
+.. important::
+
+   When building with Intel compilers make sure to use the real-time version of the MKL.
+   Add ``-Dlapack=mkl-rt`` when configuring the build.
+   Otherwise, when using the normal MKL libraries dynamically loading the *tblite* library from Python will fail.
+
+This section describes alternative ways to build the Python API
+
+
+Using pip
+~~~~~~~~~
+
+This project support installation with pip as an easy way to build the Python API.
+
+- C compiler to build the C-API and compile the extension module (the compiler name should be exported in the ``CC`` environment variable)
+- Python 3.6 or newer
+- The following Python packages are required additionally
+
+  - `cffi`_
+  - `numpy`_
+  - `pkgconfig`_ (setup only)
+
+Make sure to have your C compiler set to the ``CC`` environment variable
+
+.. code:: sh
+
+   export CC=gcc
+
+Install the project with pip
+
+.. code:: sh
+
+   pip install .
+
+To install extra dependencies as well use
+
+.. code:: sh
+
+   pip install '.[ase]'
+
+
+Using meson
+~~~~~~~~~~~
+
+The Python extension module can be built on-top of an existing installation, either provided by meson or CMake.
+
+Building requires against an existing *tblite* installation requires
+
+- C compiler to build the C-API and compile the extension module
+- `meson`_ version 0.55 or newer
+- a build-system backend, *i.e.* `ninja`_ version 1.7 or newer
+- Python 3.6 or newer with the `CFFI`_ package installed
+
+Setup a build with
+
+.. code:: sh
+
+   meson setup _build_python python -Dpython_version=3
+
+The Python version can be used to select a different Python version, it defaults to ``'3'``.
+Python 2 is not supported with this project, the Python version key is meant to select between several local Python 3 versions.
+
+Compile the project with
+
+.. code:: sh
+
+   meson compile -C _build
+
+The extension module is now available in ``_build_python/tblite/_libtblite.*.so``.
+You can install as usual with
+
+.. code:: sh
+
+   meson configure _build --prefix=/path/to/install
+   meson install -C _build
+
+
+Supported Compilers
+-------------------
+
+This is a non-comprehensive list of tested compilers for *tblite*.
+Compilers with the label *latest* are tested with continuous integration for each commit.
+
+========== ======================= =============== ============== ==========
+ Compiler   Version                 Platform        Architecture   *tblite*
+========== ======================= =============== ============== ==========
+ GCC        11.1, 10.3              Ubuntu 20.04    x86_64         latest
+ GCC              10.3, 9.4, 8.5    MacOS 10.15.7   x86_64         latest
+ Intel      2021.2                  Ubuntu 20.04    x86_64         latest
+========== ======================= =============== ============== ==========
+
+Compiler known to fail are documented here, together with the last commit where this behaviour was encountered.
+If available an issue in on the projects issue tracker or the issue tracker of the dependencies is linked.
+Usually, it safe to assume that older versions of the same compiler will fail to compile as well and this failure is consistent over platforms and/or architectures.
+
+========== ============= =============== ============== ==========================
+ Compiler   Version       Platform        Architecture   Reference
+========== ============= =============== ============== ==========================
+ GCC        6.4.0         MacOS 10.15.7   x86_64         `abb17c3`_
+ Intel      17.0.1        OpenSuse 42.1   x86_64         `abb17c3`_, `tblite#2`_
+ Intel      16.0.3        CentOS 7.3      x86_64         `abb17c3`_, `dftd4#112`_
+ Flang      20190329      Ubuntu 20.04    x86_64         `abb17c3`_, `toml-f#28`_
+ NVHPC      20.9          Manjaro Linux   x86_64         `abb17c3`_, `toml-f#27`_
+========== ============= =============== ============== ==========================
+
+.. _abb17c3: https://github.com/awvwgk/tblite/tree/abb17c3a8ea8e0336dde84ed78bdab8033144a0a
+.. _tblite#2: https://github.com/awvwgk/tblite/issues/2
+.. _dftd4#112: https://github.com/dftd4/dftd4/issues/112
+.. _toml-f#28: https://github.com/toml-f/toml-f/issues/28
+.. _toml-f#27: https://github.com/toml-f/toml-f/issues/27
