@@ -236,7 +236,6 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(error)) exit
       case("--grad")
          config%grad = .true.
-         config%grad_output = "tblite.txt"
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (allocated(arg)) then
@@ -266,6 +265,10 @@ subroutine get_run_arguments(config, list, start, error)
          write(output_unit, '(a)') help_text_run
          error stop
       end if
+   end if
+
+   if (config%grad .and. .not.allocated(config%grad_output) .and. .not.config%json) then
+      config%grad_output = "tblite.txt"
    end if
 end subroutine get_run_arguments
 

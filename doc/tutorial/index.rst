@@ -9,4 +9,5 @@ This section contains tutorials with step by step instructions for using *tblite
 
 .. toctree::
 
+   singlepoint
    fitting

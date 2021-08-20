@@ -10,3 +10,4 @@ The following packages are currently using or in the process of integrating *tbl
    xtb
    dftbplus
    qcxms
+   ase

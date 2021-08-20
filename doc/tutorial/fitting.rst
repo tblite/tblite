@@ -90,7 +90,7 @@ We use the script shown below
 
    # Ad hoc error in case the Hamiltonian does not work
    # (SCC does not converge or similar)
-   penality="1.0e3"
+   penalty="1.0e3"
 
    # Create our wrapper script
    cat > "$wrapper" <<-EOF
@@ -99,9 +99,9 @@ We use the script shown below
      pushd "\$1" > /dev/null 2>&1
      test -f "$data" && rm "$data"
      OMP_NUM_THREADS=1 "$tblite" $tblite_args  > tblite.out 2> tblite.err \
-       || echo "0.0 $penality  # run: \$1" > "$data"
+       || echo "0.0 $penalty  # run: \$1" > "$data"
      "$tblite" tagdiff --fit results.tag reference.tag >> "$data" \
-       || echo "0.0 $penality  # diff: \$1" >> "$data"
+       || echo "0.0 $penalty  # diff: \$1" >> "$data"
    fi
    EOF
    chmod +x "$wrapper"

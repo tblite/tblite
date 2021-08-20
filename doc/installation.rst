@@ -171,6 +171,8 @@ To make the installation accessible install the project with
    fpm install --profile release --prefix $HOME/.local
 
 
+.. _python-build:
+
 Python extension module
 -----------------------
 

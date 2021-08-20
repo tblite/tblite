@@ -145,7 +145,7 @@ subroutine run_main(config, error)
 
    call ascii_levels(ctx%unit, config%verbosity, wfn%homoa, wfn%emo, wfn%focc, 7)
 
-   if (config%grad) then
+   if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)
       call tagged_result(unit, energy, gradient, sigma)
       close(unit)
