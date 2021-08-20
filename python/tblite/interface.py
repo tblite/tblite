@@ -33,6 +33,27 @@ class Structure:
     Represents a wrapped structure object in ``tblite``.
     The molecular structure data object has a fixed number of atoms
     and immutable atomic identifiers.
+
+    Example
+    -------
+    >>> from tblite.interface import Structure
+    >>> import numpy as np
+    >>> mol = Structure(
+    ...     positions=np.array([
+    ...         [+0.00000000000000, +0.00000000000000, -0.73578586109551],
+    ...         [+1.44183152868459, +0.00000000000000, +0.36789293054775],
+    ...         [-1.44183152868459, +0.00000000000000, +0.36789293054775],
+    ...     ]),
+    ...     numbers = np.array([8, 1, 1]),
+    ... )
+    ...
+    >>> len(mol)
+    3
+
+    Raises
+    ------
+    ValueError
+        on invalid input, like incorrect shape / type of the passed arrays
     """
 
     _mol = library.ffi.NULL
@@ -46,7 +67,16 @@ class Structure:
         lattice: Optional[np.ndarray] = None,
         periodic: Optional[np.ndarray] = None,
     ):
-        """Create new molecular structure data"""
+        """
+        Create new molecular structure data from arrays. The returned object has
+        immutable atomic species and boundary condition, also the total number of
+        atoms cannot be changed.
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
+        """
         if positions.size % 3 != 0:
             raise ValueError("Expected tripels of cartesian coordinates")
 
@@ -100,6 +130,11 @@ class Structure:
         can be updated, every other modification, regarding total charge,
         total spin, boundary condition, atomic types or number of atoms
         requires the complete reconstruction of the object.
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
         """
 
         if 3 * len(self) != positions.size:
@@ -123,6 +158,56 @@ class Structure:
 class Result:
     """
     .. Calculation result and restart data
+
+    Container for calculation results, can be passed to a single point calculation
+    as restart data. Allows to retrieve individual results or export all results as dict.
+
+    Example
+    -------
+    >>> from tblite.interface import Calculator
+    >>> import numpy as np
+    >>> calc = Calculator(
+    ...     method="GFN2-xTB",
+    ...     numbers=np.array([14, 1, 1, 1, 1]),
+    ...     positions=np.array([
+    ...         [ 0.000000000000, 0.000000000000, 0.000000000000],
+    ...         [ 1.617683897558, 1.617683897558,-1.617683897558],
+    ...         [-1.617683897558,-1.617683897558,-1.617683897558],
+    ...         [ 1.617683897558,-1.617683897558, 1.617683897558],
+    ...         [-1.617683897558, 1.617683897558, 1.617683897558],
+    ...     ]),
+    ... )
+    >>> res = calc.singlepoint()
+    ------------------------------------------------------------
+      cycle        total energy    energy error   density error
+    ------------------------------------------------------------
+          1     -3.710873811182  -3.7424104E+00   1.5535536E-01
+          2     -3.763115011046  -5.2241200E-02   4.8803250E-02
+          3     -3.763205560205  -9.0549159E-05   2.0456319E-02
+          4     -3.763213200846  -7.6406409E-06   2.7461272E-03
+          5     -3.763250843634  -3.7642788E-05   2.4071582E-03
+          6     -3.763236758520   1.4085114E-05   2.3635321E-04
+          7     -3.763237287151  -5.2863152E-07   3.5812281E-04
+          8     -3.763233829618   3.4575334E-06   8.5040576E-06
+          9     -3.763233750684   7.8934355E-08   1.1095285E-07
+    ------------------------------------------------------------
+    >>> res.get("energy")
+    -3.7632337506836944
+    >>> res = calc.singlepoint(res)
+    ------------------------------------------------------------
+      cycle        total energy    energy error   density error
+    ------------------------------------------------------------
+          1     -3.763233752583  -3.7947704E+00   1.3823013E-07
+          2     -3.763233751557   1.0256169E-09   1.4215249E-08
+    ------------------------------------------------------------
+
+    Raises
+    ------
+    ValueError
+        on invalid input, like incorrect shape / type of the passed arrays
+
+    RuntimeError
+        if a requested quantity is not available in the container
     """
 
     _res = library.ffi.NULL
@@ -141,13 +226,27 @@ class Result:
     _setter = {}
 
     def __init__(self, other=None):
+        """
+        Instantiate a new Result container, in case an existing container is passed
+        all existing results will be copied into the newly created container as well.
+        """
         if other is not None:
             self._res = library.copy_result(other._res)
         else:
             self._res = library.new_result()
 
     def get(self, attribute: str):
-        """Get a quantity stored instade the result container"""
+        """
+        Get a quantity stored instade the result container.
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
+
+        RuntimeError
+            if a requested quantity is not available in the container
+        """
 
         if attribute not in self._getter:
             raise ValueError(f"Attribute '{attribute}' is not available in this result")
@@ -155,7 +254,17 @@ class Result:
         return self._getter[attribute](self._res)
 
     def set(self, attribute: str, value):
-        """Get a quantity stored instade the result container"""
+        """
+        Get a quantity stored instade the result container.
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
+
+        RuntimeError
+            if a requested quantity cannot be set in the container
+        """
 
         if attribute not in self._setter:
             raise ValueError(f"Attribute '{attribute}' cannot be set in this result")
@@ -163,7 +272,10 @@ class Result:
         self._setter[attribute](self._res, value)
 
     def dict(self) -> dict:
-        """Return all quantities inside the result container as dict"""
+        """
+        Return all quantities inside the result container as dict. In case no
+        results are present an empty dict is returned.
+        """
         res = {}
 
         for key in self._getter:
@@ -177,7 +289,46 @@ class Result:
 
 class Calculator(Structure):
     """
-    .. Singlepoint calculator
+    .. Single point calculator
+
+    Represents a wrapped calculator object in ``tblite`` and the associated structure data.
+    The calculator is instantiated for the respective structure and is immutable once
+    created. The cartesian coordinates and the lattice parameters of the structure can
+    be updated, while changing the boundary conditions, atomic types or number of atoms
+    require the complete reconstruction of the calculator instance.
+
+    Example
+    -------
+    >>> from tblite.interface import Calculator
+    >>> import numpy as np
+    >>> numbers = np.array([1, 1, 6, 5, 1, 15, 8, 17, 13, 15, 5, 1, 9, 15, 1, 15])
+    >>> positions = np.array([  # Coordinates in Bohr
+    ...     [+2.79274810283778, +3.82998228828316, -2.79287054959216],
+    ...     [-1.43447454186833, +0.43418729987882, +5.53854345129809],
+    ...     [-3.26268343665218, -2.50644032426151, -1.56631149351046],
+    ...     [+2.14548759959147, -0.88798018953965, -2.24592534506187],
+    ...     [-4.30233097423181, -3.93631518670031, -0.48930754109119],
+    ...     [+0.06107643564880, -3.82467931731366, -2.22333344469482],
+    ...     [+0.41168550401858, +0.58105573172764, +5.56854609916143],
+    ...     [+4.41363836635653, +3.92515871809283, +2.57961724984000],
+    ...     [+1.33707758998700, +1.40194471661647, +1.97530004949523],
+    ...     [+3.08342709834868, +1.72520024666801, -4.42666116106828],
+    ...     [-3.02346932078505, +0.04438199934191, -0.27636197425010],
+    ...     [+1.11508390868455, -0.97617412809198, +6.25462847718180],
+    ...     [+0.61938955433011, +2.17903547389232, -6.21279842416963],
+    ...     [-2.67491681346835, +3.00175899761859, +1.05038813614845],
+    ...     [-4.13181080289514, -2.34226739863660, -3.44356159392859],
+    ...     [+2.85007173009739, -2.64884892757600, +0.71010806424206],
+    ... ])
+    >>> calc = Calculator("GFN2-xTB", numbers, positions)
+    >>> res = calc.singlepoint()
+    >>> res.get("energy")  # Results in atomic units
+    -31.716159156026254
+
+    Raises
+    ------
+    ValueError
+        on invalid input, like incorrect shape / type of the passed arrays
     """
 
     _ctx = library.ffi.NULL
@@ -204,7 +355,14 @@ class Calculator(Structure):
         lattice: Optional[np.ndarray] = None,
         periodic: Optional[np.ndarray] = None,
     ):
-        """Construct new calculator object for a given structure"""
+        """
+        Construct new calculator object for a given structure.
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
+        """
         Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
         self._ctx = library.new_context()
@@ -213,7 +371,23 @@ class Calculator(Structure):
         self._calc = self._loader[method](self._ctx, self._mol)
 
     def set(self, attribute: str, value) -> None:
-        """Set an attribute in the calculator instance"""
+        """
+        Set an attribute in the calculator instance. Supported attributes are
+
+        ================= ==================================== =================
+         name              description                          default
+        ================= ==================================== =================
+         max-iter          Maximum number of SCC iterations     250
+         accuracy          Numerical thresholds for SCC         1.0
+         mixer-damping     Parameter for the SCC mixer          0.4
+         temperature       Electronic temperature for filling   300.0
+        ================= ==================================== =================
+
+        Raises
+        ------
+        ValueError
+            on invalid input, like incorrect shape / type of the passed arrays
+        """
 
         if attribute not in self._setter:
             raise ValueError(
@@ -222,7 +396,19 @@ class Calculator(Structure):
         self._setter[attribute](self._ctx, self._calc, value)
 
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
-        """Perform actual single point calculation"""
+        """
+        Perform actual single point calculation in the library backend.
+        The output of the library will be forwarded to the standard output.
+
+        The routine returns an object containing the results, which can be used
+        to restart the calculation. Unless specified the restart object will be
+        updated inplace rather than copied.
+
+        Raises
+        ------
+        RuntimeError
+            in case the calculation fails
+        """
 
         _res = Result(res) if copy or res is None else res
 

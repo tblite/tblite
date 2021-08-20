@@ -7,3 +7,4 @@ Public API documentation
 
    fortran
    c
+   python

@@ -16,7 +16,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("../python"))
+sys.path.insert(0, os.path.join(os.path.abspath(".."), "python"))
+import tblite
 
 
 # -- Project information -----------------------------------------------------
@@ -56,7 +57,7 @@ napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
 
-autodoc_mock_imports = ["tblite.library", "numpy"]
+autodoc_mock_imports = ["tblite.library", "numpy", "ase"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
