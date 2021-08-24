@@ -37,6 +37,7 @@ subdir('wavefunction')
 subdir('xtb')
 
 srcs += files(
+  'adjlist.f90',
   'blas.f90',
   'cutoff.f90',
   'disp.f90',

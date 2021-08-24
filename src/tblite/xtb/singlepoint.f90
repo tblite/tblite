@@ -15,8 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module tblite_xtb_singlepoint
-   use mctc_env, only : wp, error_type, fatal_error
+   use mctc_env, only : wp, error_type, fatal_error, get_variable
    use mctc_io, only : structure_type
+   use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
    use tblite_context_type, only : context_type
@@ -74,6 +75,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    type(scf_info) :: info
    type(sygvd_solver) :: sygvd
+   type(adjacency_list) :: list
    integer :: iscf
 
    if (present(verbosity)) then
@@ -150,6 +152,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    cutoff = get_cutoff(calc%bas, accuracy)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
 
    if (prlevel > 1) then
       print *, property("integral cutoff", cutoff, "bohr")
@@ -157,7 +160,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    call new_integral(ints, calc%bas%nao)
-   call get_hamiltonian(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
+   call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
 
    eelec = 0.0_wp
@@ -222,7 +225,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       tmp = wfn%focc * wfn%emo
       call get_density_matrix(tmp, wfn%coeff, ints%hamiltonian)
       !print '(3es20.13)', sigma
-      call get_hamiltonian_gradient(mol, lattr, cutoff, calc%bas, calc%h0, selfenergy, &
+      call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
          & dsedcn, pot, wfn%density, ints%hamiltonian, dEdcn, gradient, sigma)
 
       if (allocated(dcndr)) then

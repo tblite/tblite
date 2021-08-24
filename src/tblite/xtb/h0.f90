@@ -18,6 +18,7 @@
 module tblite_xtb_h0
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_adjlist, only : adjacency_list
    use tblite_basis_type, only : basis_type
    use tblite_integral_multipole, only : multipole_cgto, multipole_grad_cgto, maxl, msao
    use tblite_scf_potential, only : potential_type
@@ -150,14 +151,14 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, d
 end subroutine get_selfenergy
 
 
-subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpint, qpint, &
+subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint, qpint, &
       & hamiltonian)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
    real(wp), intent(in) :: trans(:, :)
-   !> Realspace cutoff
-   real(wp), intent(in) :: cutoff
+   !> Neighbour list
+   type(adjacency_list), intent(in) :: list
    !> Basis set information
    type(basis_type), intent(in) :: bas
    !> Hamiltonian interaction data
@@ -173,7 +174,7 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
    !> Effective Hamiltonian
    real(wp), intent(out) :: hamiltonian(:, :)
 
-   integer :: iat, jat, izp, jzp, itr, k
+   integer :: iat, jat, izp, jzp, itr, k, img, inl
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dtmpj(3), qtmpj(6)
    real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
@@ -184,112 +185,42 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
    hamiltonian(:, :) = 0.0_wp
 
    allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), qtmpi(6, msao(bas%maxl)**2))
-   cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
+   !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, k) &
-   !$omp private(r2, vec, stmp, dtmpi, qtmpi, dtmpj, qtmpj, hij, shpoly, rr)
+   !$omp private(r2, vec, stmp, dtmpi, qtmpi, dtmpj, qtmpj, hij, shpoly, rr, inl, img)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      do jat = 1, iat - 1
+      inl = list%inl(iat)
+      do img = 1, list%nnl(iat)
+         jat = list%nlat(img+inl)
+         itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
-         do itr = 1, size(trans, 2)
-            vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
-            r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
-            if (r2 > cutoff2 .or. r2 < epsilon(cutoff2)) cycle
-            rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-            do ish = 1, bas%nsh_id(izp)
-               ii = bas%iao_sh(is+ish)
-               do jsh = 1, bas%nsh_id(jzp)
-                  jj = bas%iao_sh(js+jsh)
-                  call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
-
-                  shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                     * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
-
-                  hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
-                     * h0%hscale(jsh, ish, jzp, izp) * shpoly
-
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-                        call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
-                           & dtmpj, qtmpj)
-                        !$omp atomic
-                        overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
-                           + stmp(ij)
-                        !$omp atomic
-                        overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
-                           + stmp(ij)
-
-                        do k = 1, 3
-                           !$omp atomic
-                           dpint(k, jj+jao, ii+iao) = dpint(k, jj+jao, ii+iao) &
-                              + dtmpi(k, ij)
-                           !$omp atomic
-                           dpint(k, ii+iao, jj+jao) = dpint(k, ii+iao, jj+jao) &
-                              + dtmpj(k)
-                        end do
-
-                        do k = 1, 6
-                           !$omp atomic
-                           qpint(k, jj+jao, ii+iao) = qpint(k, jj+jao, ii+iao) &
-                              + qtmpi(k, ij)
-                           !$omp atomic
-                           qpint(k, ii+iao, jj+jao) = qpint(k, ii+iao, jj+jao) &
-                              + qtmpj(k)
-                        end do
-
-                        !$omp atomic
-                        hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                           + stmp(ij) * hij
-                        !$omp atomic
-                        hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
-                           + stmp(ij) * hij
-                     end do
-                  end do
-
-               end do
-            end do
-
-         end do
-      end do
-   end do
-
-   !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, izp, itr, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
-   !$omp private(r2, vec, stmp, dtmpi, qtmpi, hij, shpoly, rr)
-   do iat = 1, mol%nat
-      izp = mol%id(iat)
-      is = bas%ish_at(iat)
-      do itr = 1, size(trans, 2)
-         vec(:) = -trans(:, itr)
+         vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
          r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
-         if (r2 > cutoff2 .or. r2 < epsilon(cutoff2)) cycle
-         rr = sqrt(sqrt(r2) / (h0%rad(izp) + h0%rad(izp)))
+         rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
          do ish = 1, bas%nsh_id(izp)
             ii = bas%iao_sh(is+ish)
-            do jsh = 1, bas%nsh_id(izp)
-               jj = bas%iao_sh(is+jsh)
-               call multipole_cgto(bas%cgto(jsh, izp), bas%cgto(ish, izp), &
+            do jsh = 1, bas%nsh_id(jzp)
+               jj = bas%iao_sh(js+jsh)
+               call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                   & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
 
                shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                  * (1.0_wp + h0%shpoly(jsh, izp)*rr)
+                  * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
 
-               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh)) &
-                  * h0%hscale(jsh, ish, izp, izp) * shpoly
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
+                  * h0%hscale(jsh, ish, jzp, izp) * shpoly
 
-               nao = msao(bas%cgto(jsh, izp)%ang)
+               nao = msao(bas%cgto(jsh, jzp)%ang)
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
+                     call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
+                        & dtmpj, qtmpj)
                      !$omp atomic
                      overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                         + stmp(ij)
@@ -309,6 +240,26 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
                      !$omp atomic
                      hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
                         + stmp(ij) * hij
+
+                     if (iat /= jat) then
+                        !$omp atomic
+                        overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
+                           + stmp(ij)
+                        do k = 1, 3
+                           !$omp atomic
+                           dpint(k, ii+iao, jj+jao) = dpint(k, ii+iao, jj+jao) &
+                              + dtmpj(k)
+                        end do
+
+                        do k = 1, 6
+                           !$omp atomic
+                           qpint(k, ii+iao, jj+jao) = qpint(k, ii+iao, jj+jao) &
+                              + qtmpj(k)
+                        end do
+                        !$omp atomic
+                        hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
+                           + stmp(ij) * hij
+                     end if
                   end do
                end do
 
@@ -367,14 +318,14 @@ subroutine get_hamiltonian(mol, trans, cutoff, bas, h0, selfenergy, overlap, dpi
 end subroutine get_hamiltonian
 
 
-subroutine get_hamiltonian_gradient(mol, trans, cutoff, bas, h0, selfenergy, dsedcn, &
+subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedcn, &
       & pot, pmat, xmat, dEdcn, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
    real(wp), intent(in) :: trans(:, :)
-   !> Realspace cutoff
-   real(wp), intent(in) :: cutoff
+   !> Neighbour list
+   type(adjacency_list), intent(in) :: list
    !> Basis set information
    type(basis_type), intent(in) :: bas
    !> Hamiltonian interaction data
@@ -397,7 +348,7 @@ subroutine get_hamiltonian_gradient(mol, trans, cutoff, bas, h0, selfenergy, dse
    !> Derivative of the electronic energy w.r.t. strain deformations
    real(wp), intent(inout) :: sigma(:, :)
 
-   integer :: iat, jat, izp, jzp, itr
+   integer :: iat, jat, izp, jzp, itr, img, inl
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dshpoly, dG(3), hscale
    real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
@@ -409,77 +360,77 @@ subroutine get_hamiltonian_gradient(mol, trans, cutoff, bas, h0, selfenergy, dse
       & dtmp(3, msao(bas%maxl)**2), ddtmpi(3, 3, msao(bas%maxl)**2), &
       & qtmp(6, msao(bas%maxl)**2), dqtmpi(3, 6, msao(bas%maxl)**2), &
       & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2))
-   cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
-   !$omp shared(mol, bas, trans, cutoff2, h0, selfenergy, dsedcn, pot, pmat, xmat) &
+   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, &
    !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, shpoly, &
-   !$omp& dshpoly, dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij)
+   !$omp& dshpoly, dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      do jat = 1, iat - 1
+      inl = list%inl(iat)
+      do img = 1, list%nnl(iat)
+         jat = list%nlat(img+inl)
+         itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
-         do itr = 1, size(trans, 2)
-            vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
-            r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
-            if (r2 > cutoff2 .or. r2 < epsilon(cutoff2)) cycle
-            rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-            do ish = 1, bas%nsh_id(izp)
-               ii = bas%iao_sh(is+ish)
-               do jsh = 1, bas%nsh_id(jzp)
-                  jj = bas%iao_sh(js+jsh)
-                  call multipole_grad_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmp, qtmp, dstmp, ddtmpj, dqtmpj, &
-                     & ddtmpi, dqtmpi)
+         if (iat == jat) cycle
+         vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
+         r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
+         rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
+         do ish = 1, bas%nsh_id(izp)
+            ii = bas%iao_sh(is+ish)
+            do jsh = 1, bas%nsh_id(jzp)
+               jj = bas%iao_sh(js+jsh)
+               call multipole_grad_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
+                  & r2, vec, bas%intcut, stmp, dtmp, qtmp, dstmp, ddtmpj, dqtmpj, &
+                  & ddtmpi, dqtmpi)
 
-                  shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                     & * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
-                  dshpoly = ((1.0_wp + h0%shpoly(ish, izp)*rr)*h0%shpoly(jsh, jzp)*rr &
-                     & + (1.0_wp + h0%shpoly(jsh, jzp)*rr)*h0%shpoly(ish, izp)*rr) &
-                     & * 0.5_wp / r2
+               shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
+                  & * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
+               dshpoly = ((1.0_wp + h0%shpoly(ish, izp)*rr)*h0%shpoly(jsh, jzp)*rr &
+                  & + (1.0_wp + h0%shpoly(jsh, jzp)*rr)*h0%shpoly(ish, izp)*rr) &
+                  & * 0.5_wp / r2
 
-                  hscale = h0%hscale(jsh, ish, jzp, izp)
-                  hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hscale
-                  dhdcni = dsedcn(is+ish) * shpoly * hscale
-                  dhdcnj = dsedcn(js+jsh) * shpoly * hscale
+               hscale = h0%hscale(jsh, ish, jzp, izp)
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hscale
+               dhdcni = dsedcn(is+ish) * shpoly * hscale
+               dhdcnj = dsedcn(js+jsh) * shpoly * hscale
 
-                  dG(:) = 0.0_wp
-                  dcni = 0.0_wp
-                  dcnj = 0.0_wp
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-                        pij = pmat(jj+jao, ii+iao)
-                        hpij = pij * hij * shpoly
-                        sval = 2*hpij - 2*xmat(jj+jao, ii+iao) &
-                           - pij * (pot%vao(jj+jao) + pot%vao(ii+iao))
+               dG(:) = 0.0_wp
+               dcni = 0.0_wp
+               dcnj = 0.0_wp
+               nao = msao(bas%cgto(jsh, jzp)%ang)
+               do iao = 1, msao(bas%cgto(ish, izp)%ang)
+                  do jao = 1, nao
+                     ij = jao + nao*(iao-1)
+                     pij = pmat(jj+jao, ii+iao)
+                     hpij = pij * hij * shpoly
+                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao) &
+                        - pij * (pot%vao(jj+jao) + pot%vao(ii+iao))
 
-                        dG(:) = dG + sval * dstmp(:, ij) &
-                           + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
-                           - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat)) &
-                           - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat)) &
-                           - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat)) &
-                           - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat))
+                     dG(:) = dG + sval * dstmp(:, ij) &
+                        + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
+                        - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat)) &
+                        - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat)) &
+                        - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat)) &
+                        - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat))
 
-                        dcni = dcni + dhdcni * pmat(jj+jao, ii+iao) * stmp(ij)
-                        dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao) * stmp(ij)
-                     end do
+                     dcni = dcni + dhdcni * pmat(jj+jao, ii+iao) * stmp(ij)
+                     dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao) * stmp(ij)
                   end do
-                  dEdcn(iat) = dEdcn(iat) + dcni
-                  dEdcn(jat) = dEdcn(jat) + dcnj
-                  gradient(:, iat) = gradient(:, iat) + dG
-                  gradient(:, jat) = gradient(:, jat) - dG
-                  sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
-                     + spread(dG, 1, 3) * spread(vec, 2, 3))
-
                end do
-            end do
+               dEdcn(iat) = dEdcn(iat) + dcni
+               dEdcn(jat) = dEdcn(jat) + dcnj
+               gradient(:, iat) = gradient(:, iat) + dG
+               gradient(:, jat) = gradient(:, jat) - dG
+               sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
+                  + spread(dG, 1, 3) * spread(vec, 2, 3))
 
+            end do
          end do
+
       end do
    end do
 

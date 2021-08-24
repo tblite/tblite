@@ -20,6 +20,7 @@ module test_hamiltonian
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
+   use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_cutoff, only : get_lattice_points
@@ -115,6 +116,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    type(basis_type) :: bas
    type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
    real(wp), parameter :: cn_cutoff = 30.0_wp
    real(wp), allocatable :: lattr(:, :), cn(:), rcov(:)
    real(wp), allocatable :: overlap(:, :), hamiltonian(:, :), selfenergy(:)
@@ -136,13 +138,14 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
 
    allocate(selfenergy(bas%nsh))
    call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cn, selfenergy=selfenergy)
    
    allocate(overlap(bas%nao, bas%nao), dpint(3, bas%nao, bas%nao), &
       & qpint(6, bas%nao, bas%nao), hamiltonian(bas%nao, bas%nao))
-   call get_hamiltonian(mol, lattr, cutoff, bas, h0, selfenergy, overlap, dpint, qpint, &
+   call get_hamiltonian(mol, lattr, list, bas, h0, selfenergy, overlap, dpint, qpint, &
       & hamiltonian)
 
    !where(abs(hamiltonian) < thr) hamiltonian = 0.0_wp

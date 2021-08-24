@@ -116,11 +116,9 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    call get_electronic_energy(ints%hamiltonian, wfn%density, eelec)
    if (present(coulomb)) then
       call coulomb%get_energy(mol, cache, wfn, ees)
-      energy = energy + ees
    end if
    if (present(dispersion)) then
       call dispersion%get_energy(mol, dcache, wfn, edisp)
-      energy = energy + edisp
    end if
    energy = ts + eelec + ees + edisp
 

@@ -174,15 +174,17 @@ subroutine add_vmp_to_h1(bas, mpint, vmp, h1)
    !> Effective Hamiltonian
    real(wp), intent(inout) :: h1(:, :)
 
-   integer :: iao, jao
+   integer :: iao, jao, nmp
+
+   nmp = min(size(mpint, 1), size(vmp, 1))
 
    !$omp parallel do collapse(2) schedule(runtime) default(none) &
-   !$omp shared(h1, bas, mpint, vmp) private(iao, jao)
+   !$omp shared(h1, bas, mpint, vmp, nmp) private(iao, jao)
    do iao = 1, bas%nao
       do jao = 1, bas%nao
          h1(jao, iao) = h1(jao, iao) &
-            & - 0.5_wp * dot_product(mpint(:, jao, iao), vmp(:, bas%ao2at(iao))) &
-            & - 0.5_wp * dot_product(mpint(:, iao, jao), vmp(:, bas%ao2at(jao)))
+            & - 0.5_wp * dot_product(mpint(:nmp, jao, iao), vmp(:nmp, bas%ao2at(iao))) &
+            & - 0.5_wp * dot_product(mpint(:nmp, iao, jao), vmp(:nmp, bas%ao2at(jao)))
       end do
    end do
 end subroutine add_vmp_to_h1

@@ -101,6 +101,8 @@ subroutine get_density_matrix(focc, coeff, pmat)
    integer :: iao, jao
 
    allocate(scratch(size(pmat, 1), size(pmat, 2)))
+   !$omp parallel do collapse(2) default(none) schedule(runtime) &
+   !$omp shared(scratch, coeff, focc, pmat) private(iao, jao)
    do iao = 1, size(pmat, 1)
       do jao = 1, size(pmat, 2)
          scratch(jao, iao) = coeff(jao, iao) * focc(iao)
