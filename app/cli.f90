@@ -180,6 +180,12 @@ subroutine get_run_arguments(config, list, start, error)
       case("--version")
          call version(output_unit)
          stop
+      case("-v", "-vv", "--verbose")
+         config%verbosity = config%verbosity + 1
+         if (arg == "-vv") config%verbosity = config%verbosity + 1
+      case("-s", "-ss", "--silent")
+         config%verbosity = config%verbosity - 1
+         if (arg == "-ss") config%verbosity = config%verbosity - 1
       case default
          if (.not.allocated(config%input)) then
             call move_alloc(arg, config%input)

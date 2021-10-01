@@ -93,10 +93,10 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    end if
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
+   call set_mixer(mixer, wfn, info)
+
    call solver%solve(wfn%coeff, ints%overlap, wfn%emo, error)
    if (allocated(error)) return
-
-   call set_mixer(mixer, wfn, info)
 
    call get_fermi_filling(wfn%nocc, wfn%nuhf, wfn%kt, wfn%emo, &
       & wfn%homoa, wfn%homob, wfn%focc, e_fermi, ts)

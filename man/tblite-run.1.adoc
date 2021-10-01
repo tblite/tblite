@@ -56,6 +56,12 @@ Supported geometry input formats are:
 *-i, --input* _format_::
      Hint for the format of the input file
 
+*-v, --verbose*::
+     Increase verbosity of printout
+
+*-s, --silent*::
+     Reduce verbosity of printout
+
 *--version*::
      Prints version number and citation
 

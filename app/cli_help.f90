@@ -110,6 +110,8 @@ module tblite_cli_help
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
       "  -i, --input <format>    Hint for the format of the input file"//nl//&
+      "  -v, --verbose           Increase verbosity of printout"//nl//&
+      "  -s, --silent            Reduce verbosity of printout"//nl//&
       help_text_general//nl//&
       ""//nl//&
       help_text_response

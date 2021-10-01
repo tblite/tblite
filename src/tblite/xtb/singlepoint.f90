@@ -32,6 +32,7 @@ module tblite_xtb_singlepoint
    use tblite_output_format, only : format_string
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
+   use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
@@ -71,12 +72,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(coulomb_cache) :: cache
    type(dispersion_cache) :: dcache
    type(broyden_mixer) :: mixer
+   type(timer_type) :: timer
    type(error_type), allocatable :: error
 
    type(scf_info) :: info
    type(sygvd_solver) :: sygvd
    type(adjacency_list) :: list
    integer :: iscf
+
+   call timer%push("total")
 
    if (present(verbosity)) then
       prlevel = verbosity
@@ -101,31 +105,39 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    if (allocated(calc%halogen)) then
+      call timer%push("halogen")
       cutoff = 20.0_wp
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       call calc%halogen%get_engrad(mol, lattr, cutoff, exbond, gradient, sigma)
       if (prlevel > 1) print *, property("halogen-bonding energy", exbond, "Eh")
       energy = energy + exbond
+      call timer%pop
    end if
 
    if (allocated(calc%repulsion)) then
+      call timer%push("repulsion")
       cutoff = 25.0_wp
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       call calc%repulsion%get_engrad(mol, lattr, cutoff, erep, gradient, sigma)
       if (prlevel > 1) print *, property("repulsion energy", erep, "Eh")
       energy = energy + erep
+      call timer%pop
    end if
 
    if (allocated(calc%dispersion)) then
+      call timer%push("dispersion")
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
       if (prlevel > 1) print *, property("dispersion energy", edisp, "Eh")
       energy = energy + edisp
+      call timer%pop
    end if
 
    call new_potential(pot, mol, calc%bas)
    if (allocated(calc%coulomb)) then
+      call timer%push("coulomb")
       call calc%coulomb%update(mol, cache)
+      call timer%pop
    end if
 
    call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
@@ -138,6 +150,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (prlevel > 1) print *, property("number of electrons", wfn%nocc, "e")
 
+   call timer%push("hamiltonian")
    if (allocated(calc%ncoord)) then
       allocate(cn(mol%nat))
       if (grad) then
@@ -162,7 +175,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call new_integral(ints, calc%bas%nao)
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+   call timer%pop
 
+   call timer%push("scc")
    eelec = 0.0_wp
    iscf = 0
    converged = .false.
@@ -194,6 +209,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message(repeat("-", 60) // new_line('a'))
    end if
    energy = energy + eelec
+   call timer%pop
 
    if (prlevel > 1) then
       print *, property("electronic energy", eelec, "Eh")
@@ -212,13 +228,18 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (grad) then
       if (allocated(calc%coulomb)) then
+         call timer%push("coulomb")
          call calc%coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+         call timer%pop
       end if
 
       if (allocated(calc%dispersion)) then
+         call timer%push("dispersion")
          call calc%dispersion%get_gradient(mol, dcache, wfn, gradient, sigma)
+         call timer%pop
       end if
 
+      call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
 
@@ -234,7 +255,28 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       if (allocated(dcndL)) then
          call gemv(dcndL, dEdcn, sigma, beta=1.0_wp)
       end if
+      call timer%pop
    end if
+
+   block
+      integer :: it
+      real(wp) :: ttime, stime
+      character(len=*), parameter :: label(*) = [character(len=20):: &
+         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "scc"]
+      if (prlevel > 0) then
+         ttime = timer%get("total")
+         call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
+      end if
+      if (prlevel > 1) then
+         do it = 1, size(label)
+            stime = timer%get(label(it))
+            if (stime <= epsilon(0.0_wp)) cycle
+            call ctx%message(" - "//label(it)//format_time(stime) &
+               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+         end do
+         call ctx%message("")
+      end if
+   end block
 
    if (.not.converged) then
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")

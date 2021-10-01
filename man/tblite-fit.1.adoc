@@ -123,6 +123,12 @@ The script will get information about the current run passed by environment vari
 *--copy* _file_::
      Write the full representation of the input to _file_, all defaults will be filled in and the mask expanded.
 
+*-v, --verbose*::
+     Increase verbosity of printout
+
+*-s, --silent*::
+     Reduce verbosity of printout
+
 *--version*::
      Prints version number and citation
 

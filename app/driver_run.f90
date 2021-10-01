@@ -133,7 +133,8 @@ subroutine run_main(config, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, &
       & 300.0_wp * 3.166808578545117e-06_wp)
 
-   call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, 2)
+   call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
+      & config%verbosity)
    if (ctx%failed()) then
       write(error_unit, '("[Fatal]", 1x, a)') "Singlepoint calculation failed"
       do while(ctx%failed())
@@ -143,7 +144,9 @@ subroutine run_main(config, error)
       error stop
    end if
 
-   call ascii_levels(ctx%unit, config%verbosity, wfn%homoa, wfn%emo, wfn%focc, 7)
+   if (config%verbosity > 2) then
+      call ascii_levels(ctx%unit, config%verbosity, wfn%homoa, wfn%emo, wfn%focc, 7)
+   end if
 
    if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)
