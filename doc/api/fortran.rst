@@ -17,7 +17,7 @@ The basic infrastructure to handle molecular and periodic structures is provided
 The library provides a structure type which is used to represent all geometry related informations in *tblite*.
 A structure type can be constructed from arrays or read from a file.
 
-The array constructor is provided with the generic interface ``new`` and takes an array of atomic numbers (``integer``) or element symbols (``character(len=*)``) as well as the cartesian coordinates in Bohr.
+The constructor is provided with the generic interface ``new`` and takes an array of atomic numbers (``integer``) or element symbols (``character(len=*)``) as well as the cartesian coordinates in Bohr.
 Additionally, the molecular charge and the number of unpaired electrons can be provided the ``charge`` and ``uhf`` keyword, respectively.
 To create a periodic structure the lattice parameters can be passed as 3 by 3 matrix with the ``lattice`` keyword.
 
@@ -79,6 +79,55 @@ The structure type as well as the error type are using only allocatable members 
 Certain members of the structure type should be considered immutable, like the number of atoms (``nat``), the identifiers for unique atoms (``id``) and the boundary conditions (``periodic``).
 To change those specific structure parameters the structure type and all dependent objects should be reconstructed to ensure a consistent setup.
 Other properties, like the geometry (``xyz``), molecular charge (``charge``), number of unpaired electrons (``uhf``) and lattice parameters (``lattice``) can be changed without requiring to reconstruct dependent objects like calculators or restart data.
+
+
+Error handling
+--------------
+
+The basic error handler is an allocatable derived type, available from ``mctc_env`` as ``error_type``, which signals an error by its allocation status.
+
+.. code-block:: fortran
+
+   use mctc_env, only : error_type, fatal_error
+   implicit none
+   type(error_type), allocatable :: error
+
+   call always_ok(error)
+   if (allocated(error)) then
+      print '(a)', "Unexpected failure:", error%message
+   end if
+
+   call always_failed(error)
+   if (allocated(error)) then
+      print '(a)', "Error:", error%message
+   end if
+
+   contains
+      subroutine always_ok(error)
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine always_ok
+
+      subroutine always_failed(error)
+         type(error_type), allocatable, intent(out) :: error
+
+         call fatal_error(error, "Message associated with this error")
+      end subroutine always_failed
+   end
+
+An unhandled error might get dropped by the next procedure call.
+
+
+Calculation context
+-------------------
+
+The calculation context is available with the ``context_type`` from the ``tblite_context`` module.
+The context stores error messages generated while running which can be queried using the type bound function ``failed``.
+To access the actual errors the messages can be removed using the type bound subroutine ``get_error``.
+
+An output verbosity is available in the context as the member verbosity, all procedures with access to the context will default to the verbosity of the context unless the verbosity level is overwritten by an argument.
+To cutomize the output the ``context_logger`` abstract base class is available.
+It must implement a type bound ``message`` procedure, which is used by the context to create output.
+This type can be used to create callbacks for customizing or redirecting the output of the library.
 
 
 High-level interface

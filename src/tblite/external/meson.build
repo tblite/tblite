@@ -14,47 +14,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-# Unit testing
-set(
-  tests
-  "cgto-ortho"
-  "coulomb-charge"
-  "coulomb-multipole"
-  "fit"
-  "gfn1-xtb"
-  "gfn2-xtb"
-  "hamiltonian"
-  "halogen"
-  "integral-overlap"
-  "integral-multipole"
-  "ipea1-xtb"
-  "ncoord-gfn"
-  "repulsion"
-  "slater-expansion"
-  "tagged-io"
-  "xtb-param"
-  "xtb-external"
+srcs += files(
+  'field.f90',
 )
-set(
-  test-srcs
-  "main.f90"
-)
-foreach(t IN LISTS tests)
-  string(MAKE_C_IDENTIFIER ${t} t) 
-  list(APPEND test-srcs "test_${t}.f90")
-endforeach()
-
-add_executable(
-  "${PROJECT_NAME}-tester"
-  "${test-srcs}"
-)
-target_link_libraries(
-  "${PROJECT_NAME}-tester"
-  PRIVATE
-  "${PROJECT_NAME}-lib"
-  "mstore::mstore"
-)
-
-foreach(t IN LISTS tests)
-  add_test("${t}" "${PROJECT_NAME}-tester" "${t}")
-endforeach()

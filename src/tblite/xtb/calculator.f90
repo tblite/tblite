@@ -21,6 +21,7 @@ module tblite_xtb_calculator
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
+   use tblite_container, only : container_type, container_list
    use tblite_coulomb_charge, only : new_effective_coulomb, average_interface, &
       & harmonic_average, arithmetic_average, geometric_average
    use tblite_coulomb_multipole, only : new_damped_multipole
@@ -54,8 +55,15 @@ module tblite_xtb_calculator
       class(dispersion_type), allocatable :: dispersion
       real(wp) :: mixer_damping = mixer_damping_default
       integer :: max_iter = max_iter_default
+      !> List of additional interaction containers
+      type(container_list), allocatable :: interactions
    contains
+      !> Get information about density dependent quantities used in the energy
       procedure :: variable_info
+      !> Add an interaction container
+      procedure :: push_back
+      !> Remove an interaction container
+      procedure :: pop
    end type xtb_calculator
 
 
@@ -567,6 +575,34 @@ subroutine update(self, mol)
 end subroutine update
 
 
+!> Add an interaction container
+subroutine push_back(self, cont)
+   !> Instance of the tight-binding calculator
+   class(xtb_calculator), intent(inout) :: self
+   !> Container to be added
+   class(container_type), allocatable, intent(inout) :: cont
+
+   if (.not.allocated(self%interactions)) allocate(self%interactions)
+
+   call self%interactions%push_back(cont)
+end subroutine push_back
+
+
+!> Add a container
+subroutine pop(self, cont, idx)
+   !> Instance of the tight-binding calculator
+   class(xtb_calculator), intent(inout) :: self
+   !> Container to be removed
+   class(container_type), allocatable, intent(out) :: cont
+   !> Index to remove container from
+   integer, intent(in), optional :: idx
+
+   if (.not.allocated(self%interactions)) return
+
+   call self%interactions%pop(cont, idx)
+end subroutine pop
+
+
 pure function variable_info(self) result(info)
    use tblite_scf_info, only : scf_info, max
    !> Instance of the electrostatic container
@@ -582,6 +618,10 @@ pure function variable_info(self) result(info)
 
    if (allocated(self%dispersion)) then
       info = max(info, self%dispersion%variable_info())
+   end if
+
+   if (allocated(self%interactions)) then
+      info = max(info, self%interactions%variable_info())
    end if
 
 end function variable_info

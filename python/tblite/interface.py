@@ -238,6 +238,21 @@ class Result:
     def get(self, attribute: str):
         """
         Get a quantity stored instade the result container.
+        The following quantities are available
+
+        ====================== =========== ==============
+         property               dimension   unit
+        ====================== =========== ==============
+         energy                 scalar      Hartree
+         gradient               nat, 3      Hartree/Bohr
+         virial                 3, 3        Hartree
+         charges                n           e
+         dipole                 3           e·Bohr
+         quadrupole             6           e·Bohr²
+         orbital-energies       norb        Hartree
+         orbital-occupations    norb        e
+         orbital-coefficients   norb        unitless
+        ====================== =========== ==============
 
         Raises
         ------
@@ -256,6 +271,7 @@ class Result:
     def set(self, attribute: str, value):
         """
         Get a quantity stored instade the result container.
+        Currently, no quantities can be set in the result container.
 
         Raises
         ------
@@ -296,6 +312,50 @@ class Calculator(Structure):
     created. The cartesian coordinates and the lattice parameters of the structure can
     be updated, while changing the boundary conditions, atomic types or number of atoms
     require the complete reconstruction of the calculator instance.
+
+    Available methods to parametrization of the calculator are:
+
+    **GFN2-xTB**:
+
+    Self-consistent extended tight binding Hamiltonian with
+    anisotropic second order electrostatic contributions,
+    third order on-site contributions and self-consistent D4 dispersion.
+
+    Geometry, frequency and non-covalent interactions parametrisation for
+    elements up to Z=86.
+
+    Cite as:
+
+    * C. Bannwarth, S. Ehlert and S. Grimme.,
+      *J. Chem. Theory Comput.* (2019), **15**, 1652-1671.
+      DOI: `10.1021/acs.jctc.8b01176 <https://dx.doi.org/10.1021/acs.jctc.8b01176>`_
+
+    **GFN1-xTB**:
+
+    Self-consistent extended tight binding Hamiltonian with
+    isotropic second order electrostatic contributions and
+    third order on-site contributions.
+
+    Geometry, frequency and non-covalent interactions parametrisation for
+    elements up to Z=86.
+
+    Cite as:
+
+    * S. Grimme, C. Bannwarth, P. Shushkov,
+      *J. Chem. Theory Comput.* (2017), **13**, 1989-2009.
+      DOI: `10.1021/acs.jctc.7b00118 <https://dx.doi.org/10.1021/acs.jctc.7b00118>`_
+
+    **IPEA1-xTB**:
+
+    Special parametrisation for the GFN1-xTB Hamiltonian to improve the
+    description of vertical ionisation potentials and electron affinities.
+    Uses additional diffuse s-functions on light main group elements.
+    Parametrised up to Z=86.
+
+    Cite as:
+
+    * V. Asgeirsson, C. Bauer and S. Grimme, *Chem. Sci.* (2017), **8**, 4879.
+      DOI: `10.1039/c7sc00601b <https://dx.doi.org/10.1039/c7sc00601b>`_
 
     Example
     -------

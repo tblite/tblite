@@ -19,8 +19,12 @@ module tblite_driver_run
    use, intrinsic :: iso_fortran_env, only : output_unit, error_unit, input_unit
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type, read_structure, filetype
+   use mctc_io_constants, only : codata
+   use mctc_io_convert, only : aatoau, ctoau
    use tblite_cli, only : run_config
-   use tblite_context_type, only : context_type
+   use tblite_container, only : container_type
+   use tblite_context, only : context_type
+   use tblite_external_field, only : electric_field
    use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
@@ -37,6 +41,11 @@ module tblite_driver_run
    interface main
       module procedure :: run_main
    end interface
+
+   real(wp), parameter :: kt = 3.166808578545117e-06_wp
+   real(wp), parameter :: jtoau = 1.0_wp / (codata%me*codata%c**2*codata%alpha**2)
+   !> Convert V/Å = J/(C·Å) to atomic units
+   real(wp), parameter :: vatoau = jtoau / (ctoau * aatoau)
 
 contains
 
@@ -130,8 +139,15 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, &
-      & 300.0_wp * 3.166808578545117e-06_wp)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, config%etemp * kt)
+
+   if (allocated(config%efield)) then
+      block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc%push_back(cont)
+      end block
+   end if
 
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
       & config%verbosity)

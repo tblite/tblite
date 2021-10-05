@@ -20,6 +20,7 @@ module tblite_xtb_singlepoint
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
+   use tblite_container, only : container_cache
    use tblite_context_type, only : context_type
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_cutoff, only : get_lattice_points
@@ -61,7 +62,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
 
    logical :: grad, converged
-   real(wp) :: edisp, erep, exbond, nel
+   real(wp) :: edisp, erep, exbond, eint, nel
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
@@ -71,6 +72,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(potential_type) :: pot
    type(coulomb_cache) :: cache
    type(dispersion_cache) :: dcache
+   type(container_cache) :: icache
    type(broyden_mixer) :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
@@ -97,6 +99,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    erep = 0.0_wp
    edisp = 0.0_wp
+   eint = 0.0_wp
    energy = 0.0_wp
    exbond = 0.0_wp
    if (grad) then
@@ -130,6 +133,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
       if (prlevel > 1) print *, property("dispersion energy", edisp, "Eh")
       energy = energy + edisp
+      call timer%pop
+   end if
+
+   if (allocated(calc%interactions)) then
+      call timer%push("interactions")
+      call calc%interactions%update(mol, icache)
+      call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
+      if (prlevel > 1) print *, property("interaction energy", edisp, "Eh")
+      energy = energy + eint
       call timer%pop
    end if
 
@@ -192,7 +204,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = eelec
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
-         & calc%coulomb, calc%dispersion, ints, pot, cache, dcache, eelec, error)
+         & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
+         & cache, dcache, icache, eelec, error)
       converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
@@ -236,6 +249,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       if (allocated(calc%dispersion)) then
          call timer%push("dispersion")
          call calc%dispersion%get_gradient(mol, dcache, wfn, gradient, sigma)
+         call timer%pop
+      end if
+
+      if (allocated(calc%interactions)) then
+         call timer%push("interactions")
+         call calc%interactions%get_gradient(mol, icache, wfn, gradient, sigma)
          call timer%pop
       end if
 

@@ -106,6 +106,9 @@ module tblite_cli_help
       "      --method <name>     Parametrization of the xTB Hamiltonian to use"//nl//&
       "                          Available methods: gfn1, gfn2, ipea1 (Default: gfn2)"//nl//&
       "      --param <file>      Parametrization file to use for calculation"//nl//&
+      "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --efield <real>,<real>,<real>"//nl//&
+      "                          Homogeneous electric field in V/Å."//nl//&
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&

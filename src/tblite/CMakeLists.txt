@@ -20,10 +20,12 @@ endif()
 add_subdirectory("basis")
 add_subdirectory("blas")
 add_subdirectory("classical")
+add_subdirectory("container")
 add_subdirectory("context")
 add_subdirectory("coulomb")
 add_subdirectory("disp")
 add_subdirectory("data")
+add_subdirectory("external")
 add_subdirectory("fit")
 add_subdirectory("integral")
 add_subdirectory("io")
@@ -42,6 +44,8 @@ list(
   APPEND srcs
   "${dir}/adjlist.f90"
   "${dir}/blas.f90"
+  "${dir}/container.f90"
+  "${dir}/context.f90"
   "${dir}/cutoff.f90"
   "${dir}/disp.f90"
   "${dir}/lapack.f90"

@@ -42,6 +42,12 @@ Supported geometry input formats are:
 *--param* _string_::
      Read tight binding parametrization from _string_.
 
+*--etemp* _real_::
+     Electronic temperature for calculation in Kelvin (default: 300K).
+
+*--efield* _real_,_real_,_real_::
+     Homogeneous electric field in V/Å, takes three comma separated real values.
+
 *--acc* _real_::
      Accuracy of the calculation,
      lower values set tighter convergence criteria.

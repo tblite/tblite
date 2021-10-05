@@ -35,6 +35,7 @@ program tester
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_tagged_io, only : collect_tagged_io
+   use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
    implicit none
    integer :: stat, is
@@ -60,6 +61,7 @@ program tester
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
       new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
+      new_testsuite("xtb-external", collect_xtb_external), &
       new_testsuite("xtb-param", collect_xtb_param) &
       ]
 

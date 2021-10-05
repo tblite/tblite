@@ -46,6 +46,8 @@ module tblite_cli
       logical :: json = .false.
       character(len=:), allocatable :: json_output
       real(wp) :: accuracy = 1.0_wp
+      real(wp) :: etemp = 300.0_wp
+      real(wp), allocatable :: efield(:)
    end type run_config
 
    type, extends(driver_config) :: param_config
@@ -239,6 +241,17 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%accuracy, error)
+         if (allocated(error)) exit
+      case("--etemp")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%etemp, error)
+         if (allocated(error)) exit
+      case("--efield")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         allocate(config%efield(3))
+         call get_argument_as_realv(arg, config%efield, error)
          if (allocated(error)) exit
       case("--grad")
          config%grad = .true.
@@ -529,6 +542,40 @@ subroutine get_argument_as_real(arg, val, error)
    end if
 
 end subroutine get_argument_as_real
+
+
+subroutine get_argument_as_realv(arg, val, error)
+   !> Index of command line argument, range [0:command_argument_count()]
+   character(len=:), intent(in), allocatable :: arg
+   !> Real value
+   real(wp), intent(out) :: val(:)
+   !> Error handling
+   type(error_type), allocatable :: error
+
+   integer :: stat
+   integer :: i
+   character(len=*), parameter :: sep = ","
+   character(len=:), allocatable :: targ
+
+   if (.not.allocated(arg)) then
+      call fatal_error(error, "Cannot read real value, argument missing")
+      return
+   end if
+   allocate(character(len=len(arg)) :: targ)
+   do i = 1, len(arg)
+      if (arg(i:i) == sep) then
+         targ(i:i) = " "
+      else
+         targ(i:i) = arg(i:i)
+      end if
+   end do
+   read(targ, *, iostat=stat) val
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read real value from '"//arg//"'")
+      return
+   end if
+
+end subroutine get_argument_as_realv
 
 
 subroutine get_argument_as_int(arg, val, error)

@@ -29,6 +29,7 @@ module tblite_coulomb_type
 
    type, abstract :: coulomb_type
    contains
+      procedure(variable_info), deferred :: variable_info
       procedure(update), deferred :: update
       procedure(get_energy), deferred :: get_energy
       procedure(get_potential), deferred :: get_potential
@@ -36,6 +37,15 @@ module tblite_coulomb_type
    end type coulomb_type
 
    abstract interface
+      pure function variable_info(self) result(info)
+         use tblite_scf_info, only : scf_info
+         import :: coulomb_type
+         !> Instance of the electrostatic container
+         class(coulomb_type), intent(in) :: self
+         !> Information on the required potential data
+         type(scf_info) :: info
+      end function variable_info
+
       subroutine update(self, mol, cache)
          import :: coulomb_type, structure_type, coulomb_cache
          !> Instance of the electrostatic container

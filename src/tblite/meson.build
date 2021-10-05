@@ -20,10 +20,12 @@ endif
 subdir('basis')
 subdir('blas')
 subdir('classical')
+subdir('container')
 subdir('context')
 subdir('coulomb')
 subdir('data')
 subdir('disp')
+subdir('external')
 subdir('fit')
 subdir('integral')
 subdir('io')
@@ -39,6 +41,8 @@ subdir('xtb')
 srcs += files(
   'adjlist.f90',
   'blas.f90',
+  'container.f90',
+  'context.f90',
   'cutoff.f90',
   'disp.f90',
   'lapack.f90',

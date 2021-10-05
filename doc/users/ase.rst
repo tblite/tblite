@@ -1,3 +1,5 @@
+.. _ase-calc:
+
 Usage in ASE
 ============
 

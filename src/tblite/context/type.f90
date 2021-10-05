@@ -24,22 +24,37 @@ module tblite_context_type
 
    public :: context_type
 
+
+   !> Calculation context type for error handling and output messages
    type :: context_type
+      !> Default output unit for this context
       integer :: unit = output_unit
+      !> Default verbosity for procedures using this context
       integer :: verbosity = 1
+      !> Stack containing the error messages of this context
       type(error_type), allocatable :: error_log(:)
+      !> Optional logger to be used for writing messages
       class(context_logger), allocatable :: io
    contains
+      !> Write a message to the output
       procedure :: message
+      !> Push an error message to the context
       procedure :: set_error
+      !> Pop an error message from the context
       procedure :: get_error
+      !> Query the context for errors
       procedure :: failed
    end type context_type
 
+
 contains
 
+
+!> Add an error message to the context
 subroutine set_error(self, error)
+   !> Instance of the calculation context
    class(context_type), intent(inout) :: self
+   !> Error handling
    type(error_type), intent(in), optional :: error
 
    if (present(error)) then
@@ -48,8 +63,12 @@ subroutine set_error(self, error)
    end if
 end subroutine set_error
 
+
+!> Pop an error message from the context
 subroutine get_error(self, error)
+   !> Instance of the calculation context
    class(context_type), intent(inout) :: self
+   !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    if (.not.allocated(self%error_log)) allocate(self%error_log(0))
@@ -60,8 +79,12 @@ subroutine get_error(self, error)
    end if
 end subroutine get_error
 
+
+!> Write a message to the output
 subroutine message(self, msg)
+   !> Instance of the calculation context
    class(context_type), intent(inout) :: self
+   !> Message to write
    character(len=*), intent(in) :: msg
 
    if (allocated(self%io)) then
@@ -71,8 +94,12 @@ subroutine message(self, msg)
    end if
 end subroutine message
 
+
+!> Query the context for errors
 pure function failed(self)
+   !> Instance of the calculation context
    class(context_type), intent(in) :: self
+   !> Error status of the context
    logical :: failed
 
    failed = .false.

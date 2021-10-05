@@ -46,6 +46,7 @@ tests = [
   'slater-expansion',
   'tagged-io',
   'xtb-param',
+  'xtb-external',
 ]
 
 test_srcs = files(

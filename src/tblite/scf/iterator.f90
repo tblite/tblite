@@ -18,6 +18,7 @@ module tblite_scf_iterator
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
+   use tblite_container, only : container_cache, container_list
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_disp, only : dispersion_type, dispersion_cache
    use tblite_integral_type, only : integral_type
@@ -25,7 +26,7 @@ module tblite_scf_iterator
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
-      get_mulliken_atomic_multipoles
+      & get_mulliken_atomic_multipoles
    use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type, add_pot_to_h1
@@ -40,7 +41,7 @@ contains
 
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
-      & ints, pot, cache, dcache, &
+      & interactions, ints, pot, cache, dcache, icache, &
       & energy, error)
    !> Current iteration count
    integer, intent(inout) :: iscf
@@ -60,6 +61,8 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    type(tb_coulomb), intent(in), optional :: coulomb
    !> Container for dispersion interactions
    class(dispersion_type), intent(in), optional :: dispersion
+   !> Container for general interactions
+   type(container_list), intent(in), optional :: interactions
 
    !> Integral container
    type(integral_type), intent(in) :: ints
@@ -69,6 +72,8 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    type(coulomb_cache), intent(inout) :: cache
    !> Restart data for dispersion interactions
    type(dispersion_cache), intent(inout) :: dcache
+   !> Restart data for interaction containers
+   type(container_cache), intent(inout) :: icache
 
    !> Self-consistent energy
    real(wp), intent(inout) :: energy
@@ -76,7 +81,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp) :: elast, ts, e_fermi, edisp, ees, eelec
+   real(wp) :: elast, ts, e_fermi, edisp, ees, eelec, eint
 
    if (iscf > 0) then
       call mixer%next
@@ -90,6 +95,9 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    end if
    if (present(dispersion)) then
       call dispersion%get_potential(mol, dcache, wfn, pot)
+   end if
+   if (present(interactions)) then
+      call interactions%get_potential(mol, icache, wfn, pot)
    end if
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
@@ -111,6 +119,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    ees = 0.0_wp
    edisp = 0.0_wp
+   eint = 0.0_wp
    eelec = 0.0_wp
    elast = energy
    call get_electronic_energy(ints%hamiltonian, wfn%density, eelec)
@@ -120,7 +129,10 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(dispersion)) then
       call dispersion%get_energy(mol, dcache, wfn, edisp)
    end if
-   energy = ts + eelec + ees + edisp
+   if (present(interactions)) then
+      call interactions%get_energy(mol, icache, wfn, eint)
+   end if
+   energy = ts + eelec + ees + edisp + eint
 
 end subroutine next_scf
 
