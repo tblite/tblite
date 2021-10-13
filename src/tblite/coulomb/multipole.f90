@@ -22,6 +22,7 @@ module tblite_coulomb_multipole
    use mctc_io_constants, only : pi
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_coulomb_cache, only : coulomb_cache
+   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
@@ -75,6 +76,7 @@ module tblite_coulomb_multipole
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
+   real(wp), parameter :: conv = 100*eps
 
 contains
 
@@ -342,23 +344,39 @@ subroutine get_mrad(mol, shift, kexp, rmax, rad, valence_cn, cn, mrad, dmrdcn)
 end subroutine get_mrad
 
 
-subroutine get_dir_trans(lattice, trans)
+!> Get real lattice vectors
+subroutine get_dir_trans(lattice, alpha, conv, trans)
+   !> Lattice parameters
    real(wp), intent(in) :: lattice(:, :)
+   !> Parameter for Ewald summation
+   real(wp), intent(in) :: alpha
+   !> Tolerance for Ewald summation
+   real(wp), intent(in) :: conv
+   !> Translation vectors
    real(wp), allocatable, intent(out) :: trans(:, :)
-   integer, parameter :: rep(3) = 2
 
-   call get_lattice_points(lattice, rep, .true., trans)
+   call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, conv), trans)
 
 end subroutine get_dir_trans
 
-subroutine get_rec_trans(lattice, trans)
+!> Get reciprocal lattice translations
+subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
+   !> Lattice parameters
    real(wp), intent(in) :: lattice(:, :)
+   !> Parameter for Ewald summation
+   real(wp), intent(in) :: alpha
+   !> Cell volume
+   real(wp), intent(in) :: volume
+   !> Tolerance for Ewald summation
+   real(wp), intent(in) :: conv
+   !> Translation vectors
    real(wp), allocatable, intent(out) :: trans(:, :)
-   integer, parameter :: rep(3) = 2
+
    real(wp) :: rec_lat(3, 3)
 
    rec_lat = twopi*transpose(matinv_3x3(lattice))
-   call get_lattice_points(rec_lat, rep, .false., trans)
+   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, conv), trans)
+   trans = trans(:, 2:)
 
 end subroutine get_rec_trans
 
@@ -468,8 +486,8 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, dtrans)
-   call get_rec_trans(mol%lattice, rtrans)
+   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
+   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(amat_sd, amat_dd, amat_sq) &
@@ -495,13 +513,13 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    !$omp parallel do default(none) schedule(runtime) &
    !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha) private(iat, rr, k)
    do iat = 1, mol%nat
-      ! dipole-dipole selfenergy: 2/3·α³/sqrt(π) Σ(i) μ²(i)
-      rr = 2.0_wp/3.0_wp * alpha**3 / sqrtpi
+      ! dipole-dipole selfenergy: -2/3·α³/sqrt(π) Σ(i) μ²(i)
+      rr = -2.0_wp/3.0_wp * alpha**3 / sqrtpi
       do k = 1, 3
          amat_dd(k, iat, k, iat) = amat_dd(k, iat, k, iat) + 2*rr
       end do
 
-      ! charge-quadrupole selfenergy: 2/3·α³/sqrt(π) Σ(i) q(i)Tr(θi)
+      ! charge-quadrupole selfenergy: 4/9·α³/sqrt(π) Σ(i) q(i)Tr(θi)
       ! (no actual contribution since quadrupoles are traceless)
       rr = 4.0_wp/9.0_wp * alpha**3 / sqrtpi
       amat_sq([1, 3, 6], iat, iat) = amat_sq([1, 3, 6], iat, iat) + rr
@@ -524,6 +542,11 @@ pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat
    amat_dd = 0.0_wp
    amat_sq = 0.0_wp
    fac = 4*pi/vol
+
+   amat_dd(1, 1) = fac/6.0_wp
+   amat_dd(2, 2) = fac/6.0_wp
+   amat_dd(3, 3) = fac/6.0_wp
+   amat_sq([1, 3, 6]) = -fac/9.0_wp
 
    do itr = 1, size(trans, 2)
       vec(:) = trans(:, itr)
@@ -559,11 +582,12 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
    real(wp), intent(out) :: amat_sq(:)
 
    integer :: itr
-   real(wp) :: vec(3), r1, tmp, fdmp3, fdmp5, g1, g3, g5, arg, arg2, e1
+   real(wp) :: vec(3), r1, tmp, fdmp3, fdmp5, g1, g3, g5, arg, arg2, alp2, e1, e2, erft, expt
 
    amat_sd = 0.0_wp
    amat_dd = 0.0_wp
    amat_sq = 0.0_wp
+   alp2 = alp*alp
 
    do itr = 1, size(trans, 2)
       vec(:) = rij + trans(:, itr)
@@ -577,18 +601,21 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
 
       arg = r1*alp
       arg2 = arg*arg
-      e1 = 2/sqrtpi*arg*exp(-arg2) - erf(arg)
+      expt = exp(-arg2)/sqrtpi
+      erft = -erf(arg)*g1
+      e1 = g1*g1 * (erft + 2*expt*alp)
+      e2 = g1*g1 * (e1 + 4*expt*alp2*alp/3)
 
-      tmp = fdmp3 * g3 + e1 * g3
+      tmp = fdmp3 * g3 + e1
       amat_sd = amat_sd + vec * tmp
-      amat_dd(:, :) = amat_dd(:, :) + unity * (fdmp5 + e1) * g3 &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3) * 3*g5 * (fdmp5 + e1)
-      amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*g5*(fdmp5 + e1)
-      amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*g5*(fdmp5 + e1)
-      amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*g5*(fdmp5 + e1)
-      amat_sq(4) = amat_sq(4) + 2*vec(1)*vec(3)*g5*(fdmp5 + e1)
-      amat_sq(5) = amat_sq(5) + 2*vec(2)*vec(3)*g5*(fdmp5 + e1)
-      amat_sq(6) = amat_sq(6) +   vec(3)*vec(3)*g5*(fdmp5 + e1)
+      amat_dd(:, :) = amat_dd(:, :) + unity * (fdmp5*g3 + e1) &
+         & - spread(vec, 1, 3) * spread(vec, 2, 3) * (3 * (g5*fdmp5 + e2))
+      amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
+      amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*(g5*fdmp5 + e2)
+      amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
+      amat_sq(4) = amat_sq(4) + 2*vec(1)*vec(3)*(g5*fdmp5 + e2)
+      amat_sq(5) = amat_sq(5) + 2*vec(2)*vec(3)*(g5*fdmp5 + e2)
+      amat_sq(6) = amat_sq(6) +   vec(3)*vec(3)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
    end do
 
 end subroutine get_amat_sdq_dir_3d
@@ -767,8 +794,8 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, dtrans)
-   call get_rec_trans(mol%lattice, rtrans)
+   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
+   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
@@ -888,10 +915,10 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
    real(wp), intent(out) :: dg(3)
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr
+   integer :: itr, k
    real(wp) :: vec(3), r1, r2, g1, g3, g5, g7, fdmp3, fdmp5, ddmp3, ddmp5, dpiqj, qidpj
-   real(wp) :: atmp, alp2, arg, arg2, erft, expt, e1, de1, de2, dpidpj, dpiv, dpjv, edd, eq
-   real(wp) :: g_sd(3), g_dd(3), g_sq(3)
+   real(wp) :: atmp, alp2, arg, arg2, erft, expt, e1, e2, e3, tabc(3, 3, 3), tab(3, 3)
+   real(wp) :: dpidpj, dpiv, dpjv, edd, eq, g_sd(3), g_dd(3), g_sq(3)
 
    de = 0.0_wp
    dg(:) = 0.0_wp
@@ -911,11 +938,11 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
 
       arg = r1*alp
       arg2 = arg*arg
-      erft = erf(arg)
-      expt = exp(-arg2)
-      e1 = 2/sqrtpi*arg*expt - erft
-      de1 = 3*erft - expt*(4/sqrtpi*arg*arg2 + 6/sqrtpi*arg)
-      de2 = 5*erft - expt*(4/sqrtpi*arg*arg2 + 10/sqrtpi*arg)
+      erft = -erf(arg)*g1
+      expt = exp(-arg2)/sqrtpi
+      e1 = g1*g1 * (erft + expt*(2*alp2)/alp)
+      e2 = g1*g1 * (e1 + expt*(2*alp2)**2/(3*alp))
+      e3 = g1*g1 * (e2 + expt*(2*alp2)**3/(15*alp))
 
       fdmp3 = 1.0_wp/(1.0_wp+6.0_wp*(rr*g1)**kdmp3)
       ddmp3 = -3*fdmp3 - kdmp3*fdmp3*(fdmp3-1.0_wp)
@@ -928,6 +955,75 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
       dpiv = dot_product(mi, vec)
       dpjv = dot_product(mj, vec)
       edd = dpidpj*r2 - 3*dpjv*dpiv
+
+      ! Charge - dipole
+      g_sd(:) = - (ddmp3*g5)*vec * (dpiqj - qidpj) + fdmp3*g3*(qi*mj - qj*mi)
+
+      block
+         integer :: a, b
+         do b = 1, 3
+            do a = 1, 3
+               tab(a, b) = 3*vec(a)*vec(b)*e2
+            end do
+            tab(b, b) = tab(b, b) - e1
+         end do
+      end block
+
+      do k = 1, 3
+         g_sd(k) = g_sd(k) &
+            & + qj * (tab(1, k) * mi(1) &
+            &       + tab(2, k) * mi(2) &
+            &       + tab(3, k) * mi(3))&
+            & - qi * (tab(1, k) * mj(1) &
+            &       + tab(2, k) * mj(2) &
+            &       + tab(3, k) * mj(3))
+      end do
+
+      de = de + 3.0_wp*(dpiqj - qidpj)*kdmp3*fdmp3*g3*(fdmp3/rr)*(rr*g1)**kdmp3
+      dg(:) = dg + g_sd
+      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_sd, 2, 3) &
+         & + spread(g_sd, 1, 3) * spread(vec, 2, 3))
+
+      ! Dipole - dipole
+      g_dd(:) = - 2.0_wp*fdmp5*g5*dpidpj*vec &
+         & + 3.0_wp*fdmp5*g5*(dpiv*mj + dpjv*mi) &
+         & - edd*ddmp5*g7*vec
+
+      block
+         integer :: a, b, c
+         do c = 1, 3
+            do b = 1, 3
+               do a = 1, 3
+                  tabc(a, b, c) = - 15*vec(a)*vec(b)*vec(c)*e3
+               end do
+            end do
+            do a = 1, 3
+               tabc(a, a, c) = tabc(a, a, c) + 3*e2*vec(c)
+               tabc(c, a, c) = tabc(c, a, c) + 3*e2*vec(a)
+               tabc(a, c, c) = tabc(a, c, c) + 3*e2*vec(a)
+            end do
+         end do
+      end block
+
+      do k = 1, 3
+         g_dd(k) = g_dd(k) &
+            & + mi(1)*(tabc(1, 1, k) * mj(1) &
+            &        + tabc(2, 1, k) * mj(2) &
+            &        + tabc(3, 1, k) * mj(3))&
+            & + mi(2)*(tabc(1, 2, k) * mj(1) &
+            &        + tabc(2, 2, k) * mj(2) &
+            &        + tabc(3, 2, k) * mj(3))&
+            & + mi(3)*(tabc(1, 3, k) * mj(1) &
+            &        + tabc(2, 3, k) * mj(2) &
+            &        + tabc(3, 3, k) * mj(3))
+      end do
+
+      de = de + 3.0_wp*edd*kdmp5*fdmp5*g5*(fdmp5/rr)*(rr*g1)**kdmp5
+      dg(:) = dg + g_dd
+      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_dd, 2, 3) &
+         & + spread(g_dd, 1, 3) * spread(vec, 2, 3))
+
+      ! Charge - quadrupole
       eq = &
          & + 2*(qj*ti(2) + tj(2)*qi)*vec(1)*vec(2) &
          & + 2*(qj*ti(4) + tj(4)*qi)*vec(1)*vec(3) &
@@ -936,32 +1032,31 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
          & + (qj*ti(3) + tj(3)*qi)*vec(2)*vec(2) &
          & + (qj*ti(6) + tj(6)*qi)*vec(3)*vec(3)
 
-      g_sd(:) = - (ddmp3+de1)*g5*vec * (dpiqj - qidpj) &
-         & + (fdmp3+e1)*g3*(qi*mj - qj*mi)
-
-      de = de + 3.0_wp*(dpiqj - qidpj)*kdmp3*fdmp3*g3*(fdmp3/rr)*(rr*g1)**kdmp3
-      dg(:) = dg + g_sd
-      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_sd, 2, 3) &
-         & + spread(g_sd, 1, 3) * spread(vec, 2, 3))
-
-      g_dd(:) = - 2.0_wp*(fdmp5+e1)*g5*dpidpj*vec &
-         & + 3.0_wp*(fdmp5+e1)*g5*(dpiv*mj + dpjv*mi) &
-         & - edd*(ddmp5+de2)*g7*vec
-
-      de = de + 3.0_wp*edd*kdmp5*fdmp5*g5*(fdmp5/rr)*(rr*g1)**kdmp5
-      dg(:) = dg + g_dd
-      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_dd, 2, 3) &
-         & + spread(g_dd, 1, 3) * spread(vec, 2, 3))
-
-      g_sq(:) = - eq*(ddmp5+de2)*g7*vec &
-         & - 2.0_wp*(fdmp5+e1)*g5*qi * &
+      g_sq(:) = - eq*ddmp5*g7*vec &
+         & - 2.0_wp*fdmp5*g5*qi * &
          &[vec(1)*tj(1) + vec(2)*tj(2) + vec(3)*tj(4), &
          & vec(1)*tj(2) + vec(2)*tj(3) + vec(3)*tj(5), &
          & vec(1)*tj(4) + vec(2)*tj(5) + vec(3)*tj(6)] &
-         & - 2.0_wp*(fdmp5+e1)*g5*qj * &
+         & - 2.0_wp*fdmp5*g5*qj * &
          &[vec(1)*ti(1) + vec(2)*ti(2) + vec(3)*ti(4), &
          & vec(1)*ti(2) + vec(2)*ti(3) + vec(3)*ti(5), &
          & vec(1)*ti(4) + vec(2)*ti(5) + vec(3)*ti(6)]
+
+      do k = 1, 3
+         g_sq(k) = g_sq(k) + (&
+            & - qi * (tabc(1, 1, k) * tj(1) &
+            &     + 2*tabc(2, 1, k) * tj(2) &
+            &     + 2*tabc(3, 1, k) * tj(4) &
+            &     +   tabc(2, 2, k) * tj(3) &
+            &     + 2*tabc(3, 2, k) * tj(5) &
+            &     +   tabc(3, 3, k) * tj(6))&
+            & - qj * (tabc(1, 1, k) * ti(1) &
+            &     + 2*tabc(2, 1, k) * ti(2) &
+            &     + 2*tabc(3, 1, k) * ti(4) &
+            &     +   tabc(2, 2, k) * ti(3) &
+            &     + 2*tabc(3, 2, k) * ti(5) &
+            &     +   tabc(3, 3, k) * ti(6)))/3.0_wp
+      end do
 
       de = de + eq * 3.0_wp*kdmp5*fdmp5*g5*fdmp5/rr*(rr*g1)**kdmp5
       dg(:) = dg + g_sq

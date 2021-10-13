@@ -1133,7 +1133,7 @@ test_gfn1_co2 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-46.19943811059 - energy) > thr) {
+   if (fabs(-46.203659007308 - energy) > thr) {
       printf("[Fatal] energy error: %lf\n", energy);
       goto err;
    }

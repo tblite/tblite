@@ -875,7 +875,7 @@ end subroutine get_hubbard_derivs
 subroutine export_gfn2_param(param)
    type(param_record), intent(out) :: param
 
-   integer :: izp, i, il, jl
+   integer :: izp, il, jl
 
    param%version = 1
    param%name = "GFN2-xTB"

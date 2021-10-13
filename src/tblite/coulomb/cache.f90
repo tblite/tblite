@@ -57,7 +57,7 @@ subroutine update(self, mol)
 
    if (any(mol%periodic)) then
       call new_wignerseitz_cell(self%wsc, mol)
-      call get_alpha(mol%lattice, self%alpha)
+      call get_alpha(mol%lattice, self%alpha, .false.)
    end if
 
 end subroutine update

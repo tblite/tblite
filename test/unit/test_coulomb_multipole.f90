@@ -42,6 +42,33 @@ module test_coulomb_multipole
       end subroutine multipole_maker
    end interface
 
+   interface
+      module subroutine test_e_effective_co2(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2
+      module subroutine test_e_effective_co2_dp(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2_dp
+      module subroutine test_e_effective_co2_qp(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2_qp
+      module subroutine test_e_effective_co2_sc(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2_sc
+      module subroutine test_e_effective_co2_sc_dp(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2_sc_dp
+      module subroutine test_e_effective_co2_sc_qp(error)
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
+      end subroutine test_e_effective_co2_sc_qp
+   end interface
+
 contains
 
 
@@ -54,6 +81,12 @@ subroutine collect_coulomb_multipole(testsuite)
    testsuite = [ &
       new_unittest("energy-1", test_e_effective_m01), &
       new_unittest("energy-2", test_e_effective_m02), &
+      new_unittest("energy-pbc", test_e_effective_co2), &
+      new_unittest("energy-pbc-qp", test_e_effective_co2_qp), &
+      new_unittest("energy-pbc-dp", test_e_effective_co2_dp), &
+      !new_unittest("energy-sc", test_e_effective_co2_sc), &
+      !new_unittest("energy-sc-qp", test_e_effective_co2_sc_qp), &
+      !new_unittest("energy-sc-dp", test_e_effective_co2_sc_dp), &
       new_unittest("gradient-1", test_g_effective_m03), &
       new_unittest("gradient-2", test_g_effective_m04), &
       new_unittest("gradient-pbc", test_g_effective_urea), &
@@ -146,13 +179,14 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    wfn%qat = qat
    wfn%dpat = dpat
    wfn%qpat = qpat
+   call cache%update(mol)
    call make_multipole(multipole, mol)
    call multipole%update(mol, cache)
    call multipole%get_energy(mol, cache, wfn, energy)
 
    call check(error, energy, ref, thr=thr)
    if (allocated(error)) then
-      print*,energy
+      print *, ref, energy
    end if
 
 end subroutine test_generic
@@ -1152,3 +1186,192 @@ end subroutine test_v_effective_m08
 
 
 end module test_coulomb_multipole
+
+
+submodule (test_coulomb_multipole) test_supercell_scaling
+   implicit none
+
+
+   integer, parameter :: nat = 12
+   real(wp), parameter :: qat1(nat) = [&
+      &  4.95105332967126E-01_wp,  4.95110445149787E-01_wp,  4.95109208803526E-01_wp, &
+      &  4.95110553060372E-01_wp, -2.47570208775520E-01_wp, -2.47372219387123E-01_wp, &
+      & -2.47367867558844E-01_wp, -2.47541478966424E-01_wp, -2.47535153228645E-01_wp, &
+      & -2.47738212772185E-01_wp, -2.47741337427010E-01_wp, -2.47569061865040E-01_wp]
+   real(wp), parameter :: dpat1(3, nat) = reshape([&
+      & -3.26654706213550E-04_wp, -6.13403589170031E-05_wp,  2.83929462708564E-04_wp, &
+      & -2.68534201975523E-04_wp, -1.57447758402670E-05_wp,  2.68727495879782E-04_wp, &
+      & -2.74196985286096E-04_wp, -4.56547709680684E-05_wp,  2.33174149569738E-04_wp, &
+      & -3.32314146822759E-04_wp, -6.08326819539977E-08_wp,  3.19473368568051E-04_wp, &
+      & -5.42513865726882E-02_wp, -5.43318111661449E-02_wp, -5.44179905961818E-02_wp, &
+      & -5.43660117536740E-02_wp, -5.44385268257028E-02_wp,  5.43650907998299E-02_wp, &
+      & -5.43539636657199E-02_wp,  5.44469674651156E-02_wp,  5.43590516972356E-02_wp, &
+      &  5.44387502680685E-02_wp, -5.43324554152907E-02_wp,  5.42581516232861E-02_wp, &
+      &  5.44165886089117E-02_wp,  5.43323030762035E-02_wp,  5.42418925720472E-02_wp, &
+      &  5.43211854223397E-02_wp,  5.42458343314803E-02_wp, -5.43133771609431E-02_wp, &
+      &  5.43327026728458E-02_wp, -5.42359656240572E-02_wp, -5.43211640102117E-02_wp, &
+      & -5.42499802018258E-02_wp,  5.43502803322248E-02_wp, -5.44204207635553E-02_wp],&
+      & shape(dpat1))
+   real(wp), parameter :: qpat1(6, nat) = reshape([&
+      &  1.18066656167315E-05_wp, -4.34798463050927E-01_wp,  1.44462097284581E-07_wp, &
+      & -4.34798514781465E-01_wp, -4.34797971420059E-01_wp, -1.19511277154594E-05_wp, &
+      &  2.25596069447498E-05_wp, -4.34783690153835E-01_wp, -2.11985471754161E-05_wp, &
+      &  4.34768022081199E-01_wp,  4.34785018224248E-01_wp, -1.36105976999978E-06_wp, &
+      &  2.25103495342660E-05_wp,  4.34767817555497E-01_wp,  1.07631391967900E-05_wp, &
+      &  4.34783902623050E-01_wp, -4.34783120715119E-01_wp, -3.32734887309449E-05_wp, &
+      & -9.48473787443227E-06_wp,  4.34783953044164E-01_wp,  1.08281396449250E-05_wp, &
+      & -4.34783789399495E-01_wp,  4.34768955922080E-01_wp, -1.34340177049275E-06_wp, &
+      & -9.66531291224371E-05_wp, -1.18702391374322E-01_wp, -1.37547479104327E-05_wp, &
+      & -1.18645267151075E-01_wp, -1.18600873572414E-01_wp,  1.10407877032648E-04_wp, &
+      & -2.26931493848559E-05_wp, -1.18637258774011E-01_wp,  5.06129802909649E-05_wp, &
+      &  1.18680813186751E-01_wp,  1.18647169151941E-01_wp, -2.79198309067752E-05_wp, &
+      & -3.70191853311663E-05_wp,  1.18641364188384E-01_wp,  6.65002198458886E-05_wp, &
+      &  1.18692897340129E-01_wp, -1.18644737187210E-01_wp, -2.94810345136121E-05_wp, &
+      &  1.06241518233796E-04_wp,  1.18591745614562E-01_wp,  9.27256724547743E-06_wp, &
+      & -1.18653931140339E-01_wp,  1.18709157591422E-01_wp, -1.15514085479163E-04_wp, &
+      &  9.75875617358346E-05_wp, -1.18606840689317E-01_wp,  1.39412337278877E-05_wp, &
+      & -1.18668677913009E-01_wp, -1.18717811830031E-01_wp, -1.11528795463611E-04_wp, &
+      &  3.00943076451121E-05_wp, -1.18658461646011E-01_wp, -6.19964990261623E-05_wp, &
+      &  1.18611269561002E-01_wp,  1.18657681228184E-01_wp,  3.19021913810502E-05_wp, &
+      &  4.34882210389453E-05_wp,  1.18645813671023E-01_wp, -6.06140176001579E-05_wp, &
+      &  1.18607408054076E-01_wp, -1.18660243635834E-01_wp,  1.71257965608795E-05_wp, &
+      & -1.15717831159601E-04_wp,  1.18704043515894E-01_wp, -3.90833585128814E-06_wp, &
+      & -1.18646463864190E-01_wp,  1.18587233297690E-01_wp,  1.19626167010667E-04_wp],&
+      & shape(qpat1))
+
+   real(wp), parameter :: e02 = 1.501616960897681E-2_wp, e11 = -3.548670395288726E-3_wp, &
+      & e01 = 1.570671226185676E-2_wp - e02 - e11
+
+contains
+
+module subroutine test_e_effective_co2(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = qat1
+   real(wp), parameter :: dpat(3, nat) = dpat1
+   real(wp), parameter :: qpat(6, nat) = qpat1
+
+   call get_structure(mol, "X23", "CO2")
+   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, e01+e02+e11)
+end subroutine test_e_effective_co2
+
+module subroutine test_e_effective_co2_dp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat0(nat) = 0.0_wp
+   real(wp), parameter :: dpat(3, nat) = dpat1
+   real(wp), parameter :: qpat0(6, nat) = 0.0_wp
+
+   call get_structure(mol, "X23", "CO2")
+   call test_generic(error, mol, qat0, dpat, qpat0, make_multipole2, e11)
+end subroutine test_e_effective_co2_dp
+
+module subroutine test_e_effective_co2_qp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(nat) = qat1
+   real(wp), parameter :: dpat0(3, nat) = 0.0_wp
+   real(wp), parameter :: qpat(6, nat) = qpat1
+
+   call get_structure(mol, "X23", "CO2")
+   call test_generic(error, mol, qat, dpat0, qpat, make_multipole2, e02)
+end subroutine test_e_effective_co2_qp
+
+
+module subroutine test_e_effective_co2_sc(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   integer, parameter :: supercell(3) = [2, 2, 2]
+   integer, parameter :: nsc = product(supercell)
+   real(wp), parameter :: qat(nsc*nat) = [spread(qat1, 2, nsc)]
+   real(wp), parameter :: dpat(3, nsc*nat) = &
+      & reshape([dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1], shape(dpat))
+   real(wp), parameter :: qpat(6, nsc*nat) = &
+      & reshape([qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1], shape(qpat))
+
+   call get_structure(mol, "X23", "CO2")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, product(supercell)*(e01+e02+e11))
+end subroutine test_e_effective_co2_sc
+
+
+module subroutine test_e_effective_co2_sc_dp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   integer, parameter :: supercell(3) = [2, 2, 2]
+   integer, parameter :: nsc = product(supercell)
+   real(wp), parameter :: qat0(nsc*nat) = 0.0_wp
+   real(wp), parameter :: dpat(3, nsc*nat) = &
+      & reshape([dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1], shape(dpat))
+   real(wp), parameter :: qpat0(6, nsc*nat) = 0.0_wp
+
+   call get_structure(mol, "X23", "CO2")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat0, dpat, qpat0, make_multipole2, product(supercell)*e11)
+end subroutine test_e_effective_co2_sc_dp
+
+
+module subroutine test_e_effective_co2_sc_qp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   integer, parameter :: supercell(3) = [2, 2, 2]
+   integer, parameter :: nsc = product(supercell)
+   real(wp), parameter :: qat(nsc*nat) = [spread(qat1, 2, nsc)]
+   real(wp), parameter :: dpat0(3, nsc*nat) = 0.0_wp
+   real(wp), parameter :: qpat(6, nsc*nat) = &
+      & reshape([qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1], shape(qpat))
+
+   call get_structure(mol, "X23", "CO2")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat, dpat0, qpat, make_multipole2, product(supercell)*e02)
+end subroutine test_e_effective_co2_sc_qp
+
+
+subroutine make_supercell(mol, rep)
+   use mctc_io, only : new
+   type(structure_type), intent(inout) :: mol
+   integer, intent(in) :: rep(3)
+
+   real(wp), allocatable :: xyz(:, :), lattice(:, :)
+   integer, allocatable :: num(:)
+   integer :: i, j, k, c
+
+   num = reshape(spread([mol%num(mol%id)], 2, product(rep)), [product(rep)*mol%nat])
+   lattice = reshape(&
+      [rep(1)*mol%lattice(:, 1), rep(2)*mol%lattice(:, 2), rep(3)*mol%lattice(:, 3)], &
+      shape(mol%lattice))
+   allocate(xyz(3, product(rep)*mol%nat))
+   c = 0
+   do i = 0, rep(1)-1
+      do j = 0, rep(2)-1
+         do k = 0, rep(3)-1
+            xyz(:, c+1:c+mol%nat) = mol%xyz &
+               & + spread(matmul(mol%lattice, [real(wp):: i, j, k]), 2, mol%nat)
+            c = c + mol%nat
+         end do
+      end do
+   end do
+
+   call new(mol, num, xyz, lattice=lattice)
+end subroutine make_supercell
+
+
+end submodule

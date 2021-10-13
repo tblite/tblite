@@ -103,106 +103,41 @@ else
 endif
 
 # Create the tool chain library as subproject
-mctc_dep = dependency('mctc-lib', required: false)
-if not mctc_dep.found()
-  mctc_prj = subproject(
-    'mctc-lib',
-    version: '>=0.2',
-    default_options: [
-      'default_library=static',
-    ],
-  )
-  mctc_dep = mctc_prj.get_variable('mctc_dep')
-
-  if install
-    install_data(
-      mctc_prj.get_variable('mctc_lic'),
-      install_dir: get_option('datadir')/'licenses'/meson.project_name()/'mctc-lib'
-    )
-  endif
-endif
+mctc_dep = dependency(
+  'mctc-lib',
+  fallback: ['mctc-lib', 'mctc_dep'],
+  default_options: ['default_library=static'],
+)
 lib_deps += mctc_dep
 
 # Create the tool chain library as subproject
-multicharge_dep = dependency('multicharge', required: false)
-if not multicharge_dep.found()
-  multicharge_prj = subproject(
-    'multicharge',
-    version: '>=0.1',
-    default_options: [
-      'default_library=static',
-    ],
-  )
-  multicharge_dep = multicharge_prj.get_variable('multicharge_dep')
-
-  if install
-    install_data(
-      multicharge_prj.get_variable('multicharge_lic'),
-      install_dir: get_option('datadir')/'licenses'/meson.project_name()/'multicharge'
-    )
-  endif
-endif
+multicharge_dep = dependency(
+  'multicharge',
+  fallback: ['multicharge', 'multicharge_dep'],
+  default_options: ['default_library=static'],
+)
 lib_deps += multicharge_dep
 
 # Create DFT-D4 library as subproject
-dftd4_dep = dependency('dftd4', required: false)
-if not dftd4_dep.found()
-  dftd4_prj = subproject(
-    'dftd4',
-    version: '>=0.1',
-    default_options: [
-      'default_library=static',
-    ],
-  )
-  dftd4_dep = dftd4_prj.get_variable('dftd4_dep')
-
-  if install
-    install_data(
-      dftd4_prj.get_variable('dftd4_lic'),
-      install_dir: get_option('datadir')/'licenses'/meson.project_name()/'dftd4'
-    )
-  endif
-endif
+dftd4_dep = dependency(
+  'dftd4',
+  fallback: ['dftd4', 'dftd4_dep'],
+  default_options: ['default_library=static'],
+)
 lib_deps += dftd4_dep
 
 # Create DFT-D3 library as subproject
-sdftd3_dep = dependency('s-dftd3', required: false)
-if not sdftd3_dep.found()
-  sdftd3_prj = subproject(
-    's-dftd3',
-    version: '>=0.4',
-    default_options: [
-      'default_library=static',
-    ],
-  )
-  sdftd3_dep = sdftd3_prj.get_variable('sdftd3_dep')
-
-  if install
-    install_data(
-      sdftd3_prj.get_variable('sdftd3_lic'),
-      install_dir: get_option('datadir')/'licenses'/meson.project_name()/'s-dftd3'
-    )
-  endif
-endif
+sdftd3_dep = dependency(
+  's-dftd3',
+  fallback: ['s-dftd3', 'sdftd3_dep'],
+  default_options: ['default_library=static'],
+)
 lib_deps += sdftd3_dep
 
 # Create TOML Fortran as subproject
-tomlf_dep = dependency('toml-f', required: false)
-if not tomlf_dep.found()
-  tomlf_prj = subproject(
-    'toml-f',
-    version: '>=0.2',
-    default_options: [
-      'default_library=static',
-    ],
-  )
-  tomlf_dep = tomlf_prj.get_variable('tomlf_dep')
-
-  if install
-    install_data(
-      tomlf_prj.get_variable('tomlf_lic'),
-      install_dir: get_option('datadir')/'licenses'/meson.project_name()/'toml-f'
-    )
-  endif
-endif
+tomlf_dep = dependency(
+  'toml-f',
+  fallback: ['toml-f', 'tomlf_dep'],
+  default_options: ['default_library=static'],
+)
 lib_deps += tomlf_dep

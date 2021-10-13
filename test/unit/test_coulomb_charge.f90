@@ -18,7 +18,7 @@ module test_coulomb_charge
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use mctc_io, only : structure_type
+   use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_cutoff, only : get_lattice_points
    use tblite_coulomb_cache, only : coulomb_cache
@@ -57,6 +57,7 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("energy-atom-2", test_e_effective_m02), &
       new_unittest("energy-shell", test_e_effective_m07), &
       new_unittest("energy-atom-pbc", test_e_effective_oxacb), &
+      new_unittest("energy-atom-sc", test_e_effective_oxacb_sc), &
       new_unittest("gradient-atom-1", test_g_effective_m03), &
       new_unittest("gradient-atom-2", test_g_effective_m04), &
       new_unittest("gradient-shell", test_g_effective_m08), &
@@ -175,7 +176,7 @@ subroutine make_coulomb2(coulomb, mol, shell)
 end subroutine make_coulomb2
 
 
-subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref)
+subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -195,13 +196,20 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref)
    !> Reference value to check against
    real(wp), intent(in) :: ref
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic
    type(effective_coulomb) :: coulomb
    type(coulomb_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
+   real(wp) :: thr_
    type(wavefunction_type) :: wfn
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
    energy = 0.0_wp
@@ -217,9 +225,9 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref)
    call coulomb%update(mol, cache)
    call coulomb%get_energy(mol, cache, wfn, energy)
 
-   call check(error, energy, ref, thr=thr)
+   call check(error, energy, ref, thr=thr_)
    if (allocated(error)) then
-      print*,energy
+      print*,ref, energy
    end if
 
 end subroutine test_generic
@@ -420,9 +428,62 @@ subroutine test_e_effective_oxacb(error)
    real(wp), allocatable :: qsh(:)
 
    call get_structure(mol, "X23", "oxacb")
-   call test_generic(error, mol, qat, qsh, make_coulomb2, 9.7211975221603533E-2_wp)
+   call test_generic(error, mol, qat, qsh, make_coulomb2, 0.10130450083781417_wp)
 
 end subroutine test_e_effective_oxacb
+
+
+subroutine test_e_effective_oxacb_sc(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat1(*) = [&
+      & 3.41731844312030E-1_wp, 3.41716020106239E-1_wp, 3.41730526585671E-1_wp,&
+      & 3.41714427217954E-1_wp, 3.80996046757999E-1_wp, 3.80989821246195E-1_wp,&
+      & 3.81000747720282E-1_wp, 3.80990494183703E-1_wp,-3.70406587264474E-1_wp,&
+      &-3.70407565207006E-1_wp,-3.70417590212352E-1_wp,-3.70399716470705E-1_wp,&
+      &-3.52322260586075E-1_wp,-3.52304269439196E-1_wp,-3.52313440903261E-1_wp,&
+      &-3.52298498047004E-1_wp]
+   integer, parameter :: supercell(*) = [2, 2, 2]
+   real(wp), parameter :: qat(*) = [spread(qat1, 2, product(supercell))]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "oxacb")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat, qsh, make_coulomb2, &
+      & 0.10130450083781417_wp*product(supercell), 1.0e-7_wp)
+
+end subroutine test_e_effective_oxacb_sc
+
+
+subroutine make_supercell(mol, rep)
+   type(structure_type), intent(inout) :: mol
+   integer, intent(in) :: rep(3)
+
+   real(wp), allocatable :: xyz(:, :), lattice(:, :)
+   integer, allocatable :: num(:)
+   integer :: i, j, k, c
+
+   num = reshape(spread([mol%num(mol%id)], 2, product(rep)), [product(rep)*mol%nat])
+   lattice = reshape(&
+      [rep(1)*mol%lattice(:, 1), rep(2)*mol%lattice(:, 2), rep(3)*mol%lattice(:, 3)], &
+      shape(mol%lattice))
+   allocate(xyz(3, product(rep)*mol%nat))
+   c = 0
+   do i = 0, rep(1)-1
+      do j = 0, rep(2)-1
+         do k = 0, rep(3)-1
+            xyz(:, c+1:c+mol%nat) = mol%xyz &
+               & + spread(matmul(mol%lattice, [real(wp):: i, j, k]), 2, mol%nat)
+            c = c + mol%nat
+         end do
+      end do
+   end do
+
+   call new(mol, num, xyz, lattice=lattice)
+end subroutine make_supercell
 
 
 subroutine test_g_effective_m03(error)
