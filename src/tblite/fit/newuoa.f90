@@ -1610,10 +1610,10 @@ end subroutine trsapp
 pure subroutine update(n, npt, bmat, zmat, idz, ndim, vlag, beta, knew, w)
    integer, intent(in) :: n
    integer, intent(in) :: npt
+   integer, intent(in) :: ndim
    real(wp), intent(inout) :: bmat(ndim, *)
    real(wp), intent(inout) :: zmat(npt, *)
    integer, intent(inout) :: idz
-   integer, intent(in) :: ndim
    real(wp), intent(inout) :: vlag(*)
    real(wp), intent(in) :: beta
    integer, intent(in) :: knew
