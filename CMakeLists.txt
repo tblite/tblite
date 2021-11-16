@@ -49,9 +49,6 @@ endif()
 if(NOT TARGET "mstore::mstore" AND WITH_TESTS)
   find_package("mstore" REQUIRED)
 endif()
-if(NOT TARGET "multicharge::multicharge")
-  find_package("multicharge" REQUIRED)
-endif()
 if(NOT TARGET "toml-f::toml-f")
   find_package("toml-f" REQUIRED)
 endif()
@@ -77,7 +74,7 @@ set(
 set(srcs)
 add_subdirectory("src")
 
-# multicharge library target
+# tight-binding library target
 add_library(
   "${PROJECT_NAME}-lib"
   "${srcs}"

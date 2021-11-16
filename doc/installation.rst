@@ -84,7 +84,7 @@ Verify that the resulting projects is working correctly by running the testsuite
 
    meson test -C _build --print-errorlogs
 
-In case meson is spawning to main concurrent test jobs limit the number of processes with the ``--num-processes`` option when running the test command.
+In case meson is spawning too many concurrent test jobs limit the number of processes with the ``--num-processes`` option when running the test command.
 By default the whole library and its subprojects are tested, to limit the testing to the project itself add ``--suite tblite`` as option.
 
 To verify the included parametrizations are working correctly run the extra testsuite by passing the ``--benchmark`` argument
