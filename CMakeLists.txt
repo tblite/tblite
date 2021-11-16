@@ -30,7 +30,12 @@ include(GNUInstallDirs)
 add_subdirectory("config")
 
 if(NOT TARGET "OpenMP::OpenMP_Fortran")
-  find_package("OpenMP" REQUIRED)
+  if (WITH_OpenMP)
+    find_package("OpenMP" REQUIRED)
+  else()
+    # Create dummy library
+    add_library("OpenMP::OpenMP_Fortran" INTERFACE IMPORTED)
+  endif()
 endif()
 
 if(NOT TARGET "LAPACK::LAPACK")
@@ -41,7 +46,7 @@ endif()
 if(NOT TARGET "mctc-lib::mctc-lib")
   find_package("mctc-lib" REQUIRED)
 endif()
-if(NOT TARGET "mstore::mstore")
+if(NOT TARGET "mstore::mstore" AND WITH_TESTS)
   find_package("mstore" REQUIRED)
 endif()
 if(NOT TARGET "multicharge::multicharge")
@@ -141,5 +146,7 @@ install(
 )
 
 # add the testsuite
-enable_testing()
-add_subdirectory("test")
+if (WITH_TESTS)
+  enable_testing()
+  add_subdirectory("test")
+endif()

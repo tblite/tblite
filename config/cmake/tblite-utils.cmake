@@ -32,7 +32,7 @@ macro(
 
     if("${method}" STREQUAL "cmake")
       message(STATUS "${package}: Find installed package")
-      find_package("${package}" CONFIG)
+      find_package("${package}" CONFIG QUIET)
       if("${package}_FOUND")
         message(STATUS "${package}: Found installed package")
         break()
