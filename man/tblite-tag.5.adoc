@@ -1,4 +1,4 @@
-= tblite-tag(7)
+= tblite-tag(5)
 Sebastian Ehlert (@awvwgk)
 :doctype: manpage
 

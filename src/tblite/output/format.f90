@@ -28,7 +28,7 @@ module tblite_output_format
 
 contains
 
-function format_string_real_dp(val, format) result(str)
+pure function format_string_real_dp(val, format) result(str)
    real(wp), intent(in) :: val
    character(len=*), intent(in) :: format
    character(len=:), allocatable :: str
@@ -44,7 +44,7 @@ function format_string_real_dp(val, format) result(str)
    end if
 end function format_string_real_dp
 
-function format_string_int(val, format) result(str)
+pure function format_string_int(val, format) result(str)
    integer, intent(in) :: val
    character(len=*), intent(in) :: format
    character(len=:), allocatable :: str

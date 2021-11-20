@@ -17,12 +17,17 @@
 
 #pragma once
 
-#include "tblite/error.h"
-#include "tblite/container.h"
-#include "tblite/context.h"
-#include "tblite/structure.h"
-#include "tblite/calculator.h"
-#include "tblite/result.h"
-#include "tblite/table.h"
-#include "tblite/param.h"
-#include "tblite/version.h"
+#include "tblite/macros.h"
+
+/// Interaction container
+typedef struct _tblite_container* tblite_container;
+
+/// Create new electric field container
+///
+/// Note: electric field is given in atomic units (Hartree/(Bohr*e))
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_electric_field(double* /* efield[3] */);
+
+/// Delete container handle
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_delete_container(tblite_container* /* cont */);

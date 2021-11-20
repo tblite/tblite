@@ -60,6 +60,8 @@ module tblite_xtb_calculator
    contains
       !> Get information about density dependent quantities used in the energy
       procedure :: variable_info
+      !> Information on calculator
+      procedure :: info
       !> Add an interaction container
       procedure :: push_back
       !> Remove an interaction container
@@ -639,6 +641,39 @@ pure function variable_info(self) result(info)
    end if
 
 end function variable_info
+
+
+!> Information on container
+pure function info(self, verbosity, indent) result(str)
+   !> Instance of the interaction container
+   class(xtb_calculator), intent(in) :: self
+   !> Verbosity level
+   integer, intent(in) :: verbosity
+   !> Indentation level
+   character(len=*), intent(in) :: indent
+   !> Information on the container
+   character(len=:), allocatable :: str
+
+   character(len=*), parameter :: nl = new_line('a')
+
+   str = "xTB calculator"
+
+   if (allocated(self%repulsion)) then
+      str = str // nl // indent // self%repulsion%info(verbosity, indent)
+   end if
+
+   if (allocated(self%coulomb)) then
+      str = str // nl // indent // self%coulomb%info(verbosity, indent)
+   end if
+
+   if (allocated(self%dispersion)) then
+      str = str // nl // indent // self%dispersion%info(verbosity, indent)
+   end if
+
+   if (allocated(self%interactions)) then
+      str = str // nl // indent // self%interactions%info(verbosity, indent)
+   end if
+end function info
 
 
 end module tblite_xtb_calculator

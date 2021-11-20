@@ -30,6 +30,7 @@ module tblite_driver_run
    use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_spin, only : spin_polarization, new_spin_polarization
+   use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
@@ -165,6 +166,22 @@ subroutine run_main(config, error)
          call move_alloc(spin, cont)
          call calc%push_back(cont)
       end block
+   end if
+
+   if (allocated(config%solvation)) then
+      block
+         class(container_type), allocatable :: cont
+         class(solvation_type), allocatable :: solv
+         call new_solvation(solv, mol, config%solvation, error)
+         if (allocated(error)) return
+         call move_alloc(solv, cont)
+         call calc%push_back(cont)
+      end block
+   end if
+
+   if (config%verbosity > 0) then
+      call ctx%message(calc%info(config%verbosity, " | "))
+      call ctx%message("")
    end if
 
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &

@@ -4,7 +4,7 @@ module test_halogen
       & test_failed
    use mctc_io_structure, only : structure_type, new
    use mstore, only : get_structure
-   use tblite_cutoff, only : get_lattice_points
+   use tblite_container, only : container_cache
    use tblite_classical_halogen
    implicit none
    private
@@ -60,6 +60,7 @@ subroutine test_br2nh3(error)
 
    type(structure_type) :: mol
    type(halogen_correction) :: xb
+   type(container_cache) :: cache
    real(wp) :: energy
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
 
@@ -73,7 +74,7 @@ subroutine test_br2nh3(error)
    if (allocated(error)) return
 
    energy = 0.0_wp
-   call xb%get_engrad(mol, trans, cutoff, energy)
+   call xb%get_engrad(mol, cache, energy)
 
    call check(error, energy, 2.4763110097465683E-3_wp, thr=thr)
    if (allocated(error)) return
@@ -88,6 +89,7 @@ subroutine test_br2och2(error)
 
    type(structure_type) :: mol
    type(halogen_correction) :: xb
+   type(container_cache) :: cache
    integer :: iat, ic
    real(wp) :: energy, sigma(3, 3), er, el
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
@@ -108,7 +110,7 @@ subroutine test_br2och2(error)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
 
-   call xb%get_engrad(mol, trans, cutoff, energy, gradient, sigma)
+   call xb%get_engrad(mol, cache, energy, gradient, sigma)
 
    call check(error, energy, -6.7587305781592112E-4_wp, thr=thr)
    if (allocated(error)) return
@@ -118,9 +120,9 @@ subroutine test_br2och2(error)
          er = 0.0_wp
          el = 0.0_wp
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         call xb%get_engrad(mol, trans, cutoff, er)
+         call xb%get_engrad(mol, cache, er)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
-         call xb%get_engrad(mol, trans, cutoff, el)
+         call xb%get_engrad(mol, cache, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
          numgrad(ic, iat) = 0.5_wp*(er - el)/step
       end do
@@ -141,6 +143,7 @@ subroutine test_finch(error)
 
    type(structure_type) :: mol
    type(halogen_correction) :: xb
+   type(container_cache) :: cache
    integer :: ic, jc
    real(wp) :: energy, sigma(3, 3), eps(3, 3), numsigma(3, 3), er, el
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
@@ -162,7 +165,7 @@ subroutine test_finch(error)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
 
-   call xb%get_engrad(mol, trans, cutoff, energy, gradient, sigma)
+   call xb%get_engrad(mol, cache, energy, gradient, sigma)
 
    call check(error, energy, 1.1857937381795408E-2_wp, thr=thr)
    if (allocated(error)) return
@@ -175,10 +178,10 @@ subroutine test_finch(error)
          el = 0.0_wp
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
-         call xb%get_engrad(mol, trans, cutoff, er)
+         call xb%get_engrad(mol, cache, er)
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
-         call xb%get_engrad(mol, trans, cutoff, el)
+         call xb%get_engrad(mol, cache, el)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
          numsigma(jc, ic) = 0.5_wp*(er - el)/step

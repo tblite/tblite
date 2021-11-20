@@ -14,15 +14,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-srcs += files(
-  'calculator.f90',
-  'container.f90',
-  'context.f90',
-  'error.f90',
-  'param.f90',
-  'result.f90',
-  'structure.f90',
-  'table.f90',
-  'utils.f90',
-  'version.f90',
+set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+
+list(
+  APPEND srcs
+  "${dir}/lebedev.f90"
 )
+
+set(srcs "${srcs}" PARENT_SCOPE)

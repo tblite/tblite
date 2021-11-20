@@ -48,8 +48,24 @@ Supported geometry input formats are:
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
 
+*--alpb* _real_|_string_::
+     Use analytical linearized Poisson-Boltzmann solvation model.
+     Solvent is specified by dielectric constant or solvent name.
+     **Important**: This feature is not stable and results are subject to change.
+
+*--gbsa* _real_|_string_::
+     Use generalized Born solvation model.
+     Solvent is specified by dielectric constant or solvent name.
+     **Important**: This feature is not stable and results are subject to change.
+
+*--cpcm* _real_|_string_::
+     Use conductor-like polarizable continuum solvation model.
+     Solvent is specified by dielectric constant or solvent name.
+     **Important**: This feature is not stable and results are subject to change.
+
 *--spin-polarized*::
      Use spin-polarized Hamiltonian with colinear spins.
+     **Important**: This feature is not stable and results are subject to change.
 
 *--acc* _real_::
      Accuracy of the calculation,

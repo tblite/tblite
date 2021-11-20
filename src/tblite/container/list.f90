@@ -23,6 +23,7 @@ module tblite_container_list
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -59,6 +60,8 @@ module tblite_container_list
       procedure :: push_back
       !> Remove a container
       procedure :: pop
+      !> Information about the container list
+      procedure :: info
    end type container_list
 
 
@@ -237,6 +240,35 @@ pure function variable_info(self) result(info)
       end if
    end do
 end function variable_info
+
+
+!> Information on container
+pure function info(self, verbosity, indent) result(str)
+   !> Instance of the interaction container
+   class(container_list), intent(in) :: self
+   !> Verbosity level
+   integer, intent(in) :: verbosity
+   !> Indentation level
+   character(len=*), intent(in) :: indent
+   !> Information on the container
+   character(len=:), allocatable :: str
+
+   integer :: ic
+   character(len=*), parameter :: nl = new_line('a')
+
+   if (allocated(self%label)) then
+      str = self%label
+   else
+      str = "Interactions"
+   end if
+
+   str = str // format_string(self%nc, '(1x,"(",i0,")")')
+
+   do ic = 1, self%nc
+      str = str // nl // indent // format_string(ic, '("[",i0,"]")') // " " // &
+         & self%list(ic)%raw%info(verbosity, indent//"* ")
+   end do
+end function info
 
 
 !> Add a container

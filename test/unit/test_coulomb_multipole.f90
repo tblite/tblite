@@ -20,11 +20,12 @@ module test_coulomb_multipole
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
-   use tblite_cutoff, only : get_lattice_points
+   use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_multipole, only : damped_multipole, new_damped_multipole
-   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_cutoff, only : get_lattice_points
    use tblite_scf_potential, only : potential_type
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -142,6 +143,44 @@ subroutine make_multipole2(multipole, mol)
 end subroutine make_multipole2
 
 
+!> Inspect container cache and reallocate it in case of type mismatch
+subroutine taint(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(coulomb_cache), pointer, intent(out) :: ptr
+
+   if (allocated(cache%raw)) then
+      call view(cache, ptr)
+      if (associated(ptr)) return
+      deallocate(cache%raw)
+   end if
+
+   if (.not.allocated(cache%raw)) then
+      block
+         type(coulomb_cache), allocatable :: tmp
+         allocate(tmp)
+         call move_alloc(tmp, cache%raw)
+      end block
+   end if
+
+   call view(cache, ptr)
+end subroutine taint
+
+!> Return reference to container cache after resolving its type
+subroutine view(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(coulomb_cache), pointer, intent(out) :: ptr
+   nullify(ptr)
+   select type(target => cache%raw)
+   type is(coulomb_cache)
+      ptr => target
+   end select
+end subroutine view
+
+
 subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
 
    !> Error handling
@@ -166,7 +205,8 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    real(wp), intent(in) :: ref
 
    type(damped_multipole) :: multipole
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
+   type(coulomb_cache), pointer :: ccache
    real(wp) :: energy, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
@@ -179,7 +219,8 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    wfn%qat = reshape(qat, [size(qat), 1])
    wfn%dpat = reshape(dpat, [shape(dpat), 1])
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
-   call cache%update(mol)
+   call taint(cache, ccache)
+   call ccache%update(mol)
    call make_multipole(multipole, mol)
    call multipole%update(mol, cache)
    call multipole%get_energy(mol, cache, wfn, energy)
@@ -214,7 +255,8 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
 
    integer :: iat, ic
    type(damped_multipole) :: multipole
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
+   type(coulomb_cache), pointer :: ccache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
@@ -227,7 +269,8 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qat = reshape(qat, [size(qat), 1])
    wfn%dpat = reshape(dpat, [shape(dpat), 1])
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
-   call cache%update(mol)
+   call taint(cache, ccache)
+   call ccache%update(mol)
    call make_multipole(multipole, mol)
    if (any(mol%periodic)) deallocate(multipole%ncoord)
 
@@ -236,11 +279,11 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
          er = 0.0_wp
          el = 0.0_wp
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         call cache%update(mol)
+         call ccache%update(mol)
          call multipole%update(mol, cache)
          call multipole%get_energy(mol, cache, wfn, er)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
-         call cache%update(mol)
+         call ccache%update(mol)
          call multipole%update(mol, cache)
          call multipole%get_energy(mol, cache, wfn, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
@@ -248,7 +291,7 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
       end do
    end do
 
-   call cache%update(mol)
+   call ccache%update(mol)
    call multipole%update(mol, cache)
    call multipole%get_gradient(mol, cache, wfn, gradient, sigma)
 
@@ -286,7 +329,8 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
 
    integer :: ic, jc
    type(damped_multipole) :: multipole
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
+   type(coulomb_cache), pointer :: ccache
    real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
@@ -301,7 +345,8 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qat = reshape(qat, [size(qat), 1])
    wfn%dpat = reshape(dpat, [shape(dpat), 1])
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
-   call cache%update(mol)
+   call taint(cache, ccache)
+   call ccache%update(mol)
    call make_multipole(multipole, mol)
    deallocate(multipole%ncoord)
 
@@ -315,13 +360,13 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call cache%update(mol)
+         call ccache%update(mol)
          call multipole%update(mol, cache)
          call multipole%get_energy(mol, cache, wfn, er)
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call cache%update(mol)
+         call ccache%update(mol)
          call multipole%update(mol, cache)
          call multipole%get_energy(mol, cache, wfn, el)
          eps(jc, ic) = eps(jc, ic) + step
@@ -332,7 +377,7 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    end do
    numsigma = (numsigma + transpose(numsigma)) * 0.5_wp
 
-   call cache%update(mol)
+   call ccache%update(mol)
    call multipole%update(mol, cache)
    call multipole%get_gradient(mol, cache, wfn, gradient, sigma)
 
@@ -370,7 +415,8 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
 
    integer :: iat, ic
    type(damped_multipole) :: multipole
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
+   type(coulomb_cache), pointer :: ccache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
@@ -388,7 +434,8 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qat = reshape(qat, [size(qat), 1])
    wfn%dpat = reshape(dpat, [shape(dpat), 1])
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
-   call cache%update(mol)
+   call taint(cache, ccache)
+   call ccache%update(mol)
    call make_multipole(multipole, mol)
    call pot%reset
 

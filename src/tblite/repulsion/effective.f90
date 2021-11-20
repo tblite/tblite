@@ -18,6 +18,8 @@
 module tblite_repulsion_effective
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_container, only : container_cache
+   use tblite_cutoff, only : get_lattice_points
    use tblite_repulsion_type, only : repulsion_type
    implicit none
    private
@@ -35,15 +37,18 @@ module tblite_repulsion_effective
       real(wp), allocatable :: kexp(:, :)
       !> Exponent of the repulsion polynomial
       real(wp), allocatable :: rexp(:, :)
+      !> Real-space cutoff
+      real(wp) :: cutoff = 25.0_wp
    contains
       procedure :: get_engrad
    end type tb_repulsion
 
+   character(len=*), parameter :: label = "screened Coulomb repulsion"
 
 contains
 
 
-subroutine new_repulsion(self, mol, alpha, zeff, kexp, kexp_light, rexp)
+subroutine new_repulsion(self, mol, alpha, zeff, kexp, kexp_light, rexp, cutoff)
    !> Instance of the repulsion container
    type(tb_repulsion), intent(out) :: self
    !> Molecular structure data
@@ -58,9 +63,12 @@ subroutine new_repulsion(self, mol, alpha, zeff, kexp, kexp_light, rexp)
    real(wp), intent(in) :: kexp_light
    !> Exponent of the repulsion polynomial
    real(wp), intent(in) :: rexp
+   !> Real-space cutoff
+   real(wp), intent(in), optional :: cutoff
 
    integer :: isp, izp, jsp, jzp
 
+   self%label = label
    allocate(self%alpha(mol%nid, mol%nid))
    do isp = 1, mol%nid
       do jsp = 1, mol%nid
@@ -86,32 +94,35 @@ subroutine new_repulsion(self, mol, alpha, zeff, kexp, kexp_light, rexp)
 
    allocate(self%rexp(mol%nid, mol%nid))
    self%rexp(:, :) = rexp
+   if (present(cutoff)) self%cutoff = cutoff
 
 end subroutine new_repulsion
 
 
 !> Evaluate classical interaction for energy and derivatives
-subroutine get_engrad(self, mol, trans, cutoff, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Instance of the repulsion container
    class(tb_repulsion), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> Lattice points
-   real(wp), intent(in) :: trans(:, :)
-   !> Real space cutoff
-   real(wp), intent(in) :: cutoff
+   !> Cached data between different runs
+   type(container_cache), intent(inout) :: cache
    !> Repulsion energy
    real(wp), intent(inout) :: energy
    !> Molecular gradient of the repulsion energy
-   real(wp), intent(inout), optional :: gradient(:, :)
+   real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
-   real(wp), intent(inout), optional :: sigma(:, :)
+   real(wp), contiguous, intent(inout), optional :: sigma(:, :)
+
+   real(wp), allocatable :: trans(:, :)
+
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff, trans)
 
    if (present(gradient) .and. present(sigma)) then
-      call get_repulsion_derivs(mol, trans, cutoff, self%alpha, self%zeff, &
+      call get_repulsion_derivs(mol, trans, self%cutoff, self%alpha, self%zeff, &
          & self%kexp, self%rexp, energy, gradient, sigma)
    else
-      call get_repulsion_energy(mol, trans, cutoff, self%alpha, self%zeff, &
+      call get_repulsion_energy(mol, trans, self%cutoff, self%alpha, self%zeff, &
          & self%kexp, self%rexp, energy)
    end if
 

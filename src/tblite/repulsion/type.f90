@@ -18,6 +18,7 @@
 module tblite_repulsion_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_container_type, only : container_type
    implicit none
    private
 
@@ -27,31 +28,7 @@ module tblite_repulsion_type
    !>
    !> This class provides a method to retrieve the contributions to the energy,
    !> gradient and virial within a given cutoff.
-   type, abstract :: repulsion_type
-   contains
-      !> Obtain energy, and optionally gradient and virial, for classical contribution
-      procedure(get_engrad), deferred :: get_engrad
+   type, extends(container_type), abstract :: repulsion_type
    end type repulsion_type
-
-   abstract interface
-      !> Interface for the evaluation of the classical contribution
-      subroutine get_engrad(self, mol, trans, cutoff, energy, gradient, sigma)
-         import :: repulsion_type, structure_type, wp
-         !> Instance of the repulsion container
-         class(repulsion_type), intent(in) :: self
-         !> Molecular structure data
-         type(structure_type), intent(in) :: mol
-         !> Lattice points
-         real(wp), intent(in) :: trans(:, :)
-         !> Real space cutoff
-         real(wp), intent(in) :: cutoff
-         !> Repulsion energy
-         real(wp), intent(inout) :: energy
-         !> Molecular gradient of the repulsion energy
-         real(wp), intent(inout), optional :: gradient(:, :)
-         !> Strain derivatives of the repulsion energy
-         real(wp), intent(inout), optional :: sigma(:, :)
-      end subroutine get_engrad
-   end interface
 
 end module tblite_repulsion_type

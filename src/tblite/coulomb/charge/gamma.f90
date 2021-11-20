@@ -52,6 +52,7 @@ module tblite_coulomb_charge_gamma
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
    real(wp), parameter :: conv = eps
+   character(len=*), parameter :: label = "isotropic DFTB-γ electrostatics"
 
 contains
 
@@ -69,6 +70,7 @@ subroutine new_gamma_coulomb(self, mol, hubbard, nshell)
    integer :: mshell
    integer :: isp, jsp, ish, jsh, ind, iat
 
+   self%label = label
    if (present(nshell)) then
       mshell = maxval(nshell)
       self%nshell = nshell(mol%id)

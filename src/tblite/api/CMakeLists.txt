@@ -19,6 +19,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 list(
   APPEND srcs
   "${dir}/calculator.f90"
+  "${dir}/container.f90"
   "${dir}/context.f90"
   "${dir}/error.f90"
   "${dir}/param.f90"

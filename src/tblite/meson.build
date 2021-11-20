@@ -30,11 +30,13 @@ subdir('fit')
 subdir('integral')
 subdir('io')
 subdir('lapack')
+subdir('mesh')
 subdir('ncoord')
 subdir('output')
 subdir('param')
 subdir('repulsion')
 subdir('scf')
+subdir('solvation')
 subdir('wavefunction')
 subdir('xtb')
 
@@ -51,6 +53,7 @@ srcs += files(
   'param.f90',
   'repulsion.f90',
   'scf.f90',
+  'solvation.f90',
   'spin.f90',
   'timer.f90',
   'toml.f90',
