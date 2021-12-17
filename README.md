@@ -1,9 +1,9 @@
 # Light-weight tight-binding framework
 
-[![License](https://img.shields.io/github/license/awvwgk/tblite)](https://github.com/awvwgk/tblite/blob/master/COPYING.LESSER)
-[![Build Status](https://github.com/awvwgk/tblite/workflows/CI/badge.svg)](https://github.com/awvwgk/tblite/actions)
+[![License](https://img.shields.io/github/license/tblite/tblite)](https://github.com/tblite/tblite/blob/HEAD/COPYING.LESSER)
+[![Build Status](https://github.com/tblite/tblite/workflows/CI/badge.svg)](https://github.com/tblite/tblite/actions)
 [![Documentation Status](https://readthedocs.org/projects/tblite/badge/?version=latest)](https://tblite.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/awvwgk/tblite/branch/main/graph/badge.svg?token=JXIE6myqNH)](https://codecov.io/gh/awvwgk/tblite)
+[![codecov](https://codecov.io/gh/tblite/tblite/branch/main/graph/badge.svg?token=JXIE6myqNH)](https://codecov.io/gh/tblite/tblite)
 
 This project is an effort to create a library implementation of the
 extended tight binding (xTB) Hamiltonian which can be shared between
