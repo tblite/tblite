@@ -18,6 +18,7 @@
 module tblite_param_element
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number, symbol_length
+   use tblite_data_paulingen, only : get_pauling_en
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, toml_array, get_value, set_value, add_array, len
    implicit none
@@ -38,7 +39,7 @@ module tblite_param_element
       & k_shpoly = "shpoly", k_slater = "slater", k_refocc = "refocc", k_ngauss = "ngauss", &
       & k_gam = "gam", k_lgam = "lgam", k_gam3 = "gam3", k_kcn = "kcn", k_zeff = "zeff", &
       & k_arep = "arep", k_dkernel = "dkernel", k_qkernel = "qkernel", k_mprad = "mprad", &
-      & k_mpvcn = "mpvcn", k_xbond = "xbond"
+      & k_mpvcn = "mpvcn", k_xbond = "xbond", k_en = "en"
 
    !> Representation of the element specific parameters
    type, extends(serde_record) :: element_record
@@ -90,6 +91,9 @@ module tblite_param_element
       real(wp) :: mprad = 0.0_wp
       !> Multipole valence CN
       real(wp) :: mpvcn = 0.0_wp
+
+      !> Electronnegativity
+      real(wp) :: en = 0.0_wp
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array
@@ -250,6 +254,12 @@ subroutine load_from_toml(self, table, error)
    call get_value(table, k_xbond, self%xbond, xbond_default, stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Invalid halogen bonding strength for "//trim(self%sym))
+      return
+   end if
+
+   call get_value(table, k_en, self%en, get_pauling_en(self%sym), stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Invalid electronegativity for "//trim(self%sym))
       return
    end if
 
@@ -581,6 +591,7 @@ subroutine dump_to_toml(self, table, error)
    call set_value(table, k_zeff, self%zeff)
    call set_value(table, k_arep, self%alpha)
    call set_value(table, k_xbond, self%xbond)
+   call set_value(table, k_en, self%en)
 
    call set_value(table, k_dkernel, self%dkernel)
    call set_value(table, k_qkernel, self%qkernel)

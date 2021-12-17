@@ -974,6 +974,8 @@ subroutine export_gfn2_param(param)
          par%mprad = p_rad(izp)
          par%dkernel = p_dkernel(izp)
          par%qkernel = p_qkernel(izp)
+
+         par%en = get_pauling_en(izp)
       end associate
    end do
 end subroutine export_gfn2_param
