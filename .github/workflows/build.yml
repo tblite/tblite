@@ -41,12 +41,6 @@ jobs:
 
         include:
         - os: macos-latest
-          build: cmake
-          build-type: debug
-          compiler: gnu
-          version: 8
-
-        - os: macos-latest
           build: meson
           build-type: debug
           compiler: gnu
