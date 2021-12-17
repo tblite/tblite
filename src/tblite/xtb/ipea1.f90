@@ -1014,6 +1014,8 @@ subroutine export_ipea1_param(param)
          par%qkernel = 0.0_wp
 
          par%xbond = halogen_bond(izp)
+
+         par%en = get_pauling_en(izp)
       end associate
    end do
 end subroutine export_ipea1_param

@@ -326,6 +326,7 @@ Most keywords require entries, even if the respective contribution is not used i
    gam3 = 0.08
    zeff = 1.105388
    arep = 2.213717
+   en = 2.20
    dkernel = 5.563889e-2
    qkernel = 2.7431e-4
    mprad = 1.4
@@ -343,6 +344,7 @@ Most keywords require entries, even if the respective contribution is not used i
    gam3 = 1.50e-1
    zeff = 4.231078
    arep = 1.247655
+   en = 2.55
    dkernel = -4.11674e-3
    qkernel = 2.13583e-3
    mprad = 3.0
@@ -371,4 +373,5 @@ Allowed entries:
  mprad     critical multipole radius        real                Bohr
  mpvcn     multipole valence CN             real                dimensionless
  xbond     halogen bonding strength         real                Hartree
+ en        atomic electronegativity         real                dimensionless
 ========= ================================ =================== =====================

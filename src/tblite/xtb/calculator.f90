@@ -26,7 +26,6 @@ module tblite_xtb_calculator
       & harmonic_average, arithmetic_average, geometric_average
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
-   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
       & d3_dispersion, new_d3_dispersion
    use tblite_ncoord, only : ncoord_type, new_ncoord
@@ -439,7 +438,7 @@ subroutine get_hscale(self, mol, bas, hscale)
          do jsp = 1, mol%nid
             jzp = mol%num(jsp)
             jr = irc(jsp)
-            den = (get_pauling_en(izp) - get_pauling_en(jzp))**2
+            den = (record(ir)%en - record(jr)%en)**2
             do ish = 1, bas%nsh_id(isp)
                il = bas%cgto(ish, isp)%ang
                do jsh = 1, bas%nsh_id(jsp)
