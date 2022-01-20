@@ -25,6 +25,53 @@ Explicit non-goals are
 
 ## Installation
 
+### Conda package
+
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite.svg)](https://anaconda.org/conda-forge/tblite)
+
+This project is packaged for the *conda* package manager and available on the *conda-forge* channel.
+To install the *conda* package manager we recommend the [miniforge](https://github.com/conda-forge/miniforge/releases) installer.
+If the *conda-forge* channel is not yet enabled, add it to your channels with
+
+```
+conda config --add channels conda-forge
+```
+
+Once the *conda-forge* channel has been enabled, this project can be installed with:
+
+```
+conda install tblite
+```
+
+It is possible to list all of the versions available on your platform with:
+
+```
+conda search tblite --channel conda-forge
+```
+
+Now you are ready to use ``tblite``.
+
+
+### FreeBSD Port
+
+[![FreeBSD port](https://repology.org/badge/version-for-repo/freebsd/tblite.svg)](https://www.freshports.org/science/tblite/)
+
+A port for FreeBSD is available
+
+```
+pkg install science/tblite
+```
+
+In case no package is available build the port using
+
+```
+cd /usr/ports/science/tblite
+make install clean
+```
+
+For more information see the [tblite port details](https://www.freshports.org/science/tblite/).
+
+
 ### Building from source
 
 To build *tblite* from the source code in this repository you need to have

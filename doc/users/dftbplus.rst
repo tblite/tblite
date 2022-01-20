@@ -6,9 +6,43 @@ DFTB+ supports a communication bridge to the *tblite* library when setting ``-DW
 
 .. note::
 
-   Support in DFTB+ will be presumably available with version 21.2 release in fall 2021.
+   Support in DFTB+ is available since version 21.2, released in fall 2021.
 
 .. _dftb+: https://github.com/dftbplus/dftbplus
+
+
+Installing DFTB+ and the *tblite* library
+-----------------------------------------
+
+A complete DFTB+ package is available via `conda-forge`_.
+To install the *conda* package manager we recommend the `miniforge <https://github.com/conda-forge/miniforge/releases>`_ installer.
+If the *conda-forge* channel is not yet enabled, add it to your channels with
+
+.. code-block:: bash
+
+    conda config --add channels conda-forge
+
+Once the *conda-forge* channel has been enabled, DFTB+ can be installed with:
+
+.. code-block:: bash
+
+   conda install 'dftbplus=*=nompi_*'
+
+Or to install the MPI enabled version, you can add *mpich* or *openmpi* as MPI provider or just let conda choose:
+
+.. code-block:: bash
+
+   conda install 'dftbplus=*=mpi_*'
+
+It is possible to list all of the versions available on your platform with:
+
+.. code-block:: bash
+
+   conda search dftbplus --channel conda-forge
+
+Now you are ready to use the ``dftb+`` executable, find the *tblite* library is installed as well as part of the DFTB+ dependencies.
+
+.. _conda-forge: https://anaconda.org/conda-forge/dftbplus
 
 
 Input structure
@@ -61,12 +95,12 @@ Instead of providing a *Method* the xTB method can be initialized from a paramet
    }
 
 Finally, to perform more than just single point calculations, the *Driver* group has to be provided.
-Possible geometry optimizers are *ConjugateGradient* or *LBFGS*.
+Best is to use the new *GeometryOptimization* driver, which defaults to a rational function minimizer as present in the ``xtb`` program package.
 For periodic structures the lattice optimization can be enabled by setting *LatticeOpt* to *Yes*.
 
 .. code-block:: bash
 
-   Driver = ConjugateGradient {
+   Driver = GeometryOptimization {
      LatticeOpt = Yes
    }
 
