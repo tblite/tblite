@@ -3,7 +3,52 @@
 Installation
 ============
 
-This project is currently in a highly experimental stage, therefore there are no stable distributions to offer yet.
+This project is currently in a highly experimental stage, however we can already offer binary distributions via some channels.
+
+
+Installing from conda
+---------------------
+
+This project is packaged for the *conda* package manager and available on the *conda-forge* channel.
+To install the *conda* package manager we recommend the `miniforge <https://github.com/conda-forge/miniforge/releases>`_ installer.
+If the *conda-forge* channel is not yet enabled, add it to your channels with
+
+.. code-block:: bash
+
+    conda config --add channels conda-forge
+
+Once the *conda-forge* channel has been enabled, this project can be installed with:
+
+.. code-block:: bash
+
+   conda install tblite
+
+It is possible to list all of the versions available on your platform with:
+
+.. code-block:: bash
+
+   conda search tblite --channel conda-forge
+
+Now you are ready to use the ``tblite`` executable, find the ``tblite.h`` header and link against the ``tblite`` library.
+
+
+FreeBSD Port
+------------
+
+A port for FreeBSD is available
+
+.. code-block:: bash
+
+   pkg install science/tblite
+
+In case no package is available build the port using
+
+.. code-block:: bash
+
+   cd /usr/ports/science/tblite
+   make install clean
+
+For more information see the `tblite port details <https://www.freshports.org/science/tblite/>`_.
 
 
 Building from source
@@ -28,7 +73,7 @@ This library depends on several Fortran modules to provide the desired functiona
 .. _ninja: https://ninja-build.org
 .. _asciidoctor: https://asciidoctor.org
 .. _cmake: https://cmake.org
-.. _fpm: https://github.com/fortran-lang/fpm
+.. _fpm: https://fpm.fortran-lang.org
 .. _cffi: https://cffi.readthedocs.io/
 .. _numpy: https://numpy.org/
 .. _pkgconfig: https://pypi.org/project/pkgconfig/
