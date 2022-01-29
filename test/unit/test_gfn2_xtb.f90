@@ -110,7 +110,7 @@ subroutine test_e_pse(error)
    do izp = 1, 86
       call new(mol, [izp], xyz, uhf=uhf(izp))
       call new_gfn2_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -181,7 +181,7 @@ subroutine test_e_pse_cation(error)
       if (any(izp == [4, 5, 6])) cycle  ! not converging
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=1.0_wp)
       call new_gfn2_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -252,7 +252,7 @@ subroutine test_e_pse_anion(error)
       if (izp == 24) cycle  ! not converging
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=-1.0_wp)
       call new_gfn2_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -284,7 +284,7 @@ subroutine test_e_mb01(error)
    energy = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
    call check(error, energy, ref, thr=1e-7_wp)
@@ -330,7 +330,7 @@ subroutine test_g_mb02(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
    if (any(abs(gradient - ref) > thr2)) then

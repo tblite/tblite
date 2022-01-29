@@ -104,13 +104,13 @@ subroutine get_energy(self, mol, cache, wfn, energy)
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
-            energy = energy + wfn%qsh(ii+ish)**3 * self%hubbard_derivs(ish, izp) / 3.0_wp
+            energy = energy + wfn%qsh(ii+ish, 1)**3 * self%hubbard_derivs(ish, izp) / 3.0_wp
          end do
       end do
    else
       do iat = 1, mol%nat
          izp = mol%id(iat)
-         energy = energy + wfn%qat(iat)**3 * self%hubbard_derivs(1, izp) / 3.0_wp
+         energy = energy + wfn%qat(iat, 1)**3 * self%hubbard_derivs(1, izp) / 3.0_wp
       end do
    end if
 end subroutine get_energy
@@ -135,14 +135,14 @@ subroutine get_potential(self, mol, cache, wfn, pot)
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
-            pot%vsh(ii+ish) = pot%vsh(ii+ish) &
-               & + wfn%qsh(ii+ish)**2 * self%hubbard_derivs(ish, izp)
+            pot%vsh(ii+ish, 1) = pot%vsh(ii+ish, 1) &
+               & + wfn%qsh(ii+ish, 1)**2 * self%hubbard_derivs(ish, izp)
          end do
       end do
    else
       do iat = 1, mol%nat
          izp = mol%id(iat)
-         pot%vat(iat) = pot%vat(iat) + wfn%qat(iat)**2 * self%hubbard_derivs(1, izp)
+         pot%vat(iat, 1) = pot%vat(iat, 1) + wfn%qat(iat, 1)**2 * self%hubbard_derivs(1, izp)
       end do
    end if
 end subroutine get_potential

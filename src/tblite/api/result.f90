@@ -267,7 +267,7 @@ subroutine get_result_charges_api(verror, vres, charges) &
       return
    end if
 
-   charges(:size(res%wfn%qat)) = res%wfn%qat
+   charges(:size(res%wfn%qat)) = res%wfn%qat(:, 1)
 end subroutine get_result_charges_api
 
 
@@ -336,7 +336,7 @@ subroutine get_result_orbital_energies_api(verror, vres, emo) &
       return
    end if
 
-   emo(:size(res%wfn%emo)) = res%wfn%emo
+   emo(:size(res%wfn%emo)) = res%wfn%emo(:, 1)
 end subroutine get_result_orbital_energies_api
 
 
@@ -359,7 +359,7 @@ subroutine get_result_orbital_occupations_api(verror, vres, occ) &
       return
    end if
 
-   occ(:size(res%wfn%focc)) = res%wfn%focc
+   occ(:size(res%wfn%focc)) = res%wfn%focc(:, 1)
 end subroutine get_result_orbital_occupations_api
 
 
@@ -382,7 +382,7 @@ subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
       return
    end if
 
-   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff, [size(res%wfn%coeff)])
+   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff(:, :, 1), [size(res%wfn%coeff)])
 end subroutine get_result_orbital_coefficients_api
 
 

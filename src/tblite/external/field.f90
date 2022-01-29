@@ -111,7 +111,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
 
    vat = matmul(self%efield, mol%xyz)
    vdp = spread(self%efield, 2, mol%nat)
-   energy = energy - dot(vat, wfn%qat) - dot(vdp, wfn%dpat)
+   energy = energy - dot(vat, wfn%qat(:, 1)) - dot(vdp, wfn%dpat(:, :, 1))
 end subroutine get_energy
 
 
@@ -128,8 +128,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 
-   pot%vat(:) = pot%vat - matmul(self%efield, mol%xyz)
-   pot%vdp(:, :) = pot%vdp - spread(self%efield, 2, mol%nat)
+   pot%vat(:, 1) = pot%vat(:, 1) - matmul(self%efield, mol%xyz)
+   pot%vdp(:, :, 1) = pot%vdp(:, :, 1) - spread(self%efield, 2, mol%nat)
 end subroutine get_potential
 
 

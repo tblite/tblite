@@ -18,6 +18,7 @@ module tblite_wavefunction_mulliken
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
+   use tblite_wavefunction_spin, only : updown_to_magnet
    implicit none
    private
 
@@ -31,23 +32,28 @@ contains
 subroutine get_mulliken_shell_charges(bas, smat, pmat, n0sh, qsh)
    type(basis_type), intent(in) :: bas
    real(wp), intent(in) :: smat(:, :)
-   real(wp), intent(in) :: pmat(:, :)
+   real(wp), intent(in) :: pmat(:, :, :)
    real(wp), intent(in) :: n0sh(:)
-   real(wp), intent(out) :: qsh(:)
+   real(wp), intent(out) :: qsh(:, :)
 
-   integer :: iao, jao
+   integer :: iao, jao, spin
    real(wp) :: pao
 
-   qsh(:) = n0sh
-   !$omp parallel do default(none) schedule(runtime) reduction(+:qsh) &
-   !$omp shared(bas, pmat, smat) private(iao, jao, pao)
-   do iao = 1, bas%nao
-      pao = 0.0_wp
-      do jao = 1, bas%nao
-         pao = pao + pmat(jao, iao) * smat(jao, iao)
+   qsh(:, :) = 0.0_wp
+   !$omp parallel do default(none) collapse(2) schedule(runtime) reduction(+:qsh) &
+   !$omp shared(bas, pmat, smat) private(spin, iao, jao, pao)
+   do spin = 1, size(pmat, 3)
+      do iao = 1, bas%nao
+         pao = 0.0_wp
+         do jao = 1, bas%nao
+            pao = pao + pmat(jao, iao, spin) * smat(jao, iao)
+         end do
+         qsh(bas%ao2sh(iao), spin) = qsh(bas%ao2sh(iao), spin) - pao
       end do
-      qsh(bas%ao2sh(iao)) = qsh(bas%ao2sh(iao)) - pao
    end do
+
+   call updown_to_magnet(qsh)
+   qsh(:, 1) = qsh(:, 1) + n0sh
 
 end subroutine get_mulliken_shell_charges
 
@@ -88,22 +94,26 @@ end subroutine get_mulliken_populations
 subroutine get_mulliken_atomic_multipoles(bas, mpmat, pmat, mpat)
    type(basis_type), intent(in) :: bas
    real(wp), intent(in) :: mpmat(:, :, :)
-   real(wp), intent(in) :: pmat(:, :)
-   real(wp), intent(out) :: mpat(:, :)
+   real(wp), intent(in) :: pmat(:, :, :)
+   real(wp), intent(out) :: mpat(:, :, :)
 
-   integer :: iao, jao
+   integer :: iao, jao, spin
    real(wp) :: pao(size(mpmat, 1))
 
-   mpat(:, :) = 0.0_wp
+   mpat(:, :, :) = 0.0_wp
    !$omp parallel do default(none) schedule(runtime) reduction(+:mpat) &
-   !$omp shared(bas, pmat, mpmat) private(iao, jao, pao)
-   do iao = 1, bas%nao
-      pao(:) = 0.0_wp
-      do jao = 1, bas%nao
-         pao(:) = pao + pmat(jao, iao) * mpmat(:, jao, iao)
+   !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao)
+   do spin = 1, size(pmat, 3)
+      do iao = 1, bas%nao
+         pao(:) = 0.0_wp
+         do jao = 1, bas%nao
+            pao(:) = pao + pmat(jao, iao, spin) * mpmat(:, jao, iao)
+         end do
+         mpat(:, bas%ao2at(iao), spin) = mpat(:, bas%ao2at(iao), spin) - pao
       end do
-      mpat(:, bas%ao2at(iao)) = mpat(:, bas%ao2at(iao)) - pao
    end do
+
+   call updown_to_magnet(mpat)
 
 end subroutine get_mulliken_atomic_multipoles
 

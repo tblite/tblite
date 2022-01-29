@@ -48,6 +48,9 @@ Supported geometry input formats are:
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
 
+*--spin-polarized*::
+     Use spin-polarized Hamiltonian with colinear spins.
+
 *--acc* _real_::
      Accuracy of the calculation,
      lower values set tighter convergence criteria.

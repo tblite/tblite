@@ -109,6 +109,7 @@ module tblite_cli_help
       "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                          Homogeneous electric field in V/Å."//nl//&
+      "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&

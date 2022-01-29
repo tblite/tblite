@@ -81,7 +81,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp) :: elast, ts, e_fermi, edisp, ees, eelec, eint
+   real(wp) :: elast, ts, edisp, ees, eelec, eint
 
    if (iscf > 0) then
       call mixer%next
@@ -103,17 +103,16 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    call set_mixer(mixer, wfn, info)
 
-   call solver%solve(wfn%coeff, ints%overlap, wfn%emo, error)
+   call get_density(wfn, solver, ints, ts, error)
    if (allocated(error)) return
 
-   call get_fermi_filling(wfn%nocc, wfn%nuhf, wfn%kt, wfn%emo, &
-      & wfn%homoa, wfn%homob, wfn%focc, e_fermi, ts)
-   call get_density_matrix(wfn%focc, wfn%coeff, wfn%density)
+   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
+      & wfn%qsh)
 
-   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, wfn%qsh)
-
-   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, wfn%dpat)
-   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, wfn%qpat)
+   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, &
+      & wfn%dpat)
+   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, &
+      & wfn%qpat)
 
    call diff_mixer(mixer, wfn, info)
 
@@ -139,16 +138,18 @@ end subroutine next_scf
 
 subroutine get_electronic_energy(h0, density, energy)
    real(wp), intent(in) :: h0(:, :)
-   real(wp), intent(in) :: density(:, :)
+   real(wp), intent(in) :: density(:, :, :)
    real(wp), intent(inout) :: energy
 
-   integer :: iao, jao
+   integer :: iao, jao, spin
 
-   !$omp parallel do collapse(2) schedule(runtime) default(none) &
-   !$omp reduction(+:energy) shared(h0, density) private(iao, jao)
-   do iao = 1, size(h0, 2)
-      do jao = 1, size(h0, 1)
-         energy = energy + h0(jao, iao) * density(jao, iao)
+   !$omp parallel do collapse(3) schedule(runtime) default(none) &
+   !$omp reduction(+:energy) shared(h0, density) private(spin, iao, jao)
+   do spin = 1, size(density, 3)
+      do iao = 1, size(density, 2)
+         do jao = 1, size(density, 1)
+            energy = energy + h0(jao, iao) * density(jao, iao, spin)
+         end do
       end do
    end do
 end subroutine get_electronic_energy
@@ -257,7 +258,7 @@ subroutine get_mixer(mixer, bas, wfn, info)
       call mixer%get(wfn%qat)
    case(shell_resolved)
       call mixer%get(wfn%qsh)
-      call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
+      call get_qat_from_qsh(bas, wfn%qsh(:, 1), wfn%qat(:, 1))
    end select
 
    select case(info%dipole)
@@ -270,5 +271,52 @@ subroutine get_mixer(mixer, bas, wfn, info)
       call mixer%get(wfn%qpat)
    end select
 end subroutine get_mixer
+
+
+subroutine get_density(wfn, solver, ints, ts, error)
+   !> Tight-binding wavefunction data
+   type(wavefunction_type), intent(inout) :: wfn
+   !> Solver for the general eigenvalue problem
+   class(solver_type), intent(inout) :: solver
+   !> Integral container
+   type(integral_type), intent(in) :: ints
+   !> Electronic entropy
+   real(wp), intent(out) :: ts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp) :: e_fermi, stmp(2)
+   real(wp), allocatable :: focc(:)
+   integer :: spin
+
+   select case(wfn%nspin)
+   case default
+      call solver%solve(wfn%coeff(:, :, 1), ints%overlap, wfn%emo(:, 1), error)
+      if (allocated(error)) return
+
+      allocate(focc(size(wfn%focc, 1)))
+      wfn%focc(:, :) = 0.0_wp
+      do spin = 1, 2
+         call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, 1), &
+            & wfn%homo(spin), focc, e_fermi, stmp(spin))
+         wfn%focc(:, 1) = wfn%focc(:, 1) + focc
+      end do
+      ts = sum(stmp)
+
+      call get_density_matrix(wfn%focc(:, 1), wfn%coeff(:, :, 1), wfn%density(:, :, 1))
+   case(2)
+      wfn%coeff = 2*wfn%coeff
+      do spin = 1, 2
+         call solver%solve(wfn%coeff(:, :, spin), ints%overlap, wfn%emo(:, spin), error)
+         if (allocated(error)) return
+
+         call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, spin), &
+            & wfn%homo(spin), wfn%focc(:, spin), e_fermi, stmp(spin))
+         call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, spin), &
+            & wfn%density(:, :, spin))
+      end do
+      ts = sum(stmp)
+   end select
+end subroutine get_density
 
 end module tblite_scf_iterator

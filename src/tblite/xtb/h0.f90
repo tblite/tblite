@@ -337,9 +337,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    !> Density dependent potential shifts on the Hamiltonian
    type(potential_type), intent(in) :: pot
    !> Density matrix
-   real(wp), intent(in) :: pmat(:, :)
+   real(wp), intent(in) :: pmat(:, :, :)
    !> Energy weighted density matrix
-   real(wp), intent(in) :: xmat(:, :)
+   real(wp), intent(in) :: xmat(:, :, :)
 
    !> Derivative of the electronic energy w.r.t. the coordination number
    real(wp), intent(inout) :: dEdcn(:)
@@ -348,7 +348,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    !> Derivative of the electronic energy w.r.t. strain deformations
    real(wp), intent(inout) :: sigma(:, :)
 
-   integer :: iat, jat, izp, jzp, itr, img, inl
+   integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dshpoly, dG(3), hscale
    real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
@@ -356,14 +356,16 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    real(wp), allocatable :: dstmp(:, :), ddtmpi(:, :, :), dqtmpi(:, :, :)
    real(wp), allocatable :: ddtmpj(:, :, :), dqtmpj(:, :, :)
 
+   nspin = size(pmat, 3)
+
    allocate(stmp(msao(bas%maxl)**2), dstmp(3, msao(bas%maxl)**2), &
       & dtmp(3, msao(bas%maxl)**2), ddtmpi(3, 3, msao(bas%maxl)**2), &
       & qtmp(6, msao(bas%maxl)**2), dqtmpi(3, 6, msao(bas%maxl)**2), &
       & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2))
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
-   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, &
+   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list, nspin) &
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, spin, &
    !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, shpoly, &
    !$omp& dshpoly, dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img)
    do iat = 1, mol%nat
@@ -405,20 +407,22 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
-                     pij = pmat(jj+jao, ii+iao)
-                     hpij = pij * hij * shpoly
-                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao) &
-                        - pij * (pot%vao(jj+jao) + pot%vao(ii+iao))
+                     do spin = 1, nspin
+                        pij = pmat(jj+jao, ii+iao, spin)
+                        hpij = pij * hij * shpoly
+                        sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin) &
+                           - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
-                     dG(:) = dG + sval * dstmp(:, ij) &
-                        + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
-                        - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat)) &
-                        - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat)) &
-                        - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat)) &
-                        - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat))
+                        dG(:) = dG + sval * dstmp(:, ij) &
+                           + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
+                           - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat, spin)) &
+                           - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat, spin)) &
+                           - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, spin)) &
+                           - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat, spin))
 
-                     dcni = dcni + dhdcni * pmat(jj+jao, ii+iao) * stmp(ij)
-                     dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao) * stmp(ij)
+                        dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                        dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                     end do
                   end do
                end do
                dEdcn(iat) = dEdcn(iat) + dcni
@@ -435,8 +439,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    end do
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn) &
-   !$omp shared(mol, bas, dsedcn, pmat) &
-   !$omp private(iat, izp, jzp, is, ish, ii, iao, dcni, dhdcni)
+   !$omp shared(mol, bas, dsedcn, pmat, nspin) &
+   !$omp private(iat, izp, jzp, is, ish, ii, iao, dcni, dhdcni, spin)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -445,7 +449,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
          dhdcni = dsedcn(is+ish)
          dcni = 0.0_wp
          do iao = 1, msao(bas%cgto(ish, izp)%ang)
-            dcni = dcni + dhdcni * pmat(ii+iao, ii+iao)
+            do spin = 1, nspin
+               dcni = dcni + dhdcni * pmat(ii+iao, ii+iao, spin)
+            end do
          end do
          dEdcn(iat) = dEdcn(iat) + dcni
       end do

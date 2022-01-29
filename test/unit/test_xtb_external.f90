@@ -84,7 +84,7 @@ subroutine test_e_mb01(error)
    energy = 0.0_wp
 
    call new_gfn1_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field([-2.0_wp, 0.0_wp, 0.0_wp]*vatoau)
    call calc%push_back(cont)
@@ -120,7 +120,7 @@ subroutine test_e_mb02(error)
    energy = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field([0.0_wp, sqrt(2.0_wp), -sqrt(2.0_wp)]*vatoau)
    call calc%push_back(cont)
@@ -156,13 +156,13 @@ subroutine test_d_mb03(error)
    efield(:) = 0.0_wp
 
    call new_gfn1_calculator(calc, mol)
-   call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field(efield)
    call calc%push_back(cont)
 
    call xtb_singlepoint(ctx, mol, calc, wfn0, acc, energy, verbosity=0)
-   dipole(:) = matmul(mol%xyz, wfn0%qat) + sum(wfn0%dpat, 2)
+   dipole(:) = matmul(mol%xyz, wfn0%qat(:, 1)) + sum(wfn0%dpat(:, :, 1), 2)
 
    do i = 1, 3
       wfn = wfn0
@@ -214,13 +214,13 @@ subroutine test_d_mb04(error)
    efield(:) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field(efield)
    call calc%push_back(cont)
 
    call xtb_singlepoint(ctx, mol, calc, wfn0, acc, energy, verbosity=0)
-   dipole(:) = matmul(mol%xyz, wfn0%qat) + sum(wfn0%dpat, 2)
+   dipole(:) = matmul(mol%xyz, wfn0%qat(:, 1)) + sum(wfn0%dpat(:, :, 1), 2)
 
    do i = 1, 3
       wfn = wfn0
@@ -291,7 +291,7 @@ subroutine test_g_mb05(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = empty_interaction()
    call calc%push_back(cont)
@@ -343,7 +343,7 @@ subroutine test_g_mb06(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = empty_interaction()
    call calc%push_back(cont)

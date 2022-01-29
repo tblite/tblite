@@ -182,7 +182,7 @@ subroutine test_e_pse(error)
       if (izp == 25) cycle
       call new(mol, [izp], xyz, uhf=uhf(izp))
       call new_gfn1_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -253,7 +253,7 @@ subroutine test_e_pse_cation(error)
       if (izp == 79) cycle  ! SCF does not converge for gold
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=1.0_wp)
       call new_gfn1_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -325,7 +325,7 @@ subroutine test_e_pse_anion(error)
       if (any(izp == [21, 22, 23, 25, 43, 57, 58, 59])) cycle  ! not converging
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=-1.0_wp)
       call new_gfn1_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
@@ -357,7 +357,7 @@ subroutine test_e_mb01(error)
    energy = 0.0_wp
 
    call new_gfn1_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
    call check(error, energy, ref, thr=1e-7_wp)
@@ -403,7 +403,7 @@ subroutine test_g_mb02(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn1_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
    if (any(abs(gradient - ref) > thr2)) then
@@ -438,7 +438,7 @@ subroutine test_s_mb03(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn1_calculator(calc, mol)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
    call numdiff_sigma(ctx, mol, calc, wfn, numsigma)

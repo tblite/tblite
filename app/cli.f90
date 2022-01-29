@@ -48,6 +48,7 @@ module tblite_cli
       real(wp) :: accuracy = 1.0_wp
       real(wp) :: etemp = 300.0_wp
       real(wp), allocatable :: efield(:)
+      logical :: spin_polarized = .false.
    end type run_config
 
    type, extends(driver_config) :: param_config
@@ -215,6 +216,8 @@ subroutine get_run_arguments(config, list, start, error)
          call list%get(iarg, arg)
          call get_argument_as_int(arg, config%spin, error)
          if (allocated(error)) exit
+      case("--spin-polarized")
+         config%spin_polarized = .true.
       case("--method")
          if (allocated(config%param)) then
             call fatal_error(error, "Cannot specify method if parameter file is provided")

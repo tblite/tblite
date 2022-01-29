@@ -34,9 +34,11 @@ module tblite_xtb_singlepoint
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix, &
+      & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
+   use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
@@ -66,7 +68,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
-   real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :)
+   real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :), wdensity(:, :, :)
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
@@ -80,7 +82,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(scf_info) :: info
    type(sygvd_solver) :: sygvd
    type(adjacency_list) :: list
-   integer :: iscf
+   integer :: iscf, spin
 
    call timer%push("total")
 
@@ -145,7 +147,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
-   call new_potential(pot, mol, calc%bas)
+   call new_potential(pot, mol, calc%bas, wfn%nspin)
    if (allocated(calc%coulomb)) then
       call timer%push("coulomb")
       call calc%coulomb%update(mol, cache)
@@ -159,6 +161,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    else
       wfn%nuhf = mod(nint(nel), 2)
    end if
+   call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
    if (prlevel > 1) print *, property("number of electrons", wfn%nocc, "e")
 
@@ -194,7 +197,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_broyden(mixer, calc%max_iter, get_mixer_dimension(mol, calc%bas, info), &
+   call new_broyden(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
       & calc%mixer_damping)
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
@@ -232,11 +235,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (ctx%failed()) return
 
-   call get_molecular_dipole_moment(mol, wfn%qat, wfn%dpat, dpmom)
-   call get_molecular_quadrupole_moment(mol, wfn%qat, wfn%dpat, wfn%qpat, qpmom)
+   call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
+   call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
+      & wfn%qpat(:, :, 1), qpmom)
    if (prlevel > 2) then
-      call ascii_dipole_moments(6, 1, mol, wfn%dpat, dpmom)
-      call ascii_quadrupole_moments(6, 1, mol, wfn%qpat, qpmom)
+      call ascii_dipole_moments(6, 1, mol, wfn%dpat(:, :, 1), dpmom)
+      call ascii_quadrupole_moments(6, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
 
    if (grad) then
@@ -262,11 +266,17 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
 
-      tmp = wfn%focc * wfn%emo
-      call get_density_matrix(tmp, wfn%coeff, ints%hamiltonian)
+      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
+      do spin = 1, wfn%nspin
+         tmp = wfn%focc(:, spin) * wfn%emo(:, spin)
+         call get_density_matrix(tmp, wfn%coeff(:, :, spin), wdensity(:, :, spin))
+      end do
+      call updown_to_magnet(wfn%density)
+      call updown_to_magnet(wdensity)
       !print '(3es20.13)', sigma
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, ints%hamiltonian, dEdcn, gradient, sigma)
+         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
+      call magnet_to_updown(wfn%density)
 
       if (allocated(dcndr)) then
          call gemv(dcndr, dEdcn, gradient, beta=1.0_wp)

@@ -216,11 +216,11 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    if (present(qsh)) then
-      wfn%qsh = qsh
+      wfn%qsh = reshape(qsh, [size(qsh), 1])
    else
-      wfn%qsh = qat
+      wfn%qsh = reshape(qat, [size(qat), 1])
    end if
-   wfn%qat = qat
+   wfn%qat = reshape(qat, [size(qat), 1])
    call make_coulomb(coulomb, mol, present(qsh))
    call coulomb%update(mol, cache)
    call coulomb%get_energy(mol, cache, wfn, energy)
@@ -263,11 +263,11 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    if (present(qsh)) then
-      wfn%qsh = qsh
+      wfn%qsh = reshape(qsh, [size(qsh), 1])
    else
-      wfn%qsh = qat
+      wfn%qsh = reshape(qat, [size(qat), 1])
    end if
-   wfn%qat = qat
+   wfn%qat = reshape(qat, [size(qat), 1])
    call make_coulomb(coulomb, mol, present(qsh))
 
    do iat = 1, mol%nat
@@ -328,11 +328,11 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    if (present(qsh)) then
-      wfn%qsh = qsh
+      wfn%qsh = reshape(qsh, [size(qsh), 1])
    else
-      wfn%qsh = qat
+      wfn%qsh = reshape(qat, [size(qat), 1])
    end if
-   wfn%qat = qat
+   wfn%qat = reshape(qat, [size(qat), 1])
    call make_coulomb(coulomb, mol, present(qsh))
 
    eps(:, :) = unity

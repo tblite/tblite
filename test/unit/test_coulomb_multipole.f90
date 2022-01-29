@@ -176,9 +176,9 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
-   wfn%qat = qat
-   wfn%dpat = dpat
-   wfn%qpat = qpat
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%dpat = reshape(dpat, [shape(dpat), 1])
+   wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call cache%update(mol)
    call make_multipole(multipole, mol)
    call multipole%update(mol, cache)
@@ -224,9 +224,9 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
-   wfn%qat = qat
-   wfn%dpat = dpat
-   wfn%qpat = qpat
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%dpat = reshape(dpat, [shape(dpat), 1])
+   wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call cache%update(mol)
    call make_multipole(multipole, mol)
    if (any(mol%periodic)) deallocate(multipole%ncoord)
@@ -298,9 +298,9 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
-   wfn%qat = qat
-   wfn%dpat = dpat
-   wfn%qpat = qpat
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%dpat = reshape(dpat, [shape(dpat), 1])
+   wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call cache%update(mol)
    call make_multipole(multipole, mol)
    deallocate(multipole%ncoord)
@@ -379,15 +379,15 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
    real(wp), allocatable :: vat(:), vdp(:, :), vqp(:, :)
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
-   allocate(pot%vat(mol%nat), pot%vsh(mol%nat), pot%vao(mol%nat), &
-      & pot%vdp(3, mol%nat), pot%vqp(6, mol%nat))
+   allocate(pot%vat(mol%nat, 1), pot%vsh(mol%nat, 1), pot%vao(mol%nat, 1), &
+      & pot%vdp(3, mol%nat, 1), pot%vqp(6, mol%nat, 1))
    allocate(vat(mol%nat), vdp(3, mol%nat), vqp(6, mol%nat))
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
-   wfn%qat = qat
-   wfn%dpat = dpat
-   wfn%qpat = qpat
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%dpat = reshape(dpat, [shape(dpat), 1])
+   wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call cache%update(mol)
    call make_multipole(multipole, mol)
    call pot%reset
@@ -398,21 +398,21 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
    do iat = 1, mol%nat
       er = 0.0_wp
       el = 0.0_wp
-      wfn%qat(iat) = wfn%qat(iat) + step
+      wfn%qat(iat, 1) = wfn%qat(iat, 1) + step
       call multipole%get_energy(mol, cache, wfn, er)
-      wfn%qat(iat) = wfn%qat(iat) - 2*step
+      wfn%qat(iat, 1) = wfn%qat(iat, 1) - 2*step
       call multipole%get_energy(mol, cache, wfn, el)
-      wfn%qat(iat) = wfn%qat(iat) + step
+      wfn%qat(iat, 1) = wfn%qat(iat, 1) + step
       vat(iat) = 0.5_wp*(er - el)/step
    end do
 
-   if (any(abs(pot%vat - vat) > thr2)) then
+   if (any(abs(pot%vat(:, 1) - vat) > thr2)) then
       call test_failed(error, "Charge-dependent potential does not match")
       print'(3es21.14)', pot%vat
       print'("---")'
       print'(3es21.14)', vat
       print'("---")'
-      print'(3es21.14)', pot%vat - vat
+      print'(3es21.14)', pot%vat(:, 1) - vat
       return
    end if
 
@@ -420,22 +420,22 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
       do ic = 1, 3
          er = 0.0_wp
          el = 0.0_wp
-         wfn%dpat(ic, iat) = wfn%dpat(ic, iat) + step
+         wfn%dpat(ic, iat, 1) = wfn%dpat(ic, iat, 1) + step
          call multipole%get_energy(mol, cache, wfn, er)
-         wfn%dpat(ic, iat) = wfn%dpat(ic, iat) - 2*step
+         wfn%dpat(ic, iat, 1) = wfn%dpat(ic, iat, 1) - 2*step
          call multipole%get_energy(mol, cache, wfn, el)
-         wfn%dpat(ic, iat) = wfn%dpat(ic, iat) + step
+         wfn%dpat(ic, iat, 1) = wfn%dpat(ic, iat, 1) + step
          vdp(ic, iat) = 0.5_wp*(er - el)/step
       end do
    end do
 
-   if (any(abs(pot%vdp - vdp) > thr2)) then
+   if (any(abs(pot%vdp(:, :, 1) - vdp) > thr2)) then
       call test_failed(error, "Dipole-dependent potential does not match")
       print'(3es21.14)', pot%vdp
       print'("---")'
       print'(3es21.14)', vdp
       print'("---")'
-      print'(3es21.14)', pot%vdp - vdp
+      print'(3es21.14)', pot%vdp(:, :, 1) - vdp
       return
    end if
 
@@ -443,22 +443,22 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
       do ic = 1, 6
          er = 0.0_wp
          el = 0.0_wp
-         wfn%qpat(ic, iat) = wfn%qpat(ic, iat) + step
+         wfn%qpat(ic, iat, 1) = wfn%qpat(ic, iat, 1) + step
          call multipole%get_energy(mol, cache, wfn, er)
-         wfn%qpat(ic, iat) = wfn%qpat(ic, iat) - 2*step
+         wfn%qpat(ic, iat, 1) = wfn%qpat(ic, iat, 1) - 2*step
          call multipole%get_energy(mol, cache, wfn, el)
-         wfn%qpat(ic, iat) = wfn%qpat(ic, iat) + step
+         wfn%qpat(ic, iat, 1) = wfn%qpat(ic, iat, 1) + step
          vqp(ic, iat) = 0.5_wp*(er - el)/step
       end do
    end do
 
-   if (any(abs(pot%vqp - vqp) > thr2)) then
+   if (any(abs(pot%vqp(:, :, 1) - vqp) > thr2)) then
       call test_failed(error, "Quadrupole-dependent potential does not match")
       print'(3es21.14)', pot%vqp
       print'("---")'
       print'(3es21.14)', vqp
       print'("---")'
-      print'(3es21.14)', pot%vqp - vqp
+      print'(3es21.14)', pot%vqp(:, :, 1) - vqp
       return
    end if
 
