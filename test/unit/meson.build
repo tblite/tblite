@@ -44,6 +44,7 @@ tests = [
   'ncoord-gfn',
   'repulsion',
   'slater-expansion',
+  'spin',
   'tagged-io',
   'xtb-param',
   'xtb-external',

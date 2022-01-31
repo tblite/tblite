@@ -40,15 +40,18 @@ module tblite_scf_broyden
       real(wp), allocatable :: q_in(:)
    contains
       procedure :: next
-      generic :: set => set_1d, set_2d
+      generic :: set => set_1d, set_2d, set_3d
       procedure :: set_1d
       procedure :: set_2d
-      generic :: diff => diff_1d, diff_2d
+      procedure :: set_3d
+      generic :: diff => diff_1d, diff_2d, diff_3d
       procedure :: diff_1d
       procedure :: diff_2d
-      generic :: get => get_1d, get_2d
+      procedure :: diff_3d
+      generic :: get => get_1d, get_2d, get_3d
       procedure :: get_1d
       procedure :: get_2d
+      procedure :: get_3d
       procedure :: get_error
    end type broyden_mixer
 
@@ -85,6 +88,14 @@ subroutine set_2d(self, qvec)
    call self%set(qptr)
 end subroutine set_2d
 
+subroutine set_3d(self, qvec)
+   class(broyden_mixer), intent(inout) :: self
+   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
+   real(wp), pointer :: qptr(:)
+   qptr(1:size(qvec)) => qvec
+   call self%set(qptr)
+end subroutine set_3d
+
 subroutine set_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
    real(wp), intent(in) :: qvec(:)
@@ -99,6 +110,14 @@ subroutine diff_2d(self, qvec)
    qptr(1:size(qvec)) => qvec
    call self%diff(qptr)
 end subroutine diff_2d
+
+subroutine diff_3d(self, qvec)
+   class(broyden_mixer), intent(inout) :: self
+   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
+   real(wp), pointer :: qptr(:)
+   qptr(1:size(qvec)) => qvec
+   call self%diff(qptr)
+end subroutine diff_3d
 
 subroutine diff_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
@@ -125,6 +144,14 @@ subroutine get_2d(self, qvec)
    qptr(1:size(qvec)) => qvec
    call self%get(qptr)
 end subroutine get_2d
+
+subroutine get_3d(self, qvec)
+   class(broyden_mixer), intent(inout) :: self
+   real(wp), contiguous, intent(out), target :: qvec(:, :, :)
+   real(wp), pointer :: qptr(:)
+   qptr(1:size(qvec)) => qvec
+   call self%get(qptr)
+end subroutine get_3d
 
 subroutine get_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self

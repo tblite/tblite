@@ -22,11 +22,14 @@ module tblite_driver_run
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : aatoau, ctoau
    use tblite_cli, only : run_config
+   use tblite_basis_type, only : basis_type
    use tblite_container, only : container_type
    use tblite_context, only : context_type
+   use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_output_ascii
    use tblite_param, only : param_record
+   use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
@@ -56,7 +59,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method
-   integer :: spin, charge, stat, unit
+   integer :: spin, charge, stat, unit, nspin
    logical :: exist
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
@@ -114,6 +117,8 @@ subroutine run_main(config, error)
       end if
    end if
 
+   nspin = merge(2, 1, config%spin_polarized)
+
    if (config%grad) then
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
@@ -139,12 +144,25 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, config%etemp * kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    if (allocated(config%efield)) then
       block
          class(container_type), allocatable :: cont
          cont = electric_field(config%efield*vatoau)
+         call calc%push_back(cont)
+      end block
+   end if
+
+   if (config%spin_polarized) then
+      block
+         class(container_type), allocatable :: cont
+         type(spin_polarization), allocatable :: spin
+         real(wp), allocatable :: wll(:, :, :)
+         allocate(spin)
+         call get_spin_constants(wll, mol, calc%bas)
+         call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
+         call move_alloc(spin, cont)
          call calc%push_back(cont)
       end block
    end if
@@ -161,7 +179,7 @@ subroutine run_main(config, error)
    end if
 
    if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%homoa, wfn%emo, wfn%focc, 7)
+      call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
    end if
 
    if (allocated(config%grad_output)) then
@@ -185,5 +203,25 @@ subroutine run_main(config, error)
    end if
 end subroutine run_main
 
+
+subroutine get_spin_constants(wll, mol, bas)
+   real(wp), allocatable, intent(out) :: wll(:, :, :)
+   type(structure_type), intent(in) :: mol
+   type(basis_type), intent(in) :: bas
+
+   integer :: izp, ish, jsh, il, jl
+
+   allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
+
+   do izp = 1, mol%nid
+      do ish = 1, bas%nsh_id(izp)
+         il = bas%cgto(ish, izp)%ang
+         do jsh = 1, bas%nsh_id(izp)
+            jl = bas%cgto(jsh, izp)%ang
+            wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
+         end do
+      end do
+   end do
+end subroutine get_spin_constants
 
 end module tblite_driver_run

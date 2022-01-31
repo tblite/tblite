@@ -19,61 +19,46 @@ module tblite_wavefunction_fermi
    implicit none
    private
 
-   public :: get_alpha_beta_occupation, get_fermi_filling
+   public :: get_fermi_filling
 
 
 contains
 
-subroutine get_fermi_filling(nocc, nuhf, kt, emo, homoa, homob, focc, e_fermi, ts)
-   real(wp), intent(in) :: nocc
-   real(wp), intent(in) :: nuhf
+subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi, ts)
+   real(wp), intent(in) :: nel
    real(wp), intent(in) :: emo(:)
    real(wp), intent(in) :: kt
-   integer, intent(out) :: homoa
-   integer, intent(out) :: homob
+   integer, intent(out) :: homo
    real(wp), intent(out) :: focc(:)
    real(wp), intent(out) :: e_fermi
    real(wp), intent(out) :: ts
 
-   real(wp) :: nalp, nbet, etmp, stmp
-   real(wp), allocatable :: occt(:)
-   integer :: homo
+   real(wp) :: etmp, stmp
 
-   call get_alpha_beta_occupation(nocc, nuhf, nalp, nbet)
-
-   allocate(occt(size(focc)))
    ts = 0.0_wp
    e_fermi = 0.0_wp
-   focc(:) = 0.0_wp
-   occt(:) = 0.0_wp
-   homo = floor(nalp)
-   occt(:homo) = 1.0_wp
-   if (homo < size(focc)) occt(homo+1) = mod(nalp, 1.0_wp)
-   homoa = merge(homo+1, homo, mod(nalp, 1.0_wp) > 0.5_wp)
 
-   if (homoa > 0) then
-      call get_fermi_filling_(homoa, kt, emo, occt, etmp)
-      call get_electronic_entropy(occt, kt, stmp)
-      focc(:) = focc + occt
+   call get_aufbau_filling(nel, homo, focc)
+
+   if (homo > 0) then
+      call get_fermi_filling_(homo, kt, emo, focc, etmp)
+      call get_electronic_entropy(focc, kt, ts)
       e_fermi = 0.5_wp * etmp
-      ts = ts + stmp
-   end if
-
-   occt(:) = 0.0_wp
-   homo = floor(nbet)
-   occt(:homo) = 1.0_wp
-   if (homo < size(focc)) occt(homo+1) = mod(nbet, 1.0_wp)
-   homob = merge(homo+1, homo, mod(nbet, 1.0_wp) > 0.5_wp)
-
-   if (homob > 0) then
-      call get_fermi_filling_(homob, kt, emo, occt, etmp)
-      call get_electronic_entropy(occt, kt, stmp)
-      focc(:) = focc + occt
-      e_fermi = e_fermi + 0.5_wp * etmp
-      ts = ts + stmp
    end if
 
 end subroutine get_fermi_filling
+
+subroutine get_aufbau_filling(nel, homo, occ)
+   real(wp), intent(in) :: nel
+   integer, intent(out) :: homo
+   real(wp), intent(out) :: occ(:)
+
+   occ(:) = 0.0_wp
+   homo = floor(nel)
+   occ(:min(homo, size(occ))) = 1.0_wp
+   if (homo < size(occ)) occ(homo+1) = mod(nel, 1.0_wp)
+   homo = merge(homo+1, homo, mod(nel, 1.0_wp) > 0.5_wp)
+end subroutine get_aufbau_filling
 
 subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
    integer, intent(in) :: homo
@@ -133,26 +118,5 @@ subroutine get_electronic_entropy(occ, kt, s)
 end subroutine get_electronic_entropy
 
 
-!> Split an real occupation number into alpha and beta space.
-!>
-!> This routine does not perform any checks on the condition
-!> ``mod(nocc, 2) == 0 .eqv. mod(nuhf, 2) == 0`` and will yield fractional
-!> occupations in case those condtions are not fullfilled.
-!> However, it will avoid creating negative occupation numbers.
-subroutine get_alpha_beta_occupation(nocc, nuhf, nalp, nbet)
-   real(wp), intent(in) :: nocc
-   real(wp), intent(in) :: nuhf
-   real(wp), intent(out) :: nalp
-   real(wp), intent(out) :: nbet
-
-   real(wp) :: ntmp, diff
-
-   ! make sure we cannot get a negative occupation here
-   diff = min(nuhf, nocc)
-   ntmp = nocc - diff
-
-   nalp = ntmp / 2 + diff
-   nbet = ntmp / 2
-end subroutine get_alpha_beta_occupation
 
 end module tblite_wavefunction_fermi

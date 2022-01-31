@@ -192,15 +192,15 @@ subroutine get_energy(self, mol, cache, wfn, energy)
 
    allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
 
-   call gemv(cache%amat_sd, wfn%qat, vd)
-   call gemv(cache%amat_dd, wfn%dpat, vd, beta=1.0_wp, alpha=0.5_wp)
-   call gemv(cache%amat_sq, wfn%qat, vq)
+   call gemv(cache%amat_sd, wfn%qat(:, 1), vd)
+   call gemv(cache%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
+   call gemv(cache%amat_sq, wfn%qat(:, 1), vq)
 
-   ees = dot(wfn%dpat, vd) + dot(wfn%qpat, vq)
+   ees = dot(wfn%dpat(:, :, 1), vd) + dot(wfn%qpat(:, :, 1), vq)
    exc = 0.0_wp
 
-   call get_kernel_energy(mol, self%dkernel, wfn%dpat, exc)
-   call get_kernel_energy(mol, self%qkernel, wfn%qpat, exc)
+   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), exc)
+   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), exc)
 
    energy = energy + ees + exc
 end subroutine get_energy
@@ -243,16 +243,16 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Reusable data container
    type(coulomb_cache), intent(inout) :: cache
 
-   call gemv(cache%amat_sd, wfn%qat, pot%vdp, beta=1.0_wp)
-   call gemv(cache%amat_sd, wfn%dpat, pot%vat, beta=1.0_wp, trans="T")
+   call gemv(cache%amat_sd, wfn%qat(:, 1), pot%vdp(:, :, 1), beta=1.0_wp)
+   call gemv(cache%amat_sd, wfn%dpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
 
-   call gemv(cache%amat_dd, wfn%dpat, pot%vdp, beta=1.0_wp)
+   call gemv(cache%amat_dd, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), beta=1.0_wp)
 
-   call gemv(cache%amat_sq, wfn%qat, pot%vqp, beta=1.0_wp)
-   call gemv(cache%amat_sq, wfn%qpat, pot%vat, beta=1.0_wp, trans="T")
+   call gemv(cache%amat_sq, wfn%qat(:, 1), pot%vqp(:, :, 1), beta=1.0_wp)
+   call gemv(cache%amat_sq, wfn%qpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
 
-   call get_kernel_potential(mol, self%dkernel, wfn%dpat, pot%vdp)
-   call get_kernel_potential(mol, self%qkernel, wfn%qpat, pot%vqp)
+   call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1))
+   call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1))
 end subroutine get_potential
 
 !> Get multipolar anisotropic potential contribution
@@ -299,7 +299,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    allocate(dEdr(mol%nat))
    dEdr = 0.0_wp
 
-   call get_multipole_gradient(self, mol, cache, wfn%qat, wfn%dpat, wfn%qpat, &
+   call get_multipole_gradient(self, mol, cache, &
+      & wfn%qat(:, 1), wfn%dpat(:, :, 1), wfn%qpat(:, :, 1), &
       & dEdr, gradient, sigma)
 
    dEdr(:) = dEdr * cache%dmrdcn

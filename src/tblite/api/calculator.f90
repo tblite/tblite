@@ -335,9 +335,10 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
       & res%gradient, res%sigma)
 
-   call get_molecular_dipole_moment(mol%ptr, res%wfn%qat, res%wfn%dpat, res%dipole)
-   call get_molecular_quadrupole_moment(mol%ptr, res%wfn%qat, res%wfn%dpat, res%wfn%qpat, &
-      & res%quadrupole)
+   call get_molecular_dipole_moment(mol%ptr, res%wfn%qat(:, 1), res%wfn%dpat(:, :, 1), &
+      & res%dipole)
+   call get_molecular_quadrupole_moment(mol%ptr, res%wfn%qat(:, 1), res%wfn%dpat(:, :, 1), &
+      & res%wfn%qpat(:, :, 1), res%quadrupole)
 
 end subroutine get_singlepoint_api
 
@@ -347,6 +348,8 @@ subroutine check_wavefunction(wfn, mol, calc, etemp)
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
+
+   integer, parameter :: nspin = 1
 
    if (allocated(wfn)) then
       wfn%kt = etemp
@@ -359,7 +362,7 @@ subroutine check_wavefunction(wfn, mol, calc, etemp)
 
    if (.not.allocated(wfn)) then
       allocate(wfn)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, etemp)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, etemp)
    end if
 end subroutine check_wavefunction
 

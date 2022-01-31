@@ -140,7 +140,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Dispersion energy
    real(wp), intent(inout) :: energy
 
-   call self%model%weight_references(mol, cache%cn, wfn%qat, cache%gwvec)
+   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), cache%gwvec)
 
    call gemv(cache%dispmat, cache%gwvec, cache%vvec, alpha=0.5_wp)
    energy = energy + dot(cache%gwvec, cache%vvec)
@@ -160,12 +160,12 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 
-   call self%model%weight_references(mol, cache%cn, wfn%qat, cache%gwvec, cache%vvec, &
+   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), cache%gwvec, cache%vvec, &
       & cache%dgwdq)
 
    call gemv(cache%dispmat, cache%gwvec, cache%vvec)
    cache%vvec(:, :) = cache%vvec * cache%dgwdq
-   pot%vat(:) = pot%vat + sum(cache%vvec, dim=1)
+   pot%vat(:, 1) = pot%vat(:, 1) + sum(cache%vvec, dim=1)
 end subroutine get_potential
 
 
@@ -193,7 +193,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    mref = maxval(self%model%ref)
 
    allocate(gwvec(mref, mol%nat), gwdcn(mref, mol%nat), gwdq(mref, mol%nat))
-   call self%model%weight_references(mol, cache%cn, wfn%qat, gwvec, gwdcn, gwdq)
+   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), gwvec, gwdcn, gwdq)
 
    allocate(c6(mol%nat, mol%nat), dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
    call self%model%get_atomic_c6(mol, gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq)

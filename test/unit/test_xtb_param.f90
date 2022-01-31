@@ -412,12 +412,12 @@ subroutine test_gen(mol, method, error)
    call new_xtb_calculator(calc, mol, param, error)
    if (allocated(error)) return
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy1, verbosity=0)
 
    call new_gen_calculator(calc, method, mol)
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy2, verbosity=0)
 
    call check(error, energy2, energy1, thr=thr)
@@ -453,13 +453,13 @@ subroutine test_round_trip(mol, method, error)
    call new_xtb_calculator(calc, mol, param1, error)
    if (allocated(error)) return
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy1, verbosity=0)
 
    call new_xtb_calculator(calc, mol, param2, error)
    if (allocated(error)) return
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy2, verbosity=0)
 
    call check(error, energy2, energy1, thr=thr)

@@ -20,7 +20,7 @@ project(
 )
 install = true
 
-tblite_dep = dependency('tblite', version: '>=0.1.0')
+tblite_dep = dependency('tblite', version: '>=0.2.0')
 tblite_header = files('..'/'include'/'tblite.h')
 
 subdir('tblite')

@@ -31,45 +31,47 @@ contains
 subroutine ascii_levels(unit, verbosity, homo, emo, focc, range)
    integer, intent(in) :: unit
    integer, intent(in) :: verbosity
-   integer, intent(in) :: homo
-   real(wp), intent(in) :: emo(:)
-   real(wp), intent(in) :: focc(:)
+   integer, intent(in) :: homo(:)
+   real(wp), intent(in) :: emo(:, :)
+   real(wp), intent(in) :: focc(:, :)
    integer, intent(in) :: range
 
    character(len=*), parameter :: hlfmt = '(a21, f21.7, 1x, "Eh", f18.4, 1x, "eV")'
-   integer :: nao, maxorb, minorb, iorb
+   integer :: nao, maxorb, minorb, iorb, spin
    real(wp) :: gap
 
-   nao = size(emo)
-   minorb = max(homo - (range+1), 1)
-   maxorb = min(homo +  range, nao)
-   gap = emo(min(homo+1, nao)) - emo(max(homo, 1))
+   do spin = 1, size(emo, 2)
+   nao = size(emo, 1)
+   minorb = max(homo(spin) - (range+1), 1)
+   maxorb = min(homo(spin) +  range, nao)
+   gap = emo(min(homo(spin)+1, nao), spin) - emo(max(homo(spin), 1), spin)
 
    write(unit, '(66("-"))')
    write(unit, '(a7, a14, a21, a21)') "#", "Occupation", "Energy/Eh", "Energy/eV"
    write(unit, '(66("-"))')
    if (minorb > 1) then
-      call write_line(1, focc, emo, homo)
+      call write_line(1, focc(:, spin), emo(:, spin), homo(spin))
       if (minorb > 2) &
          write(unit, '(a7, a14, a21, a21)') "...", "...", "...", "..."
    endif
    do iorb = minorb, maxorb
-      call write_line(iorb, focc, emo, homo)
+      call write_line(iorb, focc(:, spin), emo(:, spin), homo(spin))
    enddo
    if (maxorb < nao) then
       if (maxorb < nao-1) then
-         if (focc(maxorb) > sqrt(epsilon(1.0_wp))) then
+         if (focc(maxorb, spin) > sqrt(epsilon(1.0_wp))) then
             write(unit, '(a7, a14, a21, a21)') "...", "...", "...", "..."
          else
             write(unit, '(a7, a14, a21, a21)') "...", "", "...", "..."
          endif
       endif
-      call write_line(nao, focc, emo, homo)
+      call write_line(nao, focc(:, spin), emo(:, spin), homo(spin))
    endif
    write(unit, '(66("-"))')
    write(unit, hlfmt) "HL-Gap", gap, gap*autoev
    write(unit, '(66("-"))')
    write(unit, '(a)')
+   end do
 
 contains
    subroutine write_line(iorb, focc, emo, ihomo)

@@ -126,9 +126,8 @@ subroutine test_generic(error, mol, make_repulsion, ref)
    !> Reference value to compare against
    real(wp), intent(in) :: ref
 
-   integer :: iat, ic
    type(tb_repulsion) :: rep
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
@@ -210,7 +209,6 @@ subroutine test_numsigma(error, mol, make_repulsion)
    type(tb_repulsion) :: rep
    real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattr(:, :), trans(:, :)
-   real(wp), allocatable :: alpha(:), zeff(:), kexp
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
    real(wp), parameter :: step = 1.0e-6_wp

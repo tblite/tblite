@@ -895,7 +895,7 @@ end subroutine get_reference_occ
 subroutine export_gfn1_param(param)
    type(param_record), intent(out) :: param
 
-   integer :: izp, jzp, i, il, jl, ish
+   integer :: izp, jzp, il, jl, ish
    integer :: ang_idx(0:2)
    logical, allocatable :: valence(:)
 

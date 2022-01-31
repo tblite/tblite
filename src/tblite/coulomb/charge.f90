@@ -223,8 +223,8 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Electrostatic energy
    real(wp), intent(inout) :: energy
 
-   call symv(cache%amat, wfn%qsh, cache%vvec, alpha=0.5_wp)
-   energy = energy + dot(cache%vvec, wfn%qsh)
+   call symv(cache%amat, wfn%qsh(:, 1), cache%vvec, alpha=0.5_wp)
+   energy = energy + dot(cache%vvec, wfn%qsh(:, 1))
 
 end subroutine get_energy
 
@@ -242,7 +242,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 
-   call symv(cache%amat, wfn%qsh, pot%vsh, beta=1.0_wp)
+   call symv(cache%amat, wfn%qsh(:, 1), pot%vsh(:, 1), beta=1.0_wp)
 
 end subroutine get_potential
 
@@ -268,10 +268,10 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    ndim = sum(self%nshell)
    allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim))
 
-   call self%get_coulomb_derivs(mol, cache, wfn%qat, wfn%qsh, dadr, dadL, datr)
+   call self%get_coulomb_derivs(mol, cache, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, datr)
 
-   call gemv(dadr, wfn%qsh, gradient, beta=1.0_wp)
-   call gemv(dadL, wfn%qsh, sigma, beta=1.0_wp, alpha=0.5_wp)
+   call gemv(dadr, wfn%qsh(:, 1), gradient, beta=1.0_wp)
+   call gemv(dadL, wfn%qsh(:, 1), sigma, beta=1.0_wp, alpha=0.5_wp)
 
 end subroutine get_gradient
 
