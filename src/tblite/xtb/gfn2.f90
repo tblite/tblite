@@ -20,7 +20,8 @@ module tblite_xtb_gfn2
    use mctc_io_symbols, only : to_symbol
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_coulomb_charge, only : new_effective_coulomb, arithmetic_average
+   use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
+      & arithmetic_average, coulomb_kernel
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_data_paulingen, only : get_pauling_en
@@ -98,7 +99,7 @@ module tblite_xtb_gfn2
 
    real(wp), parameter :: gexp = 2.0_wp
 
-   real(wp), parameter :: chemical_hardness(max_elem) = [&
+   real(wp), parameter :: hubbard_parameter(max_elem) = [&
       & 0.405771_wp, 0.642029_wp, 0.245006_wp, 0.684789_wp, 0.513556_wp, &
       & 0.538015_wp, 0.461493_wp, 0.451896_wp, 0.531518_wp, 0.850000_wp, &
       & 0.271056_wp, 0.344822_wp, 0.364801_wp, 0.720000_wp, 0.297739_wp, &
@@ -118,7 +119,7 @@ module tblite_xtb_gfn2
       & 0.418841_wp, 0.168152_wp, 0.900000_wp, 1.023267_wp, 0.288848_wp, &
       & 0.303400_wp]
 
-   real(wp), parameter :: shell_hardness(0:2, max_elem) = 1.0_wp + reshape([&
+   real(wp), parameter :: shell_hubbard(0:2, max_elem) = 1.0_wp + reshape([&
       & 0.0_wp, 0.0000000_wp, 0.0000000_wp, 0.0_wp, 0.0000000_wp, 0.0000000_wp, &
       & 0.0_wp, 0.1972612_wp, 0.0000000_wp, 0.0_wp, 0.9658467_wp, 0.0000000_wp, &
       & 0.0_wp, 0.3994080_wp, 0.0000000_wp, 0.0_wp, 0.1056358_wp, 0.0000000_wp, &
@@ -162,7 +163,7 @@ module tblite_xtb_gfn2
       & 0.0_wp,-0.7133401_wp, 0.0000000_wp, 0.0_wp, 0.7838251_wp, 0.0000000_wp, &
       & 0.0_wp,-0.6000000_wp, 0.0000000_wp, 0.0_wp,-0.8109155_wp, 0.0000000_wp, &
       & 0.0_wp,-0.2532073_wp, 0.2500000_wp, 0.0_wp,-0.0302388_wp,-0.2300000_wp],&
-      & shape(shell_hardness))
+      & shape(shell_hubbard))
 
    real(wp), parameter :: shell_hubbard_derivs(0:4) = [1.0_wp, 0.5_wp, spread(0.25_wp, 1, 3)]
 
@@ -654,12 +655,14 @@ subroutine add_coulomb(calc, mol)
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
    real(wp), allocatable :: dkernel(:), qkernel(:), rad(:), vcn(:)
+   type(effective_coulomb), allocatable :: es2
 
    allocate(calc%coulomb)
-   allocate(calc%coulomb%es2)
+   allocate(es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, arithmetic_average, &
+   call new_effective_coulomb(es2, mol, gexp, hardness, arithmetic_average, &
       & calc%bas%nsh_id)
+   call move_alloc(es2, calc%coulomb%es2)
 
    allocate(calc%coulomb%es3)
    call get_hubbard_derivs(mol, calc%bas, hubbard_derivs)
@@ -691,7 +694,7 @@ subroutine get_shell_hardness(mol, bas, hardness)
       izp = mol%num(isp)
       do ish = 1, bas%nsh_id(isp)
          il = bas%cgto(ish, isp)%ang
-         hardness(ish, isp) = chemical_hardness(izp) * shell_hardness(il, izp)
+         hardness(ish, isp) = hubbard_parameter(izp) * shell_hubbard(il, izp)
       end do
    end do
 end subroutine get_shell_hardness
@@ -916,6 +919,7 @@ subroutine export_gfn2_param(param)
 
    allocate(param%charge)
    associate(par => param%charge)
+      par%kernel = coulomb_kernel%effective
       par%gexp = gexp
       par%average = "arithmetic"
    end associate
@@ -965,8 +969,8 @@ subroutine export_gfn2_param(param)
          par%kcn = p_kcn(par%lsh, izp)
          par%shpoly = p_shpoly(par%lsh, izp)
 
-         par%gam = chemical_hardness(izp)
-         par%lgam = shell_hardness(par%lsh, izp)
+         par%gam = hubbard_parameter(izp)
+         par%lgam = shell_hubbard(par%lsh, izp)
 
          par%gam3 = p_hubbard_derivs(izp)
 

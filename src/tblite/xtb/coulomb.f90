@@ -18,7 +18,7 @@ module tblite_xtb_coulomb
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_charge, only : effective_coulomb
+   use tblite_coulomb_charge, only : coulomb_charge_type
    use tblite_coulomb_multipole, only : damped_multipole
    use tblite_coulomb_thirdorder, only : onsite_thirdorder
    use tblite_scf_potential, only : potential_type
@@ -29,7 +29,7 @@ module tblite_xtb_coulomb
    public :: tb_coulomb
 
    type :: tb_coulomb
-      type(effective_coulomb), allocatable :: es2
+      class(coulomb_charge_type), allocatable :: es2
       type(damped_multipole), allocatable :: aes2
       type(onsite_thirdorder), allocatable :: es3
    contains

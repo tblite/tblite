@@ -22,7 +22,8 @@ module tblite_xtb_ipea1
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : new_halogen_correction
-   use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
+   use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
+      & harmonic_average, coulomb_kernel
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
@@ -628,12 +629,14 @@ subroutine add_coulomb(calc, mol)
    type(structure_type), intent(in) :: mol
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
+   type(effective_coulomb), allocatable :: es2
 
    allocate(calc%coulomb)
-   allocate(calc%coulomb%es2)
+   allocate(es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, harmonic_average, &
+   call new_effective_coulomb(es2, mol, gexp, hardness, harmonic_average, &
       & calc%bas%nsh_id)
+   call move_alloc(es2, calc%coulomb%es2)
 
    allocate(calc%coulomb%es3)
    hubbard_derivs = spread(p_hubbard_derivs(mol%num), 1, 1)
@@ -958,6 +961,7 @@ subroutine export_ipea1_param(param)
 
    allocate(param%charge)
    associate(par => param%charge)
+      par%kernel = coulomb_kernel%effective
       par%gexp = gexp
       par%average = "harmonic"
    end associate

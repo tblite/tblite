@@ -228,8 +228,14 @@ Allowed entries:
 Charge section
 --------------
 
-The Klopman–Ohno parametrized electrostatic model can be enabled in the *effective* subtable.
-The exponent of the kernel can be modified as well as the averaging scheme for the chemical hardnesses / Hubbard parameters.
+The Klopman–Ohno parametrized electrostatic model is available with the *effective* subtable, while the DFTB γ-functional electrostatic can be enabled with the *gamma* subtable.
+Only one electrostatic model can be active at a time.
+
+Klopman–Ohno electrostatic
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The *gam* parameter in the element records is used as atomic Hubbard parameters and scaled with the *lgam* parameter to obtain shell-resolved values.
+The exponent of the kernel can be modified as well as the averaging scheme for the Hubbard parameters.
 Available averaging schemes are *arithmetic* (GFN2-xTB), *harmonic* (GFN1-xTB) and *geometric*.
 The electrostatic is always constructed shell-resolved.
 
@@ -247,6 +253,19 @@ Allowed entries:
  gexp      exponent of kernel                real                dimensionless
  average   averaging scheme                  string
 ========= ================================= =================== =====================
+
+
+DFTB γ-functional electrostatic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The *gam* parameter in the element records is used as Hubbard parameter and scaled with the *lgam* parameter to obtain shell-resolved values.
+The electrostatic is always constructed shell-resolved.
+
+.. code-block:: toml
+   :caption: Isotropic electrostatic for DFTB
+
+   [charge]
+   gamma = {}
 
 
 Thirdorder section
