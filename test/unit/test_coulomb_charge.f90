@@ -67,6 +67,7 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("gradient-atom-pbc", test_g_effective_co2), &
       new_unittest("gradient-atom-g1", test_g_effective_m11), &
       new_unittest("gradient-shell-g2", test_g_effective_m14), &
+      ! new_unittest("gradient-atom-pbc-g1", test_g_effective_urea), &
       new_unittest("sigma-atom-1", test_s_effective_m05), &
       new_unittest("sigma-atom-2", test_s_effective_m06), &
       new_unittest("sigma-shell", test_s_effective_m09), &
@@ -327,7 +328,6 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    type(coulomb_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
-   real(wp), parameter :: step = 1.0e-6_wp
    real(wp) :: thr_
    type(wavefunction_type) :: wfn
 
@@ -378,7 +378,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    type(coulomb_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
    type(wavefunction_type) :: wfn
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
@@ -443,7 +443,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
    type(wavefunction_type) :: wfn
 
    allocate(gradient(3, mol%nat), xyz(3, mol%nat))
@@ -710,6 +710,27 @@ subroutine test_g_effective_co2(error)
    call test_numgrad(error, mol, qat, qsh, make_coulomb_e2)
 
 end subroutine test_g_effective_co2
+
+
+subroutine test_g_effective_urea(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 5.55723890858218E-1_wp, 5.55765354442035E-1_wp, 2.50200231242017E-1_wp,&
+      & 2.50282053284422E-1_wp, 2.39786980460652E-1_wp, 2.39895142481200E-1_wp,&
+      & 2.50103678240412E-1_wp, 2.50425041601730E-1_wp, 2.39464477136495E-1_wp,&
+      & 2.40360053062669E-1_wp,-4.38369096728919E-1_wp,-4.38451412936599E-1_wp,&
+      &-4.38310020776279E-1_wp,-4.38617373848238E-1_wp,-6.59141030224988E-1_wp,&
+      &-6.59117968294813E-1_wp]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "urea")
+   call test_numgrad(error, mol, qat, qsh, make_coulomb_g1)
+
+end subroutine test_g_effective_urea
 
 
 subroutine test_s_effective_m05(error)

@@ -554,8 +554,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
             call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
-                  !gam = hardness(jsh, ish, jzp, izp)
-                  !call get_damat_dir_3d(vec, ui, uj, gexp, rcut, alpha, dtrans, dGd, dSd)
+                  ui = hubbard(ish, izp)
+                  uj = hubbard(jsh, jzp)
+                  call get_damat_dir_3d(vec, ui, uj, alpha, dtrans, dGd, dSd)
                   dG = (dGd + dGr) * wsw
                   dS = (dSd + dSr) * wsw
                   itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
@@ -575,14 +576,15 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
          call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
-               !gam = hardness(jsh, ish, izp, izp)
-               !call get_damat_dir_3d(vec, ui, uj, gexp, rcut, alpha, dtrans, dGd, dSd)
+               ui = hubbard(ish, izp)
+               uj = hubbard(jsh, izp)
+               call get_damat_dir_3d(vec, ui, uj, alpha, dtrans, dGd, dSd)
                dS = (dSd + dSr) * wsw
                didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
                didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
             end do
-            !gam = hardness(ish, ish, izp, izp)
-            !call get_damat_dir_3d(vec, ui, uj, gexp, rcut, alpha, dtrans, dGd, dSd)
+            ui = hubbard(ish, izp)
+            call get_damat_dir_3d(vec, ui, ui, alpha, dtrans, dGd, dSd)
             dS = (dSd + dSr) * wsw
             didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
          end do
@@ -598,15 +600,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
 end subroutine get_damat_3d
 
 !> Calculate real space contributions for a pair under 3D periodic boundary conditions
-subroutine get_damat_dir_3d(rij, ui, uj, gexp, rcut, alp, trans, dg, ds)
+subroutine get_damat_dir_3d(rij, ui, uj, alp, trans, dg, ds)
    !> Distance between pair
    real(wp), intent(in) :: rij(3)
    !> Chemical hardness
    real(wp), intent(in) :: ui, uj
-   !> Exponent for interaction kernel
-   real(wp), intent(in) :: gexp
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Convergence factor
    real(wp), intent(in) :: alp
    !> Translation vectors to consider
@@ -629,11 +627,7 @@ subroutine get_damat_dir_3d(rij, ui, uj, gexp, rcut, alp, trans, dg, ds)
       r1 = norm2(vec)
       if (r1 < eps) cycle
       r2 = r1*r1
-      fcut = fsmooth(r1, rcut)
-      dcut = dsmooth(r1, rcut)
-      !gtmp = 1.0_wp / (r1**gexp + gam**(-gexp))
-      gtmp = -r1**(gexp-2.0_wp) * gtmp * gtmp**(1.0_wp/gexp) * fcut - (1.0_wp-fcut)/(r2*r1) &
-         & + dcut * (gtmp**(1.0_wp/gexp) * r1 - 1.0_wp) / r2
+      gtmp = -1.0_wp/(r2*r1) - dexp_gamma(r1, ui, uj)/r1
       atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2) + erf(r1*alp)/(r2*r1)
       dg(:) = dg + (gtmp + atmp) * vec
       ds(:, :) = ds + (gtmp + atmp) * spread(vec, 1, 3) * spread(vec, 2, 3)
@@ -684,46 +678,51 @@ end subroutine get_damat_rec_3d
 
 
 !> Determines the value of the short range contribution to gamma with the exponential form
-pure function exp_gamma(r1, Ua, Ub)
+pure function exp_gamma(r1, ui, uj)
    !> separation of sites a and b
    real(wp), intent(in) :: r1
    !> Hubbard U for site a
-   real(wp), intent(in) :: Ua
+   real(wp), intent(in) :: ui
    !> Hubbard U for site b
-   real(wp), intent(in) :: Ub
+   real(wp), intent(in) :: uj
    !> contribution
    real(wp) :: exp_gamma
 
    real(wp) :: taui, tauj, tauij
 
    ! 16/5 * U, see review papers / theses
-   taui = 3.2_wp*Ua
-   tauj = 3.2_wp*Ub
+   taui = 3.2_wp*ui
+   tauj = 3.2_wp*uj
+
    if (r1 < eps) then
       ! on-site case with R~0
-      if (abs(Ua - Ub) < eps) then
-         ! same Hubbard U values, onsite , NOTE SIGN CHANGE!
-         exp_gamma = -0.5_wp*(Ua + Ub)
+      if (abs(ui - uj) < eps) then
+         ! same Hubbard U values, onsite
+         exp_gamma = -0.5_wp*(ui + uj)
       else
-         ! Ua /= Ub Hubbard U values - limiting case, NOTE SIGN CHANGE!
+         ! ui /= uj Hubbard U values - limiting case
          exp_gamma = &
             & -0.5_wp*((taui*tauj)/(taui+tauj) + (taui*tauj)**2/(taui+tauj)**3)
       end if
-   else if (abs(Ua - Ub) < eps) then
-      ! R > 0 and same Hubbard U values
-      tauij = 0.5_wp*(taui + tauj)
-      exp_gamma = &
-         & exp(-tauij*r1) * (1.0_wp/r1 + 0.6875_wp*tauij &
-         & + 0.1875_wp*r1*(tauij**2) &
-         & + 0.02083333333333333333_wp*(r1**2)*(tauij**3))
    else
-      exp_gamma = gamma_sf(r1,taui,tauj) + gamma_sf(r1,tauj,taui)
+      if (abs(ui - uj) < eps) then
+         ! R > 0 and same Hubbard U values
+         tauij = 0.5_wp*(taui + tauj)
+         exp_gamma = &
+            & exp(-tauij*r1) &
+            & * (48.0_wp/r1 &
+            &   + 33.0_wp*tauij &
+            &   + 9.0_wp*r1*(tauij**2) &
+            &   + (r1**2)*(tauij**3)) / 48.0_wp
+      else
+         exp_gamma = gamma_sf(r1,taui,tauj) + gamma_sf(r1,tauj,taui)
+      end if
    end if
 
 end function exp_gamma
 
 !> Determines the value of a part of the short range contribution to the exponential gamma, when
-!> Ua /= Ub and R > 0
+!> ui /= uj and R > 0
 pure function gamma_sf(r1, taui, tauj) result(sf)
    !> separation of sites a and b
    real(wp), intent(in) :: r1
@@ -734,71 +733,68 @@ pure function gamma_sf(r1, taui, tauj) result(sf)
    !> contribution
    real(wp) :: sf
 
-   sf = exp(-taui * r1)&
-      & * ((0.5_wp*tauj**4*taui/(taui**2-tauj**2)**2)&
-      & - (tauj**6-3.0_wp*tauj**4*taui**2)/(r1*(taui**2-tauj**2)**3))
+   sf = exp(-taui * r1) &
+      & * ((0.5_wp*tauj**4*taui/(taui**2-tauj**2)**2) &
+      &   - (tauj**6-3.0_wp*tauj**4*taui**2)/(r1*(taui**2-tauj**2)**3))
 
 end function gamma_sf
 
 !> Determines the value of the derivative of the short range contribution to gamma with the
 !> exponential form
-pure function dexp_gamma(r1,Ua,Ub)
+pure function dexp_gamma(r1,ui,uj)
    !> separation of sites a and b
    real(wp), intent(in) :: r1
    !> Hubbard U for site a
-   real(wp), intent(in) :: Ua
+   real(wp), intent(in) :: ui
    !> Hubbard U for site b
-   real(wp), intent(in) :: Ub
+   real(wp), intent(in) :: uj
    !> returned contribution
    real(wp) :: dexp_gamma
 
-   real(wp) :: tauA, tauB, tauMean
+   real(wp) :: taui, tauj, tauij
 
-   ! on-site case with R~0
-   if (r1 < eps) then
-      dexp_gamma = 0.0_wp
-   else if (abs(Ua - Ub) < eps) then
+   dexp_gamma = 0.0_wp
+   if (r1 < eps) return
+
+   ! 16/5 * U, see review papers
+   taui = 3.2_wp*ui
+   tauj = 3.2_wp*uj
+
+   if (abs(ui - uj) < eps) then
       ! R > 0 and same Hubbard U values
-      ! 16/5 * U, see review papers
-      tauMean = 3.2_wp * 0.5_wp * (Ua + Ub)
+      tauij = 0.5_wp * (taui + tauj)
       dexp_gamma = &
-         & -tauMean * exp(-tauMean*r1) * &
-         & ( 1.0_wp/r1 + 0.6875_wp*tauMean &
-         & + 0.1875_wp*r1*(tauMean**2) &
-         & + 0.02083333333333333333_wp*(r1**2)*(tauMean**3) ) &
-         & + exp(-tauMean*r1) * &
-         & ( -1.0_wp/r1**2 + 0.1875_wp*(tauMean**2) &
-         & + 2.0_wp*0.02083333333333333333_wp*r1*(tauMean**3) )
+         & -exp(-tauij*r1) &
+         & * (tauij**4*r1**4 &
+         &   + 7*tauij**3*r1**3 &
+         &   + 24*tauij**2*r1**2 &
+         &   + 48*tauij*r1 &
+         &   + 48.0_wp) &
+         & / (48.0_wp*r1**2)
    else
-      ! 16/5 * U, see review papers
-      tauA = 3.2_wp*Ua
-      tauB = 3.2_wp*Ub
-      ! using the sign convention in the review articles, not Joachim Elstner's thesis -- there's a
-      ! typo there
-      dexp_gamma = gammaSubExprnPrime_(r1,tauA,tauB)&
-         & + gammaSubExprnPrime_(r1,tauB,tauA)
+      dexp_gamma = dgamma_sf(r1,taui,tauj) + dgamma_sf(r1,tauj,taui)
    end if
 end function dexp_gamma
 
 !> Determines the derivative of the value of a part of the short range contribution to the
-!> exponential gamma, when Ua /= Ub and R > 0
-pure function gammaSubExprnPrime_(r1, tau1, tau2) result(gammaSubPrime)
+!> exponential gamma, when ui /= uj and R > 0
+pure function dgamma_sf(r1, taui, tauj) result(dsf)
    !> separation of sites a and b
    real(wp), intent(in) :: r1
    !> Charge fluctuation for site a
-   real(wp), intent(in) :: tau1
+   real(wp), intent(in) :: taui
    !> Charge fluctuation U for site b
-   real(wp), intent(in) :: tau2
+   real(wp), intent(in) :: tauj
    !> contribution
-   real(wp) :: gammaSubPrime
+   real(wp) :: dsf
 
-   gammaSubPrime = -tau1 * exp(- tau1 * r1)&
-      & * ((0.5_wp*tau2**4*tau1/(tau1**2-tau2**2)**2)&
-      & - (tau2**6-3.0_wp*tau2**4*tau1**2)/(r1*(tau1**2-tau2**2)**3) )&
-      & + exp(- tau1 * r1) * (tau2**6-3.0_wp*tau2**4*tau1**2) &
-      & / (r1**2 *(tau1**2-tau2**2)**3)
+   dsf = &
+      & exp(- taui * r1) &
+      & * (taui * tauj**4 * (tauj**2 - 3.0_wp*taui**2)/(r1*(taui**2-tauj**2)**3) &
+      &   - tauj**4 * taui**2 / (2*(taui**2-tauj**2)**2) &
+      &   + tauj**4*(tauj**2 - 3.0_wp*taui**2) / (r1**2 *(taui**2-tauj**2)**3))
 
-end function gammaSubExprnPrime_
+end function dgamma_sf
 
 
 end module tblite_coulomb_charge_gamma
