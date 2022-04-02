@@ -22,7 +22,8 @@ module tblite_xtb_calculator
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_type, container_list
-   use tblite_coulomb_charge, only : new_effective_coulomb, average_interface, &
+   use tblite_coulomb_charge, only : coulomb_kernel, new_gamma_coulomb, gamma_coulomb, &
+      & new_effective_coulomb, effective_coulomb, average_interface, &
       & harmonic_average, arithmetic_average, geometric_average
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
@@ -288,11 +289,25 @@ subroutine add_coulomb(calc, mol, param, irc)
    allocate(calc%coulomb)
 
    if (allocated(param%charge)) then
-      allocate(calc%coulomb%es2)
       call get_shell_hardness(mol, param, irc, hardness)
-      call get_average(param%charge%average, average)
-      call new_effective_coulomb(calc%coulomb%es2, mol, param%charge%gexp, hardness, &
-         & average, calc%bas%nsh_id)
+      select case(param%charge%kernel)
+      case(coulomb_kernel%effective)
+         block
+            type(effective_coulomb), allocatable :: es2
+            allocate(es2)
+            call get_average(param%charge%average, average)
+            call new_effective_coulomb(es2, mol, param%charge%gexp, hardness, &
+               & average, calc%bas%nsh_id)
+            call move_alloc(es2, calc%coulomb%es2)
+         end block
+      case(coulomb_kernel%dftb_gamma)
+         block
+            type(gamma_coulomb), allocatable :: es2
+            allocate(es2)
+            call new_gamma_coulomb(es2, mol, hardness, calc%bas%nsh_id)
+            call move_alloc(es2, calc%coulomb%es2)
+         end block
+      end select
    end if
 
    if (allocated(param%thirdorder)) then

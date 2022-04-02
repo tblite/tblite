@@ -14,13 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('charge')
-
 srcs += files(
-  'cache.f90',
-  'charge.f90',
-  'ewald.f90',
-  'multipole.f90',
-  'thirdorder.f90',
+  'effective.f90',
+  'gamma.f90',
   'type.f90',
 )

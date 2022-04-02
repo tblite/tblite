@@ -17,6 +17,7 @@
 !> Definition of the isotropic second-order electrostatic model
 module tblite_param_charge
    use mctc_env, only : wp, error_type, fatal_error
+   use tblite_coulomb_charge, only : coulomb_kernel
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, get_value, set_value, add_table
    implicit none
@@ -26,10 +27,12 @@ module tblite_param_charge
 
 
    character(len=*), parameter :: k_effective = "effective", k_gexp = "gexp", &
-      & k_average = "average"
+      & k_average = "average", k_gamma = "gamma"
 
    !> Parametrization record for the isotropic second-order electrostatics
    type, extends(serde_record) :: charge_record
+      !> Coulomb interaction kernel
+      integer :: kernel
       !> Averaging scheme for the chemical hardness / Hubbard parameters
       character(len=:), allocatable :: average
       !> Exponent manipulating the long range behaviour of the Coulombic kernel
@@ -72,29 +75,36 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat
 
-   call get_value(table, k_effective, child, requested=.false.)
+   self%kernel = coulomb_kernel%dftb_gamma
+   call get_value(table, k_gamma, child, requested=.false.)
    if (.not.associated(child)) then
-      call fatal_error(error, "No entry for effective Coulomb electrostatic found")
+      self%kernel = coulomb_kernel%effective
+      call get_value(table, k_effective, child, requested=.false.)
+   end if
+   if (.not.associated(child)) then
+      call fatal_error(error, "No entry for Coulomb electrostatic found")
       return
    end if
 
-   call get_value(child, k_gexp, self%gexp, stat=stat)
-   if (stat /= 0) then
-      call fatal_error(error, "Invalid entry for effective Coulomb exponent")
-      return
-   end if
+   if (self%kernel == coulomb_kernel%effective) then
+      call get_value(child, k_gexp, self%gexp, stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Invalid entry for effective Coulomb exponent")
+         return
+      end if
 
-   call get_value(child, k_average, self%average, stat=stat)
-   if (stat /= 0) then
-      call fatal_error(error, "Invalid entry for hardness averaging")
-      return
+      call get_value(child, k_average, self%average, stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Invalid entry for hardness averaging")
+         return
+      end if
+      select case(self%average)
+      case default
+         call fatal_error(error, "Invalid '"//self%average//"' averaging for hardness")
+         return
+      case("harmonic", "geometric", "arithmetic")
+      end select
    end if
-   select case(self%average)
-   case default
-      call fatal_error(error, "Invalid '"//self%average//"' averaging for hardness")
-      return
-   case("harmonic", "geometric", "arithmetic")
-   end select
 end subroutine load_from_toml
 
 
@@ -109,9 +119,13 @@ subroutine dump_to_toml(self, table, error)
 
    type(toml_table), pointer :: child
 
-   call add_table(table, k_effective, child)
-   call set_value(child, k_gexp, self%gexp)
-   call set_value(child, k_average, self%average)
+   if (self%kernel == coulomb_kernel%effective) then
+      call add_table(table, k_effective, child)
+      call set_value(child, k_gexp, self%gexp)
+      call set_value(child, k_average, self%average)
+   else
+      call add_table(table, k_gamma, child)
+   end if
 end subroutine dump_to_toml
 
 

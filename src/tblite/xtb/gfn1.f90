@@ -22,7 +22,8 @@ module tblite_xtb_gfn1
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : new_halogen_correction
-   use tblite_coulomb_charge, only : new_effective_coulomb, harmonic_average
+   use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
+      & harmonic_average, coulomb_kernel
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
@@ -94,7 +95,7 @@ module tblite_xtb_gfn1
       & 86.000000_wp]
 
    !> Atomic hardnesses used in second order electrostatics
-   real(wp), parameter :: chemical_hardness(max_elem) = [&
+   real(wp), parameter :: hubbard_parameter(max_elem) = [&
       & 0.470099_wp, 1.441379_wp, 0.205342_wp, 0.274022_wp, 0.340530_wp, &
       & 0.479988_wp, 0.476106_wp, 0.583349_wp, 0.788194_wp, 0.612878_wp, &
       & 0.165908_wp, 0.354151_wp, 0.221658_wp, 0.438331_wp, 0.798319_wp, &
@@ -115,7 +116,7 @@ module tblite_xtb_gfn1
       & 0.798170_wp]
 
    !> Scaling factors for shell electrostatics
-   real(wp), parameter :: shell_hardness(0:2, max_elem) = 1.0_wp + reshape([&
+   real(wp), parameter :: shell_hubbard(0:2, max_elem) = 1.0_wp + reshape([&
       & 0.0_wp, 0.0000000_wp, 0.0000000_wp,  0.0_wp, 0.0000000_wp, 0.0000000_wp, &
       & 0.0_wp,-0.0772012_wp, 0.0000000_wp,  0.0_wp, 0.1113005_wp, 0.0000000_wp, &
       & 0.0_wp, 0.0165643_wp, 0.0000000_wp,  0.0_wp,-0.0471181_wp, 0.0000000_wp, &
@@ -159,7 +160,7 @@ module tblite_xtb_gfn1
       & 0.0_wp,-0.8101017_wp, 0.0000000_wp,  0.0_wp,-0.7925216_wp, 0.0000000_wp, &
       & 0.0_wp,-0.7150589_wp, 0.0000000_wp,  0.0_wp,-0.3955914_wp, 0.0000000_wp, &
       & 0.0_wp,-0.3402676_wp, 0.0000000_wp,  0.0_wp,-0.2380762_wp, 0.0000000_wp],&
-      & shape(shell_hardness))
+      & shape(shell_hubbard))
 
    !> Third order Hubbard derivatives
    real(wp), parameter :: p_hubbard_derivs(max_elem) = [&
@@ -618,12 +619,14 @@ subroutine add_coulomb(calc, mol)
    type(structure_type), intent(in) :: mol
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
+   type(effective_coulomb), allocatable :: es2
 
    allocate(calc%coulomb)
-   allocate(calc%coulomb%es2)
+   allocate(es2)
    call get_shell_hardness(mol, calc%bas, hardness)
-   call new_effective_coulomb(calc%coulomb%es2, mol, gexp, hardness, harmonic_average, &
+   call new_effective_coulomb(es2, mol, gexp, hardness, harmonic_average, &
       & calc%bas%nsh_id)
+   call move_alloc(es2, calc%coulomb%es2)
 
    allocate(calc%coulomb%es3)
    hubbard_derivs = spread(p_hubbard_derivs(mol%num), 1, 1)
@@ -647,7 +650,7 @@ subroutine get_shell_hardness(mol, bas, hardness)
       izp = mol%num(isp)
       do ish = 1, bas%nsh_id(isp)
          il = bas%cgto(ish, isp)%ang
-         hardness(ish, isp) = chemical_hardness(izp) * shell_hardness(il, izp)
+         hardness(ish, isp) = hubbard_parameter(izp) * shell_hubbard(il, izp)
       end do
    end do
 end subroutine get_shell_hardness
@@ -943,6 +946,7 @@ subroutine export_gfn1_param(param)
 
    allocate(param%charge)
    associate(par => param%charge)
+      par%kernel = coulomb_kernel%effective
       par%gexp = gexp
       par%average = "harmonic"
    end associate
@@ -996,8 +1000,8 @@ subroutine export_gfn1_param(param)
          par%kcn = p_kcn(:par%nsh, izp)
          par%shpoly = p_shpoly(par%lsh, izp)
 
-         par%gam = chemical_hardness(izp)
-         par%lgam = shell_hardness(par%lsh, izp)
+         par%gam = hubbard_parameter(izp)
+         par%lgam = shell_hubbard(par%lsh, izp)
 
          par%gam3 = p_hubbard_derivs(izp)
 
