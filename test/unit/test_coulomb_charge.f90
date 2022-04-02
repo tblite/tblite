@@ -551,8 +551,8 @@ subroutine test_e_effective_m10(error)
       & 1.46685494419848E-2_wp]
    real(wp), allocatable :: qsh(:)
 
-   call get_structure(mol, "MB16-43", "20")
-   call test_generic(error, mol, qat, qsh, make_coulomb_g1, 0.16376744969907708_wp)
+   call get_structure(mol, "MB16-43", "10")
+   call test_generic(error, mol, qat, qsh, make_coulomb_g1, 7.964758847421499E-2_wp, thr2)
 
 end subroutine test_e_effective_m10
 
@@ -974,8 +974,9 @@ subroutine test_e_effective_m13(error)
    real(wp), allocatable :: qsh0(:)
 
    call get_structure(mol, "MB16-43", "13")
-   call test_generic(error, mol, qat, qsh0, make_coulomb_g2, 4.4263535114062461E-2_wp)
-   call test_generic(error, mol, qat, qsh, make_coulomb_g2, 6.1195162961497636E-2_wp)
+   call test_generic(error, mol, qat, qsh0, make_coulomb_g2, 4.4263535114062461E-2_wp, thr2)
+   if (allocated(error)) return
+   call test_generic(error, mol, qat, qsh, make_coulomb_g2, 6.1195162961497636E-2_wp, thr2)
 
 end subroutine test_e_effective_m13
 
