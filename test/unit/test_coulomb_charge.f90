@@ -54,26 +54,27 @@ subroutine collect_coulomb_charge(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
-      new_unittest("energy-atom-1", test_e_effective_m01), &
-      new_unittest("energy-atom-2", test_e_effective_m02), &
-      new_unittest("energy-shell", test_e_effective_m07), &
-      new_unittest("energy-atom-pbc", test_e_effective_oxacb), &
-      new_unittest("energy-atom-sc", test_e_effective_oxacb_sc), &
+      new_unittest("energy-atom-e1", test_e_effective_m01), &
+      new_unittest("energy-atom-e2", test_e_effective_m02), &
+      new_unittest("energy-shell-e1", test_e_effective_m07), &
+      new_unittest("energy-atom-pbc-e2", test_e_effective_oxacb), &
+      new_unittest("energy-atom-sc-e2", test_e_effective_oxacb_sc), &
       new_unittest("energy-atom-g1", test_e_effective_m10), &
       new_unittest("energy-shell-g2", test_e_effective_m13), &
-      new_unittest("gradient-atom-1", test_g_effective_m03), &
-      new_unittest("gradient-atom-2", test_g_effective_m04), &
-      new_unittest("gradient-shell", test_g_effective_m08), &
-      new_unittest("gradient-atom-pbc", test_g_effective_co2), &
+      new_unittest("gradient-atom-e1", test_g_effective_m03), &
+      new_unittest("gradient-atom-e2", test_g_effective_m04), &
+      new_unittest("gradient-shell-e1", test_g_effective_m08), &
+      new_unittest("gradient-atom-pbc-e2", test_g_effective_co2), &
       new_unittest("gradient-atom-g1", test_g_effective_m11), &
       new_unittest("gradient-shell-g2", test_g_effective_m14), &
-      ! new_unittest("gradient-atom-pbc-g1", test_g_effective_urea), &
-      new_unittest("sigma-atom-1", test_s_effective_m05), &
-      new_unittest("sigma-atom-2", test_s_effective_m06), &
-      new_unittest("sigma-shell", test_s_effective_m09), &
-      new_unittest("sigma-atom-pbc", test_s_effective_ammonia), &
-      new_unittest("gradient-atom-g1", test_s_effective_m12), &
-      new_unittest("gradient-shell-g2", test_s_effective_m15) &
+      new_unittest("gradient-atom-pbc-g1", test_g_effective_urea), &
+      new_unittest("sigma-atom-e1", test_s_effective_m05), &
+      new_unittest("sigma-atom-e2", test_s_effective_m06), &
+      new_unittest("sigma-shell-e1", test_s_effective_m09), &
+      new_unittest("sigma-atom-pbc-e2", test_s_effective_ammonia), &
+      new_unittest("sigma-atom-g1", test_s_effective_m12), &
+      new_unittest("sigma-shell-g2", test_s_effective_m15), &
+      new_unittest("sigma-atom-pbc-g2", test_s_effective_pyrazine) &
       ]
 
 end subroutine collect_coulomb_charge
@@ -378,7 +379,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    type(coulomb_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
-   real(wp), parameter :: step = 1.0e-5_wp
+   real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
@@ -815,6 +816,28 @@ subroutine test_s_effective_ammonia(error)
    call test_numsigma(error, mol, qat, qsh, make_coulomb_e2)
 
 end subroutine test_s_effective_ammonia
+
+
+subroutine test_s_effective_pyrazine(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 1.23705026512437E-1_wp, 1.22537765989959E-1_wp, 1.23932626831231E-1_wp,&
+      & 1.22418959326822E-1_wp, 1.23788033684569E-1_wp, 1.23643389058068E-1_wp,&
+      & 1.22389811551880E-1_wp, 1.22402837718155E-1_wp, 3.17174594622166E-2_wp,&
+      & 3.15585817789390E-2_wp, 3.14290005061543E-2_wp, 3.10358506314526E-2_wp,&
+      & 3.11084225356749E-2_wp, 3.11187325528499E-2_wp, 3.10707965296438E-2_wp,&
+      & 3.13508824430484E-2_wp,-3.09107070033859E-1_wp,-3.09144123845085E-1_wp,&
+      &-3.08473365847409E-1_wp,-3.08483617386745E-1_wp]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "pyrazine")
+   call test_numsigma(error, mol, qat, qsh, make_coulomb_g2)
+
+end subroutine test_s_effective_pyrazine
 
 subroutine write_charges(mol)
    use dftd4_charge, only : get_charges

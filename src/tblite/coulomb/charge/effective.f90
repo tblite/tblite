@@ -655,9 +655,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
          end do
       end do
 
+      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
          call get_damat_rec_3d(vec, vol, alpha, 0.0_wp, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1

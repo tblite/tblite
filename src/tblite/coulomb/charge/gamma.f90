@@ -258,7 +258,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   ui = hubbard(ish, izp)
-                  uj = hubbard(jsh, izp)
+                  uj = hubbard(jsh, jzp)
                   call get_amat_dir_3d(vec, ui, uj, alpha, dtrans, dtmp)
                   aval = (dtmp + rtmp) * wsw
                   !$omp atomic
@@ -280,7 +280,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
                ui = hubbard(ish, izp)
                uj = hubbard(jsh, izp)
                call get_amat_dir_3d(vec, ui, uj, alpha, dtrans, dtmp)
-               aval = (dtmp + rtmp + exp_gamma(0.0_wp, ui, uj)) * wsw
+               aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, uj)) * wsw
                !$omp atomic
                amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
                !$omp atomic
@@ -288,7 +288,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
             end do
             ui = hubbard(ish, izp)
             call get_amat_dir_3d(vec, ui, ui, alpha, dtrans, dtmp)
-            aval = (dtmp + rtmp + exp_gamma(0.0_wp, ui, ui)) * wsw
+            aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, ui)) * wsw
             !$omp atomic
             amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
@@ -570,9 +570,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
          end do
       end do
 
+      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
          call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
@@ -651,7 +651,7 @@ subroutine get_damat_rec_3d(rij, vol, alp, trans, dg, ds)
    real(wp), intent(out) :: ds(3, 3)
 
    integer :: itr
-   real(wp) :: fac, vec(3), g2, gv, expk, sink, cosk, alp2, fqp
+   real(wp) :: fac, vec(3), g2, gv, expk, sink, cosk, alp2
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
 
@@ -670,8 +670,8 @@ subroutine get_damat_rec_3d(rij, vol, alp, trans, dg, ds)
       sink = sin(gv) * expk
       dg(:) = dg - sink * vec
       ds(:, :) = ds + cosk &
-         & * ((2.0_wp/g2 + 0.5_wp/alp2 + 0.5_wp*fqp) * spread(vec, 1, 3)*spread(vec, 2, 3) &
-         &     - unity * (1.0_wp + g2*fqp))
+         & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) &
+         &     - unity)
    end do
 
 end subroutine get_damat_rec_3d
