@@ -142,7 +142,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("interactions")
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) print *, property("interaction energy", edisp, "Eh")
+      if (prlevel > 1) print *, property("interaction energy", eint, "Eh")
       energy = energy + eint
       call timer%pop
    end if
