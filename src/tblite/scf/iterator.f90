@@ -109,6 +109,8 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
       & wfn%qsh)
 
+   call get_qat_from_qsh(bas, wfn%qsh(:, 1), wfn%qat(:, 1))
+
    call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, &
       & wfn%dpat)
    call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, &
