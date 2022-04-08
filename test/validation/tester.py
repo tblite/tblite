@@ -30,7 +30,7 @@ except ImportError:
 if len(sys.argv) < 4:
     raise RuntimeError("Requires at least four arguments")
 
-thr = 1.0e-9
+thr = 1.0e-7
 prog = sys.argv[1]
 reference_file = sys.argv[2]
 args = sys.argv[3:]
