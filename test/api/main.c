@@ -16,12 +16,39 @@
 **/
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
 #include <string.h>
 
 #include "tblite.h"
+
+#define check(x, ...) \
+    _Generic((x), \
+        int: check_int, \
+     double: check_double \
+            )(x, __VA_ARGS__)
+
+static inline bool
+check_int(int actual, int expected, const char *msg)
+{
+    if (expected == actual) {
+        return true;
+    }
+    fprintf(stderr, "[Fatal] %s: expected %d, got %d\n", msg, expected, actual);
+    return false;
+}
+
+static inline bool
+check_double(double actual, double expected, double tol, const char *msg)
+{
+    if (fabs(expected - actual) < tol) {
+        return true;
+    }
+    fprintf(stderr, "[Fatal] %s: expected %lf, got %lf\n", msg, expected, actual);
+    return false;
+}
 
 static inline double
 norm2(int n, double* vec)
@@ -556,7 +583,7 @@ test_calc_restart (void)
    tblite_calculator calc = NULL;
    tblite_result res1 = NULL, res2 = NULL;
 
-   const double thr = 1.0e-9;
+   const double thr = 5.0e-7;
    int natoms = 22;
    int num[22] = {7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1};
    double xyz[3*22] = {
@@ -615,10 +642,7 @@ test_calc_restart (void)
    tblite_get_result_energy(error, res1, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-34.98079463818 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -34.98079463818, thr, "energy error")) goto err;
 
    // reset calculator
    tblite_delete_calculator(&calc);
@@ -630,10 +654,7 @@ test_calc_restart (void)
    tblite_get_result_energy(error, res1, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-32.96247211794 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -32.96247211794, thr, "energy error")) goto err;
 
    res2 = tblite_copy_result(res1);
    tblite_delete_result(&res1);
@@ -645,10 +666,7 @@ test_calc_restart (void)
    tblite_get_result_energy(error, res2, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-32.96247199299 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -32.96247199299, thr, "energy error")) goto err;
 
    tblite_delete_error(&error);
    tblite_delete_context(&ctx);
@@ -695,7 +713,7 @@ test_callback (void)
    tblite_calculator calc = NULL;
    tblite_result res = NULL;
 
-   const double thr = 1.0e-9;
+   const double thr = 5.0e-7;
    int natoms = 22, nshells, norb;
    int num[22] = {7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1};
    double xyz[3*22] = {
@@ -751,34 +769,22 @@ test_callback (void)
    tblite_get_result_number_of_atoms(error, res, &natoms);
    if (tblite_check_error(error)) goto err;
 
-   if (natoms != 22) {
-      printf("[Fatal] dimension error: %d\n", natoms);
-      goto err;
-   }
+   if (!check(natoms, 22, "dimension error")) goto err;
 
    tblite_get_result_number_of_shells(error, res, &nshells);
    if (tblite_check_error(error)) goto err;
 
-   if (nshells != 32) {
-      printf("[Fatal] dimension error: %d\n", nshells);
-      goto err;
-   }
+   if (!check(nshells, 32, "dimension error")) goto err;
 
    tblite_get_result_number_of_orbitals(error, res, &norb);
    if (tblite_check_error(error)) goto err;
 
-   if (norb != 52) {
-      printf("[Fatal] dimension error: %d\n", norb);
-      goto err;
-   }
+   if (!check(norb, 52, "dimension error")) goto err;
 
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-32.96247211794 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -32.96247211794, thr, "energy error")) goto err;
 
    tblite_set_context_logger(ctx, NULL, NULL);
    tblite_set_calculator_max_iter(ctx, calc, 3);
@@ -789,10 +795,7 @@ test_callback (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-32.96247199299 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -32.96247195792, thr, "energy error")) goto err;
 
    tblite_delete_error(&error);
    tblite_delete_context(&ctx);
@@ -833,7 +836,7 @@ test_gfn2_si5h12 (void)
    tblite_result res = NULL;
    tblite_param param = NULL;
 
-   const double thr = 1.0e-9;
+   const double thr = 5.0e-7;
    int natoms = 17;
    int num[17] = {14, 14, 14, 14, 14, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
    double xyz[3*17] = {
@@ -879,17 +882,11 @@ test_gfn2_si5h12 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-14.7042098026524 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -14.7042098026524, thr, "energy error")) goto err;
 
    tblite_get_result_gradient(error, res, gradient);
 
-   if (fabs(0.0283783086422 - norm2(3*17, gradient)) > thr) {
-      printf("[Fatal] gradient error: %lf\n", norm2(3*17, gradient));
-      goto err;
-   }
+   if (!check(norm2(3*17, gradient), 0.0283783086422, thr, "gradient error")) goto err;
 
    double xyz_2[3*17] = {
       +1.79735083062742, -4.42665143396774, +0.00000000000000,
@@ -919,18 +916,12 @@ test_gfn2_si5h12 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-14.7039683607488 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -14.7039683607488, thr, "energy error")) goto err;
 
    tblite_get_result_gradient(error, res, gradient);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(0.0279191562471 - norm2(3*17, gradient)) > thr) {
-      printf("[Fatal] gradient error: %lf\n", norm2(3*17, gradient));
-      goto err;
-   }
+   if (!check(norm2(3*17, gradient), 0.0279191562471, thr, "gradient error")) goto err;
 
    tblite_delete_error(&error);
    tblite_delete_context(&ctx);
@@ -972,7 +963,7 @@ test_ipea1_ch4 (void)
    tblite_calculator calc = NULL;
    tblite_result res = NULL;
 
-   const double thr = 1.0e-9;
+   const double thr = 5.0e-7;
    int natoms = 5;
    int num[17] = {6, 1, 1, 1, 1};
    double charge_cation = 1.0;
@@ -1020,10 +1011,7 @@ test_ipea1_ch4 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-4.027631971332 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -4.027631971332, thr, "energy error")) goto err;
 
    tblite_update_structure_geometry(error, mol, xyz_neutral, NULL);
    if (tblite_check_error(error)) goto err;
@@ -1040,10 +1028,7 @@ test_ipea1_ch4 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-4.670465980661 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -4.670465980661, thr, "energy error")) goto err;
 
    tblite_delete_error(&error);
    tblite_delete_context(&ctx);
@@ -1083,7 +1068,7 @@ test_gfn1_co2 (void)
    tblite_calculator calc = NULL;
    tblite_result res = NULL;
 
-   const double thr = 1.0e-9;
+   const double thr = 5.0e-7;
    int natoms = 12;
    int num[12] = {6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8};
    double xyz[3*12] = {
@@ -1133,10 +1118,7 @@ test_gfn1_co2 (void)
    tblite_get_result_energy(error, res, &energy);
    if (tblite_check_error(error)) goto err;
 
-   if (fabs(-46.203659007308 - energy) > thr) {
-      printf("[Fatal] energy error: %lf\n", energy);
-      goto err;
-   }
+   if (!check(energy, -46.203659007308, thr, "energy error")) goto err;
 
    tblite_delete_error(&error);
    tblite_delete_context(&ctx);
