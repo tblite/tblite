@@ -17,6 +17,6 @@
 from setuptools import setup
 
 setup(
-    cffi_modules=["build.py:ffibuilder"],
+    cffi_modules=["ffi-builder.py:ffibuilder"],
     package_data={"tblite": ["_libtblite*.so"]},
 )

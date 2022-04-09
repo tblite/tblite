@@ -74,11 +74,11 @@ def error_check(func):
     return handle_error
 
 
-# FIXME: replace with more stable extern "Python" callback mechanism
-@ffi.callback("void(char*, void*)")
-def logger_callback(msg, udata):
+@ffi.def_extern()
+def logger_callback(message, nchar, data):
     """Custom logger callback to write output in a Python friendly way"""
-    print(ffi.string(msg).decode())
+
+    print(ffi.unpack(message, nchar).decode())
 
 
 def context_check(func):
@@ -107,7 +107,7 @@ def _delete_context(context) -> None:
 def new_context():
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
-    context_check(lib.tblite_set_context_logger)(ctx, logger_callback, ffi.NULL)
+    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, ffi.NULL)
     return ctx
 
 
@@ -204,14 +204,18 @@ def get_gradient(res):
     _natoms = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
     _gradient = np.zeros((_natoms[0], 3))
-    error_check(lib.tblite_get_result_gradient)(res, _cast("double*", _gradient))
+    error_check(lib.tblite_get_result_gradient)(
+        res, ffi.cast("double*", _gradient.ctypes.data)
+    )
     return _gradient
 
 
 def get_virial(res):
     """Retrieve virial from result container"""
     _virial = np.zeros((3, 3))
-    error_check(lib.tblite_get_result_virial)(res, _cast("double*", _virial))
+    error_check(lib.tblite_get_result_virial)(
+        res, ffi.cast("double*", _virial.ctypes.data)
+    )
     return _virial
 
 
@@ -220,21 +224,27 @@ def get_charges(res):
     _natoms = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
     _charges = np.zeros((_natoms[0],))
-    error_check(lib.tblite_get_result_charges)(res, _cast("double*", _charges))
+    error_check(lib.tblite_get_result_charges)(
+        res, ffi.cast("double*", _charges.ctypes.data)
+    )
     return _charges
 
 
 def get_dipole(res):
     """Retrieve dipole moment from result container"""
     _dipole = np.zeros((3,))
-    error_check(lib.tblite_get_result_dipole)(res, _cast("double*", _dipole))
+    error_check(lib.tblite_get_result_dipole)(
+        res, ffi.cast("double*", _dipole.ctypes.data)
+    )
     return _dipole
 
 
 def get_quadrupole(res):
     """Retrieve quadrupole moment from result container"""
     _quadrupole = np.zeros((6,))
-    error_check(lib.tblite_get_result_quadrupole)(res, _cast("double*", _quadrupole))
+    error_check(lib.tblite_get_result_quadrupole)(
+        res, ffi.cast("double*", _quadrupole.ctypes.data)
+    )
     return _quadrupole
 
 
@@ -243,7 +253,9 @@ def get_orbital_energies(res):
     _norb = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
     _emo = np.zeros((_norb[0],))
-    error_check(lib.tblite_get_result_orbital_energies)(res, _cast("double*", _emo))
+    error_check(lib.tblite_get_result_orbital_energies)(
+        res, ffi.cast("double*", _emo.ctypes.data)
+    )
     return _emo
 
 
@@ -252,7 +264,9 @@ def get_orbital_occupations(res):
     _norb = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
     _occ = np.zeros((_norb[0],))
-    error_check(lib.tblite_get_result_orbital_occupations)(res, _cast("double*", _occ))
+    error_check(lib.tblite_get_result_orbital_occupations)(
+        res, ffi.cast("double*", _occ.ctypes.data)
+    )
     return _occ
 
 
@@ -261,7 +275,9 @@ def get_orbital_coefficients(res):
     _norb = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
     _cmo = np.zeros((_norb[0], _norb[0]))
-    error_check(lib.tblite_get_result_orbital_coefficients)(res, _cast("double*", _cmo))
+    error_check(lib.tblite_get_result_orbital_coefficients)(
+        res, ffi.cast("double*", _cmo.ctypes.data)
+    )
     return _cmo
 
 
@@ -302,8 +318,3 @@ set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_dam
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
-
-
-def _cast(ctype, array):
-    """Cast a numpy array to an FFI pointer"""
-    return ffi.NULL if array is None else ffi.cast(ctype, array.ctypes.data)

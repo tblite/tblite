@@ -77,7 +77,7 @@ else:
     module_name = library + "._lib" + library
 
     p = subprocess.Popen(
-        [cc, *cflags, "-E", "-"],
+        [cc, *cflags, "-DTBLITE_CFFI", "-E", "-"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

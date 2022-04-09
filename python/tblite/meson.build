@@ -31,6 +31,7 @@ tblite_pp = configure_file(
   command: [
     cc,
     '-I@0@'.format(meson.current_source_dir()/'..'/'..'/'include'),
+    '-DTBLITE_CFFI',
     '-E',
     '@INPUT@',
   ],
@@ -41,7 +42,7 @@ tblite_pp = configure_file(
 
 # This is the actual out-of-line API processing of the ffibuilder
 tblite_cffi_srcs = configure_file(
-  command: [python, files('..'/'build.py'), '@INPUT@', '@BASENAME@'],
+  command: [python, files('..'/'ffi-builder.py'), '@INPUT@', '@BASENAME@'],
   input: tblite_pp,
   output: '@BASENAME@.c',
 )

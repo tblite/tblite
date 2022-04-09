@@ -40,10 +40,12 @@ module tblite_api_context
 
    abstract interface
       !> Interface for callbacks used in custom logger
-      subroutine callback(msg, udata)
-         import :: c_char, c_ptr
+      subroutine callback(msg, len, udata)
+         import :: c_char, c_int, c_ptr
          !> Message payload to be displayed
-         character(kind=c_char) :: msg(*)
+         character(len=1, kind=c_char), intent(in) :: msg(*)
+         !> Length of the message
+         integer(c_int), value :: len
          !> Data pointer for callback
          type(c_ptr), value :: udata
       end subroutine callback
@@ -195,11 +197,13 @@ subroutine message(self, msg)
    class(callback_logger), intent(inout) :: self
    !> Message payload from the calculation context
    character(len=*), intent(in) :: msg
-   character(kind=c_char) :: charptr(len(msg)+1)
 
-   call f_c_character(msg, charptr, size(charptr))
+   character(len=1, kind=c_char) :: charptr(len(msg))
+   integer(c_int) :: nchars
 
-   call self%callback(charptr, self%udata)
+   charptr = transfer(msg, charptr)
+   nchars = len(msg)
+   call self%callback(charptr, nchars, self%udata)
 end subroutine message
 
 

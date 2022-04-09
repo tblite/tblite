@@ -698,9 +698,9 @@ err:
 }
 
 void
-example_callback (char* msg, void* udata)
+example_callback (char* msg, int len, void* udata)
 {
-   printf("[callback] %s\n", msg);
+   printf("[callback] %.*s\n", len, msg);
 }
 
 int
