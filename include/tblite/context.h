@@ -24,7 +24,12 @@
 typedef struct _tblite_context* tblite_context;
 
 /// Define callback function for use in custom logger
-typedef void (*tblite_logger_callback)(char*, void*);
+typedef void (*tblite_logger_callback)(char*, int, void*);
+
+#ifdef TBLITE_CFFI
+extern "Python" void TBLITE_API_CALL
+logger_callback(char* msg, int len, void* user_data);
+#endif
 
 /// Create new calculation environment object
 TBLITE_API_ENTRY tblite_context TBLITE_API_CALL
