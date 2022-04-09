@@ -29,7 +29,7 @@ except ModuleNotFoundError:
 
 from typing import List, Optional
 
-from .interface import Calculator, Result
+from .interface import Calculator
 import ase.calculators.calculator
 from ase.atoms import Atoms
 from ase.units import Hartree, Bohr, kB
