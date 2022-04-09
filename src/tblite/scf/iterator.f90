@@ -108,6 +108,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
       & wfn%qsh)
+   call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
 
    call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, &
       & wfn%dpat)
@@ -157,16 +158,18 @@ end subroutine get_electronic_energy
 
 subroutine get_qat_from_qsh(bas, qsh, qat)
    type(basis_type), intent(in) :: bas
-   real(wp), intent(in) :: qsh(:)
-   real(wp), intent(out) :: qat(:)
+   real(wp), intent(in) :: qsh(:, :)
+   real(wp), intent(out) :: qat(:, :)
 
-   integer :: ish
+   integer :: ish, ispin
 
-   qat(:) = 0.0_wp
-   !$omp parallel do schedule(runtime) default(none) &
+   qat(:, :) = 0.0_wp
+   !$omp parallel do schedule(runtime) collapse(2) default(none) &
    !$omp reduction(+:qat) shared(bas, qsh) private(ish)
-   do ish = 1, size(qsh)
-      qat(bas%sh2at(ish)) = qat(bas%sh2at(ish)) + qsh(ish)
+   do ispin = 1, size(qsh, 2)
+      do ish = 1, size(qsh, 1)
+         qat(bas%sh2at(ish), ispin) = qat(bas%sh2at(ish), ispin) + qsh(ish, ispin)
+      end do
    end do
 end subroutine get_qat_from_qsh
 
@@ -258,7 +261,7 @@ subroutine get_mixer(mixer, bas, wfn, info)
       call mixer%get(wfn%qat)
    case(shell_resolved)
       call mixer%get(wfn%qsh)
-      call get_qat_from_qsh(bas, wfn%qsh(:, 1), wfn%qat(:, 1))
+      call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
    end select
 
    select case(info%dipole)
