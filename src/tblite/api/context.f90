@@ -43,7 +43,7 @@ module tblite_api_context
       subroutine callback(msg, len, udata)
          import :: c_char, c_int, c_ptr
          !> Message payload to be displayed
-         character(len=*, kind=c_char), intent(in) :: msg(*)
+         character(len=1, kind=c_char), intent(in) :: msg(*)
          !> Length of the message
          integer(c_int), value :: len
          !> Data pointer for callback
@@ -198,7 +198,12 @@ subroutine message(self, msg)
    !> Message payload from the calculation context
    character(len=*), intent(in) :: msg
 
-   call self%callback(msg, len(msg), self%udata)
+   character(len=1, kind=c_char) :: charptr(len(msg))
+   integer(c_int) :: nchars
+
+   charptr = transfer(msg, charptr)
+   nchars = len(msg)
+   call self%callback(charptr, nchars, self%udata)
 end subroutine message
 
 
