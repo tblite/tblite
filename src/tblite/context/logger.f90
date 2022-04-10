@@ -22,16 +22,21 @@ module tblite_context_logger
    public :: context_logger
 
 
+   !> Base class defining the logger interface
    type, abstract :: context_logger
    contains
+      !> Entry point for displaying a string in the logger
       procedure(message), deferred :: message
    end type context_logger
 
 
    abstract interface
+      !> Entry point for displaying a string in the logger
       subroutine message(self, msg)
          import :: context_logger
+         !> Instance of the logger
          class(context_logger), intent(inout) :: self
+         !> String to display
          character(len=*), intent(in) :: msg
       end subroutine message
    end interface
