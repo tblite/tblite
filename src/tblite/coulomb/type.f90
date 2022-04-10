@@ -27,16 +27,23 @@ module tblite_coulomb_type
 
    public :: coulomb_type
 
+   !> General base class for Coulombic interactions
    type, abstract :: coulomb_type
    contains
+      !> Get information about density dependent quantities used in the energy
       procedure(variable_info), deferred :: variable_info
+      !> Update container cache
       procedure(update), deferred :: update
+      !> Evaluate selfconsistent energy of the interaction
       procedure(get_energy), deferred :: get_energy
+      !> Evaluate charge dependent potential shift from the interaction
       procedure(get_potential), deferred :: get_potential
+      !> Evaluate gradient contributions from the selfconsistent interaction
       procedure(get_gradient), deferred :: get_gradient
    end type coulomb_type
 
    abstract interface
+      !> Get information about density dependent quantities used in the energy
       pure function variable_info(self) result(info)
          use tblite_scf_info, only : scf_info
          import :: coulomb_type
@@ -46,6 +53,7 @@ module tblite_coulomb_type
          type(scf_info) :: info
       end function variable_info
 
+      !> Update container cache
       subroutine update(self, mol, cache)
          import :: coulomb_type, structure_type, coulomb_cache
          !> Instance of the electrostatic container
@@ -56,6 +64,7 @@ module tblite_coulomb_type
          type(coulomb_cache), intent(inout) :: cache
       end subroutine update
 
+      !> Evaluate selfconsistent energy of the interaction
       subroutine get_energy(self, mol, cache, wfn, energy)
          import :: coulomb_type, structure_type, coulomb_cache, wavefunction_type, wp
          !> Instance of the electrostatic container
@@ -70,6 +79,7 @@ module tblite_coulomb_type
          real(wp), intent(inout) :: energy
       end subroutine get_energy
 
+      !> Evaluate charge dependent potential shift from the interaction
       subroutine get_potential(self, mol, cache, wfn, pot)
          import :: coulomb_type, structure_type, coulomb_cache, wavefunction_type, &
             & potential_type
@@ -85,6 +95,7 @@ module tblite_coulomb_type
          type(potential_type), intent(inout) :: pot
       end subroutine get_potential
 
+      !> Evaluate gradient contributions from the selfconsistent interaction
       subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
          import :: coulomb_type, structure_type, coulomb_cache, wavefunction_type, wp
          !> Instance of the electrostatic container

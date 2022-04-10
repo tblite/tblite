@@ -52,21 +52,25 @@ module tblite_coulomb_ewald
       end function get_value
    end interface
 
+   !> Real space Coulombic interaction 1/R
    type, extends(term_type) :: dir_term
    contains
       procedure :: get_value => dir_value
    end type dir_term
 
+   !> Reciprocal space Coulombic interaction 1/R in 3D
    type, extends(term_type) :: rec_3d_term
    contains
       procedure :: get_value => rec_3d_value
    end type rec_3d_term
 
+   !> Real space Coulombic interaction 1/R^2
    type, extends(term_type) :: dir_mp_term
    contains
       procedure :: get_value => dir_mp_value
    end type dir_mp_term
 
+   !> Reciprocal space Coulombic interaction 1/R^2 in 3D
    type, extends(term_type) :: rec_3d_mp_term
    contains
       procedure :: get_value => rec_3d_mp_value
@@ -75,10 +79,15 @@ module tblite_coulomb_ewald
 contains
 
 
+!> Convenience interface to determine Ewald splitting parameter
 subroutine get_alpha(lattice, alpha, multipole)
+   !> Lattice vectors
    real(wp), intent(in) :: lattice(:, :)
+   !> Estimated Ewald splitting parameter
    real(wp), intent(out) :: alpha
+   !> Multipole expansion is used
    logical, intent(in) :: multipole
+
    real(wp) :: vol, rec_lat(3, 3)
    class(term_type), allocatable :: dirv, recv
 
@@ -93,7 +102,6 @@ subroutine get_alpha(lattice, alpha, multipole)
    end if
 
    call search_alpha(lattice, rec_lat, vol, eps, dirv, recv, alpha)
-
 end subroutine get_alpha
 
 
@@ -176,16 +184,12 @@ end subroutine search_alpha
 
 !> Return cutoff for reciprocal contributions
 function get_rec_cutoff(alpha, volume, conv) result(x)
-
    !> Parameter of Ewald summation
    real(wp), intent(in) :: alpha
-
    !> Volume of the unit cell
    real(wp), intent(in) :: volume
-
    !> Tolerance value
    real(wp), intent(in) :: conv
-
    !> Magnitude of reciprocal vector
    real(wp) :: x
 
@@ -199,13 +203,10 @@ end function get_rec_cutoff
 
 !> Return cutoff for real-space contributions
 function get_dir_cutoff(alpha, conv) result(x)
-
    !> Parameter of Ewald summation
    real(wp), intent(in) :: alpha
-
    !> Tolerance for Ewald summation
    real(wp), intent(in) :: conv
-
    !> Magnitude of real-space vector
    real(wp) :: x
 
@@ -220,19 +221,14 @@ end function get_dir_cutoff
 
 !> Search for cutoff value of interaction term
 function search_cutoff(term, alpha, volume, conv) result(x)
-
    !> Interaction term
    class(term_type), intent(in) :: term
-
    !> Parameter of Ewald summation
    real(wp), intent(in) :: alpha
-
    !> Volume of the unit cell
    real(wp), intent(in) :: volume
-
    !> Tolerance value
    real(wp), intent(in) :: conv
-
    !> Magnitude of reciprocal vector
    real(wp) :: x
 

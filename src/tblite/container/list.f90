@@ -62,12 +62,15 @@ module tblite_container_list
    end type container_list
 
 
+   !> Reallocate list of containers
    interface resize
       module procedure :: resize_node
    end interface
 
 
+   !> List of container chach instances
    type :: cache_list
+      !> Actual cache instances
       type(container_cache), allocatable :: list(:)
    end type cache_list
 
@@ -318,8 +321,11 @@ pure subroutine resize_node(list, n)
 end subroutine resize_node
 
 
+!> Inspect container cache and reallocate it in case of type mismatch
 subroutine taint(cache, ptr)
+   !> Instance of the container cache
    type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
    type(cache_list), pointer, intent(out) :: ptr
 
    if (allocated(cache%raw)) then
@@ -339,8 +345,11 @@ subroutine taint(cache, ptr)
    call view(cache, ptr)
 end subroutine taint
 
+!> Return reference to container cache after resolving its type
 subroutine view(cache, ptr)
+   !> Instance of the container cache
    type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
    type(cache_list), pointer, intent(out) :: ptr
    nullify(ptr)
    select type(target => cache%raw)

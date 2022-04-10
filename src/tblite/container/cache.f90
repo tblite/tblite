@@ -30,6 +30,7 @@ module tblite_container_cache
    end type container_cache
 
 
+   !> Reallocate list of containers
    interface resize
       module procedure :: resize_cache
    end interface

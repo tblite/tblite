@@ -29,22 +29,33 @@ module tblite_coulomb_thirdorder
 
    public :: onsite_thirdorder, new_onsite_thirdorder
 
+   !> Onsite correction for third-order charge expansion
    type, extends(coulomb_type) :: onsite_thirdorder
+      !> Whether the third order contribution is shell-dependent
       logical :: shell_resolved
+      !> Number of shell for each atom
       integer, allocatable :: nsh_at(:)
+      !> Shell offset for each atom
       integer, allocatable :: ish_at(:)
+      !> Hubbard derivatives for each species
       real(wp), allocatable :: hubbard_derivs(:, :)
    contains
+      !> Update container cache
       procedure :: update
+      !> Get information about density dependent quantities used in the energy
       procedure :: variable_info
+      !> Evaluate selfconsistent energy of the interaction
       procedure :: get_energy
+      !> Evaluate charge dependent potential shift from the interaction
       procedure :: get_potential
+      !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
    end type onsite_thirdorder
 
 contains
 
 
+!> Create new onsite third-order contribution
 subroutine new_onsite_thirdorder(self, mol, hubbard_derivs, nshell)
    !> Instance of the electrostatic container
    type(onsite_thirdorder), intent(out) :: self
@@ -74,6 +85,7 @@ subroutine new_onsite_thirdorder(self, mol, hubbard_derivs, nshell)
 end subroutine new_onsite_thirdorder
 
 
+!> Update container cache
 subroutine update(self, mol, cache)
    !> Instance of the electrostatic container
    class(onsite_thirdorder), intent(in) :: self
@@ -85,6 +97,7 @@ subroutine update(self, mol, cache)
 end subroutine update
 
 
+!> Evaluate selfconsistent energy of the interaction
 subroutine get_energy(self, mol, cache, wfn, energy)
    !> Instance of the electrostatic container
    class(onsite_thirdorder), intent(in) :: self
@@ -116,6 +129,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
 end subroutine get_energy
 
 
+!> Evaluate charge dependent potential shift from the interaction
 subroutine get_potential(self, mol, cache, wfn, pot)
    !> Instance of the electrostatic container
    class(onsite_thirdorder), intent(in) :: self
@@ -148,6 +162,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 end subroutine get_potential
 
 
+!> Evaluate gradient contributions from the selfconsistent interaction
 subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Instance of the electrostatic container
    class(onsite_thirdorder), intent(in) :: self
@@ -165,6 +180,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 end subroutine get_gradient
 
 
+!> Get information about density dependent quantities used in the energy
 pure function variable_info(self) result(info)
    use tblite_scf_info, only : scf_info, atom_resolved, shell_resolved
    !> Instance of the electrostatic container

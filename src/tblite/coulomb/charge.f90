@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Isotropic second-order electrostatics using an effective Coulomb operator
+!> Proxy module for defining isotropic electrostatic interactions
 module tblite_coulomb_charge
    use tblite_coulomb_charge_effective, only : effective_coulomb, new_effective_coulomb, &
       & average_interface, harmonic_average, arithmetic_average, geometric_average
