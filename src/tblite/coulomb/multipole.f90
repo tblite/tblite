@@ -1068,6 +1068,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
 end subroutine get_damat_sdq_dir_3d
 
 
+!> Get information about density dependent quantities used in the energy
 pure function variable_info(self) result(info)
    use tblite_scf_info, only : scf_info, atom_resolved
    !> Instance of the electrostatic container
