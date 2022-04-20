@@ -75,7 +75,7 @@ subroutine test_br2nh3(error)
    energy = 0.0_wp
    call xb%get_engrad(mol, trans, cutoff, energy)
 
-   call check(error, energy, 2.4762965290252908E-3_wp, thr=thr)
+   call check(error, energy, 2.4763110097465683E-3_wp, thr=thr)
    if (allocated(error)) return
 
 end subroutine test_br2nh3
@@ -110,7 +110,7 @@ subroutine test_br2och2(error)
 
    call xb%get_engrad(mol, trans, cutoff, energy, gradient, sigma)
 
-   call check(error, energy, -6.7587879815145236E-4_wp, thr=thr)
+   call check(error, energy, -6.7587305781592112E-4_wp, thr=thr)
    if (allocated(error)) return
 
    do iat = 1, mol%nat
@@ -164,7 +164,7 @@ subroutine test_finch(error)
 
    call xb%get_engrad(mol, trans, cutoff, energy, gradient, sigma)
 
-   call check(error, energy, 1.1857915281959933E-2_wp, thr=thr)
+   call check(error, energy, 1.1857937381795408E-2_wp, thr=thr)
    if (allocated(error)) return
 
    eps(:, :) = unity
