@@ -17,14 +17,16 @@ This implementation support overlap integrals up to g-functions and one moment l
 Spherical harmonics ordering
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Standard spherical harmonic sorting is used for the basis functions.
+
 ================== ===============================
  angular momentum   order
 ================== ===============================
  0 (s)              0
- 1 (p)              x, y, z
- 2 (d)              0, 1, -1, 2, -2
- 3 (f)              0, 1, -1, 2, -2, 3, -3
- 4 (g)              0, 1, -1, 2, -2, 3, -3, 4, -4
+ 1 (p)              -1, 0, 1
+ 2 (d)              -2, -1, 0, 1, 2
+ 3 (f)              -3, -2, -1, 0, 1, 2, 3
+ 4 (g)              -4, -3, -2, -1, 0, 1, 2, 3, 4
 ================== ===============================
 
 
