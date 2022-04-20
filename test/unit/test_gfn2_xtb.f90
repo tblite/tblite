@@ -32,7 +32,7 @@ module test_gfn2_xtb
 
    real(wp), parameter :: acc = 0.01_wp
    real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
-   real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: thr2 = 10*sqrt(epsilon(1.0_wp))
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
 
 contains

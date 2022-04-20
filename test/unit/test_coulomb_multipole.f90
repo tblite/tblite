@@ -532,7 +532,7 @@ subroutine test_e_effective_m01(error)
       & shape(qpat))
 
    call get_structure(mol, "MB16-43", "01")
-   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, 1.1581300038632864E-2_wp)
+   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, 1.1581304035711445E-2_wp)
 
 end subroutine test_e_effective_m01
 
@@ -604,7 +604,7 @@ subroutine test_e_effective_m02(error)
       & shape(qpat))
 
    call get_structure(mol, "MB16-43", "02")
-   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, -1.2918813880322705E-2_wp)
+   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, -1.2918812895272689E-2_wp)
 
 end subroutine test_e_effective_m02
 
@@ -1239,8 +1239,8 @@ submodule (test_coulomb_multipole) test_supercell_scaling
       & -1.18646463864190E-01_wp,  1.18587233297690E-01_wp,  1.19626167010667E-04_wp],&
       & shape(qpat1))
 
-   real(wp), parameter :: e02 = 1.501616960897681E-2_wp, e11 = -3.548670395288726E-3_wp, &
-      & e01 = 1.570671226185676E-2_wp - e02 - e11
+   real(wp), parameter :: e02 = 1.5016169607148633E-2_wp, e11 = -3.5486703953320990E-3_wp, &
+      & e01 = 1.5706712259423678E-2_wp - e02 - e11
 
 contains
 

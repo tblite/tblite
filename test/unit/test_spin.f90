@@ -121,7 +121,7 @@ subroutine test_e_crcp2(error)
    class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: ref1 = -28.373975240123556_wp, ref0 = -28.349613770641913_wp
+   real(wp), parameter :: ref1 = -28.373975300991656_wp, ref0 = -28.349613833733063_wp
 
    call crcp2(mol)
    allocate(gradient(3, mol%nat), sigma(3, 3))
@@ -225,7 +225,7 @@ subroutine test_g_crcp2(error)
    class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: eref = -28.468935634232967_wp, gref(3, 21) = reshape([&
+   real(wp), parameter :: eref = -28.468935665985757_wp, gref(3, 21) = reshape([&
       &  0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 1.49861687763978E-2_wp, &
       &  0.00000000000000E+0_wp,-1.16038259401258E-2_wp, 2.03502831773555E-2_wp, &
       &  1.74447048728472E-2_wp,-4.60640513497974E-3_wp,-3.72049040084506E-3_wp, &
