@@ -37,6 +37,7 @@ include_header = '#include "' + library + '.h"'
 prefix_var = library.upper() + "_PREFIX"
 if prefix_var not in os.environ:
     prefix_var = "CONDA_PREFIX"
+version = "0.2.0"
 
 if __name__ == "__main__":
     import sys
@@ -55,7 +56,11 @@ else:
         import pkgconfig
 
         if not pkgconfig.exists(library):
-            raise ModuleNotFoundError("Unable to find pkg-config package 'tblite'")
+            raise ModuleNotFoundError(f"Unable to find pkg-config package '{library}'")
+        if pkgconfig.installed(library, f"< {version}"):
+            raise ModuleNotFoundError(
+                f"Installed '{library}' version is too old, {version} or newer is required"
+            )
 
         kwargs = pkgconfig.parse(library)
         cflags = pkgconfig.cflags(library).split()
