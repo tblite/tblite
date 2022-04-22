@@ -17,10 +17,25 @@
 project(
   'tblite',
   'c',
+  version: '0.2.0',
+  license: 'LGPL-3.0-or-later',
+  meson_version: '>=0.57.2',
+  default_options: [
+    'buildtype=debugoptimized',
+  ],
 )
 install = true
 
-tblite_dep = dependency('tblite', version: '>=0.2.0')
+tblite_dep = dependency(
+  'tblite',
+  version: '>=@0@'.format(meson.project_version()),
+  fallback: ['tblite', 'tblite_dep'],
+  default_options: [
+    'default_library=static',
+    'api=true',
+    'python=false',
+  ],
+)
 tblite_header = files('..'/'include'/'tblite.h')
 
 subdir('tblite')

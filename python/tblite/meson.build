@@ -47,15 +47,10 @@ tblite_cffi_srcs = configure_file(
   output: '@BASENAME@.c',
 )
 
-# Actual generation of the Python extension, since the shared_module does not work
-# well with dependency objects, we will trick it by linking a whole static lib
+# Actual generation of the Python extension
 tblite_pyext = python.extension_module(
   '_libtblite',
-  link_whole: static_library(
-    '_libtblite',
-    tblite_cffi_srcs,
-    dependencies: [tblite_dep, python_dep],
-  ),
+  sources: tblite_cffi_srcs,
   dependencies: [tblite_dep, python_dep],
   install: install,
   subdir: 'tblite',
