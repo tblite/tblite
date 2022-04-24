@@ -16,6 +16,7 @@
 **/
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <math.h>
@@ -123,12 +124,12 @@ test_uninitialized_structure (void)
 
    show_error(error);
 
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for unititalized-structure test\n");
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 1;
 }
 
@@ -213,12 +214,12 @@ test_uninitialized_result (void)
 
    show_error(error);
 
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for unititalized-result test\n");
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 1;
 }
 
@@ -257,12 +258,12 @@ test_uninitialized_calculator (void)
 
    show_context_error(ctx);
 
-   tblite_delete_context(&ctx);
+   tblite_delete(ctx);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for unititalized-calculator test\n");
-   tblite_delete_context(&ctx);
+   tblite_delete(ctx);
    return 1;
 }
 
@@ -289,44 +290,43 @@ test_uninitialized_table (void)
    show_error(error);
 
    double dval = 0.0;
-   tblite_table_set_double(error, table, key, &dval, 0);
+   tblite_table_set_value(error, table, key, &dval, 0);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
 
-   long ival = 0;
-   tblite_table_set_long(error, table, key, &ival, 0);
+   int64_t ival = 0;
+   tblite_table_set_value(error, table, key, &ival, 0);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
 
    bool lval = 0;
-   tblite_table_set_bool(error, table, key, &lval, 0);
+   tblite_table_set_value(error, table, key, &lval, 0);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
 
    char cval[] = "some-val";
-   tblite_table_set_char(error, table, key, &cval, 0);
+   tblite_table_set_value(error, table, key, &cval, 0);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
 
-   tblite_table tval = tblite_new_table();
-   tblite_table_set_table(error, table, key, &tval);
-   tblite_delete_table(&tval);
+   tblite_table tval = tblite_table_add_table(error, table, key);
+   tblite_delete(tval);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
 
-   tblite_delete_error(&error);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(param);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for unititalized-table test\n");
-   tblite_delete_error(&error);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(param);
    return 1;
 }
 
@@ -339,7 +339,7 @@ test_uninitialized_param (void)
    tblite_table table = NULL;
 
    error = tblite_new_error();
-   table = tblite_new_table();
+   table = tblite_new_table(NULL);
 
    tblite_load_param(error, param, table);
    if (!tblite_check_error(error)) goto unexpected;
@@ -366,14 +366,14 @@ test_uninitialized_param (void)
 
    show_error(error);
 
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
+   tblite_delete(error);
+   tblite_delete(table);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for unititalized-param test\n");
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
+   tblite_delete(error);
+   tblite_delete(table);
    return 1;
 }
 
@@ -405,12 +405,12 @@ test_empty_result (void)
 
    show_error(error);
 
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for empty-result test\n");
-   tblite_delete_error(&error);
+   tblite_delete(error);
    return 1;
 }
 
@@ -432,14 +432,14 @@ test_invalid_structure (void)
 
    show_error(error);
 
-   tblite_delete_error(&error);
-   tblite_delete_structure(&mol);
+   tblite_delete(error);
+   tblite_delete(mol);
    return 0;
 
 unexpected:
    printf("[Fatal] Unexpected pass for invalid-structure test\n");
-   tblite_delete_error(&error);
-   tblite_delete_structure(&mol);
+   tblite_delete(error);
+   tblite_delete(mol);
    return 1;
 }
 
@@ -453,86 +453,84 @@ test_table_builder (void)
    double darr[2];
    char cval[4];
    char carr[3][2];
-   long iarr[2];
+   int64_t iarr[2];
 
    error = tblite_new_error();
 
-   child3 = tblite_new_table();
-   dval = 1.85;
-   tblite_table_set_double(error, child3, "ss", &dval, 0);
+   table = tblite_new_table(NULL);
+   child1 = tblite_table_add_table(error, table, "hamiltonian");
    if (tblite_check_error(error)) goto err;
-
-   dval = 2.23;
-   tblite_table_set_double(error, child3, "pp", &dval, 0);
+   if (!child1) goto err;
+   child2 = tblite_table_add_table(error, child1, "xtb");
    if (tblite_check_error(error)) goto err;
-
-   child2 = tblite_new_table();
-   tblite_table_set_table(error, child2, "shell", &child3);
-   if (tblite_check_error(error)) goto err;
-   if (!!child3) goto err;
+   if (!child2) goto err;
 
    dval = 0.5;
-   tblite_table_set_double(error, child2, "wexp", &dval, 0);
+   tblite_table_set_value(error, child2, "wexp", &dval, 0);
    if (tblite_check_error(error)) goto err;
 
    dval = 2.0e-2;
-   tblite_table_set_double(error, child2, "enscale", &dval, 0);
+   tblite_table_set_value(error, child2, "enscale", &dval, 0);
    if (tblite_check_error(error)) goto err;
 
    strcpy(cval, "gfn");
-   tblite_table_set_char(error, child2, "cn", &cval, 0);
+   tblite_table_set_value(error, child2, "cn", &cval, 0);
    if (tblite_check_error(error)) goto err;
 
-   child1 = tblite_new_table();
-   tblite_table_set_table(error, child1, "xtb", &child2);
+   child3 = tblite_table_add_table(error, child2, "shell");
    if (tblite_check_error(error)) goto err;
-   if (!!child2) goto err;
+   if (!child3) goto err;
 
-   table = tblite_new_table();
-   tblite_table_set_table(error, table, "hamiltonian", &child1);
+   dval = 1.85;
+   tblite_table_set_value(error, child3, "ss", &dval, 0);
    if (tblite_check_error(error)) goto err;
-   if (!!child1) goto err;
 
-   child2 = tblite_new_table();
+   dval = 2.23;
+   tblite_table_set_value(error, child3, "pp", &dval, 0);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_delete(child1);
+   tblite_delete(child2);
+   tblite_delete(child3);
+
+
+   child1 = tblite_table_add_table(error, table, "element");
+   if (tblite_check_error(error)) goto err;
+   if (!child1) goto err;
+   child2 = tblite_table_add_table(error, child1, "C");
+   if (tblite_check_error(error)) goto err;
+   if (!child2) goto err;
+
    strcpy(carr[0], "2s"); strcpy(carr[1], "2p");
-   tblite_table_set_char(error, child2, "shells", carr, 2);
+   tblite_table_set_value(error, child2, "shells", carr, 2);
    if (tblite_check_error(error)) goto err;
 
    darr[0] = -13.970922; darr[1] = -10.063292;
-   tblite_table_set_double(error, child2, "levels", darr, 2);
+   tblite_table_set_value(error, child2, "levels", darr, 2);
    if (tblite_check_error(error)) goto err;
 
    darr[0] = 2.096432; darr[1] = 1.8;
-   tblite_table_set_double(error, child2, "slater", darr, 2);
+   tblite_table_set_value(error, child2, "slater", darr, 2);
    if (tblite_check_error(error)) goto err;
 
    iarr[0] = 4; iarr[1] = 4;
-   tblite_table_set_long(error, child2, "ngauss", iarr, 2);
+   tblite_table_set_value(error, child2, "ngauss", iarr, 2);
    if (tblite_check_error(error)) goto err;
 
-   child1 = tblite_new_table();
-   tblite_table_set_table(error, child1, "C", &child2);
-   if (tblite_check_error(error)) goto err;
-   if (!!child2) goto err;
-
-   tblite_table_set_table(error, table, "element", &child1);
-   if (tblite_check_error(error)) goto err;
-   if (!!child1) goto err;
-
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
-   tblite_delete_table(&child1);
-   tblite_delete_table(&child2);
-   tblite_delete_table(&child3);
+   tblite_delete(error);
+   tblite_delete(table);
+   tblite_delete(child1);
+   tblite_delete(child2);
+   tblite_delete(child3);
 
    return 0;
 
 err:
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
-   tblite_delete_table(&child1);
-   tblite_delete_table(&child2);
-   tblite_delete_table(&child3);
+   tblite_delete(error);
+   tblite_delete(table);
+   tblite_delete(child1);
+   tblite_delete(child2);
+   tblite_delete(child3);
    return 1;
 }
 
@@ -553,11 +551,11 @@ test_param_load (void)
    tblite_export_gfn2_param(error, param);
    if (tblite_check_error(error)) goto err;
 
-   table = tblite_new_table();
+   table = tblite_new_table(NULL);
    tblite_dump_param(error, param, table);
    if (tblite_check_error(error)) goto err;
 
-   tblite_delete_param(&param);
+   tblite_delete(param);
    param = tblite_new_param();
 
    tblite_load_param(error, param, table);
@@ -566,16 +564,16 @@ test_param_load (void)
    tblite_export_ipea1_param(error, param);
    if (tblite_check_error(error)) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(table);
+   tblite_delete(param);
 
    return 0;
 
 err:
-   tblite_delete_error(&error);
-   tblite_delete_table(&table);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(table);
+   tblite_delete(param);
    return 1;
 }
 
@@ -651,7 +649,7 @@ test_calc_restart (void)
    if (!check(energy, -34.98079463818, thr, "energy error")) goto err;
 
    // reset calculator
-   tblite_delete_calculator(&calc);
+   tblite_delete(calc);
    calc = tblite_new_gfn2_calculator(ctx, mol);
 
    tblite_get_singlepoint(ctx, mol, calc, res1);
@@ -663,7 +661,7 @@ test_calc_restart (void)
    if (!check(energy, -32.96247211794, thr, "energy error")) goto err;
 
    res2 = tblite_copy_result(res1);
-   tblite_delete_result(&res1);
+   tblite_delete(res1);
    tblite_set_calculator_max_iter(ctx, calc, 3);
 
    tblite_get_singlepoint(ctx, mol, calc, res2);
@@ -674,11 +672,11 @@ test_calc_restart (void)
 
    if (!check(energy, -32.96247199299, thr, "energy error")) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res2);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res2);
    return 0;
 
 err:
@@ -694,12 +692,12 @@ err:
       printf("[Fatal] %s\n", message);
    }
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res1);
-   tblite_delete_result(&res2);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res1);
+   tblite_delete(res2);
    return 1;
 }
 
@@ -803,11 +801,11 @@ test_callback (void)
 
    if (!check(energy, -32.96247195792, thr, "energy error")) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 0;
 
 err:
@@ -823,11 +821,11 @@ err:
       printf("[Fatal] %s\n", message);
    }
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 1;
 }
 
@@ -929,12 +927,12 @@ test_gfn2_si5h12 (void)
 
    if (!check(norm2(3*17, gradient), 0.0279191562471, thr, "gradient error")) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
+   tblite_delete(param);
    return 0;
 
 err:
@@ -950,12 +948,12 @@ err:
       printf("[Fatal] %s\n", message);
    }
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
-   tblite_delete_param(&param);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
+   tblite_delete(param);
    return 1;
 }
 
@@ -1036,11 +1034,11 @@ test_ipea1_ch4 (void)
 
    if (!check(energy, -4.670465980661, thr, "energy error")) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 0;
 
 err:
@@ -1056,11 +1054,11 @@ err:
       printf("[Fatal] %s\n", message);
    }
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 1;
 }
 
@@ -1126,11 +1124,11 @@ test_gfn1_co2 (void)
 
    if (!check(energy, -46.203659007308, thr, "energy error")) goto err;
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 0;
 
 err:
@@ -1146,11 +1144,11 @@ err:
       printf("[Fatal] %s\n", message);
    }
 
-   tblite_delete_error(&error);
-   tblite_delete_context(&ctx);
-   tblite_delete_structure(&mol);
-   tblite_delete_calculator(&calc);
-   tblite_delete_result(&res);
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
    return 1;
 }
 

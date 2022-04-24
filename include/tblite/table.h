@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "tblite/macros.h"
 #include "tblite/error.h"
 
@@ -25,7 +28,7 @@ typedef struct _tblite_table* tblite_table;
 
 /// Create new data table object
 TBLITE_API_ENTRY tblite_table TBLITE_API_CALL
-tblite_new_table(void);
+tblite_new_table(tblite_table* /* table */);
 
 /// Delete a data table object
 TBLITE_API_ENTRY void TBLITE_API_CALL
@@ -39,13 +42,13 @@ tblite_table_set_double(tblite_error /* error */,
                         double* /* value */,
                         int /* n */);
 
-/// Set integer number to data table
+/// Set integer number to data table (use int64_t rather than long)
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_table_set_long(tblite_error /* error */,
-                      tblite_table /* table */,
-                      char[] /* key */,
-                      long* /* value */,
-                      int /* n */);
+tblite_table_set_int64_t(tblite_error /* error */,
+                         tblite_table /* table */,
+                         char[] /* key */,
+                         int64_t* /* value */,
+                         int /* n */);
 
 /// Set boolean value to data table
 TBLITE_API_ENTRY void TBLITE_API_CALL
@@ -63,9 +66,20 @@ tblite_table_set_char(tblite_error /* error */,
                       char(*)[] /* value */,
                       int /* n */);
 
-/// Set data table to data table, value table reference is destroyed on success
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_table_set_table(tblite_error /* error */,
+/// Create new subtable in existing data table
+TBLITE_API_ENTRY tblite_table TBLITE_API_CALL
+tblite_table_add_table(tblite_error /* error */,
                        tblite_table /* table */,
-                       char[] /* key */,
-                       tblite_table* /* value */);
+                       char[] /* key */);
+
+/*
+ * Type generic macros
+ */
+
+#define tblite_table_set_value(error, table, key, value, ...) \
+    _Generic((value), \
+     double*: tblite_table_set_double, \
+    int64_t*: tblite_table_set_int64_t, \
+       bool*: tblite_table_set_bool, \
+   char(*)[]: tblite_table_set_char \
+            )((error), (table), (key), (value), __VA_ARGS__)
