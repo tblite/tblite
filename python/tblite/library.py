@@ -146,14 +146,14 @@ def _delete_table(table):
 
 def new_table():
     """Create a tblite data table object"""
-    return ffi.gc(lib.tblite_new_table(), _delete_table)
+    return ffi.gc(lib.tblite_new_table(ffi.NULL), _delete_table)
 
 
 table_set_double = error_check(lib.tblite_table_set_double)
-table_set_long = error_check(lib.tblite_table_set_long)
+table_set_int64_t = error_check(lib.tblite_table_set_int64_t)
 table_set_bool = error_check(lib.tblite_table_set_bool)
 table_set_char = error_check(lib.tblite_table_set_char)
-table_set_table = error_check(lib.tblite_table_set_table)
+table_add_table = error_check(lib.tblite_table_add_table)
 
 
 def _delete_param(param):

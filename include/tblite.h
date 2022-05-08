@@ -26,3 +26,15 @@
 #include "tblite/table.h"
 #include "tblite/param.h"
 #include "tblite/version.h"
+
+#define tblite_delete(ptr) _Generic((ptr), \
+                       tblite_error: tblite_delete_error, \
+                   tblite_container: tblite_delete_container, \
+                     tblite_context: tblite_delete_context, \
+                   tblite_structure: tblite_delete_structure, \
+                  tblite_calculator: tblite_delete_calculator, \
+                      tblite_result: tblite_delete_result, \
+                       tblite_table: tblite_delete_table, \
+                       tblite_param: tblite_delete_param \
+                                   )(&ptr)
+

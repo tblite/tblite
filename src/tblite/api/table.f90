@@ -20,37 +20,51 @@ module tblite_api_table
    use tblite_api_error, only : vp_error
    use tblite_api_version, only : namespace
    use tblite_api_utils, only : c_f_character, strlen
-   use tblite_toml, only : toml_table, toml_array, toml_value, add_array, set_value
+   use tblite_toml, only : toml_table, toml_array, toml_value, add_array, set_value, get_value
    implicit none
    private
 
    public :: vp_table
    public :: new_table_api, delete_table_api
-   public :: table_set_double_api, table_set_long_api, table_set_bool_api, &
-      & table_set_char_api, table_set_table_api
+   public :: table_set_double_api, table_set_int64_t_api, table_set_bool_api, &
+      & table_set_char_api, table_add_table_api
 
    !> Void pointer to manage general data tables
    type :: vp_table
       !> Actual payload
-      type(toml_table), allocatable :: ptr
+      type(toml_table), pointer :: ptr
+      !> Data is owned by the object
+      logical :: owned
    end type vp_table
 
    logical, parameter :: debug = .false.
 
 contains
 
-!> Create data table object
-function new_table_api() &
-      & result(vtable) &
+!> Create data table reference object
+function new_table_api(vtable) &
+      & result(vval) &
       & bind(C, name=namespace//"new_table")
+   type(c_ptr), value :: vtable
    type(vp_table), pointer :: table
-   type(c_ptr) :: vtable
+   type(vp_table), pointer :: val
+   type(c_ptr) :: vval
+   type(toml_table), pointer :: dat
 
    if (debug) print '("[Info]", 1x, a)', "new_table"
 
-   allocate(table)
-   table%ptr = toml_table()
-   vtable = c_loc(table)
+   allocate(val)
+   if (c_associated(vtable)) then
+      call c_f_pointer(vtable, table)
+      val%ptr => table%ptr
+      val%owned = .false.
+   else
+      allocate(dat)
+      dat = toml_table()
+      val%ptr => dat
+      val%owned = .true.
+   end if
+   vval = c_loc(val)
 end function new_table_api
 
 !> Delete data table object
@@ -64,6 +78,7 @@ subroutine delete_table_api(vtable) &
    if (c_associated(vtable)) then
       call c_f_pointer(vtable, table)
 
+      if (table%owned) deallocate(table%ptr)
       deallocate(table)
       vtable = c_null_ptr
    end if
@@ -113,20 +128,20 @@ subroutine table_set_double_api(verror, vtable, ckey, val, n) &
    end if
 end subroutine table_set_double_api
 
-subroutine table_set_long_api(verror, vtable, ckey, val, n) &
-      & bind(C, name=namespace//"table_set_long")
+subroutine table_set_int64_t_api(verror, vtable, ckey, val, n) &
+      & bind(C, name=namespace//"table_set_int64_t")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
    type(c_ptr), value :: vtable
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key
-   integer(c_long), intent(in) :: val(*)
+   integer(c_int64_t), intent(in) :: val(*)
    integer(c_int), value :: n
    type(toml_array), pointer :: array
    integer :: i, stat
 
-   if (debug) print '("[Info]", 1x, a)', "table_set_long"
+   if (debug) print '("[Info]", 1x, a)', "table_set_int64_t"
 
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
@@ -154,7 +169,7 @@ subroutine table_set_long_api(verror, vtable, ckey, val, n) &
    if (stat /= 0) then
       call fatal_error(error%ptr, "Failed to push back integer value(s) to data table")
    end if
-end subroutine table_set_long_api
+end subroutine table_set_int64_t_api
 
 subroutine table_set_bool_api(verror, vtable, ckey, val, n) &
       & bind(C, name=namespace//"table_set_bool")
@@ -246,21 +261,23 @@ subroutine table_set_char_api(verror, vtable, ckey, cval, n) &
    end if
 end subroutine table_set_char_api
 
-subroutine table_set_table_api(verror, vtable, ckey, vval) &
-      & bind(C, name=namespace//"table_set_table")
+function table_add_table_api(verror, vtable, ckey) &
+      & result(vval) &
+      & bind(C, name=namespace//"table_add_table")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
    type(c_ptr), value :: vtable
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key
-   type(c_ptr), intent(inout) :: vval
+   type(c_ptr) :: vval
    type(vp_table), pointer :: val
-   class(toml_value), allocatable :: tmp
+   type(toml_table), pointer :: tmp
    integer :: stat
 
-   if (debug) print '("[Info]", 1x, a)', "table_set_table"
+   if (debug) print '("[Info]", 1x, a)', "table_add_table"
 
+   vval = c_null_ptr
    if (.not.c_associated(verror)) return
    call c_f_pointer(verror, error)
 
@@ -268,26 +285,20 @@ subroutine table_set_table_api(verror, vtable, ckey, vval) &
       call fatal_error(error%ptr, "Data table object is missing")
       return
    end if
-   if (.not.c_associated(vval)) then
-      call fatal_error(error%ptr, "Data table value is missing")
-      return
-   end if
 
+   vval = new_table_api(vtable)
    call c_f_pointer(vtable, table)
    call c_f_pointer(vval, val)
    call c_f_character(ckey, key)
 
-   if (table%ptr%has_key(key)) call table%ptr%delete(key)
-   val%ptr%key = key
-   call move_alloc(val%ptr, tmp)
-   call table%ptr%push_back(tmp, stat)
-   deallocate(val)
-   vval = c_null_ptr
+   call get_value(table%ptr, key, tmp, stat=stat)
+   val%ptr => tmp
 
    if (stat /= 0) then
       call fatal_error(error%ptr, "Failed to push back subtable to data table")
+      call delete_table_api(vval)
    end if
-end subroutine table_set_table_api
+end function table_add_table_api
 
 
 end module tblite_api_table
