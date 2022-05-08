@@ -109,6 +109,12 @@ module tblite_cli_help
       "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                          Homogeneous electric field in V/Å."//nl//&
+      "--alpb <real>             Use analytical linearized Poisson-Boltzmann solvation."//nl//&
+      "                          Solvent is specified by dielectric constant."//nl//&
+      "--gbsa <real>             Use generalized Born solvation model."//nl//&
+      "                          Solvent is specified by dielectric constant."//nl//&
+      "--cpcm <real>             Use polarizable continuum solvation model."//nl//&
+      "                          Solvent is specified by dielectric constant."//nl//&
       "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&

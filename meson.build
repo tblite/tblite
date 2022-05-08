@@ -105,6 +105,7 @@ if install
       'man/tblite-param.1.adoc',
       'man/tblite-tagdiff.1.adoc',
       'man/tblite-tag.5.adoc',
+      'man/tblite-solvents.7.adoc',
     )
     foreach man : man_srcs
       install_man(

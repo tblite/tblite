@@ -22,6 +22,8 @@ module tblite_cli
    use tblite_argument, only : argument_list, len
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff
+   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
+      & solvent_data, get_solvent_data
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -45,6 +47,7 @@ module tblite_cli
       character(len=:), allocatable :: param
       logical :: json = .false.
       character(len=:), allocatable :: json_output
+      type(solvation_input), allocatable :: solvation
       real(wp) :: accuracy = 1.0_wp
       real(wp) :: etemp = 300.0_wp
       real(wp), allocatable :: efield(:)
@@ -159,6 +162,8 @@ subroutine get_run_arguments(config, list, start, error)
    integer :: iarg, narg
    logical :: getopts
    character(len=:), allocatable :: arg
+   logical :: alpb
+   type(solvent_data) :: solvent
 
    iarg = start
    getopts = .true.
@@ -177,18 +182,23 @@ subroutine get_run_arguments(config, list, start, error)
       select case(arg)
       case("--")
          getopts = .false.
+
       case("--help")
          write(output_unit, '(a)') help_text_run
          stop
+
       case("--version")
          call version(output_unit)
          stop
+
       case("-v", "-vv", "--verbose")
          config%verbosity = config%verbosity + 1
          if (arg == "-vv") config%verbosity = config%verbosity + 1
+
       case("-s", "-ss", "--silent")
          config%verbosity = config%verbosity - 1
          if (arg == "-ss") config%verbosity = config%verbosity - 1
+
       case default
          if (.not.allocated(config%input)) then
             call move_alloc(arg, config%input)
@@ -196,6 +206,7 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          call fatal_error(error, "Too many positional arguments present")
          exit
+
       case("-i", "--input")
          iarg = iarg + 1
          call list%get(iarg, arg)
@@ -204,20 +215,24 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end if
          config%input_format = get_filetype("."//arg)
+
       case("-c", "--charge")
          iarg = iarg + 1
          allocate(config%charge)
          call list%get(iarg, arg)
          call get_argument_as_int(arg, config%charge, error)
          if (allocated(error)) exit
+
       case("--spin")
          iarg = iarg + 1
          allocate(config%spin)
          call list%get(iarg, arg)
          call get_argument_as_int(arg, config%spin, error)
          if (allocated(error)) exit
+
       case("--spin-polarized")
          config%spin_polarized = .true.
+
       case("--method")
          if (allocated(config%param)) then
             call fatal_error(error, "Cannot specify method if parameter file is provided")
@@ -229,6 +244,48 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Missing argument for method")
             exit
          end if
+
+      case("--cpcm")
+         if (allocated(config%solvation)) then
+            call fatal_error(error, "Cannot use CPCM if ALPB/GBSA is enabled")
+            exit
+         end if
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for CPCM")
+            exit
+         end if
+
+         solvent = get_solvent_data(arg)
+         if (solvent%eps <= 0.0_wp) then
+            call get_argument_as_real(arg, solvent%eps, error)
+         end if
+         if (allocated(error)) exit
+         allocate(config%solvation)
+         config%solvation%cpcm = cpcm_input(solvent%eps)
+
+      case("--alpb", "--gbsa")
+         if (allocated(config%solvation)) then
+            call fatal_error(error, "Cannot use ALPB/GBSA if CPCM is enabled")
+            exit
+         end if
+         alpb = arg == "--alpb"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for ALPB/GBSA")
+            exit
+         end if
+
+         solvent = get_solvent_data(arg)
+         if (solvent%eps <= 0.0_wp) then
+            call get_argument_as_real(arg, solvent%eps, error)
+         end if
+         if (allocated(error)) exit
+         allocate(config%solvation)
+         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb)
+
       case("--param")
          if (allocated(config%param)) then
             call fatal_error(error, "Cannot specify parameter file if method is provided")
@@ -240,22 +297,26 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Missing argument for param")
             exit
          end if
+
       case("--acc")
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%accuracy, error)
          if (allocated(error)) exit
+
       case("--etemp")
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp, error)
          if (allocated(error)) exit
+
       case("--efield")
          iarg = iarg + 1
          call list%get(iarg, arg)
          allocate(config%efield(3))
          call get_argument_as_realv(arg, config%efield, error)
          if (allocated(error)) exit
+
       case("--grad")
          config%grad = .true.
          iarg = iarg + 1
@@ -267,6 +328,7 @@ subroutine get_run_arguments(config, list, start, error)
             end if
             call move_alloc(arg, config%grad_output)
          end if
+
       case("--json")
          config%json = .true.
          config%json_output = "tblite.json"

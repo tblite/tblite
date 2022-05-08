@@ -18,7 +18,7 @@
 module tblite_coulomb_thirdorder
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_coulomb_cache, only : coulomb_cache
+   use tblite_container_cache, only : container_cache
    use tblite_coulomb_charge, only : effective_coulomb
    use tblite_coulomb_multipole, only : damped_multipole
    use tblite_coulomb_type, only : coulomb_type
@@ -52,6 +52,8 @@ module tblite_coulomb_thirdorder
       procedure :: get_gradient
    end type onsite_thirdorder
 
+   character(len=*), parameter :: label = "onsite third-order electrostatics"
+
 contains
 
 
@@ -68,6 +70,7 @@ subroutine new_onsite_thirdorder(self, mol, hubbard_derivs, nshell)
 
    integer :: ind, iat
 
+   self%label = label
    self%hubbard_derivs = hubbard_derivs
 
    self%shell_resolved = present(nshell)
@@ -92,7 +95,7 @@ subroutine update(self, mol, cache)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
 
 end subroutine update
 
@@ -104,7 +107,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
@@ -136,7 +139,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Density dependent potential
@@ -169,7 +172,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Molecular gradient of the repulsion energy

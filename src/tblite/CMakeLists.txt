@@ -30,11 +30,13 @@ add_subdirectory("fit")
 add_subdirectory("integral")
 add_subdirectory("io")
 add_subdirectory("lapack")
+add_subdirectory("mesh")
 add_subdirectory("ncoord")
 add_subdirectory("output")
 add_subdirectory("param")
 add_subdirectory("repulsion")
 add_subdirectory("scf")
+add_subdirectory("solvation")
 add_subdirectory("wavefunction")
 add_subdirectory("xtb")
 
@@ -54,6 +56,7 @@ list(
   "${dir}/param.f90"
   "${dir}/repulsion.f90"
   "${dir}/scf.f90"
+  "${dir}/solvation.f90"
   "${dir}/spin.f90"
   "${dir}/timer.f90"
   "${dir}/toml.f90"

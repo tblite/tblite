@@ -228,6 +228,7 @@ test_uninitialized_calculator (void)
    printf("Start test: uninitialized calculator\n");
    tblite_context ctx = NULL;
    tblite_calculator calc = NULL;
+   tblite_container cont = NULL;
 
    ctx = tblite_new_context();
 
@@ -247,6 +248,11 @@ test_uninitialized_calculator (void)
    show_context_error(ctx);
 
    tblite_set_calculator_mixer_damping(ctx, calc, 0.2);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_calculator_push_back(ctx, calc, cont);
    if (!tblite_check_context(ctx)) goto unexpected;
 
    show_context_error(ctx);

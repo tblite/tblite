@@ -21,6 +21,7 @@ module tblite_coulomb_multipole
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
    use tblite_blas, only : dot, gemv, symv, gemm
+   use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_type, only : coulomb_type
@@ -77,6 +78,7 @@ module tblite_coulomb_multipole
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
    real(wp), parameter :: conv = 100*eps
+   character(len=*), parameter :: label = "anisotropic electrostatics"
 
 contains
 
@@ -107,6 +109,7 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    !> Valence coordination number
    real(wp), intent(in) :: vcn(:)
 
+   self%label = label
    self%kdmp3 = kdmp3
    self%kdmp5 = kdmp5
    self%dkernel = dkernel
@@ -130,47 +133,51 @@ subroutine update(self, mol, cache)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
 
-   if (.not.allocated(cache%mrad)) then
-      allocate(cache%mrad(mol%nat))
-   end if
-   if (.not.allocated(cache%dmrdcn)) then
-      allocate(cache%dmrdcn(mol%nat))
-   end if
+   type(coulomb_cache), pointer :: ptr
 
-   if (.not.allocated(cache%amat_sd)) then
-      allocate(cache%amat_sd(3, mol%nat, mol%nat))
+   call taint(cache, ptr)
+
+   if (.not.allocated(ptr%mrad)) then
+      allocate(ptr%mrad(mol%nat))
    end if
-   if (.not.allocated(cache%amat_dd)) then
-      allocate(cache%amat_dd(3, mol%nat, 3, mol%nat))
-   end if
-   if (.not.allocated(cache%amat_sq)) then
-      allocate(cache%amat_sq(6, mol%nat, mol%nat))
+   if (.not.allocated(ptr%dmrdcn)) then
+      allocate(ptr%dmrdcn(mol%nat))
    end if
 
-   if (.not.allocated(cache%cn)) then
-      allocate(cache%cn(mol%nat))
+   if (.not.allocated(ptr%amat_sd)) then
+      allocate(ptr%amat_sd(3, mol%nat, mol%nat))
    end if
-   if (.not.allocated(cache%dcndr)) then
-      allocate(cache%dcndr(3, mol%nat, mol%nat))
+   if (.not.allocated(ptr%amat_dd)) then
+      allocate(ptr%amat_dd(3, mol%nat, 3, mol%nat))
    end if
-   if (.not.allocated(cache%dcndL)) then
-      allocate(cache%dcndL(3, 3, mol%nat))
+   if (.not.allocated(ptr%amat_sq)) then
+      allocate(ptr%amat_sq(6, mol%nat, mol%nat))
+   end if
+
+   if (.not.allocated(ptr%cn)) then
+      allocate(ptr%cn(mol%nat))
+   end if
+   if (.not.allocated(ptr%dcndr)) then
+      allocate(ptr%dcndr(3, mol%nat, mol%nat))
+   end if
+   if (.not.allocated(ptr%dcndL)) then
+      allocate(ptr%dcndL(3, 3, mol%nat))
    end if
 
    if (allocated(self%ncoord)) then
-      call self%ncoord%get_cn(mol, cache%cn, cache%dcndr, cache%dcndL)
+      call self%ncoord%get_cn(mol, ptr%cn, ptr%dcndr, ptr%dcndL)
    else
-      cache%cn(:) = self%valence_cn(mol%id)
-      cache%dcndr(:, :, :) = 0.0_wp
-      cache%dcndL(:, :, :) = 0.0_wp
+      ptr%cn(:) = self%valence_cn(mol%id)
+      ptr%dcndr(:, :, :) = 0.0_wp
+      ptr%dcndL(:, :, :) = 0.0_wp
    end if
 
    call get_mrad(mol, self%shift, self%kexp, self%rmax, self%rad, self%valence_cn, &
-      & cache%cn, cache%mrad, cache%dmrdcn)
+      & ptr%cn, ptr%mrad, ptr%dmrdcn)
 
-   call get_multipole_matrix(self, mol, cache, cache%amat_sd, cache%amat_dd, cache%amat_sq)
+   call get_multipole_matrix(self, mol, ptr, ptr%amat_sd, ptr%amat_dd, ptr%amat_sq)
 end subroutine update
 
 
@@ -185,16 +192,19 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Electrostatic energy
    real(wp), intent(inout) :: energy
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
 
    real(wp), allocatable :: vs(:), vd(:, :), vq(:, :)
    real(wp) :: ees, exc
+   type(coulomb_cache), pointer :: ptr
+
+   call view(cache, ptr)
 
    allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
 
-   call gemv(cache%amat_sd, wfn%qat(:, 1), vd)
-   call gemv(cache%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
-   call gemv(cache%amat_sq, wfn%qat(:, 1), vq)
+   call gemv(ptr%amat_sd, wfn%qat(:, 1), vd)
+   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
+   call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
 
    ees = dot(wfn%dpat(:, :, 1), vd) + dot(wfn%qpat(:, :, 1), vq)
    exc = 0.0_wp
@@ -241,15 +251,18 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
+   type(coulomb_cache), pointer :: ptr
 
-   call gemv(cache%amat_sd, wfn%qat(:, 1), pot%vdp(:, :, 1), beta=1.0_wp)
-   call gemv(cache%amat_sd, wfn%dpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
+   call view(cache, ptr)
 
-   call gemv(cache%amat_dd, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), beta=1.0_wp)
+   call gemv(ptr%amat_sd, wfn%qat(:, 1), pot%vdp(:, :, 1), beta=1.0_wp)
+   call gemv(ptr%amat_sd, wfn%dpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
 
-   call gemv(cache%amat_sq, wfn%qat(:, 1), pot%vqp(:, :, 1), beta=1.0_wp)
-   call gemv(cache%amat_sq, wfn%qpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
+   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), beta=1.0_wp)
+
+   call gemv(ptr%amat_sq, wfn%qat(:, 1), pot%vqp(:, :, 1), beta=1.0_wp)
+   call gemv(ptr%amat_sq, wfn%qpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
 
    call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1))
    call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1))
@@ -286,7 +299,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Molecular gradient of the repulsion energy
@@ -295,18 +308,21 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    real(wp), allocatable :: dEdr(:)
+   type(coulomb_cache), pointer :: ptr
+
+   call view(cache, ptr)
 
    allocate(dEdr(mol%nat))
    dEdr = 0.0_wp
 
-   call get_multipole_gradient(self, mol, cache, &
+   call get_multipole_gradient(self, mol, ptr, &
       & wfn%qat(:, 1), wfn%dpat(:, :, 1), wfn%qpat(:, :, 1), &
       & dEdr, gradient, sigma)
 
-   dEdr(:) = dEdr * cache%dmrdcn
+   dEdr(:) = dEdr * ptr%dmrdcn
 
-   call gemv(cache%dcndr, dEdr, gradient, beta=1.0_wp)
-   call gemv(cache%dcndL, dEdr, sigma, beta=1.0_wp)
+   call gemv(ptr%dcndr, dEdr, gradient, beta=1.0_wp)
+   call gemv(ptr%dcndL, dEdr, sigma, beta=1.0_wp)
 end subroutine get_gradient
 
 
@@ -1078,5 +1094,44 @@ pure function variable_info(self) result(info)
 
    info = scf_info(dipole=atom_resolved, quadrupole=atom_resolved)
 end function variable_info
+
+
+!> Inspect container cache and reallocate it in case of type mismatch
+subroutine taint(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(coulomb_cache), pointer, intent(out) :: ptr
+
+   if (allocated(cache%raw)) then
+      call view(cache, ptr)
+      if (associated(ptr)) return
+      deallocate(cache%raw)
+   end if
+
+   if (.not.allocated(cache%raw)) then
+      block
+         type(coulomb_cache), allocatable :: tmp
+         allocate(tmp)
+         call move_alloc(tmp, cache%raw)
+      end block
+   end if
+
+   call view(cache, ptr)
+end subroutine taint
+
+!> Return reference to container cache after resolving its type
+subroutine view(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(coulomb_cache), pointer, intent(out) :: ptr
+   nullify(ptr)
+   select type(target => cache%raw)
+   type is(coulomb_cache)
+      ptr => target
+   end select
+end subroutine view
+
 
 end module tblite_coulomb_multipole

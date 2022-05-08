@@ -20,7 +20,7 @@ module test_repulsion
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
-   use tblite_cutoff, only : get_lattice_points
+   use tblite_container_cache, only : container_cache
    use tblite_repulsion, only : tb_repulsion, new_repulsion
    implicit none
    private
@@ -127,6 +127,7 @@ subroutine test_generic(error, mol, make_repulsion, ref)
    real(wp), intent(in) :: ref
 
    type(tb_repulsion) :: rep
+   type(container_cache) :: cache
    real(wp) :: energy, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
@@ -136,8 +137,7 @@ subroutine test_generic(error, mol, make_repulsion, ref)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    call make_repulsion(rep, mol)
-   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-   call rep%get_engrad(mol, lattr, cutoff, energy)
+   call rep%get_engrad(mol, cache, energy)
 
    call check(error, energy, ref, thr=thr)
    if (allocated(error)) then
@@ -160,8 +160,9 @@ subroutine test_numgrad(error, mol, make_repulsion)
 
    integer :: iat, ic
    type(tb_repulsion) :: rep
+   type(container_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
@@ -169,22 +170,21 @@ subroutine test_numgrad(error, mol, make_repulsion)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    call make_repulsion(rep, mol)
-   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
    do iat = 1, mol%nat
       do ic = 1, 3
          er = 0.0_wp
          el = 0.0_wp
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         call rep%get_engrad(mol, lattr, cutoff, er)
+         call rep%get_engrad(mol, cache, er)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
-         call rep%get_engrad(mol, lattr, cutoff, el)
+         call rep%get_engrad(mol, cache, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
          numgrad(ic, iat) = 0.5_wp*(er - el)/step
       end do
    end do
 
-   call rep%get_engrad(mol, lattr, cutoff, energy, gradient, sigma)
+   call rep%get_engrad(mol, cache, energy, gradient, sigma)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of dispersion energy does not match")
@@ -207,42 +207,46 @@ subroutine test_numsigma(error, mol, make_repulsion)
 
    integer :: ic, jc
    type(tb_repulsion) :: rep
+   type(container_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), xyz(:, :), lattr(:, :), trans(:, :)
+   real(wp), allocatable :: gradient(:, :), xyz(:, :), lat(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
    real(wp), parameter :: step = 1.0e-6_wp
 
-   allocate(gradient(3, mol%nat), xyz(3, mol%nat))
+   allocate(gradient(3, mol%nat), xyz(3, mol%nat), lat(3, 3))
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
    call make_repulsion(rep, mol)
-   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
    eps(:, :) = unity
    xyz(:, :) = mol%xyz
-   trans = lattr
+   if (any(mol%periodic)) &
+   lat(:, :) = mol%lattice
    do ic = 1, 3
       do jc = 1, 3
          er = 0.0_wp
          el = 0.0_wp
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
-         lattr = matmul(eps, trans)
-         call rep%get_engrad(mol, lattr, cutoff, er)
+         if (any(mol%periodic)) &
+         mol%lattice(:, :) = matmul(eps, lat)
+         call rep%get_engrad(mol, cache, er)
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
-         lattr = matmul(eps, trans)
-         call rep%get_engrad(mol, lattr, cutoff, el)
+         if (any(mol%periodic)) &
+         mol%lattice(:, :) = matmul(eps, lat)
+         call rep%get_engrad(mol, cache, el)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
-         lattr = trans
+         if (any(mol%periodic)) &
+         mol%lattice(:, :) = lat
          numsigma(jc, ic) = 0.5_wp*(er - el)/step
       end do
    end do
 
-   call rep%get_engrad(mol, lattr, cutoff, energy, gradient, sigma)
+   call rep%get_engrad(mol, cache, energy, gradient, sigma)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")

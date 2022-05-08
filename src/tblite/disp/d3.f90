@@ -18,10 +18,12 @@
 module tblite_disp_d3
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_container_cache, only : container_cache
+   use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
-   use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff, &
-      & get_dispersion
+   use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
+   use dftd3_ncoord, only : get_coordination_number, add_coordination_number_derivs
    implicit none
    private
 
@@ -37,6 +39,8 @@ module tblite_disp_d3
       procedure :: get_engrad
    end type d3_dispersion
 
+   character(len=*), parameter :: label = "DFT-D3(BJ) dispersion correction"
+
 contains
 
 subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9)
@@ -46,6 +50,7 @@ subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9)
    type(structure_type), intent(in) :: mol
    real(wp), intent(in) :: s6, s8, a1, a2, s9
 
+   self%label = label
    call new_d3_model(self%model, mol)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2, alp=14.0_wp)
    self%cutoff = realspace_cutoff(cn=25.0_wp, disp3=25.0_wp, disp2=50.0_wp)
@@ -58,7 +63,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Dispersion energy
    real(wp), intent(inout) :: energy
    !> Dispersion gradient
@@ -66,19 +71,48 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Dispersion virial
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
-   real(wp), allocatable :: tgradient(:, :), tsigma(:, :)
+   logical :: grad
+   integer :: mref
+   real(wp), allocatable :: cn(:)
+   real(wp), allocatable :: gwvec(:, :), gwdcn(:, :)
+   real(wp), allocatable :: c6(:, :), dc6dcn(:, :)
+   real(wp), allocatable :: dEdcn(:), energies(:)
+   real(wp), allocatable :: lattr(:, :)
 
-   if (present(gradient) .and. present(sigma)) then
-      allocate(tgradient(3, mol%nat), tsigma(3, 3))
+   mref = maxval(self%model%ref)
+   grad = present(gradient).and.present(sigma)
+
+   allocate(cn(mol%nat))
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
+   call get_coordination_number(mol, lattr, self%cutoff%cn, self%model%rcov, cn)
+
+   allocate(gwvec(mref, mol%nat))
+   if (grad) allocate(gwdcn(mref, mol%nat))
+   call self%model%weight_references(mol, cn, gwvec, gwdcn)
+
+   allocate(c6(mol%nat, mol%nat))
+   if (grad) allocate(dc6dcn(mol%nat, mol%nat))
+   call self%model%get_atomic_c6(mol, gwvec, gwdcn, c6, dc6dcn)
+
+   allocate(energies(mol%nat))
+   energies(:) = 0.0_wp
+   if (grad) then
+      allocate(dEdcn(mol%nat))
+      dEdcn(:) = 0.0_wp
+   end if
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
+   call self%param%get_dispersion2(mol, lattr, self%cutoff%disp2, self%model%rvdw, &
+      & self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma)
+
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp3, lattr)
+   call self%param%get_dispersion3(mol, lattr, self%cutoff%disp3, self%model%rvdw, &
+      & self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma)
+   if (grad) then
+      call add_coordination_number_derivs(mol, lattr, self%cutoff%cn, self%model%rcov, &
+         & dEdcn, gradient, sigma)
    end if
 
-   call get_dispersion(mol, self%model, self%param, self%cutoff, &
-      & energy, tgradient, tsigma)
-
-   if (present(gradient) .and. present(sigma)) then
-      gradient(:, :) = gradient + tgradient
-      sigma(:, :) = sigma + tsigma
-   end if
+   energy = energy + sum(energies)
 end subroutine get_engrad
 
 

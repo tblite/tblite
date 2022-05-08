@@ -23,6 +23,7 @@ module tblite_disp_d4
       & get_coordination_number, new_d4_model
    use dftd4_model, only : d4_ref
    use tblite_blas, only : dot, gemv
+   use tblite_container_cache, only : container_cache
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
    use tblite_scf_potential, only : potential_type
@@ -57,6 +58,8 @@ module tblite_disp_d4
       procedure :: get_gradient
    end type d4_dispersion
 
+   character(len=*), parameter :: label = "self-consistent DFT-D4 dispersion"
+
 
 contains
 
@@ -69,6 +72,7 @@ subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9)
    type(structure_type), intent(in) :: mol
    real(wp), intent(in) :: s6, s8, a1, a2, s9
 
+   self%label = label
    call new_d4_model(self%model, mol, ref=d4_ref%gfn2)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2)
    self%cutoff = realspace_cutoff(disp3=25.0_wp, disp2=50.0_wp)
@@ -82,28 +86,30 @@ subroutine update(self, mol, cache)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
 
    real(wp), allocatable :: lattr(:, :)
+   type(dispersion_cache), pointer :: ptr
    integer :: mref
 
+   call taint(cache, ptr)
    mref = maxval(self%model%ref)
 
-   if (.not.allocated(cache%cn)) allocate(cache%cn(mol%nat))
-   if (.not.allocated(cache%dcndr)) allocate(cache%dcndr(3, mol%nat, mol%nat))
-   if (.not.allocated(cache%dcndL)) allocate(cache%dcndL(3, 3, mol%nat))
+   if (.not.allocated(ptr%cn)) allocate(ptr%cn(mol%nat))
+   if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
+   if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
    call get_coordination_number(mol, lattr, self%cutoff%cn, self%model%rcov, self%model%en, &
-      & cache%cn, cache%dcndr, cache%dcndL)
+      & ptr%cn, ptr%dcndr, ptr%dcndL)
 
-   if (.not.allocated(cache%dispmat)) allocate(cache%dispmat(mref, mol%nat, mref, mol%nat))
-   if (.not.allocated(cache%vvec)) allocate(cache%vvec(mref, mol%nat))
-   if (.not.allocated(cache%gwvec)) allocate(cache%gwvec(mref, mol%nat))
-   if (.not.allocated(cache%dgwdq)) allocate(cache%dgwdq(mref, mol%nat))
+   if (.not.allocated(ptr%dispmat)) allocate(ptr%dispmat(mref, mol%nat, mref, mol%nat))
+   if (.not.allocated(ptr%vvec)) allocate(ptr%vvec(mref, mol%nat))
+   if (.not.allocated(ptr%gwvec)) allocate(ptr%gwvec(mref, mol%nat))
+   if (.not.allocated(ptr%dgwdq)) allocate(ptr%dgwdq(mref, mol%nat))
 
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
    call get_dispersion_matrix(mol, self%model, self%param, lattr, self%cutoff%disp2, &
-      & self%model%r4r2, cache%dispmat)
+      & self%model%r4r2, ptr%dispmat)
 end subroutine update
 
 
@@ -114,7 +120,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Dispersion energy
    real(wp), intent(inout) :: energy
    !> Dispersion gradient
@@ -122,7 +128,11 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Dispersion virial
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
-   call get_dispersion_nonsc(mol, self%model, self%param, self%cutoff, cache, &
+   type(dispersion_cache), pointer :: ptr
+
+   call view(cache, ptr)
+
+   call get_dispersion_nonsc(mol, self%model, self%param, self%cutoff, ptr, &
       & energy, gradient, sigma)
 end subroutine get_engrad
 
@@ -134,16 +144,20 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Dispersion energy
    real(wp), intent(inout) :: energy
 
-   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), cache%gwvec)
+   type(dispersion_cache), pointer :: ptr
 
-   call gemv(cache%dispmat, cache%gwvec, cache%vvec, alpha=0.5_wp)
-   energy = energy + dot(cache%gwvec, cache%vvec)
+   call view(cache, ptr)
+
+   call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
+
+   call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec, alpha=0.5_wp)
+   energy = energy + dot(ptr%gwvec, ptr%vvec)
 end subroutine get_energy
 
 
@@ -154,18 +168,22 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 
-   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), cache%gwvec, cache%vvec, &
-      & cache%dgwdq)
+   type(dispersion_cache), pointer :: ptr
 
-   call gemv(cache%dispmat, cache%gwvec, cache%vvec)
-   cache%vvec(:, :) = cache%vvec * cache%dgwdq
-   pot%vat(:, 1) = pot%vat(:, 1) + sum(cache%vvec, dim=1)
+   call view(cache, ptr)
+
+   call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%vvec, &
+      & ptr%dgwdq)
+
+   call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec)
+   ptr%vvec(:, :) = ptr%vvec * ptr%dgwdq
+   pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec, dim=1)
 end subroutine get_potential
 
 
@@ -176,7 +194,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different dispersion runs
-   type(dispersion_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Dispersion gradient
@@ -189,11 +207,13 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :), dc6dq(:, :)
    real(wp), allocatable :: dEdcn(:), dEdq(:), energies(:)
    real(wp), allocatable :: lattr(:, :)
+   type(dispersion_cache), pointer :: ptr
 
+   call view(cache, ptr)
    mref = maxval(self%model%ref)
 
    allocate(gwvec(mref, mol%nat), gwdcn(mref, mol%nat), gwdq(mref, mol%nat))
-   call self%model%weight_references(mol, cache%cn, wfn%qat(:, 1), gwvec, gwdcn, gwdq)
+   call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), gwvec, gwdcn, gwdq)
 
    allocate(c6(mol%nat, mol%nat), dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
    call self%model%get_atomic_c6(mol, gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq)
@@ -205,8 +225,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
    call self%param%get_dispersion2(mol, lattr, self%cutoff%disp2, self%model%r4r2, &
       & c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma)
-   call gemv(cache%dcndr, dEdcn, gradient, beta=1.0_wp)
-   call gemv(cache%dcndL, dEdcn, sigma, beta=1.0_wp)
+   call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
+   call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
 
 end subroutine get_gradient
 
@@ -337,5 +357,43 @@ pure function variable_info(self) result(info)
 
    info = scf_info(charge=atom_resolved)
 end function variable_info
+
+
+!> Inspect container cache and reallocate it in case of type mismatch
+subroutine taint(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(dispersion_cache), pointer, intent(out) :: ptr
+
+   if (allocated(cache%raw)) then
+      call view(cache, ptr)
+      if (associated(ptr)) return
+      deallocate(cache%raw)
+   end if
+
+   if (.not.allocated(cache%raw)) then
+      block
+         type(dispersion_cache), allocatable :: tmp
+         allocate(tmp)
+         call move_alloc(tmp, cache%raw)
+      end block
+   end if
+
+   call view(cache, ptr)
+end subroutine taint
+
+!> Return reference to container cache after resolving its type
+subroutine view(cache, ptr)
+   !> Instance of the container cache
+   type(container_cache), target, intent(inout) :: cache
+   !> Reference to the container cache
+   type(dispersion_cache), pointer, intent(out) :: ptr
+   nullify(ptr)
+   select type(target => cache%raw)
+   type is(dispersion_cache)
+      ptr => target
+   end select
+end subroutine view
 
 end module tblite_disp_d4

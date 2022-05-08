@@ -64,7 +64,7 @@ module tblite_adjlist
 contains
 
    !> Create new neighbourlist for a given geometry and cutoff
-   subroutine new_adjacency_list(self, mol, trans, cutoff)
+   subroutine new_adjacency_list(self, mol, trans, cutoff, complete)
       !> Instance of the neighbourlist
       type(adjacency_list), intent(out) :: self
       !> Molecular structure data
@@ -73,14 +73,21 @@ contains
       real(wp), intent(in) :: trans(:, :)
       !> Realspace cutoff for neighbourlist generation
       real(wp), intent(in) :: cutoff
+      !> Whether a complete or a symmetrical reduced map should be generated
+      logical, intent(in), optional :: complete
+
+      logical :: cmplt
+
+      cmplt = .false.
+      if (present(complete)) cmplt = complete
 
       allocate(self%inl(mol%nat), source=0)
       allocate(self%nnl(mol%nat), source=0)
-      call generate(mol, trans, cutoff, self%inl, self%nnl, self%nlat, self%nltr)
+      call generate(mol, trans, cutoff, self%inl, self%nnl, self%nlat, self%nltr, cmplt)
    end subroutine new_adjacency_list
 
    !> Generator for neighbourlist
-   subroutine generate(mol, trans, cutoff, inl, nnl, nlat, nltr)
+   subroutine generate(mol, trans, cutoff, inl, nnl, nlat, nltr, complete)
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Translation vectors for all images
@@ -95,6 +102,8 @@ contains
       integer, allocatable, intent(out) :: nlat(:)
       !> Cell index of the neighbouring atom
       integer, allocatable, intent(out) :: nltr(:)
+      !> Whether a complete or a symmetrical reduced map should be generated
+      logical, intent(in) :: complete
 
       integer :: iat, jat, itr, img
       real(wp) :: r2, vec(3), cutoff2
@@ -107,7 +116,7 @@ contains
 
       do iat = 1, mol%nat
          inl(iat) = img
-         do jat = 1, iat
+         do jat = 1, merge(mol%nat, iat, complete)
             do itr = 1, size(trans, 2)
                vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
                r2 = sum(vec**2)

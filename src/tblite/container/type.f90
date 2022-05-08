@@ -44,6 +44,8 @@ module tblite_container_type
       procedure :: get_potential
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
+      !> Information on container
+      procedure :: info
    end type container_type
 
 
@@ -134,6 +136,25 @@ pure function variable_info(self) result(info)
 
    info = scf_info()
 end function variable_info
+
+
+!> Information on container
+pure function info(self, verbosity, indent) result(str)
+   !> Instance of the interaction container
+   class(container_type), intent(in) :: self
+   !> Verbosity level
+   integer, intent(in) :: verbosity
+   !> Indentation level
+   character(len=*), intent(in) :: indent
+   !> Information on the container
+   character(len=:), allocatable :: str
+
+   if (allocated(self%label)) then
+      str = self%label
+   else
+      str = "Unknown"
+   end if
+end function info
 
 
 end module tblite_container_type

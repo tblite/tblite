@@ -18,8 +18,10 @@
 module tblite_classical_halogen
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_repulsion_type, only : repulsion_type
+   use tblite_container, only : container_cache
+   use tblite_cutoff, only : get_lattice_points
    use tblite_data_atomicrad, only : get_atomic_rad
+   use tblite_repulsion_type, only : repulsion_type
    implicit none
 
    public :: halogen_correction, new_halogen_correction
@@ -37,18 +39,21 @@ module tblite_classical_halogen
       logical, allocatable :: acceptor(:)
       !> Suitable donors for halogen bonding interactions
       logical, allocatable :: halogen(:)
+      !> Real-space cutoff
+      real(wp) :: cutoff = 20.0_wp
    contains
       !> Entry point for evaluation of energy and gradient
       procedure :: get_engrad
    end type halogen_correction
 
    real(wp), parameter :: alp = 6.0_wp, lj = 12.0_wp, lj2 = lj * 0.5_wp
+   character(len=*), parameter :: label = "halogen-bond correction"
 
 contains
 
 
 !> Construct new halogen bonding correction
-subroutine new_halogen_correction(self, mol, damping, rad_scale, bond_strength, rad)
+subroutine new_halogen_correction(self, mol, damping, rad_scale, bond_strength, rad, cutoff)
    !> Instance of the halogen bond correction
    type(halogen_correction), intent(out) :: self
    !> Molecular structure data
@@ -61,7 +66,10 @@ subroutine new_halogen_correction(self, mol, damping, rad_scale, bond_strength, 
    real(wp), intent(in) :: bond_strength(:)
    !> Atomic radii for each species
    real(wp), intent(in), optional :: rad(:)
+   !> Real-space cutoff
+   real(wp), intent(in), optional :: cutoff
 
+   self%label = label
    allocate(self%rad(mol%nid), self%bond_strength(mol%nid), self%halogen(mol%nid), &
       & self%acceptor(mol%nid))
    if (present(rad)) then
@@ -69,6 +77,7 @@ subroutine new_halogen_correction(self, mol, damping, rad_scale, bond_strength, 
    else
       self%rad(:) = get_atomic_rad(mol%num) * rad_scale
    end if
+   if (present(cutoff)) self%cutoff = cutoff
    self%bond_strength(:) = bond_strength
    self%damping = damping
 
@@ -94,27 +103,28 @@ end function is_acceptor
 
 
 !> Evaluate classical interaction for energy and derivatives
-subroutine get_engrad(self, mol, trans, cutoff, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Instance of the halogen bond correction
    class(halogen_correction), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> Lattice points
-   real(wp), intent(in) :: trans(:, :)
-   !> Real space cutoff
-   real(wp), intent(in) :: cutoff
+   !> Cached data between different runs
+   type(container_cache), intent(inout) :: cache
    !> Repulsion energy
    real(wp), intent(inout) :: energy
    !> Molecular gradient of the repulsion energy
-   real(wp), intent(inout), optional :: gradient(:, :)
+   real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
-   real(wp), intent(inout), optional :: sigma(:, :)
+   real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
    integer, allocatable :: list(:, :)
+   real(wp), allocatable :: trans(:, :)
 
    if (count(self%halogen) * count(self%acceptor) == 0) return
 
-   call get_xbond_list(mol, trans, cutoff, self%halogen, self%acceptor, list)
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff, trans)
+
+   call get_xbond_list(mol, trans, self%cutoff, self%halogen, self%acceptor, list)
    if (.not.allocated(list)) return
 
    if (present(gradient) .and. present(sigma)) then

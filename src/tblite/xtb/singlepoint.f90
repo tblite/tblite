@@ -24,7 +24,6 @@ module tblite_xtb_singlepoint
    use tblite_context_type, only : context_type
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_cutoff, only : get_lattice_points
-   use tblite_disp_cache, only : dispersion_cache
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
@@ -72,9 +71,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
-   type(coulomb_cache) :: cache
-   type(dispersion_cache) :: dcache
-   type(container_cache) :: icache
+   type(container_cache) :: ccache, dcache, icache, hcache, rcache
    type(broyden_mixer) :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
@@ -111,9 +108,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%halogen)) then
       call timer%push("halogen")
-      cutoff = 20.0_wp
-      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-      call calc%halogen%get_engrad(mol, lattr, cutoff, exbond, gradient, sigma)
+      call calc%halogen%update(mol, hcache)
+      call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
       if (prlevel > 1) print *, property("halogen-bonding energy", exbond, "Eh")
       energy = energy + exbond
       call timer%pop
@@ -121,9 +117,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%repulsion)) then
       call timer%push("repulsion")
-      cutoff = 25.0_wp
-      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-      call calc%repulsion%get_engrad(mol, lattr, cutoff, erep, gradient, sigma)
+      call calc%repulsion%update(mol, rcache)
+      call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
       if (prlevel > 1) print *, property("repulsion energy", erep, "Eh")
       energy = energy + erep
       call timer%pop
@@ -150,7 +145,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call new_potential(pot, mol, calc%bas, wfn%nspin)
    if (allocated(calc%coulomb)) then
       call timer%push("coulomb")
-      call calc%coulomb%update(mol, cache)
+      call calc%coulomb%update(mol, ccache)
       call timer%pop
    end if
 
@@ -208,7 +203,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       elast = eelec
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
-         & cache, dcache, icache, eelec, error)
+         & ccache, dcache, icache, eelec, error)
       converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
@@ -246,7 +241,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (grad) then
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
-         call calc%coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+         call calc%coulomb%get_gradient(mol, ccache, wfn, gradient, sigma)
          call timer%pop
       end if
 

@@ -15,14 +15,13 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'calculator.f90',
-  'container.f90',
-  'context.f90',
-  'error.f90',
-  'param.f90',
-  'result.f90',
-  'structure.f90',
-  'table.f90',
-  'utils.f90',
-  'version.f90',
+  'alpb.f90',
+  'born.f90',
+  'cds.f90',
+  'cpcm.f90',
+  'cpcm_dd.f90',
+  'data.f90',
+  'input.f90',
+  'surface.f90',
+  'type.f90',
 )

@@ -35,6 +35,9 @@ program tester
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
+   use test_solvation_born, only : collect_solvation_born
+   use test_solvation_cpcm, only : collect_solvation_cpcm
+   use test_solvation_surface, only : collect_solvation_surface
    use test_tagged_io, only : collect_tagged_io
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
@@ -51,6 +54,9 @@ program tester
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
       new_testsuite("ncoord-gfn", collect_ncoord_gfn), &
+      new_testsuite("solvation-born", collect_solvation_born), &
+      new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
+      new_testsuite("solvation-surface", collect_solvation_surface), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
       new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
       new_testsuite("slater-expansion", collect_slater_expansion), &

@@ -19,6 +19,7 @@ module tblite_api_calculator
    use, intrinsic :: iso_c_binding
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
+   use tblite_api_container, only : vp_container
    use tblite_api_context, only : vp_context
    use tblite_api_param, only : vp_param
    use tblite_api_result, only : vp_result
@@ -176,7 +177,7 @@ subroutine delete_calculator_api(vcalc) &
    type(c_ptr), intent(inout) :: vcalc
    type(vp_calculator), pointer :: calc
 
-   if (debug) print '("[Info]", 1x, a)', "delete_context"
+   if (debug) print '("[Info]", 1x, a)', "delete_calculator"
 
    if (c_associated(vcalc)) then
       call c_f_pointer(vcalc, calc)
@@ -341,6 +342,43 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       & res%wfn%qpat(:, :, 1), res%quadrupole)
 
 end subroutine get_singlepoint_api
+
+
+subroutine push_back_api(vctx, vcalc, vcont) &
+      & bind(C, name=namespace//"calculator_push_back")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), intent(inout) :: vcont
+   type(vp_container), pointer :: cont
+
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "calculator_push_back"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vcont)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcont, cont)
+
+   call calc%ptr%push_back(cont%ptr)
+
+   deallocate(cont)
+   vcont = c_null_ptr
+end subroutine push_back_api
 
 
 subroutine check_wavefunction(wfn, mol, calc, etemp)

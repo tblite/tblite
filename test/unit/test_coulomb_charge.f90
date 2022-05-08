@@ -20,11 +20,11 @@ module test_coulomb_charge
       & test_failed
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
-   use tblite_cutoff, only : get_lattice_points
-   use tblite_coulomb_cache, only : coulomb_cache
+   use tblite_container_cache, only : container_cache
    use tblite_coulomb_charge, only : coulomb_charge_type, effective_coulomb, &
       & new_effective_coulomb, harmonic_average, arithmetic_average, &
       & gamma_coulomb, new_gamma_coulomb
+   use tblite_cutoff, only : get_lattice_points
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -326,7 +326,7 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
 
    integer :: iat, ic
    class(coulomb_charge_type), allocatable :: coulomb
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp) :: thr_
@@ -376,7 +376,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
 
    integer :: iat, ic
    class(coulomb_charge_type), allocatable :: coulomb
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 5.0e-5_wp
@@ -439,7 +439,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
 
    integer :: ic, jc
    class(coulomb_charge_type), allocatable :: coulomb
-   type(coulomb_cache) :: cache
+   type(container_cache) :: cache
    real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&

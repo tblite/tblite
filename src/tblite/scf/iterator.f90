@@ -19,8 +19,7 @@ module tblite_scf_iterator
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_container, only : container_cache, container_list
-   use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_disp, only : dispersion_type, dispersion_cache
+   use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
    use tblite_scf_broyden, only : broyden_mixer, new_broyden
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
@@ -69,9 +68,9 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Density dependent potential shifts
    type(potential_type), intent(inout) :: pot
    !> Restart data for coulombic interactions
-   type(coulomb_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache
    !> Restart data for dispersion interactions
-   type(dispersion_cache), intent(inout) :: dcache
+   type(container_cache), intent(inout) :: dcache
    !> Restart data for interaction containers
    type(container_cache), intent(inout) :: icache
 
