@@ -203,6 +203,7 @@ def test_gfn2():
     calc.singlepoint(res)
 
     assert res.get("energy") == approx(-32.97132127543436, abs=thr)
+    assert res.get("energy") == approx(sum(res.get("energies")), abs=thr)
     assert res.get("gradient") == approx(gradient, abs=thr)
 
 

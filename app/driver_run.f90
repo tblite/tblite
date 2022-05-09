@@ -203,7 +203,7 @@ subroutine run_main(config, error)
 
    if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)
-      call tagged_result(unit, energy, gradient, sigma)
+      call tagged_result(unit, energy, gradient, sigma, energies=results%energies)
       close(unit)
       if (config%verbosity > 0) then
          write(output_unit, '(a)') &

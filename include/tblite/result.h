@@ -59,6 +59,12 @@ tblite_get_result_energy(tblite_error /* err */,
                          tblite_result /* res */,
                          double* /* energy */);
 
+/// Retrieve atom-resolved energies from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_energies(tblite_error /* err */,
+                           tblite_result /* res */,
+                           double* /* energies[nat] */);
+
 /// Retrieve gradient from result container
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_gradient(tblite_error /* err */,
