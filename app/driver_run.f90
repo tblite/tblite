@@ -29,6 +29,7 @@ module tblite_driver_run
    use tblite_external_field, only : electric_field
    use tblite_output_ascii
    use tblite_param, only : param_record
+   use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
@@ -68,6 +69,7 @@ subroutine run_main(config, error)
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
+   type(results_type) :: results
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then
@@ -185,7 +187,7 @@ subroutine run_main(config, error)
    end if
 
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
-      & config%verbosity)
+      & config%verbosity, results)
    if (ctx%failed()) then
       write(error_unit, '("[Fatal]", 1x, a)') "Singlepoint calculation failed"
       do while(ctx%failed())
@@ -211,7 +213,8 @@ subroutine run_main(config, error)
 
    if (config%json) then
       open(file=config%json_output, newunit=unit)
-      call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma)
+      call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma, &
+         & energies=results%energies)
       close(unit)
       if (config%verbosity > 0) then
          write(output_unit, '(a)') &

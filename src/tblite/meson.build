@@ -52,6 +52,7 @@ srcs += files(
   'os.F90',
   'param.f90',
   'repulsion.f90',
+  'results.f90',
   'scf.f90',
   'solvation.f90',
   'spin.f90',

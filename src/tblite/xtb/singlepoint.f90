@@ -30,6 +30,7 @@ module tblite_xtb_singlepoint
       & ascii_quadrupole_moments
    use tblite_output_property, only : property, write(formatted)
    use tblite_output_format, only : format_string
+   use tblite_results, only : results_type
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_timer, only : timer_type, format_time
@@ -51,7 +52,8 @@ module tblite_xtb_singlepoint
 contains
 
 
-subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, verbosity)
+subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
+      & verbosity, results)
    type(context_type), intent(inout) :: ctx
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
@@ -61,6 +63,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp), contiguous, intent(out), optional :: gradient(:, :)
    real(wp), contiguous, intent(out), optional :: sigma(:, :)
    integer, intent(in), optional :: verbosity
+   type(results_type), intent(out), optional :: results
 
    logical :: grad, converged
    integer :: prlevel
@@ -221,6 +224,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    energies(:) = energies + eelec
    energy = sum(energies)
+   if (present(results)) then
+      results%energies = energies
+   end if
    call timer%pop
 
    if (prlevel > 1) then

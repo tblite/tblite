@@ -147,12 +147,13 @@ subroutine ascii_quadrupole_moments(unit, verbosity, mol, qpat, qpmom)
 end subroutine ascii_quadrupole_moments
 
 
-subroutine json_results(unit, indentation, energy, gradient, sigma)
+subroutine json_results(unit, indentation, energy, gradient, sigma, energies)
    integer, intent(in) :: unit
    character(len=*), intent(in), optional :: indentation
    real(wp), intent(in), optional :: energy
    real(wp), intent(in), optional :: gradient(:, :)
    real(wp), intent(in), optional :: sigma(:, :)
+   real(wp), intent(in), optional :: energies(:)
    character(len=:), allocatable :: indent, version_string
    character(len=*), parameter :: jsonkey = "('""',a,'"":',1x)"
    real(wp), allocatable :: array(:)
@@ -172,6 +173,12 @@ subroutine json_results(unit, indentation, energy, gradient, sigma)
       if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
       write(unit, jsonkey, advance='no') 'energy'
       write(unit, '(1x,es25.16)', advance='no') energy
+   end if
+   if (present(energies)) then
+      write(unit, '(",")', advance='no')
+      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
+      write(unit, jsonkey, advance='no') 'energies'
+      call write_json_array(unit, energies, indent)
    end if
    if (present(sigma)) then
       write(unit, '(",")', advance='no')
@@ -209,11 +216,12 @@ subroutine write_json_array(unit, array, indent)
 end subroutine write_json_array
 
 
-subroutine tagged_result(unit, energy, gradient, sigma)
+subroutine tagged_result(unit, energy, gradient, sigma, energies)
    integer, intent(in) :: unit
    real(wp), intent(in), optional :: energy
    real(wp), intent(in), optional :: gradient(:, :)
    real(wp), intent(in), optional :: sigma(:, :)
+   real(wp), intent(in), optional :: energies(:)
    character(len=*), parameter :: tag_header = &
       & '(a,t20,":",a,":",i0,":",*(i0:,","))'
 
@@ -221,12 +229,16 @@ subroutine tagged_result(unit, energy, gradient, sigma)
       write(unit, tag_header) "energy", "real", 0
       write(unit, '(3es24.16)') energy
    end if
+   if (present(energies)) then
+      write(unit, tag_header) "energies", "real", 1, shape(energies)
+      write(unit, '(3es24.16)') energies
+   end if
    if (present(gradient)) then
-      write(unit, tag_header) "gradient", "real", 2, 3, size(gradient, 2)
+      write(unit, tag_header) "gradient", "real", 2, shape(gradient)
       write(unit, '(3es24.16)') gradient
    end if
    if (present(sigma)) then
-      write(unit, tag_header) "virial", "real", 2, 3, 3
+      write(unit, tag_header) "virial", "real", 2, shape(sigma)
       write(unit, '(3es24.16)') sigma
    end if
 
