@@ -69,10 +69,11 @@ subroutine test_e(error, mol, qat, ref)
    real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
    integer, parameter :: nang = 110
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
-   real(wp) :: energy
+   real(wp) :: energy(mol%nat)
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
+   energy = 0.0_wp
 
    solv = cpcm_solvation(mol, cpcm_input(feps, nang=nang, rscale=rscale))
 
@@ -80,9 +81,9 @@ subroutine test_e(error, mol, qat, ref)
    call solv%get_potential(mol, cache, wfn, pot)
    call solv%get_energy(mol, cache, wfn, energy)
 
-   if (abs(energy - ref) > thr) then
+   if (abs(sum(energy) - ref) > thr) then
       call test_failed(error, "Energy does not match reference")
-      print *, energy
+      print *, sum(energy)
    end if
 end subroutine test_e
 
@@ -107,7 +108,7 @@ subroutine test_g(error, mol, qat)
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
 
    wfn%qat = reshape(qat, [size(qat), 1])
@@ -131,7 +132,7 @@ subroutine test_g(error, mol, qat)
          call solv%get_energy(mol, cache, wfn, el)
 
          mol%xyz(ic, ii) = mol%xyz(ic, ii) + step
-         numg(ic, ii) = 0.5_wp*(er - el)/step
+         numg(ic, ii) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -174,7 +175,7 @@ subroutine test_p(error, mol, qat)
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = 1e+3_wp*sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: vat(:)
-   real(wp) :: energy, er, el
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
    integer :: ii
 
    wfn%qat = reshape(qat, [size(qat), 1])
@@ -197,7 +198,7 @@ subroutine test_p(error, mol, qat)
       call solv%get_energy(mol, cache, wfn, el)
 
       wfn%qat(ii, 1) = wfn%qat(ii, 1) + step
-      vat(ii) = 0.5_wp*(er - el)/step
+      vat(ii) = 0.5_wp*(sum(er) - sum(el))/step
    end do
 
    energy = 0.0_wp

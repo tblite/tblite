@@ -64,7 +64,7 @@ end subroutine update
 
 
 !> Evaluate non-selfconsistent part of the interaction
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the interaction container
    class(container_type), intent(in) :: self
    !> Molecular structure data
@@ -72,7 +72,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different runs
    type(container_cache), intent(inout) :: cache
    !> Interaction energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Interaction gradient
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Interaction virial
@@ -81,7 +81,7 @@ end subroutine get_engrad
 
 
 !> Evaluate selfconsistent energy of the interaction
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the interaction container
    class(container_type), intent(in) :: self
    !> Molecular structure data
@@ -91,7 +91,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Interaction energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 end subroutine get_energy
 
 

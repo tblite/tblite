@@ -327,7 +327,7 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    integer :: iat, ic
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp) :: thr_
    type(wavefunction_type) :: wfn
@@ -349,9 +349,9 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    call coulomb%update(mol, cache)
    call coulomb%get_energy(mol, cache, wfn, energy)
 
-   call check(error, energy, ref, thr=thr_)
+   call check(error, sum(energy), ref, thr=thr_)
    if (allocated(error)) then
-      print*,ref, energy
+      print*,ref, sum(energy)
    end if
 
 end subroutine test_generic
@@ -377,7 +377,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    integer :: iat, ic
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
@@ -405,7 +405,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
          call coulomb%update(mol, cache)
          call coulomb%get_energy(mol, cache, wfn, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         numgrad(ic, iat) = 0.5_wp*(er - el)/step
+         numgrad(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -440,7 +440,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
    integer :: ic, jc
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
-   real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
@@ -479,7 +479,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
          if (allocated(lattice)) mol%lattice = lattice
-         numsigma(jc, ic) = 0.5_wp*(er - el)/step
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 

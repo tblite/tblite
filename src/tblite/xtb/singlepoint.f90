@@ -30,6 +30,7 @@ module tblite_xtb_singlepoint
       & ascii_quadrupole_moments
    use tblite_output_property, only : property, write(formatted)
    use tblite_output_format, only : format_string
+   use tblite_results, only : results_type
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_timer, only : timer_type, format_time
@@ -51,7 +52,8 @@ module tblite_xtb_singlepoint
 contains
 
 
-subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, verbosity)
+subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
+      & verbosity, results)
    type(context_type), intent(inout) :: ctx
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
@@ -61,11 +63,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp), contiguous, intent(out), optional :: gradient(:, :)
    real(wp), contiguous, intent(out), optional :: sigma(:, :)
    integer, intent(in), optional :: verbosity
+   type(results_type), intent(out), optional :: results
 
    logical :: grad, converged
-   real(wp) :: edisp, erep, exbond, eint, nel
    integer :: prlevel
-   real(wp) :: econv, pconv, cutoff, eelec, elast, dpmom(3), qpmom(6)
+   real(wp) :: econv, pconv, cutoff, elast, dpmom(3), qpmom(6), nel
+   real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :), wdensity(:, :, :)
    type(integral_type) :: ints
@@ -96,11 +99,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    grad = present(gradient) .and. present(sigma)
 
-   erep = 0.0_wp
-   edisp = 0.0_wp
-   eint = 0.0_wp
-   energy = 0.0_wp
-   exbond = 0.0_wp
+   allocate(energies(mol%nat), source=0.0_wp)
+   allocate(erep(mol%nat), source=0.0_wp)
+   allocate(edisp(mol%nat), source=0.0_wp)
+   allocate(eint(mol%nat), source=0.0_wp)
+   allocate(exbond(mol%nat), source=0.0_wp)
    if (grad) then
       gradient(:, :) = 0.0_wp
       sigma(:, :) = 0.0_wp
@@ -110,8 +113,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("halogen")
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
-      if (prlevel > 1) print *, property("halogen-bonding energy", exbond, "Eh")
-      energy = energy + exbond
+      if (prlevel > 1) print *, property("halogen-bonding energy", sum(exbond), "Eh")
+      energies(:) = energies + exbond
       call timer%pop
    end if
 
@@ -119,8 +122,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("repulsion")
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
-      if (prlevel > 1) print *, property("repulsion energy", erep, "Eh")
-      energy = energy + erep
+      if (prlevel > 1) print *, property("repulsion energy", sum(erep), "Eh")
+      energies(:) = energies + erep
       call timer%pop
    end if
 
@@ -128,8 +131,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("dispersion")
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
-      if (prlevel > 1) print *, property("dispersion energy", edisp, "Eh")
-      energy = energy + edisp
+      if (prlevel > 1) print *, property("dispersion energy", sum(edisp), "Eh")
+      energies(:) = energies + edisp
       call timer%pop
    end if
 
@@ -137,8 +140,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("interactions")
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) print *, property("interaction energy", eint, "Eh")
-      energy = energy + eint
+      if (prlevel > 1) print *, property("interaction energy", sum(eint), "Eh")
+      energies(:) = energies + eint
       call timer%pop
    end if
 
@@ -188,7 +191,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call timer%pop
 
    call timer%push("scc")
-   eelec = 0.0_wp
+   allocate(eelec(mol%nat), source=0.0_wp)
    iscf = 0
    converged = .false.
    info = calc%variable_info()
@@ -200,15 +203,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message(repeat("-", 60))
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
-      elast = eelec
+      elast = sum(eelec)
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
-      converged = abs(eelec - elast) < econv .and. mixer%get_error() < pconv
+      converged = abs(sum(eelec) - elast) < econv .and. mixer%get_error() < pconv
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
-            & format_string(eelec + energy, "(g24.13)") // &
-            & format_string(eelec - elast, "(es16.7)") // &
+            & format_string(sum(eelec + energies), "(g24.13)") // &
+            & format_string(sum(eelec) - elast, "(es16.7)") // &
             & format_string(mixer%get_error(), "(es16.7)"))
       end if
       if (allocated(error)) then
@@ -219,12 +222,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60) // new_line('a'))
    end if
-   energy = energy + eelec
+   energies(:) = energies + eelec
+   energy = sum(energies)
+   if (present(results)) then
+      results%energies = energies
+   end if
    call timer%pop
 
    if (prlevel > 1) then
-      print *, property("electronic energy", eelec, "Eh")
-      print *, property("total energy", energy, "Eh")
+      print *, property("electronic energy", sum(eelec), "Eh")
+      print *, property("total energy", sum(energies), "Eh")
       print *
    end if
 

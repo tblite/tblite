@@ -128,7 +128,7 @@ subroutine test_generic(error, mol, make_repulsion, ref)
 
    type(tb_repulsion) :: rep
    type(container_cache) :: cache
-   real(wp) :: energy, sigma(3, 3)
+   real(wp) :: energy(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
@@ -139,9 +139,9 @@ subroutine test_generic(error, mol, make_repulsion, ref)
    call make_repulsion(rep, mol)
    call rep%get_engrad(mol, cache, energy)
 
-   call check(error, energy, ref, thr=thr)
+   call check(error, sum(energy), ref, thr=thr)
    if (allocated(error)) then
-      print*,energy
+      print*,sum(energy)
    end if
 
 end subroutine test_generic
@@ -161,7 +161,7 @@ subroutine test_numgrad(error, mol, make_repulsion)
    integer :: iat, ic
    type(tb_repulsion) :: rep
    type(container_cache) :: cache
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
@@ -180,7 +180,7 @@ subroutine test_numgrad(error, mol, make_repulsion)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
          call rep%get_engrad(mol, cache, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         numgrad(ic, iat) = 0.5_wp*(er - el)/step
+         numgrad(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -208,7 +208,7 @@ subroutine test_numsigma(error, mol, make_repulsion)
    integer :: ic, jc
    type(tb_repulsion) :: rep
    type(container_cache) :: cache
-   real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lat(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
@@ -242,7 +242,7 @@ subroutine test_numsigma(error, mol, make_repulsion)
          mol%xyz(:, :) = xyz
          if (any(mol%periodic)) &
          mol%lattice(:, :) = lat
-         numsigma(jc, ic) = 0.5_wp*(er - el)/step
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 

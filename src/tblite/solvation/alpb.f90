@@ -212,7 +212,7 @@ end subroutine update
 
 
 !> Get solvation energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the solvation model
    class(alpb_solvation), intent(in) :: self
    !> Molecular structure data
@@ -222,14 +222,14 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Solvation free energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    type(alpb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
-   call symv(ptr%jmat, wfn%qat(:, 1), ptr%vat)
-   energy = energy + 0.5_wp * dot(wfn%qat, ptr%vat)
+   call symv(ptr%jmat, wfn%qat(:, 1), ptr%vat, alpha=0.5_wp)
+   energies(:) = energies + ptr%vat * wfn%qat(:, 1)
 end subroutine get_energy
 
 

@@ -57,7 +57,7 @@ subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9)
 end subroutine new_d3_dispersion
 
 !> Evaluate non-selfconsistent part of the dispersion correction
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the dispersion correction
    class(d3_dispersion), intent(in) :: self
    !> Molecular structure data
@@ -65,7 +65,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different dispersion runs
    type(container_cache), intent(inout) :: cache
    !> Dispersion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Dispersion gradient
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Dispersion virial
@@ -76,8 +76,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    real(wp), allocatable :: cn(:)
    real(wp), allocatable :: gwvec(:, :), gwdcn(:, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :)
-   real(wp), allocatable :: dEdcn(:), energies(:)
-   real(wp), allocatable :: lattr(:, :)
+   real(wp), allocatable :: dEdcn(:), lattr(:, :)
 
    mref = maxval(self%model%ref)
    grad = present(gradient).and.present(sigma)
@@ -94,8 +93,6 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    if (grad) allocate(dc6dcn(mol%nat, mol%nat))
    call self%model%get_atomic_c6(mol, gwvec, gwdcn, c6, dc6dcn)
 
-   allocate(energies(mol%nat))
-   energies(:) = 0.0_wp
    if (grad) then
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
@@ -111,8 +108,6 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
       call add_coordination_number_derivs(mol, lattr, self%cutoff%cn, self%model%rcov, &
          & dEdcn, gradient, sigma)
    end if
-
-   energy = energy + sum(energies)
 end subroutine get_engrad
 
 

@@ -95,7 +95,7 @@ end subroutine update
 
 
 !> Get electric field energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the electrostatic container
    class(electric_field), intent(in) :: self
    !> Molecular structure data
@@ -105,13 +105,13 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    real(wp), allocatable :: vdp(:, :), vat(:)
 
    vat = matmul(self%efield, mol%xyz)
    vdp = spread(self%efield, 2, mol%nat)
-   energy = energy - dot(vat, wfn%qat(:, 1)) - dot(vdp, wfn%dpat(:, :, 1))
+   energies(:) = energies - vat * wfn%qat(:, 1) - sum(vdp * wfn%dpat(:, :, 1), 1)
 end subroutine get_energy
 
 

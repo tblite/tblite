@@ -107,7 +107,7 @@ end subroutine update
 
 
 !> Evaluate non-selfconsistent part of the interaction
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the interaction container
    class(container_list), intent(in) :: self
    !> Molecular structure data
@@ -115,7 +115,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different runs
    type(container_cache), intent(inout) :: cache
    !> Interaction energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Interaction gradient
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Interaction virial
@@ -129,7 +129,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    do ic = 1, self%nc
       if (allocated(self%list(ic)%raw)) then
          associate(cont => self%list(ic)%raw)
-            call cont%get_engrad(mol, ptr%list(ic), energy, gradient, sigma)
+            call cont%get_engrad(mol, ptr%list(ic), energies, gradient, sigma)
          end associate
       end if
    end do
@@ -137,7 +137,7 @@ end subroutine get_engrad
 
 
 !> Evaluate selfconsistent energy of the interaction
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the interaction container
    class(container_list), intent(in) :: self
    !> Molecular structure data
@@ -147,7 +147,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Interaction energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: ic
    type(cache_list), pointer :: ptr
@@ -157,7 +157,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    do ic = 1, self%nc
       if (allocated(self%list(ic)%raw)) then
          associate(cont => self%list(ic)%raw)
-            call cont%get_energy(mol, ptr%list(ic), wfn, energy)
+            call cont%get_energy(mol, ptr%list(ic), wfn, energies)
          end associate
       end if
    end do

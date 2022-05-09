@@ -182,7 +182,7 @@ end subroutine update
 
 
 !> Get anisotropic electrostatic energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the multipole container
    class(damped_multipole), intent(in) :: self
    !> Molecular structure data
@@ -190,12 +190,11 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
 
    real(wp), allocatable :: vs(:), vd(:, :), vq(:, :)
-   real(wp) :: ees, exc
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
@@ -206,17 +205,14 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
    call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
 
-   ees = dot(wfn%dpat(:, :, 1), vd) + dot(wfn%qpat(:, :, 1), vq)
-   exc = 0.0_wp
+   energies(:) = energies + sum(wfn%dpat(:, :, 1) * vd, 1) + sum(wfn%qpat(:, :, 1) * vq, 1)
 
-   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), exc)
-   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), exc)
-
-   energy = energy + ees + exc
+   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
+   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
 end subroutine get_energy
 
 !> Get multipolar anisotropic exchange-correlation kernel
-subroutine get_kernel_energy(mol, kernel, mpat, energy)
+subroutine get_kernel_energy(mol, kernel, mpat, energies)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole kernel
@@ -224,7 +220,7 @@ subroutine get_kernel_energy(mol, kernel, mpat, energy)
    !> Atomic multipole momemnt
    real(wp), intent(in) :: mpat(:, :)
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: iat, izp
    real(wp) :: mpt(size(mpat, 1)), mpscale(size(mpat, 1))
@@ -235,7 +231,7 @@ subroutine get_kernel_energy(mol, kernel, mpat, energy)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       mpt(:) = mpat(:, iat) * mpscale
-      energy = energy + kernel(izp) * dot_product(mpt, mpat(:, iat))
+      energies(iat) = energies(iat) + kernel(izp) * dot_product(mpt, mpat(:, iat))
    end do
 end subroutine get_kernel_energy
 

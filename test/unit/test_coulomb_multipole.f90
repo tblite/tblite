@@ -207,7 +207,7 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
-   real(wp) :: energy, sigma(3, 3)
+   real(wp) :: energy(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
    type(wavefunction_type) :: wfn
@@ -225,9 +225,9 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    call multipole%update(mol, cache)
    call multipole%get_energy(mol, cache, wfn, energy)
 
-   call check(error, energy, ref, thr=thr)
+   call check(error, sum(energy), ref, thr=thr)
    if (allocated(error)) then
-      print *, ref, energy
+      print *, ref, sum(energy)
    end if
 
 end subroutine test_generic
@@ -257,7 +257,7 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
    type(wavefunction_type) :: wfn
@@ -287,7 +287,7 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
          call multipole%update(mol, cache)
          call multipole%get_energy(mol, cache, wfn, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         numgrad(ic, iat) = 0.5_wp*(er - el)/step
+         numgrad(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -331,7 +331,7 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
-   real(wp) :: energy, er, el, sigma(3, 3), eps(3, 3), numsigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
@@ -372,7 +372,7 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
          if (allocated(lattice)) mol%lattice = lattice
-         numsigma(jc, ic) = 0.5_wp*(er - el)/step
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
    numsigma = (numsigma + transpose(numsigma)) * 0.5_wp
@@ -417,7 +417,7 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
-   real(wp) :: energy, er, el, sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
    type(wavefunction_type) :: wfn
@@ -450,7 +450,7 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
       wfn%qat(iat, 1) = wfn%qat(iat, 1) - 2*step
       call multipole%get_energy(mol, cache, wfn, el)
       wfn%qat(iat, 1) = wfn%qat(iat, 1) + step
-      vat(iat) = 0.5_wp*(er - el)/step
+      vat(iat) = 0.5_wp*(sum(er) - sum(el))/step
    end do
 
    if (any(abs(pot%vat(:, 1) - vat) > thr2)) then
@@ -472,7 +472,7 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
          wfn%dpat(ic, iat, 1) = wfn%dpat(ic, iat, 1) - 2*step
          call multipole%get_energy(mol, cache, wfn, el)
          wfn%dpat(ic, iat, 1) = wfn%dpat(ic, iat, 1) + step
-         vdp(ic, iat) = 0.5_wp*(er - el)/step
+         vdp(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -495,7 +495,7 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
          wfn%qpat(ic, iat, 1) = wfn%qpat(ic, iat, 1) - 2*step
          call multipole%get_energy(mol, cache, wfn, el)
          wfn%qpat(ic, iat, 1) = wfn%qpat(ic, iat, 1) + step
-         vqp(ic, iat) = 0.5_wp*(er - el)/step
+         vqp(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 

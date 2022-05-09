@@ -55,6 +55,7 @@ list(
   "${dir}/os.F90"
   "${dir}/param.f90"
   "${dir}/repulsion.f90"
+  "${dir}/results.f90"
   "${dir}/scf.f90"
   "${dir}/solvation.f90"
   "${dir}/spin.f90"

@@ -21,16 +21,15 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
-   use tblite_scf_broyden, only : broyden_mixer, new_broyden
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
       & get_mulliken_atomic_multipoles
    use tblite_xtb_coulomb, only : tb_coulomb
+   use tblite_scf_broyden, only : broyden_mixer, new_broyden
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type, add_pot_to_h1
    use tblite_scf_solver, only : solver_type
-   use tblite_output_property, only : property, write(formatted)
    implicit none
    private
 
@@ -41,7 +40,7 @@ contains
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
       & interactions, ints, pot, cache, dcache, icache, &
-      & energy, error)
+      & energies, error)
    !> Current iteration count
    integer, intent(inout) :: iscf
    !> Molecular structure data
@@ -75,12 +74,13 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    type(container_cache), intent(inout) :: icache
 
    !> Self-consistent energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp) :: elast, ts, edisp, ees, eelec, eint
+   real(wp), allocatable :: eao(:)
+   real(wp) :: ts
 
    if (iscf > 0) then
       call mixer%next
@@ -116,43 +116,53 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    call diff_mixer(mixer, wfn, info)
 
-   ees = 0.0_wp
-   edisp = 0.0_wp
-   eint = 0.0_wp
-   eelec = 0.0_wp
-   elast = energy
-   call get_electronic_energy(ints%hamiltonian, wfn%density, eelec)
+   allocate(eao(bas%nao), source=0.0_wp)
+   call get_electronic_energy(ints%hamiltonian, wfn%density, eao)
+
+   energies(:) = ts / size(energies)
+   call reduce(energies, eao, bas%ao2at)
    if (present(coulomb)) then
-      call coulomb%get_energy(mol, cache, wfn, ees)
+      call coulomb%get_energy(mol, cache, wfn, energies)
    end if
    if (present(dispersion)) then
-      call dispersion%get_energy(mol, dcache, wfn, edisp)
+      call dispersion%get_energy(mol, dcache, wfn, energies)
    end if
    if (present(interactions)) then
-      call interactions%get_energy(mol, icache, wfn, eint)
+      call interactions%get_energy(mol, icache, wfn, energies)
    end if
-   energy = ts + eelec + ees + edisp + eint
-
 end subroutine next_scf
 
 
-subroutine get_electronic_energy(h0, density, energy)
+subroutine get_electronic_energy(h0, density, energies)
    real(wp), intent(in) :: h0(:, :)
    real(wp), intent(in) :: density(:, :, :)
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: iao, jao, spin
 
    !$omp parallel do collapse(3) schedule(runtime) default(none) &
-   !$omp reduction(+:energy) shared(h0, density) private(spin, iao, jao)
+   !$omp reduction(+:energies) shared(h0, density) private(spin, iao, jao)
    do spin = 1, size(density, 3)
       do iao = 1, size(density, 2)
          do jao = 1, size(density, 1)
-            energy = energy + h0(jao, iao) * density(jao, iao, spin)
+            energies(iao) = energies(iao) + h0(jao, iao) * density(jao, iao, spin)
          end do
       end do
    end do
 end subroutine get_electronic_energy
+
+
+subroutine reduce(reduced, full, map)
+   real(wp), intent(inout) :: reduced(:)
+   real(wp), intent(in) :: full(:)
+   integer, intent(in) :: map(:)
+
+   integer :: ix
+
+   do ix = 1, size(map)
+      reduced(map(ix)) = reduced(map(ix)) + full(ix)
+   end do
+end subroutine reduce
 
 
 subroutine get_qat_from_qsh(bas, qsh, qat)

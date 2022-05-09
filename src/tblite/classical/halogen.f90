@@ -103,18 +103,18 @@ end function is_acceptor
 
 
 !> Evaluate classical interaction for energy and derivatives
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the halogen bond correction
    class(halogen_correction), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Cached data between different runs
    type(container_cache), intent(inout) :: cache
-   !> Repulsion energy
-   real(wp), intent(inout) :: energy
-   !> Molecular gradient of the repulsion energy
+   !> Halogen-bonding energy
+   real(wp), intent(inout) :: energies(:)
+   !> Molecular gradient of the halogen-bonding energy
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
-   !> Strain derivatives of the repulsion energy
+   !> Strain derivatives of the halogen-bonding energy
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
    integer, allocatable :: list(:, :)
@@ -129,10 +129,10 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
 
    if (present(gradient) .and. present(sigma)) then
       call get_xbond_derivs(mol, trans, list, self%damping, self%bond_strength, self%rad, &
-         & energy, gradient, sigma)
+         & energies, gradient, sigma)
    else
       call get_xbond_energy(mol, trans, list, self%damping, self%bond_strength, self%rad, &
-         & energy)
+         & energies)
    end if
 
 end subroutine get_engrad
@@ -237,7 +237,7 @@ end subroutine resize
 
 !> Get energy contributions from halogen bonding interactions
 subroutine get_xbond_energy(mol, trans, list, damping, bond_strength, rad, &
-      & energy)
+      & energies)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -251,7 +251,7 @@ subroutine get_xbond_energy(mol, trans, list, damping, bond_strength, rad, &
    !> Atomic radii for each species
    real(wp), intent(in) :: rad(:)
    !> Repulsion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: ijk, jat, kat, xat, xzp, jzp, jtr, ktr
    real(wp) :: cc, r0jx, t13, t14, d2jx, rjx, term, aterm
@@ -280,7 +280,7 @@ subroutine get_xbond_energy(mol, trans, list, damping, bond_strength, rad, &
       aterm = (0.5_wp-0.25_wp*term)**alp
       t13 = r0jx/rjx
       t14 = t13**lj
-      energy = energy + aterm*cc*(t14-damping*t13**lj2) / (1.0_wp+t14)
+      energies(xat) = energies(xat) + aterm*cc*(t14-damping*t13**lj2) / (1.0_wp+t14)
    end do
 
 end subroutine get_xbond_energy
@@ -288,7 +288,7 @@ end subroutine get_xbond_energy
 
 !> Get energy and its derivatives for halogen bonding interactions
 subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
-      & energy, gradient, sigma)
+      & energies, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -302,7 +302,7 @@ subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
    !> Atomic radii for each species
    real(wp), intent(in) :: rad(:)
    !> Repulsion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Molecular gradient of the repulsion energy
    real(wp), intent(inout) :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
@@ -342,7 +342,7 @@ subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
 
       t13 = r0jx/rjx
       t14 = t13**lj
-      energy = energy + aterm*cc*(t14-damping*t13**lj2) / (1.0_wp+t14)
+      energies(xat) = energies(xat) + aterm*cc*(t14-damping*t13**lj2) / (1.0_wp+t14)
 
       ! set up weighted inverted distance and compute the modified Lennard-Jones potential
       t14 = (r0jx/rjx)**lj2 ! (rov/r)^lj2 ; lj2 = 6 in GFN1

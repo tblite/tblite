@@ -19,6 +19,7 @@ module tblite_api_result
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_version, only : namespace
+   use tblite_results, only : results_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -28,28 +29,26 @@ module tblite_api_result
       & get_result_number_of_orbitals_api, get_result_energy_api, get_result_gradient_api, &
       & get_result_virial_api, get_result_charges_api, get_result_dipole_api, &
       & get_result_quadrupole_api, get_result_orbital_energies_api, &
-      & get_result_orbital_occupations_api, get_result_orbital_coefficients_api
+      & get_result_orbital_occupations_api, get_result_orbital_coefficients_api, &
+      & get_result_energies_api
 
 
    !> Void pointer holding results of a calculation
    type :: vp_result
       !> Single point energy
       real(wp), allocatable :: energy
-
       !> Molecular gradient
       real(wp), allocatable :: gradient(:, :)
-
       !> Virial
       real(wp), allocatable :: sigma(:, :)
-
       !> Dipole moment
       real(wp), allocatable :: dipole(:)
-
       !> Quadrupole moment
       real(wp), allocatable :: quadrupole(:)
-
       !> Wavefunction
       type(wavefunction_type), allocatable :: wfn
+      !> Additional results
+      type(results_type), allocatable :: results
    end type vp_result
 
 
@@ -200,6 +199,34 @@ subroutine get_result_energy_api(verror, vres, energy) &
 
    energy = res%energy
 end subroutine get_result_energy_api
+
+
+subroutine get_result_energies_api(verror, vres, energies) &
+      & bind(C, name=namespace//"get_result_energies")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: energies(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_energies"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain energies")
+      return
+   end if
+
+   if (.not.allocated(res%results%energies)) then
+      call fatal_error(error%ptr, "Result does not contain energies")
+      return
+   end if
+
+   energies(:size(res%results%energies)) = res%results%energies
+end subroutine get_result_energies_api
 
 
 subroutine get_result_gradient_api(verror, vres, gradient) &

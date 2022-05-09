@@ -83,7 +83,7 @@ end subroutine new_spin_polarization
 
 
 !> Get spin-polarization energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the spin-polarization container
    class(spin_polarization), intent(in) :: self
    !> Molecular structure data
@@ -93,7 +93,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> spin-polarization energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: iat, izp, ish, jsh, ii, spin
 
@@ -103,7 +103,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
             do jsh = 1, self%nsh_at(iat)
-               energy = energy + &
+               energies(iat) = energies(iat) + &
                   & 0.5_wp*wfn%qsh(ii+ish, spin)*wfn%qsh(ii+jsh, spin)*self%wll(jsh, ish, izp)
             end do
          end do

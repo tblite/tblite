@@ -195,7 +195,7 @@ end subroutine update
 
 
 !> Get electric field energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the solvation model
    class(cpcm_solvation), intent(in) :: self
    !> Molecular structure data
@@ -205,13 +205,13 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Solvation free energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    type(cpcm_cache), pointer :: ptr
 
    call view(cache, ptr)
 
-   energy = self%keps * dot(ptr%sigma, ptr%psi)
+   energies(:) = energies + self%keps * sum(ptr%sigma * ptr%psi, 1)
 end subroutine get_energy
 
 

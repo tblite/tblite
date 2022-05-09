@@ -22,8 +22,7 @@ module tblite_wavefunction_mulliken
    implicit none
    private
 
-   public :: get_mulliken_populations, get_mulliken_shell_charges
-   public :: get_mulliken_atomic_multipoles
+   public :: get_mulliken_shell_charges, get_mulliken_atomic_multipoles
    public :: get_molecular_dipole_moment, get_molecular_quadrupole_moment
 
 contains
@@ -56,39 +55,6 @@ subroutine get_mulliken_shell_charges(bas, smat, pmat, n0sh, qsh)
    qsh(:, 1) = qsh(:, 1) + n0sh
 
 end subroutine get_mulliken_shell_charges
-
-
-subroutine get_mulliken_populations(bas, smat, pmat, pao, psh, pat)
-   type(basis_type), intent(in) :: bas
-   real(wp), intent(in) :: smat(:, :)
-   real(wp), intent(in) :: pmat(:, :)
-   real(wp), intent(out) :: pao(:)
-   real(wp), intent(out), optional :: psh(:)
-   real(wp), intent(out), optional :: pat(:)
-
-   integer :: iao, jao
-
-   pao(:) = 0.0_wp
-   do iao = 1, bas%nao
-      do jao = 1, bas%nao
-         pao(iao) = pao(iao) + pmat(jao, iao) * smat(jao, iao)
-      end do
-   end do
-
-   if (present(psh)) then
-      psh(:) = 0.0_wp
-      do iao = 1, bas%nao
-         psh(bas%ao2sh(iao)) = psh(bas%ao2sh(iao)) + pao(iao)
-      end do
-   end if
-
-   if (present(pat)) then
-      pat(:) = 0.0_wp
-      do iao = 1, bas%nao
-         pat(bas%ao2at(iao)) = pat(bas%ao2at(iao)) + pao(iao)
-      end do
-   end if
-end subroutine get_mulliken_populations
 
 
 subroutine get_mulliken_atomic_multipoles(bas, mpmat, pmat, mpat)

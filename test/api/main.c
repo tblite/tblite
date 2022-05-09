@@ -60,6 +60,15 @@ norm2(int n, double* vec)
    return sqrt(norm);
 }
 
+static inline double
+sum(int n, double* vec)
+{
+   double val = 0.0;
+   int i;
+   for (i = 0; i != n; i++) val += vec[i];
+   return val;
+}
+
 static inline void
 show_error(tblite_error error)
 {
@@ -405,6 +414,12 @@ test_empty_result (void)
 
    show_error(error);
 
+   double energies[4];
+   tblite_get_result_energies(error, res, energies);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
    tblite_delete(error);
    return 0;
 
@@ -615,6 +630,7 @@ test_calc_restart (void)
       -1.32658751691561, -0.95404596601807,  4.30967630773603,
    };
    double energy;
+   double energies[22];
 
    error = tblite_new_error();
    ctx = tblite_new_context();
@@ -659,6 +675,11 @@ test_calc_restart (void)
    if (tblite_check_error(error)) goto err;
 
    if (!check(energy, -32.96247211794, thr, "energy error")) goto err;
+
+   tblite_get_result_energies(error, res1, energies);
+   if (tblite_check_error(error)) goto err;
+
+   if (!check(energy, sum(22, energies), thr, "energy error")) goto err;
 
    res2 = tblite_copy_result(res1);
    tblite_delete(res1);

@@ -100,7 +100,7 @@ end subroutine new_repulsion
 
 
 !> Evaluate classical interaction for energy and derivatives
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the repulsion container
    class(tb_repulsion), intent(in) :: self
    !> Molecular structure data
@@ -108,7 +108,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different runs
    type(container_cache), intent(inout) :: cache
    !> Repulsion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Molecular gradient of the repulsion energy
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
@@ -120,17 +120,17 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
 
    if (present(gradient) .and. present(sigma)) then
       call get_repulsion_derivs(mol, trans, self%cutoff, self%alpha, self%zeff, &
-         & self%kexp, self%rexp, energy, gradient, sigma)
+         & self%kexp, self%rexp, energies, gradient, sigma)
    else
       call get_repulsion_energy(mol, trans, self%cutoff, self%alpha, self%zeff, &
-         & self%kexp, self%rexp, energy)
+         & self%kexp, self%rexp, energies)
    end if
 
 end subroutine get_engrad
 
 
 subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
-      & energy)
+      & energies)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -146,14 +146,11 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    !> Pairwise parameters for all element pairs
    real(wp), intent(in) :: rexp(:, :)
    !> Repulsion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE
-   real(wp), allocatable :: energies(:)
 
-   allocate(energies(mol%nat))
-   energies(:) = 0.0_wp
    cutoff2 = cutoff**2
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:energies) &
@@ -181,13 +178,11 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
       end do
    end do
 
-   energy = energy + sum(energies)
-
 end subroutine get_repulsion_energy
 
 
 subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
-      & energy, gradient, sigma)
+      & energies, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -203,7 +198,7 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    !> Pairwise parameters for all element pairs
    real(wp), intent(in) :: rexp(:, :)
    !> Repulsion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Molecular gradient of the repulsion energy
    real(wp), intent(inout) :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
@@ -211,10 +206,7 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
 
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE, dG(3), dS(3, 3)
-   real(wp), allocatable :: energies(:)
 
-   allocate(energies(mol%nat))
-   energies(:) = 0.0_wp
    cutoff2 = cutoff**2
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:energies, gradient, sigma) &
@@ -248,8 +240,6 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
          end do
       end do
    end do
-
-   energy = energy + sum(energies)
 
 end subroutine get_repulsion_derivs
 

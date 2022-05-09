@@ -199,6 +199,17 @@ def get_energy(res) -> float:
     return _energy[0]
 
 
+def get_energies(res):
+    """Retrieve atom-resolved energies from result container"""
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    _energies = np.zeros((_natoms[0],))
+    error_check(lib.tblite_get_result_energies)(
+        res, ffi.cast("double*", _energies.ctypes.data)
+    )
+    return _energies
+
+
 def get_gradient(res):
     """Retrieve gradient from result container"""
     _natoms = ffi.new("int *")

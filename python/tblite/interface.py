@@ -214,6 +214,7 @@ class Result:
     _natoms = 0
     _getter = {
         "energy": library.get_energy,
+        "energies": library.get_energies,
         "gradient": library.get_gradient,
         "virial": library.get_virial,
         "charges": library.get_charges,
