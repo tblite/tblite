@@ -61,11 +61,13 @@ subroutine test_br2nh3(error)
    type(structure_type) :: mol
    type(halogen_correction) :: xb
    type(container_cache) :: cache
-   real(wp) :: energy
+   real(wp), allocatable :: energy(:)
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
 
    call BrBr_NH3(mol)
    call new_halogen_correction(xb, mol, 0.44_wp, 1.3_wp, halogen_bond(mol%num))
+
+   allocate(energy(mol%nat))
 
    call check(error, count(xb%halogen), 1)
    if (allocated(error)) return
@@ -76,7 +78,7 @@ subroutine test_br2nh3(error)
    energy = 0.0_wp
    call xb%get_engrad(mol, cache, energy)
 
-   call check(error, energy, 2.4763110097465683E-3_wp, thr=thr)
+   call check(error, sum(energy), 2.4763110097465683E-3_wp, thr=thr)
    if (allocated(error)) return
 
 end subroutine test_br2nh3
@@ -91,13 +93,16 @@ subroutine test_br2och2(error)
    type(halogen_correction) :: xb
    type(container_cache) :: cache
    integer :: iat, ic
-   real(wp) :: energy, sigma(3, 3), er, el
+   real(wp) :: sigma(3, 3)
+   real(wp), allocatable :: energy(:), er(:), el(:)
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
    call BrBr_OCH2(mol)
    call new_halogen_correction(xb, mol, 0.44_wp, 1.3_wp, halogen_bond(mol%num))
+
+   allocate(energy(mol%nat), er(mol%nat), el(mol%nat))
 
    call check(error, count(xb%halogen), 1)
    if (allocated(error)) return
@@ -112,7 +117,7 @@ subroutine test_br2och2(error)
 
    call xb%get_engrad(mol, cache, energy, gradient, sigma)
 
-   call check(error, energy, -6.7587305781592112E-4_wp, thr=thr)
+   call check(error, sum(energy), -6.7587305781592112E-4_wp, thr=thr)
    if (allocated(error)) return
 
    do iat = 1, mol%nat
@@ -124,7 +129,7 @@ subroutine test_br2och2(error)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
          call xb%get_engrad(mol, cache, el)
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         numgrad(ic, iat) = 0.5_wp*(er - el)/step
+         numgrad(ic, iat) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 
@@ -145,7 +150,8 @@ subroutine test_finch(error)
    type(halogen_correction) :: xb
    type(container_cache) :: cache
    integer :: ic, jc
-   real(wp) :: energy, sigma(3, 3), eps(3, 3), numsigma(3, 3), er, el
+   real(wp) :: sigma(3, 3), eps(3, 3), numsigma(3, 3)
+   real(wp), allocatable :: energy(:), er(:), el(:)
    real(wp), parameter :: trans(3, 1) = 0.0_wp, cutoff = sqrt(400.0_wp)
    real(wp), allocatable :: gradient(:, :), xyz(:, :)
    real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
@@ -153,6 +159,8 @@ subroutine test_finch(error)
 
    call FI_NCH(mol)
    call new_halogen_correction(xb, mol, 0.44_wp, 1.3_wp, halogen_bond(mol%num))
+
+   allocate(energy(mol%nat), er(mol%nat), el(mol%nat))
 
    call check(error, count(xb%halogen), 1)
    if (allocated(error)) return
@@ -167,7 +175,7 @@ subroutine test_finch(error)
 
    call xb%get_engrad(mol, cache, energy, gradient, sigma)
 
-   call check(error, energy, 1.1857937381795408E-2_wp, thr=thr)
+   call check(error, sum(energy), 1.1857937381795408E-2_wp, thr=thr)
    if (allocated(error)) return
 
    eps(:, :) = unity
@@ -184,7 +192,7 @@ subroutine test_finch(error)
          call xb%get_engrad(mol, cache, el)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
-         numsigma(jc, ic) = 0.5_wp*(er - el)/step
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
 

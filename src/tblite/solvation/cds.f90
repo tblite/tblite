@@ -166,7 +166,7 @@ end subroutine update
 
 
 !> Evaluate non-selfconsistent part of the interaction
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the solvation model
    class(cds_solvation), intent(in) :: self
    !> Molecular structure data
@@ -174,7 +174,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different runs
    type(container_cache), intent(inout) :: cache
    !> Interaction energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Interaction gradient
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Interaction virial
@@ -184,7 +184,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
 
    call view(cache, ptr)
 
-   energy = energy + dot(ptr%surface, ptr%tension)
+   energies(:) = energies + ptr%surface * ptr%tension
 
    if (present(gradient)) then
       if (allocated(ptr%dsdr)) &
@@ -196,7 +196,7 @@ end subroutine get_engrad
 
 
 !> Get solvation energy
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the solvation model
    class(cds_solvation), intent(in) :: self
    !> Molecular structure data
@@ -206,7 +206,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Solvation free energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    type(cds_cache), pointer :: ptr
 
@@ -214,7 +214,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
 
    if (allocated(self%hbond)) then
       ptr%scratch(:) = ptr%hbond * ptr%surface * wfn%qat(:, 1)**2
-      energy = energy + sum(ptr%scratch)
+      energies(:) = energies + ptr%scratch
    end if
 end subroutine get_energy
 

@@ -67,7 +67,7 @@ subroutine update(self, mol, cache)
 end subroutine update
 
 
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the electrostatic container
    class(tb_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -77,27 +77,19 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
-
-   real(wp) :: ees2, eaes2, ees3
-
-   ees2 = 0.0_wp
-   eaes2 = 0.0_wp
-   ees3 = 0.0_wp
+   real(wp), intent(inout) :: energies(:)
 
    if (allocated(self%es2)) then
-      call self%es2%get_energy(mol, cache, wfn, ees2)
+      call self%es2%get_energy(mol, cache, wfn, energies)
    end if
 
    if (allocated(self%aes2)) then
-      call self%aes2%get_energy(mol, cache, wfn, eaes2)
+      call self%aes2%get_energy(mol, cache, wfn, energies)
    end if
 
    if (allocated(self%es3)) then
-      call self%es3%get_energy(mol, cache, wfn, ees3)
+      call self%es3%get_energy(mol, cache, wfn, energies)
    end if
-
-   energy = energy + ees2 + eaes2 + ees3
 end subroutine get_energy
 
 

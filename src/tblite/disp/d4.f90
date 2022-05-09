@@ -114,7 +114,7 @@ end subroutine update
 
 
 !> Evaluate non-selfconsistent part of the dispersion correction
-subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
+subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    !> Instance of the dispersion correction
    class(d4_dispersion), intent(in) :: self
    !> Molecular structure data
@@ -122,7 +122,7 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    !> Cached data between different dispersion runs
    type(container_cache), intent(inout) :: cache
    !> Dispersion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Dispersion gradient
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Dispersion virial
@@ -133,12 +133,12 @@ subroutine get_engrad(self, mol, cache, energy, gradient, sigma)
    call view(cache, ptr)
 
    call get_dispersion_nonsc(mol, self%model, self%param, self%cutoff, ptr, &
-      & energy, gradient, sigma)
+      & energies, gradient, sigma)
 end subroutine get_engrad
 
 
 !> Evaluate selfconsistent energy of the dispersion correction
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the dispersion correction
    class(d4_dispersion), intent(in) :: self
    !> Molecular structure data
@@ -148,7 +148,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Dispersion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    type(dispersion_cache), pointer :: ptr
 
@@ -157,7 +157,8 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
 
    call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec, alpha=0.5_wp)
-   energy = energy + dot(ptr%gwvec, ptr%vvec)
+   ptr%vvec(:, :) = ptr%vvec * ptr%gwvec
+   energies(:) = energies + sum(ptr%vvec, 1)
 end subroutine get_energy
 
 
@@ -183,7 +184,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec)
    ptr%vvec(:, :) = ptr%vvec * ptr%dgwdq
-   pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec, dim=1)
+   pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec, 1)
 end subroutine get_potential
 
 
@@ -227,7 +228,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
       & c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma)
    call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
    call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
-
 end subroutine get_gradient
 
 
@@ -289,7 +289,7 @@ end subroutine get_dispersion_matrix
 
 
 !> Wrapper to handle the evaluation of dispersion energy and derivatives
-subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energy, gradient, sigma)
+subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energies, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Dispersion model
@@ -301,7 +301,7 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energy, gradien
    !> Cached data between different dispersion runs
    type(dispersion_cache), intent(inout) :: cache
    !> Dispersion energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
    !> Dispersion gradient
    real(wp), intent(inout), contiguous, optional :: gradient(:, :)
    !> Dispersion virial
@@ -312,19 +312,18 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energy, gradien
    real(wp), allocatable :: qat(:)
    real(wp), allocatable :: gwvec(:, :), gwdcn(:, :), gwdq(:, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :), dc6dq(:, :)
-   real(wp), allocatable :: dEdcn(:), dEdq(:), energies(:)
+   real(wp), allocatable :: dEdcn(:), dEdq(:)
    real(wp), allocatable :: lattr(:, :)
 
    mref = maxval(disp%ref)
    grad = present(gradient).and.present(sigma)
 
-   allocate(gwvec(mref, mol%nat), energies(mol%nat), qat(mol%nat), c6(mol%nat, mol%nat))
+   allocate(gwvec(mref, mol%nat), qat(mol%nat), c6(mol%nat, mol%nat))
    if (grad) then
       allocate(gwdcn(mref, mol%nat), gwdq(mref, mol%nat), &
          & dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
    end if
    qat(:) = 0.0_wp
-   energies(:) = 0.0_wp
    if (grad) then
       allocate(dEdcn(mol%nat), dEdq(mol%nat))
       dEdcn(:) = 0.0_wp
@@ -341,8 +340,6 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energy, gradien
       call gemv(cache%dcndr, dEdcn, gradient, beta=1.0_wp)
       call gemv(cache%dcndL, dEdcn, sigma, beta=1.0_wp)
    end if
-
-   energy = energy + sum(energies)
 
 end subroutine get_dispersion_nonsc
 

@@ -119,7 +119,7 @@ end subroutine update
 
 
 !> Evaluate selfconsistent energy of the interaction
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
    !> Molecular structure data
@@ -129,15 +129,20 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
+   integer :: iat, ii, ish
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
    call symv(ptr%amat, wfn%qsh(:, 1), ptr%vvec, alpha=0.5_wp)
-   energy = energy + dot(ptr%vvec, wfn%qsh(:, 1))
-
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do ish = 1, self%nshell(iat)
+         energies(iat) = energies(iat) + ptr%vvec(ii+ish) * wfn%qsh(ii+ish, 1)
+      end do
+   end do
 end subroutine get_energy
 
 

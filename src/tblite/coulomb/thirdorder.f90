@@ -101,7 +101,7 @@ end subroutine update
 
 
 !> Evaluate selfconsistent energy of the interaction
-subroutine get_energy(self, mol, cache, wfn, energy)
+subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the electrostatic container
    class(onsite_thirdorder), intent(in) :: self
    !> Molecular structure data
@@ -111,7 +111,7 @@ subroutine get_energy(self, mol, cache, wfn, energy)
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
    !> Electrostatic energy
-   real(wp), intent(inout) :: energy
+   real(wp), intent(inout) :: energies(:)
 
    integer :: iat, izp, ii, ish
 
@@ -120,13 +120,15 @@ subroutine get_energy(self, mol, cache, wfn, energy)
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
-            energy = energy + wfn%qsh(ii+ish, 1)**3 * self%hubbard_derivs(ish, izp) / 3.0_wp
+            energies(iat) = energies(iat) &
+               & + wfn%qsh(ii+ish, 1)**3 * self%hubbard_derivs(ish, izp) / 3.0_wp
          end do
       end do
    else
       do iat = 1, mol%nat
          izp = mol%id(iat)
-         energy = energy + wfn%qat(iat, 1)**3 * self%hubbard_derivs(1, izp) / 3.0_wp
+         energies(iat) = energies(iat) &
+            & + wfn%qat(iat, 1)**3 * self%hubbard_derivs(1, izp) / 3.0_wp
       end do
    end if
 end subroutine get_energy
