@@ -32,7 +32,7 @@ module tblite_driver_run
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -148,6 +148,16 @@ subroutine run_main(config, error)
    if (allocated(error)) return
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+
+   select case(config%guess)
+   case default
+      call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
+   case("sad")
+      call sad_guess(mol, calc, wfn)
+   case("eeq")
+      call eeq_guess(mol, calc, wfn)
+   end select
+   if (allocated(error)) return
 
    if (allocated(config%efield)) then
       block

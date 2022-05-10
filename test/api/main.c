@@ -262,6 +262,11 @@ test_uninitialized_calculator (void)
 
    show_context_error(ctx);
 
+   tblite_set_calculator_guess(ctx, calc, TBLITE_GUESS_SAD);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
    tblite_calculator_push_back(ctx, calc, &cont);
    if (!tblite_check_context(ctx)) goto unexpected;
 
@@ -1173,6 +1178,83 @@ err:
    return 1;
 }
 
+
+int
+test_gfn2_convergence (void)
+{
+   printf("Start test: GFN2-xTB (convergence)\n");
+   tblite_error error = NULL;
+   tblite_context ctx = NULL;
+   tblite_structure mol = NULL;
+   tblite_calculator calc = NULL;
+   tblite_result res = NULL;
+   tblite_param param = NULL;
+
+   const double thr = 5.0e-7;
+   int natoms = 2;
+   int num[2] = {3, 8};
+   double xyz[3*2] = {
+     +0.00000000000000, +0.00000000000000, +1.50105302628963,
+     +0.00000000000000, +0.00000000000000, -1.50105302628963,
+   };
+   double energy;
+
+
+   error = tblite_new_error();
+   ctx = tblite_new_context();
+   res = tblite_new_result();
+   param = tblite_new_param();
+
+   mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+   if (tblite_check_error(error)) goto err;
+
+   tblite_export_gfn2_param(error, param);
+   if (tblite_check_error(error)) goto err;
+
+   calc = tblite_new_xtb_calculator(ctx, mol, param);
+   if (!calc) goto err;
+
+   tblite_set_calculator_guess(ctx, calc, TBLITE_GUESS_EEQ);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_energy(error, res, &energy);
+   if (tblite_check_error(error)) goto err;
+
+   if (!check(energy, -4.228326553369, thr, "energy error")) goto err;
+
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
+   tblite_delete(param);
+   return 0;
+
+err:
+   if (tblite_check_error(error)) {
+      char message[512];
+      tblite_get_error(error, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   if (tblite_check_context(ctx)) {
+      char message[512];
+      tblite_get_context_error(ctx, message, NULL);
+      printf("[Fatal] %s\n", message);
+   }
+
+   tblite_delete(error);
+   tblite_delete(ctx);
+   tblite_delete(mol);
+   tblite_delete(calc);
+   tblite_delete(res);
+   tblite_delete(param);
+   return 1;
+}
+
 int
 main (void)
 {
@@ -1192,6 +1274,7 @@ main (void)
    stat += test_gfn2_si5h12();
    stat += test_ipea1_ch4();
    stat += test_gfn1_co2();
+   stat += test_gfn2_convergence();
    stat += test_calc_restart();
    stat += test_callback();
 

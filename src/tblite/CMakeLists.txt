@@ -62,6 +62,7 @@ list(
   "${dir}/timer.f90"
   "${dir}/toml.f90"
   "${dir}/version.f90"
+  "${dir}/wavefunction.f90"
   "${dir}/wignerseitz.f90"
 )
 
