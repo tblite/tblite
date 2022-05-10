@@ -45,6 +45,7 @@ module tblite_cli
       integer, allocatable :: spin
       character(len=:), allocatable :: method
       character(len=:), allocatable :: param
+      character(len=:), allocatable :: guess
       logical :: json = .false.
       character(len=:), allocatable :: json_output
       type(solvation_input), allocatable :: solvation
@@ -239,11 +240,15 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end if
          iarg = iarg + 1
-          call list%get(iarg, config%method)
+         call list%get(iarg, config%method)
          if (.not.allocated(config%method)) then
             call fatal_error(error, "Missing argument for method")
             exit
          end if
+
+      case("--guess")
+         iarg = iarg + 1
+         call list%get(iarg, config%guess)
 
       case("--cpcm")
          if (allocated(config%solvation)) then
@@ -350,6 +355,8 @@ subroutine get_run_arguments(config, list, start, error)
          error stop
       end if
    end if
+
+   if (.not.allocated(config%guess)) config%guess = "sad"
 
    if (config%grad .and. .not.allocated(config%grad_output) .and. .not.config%json) then
       config%grad_output = "tblite.txt"

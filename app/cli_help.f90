@@ -107,6 +107,8 @@ module tblite_cli_help
       "                          Available methods: gfn1, gfn2, ipea1 (Default: gfn2)"//nl//&
       "      --param <file>      Parametrization file to use for calculation"//nl//&
       "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --guess <name>      Guess for the initial populations, possible options:"//nl//&
+      "                          sad (default), and eeq."//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                          Homogeneous electric field in V/Å."//nl//&
       "--alpb <real>             Use analytical linearized Poisson-Boltzmann solvation."//nl//&

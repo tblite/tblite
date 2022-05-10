@@ -26,6 +26,7 @@ module tblite_driver_run
    use tblite_container, only : container_type
    use tblite_context, only : context_type
    use tblite_data_spin, only : get_spin_constant
+   use tblite_disp_d4, only : get_eeq_charges
    use tblite_external_field, only : electric_field
    use tblite_output_ascii
    use tblite_param, only : param_record
@@ -36,6 +37,7 @@ module tblite_driver_run
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
+   use tblite_xtb_h0, only : get_occupation
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -148,6 +150,26 @@ subroutine run_main(config, error)
    if (allocated(error)) return
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+
+   select case(config%guess)
+   case default
+      call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
+   case("sad")
+      continue
+   case("eeq")
+      block
+         integer :: iat, ii, ish
+         call get_eeq_charges(mol, wfn%qat(:, 1))
+         call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
+         do iat = 1, mol%nat
+            ii = calc%bas%ish_at(iat)
+            do ish = 1, calc%bas%nsh_at(iat)
+               wfn%qsh(ii+ish, 1) = (wfn%n0sh(ii+ish) / wfn%n0at(iat)) * wfn%qat(iat, 1)
+            end do
+         end do
+      end block
+   end select
+   if (allocated(error)) return
 
    if (allocated(config%efield)) then
       block

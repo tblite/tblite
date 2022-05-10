@@ -45,6 +45,10 @@ Supported geometry input formats are:
 *--etemp* _real_::
      Electronic temperature for calculation in Kelvin (default: 300K).
 
+*--guess* _string_::
+     Guess for the initial populations, possible options:
+     _sad_ (default), and _eeq_.
+
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
 
