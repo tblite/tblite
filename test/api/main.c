@@ -262,7 +262,7 @@ test_uninitialized_calculator (void)
 
    show_context_error(ctx);
 
-   tblite_calculator_push_back(ctx, calc, cont);
+   tblite_calculator_push_back(ctx, calc, &cont);
    if (!tblite_check_context(ctx)) goto unexpected;
 
    show_context_error(ctx);

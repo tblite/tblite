@@ -48,11 +48,12 @@ tblite_lib = library(
 )
 
 # Export dependency for other projects and test suite
-tblite_inc = [tblite_lib.private_dir_include(), include_directories('include')]
+tblite_inc = [include_directories('include'), tblite_lib.private_dir_include()]
 tblite_dep = declare_dependency(
   link_with: tblite_lib,
   include_directories: tblite_inc,
   dependencies: lib_deps,
+  variables: {'includedir': meson.current_source_dir() / 'include'},
 )
 
 # Add executable targets

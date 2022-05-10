@@ -30,7 +30,13 @@ python_dep = python.dependency(required: true)
 tblite_pp = configure_file(
   command: [
     cc,
-    '-I@0@'.format(meson.current_source_dir()/'..'/'..'/'include'),
+    '-I@0@'.format(
+      tblite_dep.get_variable(
+        pkgconfig: 'includedir',
+        cmake: 'tblite_INCLUDE_DIRS',
+        internal: 'includedir',
+      ).split().get(0)
+    ),
     '-DTBLITE_CFFI',
     '-E',
     '@INPUT@',
