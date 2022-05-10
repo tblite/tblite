@@ -24,6 +24,11 @@
 #include "tblite/result.h"
 #include "tblite/param.h"
 
+typedef enum {
+   TBLITE_GUESS_SAD = 0,
+   TBLITE_GUESS_EEQ = 1,
+} tblite_guess;
+
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
 
@@ -64,11 +69,17 @@ tblite_set_calculator_max_iter(tblite_context /* ctx */,
                                tblite_calculator /* calc */,
                                int /* max_iter */);
 
-/// Set parameter for mixier in calculator object
+/// Set damping parameter for mixer in calculator object
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_mixer_damping(tblite_context /* ctx */,
                                     tblite_calculator /* calc */,
                                     double /* damping */);
+
+/// Set initial guess for creating new wavefunction objects
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_guess(tblite_context /* ctx */,
+                            tblite_calculator /* calc */,
+                            tblite_guess /* guess */);
 
 /// Set electronic temperature for the calculator object (in Hartree)
 TBLITE_API_ENTRY void TBLITE_API_CALL

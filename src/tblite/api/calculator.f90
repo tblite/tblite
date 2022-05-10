@@ -28,7 +28,7 @@ module tblite_api_calculator
    use tblite_results, only : results_type
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -45,6 +45,13 @@ module tblite_api_calculator
    public :: get_singlepoint_api
 
 
+   enum, bind(c)
+      enumerator :: &
+         tblite_guess_sad = 0_c_int, &
+         tblite_guess_eeq = 1_c_int
+   end enum
+
+
    !> Void pointer to calculator type
    type :: vp_calculator
       !> Actual payload
@@ -53,6 +60,8 @@ module tblite_api_calculator
       real(wp) :: accuracy = 1.0_wp
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp * 3.166808578545117e-06_wp
+      !> Wavefunction guess
+      integer :: guess = tblite_guess_sad
    end type vp_calculator
 
 
@@ -239,6 +248,31 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
 end subroutine set_calculator_max_iter_api
 
 
+subroutine set_calculator_guess_api(vctx, vcalc, guess) &
+      & bind(C, name=namespace//"set_calculator_guess")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: guess
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_guess"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%guess = guess
+end subroutine set_calculator_guess_api
+
+
 subroutine set_calculator_accuracy_api(vctx, vcalc, accuracy) &
       & bind(C, name=namespace//"set_calculator_accuracy")
    type(c_ptr), value :: vctx
@@ -333,7 +367,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%dipole = spread(0.0_wp, 1, 3)
    res%quadrupole = spread(0.0_wp, 1, 6)
    res%results = results_type()
-   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp)
+   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%guess)
 
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
       & res%gradient, res%sigma, results=res%results)
@@ -383,11 +417,12 @@ subroutine push_back_api(vctx, vcalc, vcont) &
 end subroutine push_back_api
 
 
-subroutine check_wavefunction(wfn, mol, calc, etemp)
+subroutine check_wavefunction(wfn, mol, calc, etemp, guess)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
+   integer, intent(in) :: guess
 
    integer, parameter :: nspin = 1
 
@@ -403,6 +438,13 @@ subroutine check_wavefunction(wfn, mol, calc, etemp)
    if (.not.allocated(wfn)) then
       allocate(wfn)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, etemp)
+
+      select case(guess)
+      case default
+         call sad_guess(mol, calc, wfn)
+      case(tblite_guess_eeq)
+         call eeq_guess(mol, calc, wfn)
+      end select
    end if
 end subroutine check_wavefunction
 
