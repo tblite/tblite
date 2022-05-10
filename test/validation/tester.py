@@ -23,7 +23,7 @@ supposed to be used by meson for testing purposes only.
 """
 
 try:
-    import subprocess, sys, json, os, pytest
+    import subprocess, sys, json, os, pytest, numpy as np
 except ImportError:
     exit(77)
 
@@ -58,4 +58,10 @@ with open(output_file) as f:
 for key in ref:
     if key not in res:
         raise RuntimeError("Missing '" + key + "' entry in results")
-    assert pytest.approx(res[key], abs=thr) == ref[key]
+    _res = np.array(res[key])
+    _ref = np.array(ref[key])
+    assert pytest.approx(_res, abs=thr) == _ref, \
+        f"mismatch for {key}:\n" \
+        f"+actual\n{_res}\n" \
+        f"-reference\n{_ref}\n" \
+        f"@difference\n{_res - _ref}"

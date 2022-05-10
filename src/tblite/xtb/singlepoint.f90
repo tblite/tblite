@@ -22,7 +22,6 @@ module tblite_xtb_singlepoint
    use tblite_blas, only : gemv
    use tblite_container, only : container_cache
    use tblite_context_type, only : context_type
-   use tblite_coulomb_cache, only : coulomb_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_type, only : integral_type, new_integral
@@ -34,11 +33,9 @@ module tblite_xtb_singlepoint
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment
-   use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet
+   use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
+      & get_alpha_beta_occupation, get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment, magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient

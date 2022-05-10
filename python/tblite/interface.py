@@ -245,6 +245,7 @@ class Result:
          property               dimension   unit
         ====================== =========== ==============
          energy                 scalar      Hartree
+         energies               nat         Hartree
          gradient               nat, 3      Hartree/Bohr
          virial                 3, 3        Hartree
          charges                n           e
@@ -404,6 +405,7 @@ class Calculator(Structure):
         "accuracy": library.set_calculator_accuracy,
         "mixer-damping": library.set_calculator_mixer_damping,
         "temperature": library.set_calculator_temperature,
+        "guess": library.set_calculator_guess,
     }
 
     def __init__(
@@ -441,6 +443,7 @@ class Calculator(Structure):
          max-iter          Maximum number of SCC iterations     250
          accuracy          Numerical thresholds for SCC         1.0
          mixer-damping     Parameter for the SCC mixer          0.4
+         guess             Initial guess for wavefunction       0 (SAD)
          temperature       Electronic temperature for filling   300.0
         ================= ==================================== =================
 

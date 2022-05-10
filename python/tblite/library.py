@@ -194,9 +194,11 @@ def copy_result(res):
 
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
-    _energy = ffi.new("double *")
-    error_check(lib.tblite_get_result_energy)(res, _energy)
-    return _energy[0]
+    _energy = np.array(0.0)
+    error_check(lib.tblite_get_result_energy)(
+        res, ffi.cast("double*", _energy.ctypes.data)
+    )
+    return _energy
 
 
 def get_energies(res):
@@ -326,6 +328,7 @@ def new_xtb_calculator(ctx, mol, param):
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
 set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
+set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)

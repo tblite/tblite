@@ -21,7 +21,7 @@ module test_gfn2_xtb
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
@@ -49,7 +49,8 @@ subroutine collect_gfn2_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
-      new_unittest("gradient-mol", test_g_mb02) &
+      new_unittest("gradient-mol", test_g_mb02), &
+      new_unittest("convergence", test_convergence) &
       ]
 
 end subroutine collect_gfn2_xtb
@@ -343,6 +344,37 @@ subroutine test_g_mb02(error)
    end if
 
 end subroutine test_g_mb02
+
+
+subroutine test_convergence(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   integer, parameter :: num(2) = [3, 8]
+   real(wp), parameter :: xyz(3, 2) = reshape([&
+      & +0.00000000000000_wp, +0.00000000000000_wp, +1.50105302628963_wp, &
+      & +0.00000000000000_wp, +0.00000000000000_wp, -1.50105302628963_wp],&
+      & shape(xyz))
+   real(wp) :: energy
+   real(wp), parameter :: ref = -4.228326553369_wp  ! value calculated by xtb
+
+   call new(mol, num, xyz)
+
+   energy = 0.0_wp
+
+   call new_gfn2_calculator(calc, mol)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call eeq_guess(mol, calc, wfn)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+
+   call check(error, energy, ref, thr=1e-7_wp)
+
+end subroutine test_convergence
 
 
 end module test_gfn2_xtb

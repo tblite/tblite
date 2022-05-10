@@ -59,5 +59,6 @@ srcs += files(
   'timer.f90',
   'toml.f90',
   'version.f90',
+  'wavefunction.f90',
   'wignerseitz.f90',
 )
