@@ -194,9 +194,11 @@ def copy_result(res):
 
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
-    _energy = ffi.new("double *")
-    error_check(lib.tblite_get_result_energy)(res, _energy)
-    return _energy[0]
+    _energy = np.array(0.0)
+    error_check(lib.tblite_get_result_energy)(
+        res, ffi.cast("double*", _energy.ctypes.data)
+    )
+    return _energy
 
 
 def get_energies(res):

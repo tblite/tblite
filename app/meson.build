@@ -68,7 +68,7 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
     args: [
       'param',
       '--method', m,
-      '--output', '@0@-xtb.toml',
+      '--output', '@0@-xtb.toml'.format(m),
     ],
     suite: 'app',
   )

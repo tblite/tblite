@@ -245,6 +245,7 @@ class Result:
          property               dimension   unit
         ====================== =========== ==============
          energy                 scalar      Hartree
+         energies               nat         Hartree
          gradient               nat, 3      Hartree/Bohr
          virial                 3, 3        Hartree
          charges                n           e
