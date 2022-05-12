@@ -54,3 +54,8 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_context_logger(tblite_context /* ctx */,
                           tblite_logger_callback /* callback */,
                           void* /* userdata */);
+
+/// Enable colorful output
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_color(tblite_context /* ctx */,
+                         int /* color */);

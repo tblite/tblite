@@ -21,7 +21,7 @@ module tblite_xtb_singlepoint
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
    use tblite_container, only : container_cache
-   use tblite_context_type, only : context_type
+   use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_type, only : integral_type, new_integral
@@ -62,7 +62,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    type(results_type), intent(out), optional :: results
 
-   logical :: grad, converged
+   logical :: grad, converged, econverged, pconverged
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, elast, dpmom(3), qpmom(6), nel
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
@@ -204,12 +204,17 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
-      converged = abs(sum(eelec) - elast) < econv .and. mixer%get_error() < pconv
+      econverged = abs(sum(eelec) - elast) < econv
+      pconverged = mixer%get_error() < pconv
+      converged = econverged .and. pconverged
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
             & format_string(sum(eelec + energies), "(g24.13)") // &
+            & escape(merge(ctx%terminal%green, ctx%terminal%red, econverged)) // &
             & format_string(sum(eelec) - elast, "(es16.7)") // &
-            & format_string(mixer%get_error(), "(es16.7)"))
+            & escape(merge(ctx%terminal%green, ctx%terminal%red, pconverged)) // &
+            & format_string(mixer%get_error(), "(es16.7)") // &
+            & escape(ctx%terminal%reset))
       end if
       if (allocated(error)) then
          call ctx%set_error(error)

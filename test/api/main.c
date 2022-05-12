@@ -778,6 +778,7 @@ test_callback (void)
 
    tblite_logger_callback callback = example_callback;
    tblite_set_context_logger(ctx, callback, NULL);
+   tblite_set_context_color(ctx, 1);
 
    mol = tblite_new_structure(
       error,
@@ -817,6 +818,7 @@ test_callback (void)
    if (!check(energy, -32.96247211794, thr, "energy error")) goto err;
 
    tblite_set_context_logger(ctx, NULL, NULL);
+   tblite_set_context_color(ctx, 0);
    tblite_set_calculator_max_iter(ctx, calc, 3);
 
    tblite_get_singlepoint(ctx, mol, calc, res);

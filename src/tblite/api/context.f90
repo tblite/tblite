@@ -18,8 +18,7 @@
 module tblite_api_context
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error
-   use tblite_context_logger, only : context_logger
-   use tblite_context_type, only : context_type
+   use tblite_context, only : context_type, context_logger, context_terminal
    use tblite_api_error, only : vp_error
    use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character
@@ -133,6 +132,22 @@ subroutine get_context_error_api(vctx, charptr, buffersize) &
    end if
 
 end subroutine get_context_error_api
+
+
+subroutine set_context_color_api(vctx, color) &
+      & bind(C, name=namespace//"set_context_color")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   integer(c_int), value :: color
+
+   if (debug) print '("[Info]", 1x, a)', "set_context_color"
+
+   if (c_associated(vctx)) then
+      call c_f_pointer(vctx, ctx)
+
+      ctx%ptr%terminal = context_terminal(color /= 0)
+   end if
+end subroutine set_context_color_api
 
 
 !> Delete context object

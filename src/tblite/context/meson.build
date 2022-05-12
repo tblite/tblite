@@ -16,5 +16,6 @@
 
 srcs += files(
   'logger.f90',
+  'terminal.f90',
   'type.f90',
 )

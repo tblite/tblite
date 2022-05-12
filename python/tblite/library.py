@@ -20,6 +20,7 @@ This module mainly acts as a guard for importing the libtblite extension and
 also provides some FFI based wappers for memory handling.
 """
 
+import sys
 import functools
 import numpy as np
 
@@ -104,10 +105,12 @@ def _delete_context(context) -> None:
     lib.tblite_delete_context(ptr)
 
 
-def new_context():
+def new_context(color: bool = True):
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
     context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, ffi.NULL)
+    if color and sys.stdout.isatty():
+        context_check(lib.tblite_set_context_color)(ctx, 1)
     return ctx
 
 
