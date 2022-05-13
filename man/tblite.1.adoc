@@ -32,6 +32,10 @@ Main driver for tight-binding framework.
 
 == Options
 
+*--color* _string_::
+     Support colorful terminal output,
+     possible values are _never_ (default), _always_, and _auto_.
+
 *--version*::
      Prints version number and citation
 

@@ -24,6 +24,7 @@ add_executable(
   "driver_param.f90"
   "driver_run.f90"
   "driver_tagdiff.f90"
+  "features.F90"
   "main.f90"
 )
 set_target_properties(

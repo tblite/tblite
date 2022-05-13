@@ -69,6 +69,8 @@ module tblite_cli_help
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
+      "      --color string      Support colorful terminal output,"//nl//&
+      "                          possible values are never (default), always, auto."//nl//&
       help_text_general//nl//&
       ""//nl//&
       help_text_response

@@ -38,8 +38,19 @@
 !> It provides a [[context_logger:message]] procedure which is used by the context
 !> to create output. This type can be used to create callbacks for customizing or
 !> redirecting the output of the library, e.g. when used from C or Python.
+!>
+!> ANSI escape sequences are available via the [[context_terminal]] class and which is
+!> instantiated in the [[context_type:terminal]] member. The terminal instance provides
+!> access to various terminal formatting codes to produce the respective ANSI escape
+!> sequences if the terminal is created with color support, otherwise return empty strings.
+!> Detecting whether the terminal supports ANSI escape sequences is left as excerise to
+!> the consumer of the [[context_terminal]] class.
+!>
+!> For convenience operators are provided to add escape codes as well as concatenate
+!> them directly with strings.
 module tblite_context
    use tblite_context_logger, only : context_logger
+   use tblite_context_terminal, only : context_terminal, escape, operator(+), operator(//)
    use tblite_context_type, only : context_type
    implicit none
    public

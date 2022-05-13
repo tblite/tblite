@@ -22,6 +22,7 @@ module tblite_cli
    use tblite_argument, only : argument_list, len
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff
+   use tblite_features, only : get_tblite_feature
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & solvent_data, get_solvent_data
    use tblite_version, only : get_tblite_version
@@ -33,6 +34,7 @@ module tblite_cli
 
 
    type, abstract :: driver_config
+      logical :: color = .false.
    end type driver_config
 
    type, extends(driver_config) :: run_config
@@ -91,6 +93,7 @@ subroutine get_arguments(config, error)
    integer :: iarg, narg
    logical :: getopts
    character(len=:), allocatable :: arg
+   logical, allocatable :: color
 
    list = argument_list()
 
@@ -111,6 +114,23 @@ subroutine get_arguments(config, error)
          iarg = iarg - 1
          allocate(run_config :: config)
          exit
+      case("--color")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for color options")
+            exit
+         end if
+         select case(arg)
+         case default
+            call fatal_error(error, "Unknown option for color support '"//arg//"'")
+         case("always")
+            color = .true.
+         case("never")
+            color = .false.
+         case("auto")
+            color = get_tblite_feature("color")
+         end select
       case("fit")
          allocate(fit_config :: config)
          exit
@@ -142,6 +162,9 @@ subroutine get_arguments(config, error)
    type is (tagdiff_config)
       call get_tagdiff_arguments(config, list, iarg, error)
    end select
+   if (allocated(error)) return
+
+   if (allocated(color)) config%color = .false.
 
 end subroutine get_arguments
 

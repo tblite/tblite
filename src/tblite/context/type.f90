@@ -19,6 +19,7 @@ module tblite_context_type
    use iso_fortran_env, only : output_unit
    use mctc_env, only : error_type
    use tblite_context_logger, only : context_logger
+   use tblite_context_terminal, only : context_terminal
    implicit none
    private
 
@@ -35,6 +36,8 @@ module tblite_context_type
       type(error_type), allocatable :: error_log(:)
       !> Optional logger to be used for writing messages
       class(context_logger), allocatable :: io
+      !> Color support for output
+      type(context_terminal) :: terminal = context_terminal()
    contains
       !> Write a message to the output
       procedure :: message

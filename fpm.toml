@@ -8,6 +8,7 @@ keywords = ["quantum-chemistry", "tight-binding", "xtb"]
 copyright = "Copyright 2021 S. Ehlert"
 
 [build]
+external-modules = ["ifport"]
 link = ["lapack", "blas"]
 auto-tests = false
 

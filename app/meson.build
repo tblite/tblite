@@ -25,6 +25,7 @@ tblite_exe = executable(
     'driver_param.f90',
     'driver_run.f90',
     'driver_tagdiff.f90',
+    'features.F90',
     'main.f90',
   ),
   dependencies: tblite_dep,
@@ -36,7 +37,7 @@ test('version', tblite_exe, args: '--version', suite: 'app')
 test('noargs', tblite_exe, should_fail: true, suite: 'app')
 test('fit-help', tblite_exe, args: ['fit', '--help'], suite: 'app')
 test('param-help', tblite_exe, args: ['param', '--help'], suite: 'app')
-test('run-help', tblite_exe, args: ['run', '--help'], suite: 'app')
+test('run-help', tblite_exe, args: ['--color', 'auto', 'run', '--help'], suite: 'app')
 test('tagdiff-help', tblite_exe, args: ['tagdiff', '--help'], suite: 'app')
 
 test(

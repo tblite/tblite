@@ -24,7 +24,7 @@ module tblite_driver_run
    use tblite_cli, only : run_config
    use tblite_basis_type, only : basis_type
    use tblite_container, only : container_type
-   use tblite_context, only : context_type
+   use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_output_ascii
@@ -71,6 +71,8 @@ subroutine run_main(config, error)
    type(wavefunction_type) :: wfn
    type(results_type) :: results
 
+   ctx%terminal = context_terminal(config%color)
+
    if (config%input == "-") then
       if (allocated(config%input_format)) then
          call read_structure(mol, input_unit, config%input_format, error)
@@ -91,11 +93,10 @@ subroutine run_main(config, error)
          read(unit, *, iostat=stat) charge
          if (stat == 0) then
             mol%charge = charge
-            if (config%verbosity > 0) write(output_unit, '(a)') &
-               "[Info] Molecular charge read from .CHRG"
+            if (config%verbosity > 0) call info(ctx, "Molecular charge read from .CHRG")
          else
-            if (config%verbosity > 0) write(output_unit, '(a)') &
-               "[Warn] Could not read molecular charge read from .CHRG"
+            if (config%verbosity > 0) call warn(ctx, &
+               "Could not read molecular charge read from .CHRG")
          end if
          close(unit)
       end if
@@ -110,11 +111,10 @@ subroutine run_main(config, error)
          read(unit, *, iostat=stat) spin
          if (stat == 0) then
             mol%uhf = spin
-            if (config%verbosity > 0) write(output_unit, '(a)') &
-               "[Info] Molecular spin read from .UHF"
+            if (config%verbosity > 0) call info(ctx, "Molecular spin read from .UHF")
          else
-            if (config%verbosity > 0) write(output_unit, '(a)') &
-               "[Warn] Could not read molecular spin read from .UHF"
+            if (config%verbosity > 0) &
+               call warn(ctx, "Could not read molecular spin read from .UHF")
          end if
          close(unit)
       end if
@@ -199,7 +199,7 @@ subroutine run_main(config, error)
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
       & config%verbosity, results)
    if (ctx%failed()) then
-      write(error_unit, '("[Fatal]", 1x, a)') "Singlepoint calculation failed"
+      call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
          call ctx%get_error(error)
          write(error_unit, '("->", 1x, a)') error%message
@@ -216,8 +216,7 @@ subroutine run_main(config, error)
       call tagged_result(unit, energy, gradient, sigma, energies=results%energies)
       close(unit)
       if (config%verbosity > 0) then
-         write(output_unit, '(a)') &
-            & "[Info] Tight-binding results written to '"//config%grad_output//"'"
+         call info(ctx, "Tight-binding results written to '"//config%grad_output//"'")
       end if
    end if
 
@@ -227,11 +226,49 @@ subroutine run_main(config, error)
          & energies=results%energies)
       close(unit)
       if (config%verbosity > 0) then
-         write(output_unit, '(a)') &
-            & "[Info] JSON dump of results written to '"//config%json_output//"'"
+         call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
    end if
 end subroutine run_main
+
+
+subroutine info(ctx, message)
+   type(context_type), intent(inout) :: ctx
+   character(len=*), intent(in) :: message
+
+   call ctx%message( &
+      & escape(ctx%terminal%bold) // "[" // &
+      & escape(ctx%terminal%bold_cyan) // "Info" // &
+      & escape(ctx%terminal%bold) // "]" // &
+      & escape(ctx%terminal%reset) // " " // &
+      & message)
+end subroutine info
+
+
+subroutine warn(ctx, message)
+   type(context_type), intent(inout) :: ctx
+   character(len=*), intent(in) :: message
+
+   call ctx%message( &
+      & escape(ctx%terminal%bold) // "[" // &
+      & escape(ctx%terminal%bold_yellow) // "Warn" // &
+      & escape(ctx%terminal%bold) // "]" // &
+      & escape(ctx%terminal%reset) // " " // &
+      & message)
+end subroutine warn
+
+
+subroutine fatal(ctx, message)
+   type(context_type), intent(inout) :: ctx
+   character(len=*), intent(in) :: message
+
+   call ctx%message( &
+      & escape(ctx%terminal%bold) // "[" // &
+      & escape(ctx%terminal%bold_red) // "Fatal" // &
+      & escape(ctx%terminal%bold) // "]" // &
+      & escape(ctx%terminal%reset) // " " // &
+      & message)
+end subroutine fatal
 
 
 subroutine get_spin_constants(wll, mol, bas)
