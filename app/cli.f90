@@ -164,7 +164,7 @@ subroutine get_arguments(config, error)
    end select
    if (allocated(error)) return
 
-   if (allocated(color)) config%color = .false.
+   if (allocated(color)) config%color = color
 
 end subroutine get_arguments
 
