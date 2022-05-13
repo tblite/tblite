@@ -282,9 +282,9 @@ Setup a build with
 
 .. code:: sh
 
-   meson setup _build_python python -Dpython_version=3
+   meson setup _build_python python -Dpython_version=$(which python3)
 
-The Python version can be used to select a different Python version, it defaults to ``'3'``.
+The Python version can be used to select a different Python version, it defaults to ``'python3'``.
 Python 2 is not supported with this project, the Python version key is meant to select between several local Python 3 versions.
 
 Compile the project with
@@ -330,8 +330,8 @@ Usually, it safe to assume that older versions of the same compiler will fail to
  NVHPC      20.9          Manjaro Linux   x86_64         `abb17c3`_, `toml-f#27`_
 ========== ============= =============== ============== ==========================
 
-.. _abb17c3: https://github.com/awvwgk/tblite/tree/abb17c3a8ea8e0336dde84ed78bdab8033144a0a
-.. _tblite#2: https://github.com/awvwgk/tblite/issues/2
+.. _abb17c3: https://github.com/tblite/tblite/tree/abb17c3a8ea8e0336dde84ed78bdab8033144a0a
+.. _tblite#2: https://github.com/tblite/tblite/issues/2
 .. _dftd4#112: https://github.com/dftd4/dftd4/issues/112
 .. _toml-f#28: https://github.com/toml-f/toml-f/issues/28
 .. _toml-f#27: https://github.com/toml-f/toml-f/issues/27
