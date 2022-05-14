@@ -102,8 +102,10 @@ target_include_directories(
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
 )
 
-# Add example application
-add_subdirectory("app")
+if(WITH_CLI)
+  # Add example application
+  add_subdirectory("app")
+endif()
 
 # Export targets for other projects
 add_library("${PROJECT_NAME}" INTERFACE)
