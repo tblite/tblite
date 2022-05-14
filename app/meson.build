@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+exe_args = []
+if fc_id == 'gcc'
+  exe_args += '-fall-intrinsics'
+endif
+
 tblite_exe = executable(
   meson.project_name(),
   sources: files(
@@ -30,6 +35,7 @@ tblite_exe = executable(
   ),
   dependencies: tblite_dep,
   install: install,
+  fortran_args: exe_args,
 )
 
 test('help', tblite_exe, args: '--help', suite: 'app')

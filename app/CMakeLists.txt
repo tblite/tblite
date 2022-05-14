@@ -32,6 +32,11 @@ set_target_properties(
   PROPERTIES
   OUTPUT_NAME "${PROJECT_NAME}"
 )
+target_compile_options(
+  "${PROJECT_NAME}-exe"
+  PRIVATE
+  "$<$<Fortran_COMPILER_ID:GNU>:-fall-intrinsics>"
+)
 target_link_libraries(
   "${PROJECT_NAME}-exe"
   PRIVATE
