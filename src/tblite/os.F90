@@ -24,49 +24,25 @@ module tblite_os
 
 
    interface
-#ifndef _WIN32
-      function sys_setenv(name, value, overwrite) result(stat) &
-            & bind(c, name="setenv")
+      function sys_putenv(name) result(stat) &
+            & bind(c, name="putenv")
          import :: c_char, c_int
          character(len=c_char), intent(in) :: name(*)
-         character(len=c_char), intent(in) :: value(*)
-         integer(c_int), value :: overwrite
          integer(c_int) :: stat
       end function
-#else
-      function win_setenv(name, value) result(stat) &
-            & bind(c, name="SetEnvironmentVariable")
-         import :: c_char, c_int
-         character(len=c_char), intent(in) :: name(*)
-         character(len=c_char), intent(in) :: value(*)
-         integer(c_int) :: stat
-      end function
-#endif
    end interface
 
 
 contains
 
 
-#ifdef _WIN32
-function sys_setenv(name, value, overwrite) result(stat)
-   character(len=c_char), intent(in) :: name(*)
-   character(len=c_char), intent(in) :: value(*)
-   integer(c_int), value :: overwrite
-   integer(c_int) :: stat
-
-   stat = win_setenv(name, value)
-end function
-#endif
-
-
 subroutine setenv(name, value, stat)
    character(len=*), intent(in) :: name
    character(len=*), intent(in) :: value
    integer, intent(out) :: stat
-   integer(c_int), parameter :: overwrite = 1_c_int
 
-   stat = sys_setenv(as_c_char(name), as_c_char(value), overwrite)
+   stat = sys_putenv(as_c_char(name//"="//value))
+
 end subroutine setenv
 
 
