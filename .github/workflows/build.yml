@@ -319,6 +319,11 @@ jobs:
         gcc_v: [10]
         python_v: ['3.7', '3.8', '3.9']
 
+        include:
+        - os: macos-latest
+          gcc_v: 9
+          python_v: '3.9'
+
     env:
       FC: gfortran
       CC: gcc
@@ -373,6 +378,7 @@ jobs:
       run: pytest --pyargs tblite --cov=tblite -vv
       env:
         LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
+        DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v2
