@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "tblite/macros.h"
 #include "tblite/error.h"
 

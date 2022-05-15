@@ -19,8 +19,14 @@
 
 #ifdef __cplusplus
 #define TBLITE_API_ENTRY extern "C"
+#ifndef TBLITE_CFFI
+#include <cstdint>
+#endif
 #else
 #define TBLITE_API_ENTRY extern
+#ifndef TBLITE_CFFI
 #include <stdbool.h>
+#include <stdint.h>
+#endif
 #endif
 #define TBLITE_API_CALL
