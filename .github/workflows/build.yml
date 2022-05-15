@@ -70,6 +70,12 @@ jobs:
           compiler: intel
           version: 2021.2.0
 
+        - os: windows-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          shell: msys2 {0}
+
     defaults:
       run:
         shell: ${{ matrix.shell || 'bash' }}
@@ -219,6 +225,7 @@ jobs:
         MESON_ARGS: >-
           ${{ matrix.compiler == 'intel' && '-Dfortran_link_args=-qopenmp' || '' }}
           ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
+          ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
 
     - name: Configure build (CMake)
       if: ${{ matrix.build == 'cmake' }}
