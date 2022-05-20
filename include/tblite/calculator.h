@@ -87,6 +87,12 @@ tblite_set_calculator_temperature(tblite_context /* ctx */,
                                   tblite_calculator /* calc */,
                                   double /* etemp */);
 
+/// Set the flag in the calculator to retain the integral matrices
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_save_integrals(tblite_context /* ctx */,
+                                     tblite_calculator /* calc */,
+                                     int /* save_integrals */);
+
 /// Add container to calculator object.
 ///
 /// Note: Ownership is transferred and container handle is destroyed after function call

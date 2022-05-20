@@ -286,15 +286,25 @@ def get_orbital_occupations(res):
     return _occ
 
 
-def get_orbital_coefficients(res):
-    """Retrieve orbital coefficients from result container"""
-    _norb = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
-    _cmo = np.zeros((_norb[0], _norb[0]))
-    error_check(lib.tblite_get_result_orbital_coefficients)(
-        res, ffi.cast("double*", _cmo.ctypes.data)
-    )
-    return _cmo
+def _get_ao_matrix(getter):
+    """Correctly set allocation for matrix objects before querying the getter"""
+
+    @functools.wraps(getter)
+    def with_allocation(res):
+        """Get a matrix property from the results object"""
+        _norb = ffi.new("int *")
+        error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
+        _mat = np.zeros((_norb[0], _norb[0]))
+        error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+        return _mat
+
+    return with_allocation
+
+
+get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients)
+get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
+get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
 
 
 def _delete_calculator(calc) -> None:
@@ -333,5 +343,6 @@ set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
 set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
+set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)

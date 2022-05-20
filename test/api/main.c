@@ -217,8 +217,23 @@ test_uninitialized_result (void)
 
    show_error(error);
 
-   double cmo[49];
-   tblite_get_result_orbital_coefficients(error, res, cmo);
+   double mat[49];
+   tblite_get_result_orbital_coefficients(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_get_result_density_matrix(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_get_result_overlap_matrix(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_get_result_hamiltonian_matrix(error, res, mat);
    if (!tblite_check_error(error)) goto unexpected;
 
    show_error(error);
@@ -263,6 +278,11 @@ test_uninitialized_calculator (void)
    show_context_error(ctx);
 
    tblite_set_calculator_guess(ctx, calc, TBLITE_GUESS_SAD);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   tblite_set_calculator_save_integrals(ctx, calc, 1);
    if (!tblite_check_context(ctx)) goto unexpected;
 
    show_context_error(ctx);

@@ -291,6 +291,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
+   if (calc%save_integrals .and. present(results)) then
+      call move_alloc(ints%overlap, results%overlap)
+      call move_alloc(ints%hamiltonian, results%hamiltonian)
+   end if
+
    block
       integer :: it
       real(wp) :: ttime, stime

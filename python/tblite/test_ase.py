@@ -22,13 +22,20 @@ Tests for the ASE Calculator
     energies in eV (while the library is working internally in atomic units).
 """
 
-from tblite.ase import TBLite
-from ase.atoms import Atoms
-from ase.calculators.calculator import CalculationFailed, InputError
-from pytest import approx, raises
 import numpy as np
+import pytest
+from pytest import approx, raises
+
+try:
+    import ase
+    from tblite.ase import TBLite
+    from ase.atoms import Atoms
+    from ase.calculators.calculator import CalculationFailed, InputError
+except ModuleNotFoundError:
+    ase = None
 
 
+@pytest.mark.skipif(ase is None, reason="requires ase")
 def test_gfn2_xtb_0d():
     """Test ASE interface to GFN2-xTB"""
     thr = 1.0e-5
@@ -83,6 +90,7 @@ def test_gfn2_xtb_0d():
     assert approx(atoms.get_forces(), abs=thr) == forces
 
 
+@pytest.mark.skipif(ase is None, reason="requires ase")
 def test_gfn1_xtb_0d():
     """Test ASE interface to GFN1-xTB"""
     thr = 1.0e-5
@@ -137,6 +145,7 @@ def test_gfn1_xtb_0d():
     assert approx(atoms.get_forces(), abs=thr) == forces
 
 
+@pytest.mark.skipif(ase is None, reason="requires ase")
 def test_gfn1_xtb_3d():
     """Test ASE interface to GFN1-xTB"""
     thr = 5.0e-6

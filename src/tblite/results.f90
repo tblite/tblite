@@ -27,6 +27,10 @@ module tblite_results
    type results_type
       !> Atom-resolved energies
       real(wp), allocatable :: energies(:)
+      !> Overlap integrals
+      real(wp), allocatable :: overlap(:, :)
+      !> (Core) Hamiltonian integrals
+      real(wp), allocatable :: hamiltonian(:, :)
    end type results_type
 
 end module tblite_results

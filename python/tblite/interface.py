@@ -223,6 +223,9 @@ class Result:
         "orbital-energies": library.get_orbital_energies,
         "orbital-occupations": library.get_orbital_occupations,
         "orbital-coefficients": library.get_orbital_coefficients,
+        "density-matrix": library.get_density_matrix,
+        "overlap-matrix": library.get_overlap_matrix,
+        "hamiltonian-matrix": library.get_hamiltonian_matrix,
     }
     _setter = {}
 
@@ -406,6 +409,7 @@ class Calculator(Structure):
         "mixer-damping": library.set_calculator_mixer_damping,
         "temperature": library.set_calculator_temperature,
         "guess": library.set_calculator_guess,
+        "save-integrals": library.set_calculator_save_integrals,
     }
 
     def __init__(
@@ -445,6 +449,7 @@ class Calculator(Structure):
          mixer-damping     Parameter for the SCC mixer          0.4
          guess             Initial guess for wavefunction       0 (SAD)
          temperature       Electronic temperature for filling   300.0
+         save_integrals    Keep integral matrices in results    0 (False)
         ================= ==================================== =================
 
         Raises

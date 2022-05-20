@@ -112,3 +112,21 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_orbital_coefficients(tblite_error /* err */,
                                        tblite_result /* res */,
                                        double* /* cmo[nao][nao] */);
+
+/// Retrieve density matrix from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_density_matrix(tblite_error /* err */,
+                                 tblite_result /* res */,
+                                 double* /* pmat[nao][nao] */);
+
+/// Retrieve overlap matrix from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_overlap_matrix(tblite_error /* err */,
+                                 tblite_result /* res */,
+                                 double* /* smat[nao][nao] */);
+
+/// Retrieve Hamiltonian matrix from result container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_hamiltonian_matrix(tblite_error /* err */,
+                                     tblite_result /* res */,
+                                     double* /* hmat[nao][nao] */);

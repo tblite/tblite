@@ -151,11 +151,17 @@ def test_gfn1():
 
     numbers, positions = get_ala("xac")
     calc.update(positions)
+    calc.set("save-integrals", 1)
 
     res = calc.singlepoint(res)
 
     assert res.get("energy") == approx(-34.987786081514066, abs=thr)
     assert res.get("gradient") == approx(gradient, abs=thr)
+
+    res = res.dict()
+    assert "density-matrix" in res
+    assert "overlap-matrix" in res
+    assert "hamiltonian-matrix" in res
 
 
 def test_gfn2():
