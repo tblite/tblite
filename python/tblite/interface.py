@@ -21,7 +21,7 @@ CFFI generated wrappers.
 """
 
 import numpy as np
-from typing import Optional
+from typing import Optional, Any
 
 from . import library
 
@@ -411,6 +411,10 @@ class Calculator(Structure):
         "guess": library.set_calculator_guess,
         "save-integrals": library.set_calculator_save_integrals,
     }
+    _getter = {
+        "shell-map": library.get_calculator_shell_map,
+        "orbital-map": library.get_calculator_orbital_map,
+    }
 
     def __init__(
         self,
@@ -463,6 +467,29 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         self._setter[attribute](self._ctx, self._calc, value)
+
+    def get(self, attribute: str) -> Any:
+        """
+        Set an attribute from the calculator instance. Supported attributes are
+
+        ================= ====================================
+         name              description
+        ================= ====================================
+         shell-map         Mapping from shells to atoms
+         orbital-map       Mapping from orbitals to shells
+        ================= ====================================
+
+        Raises
+        ------
+        ValueError
+            on invalid attributes
+        """
+
+        if attribute not in self._getter:
+            raise ValueError(
+                f"Attribute '{attribute}' is not supported in this calculator"
+            )
+        return self._getter[attribute](self._ctx, self._calc)
 
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """

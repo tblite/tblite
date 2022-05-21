@@ -338,6 +338,28 @@ def new_xtb_calculator(ctx, mol, param):
     return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
 
 
+def get_calculator_shell_map(ctx, calc):
+    """Retrieve index mapping from shells to atomic centers"""
+    _nsh = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_shell_count)(ctx, calc, _nsh)
+    _map = np.zeros((_nsh[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_shell_map)(
+        ctx, calc, ffi.cast("int*", _map.ctypes.data)
+    )
+    return _map
+
+
+def get_calculator_orbital_map(ctx, calc):
+    """Retrieve index mapping from atomic orbitals to shells"""
+    _nao = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_orbital_count)(ctx, calc, _nao)
+    _map = np.zeros((_nao[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_orbital_map)(
+        ctx, calc, ffi.cast("int*", _map.ctypes.data)
+    )
+    return _map
+
+
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
 set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)

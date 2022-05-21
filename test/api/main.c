@@ -295,6 +295,30 @@ test_uninitialized_calculator (void)
 
    show_context_error(ctx);
 
+   int nsh;
+   tblite_get_calculator_shell_count(ctx, calc, &nsh);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   int sh2at[5];
+   tblite_get_calculator_shell_map(ctx, calc, sh2at);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   int nao;
+   tblite_get_calculator_orbital_count(ctx, calc, &nao);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
+   int ao2sh[9];
+   tblite_get_calculator_orbital_map(ctx, calc, &ao2sh);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
    tblite_delete(ctx);
    return 0;
 
