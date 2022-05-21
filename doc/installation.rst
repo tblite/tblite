@@ -308,13 +308,18 @@ Supported Compilers
 This is a non-comprehensive list of tested compilers for *tblite*.
 Compilers with the label *latest* are tested with continuous integration for each commit.
 
-========== ======================= =============== ============== ==========
- Compiler   Version                 Platform        Architecture   *tblite*
-========== ======================= =============== ============== ==========
- GCC        11.1, 10.3              Ubuntu 20.04    x86_64         latest
- GCC              10.3, 9.4, 8.5    MacOS 10.15.7   x86_64         latest
- Intel      2021.2                  Ubuntu 20.04    x86_64         latest
-========== ======================= =============== ============== ==========
+=========== ================= ================ ================== ===============
+ Compiler    Version           Platform         Architecture       *tblite*
+=========== ================= ================ ================== ===============
+ GCC         11.1, 10.3        Ubuntu 20.04     x86_64             0.2.0, latest
+ GCC               10.3, 9.4   MacOS 11.6.5     x86_64             0.2.0, latest
+ GCC                     9.4   MacOS 10.15.7    x86_64             0.2.0
+ GCC         11.0              MacOS 11.0       arm64              0.2.0
+ GCC               10.3        CentOS 7         aarch64, ppc64le   0.2.0
+ GCC/MinGW   11.2              Windows 2022     x86_64                    latest
+ Intel       2021.2            Ubuntu 20.04     x86_64             0.2.0, latest
+ NAG         7.1               AlmaLinux 8.5    x86_64             0.2.0
+=========== ================= ================ ================== ===============
 
 Compiler known to fail are documented here, together with the last commit where this behaviour was encountered.
 If available an issue in on the projects issue tracker or the issue tracker of the dependencies is linked.
@@ -324,14 +329,17 @@ Usually, it safe to assume that older versions of the same compiler will fail to
  Compiler   Version       Platform        Architecture   Reference
 ========== ============= =============== ============== ==========================
  GCC        6.4.0         MacOS 10.15.7   x86_64         `abb17c3`_
+ Intel      19.0.5        AlmaLinux 8.5   x86_64         `0542ce7`_, `tblite#45`_
  Intel      17.0.1        OpenSuse 42.1   x86_64         `abb17c3`_, `tblite#2`_
  Intel      16.0.3        CentOS 7.3      x86_64         `abb17c3`_, `dftd4#112`_
  Flang      20190329      Ubuntu 20.04    x86_64         `abb17c3`_, `toml-f#28`_
  NVHPC      20.9          Manjaro Linux   x86_64         `abb17c3`_, `toml-f#27`_
 ========== ============= =============== ============== ==========================
 
+.. _0542ce7: https://github.com/tblite/tblite/tree/0542ce7ae0e323941156949a0620ca260bc0ce7f
 .. _abb17c3: https://github.com/tblite/tblite/tree/abb17c3a8ea8e0336dde84ed78bdab8033144a0a
 .. _tblite#2: https://github.com/tblite/tblite/issues/2
 .. _dftd4#112: https://github.com/dftd4/dftd4/issues/112
 .. _toml-f#28: https://github.com/toml-f/toml-f/issues/28
 .. _toml-f#27: https://github.com/toml-f/toml-f/issues/27
+.. _tblite#45: https://github.com/tblite/tblite/issues/45

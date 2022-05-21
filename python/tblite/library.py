@@ -286,15 +286,25 @@ def get_orbital_occupations(res):
     return _occ
 
 
-def get_orbital_coefficients(res):
-    """Retrieve orbital coefficients from result container"""
-    _norb = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
-    _cmo = np.zeros((_norb[0], _norb[0]))
-    error_check(lib.tblite_get_result_orbital_coefficients)(
-        res, ffi.cast("double*", _cmo.ctypes.data)
-    )
-    return _cmo
+def _get_ao_matrix(getter):
+    """Correctly set allocation for matrix objects before querying the getter"""
+
+    @functools.wraps(getter)
+    def with_allocation(res):
+        """Get a matrix property from the results object"""
+        _norb = ffi.new("int *")
+        error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
+        _mat = np.zeros((_norb[0], _norb[0]))
+        error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+        return _mat
+
+    return with_allocation
+
+
+get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients)
+get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
+get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
 
 
 def _delete_calculator(calc) -> None:
@@ -328,10 +338,33 @@ def new_xtb_calculator(ctx, mol, param):
     return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
 
 
+def get_calculator_shell_map(ctx, calc):
+    """Retrieve index mapping from shells to atomic centers"""
+    _nsh = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_shell_count)(ctx, calc, _nsh)
+    _map = np.zeros((_nsh[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_shell_map)(
+        ctx, calc, ffi.cast("int*", _map.ctypes.data)
+    )
+    return _map
+
+
+def get_calculator_orbital_map(ctx, calc):
+    """Retrieve index mapping from atomic orbitals to shells"""
+    _nao = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_orbital_count)(ctx, calc, _nao)
+    _map = np.zeros((_nao[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_orbital_map)(
+        ctx, calc, ffi.cast("int*", _map.ctypes.data)
+    )
+    return _map
+
+
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
 set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
+set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)

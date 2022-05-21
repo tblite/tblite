@@ -30,7 +30,8 @@ module tblite_api_result
       & get_result_virial_api, get_result_charges_api, get_result_dipole_api, &
       & get_result_quadrupole_api, get_result_orbital_energies_api, &
       & get_result_orbital_occupations_api, get_result_orbital_coefficients_api, &
-      & get_result_energies_api
+      & get_result_energies_api, get_result_density_matrix_api, &
+      & get_result_overlap_matrix_api, get_result_hamiltonian_matrix_api
 
 
    !> Void pointer holding results of a calculation
@@ -411,6 +412,87 @@ subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
 
    cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff(:, :, 1), [size(res%wfn%coeff)])
 end subroutine get_result_orbital_coefficients_api
+
+
+subroutine get_result_density_matrix_api(verror, vres, pmat) &
+      & bind(C, name=namespace//"get_result_density_matrix")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: pmat(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_density_matrix"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain density matrix")
+      return
+   end if
+
+   pmat(:size(res%wfn%density)) = reshape(res%wfn%density(:, :, 1), [size(res%wfn%density)])
+end subroutine get_result_density_matrix_api
+
+
+subroutine get_result_overlap_matrix_api(verror, vres, smat) &
+      & bind(C, name=namespace//"get_result_overlap_matrix")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: smat(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_overlap_matrix"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain overlap matrix")
+      return
+   end if
+
+   if (.not.allocated(res%results%overlap)) then
+      call fatal_error(error%ptr, "Result does not contain overlap matrix")
+      return
+   end if
+
+   smat(:size(res%results%overlap)) = &
+      & reshape(res%results%overlap, [size(res%results%overlap)])
+end subroutine get_result_overlap_matrix_api
+
+
+subroutine get_result_hamiltonian_matrix_api(verror, vres, hmat) &
+      & bind(C, name=namespace//"get_result_hamiltonian_matrix")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: hmat(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_hamiltonian_matrix"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain Hamiltonian matrix")
+      return
+   end if
+
+   if (.not.allocated(res%results%hamiltonian)) then
+      call fatal_error(error%ptr, "Result does not contain Hamiltonian matrix")
+      return
+   end if
+
+   hmat(:size(res%results%hamiltonian)) = &
+      & reshape(res%results%hamiltonian, [size(res%results%hamiltonian)])
+end subroutine get_result_hamiltonian_matrix_api
 
 
 subroutine get_result(verror, vres, error, res, ok)

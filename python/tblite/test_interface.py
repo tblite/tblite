@@ -151,11 +151,17 @@ def test_gfn1():
 
     numbers, positions = get_ala("xac")
     calc.update(positions)
+    calc.set("save-integrals", 1)
 
     res = calc.singlepoint(res)
 
     assert res.get("energy") == approx(-34.987786081514066, abs=thr)
     assert res.get("gradient") == approx(gradient, abs=thr)
+
+    res = res.dict()
+    assert "density-matrix" in res
+    assert "overlap-matrix" in res
+    assert "hamiltonian-matrix" in res
 
 
 def test_gfn2():
@@ -186,10 +192,28 @@ def test_gfn2():
             [+7.47441343e-4, +1.68498046e-3, -1.52492395e-3],
         ]
     )
+    shell_map = np.array(
+        [
+            *[0, 0, 1, 2, 2, 3, 4, 4, 5, 5, 6, 7, 8, 9, 9],
+            *[10, 10, 11, 11, 12, 13, 14, 15, 15, 16, 16, 17, 18, 18, 19, 20, 21],
+        ]
+    )
+    orbital_map = np.array(
+        [
+            *[0, 1, 1, 1, 2, 3, 4, 4, 4, 5, 6, 7, 7, 7, 8, 9, 9, 9],
+            *[10, 11, 12, 13, 14, 14, 14, 15, 16, 16, 16, 17, 18, 18, 18, 19],
+            *[20, 21, 22, 23, 23, 23, 24, 25, 25, 25, 26, 27, 28, 28, 28, 29],
+            *[30, 31],
+        ]
+    )
 
     numbers, positions = get_ala("xac")
 
     calc = Calculator("GFN2-xTB", numbers, positions)
+
+    assert all(shell_map == calc.get("shell-map"))
+    assert all(orbital_map == calc.get("orbital-map"))
+
     calc.set("accuracy", 1.0)
     res = Result()
 

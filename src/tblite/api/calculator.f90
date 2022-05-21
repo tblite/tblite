@@ -41,7 +41,8 @@ module tblite_api_calculator
    public :: new_gfn2_calculator_api, new_ipea1_calculator_api, new_gfn1_calculator_api, &
       & new_xtb_calculator_api
    public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
-      & set_calculator_accuracy_api, set_calculator_temperature_api
+      & set_calculator_accuracy_api, set_calculator_temperature_api, &
+      & set_calculator_save_integrals_api
    public :: get_singlepoint_api
 
 
@@ -321,6 +322,136 @@ subroutine set_calculator_temperature_api(vctx, vcalc, etemp) &
 
    calc%etemp = etemp
 end subroutine set_calculator_temperature_api
+
+
+subroutine set_calculator_save_integrals_api(vctx, vcalc, save_integrals) &
+      & bind(C, name=namespace//"set_calculator_save_integrals")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: save_integrals
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_save_integrals"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%ptr%save_integrals = save_integrals /= 0
+end subroutine set_calculator_save_integrals_api
+
+
+subroutine get_calculator_shell_count(vctx, vcalc, nsh) &
+      & bind(C, name=namespace//"get_calculator_shell_count")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: nsh
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_shell_count"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(sh2at => calc%ptr%bas%sh2at)
+      nsh = size(sh2at)
+   end associate
+end subroutine get_calculator_shell_count
+
+subroutine get_calculator_shell_map(vctx, vcalc, imap) &
+      & bind(C, name=namespace//"get_calculator_shell_map")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: imap(*)
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_shell_map"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(sh2at => calc%ptr%bas%sh2at)
+      imap(:size(sh2at)) = sh2at - 1_c_int
+   end associate
+end subroutine get_calculator_shell_map
+
+subroutine get_calculator_orbital_count(vctx, vcalc, nao) &
+      & bind(C, name=namespace//"get_calculator_orbital_count")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: nao
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_orbital_count"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(ao2sh => calc%ptr%bas%ao2sh)
+      nao = size(ao2sh)
+   end associate
+end subroutine get_calculator_orbital_count
+
+subroutine get_calculator_orbital_map(vctx, vcalc, imap) &
+      & bind(C, name=namespace//"get_calculator_orbital_map")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: imap(*)
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_orbital_map"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(ao2sh => calc%ptr%bas%ao2sh)
+      imap(:size(ao2sh)) = ao2sh - 1_c_int
+   end associate
+end subroutine get_calculator_orbital_map
 
 
 subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &

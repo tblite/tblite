@@ -55,6 +55,7 @@ module tblite_xtb_calculator
       class(dispersion_type), allocatable :: dispersion
       real(wp) :: mixer_damping = mixer_damping_default
       integer :: max_iter = max_iter_default
+      logical :: save_integrals = .false.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
    contains

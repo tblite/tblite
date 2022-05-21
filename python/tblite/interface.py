@@ -21,7 +21,7 @@ CFFI generated wrappers.
 """
 
 import numpy as np
-from typing import Optional
+from typing import Optional, Any
 
 from . import library
 
@@ -223,6 +223,9 @@ class Result:
         "orbital-energies": library.get_orbital_energies,
         "orbital-occupations": library.get_orbital_occupations,
         "orbital-coefficients": library.get_orbital_coefficients,
+        "density-matrix": library.get_density_matrix,
+        "overlap-matrix": library.get_overlap_matrix,
+        "hamiltonian-matrix": library.get_hamiltonian_matrix,
     }
     _setter = {}
 
@@ -406,6 +409,11 @@ class Calculator(Structure):
         "mixer-damping": library.set_calculator_mixer_damping,
         "temperature": library.set_calculator_temperature,
         "guess": library.set_calculator_guess,
+        "save-integrals": library.set_calculator_save_integrals,
+    }
+    _getter = {
+        "shell-map": library.get_calculator_shell_map,
+        "orbital-map": library.get_calculator_orbital_map,
     }
 
     def __init__(
@@ -445,6 +453,7 @@ class Calculator(Structure):
          mixer-damping     Parameter for the SCC mixer          0.4
          guess             Initial guess for wavefunction       0 (SAD)
          temperature       Electronic temperature for filling   300.0
+         save_integrals    Keep integral matrices in results    0 (False)
         ================= ==================================== =================
 
         Raises
@@ -458,6 +467,29 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         self._setter[attribute](self._ctx, self._calc, value)
+
+    def get(self, attribute: str) -> Any:
+        """
+        Set an attribute from the calculator instance. Supported attributes are
+
+        ================= ====================================
+         name              description
+        ================= ====================================
+         shell-map         Mapping from shells to atoms
+         orbital-map       Mapping from orbitals to shells
+        ================= ====================================
+
+        Raises
+        ------
+        ValueError
+            on invalid attributes
+        """
+
+        if attribute not in self._getter:
+            raise ValueError(
+                f"Attribute '{attribute}' is not supported in this calculator"
+            )
+        return self._getter[attribute](self._ctx, self._calc)
 
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """

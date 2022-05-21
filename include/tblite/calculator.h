@@ -87,6 +87,12 @@ tblite_set_calculator_temperature(tblite_context /* ctx */,
                                   tblite_calculator /* calc */,
                                   double /* etemp */);
 
+/// Set the flag in the calculator to retain the integral matrices
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_save_integrals(tblite_context /* ctx */,
+                                     tblite_calculator /* calc */,
+                                     int /* save_integrals */);
+
 /// Add container to calculator object.
 ///
 /// Note: Ownership is transferred and container handle is destroyed after function call
@@ -94,6 +100,30 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_calculator_push_back(tblite_context /* ctx */,
                             tblite_calculator /* calc */,
                             tblite_container* /* cont */);
+
+/// Query calculator for the number of shells
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_calculator_shell_count(tblite_context /* ctx */,
+                              tblite_calculator /* calc */,
+                              int* /* nsh */);
+
+/// Query calculator for index mapping from shells to atomic centers
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_calculator_shell_map(tblite_context /* ctx */,
+                            tblite_calculator /* calc */,
+                            int* /* sh2at */);
+
+/// Query calculator for the number of orbitals
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_calculator_orbital_count(tblite_context /* ctx */,
+                                tblite_calculator /* calc */,
+                                int* /* nao */);
+
+/// Query calculator for index mapping from atomic orbitals to shells
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_calculator_orbital_map(tblite_context /* ctx */,
+                              tblite_calculator /* calc */,
+                              int* /* ao2sh */);
 
 /// Perform single point calculation
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL

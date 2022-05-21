@@ -24,7 +24,7 @@ module tblite_api_error
    private
 
    public :: vp_error
-   public :: new_error_api, check_error_api, get_error_api, delete_error_api
+   public :: new_error_api, check_error_api, clear_error_api, get_error_api, delete_error_api
 
 
    !> Void pointer to error handle
@@ -95,6 +95,25 @@ function check_error_api(verror) result(status) &
    end if
 
 end function check_error_api
+
+
+!> Clear error from handle
+subroutine clear_error_api(verror) &
+      & bind(C, name=namespace//"clear_error")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+
+   if (debug) print '("[Info]", 1x, a)', "clear_error"
+
+   if (c_associated(verror)) then
+      call c_f_pointer(verror, error)
+
+      if (allocated(error%ptr)) then
+         deallocate(error%ptr)
+      end if
+   end if
+
+end subroutine clear_error_api
 
 
 !> Get error message from error handle
