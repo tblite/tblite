@@ -1,15 +1,35 @@
 [build-system]
-requires = ["mesonpep517"]
-build-backend = "mesonpep517.buildapi"
+requires = ["meson-python", "cffi"]
+build-backend = "mesonpy"
 
-[tool.mesonpep517.metadata]
-author = "Sebastian Ehlert"
-author-email = "awvwgk@disroot.org"
-summary = "Light-weight tight-binding framework"
-description-file = "README.rst"
-home-page = "https://tblite.readthedocs.io"
-requires = [
+[project]
+name = "tblite"
+version = "0.2.0"
+description = "Light-weight tight-binding framework"
+readme = "README.rst"
+license.text = "LGPL-3.0-or-later"
+urls.repository = "https://github.com/tblite/tblite"
+urls.documentation = "https://tblite.readthedocs.io"
+classifiers = [
+  "License :: OSI Approved :: LGPL-3.0-or-later",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Fortran",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.6"
+dependencies = [
    "cffi",
    "numpy",
 ]
-requires-python = ">=3.6"
+optional-dependencies.ase = ["ase"]
+optional-dependencies.test = [
+  "pytest",
+  "pytest-cov",
+]
