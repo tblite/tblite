@@ -4,7 +4,7 @@ build-backend = "mesonpy"
 
 [project]
 name = "tblite"
-version = "0.2.0"
+version = "0.2.1"
 description = "Light-weight tight-binding framework"
 readme = "README.rst"
 license.text = "LGPL-3.0-or-later"
