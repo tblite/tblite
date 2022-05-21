@@ -39,18 +39,12 @@ A more pythonic interface is provided in the ``tblite.interface`` module which c
 Building the extension module
 -----------------------------
 
-To perform an out-of-tree build some version of ``tblite`` has to be available on your system and preferably findable by ``pkg-config``.
-Try to find a ``tblite`` installation you build against first with
-
-.. code:: sh
-
-   pkg-config --modversion tblite
-
-Adjust the ``PKG_CONFIG_PATH`` environment variable to include the correct directories to find the installation if necessary.
+The Python bindings can be built against an existing installation of ``tblite`` or free-standing.
+The free-standing implementation will select a matching version of the shared library, when building against an existing ``tblite`` library the API version of the two parts must match.
 
 
-Using pip
-~~~~~~~~~
+Setuptools build
+~~~~~~~~~~~~~~~~
 
 This project support installation with pip as an easy way to build the Python API.
 
@@ -61,6 +55,15 @@ This project support installation with pip as an easy way to build the Python AP
   - `cffi <https://cffi.readthedocs.io/>`_
   - `numpy <https://numpy.org/>`_
   - `pkgconfig <https://pypi.org/project/pkgconfig/>`_ (setup only)
+
+Ensure that you can find ``tblite`` via
+
+.. code:: sh
+
+   pkg-config --modversion tblite
+
+Adjust the ``PKG_CONFIG_PATH`` environment variable to include the correct directories to find the installation if necessary.
+Alternatively, you can set the ``TBLITE_PREFIX`` environment variable to point to the installation of the library.
 
 Make sure to have your C compiler set to the ``CC`` environment variable
 
@@ -86,11 +89,21 @@ The out-of-tree build requires
 - a build-system backend, *i.e.* `ninja <https://ninja-build.org>`_ version 1.7 or newer
 - Python 3.6 or newer with the `CFFI <https://cffi.readthedocs.io/>`_ package installed
 
+To make a free-standing build you can provide the main repository as subproject to the Python bindings *without* having to build the shared library first.
+This can be done for example by symlinking the main repository to the subprojects directory.
+
+.. code:: sh
+
+   mkdir subprojects
+   ln -s $(realpath ..) subprojects/tblite
+
+Note that this step is not needed if you built against an existing ``tblite`` installation.
+
 Setup a build with
 
 .. code:: sh
 
-   meson setup _build -Dpython_version=$(which python3)
+   meson setup _build -Dpython_version=$(which python3) --prefix=/path/to/install
 
 The Python version can be used to select a different Python version, it defaults to ``'python3'``.
 Python 2 is not supported with this project, the Python version key is meant to select between several local Python 3 versions.
@@ -106,5 +119,4 @@ You can install as usual with
 
 .. code:: sh
 
-   meson configure _build --prefix=/path/to/install
    meson install -C _build
