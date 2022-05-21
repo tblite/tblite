@@ -75,6 +75,7 @@ show_error(tblite_error error)
    char message[512];
    tblite_get_error(error, message, NULL);
    printf("[Message] %s\n", message);
+   tblite_clear_error(error);
 }
 
 static inline void
@@ -120,6 +121,8 @@ test_uninitialized_structure (void)
    double xyz[6] = {0.0};
    tblite_update_structure_geometry(error, mol, xyz, NULL);
    if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
 
    double charge = 0.0;
    tblite_update_structure_charge(error, mol, &charge);
@@ -1016,7 +1019,7 @@ test_ipea1_ch4 (void)
    tblite_result res = NULL;
 
    const double thr = 5.0e-7;
-   int natoms = 5;
+   int natoms = 5, norbs;
    int num[17] = {6, 1, 1, 1, 1};
    double charge_cation = 1.0;
    int uhf_cation = 1;
@@ -1036,6 +1039,7 @@ test_ipea1_ch4 (void)
       -1.18771160655551, -1.18771160655551, -1.18771160655551,
        1.18771160655551,  1.18771160655551, -1.18771160655551,
    };
+   double overlap[13*13];
    double energy;
 
    error = tblite_new_error();
@@ -1081,6 +1085,28 @@ test_ipea1_ch4 (void)
    if (tblite_check_error(error)) goto err;
 
    if (!check(energy, -4.670465980661, thr, "energy error")) goto err;
+
+
+   tblite_get_result_overlap_matrix(error, res, overlap);
+   if (!tblite_check_error(error)) goto err;
+
+   show_error(error);
+
+   tblite_set_calculator_save_integrals(ctx, calc, 1);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_singlepoint(ctx, mol, calc, res);
+   if (tblite_check_context(ctx)) goto err;
+
+   tblite_get_result_number_of_orbitals(error, res, &norbs);
+   if (tblite_check_error(error)) goto err;
+
+   if (!check(norbs, 13, "dimension error")) goto err;
+
+   tblite_get_result_overlap_matrix(error, res, overlap);
+   if (tblite_check_error(error)) goto err;
+
+   if (!check(overlap[0], 1.0, thr, "overlap error")) goto err;
 
    tblite_delete(error);
    tblite_delete(ctx);
