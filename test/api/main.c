@@ -448,6 +448,22 @@ test_empty_result (void)
 
    show_error(error);
 
+   double mat[10];
+   tblite_get_result_density_matrix(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_get_result_overlap_matrix(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
+   tblite_get_result_hamiltonian_matrix(error, res, mat);
+   if (!tblite_check_error(error)) goto unexpected;
+
+   show_error(error);
+
    tblite_delete(error);
    return 0;
 
@@ -1088,6 +1104,11 @@ test_ipea1_ch4 (void)
 
 
    tblite_get_result_overlap_matrix(error, res, overlap);
+   if (!tblite_check_error(error)) goto err;
+
+   show_error(error);
+
+   tblite_get_result_hamiltonian_matrix(error, res, overlap);
    if (!tblite_check_error(error)) goto err;
 
    show_error(error);
