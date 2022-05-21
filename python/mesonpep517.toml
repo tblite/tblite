@@ -11,7 +11,6 @@ license.text = "LGPL-3.0-or-later"
 urls.repository = "https://github.com/tblite/tblite"
 urls.documentation = "https://tblite.readthedocs.io"
 classifiers = [
-  "License :: OSI Approved :: LGPL-3.0-or-later",
   "Intended Audience :: Science/Research",
   "Programming Language :: Fortran",
   "Programming Language :: Python :: 3",
