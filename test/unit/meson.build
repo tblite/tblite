@@ -15,19 +15,19 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 # Create mstore as subproject for testing
-mstore_prj = subproject(
+mstore_dep = dependency(
   'mstore',
   version: '>=0.1',
+  fallback: ['mstore', 'mstore_dep'],
   required: not meson.is_subproject(),
   default_options: [
     'default_library=static',
   ],
 )
 # If we do not find mstore and are a subproject, we just skip testing
-if not mstore_prj.found()
+if not mstore_dep.found()
   subdir_done()
 endif
-mstore_dep = mstore_prj.get_variable('mstore_dep')
 
 tests = [
   'cgto-ortho',
@@ -64,6 +64,7 @@ tester = executable(
   'tester',
   sources: test_srcs,
   dependencies: [tblite_dep, mstore_dep],
+  link_language: 'fortran',
 )
 
 foreach t : tests
