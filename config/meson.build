@@ -16,6 +16,10 @@
 
 os = host_machine.system()
 fc = meson.get_compiler('fortran')
+cc = fc
+if has_cc
+  cc = meson.get_compiler('c')
+endif
 fc_id = fc.get_id()
 
 if fc_id == 'gcc'
@@ -53,22 +57,22 @@ endif
 if lapack_vendor == 'mkl'
   mkl_dep = []
   if fc_id == 'intel'
-    mkl_dep += fc.find_library('mkl_intel_lp64')
+    mkl_dep += cc.find_library('mkl_intel_lp64')
     if get_option('openmp')
-      mkl_dep += fc.find_library('mkl_intel_thread')
+      mkl_dep += cc.find_library('mkl_intel_thread')
     endif
   elif fc_id == 'gcc'
-    mkl_dep += fc.find_library('mkl_gf_lp64')
+    mkl_dep += cc.find_library('mkl_gf_lp64')
     if get_option('openmp')
-      mkl_dep += fc.find_library('mkl_gnu_thread')
+      mkl_dep += cc.find_library('mkl_gnu_thread')
     endif
   else
     error('MKL not supported for this compiler')
   endif
   if not get_option('openmp')
-    mkl_dep += fc.find_library('mkl_tbb_thread')
+    mkl_dep += cc.find_library('mkl_tbb_thread')
   endif
-  mkl_dep += fc.find_library('mkl_core')
+  mkl_dep += cc.find_library('mkl_core')
   lib_deps += mkl_dep
 
 elif lapack_vendor == 'mkl-rt'
@@ -120,7 +124,7 @@ lib_deps += mctc_dep
 dftd4_dep = dependency(
   'dftd4',
   fallback: ['dftd4', 'dftd4_dep'],
-  default_options: ['default_library=static'],
+  default_options: ['default_library=static', 'api=false', 'python=false'],
 )
 lib_deps += dftd4_dep
 
@@ -128,7 +132,7 @@ lib_deps += dftd4_dep
 sdftd3_dep = dependency(
   's-dftd3',
   fallback: ['s-dftd3', 'sdftd3_dep'],
-  default_options: ['default_library=static'],
+  default_options: ['default_library=static', 'api=false', 'python=false'],
 )
 lib_deps += sdftd3_dep
 
