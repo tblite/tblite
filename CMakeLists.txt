@@ -102,6 +102,9 @@ target_include_directories(
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
 )
+if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
+  file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
+endif()
 
 # Add example application
 add_subdirectory("app")
