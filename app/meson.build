@@ -36,6 +36,7 @@ tblite_exe = executable(
   dependencies: tblite_dep,
   install: install,
   fortran_args: exe_args,
+  link_language: 'fortran',
 )
 
 test('help', tblite_exe, args: '--help', suite: 'app')
