@@ -409,7 +409,7 @@ subroutine get_calculator_shell_angular_momenta(vctx, vcalc, sh_am) &
    type(vp_calculator), pointer :: calc
    integer(c_int), intent(inout) :: sh_am(*)
    type(error_type), allocatable :: error
-   integer:: ish, l
+   integer:: ish
 
    if (debug) print '("[Info]", 1x, a)', "get_calculator_shell_angular_momenta"
 
