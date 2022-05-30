@@ -69,6 +69,15 @@ sum(int n, double* vec)
    return val;
 }
 
+static inline int
+sum_int(int n, int* vec)
+{
+   double val = 0;
+   int i;
+   for (i = 0; i != n; i++) val += vec[i];
+   return val;
+}
+
 static inline void
 show_error(tblite_error error)
 {
@@ -307,6 +316,12 @@ test_uninitialized_calculator (void)
 
    show_context_error(ctx);
 
+   int am[5];
+   tblite_get_calculator_angular_momenta(ctx, calc, am);
+   if (!tblite_check_context(ctx)) goto unexpected;
+
+   show_context_error(ctx);
+
    int nao;
    tblite_get_calculator_orbital_count(ctx, calc, &nao);
    if (!tblite_check_context(ctx)) goto unexpected;
@@ -314,7 +329,7 @@ test_uninitialized_calculator (void)
    show_context_error(ctx);
 
    int ao2sh[9];
-   tblite_get_calculator_orbital_map(ctx, calc, &ao2sh);
+   tblite_get_calculator_orbital_map(ctx, calc, ao2sh);
    if (!tblite_check_context(ctx)) goto unexpected;
 
    show_context_error(ctx);
@@ -955,7 +970,8 @@ test_gfn2_si5h12 (void)
    };
    double energy;
    double gradient[3*17] = {0.0};
-
+   int nshells, nao;
+   int sh2at[27], am[27], ao2sh[57];
 
    error = tblite_new_error();
    ctx = tblite_new_context();
@@ -970,6 +986,31 @@ test_gfn2_si5h12 (void)
 
    calc = tblite_new_xtb_calculator(ctx, mol, param);
    if (!calc) goto err;
+
+   tblite_get_calculator_shell_count(ctx, calc, &nshells);
+   if (tblite_check_context(ctx)) goto err;
+
+   if (!check(nshells, 27, "dimension error")) goto err;
+
+   tblite_get_calculator_shell_map(ctx, calc, sh2at);
+   if (tblite_check_context(ctx)) goto err;
+
+   if (!check(sum_int(nshells, sh2at), 156, "dimension error")) goto err;
+
+   tblite_get_calculator_angular_momenta(ctx, calc, am);
+   if (tblite_check_context(ctx)) goto err;
+
+   if (!check(sum_int(nshells, am), 15, "dimension error")) goto err;
+
+   tblite_get_calculator_orbital_count(ctx, calc, &nao);
+   if (tblite_check_context(ctx)) goto err;
+
+   if (!check(nao, 57, "dimension error")) goto err;
+
+   tblite_get_calculator_orbital_map(ctx, calc, ao2sh);
+   if (tblite_check_context(ctx)) goto err;
+
+   if (!check(sum_int(nao, ao2sh), 581, "dimension error")) goto err;
 
    tblite_get_singlepoint(ctx, mol, calc, res);
    if (tblite_check_context(ctx)) goto err;
