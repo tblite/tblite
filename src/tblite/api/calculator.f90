@@ -401,17 +401,17 @@ subroutine get_calculator_shell_map(vctx, vcalc, imap) &
    end associate
 end subroutine get_calculator_shell_map
 
-subroutine get_calculator_shell_angular_momenta(vctx, vcalc, sh_am) &
-      & bind(C, name=namespace//"get_calculator_shell_angular_momenta")
+subroutine get_calculator_angular_momenta(vctx, vcalc, am) &
+      & bind(C, name=namespace//"get_calculator_angular_momenta")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
    type(c_ptr), value :: vcalc
    type(vp_calculator), pointer :: calc
-   integer(c_int), intent(inout) :: sh_am(*)
+   integer(c_int), intent(inout) :: am(*)
    type(error_type), allocatable :: error
    integer:: ish
 
-   if (debug) print '("[Info]", 1x, a)', "get_calculator_shell_angular_momenta"
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_angular_momenta"
 
    if (.not.c_associated(vctx)) return
    call c_f_pointer(vctx, ctx)
@@ -425,10 +425,10 @@ subroutine get_calculator_shell_angular_momenta(vctx, vcalc, sh_am) &
 
    associate(bas => calc%ptr%bas)
       do ish=1, bas%nsh
-         sh_am(ish)=(bas%nao_sh(ish)-1)/2
+         am(ish)=(bas%nao_sh(ish)-1)/2
       enddo
    end associate
-end subroutine get_calculator_shell_angular_momenta
+end subroutine get_calculator_angular_momenta
 
 subroutine get_calculator_orbital_count(vctx, vcalc, nao) &
       & bind(C, name=namespace//"get_calculator_orbital_count")
