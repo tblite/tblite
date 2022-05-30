@@ -349,6 +349,17 @@ def get_calculator_shell_map(ctx, calc):
     return _map
 
 
+def get_calculator_angular_momenta(ctx, calc):
+    """Retrieve angular momenta of shells"""
+    _nsh = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_shell_count)(ctx, calc, _nsh)
+    _am = np.zeros((_nsh[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_angular_momenta)(
+        ctx, calc, ffi.cast("int*", _am.ctypes.data)
+    )
+    return _am
+
+
 def get_calculator_orbital_map(ctx, calc):
     """Retrieve index mapping from atomic orbitals to shells"""
     _nao = ffi.new("int *")

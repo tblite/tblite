@@ -401,6 +401,38 @@ subroutine get_calculator_shell_map(vctx, vcalc, imap) &
    end associate
 end subroutine get_calculator_shell_map
 
+subroutine get_calculator_angular_momenta(vctx, vcalc, am) &
+      & bind(C, name=namespace//"get_calculator_angular_momenta")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: am(*)
+   type(error_type), allocatable :: error
+   integer :: ish
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_angular_momenta"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(bas => calc%ptr%bas)
+      do ish = 1, bas%nsh
+         ! Angular momentum is only available for each species,
+         ! which is unavailable in this API call.
+         ! Therefore, we calculate it by using 2*l + 1 == nao
+         am(ish) = (bas%nao_sh(ish)-1)/2
+      end do
+   end associate
+end subroutine get_calculator_angular_momenta
+
 subroutine get_calculator_orbital_count(vctx, vcalc, nao) &
       & bind(C, name=namespace//"get_calculator_orbital_count")
    type(c_ptr), value :: vctx
@@ -452,7 +484,6 @@ subroutine get_calculator_orbital_map(vctx, vcalc, imap) &
       imap(:size(ao2sh)) = ao2sh - 1_c_int
    end associate
 end subroutine get_calculator_orbital_map
-
 
 subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       & bind(C, name=namespace//"get_singlepoint")

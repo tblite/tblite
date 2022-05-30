@@ -413,6 +413,7 @@ class Calculator(Structure):
     }
     _getter = {
         "shell-map": library.get_calculator_shell_map,
+        "angular-momenta": library.get_calculator_angular_momenta,
         "orbital-map": library.get_calculator_orbital_map,
     }
 
@@ -476,6 +477,7 @@ class Calculator(Structure):
          name              description
         ================= ====================================
          shell-map         Mapping from shells to atoms
+         angular-momenta   Angular momenta of shells
          orbital-map       Mapping from orbitals to shells
         ================= ====================================
 

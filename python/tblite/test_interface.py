@@ -198,6 +198,13 @@ def test_gfn2():
             *[10, 10, 11, 11, 12, 13, 14, 15, 15, 16, 16, 17, 18, 18, 19, 20, 21],
         ]
     )
+    angular_momenta = np.array(
+        [
+            *[0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
+            *[0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0]
+        ]
+
+    )
     orbital_map = np.array(
         [
             *[0, 1, 1, 1, 2, 3, 4, 4, 4, 5, 6, 7, 7, 7, 8, 9, 9, 9],
@@ -212,6 +219,7 @@ def test_gfn2():
     calc = Calculator("GFN2-xTB", numbers, positions)
 
     assert all(shell_map == calc.get("shell-map"))
+    assert all(angular_momenta == calc.get("angular-momenta"))
     assert all(orbital_map == calc.get("orbital-map"))
 
     calc.set("accuracy", 1.0)
