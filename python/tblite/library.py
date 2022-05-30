@@ -359,6 +359,16 @@ def get_calculator_orbital_map(ctx, calc):
     )
     return _map
 
+def get_calculator_ao_angular_momenta(ctx, calc):
+    """Retrieve angular momenta corresponding to each basis function"""
+    _nao = ffi.new("int *")
+    context_check(lib.tblite_get_calculator_orbital_count)(ctx, calc, _nao)
+    _ao_am = np.zeros((_nao[0],), dtype=np.int32)
+    context_check(lib.tblite_get_calculator_ao_angular_momenta)(
+        ctx, calc, ffi.cast("int*", _ao_am.ctypes.data)
+    )
+    return _ao_am
+
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)

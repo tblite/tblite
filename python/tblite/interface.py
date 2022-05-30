@@ -414,6 +414,7 @@ class Calculator(Structure):
     _getter = {
         "shell-map": library.get_calculator_shell_map,
         "orbital-map": library.get_calculator_orbital_map,
+        "ao-angular-momenta": library.get_calculator_ao_angular_momenta,
     }
 
     def __init__(

@@ -125,6 +125,13 @@ tblite_get_calculator_orbital_map(tblite_context /* ctx */,
                               tblite_calculator /* calc */,
                               int* /* ao2sh */);
 
+/// Query calculator for angular momenta of atomic orbitals
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_calculator_ao_angular_momenta(tblite_context /* ctx */,
+                              tblite_calculator /* calc */,
+                              int* /* ao_am */);
+
+
 /// Perform single point calculation
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_get_singlepoint(tblite_context /* ctx */,
