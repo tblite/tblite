@@ -116,8 +116,8 @@ tblite_get_calculator_shell_map(tblite_context /* ctx */,
 /// Query calculator for angular momenta of shells
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_calculator_angular_momenta(tblite_context /* ctx */,
-                              tblite_calculator /* calc */,
-                              int* /* am */);
+                                      tblite_calculator /* calc */,
+                                      int* /* am */);
 
 /// Query calculator for the number of orbitals
 TBLITE_API_ENTRY void TBLITE_API_CALL
