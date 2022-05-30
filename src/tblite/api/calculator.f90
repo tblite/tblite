@@ -401,6 +401,35 @@ subroutine get_calculator_shell_map(vctx, vcalc, imap) &
    end associate
 end subroutine get_calculator_shell_map
 
+subroutine get_calculator_shell_angular_momenta(vctx, vcalc, sh_am) &
+      & bind(C, name=namespace//"get_calculator_shell_angular_momenta")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), intent(inout) :: sh_am(*)
+   type(error_type), allocatable :: error
+   integer:: ish, l
+
+   if (debug) print '("[Info]", 1x, a)', "get_calculator_shell_angular_momenta"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   associate(bas => calc%ptr%bas)
+      do ish=1, bas%nsh
+         sh_am(ish)=(bas%nao_sh(ish)-1)/2
+      enddo
+   end associate
+end subroutine get_calculator_shell_angular_momenta
+
 subroutine get_calculator_orbital_count(vctx, vcalc, nao) &
       & bind(C, name=namespace//"get_calculator_orbital_count")
    type(c_ptr), value :: vctx
@@ -452,41 +481,6 @@ subroutine get_calculator_orbital_map(vctx, vcalc, imap) &
       imap(:size(ao2sh)) = ao2sh - 1_c_int
    end associate
 end subroutine get_calculator_orbital_map
-
-subroutine get_calculator_ao_angular_momenta(vctx, vcalc, ao_am) &
-      & bind(C, name=namespace//"get_calculator_ao_angular_momenta")
-   type(c_ptr), value :: vctx
-   type(vp_context), pointer :: ctx
-   type(c_ptr), value :: vcalc
-   type(vp_calculator), pointer :: calc
-   integer(c_int), intent(inout) :: ao_am(*)
-   type(error_type), allocatable :: error
-   integer:: ish, iao, l, full_iao
-
-   if (debug) print '("[Info]", 1x, a)', "get_calculator_ao_angular_momenta"
-
-   if (.not.c_associated(vctx)) return
-   call c_f_pointer(vctx, ctx)
-
-   if (.not.c_associated(vcalc)) then
-      call fatal_error(error, "Calculator object is missing")
-      call ctx%ptr%set_error(error)
-      return
-   end if
-   call c_f_pointer(vcalc, calc)
-
-   associate(bas => calc%ptr%bas)
-      full_iao=1
-      do ish=1, bas%nsh
-         l=(bas%nao_sh(ish)-1)/2
-         do iao=1, bas%nao_sh(ish)
-            ao_am(full_iao)=l
-            full_iao=full_iao+1
-         enddo
-      enddo
-   end associate
-end subroutine get_calculator_ao_angular_momenta
-
 
 subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       & bind(C, name=namespace//"get_singlepoint")
