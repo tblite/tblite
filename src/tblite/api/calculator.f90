@@ -424,9 +424,12 @@ subroutine get_calculator_angular_momenta(vctx, vcalc, am) &
    call c_f_pointer(vcalc, calc)
 
    associate(bas => calc%ptr%bas)
-      do ish=1, bas%nsh
-         am(ish)=(bas%nao_sh(ish)-1)/2
-      enddo
+      do ish = 1, bas%nsh
+         ! Angular momentum is only available for each species,
+         ! which is unavailable in this API call.
+         ! Therefore, we calculate it by using 2*l + 1 == nao
+         am(ish) = (bas%nao_sh(ish)-1)/2
+      end do
    end associate
 end subroutine get_calculator_angular_momenta
 
