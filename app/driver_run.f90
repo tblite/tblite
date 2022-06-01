@@ -32,7 +32,8 @@ module tblite_driver_run
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
+      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -63,7 +64,7 @@ subroutine run_main(config, error)
    character(len=:), allocatable :: method
    integer :: spin, charge, stat, unit, nspin
    logical :: exist
-   real(wp) :: energy
+   real(wp) :: energy, dpmom(3), qpmom(6)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    type(param_record) :: param
    type(context_type) :: ctx
@@ -209,6 +210,12 @@ subroutine run_main(config, error)
 
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
+
+      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
+      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
+         & wfn%qpat(:, :, 1), qpmom)
+      call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
+      call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
 
    if (allocated(config%grad_output)) then

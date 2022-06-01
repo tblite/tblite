@@ -1428,6 +1428,10 @@ int test_ipea1_ch4(void)
     ctx = tblite_new_context();
     res = tblite_new_result();
 
+    tblite_set_context_verbosity(ctx, 0);
+    if (tblite_check_context(ctx))
+        goto err;
+
     mol = tblite_new_structure(
         error,
         natoms,
@@ -1445,6 +1449,10 @@ int test_ipea1_ch4(void)
         goto err;
 
     tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_set_context_verbosity(ctx, 2);
     if (tblite_check_context(ctx))
         goto err;
 

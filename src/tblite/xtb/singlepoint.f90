@@ -25,17 +25,13 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_type, only : integral_type, new_integral
-   use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
-      & ascii_quadrupole_moments
-   use tblite_output_property, only : property, write(formatted)
    use tblite_output_format, only : format_string
    use tblite_results, only : results_type
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation, get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment, magnet_to_updown, updown_to_magnet
+      & get_alpha_beta_occupation, magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
@@ -45,6 +41,18 @@ module tblite_xtb_singlepoint
    public :: xtb_singlepoint
 
    real(wp), parameter :: cn_cutoff = 25.0_wp
+
+
+   character(len=*), parameter :: real_format = "(es20.13)"
+   character(len=25), parameter :: &
+      label_halogen = "halogen bonding energy", &
+      label_repulsion = "repulsion energy", &
+      label_dispersion = "dispersion energy", &
+      label_other = "interaction energy", &
+      label_electrons = "number of electrons", &
+      label_cutoff = "integral cutoff", &
+      label_electronic = "electronic energy", &
+      label_total = "total energy"
 
 contains
 
@@ -64,7 +72,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    logical :: grad, converged, econverged, pconverged
    integer :: prlevel
-   real(wp) :: econv, pconv, cutoff, elast, dpmom(3), qpmom(6), nel
+   real(wp) :: econv, pconv, cutoff, elast, nel
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :), wdensity(:, :, :)
@@ -110,7 +118,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("halogen")
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
-      if (prlevel > 1) print *, property("halogen-bonding energy", sum(exbond), "Eh")
+      if (prlevel > 1) &
+         call ctx%message(label_halogen // format_string(sum(exbond), real_format) // " Eh")
       energies(:) = energies + exbond
       call timer%pop
    end if
@@ -119,7 +128,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("repulsion")
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
-      if (prlevel > 1) print *, property("repulsion energy", sum(erep), "Eh")
+      if (prlevel > 1) &
+         call ctx%message(label_repulsion // format_string(sum(erep), real_format) // " Eh")
       energies(:) = energies + erep
       call timer%pop
    end if
@@ -128,7 +138,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("dispersion")
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
-      if (prlevel > 1) print *, property("dispersion energy", sum(edisp), "Eh")
+      if (prlevel > 1) &
+         call ctx%message(label_dispersion // format_string(sum(edisp), real_format) // " Eh")
       energies(:) = energies + edisp
       call timer%pop
    end if
@@ -137,7 +148,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("interactions")
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) print *, property("interaction energy", sum(eint), "Eh")
+      if (prlevel > 1) &
+         call ctx%message(label_other // format_string(sum(eint), real_format) // " Eh")
       energies(:) = energies + eint
       call timer%pop
    end if
@@ -158,7 +170,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
-   if (prlevel > 1) print *, property("number of electrons", wfn%nocc, "e")
+   if (prlevel > 1) &
+      call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
 
    call timer%push("hamiltonian")
    if (allocated(calc%ncoord)) then
@@ -178,8 +191,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call new_adjacency_list(list, mol, lattr, cutoff)
 
    if (prlevel > 1) then
-      print *, property("integral cutoff", cutoff, "bohr")
-      print *
+      call ctx%message(label_cutoff // format_string(cutoff, real_format) // " bohr")
+      call ctx%message("")
    end if
 
    call new_integral(ints, calc%bas%nao)
@@ -222,7 +235,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
    end do
    if (prlevel > 0) then
-      call ctx%message(repeat("-", 60) // new_line('a'))
+      call ctx%message(repeat("-", 60))
+      call ctx%message("")
    end if
    energies(:) = energies + eelec
    energy = sum(energies)
@@ -232,20 +246,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call timer%pop
 
    if (prlevel > 1) then
-      print *, property("electronic energy", sum(eelec), "Eh")
-      print *, property("total energy", sum(energies), "Eh")
-      print *
+      call ctx%message(label_electronic // format_string(sum(eelec), real_format) // " Eh")
+      call ctx%message(label_total // format_string(sum(energies), real_format) // " Eh")
+      call ctx%message("")
    end if
 
    if (ctx%failed()) return
-
-   call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
-   call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
-      & wfn%qpat(:, :, 1), qpmom)
-   if (prlevel > 2) then
-      call ascii_dipole_moments(6, 1, mol, wfn%dpat(:, :, 1), dpmom)
-      call ascii_quadrupole_moments(6, 1, mol, wfn%qpat(:, :, 1), qpmom)
-   end if
 
    if (grad) then
       if (allocated(calc%coulomb)) then

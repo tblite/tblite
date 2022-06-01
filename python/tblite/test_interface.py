@@ -271,7 +271,8 @@ def test_ipea1():
     numbers, positions = get_ala("xab")
 
     calc = Calculator("IPEA1-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
+    for key, value in {"accuracy": 1.0, "verbosity": 2}.items():
+        calc.set(key, value)
 
     res = calc.singlepoint()
 
