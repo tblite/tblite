@@ -404,17 +404,18 @@ class Calculator(Structure):
         "IPEA1-xTB": library.new_ipea1_calculator,
     }
     _setter = {
-        "max-iter": library.set_calculator_max_iter,
         "accuracy": library.set_calculator_accuracy,
-        "mixer-damping": library.set_calculator_mixer_damping,
-        "temperature": library.set_calculator_temperature,
         "guess": library.set_calculator_guess,
+        "max-iter": library.set_calculator_max_iter,
+        "mixer-damping": library.set_calculator_mixer_damping,
         "save-integrals": library.set_calculator_save_integrals,
+        "temperature": library.set_calculator_temperature,
+        "verbosity": library.set_calculator_verbosity,
     }
     _getter = {
-        "shell-map": library.get_calculator_shell_map,
         "angular-momenta": library.get_calculator_angular_momenta,
         "orbital-map": library.get_calculator_orbital_map,
+        "shell-map": library.get_calculator_shell_map,
     }
 
     def __init__(
@@ -449,12 +450,13 @@ class Calculator(Structure):
         ================= ==================================== =================
          name              description                          default
         ================= ==================================== =================
-         max-iter          Maximum number of SCC iterations     250
          accuracy          Numerical thresholds for SCC         1.0
-         mixer-damping     Parameter for the SCC mixer          0.4
          guess             Initial guess for wavefunction       0 (SAD)
+         max-iter          Maximum number of SCC iterations     250
+         mixer-damping     Parameter for the SCC mixer          0.4
+         save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   300.0
-         save_integrals    Keep integral matrices in results    0 (False)
+         verbosity         Set verbosity of printout            1
         ================= ==================================== =================
 
         Raises
@@ -476,9 +478,9 @@ class Calculator(Structure):
         ================= ====================================
          name              description
         ================= ====================================
-         shell-map         Mapping from shells to atoms
          angular-momenta   Angular momenta of shells
          orbital-map       Mapping from orbitals to shells
+         shell-map         Mapping from shells to atoms
         ================= ====================================
 
         Raises

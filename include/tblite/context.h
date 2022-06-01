@@ -59,3 +59,8 @@ tblite_set_context_logger(tblite_context /* ctx */,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_context_color(tblite_context /* ctx */,
                          int /* color */);
+
+/// Set verbosity level of printout
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_verbosity(tblite_context /* ctx */,
+                             int /* verbosity */);

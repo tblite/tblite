@@ -378,4 +378,11 @@ set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
+
+@context_check
+def set_calculator_verbosity(ctx, calc, verbosity: int):
+    """Set verbosity in context associated with calculator"""
+    lib.tblite_set_context_verbosity(ctx, verbosity)
+
+
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
