@@ -247,7 +247,7 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
    end if
    call c_f_pointer(vcalc, calc)
 
-   calc%ptr%max_iter = max_iter
+   calc%max_iter = max_iter
 end subroutine set_calculator_max_iter_api
 
 
