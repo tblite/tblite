@@ -148,6 +148,8 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
+   if (allocated(config%max_iter)) calc%max_iter = config%max_iter
+
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    select case(config%guess)

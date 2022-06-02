@@ -110,6 +110,7 @@ module tblite_cli_help
       "      --param <file>      Parametrization file to use for calculation"//nl//&
       "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>      Guess for the initial populations, possible options:"//nl//&
+      "      --iterations <int>  Maximum number of SCF iterations (Default: 250)"//nl//&
       "                          sad (default), and eeq."//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                          Homogeneous electric field in V/Å."//nl//&

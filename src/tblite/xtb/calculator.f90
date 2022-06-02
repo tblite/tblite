@@ -70,7 +70,7 @@ module tblite_xtb_calculator
    end type xtb_calculator
 
 
-   !> Specification of the
+   !> Specification of the Hamiltonian
    type, extends(tb_h0spec) :: param_h0spec
       type(param_record), pointer :: param => null()
       integer, pointer :: irc(:) => null()
