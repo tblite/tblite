@@ -57,14 +57,13 @@ module tblite_xtb_singlepoint
 contains
 
 
-subroutine xtb_singlepoint(ctx, mol, calc, wfn, max_iter, accuracy, energy, gradient, &
-      & sigma, verbosity, results)
+subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
+      & verbosity, results)
    type(context_type), intent(inout) :: ctx
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    type(wavefunction_type), intent(inout) :: wfn
    real(wp), intent(in) :: accuracy
-   integer, intent(in) :: max_iter
    real(wp), intent(out) :: energy
    real(wp), contiguous, intent(out), optional :: gradient(:, :)
    real(wp), contiguous, intent(out), optional :: sigma(:, :)
@@ -206,14 +205,14 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, max_iter, accuracy, energy, grad
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_broyden(mixer, max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
+   call new_broyden(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
       & calc%mixer_damping)
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("  cycle        total energy    energy error   density error")
       call ctx%message(repeat("-", 60))
    end if
-   do while(.not.converged .and. iscf < max_iter)
+   do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
       call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &

@@ -75,6 +75,10 @@ Supported geometry input formats are:
      Accuracy of the calculation,
      lower values set tighter convergence criteria.
 
+*--iterations* _int_::
+     Number of iterations for converging the electronic structure.
+     Default: 250.
+
 *--grad* [_file_]::
      Evaluates analytical gradient,
      results are stored in _file_ (default: tblite.txt)

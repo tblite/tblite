@@ -59,8 +59,6 @@ module tblite_api_calculator
       type(xtb_calculator) :: ptr
       !> Calculation accuracy
       real(wp) :: accuracy = 1.0_wp
-      !> Maximum number of iterations
-      integer :: max_iter = 250
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp * 3.166808578545117e-06_wp
       !> Wavefunction guess
@@ -247,7 +245,7 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
    end if
    call c_f_pointer(vcalc, calc)
 
-   calc%max_iter = max_iter
+   calc%ptr%max_iter = max_iter
 end subroutine set_calculator_max_iter_api
 
 
@@ -533,8 +531,8 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%results = results_type()
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%guess)
 
-   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%max_iter, calc%accuracy, &
-      & res%energy, res%gradient, res%sigma, results=res%results)
+   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
+      & res%gradient, res%sigma, results=res%results)
 
    call get_molecular_dipole_moment(mol%ptr, res%wfn%qat(:, 1), res%wfn%dpat(:, :, 1), &
       & res%dipole)

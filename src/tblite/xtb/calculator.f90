@@ -43,6 +43,7 @@ module tblite_xtb_calculator
    public :: param_h0spec
 
    real(wp), parameter :: mixer_damping_default = 0.4_wp
+   integer, parameter :: max_iter_default = 250
 
    type :: xtb_calculator
       type(basis_type) :: bas
@@ -53,6 +54,7 @@ module tblite_xtb_calculator
       type(halogen_correction), allocatable :: halogen
       class(dispersion_type), allocatable :: dispersion
       real(wp) :: mixer_damping = mixer_damping_default
+      integer :: max_iter = max_iter_default
       logical :: save_integrals = .false.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions

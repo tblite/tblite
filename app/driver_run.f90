@@ -148,6 +148,8 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
+   if (allocated(config%max_iter)) calc%max_iter = config%max_iter
+
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    select case(config%guess)
@@ -197,8 +199,8 @@ subroutine run_main(config, error)
       call ctx%message("")
    end if
 
-   call xtb_singlepoint(ctx, mol, calc, wfn, config%max_iter, config%accuracy, energy, &
-      & gradient, sigma, config%verbosity, results)
+   call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
+      & config%verbosity, results)
    if (ctx%failed()) then
       call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
