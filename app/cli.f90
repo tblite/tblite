@@ -52,6 +52,7 @@ module tblite_cli
       character(len=:), allocatable :: json_output
       type(solvation_input), allocatable :: solvation
       real(wp) :: accuracy = 1.0_wp
+      integer :: max_iter = 250
       real(wp) :: etemp = 300.0_wp
       real(wp), allocatable :: efield(:)
       logical :: spin_polarized = .false.
@@ -330,6 +331,12 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%accuracy, error)
+         if (allocated(error)) exit
+
+      case("--iterations")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_int(arg, config%max_iter, error)
          if (allocated(error)) exit
 
       case("--etemp")
