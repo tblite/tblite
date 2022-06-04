@@ -22,24 +22,25 @@ Overall four classes of objects are provided by the library
 
    Generally, all quantities provided to the library are assumed to be in `atomic units <https://en.wikipedia.org/wiki/Hartree_atomic_units>`_.
 
-.. contents::
 
+.. doxygenfile:: tblite.h
 
-Error handling
---------------
+.. doxygenfile:: tblite/version.h
 
-The library provides two different kinds handlers, a light error handle type (``tblite_error``) and a environment context type (``tblite_context``).
-The error handle is used in the context of simple tasks and requires only small overhead to construct and use.
-It is mainly used in the context of retrieving data or building structures.
-The environment context can be considered a persistent setup for all calculations performed with the library, it is usually used together with calculator objects.
-While the error handle can only contain a single error, multiple errors can be accumulated in a context object, which allows storing more complex error information like they can occur in an actual calculation.
+.. doxygenfile:: tblite/macros.h
 
-Both handleres are represented by an opaque pointer and can only be manipulated by call from the library.
-The user of those objects is required to delete the handlers again using the library provided constructors to avoid memory leaks.
+.. doxygenfile:: tblite/error.h
 
+.. doxygenfile:: tblite/context.h
 
-Structure data
---------------
+.. doxygenfile:: tblite/structure.h
 
-The structure data is used to represent the system of interest in the library.
-It contains immutable system specific information like the number of atoms, the unique atom groups and the boundary conditions as well as mutable geometry data like cartesian coordinates and lattice parameters.
+.. doxygenfile:: tblite/calculator.h
+
+.. doxygenfile:: tblite/container.h
+
+.. doxygenfile:: tblite/result.h
+
+.. doxygenfile:: tblite/param.h
+
+.. doxygenfile:: tblite/table.h

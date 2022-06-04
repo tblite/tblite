@@ -15,8 +15,10 @@
 # Incase the project was not installed
 import os
 import sys
+import subprocess
 
-sys.path.insert(0, os.path.join(os.path.abspath(".."), "python"))
+_dir = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(_dir, "..", "python"))
 import tblite
 
 
@@ -42,6 +44,7 @@ release = ""
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "breathe",
     "sphinx.ext.autosummary",
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
@@ -51,11 +54,24 @@ extensions = [
     "sphinx.ext.extlinks",
     "sphinxcontrib.bibtex",
 ]
+breathe_default_project = project
+breathe_use_project_refids = True
+breathe_projects = {
+    project: "_doxygen/xml",
+}
+breathe_domain_by_extension = {
+    "h": "c",
+}
+breathe_show_include = True
 bibtex_bibfiles = ["references.bib"]
 autosummary_generate = True
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
+c_id_attributes = [
+    "TBLITE_API_ENTRY",
+    "TBLITE_API_CALL",
+]
 
 autodoc_mock_imports = ["tblite.library", "numpy", "ase"]
 
@@ -137,3 +153,32 @@ bibtex_bibfiles = ["_static/references.bib"]
 
 # Panels config
 panels_add_bootstrap_css = False
+
+
+# -- Breathe hook --
+
+def run_doxygen(folder):
+    """Run the doxygen make command in the designated folder"""
+
+    try:
+        retcode = subprocess.call("set -ex; cd %s; doxygen Doxyfile" % folder, shell=True)
+        if retcode < 0:
+            sys.stderr.write("doxygen terminated by signal %s" % (-retcode))
+    except OSError as e:
+        sys.stderr.write("doxygen execution failed: %s" % e)
+
+
+def generate_doxygen_xml(app):
+    """Run the doxygen make commands if we're on the ReadTheDocs server"""
+
+    read_the_docs_build = os.environ.get('READTHEDOCS', None) == 'True'
+
+    if read_the_docs_build:
+
+        run_doxygen(_dir)
+
+
+def setup(app):
+
+    # Add hook for building doxygen xml when needed
+    app.connect("builder-inited", generate_doxygen_xml)

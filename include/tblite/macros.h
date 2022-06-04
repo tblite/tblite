@@ -15,7 +15,36 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+/** @file tblite/macros.h
+ * Macro definitions
+ * =================
+ *
+ * ```c
+ * include "tblite/macros.h"
+ * ```
+ *
+ * General macro definitions for the tblite C API bindings.
+ */
+
 #pragma once
+
+/** @def TBLITE_API_ENTRY
+ * Defines an external function exported by the Fortran library.
+ */
+
+/** @def TBLITE_API_CALL
+ * Macro to define calling convention.
+ */
+
+/** @def TBLITE_CFFI
+ * Guard macro for CFFI preprocessing of the header files.
+ *
+ * Use this macro to conditionally enable or disable code snippets for the pass
+ * of the CFFI generation step to obtain the Python extension module.
+ * Notably, header includes should be removed if the macro is defined to avoid
+ * creating bindings for the system library. Furthermore, callbacks need a
+ * special extern "Python" declaration which should conditionally included.
+ */
 
 #ifdef __cplusplus
 #define TBLITE_API_ENTRY extern "C"
@@ -29,4 +58,7 @@
 #include <stdint.h>
 #endif
 #endif
+
+#ifndef TBLITE_API_CALL
 #define TBLITE_API_CALL
+#endif

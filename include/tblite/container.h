@@ -15,6 +15,15 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+/** @file tblite/container.h
+ * Interaction container
+ * =====================
+ *
+ * ```c
+ * include "tblite/container.h"
+ * ```
+ */
+
 #pragma once
 
 #include "tblite/macros.h"
@@ -24,10 +33,13 @@ typedef struct _tblite_container* tblite_container;
 
 /// Create new electric field container
 ///
-/// Note: electric field is given in atomic units (Hartree/(Bohr*e))
+/// @param efield: Electric field in atomic units (Hartree/(Bohr*e)), shape: [3]
+/// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_electric_field(double* /* efield[3] */);
+tblite_new_electric_field(double* efield);
 
 /// Delete container handle
+///
+/// @param cont: Container handle
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_delete_container(tblite_container* /* cont */);
+tblite_delete_container(tblite_container* cont);
