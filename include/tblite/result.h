@@ -148,7 +148,7 @@ tblite_get_result_charges(tblite_error error,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_dipole(tblite_error error,
                          tblite_result res,
-                         double* dipole[3]);
+                         double dipole[3]);
 
 /// Retrieve traceless quadrupole moment from result container (packed xx, xy, yy, xz, yz, zz)
 ///
@@ -158,7 +158,7 @@ tblite_get_result_dipole(tblite_error error,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_quadrupole(tblite_error error,
                              tblite_result res,
-                             double* quadrupole);
+                             double quadrupole[6]);
 
 /// Retrieve orbital energies from result container
 ///

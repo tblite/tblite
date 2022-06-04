@@ -63,7 +63,7 @@ tblite_delete_table(tblite_table* table);
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_double(tblite_error error,
                         tblite_table table,
-                        char[] key,
+                        char key[],
                         double* value,
                         int n);
 
@@ -77,7 +77,7 @@ tblite_table_set_double(tblite_error error,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_int64_t(tblite_error error,
                          tblite_table table,
-                         char[] key,
+                         char key[],
                          int64_t* value,
                          int n);
 
@@ -91,7 +91,7 @@ tblite_table_set_int64_t(tblite_error error,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_bool(tblite_error error,
                       tblite_table table,
-                      char[] key,
+                      char key[],
                       bool* value,
                       int n);
 
@@ -105,8 +105,8 @@ tblite_table_set_bool(tblite_error error,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_table_set_char(tblite_error error,
                       tblite_table table,
-                      char[] key,
-                      char(*)[] value,
+                      char key[],
+                      char (* value)[],
                       int n);
 
 /// Create new subtable in existing data table
@@ -118,7 +118,7 @@ tblite_table_set_char(tblite_error error,
 TBLITE_API_ENTRY tblite_table TBLITE_API_CALL
 tblite_table_add_table(tblite_error error,
                        tblite_table table,
-                       char[] key);
+                       char key[]);
 
 /*
  * Type generic macros
