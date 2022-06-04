@@ -17,7 +17,7 @@
 
 /**@file tblite/container.h
  * @brief
- * Provides an interaction container which can be added to an #tblite_calculator.
+ * Provides an interaction container which can be added to a #tblite_calculator.
  */
 
 #pragma once

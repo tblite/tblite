@@ -20,10 +20,10 @@
 !> @file tblite/xtb.f90
 !> Proxy module for extended tight-binding Hamiltonian related settings
 
-!> This module contains reexports for the #xtb_calculator class and the
-!> possible parametrizations via #tblite_xtb_gfn1, #tblite_xtb_gfn2, and
+!> This module contains reexports for the #tblite_xtb_calculator::xtb_calculator class
+!> and the possible parametrizations via #tblite_xtb_gfn1, #tblite_xtb_gfn2, and
 !> #tblite_xtb_ipea1. The main entry point for performing calculations is
-!> provided with #xtb_singlepoint.
+!> provided with #tblite_xtb_singlepoint::xtb_singlepoint.
 module tblite_xtb
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator, param_h0spec
    use tblite_xtb_gfn1, only : new_gfn1_calculator, gfn1_h0spec, export_gfn1_param
