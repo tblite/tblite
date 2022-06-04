@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/classical
+!> Contains classical correction potentials
+
+!> @file tblite/classical/halogen.f90
+!> Provides a classical halogen bonding correction
+
 !> Classical correction term for halogen bonding contributions
 module tblite_classical_halogen
    use mctc_env, only : wp
@@ -23,12 +29,13 @@ module tblite_classical_halogen
    use tblite_data_atomicrad, only : get_atomic_rad
    use tblite_repulsion_type, only : repulsion_type
    implicit none
+   private
 
-   public :: halogen_correction, new_halogen_correction
+   public :: new_halogen_correction
 
 
    !> Container for evaluating halogen bonding energy terms by a classical potential
-   type, extends(repulsion_type) :: halogen_correction
+   type, public, extends(repulsion_type) :: halogen_correction
       !> Interaction strength of the halogen bond
       real(wp), allocatable :: bond_strength(:)
       !> Atomic radii of all atoms

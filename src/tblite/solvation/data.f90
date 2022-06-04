@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/data.f90
+!> Provides element specific data
+
 !> Element specific data for solvation models
 module tblite_solvation_data
    use mctc_env, only : wp
@@ -23,10 +26,11 @@ module tblite_solvation_data
    private
 
    public :: get_vdw_rad_d3, get_vdw_rad_cosmo, get_vdw_rad_bondi
-   public :: get_solvent_data, solvent_data
+   public :: get_solvent_data
 
 
-   type :: solvent_data
+   !> Solvent specific parameters
+   type, public :: solvent_data
       real(wp) :: eps
       real(wp) :: n
       real(wp) :: alpha

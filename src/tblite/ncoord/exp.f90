@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/ncoord/exp.f90
+!> Provides a coordination number implementation with exponential counting function
+
+!> Coordination number implementation using an exponential counting function
 module tblite_ncoord_exp
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -24,9 +28,10 @@ module tblite_ncoord_exp
    implicit none
    private
 
-   public :: exp_ncoord_type, new_exp_ncoord
+   public :: new_exp_ncoord
 
-   type, extends(ncoord_type) :: exp_ncoord_type
+   !> Coordination number evaluator
+   type, public, extends(ncoord_type) :: exp_ncoord_type
       real(wp) :: cutoff
       real(wp), allocatable :: rcov(:)
    contains

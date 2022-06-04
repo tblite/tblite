@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/disp/cache.f90
+!> Provides a cache for dispersion interactions
+
 !> Reusable data container for dispersion related calculations
 module tblite_disp_cache
    use mctc_env, only : wp

@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/singlepoint.f90
+!> Provides main entry point for performing single point calculations with
+!> a #xtb_calculator instance.
+
+!> Implementation of the single point calculation for a self-consistent
+!> extended tight-binding Hamiltonian.
 module tblite_xtb_singlepoint
    use mctc_env, only : wp, error_type, fatal_error, get_variable
    use mctc_io, only : structure_type
@@ -57,17 +63,28 @@ module tblite_xtb_singlepoint
 contains
 
 
+!> Entry point for performing single point calculation using the xTB calculator
 subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
       & verbosity, results)
+   !> Calculation context
    type(context_type), intent(inout) :: ctx
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Single-point calculator
    type(xtb_calculator), intent(in) :: calc
+   !> Wavefunction data
    type(wavefunction_type), intent(inout) :: wfn
+   !> Accuracy for computation
    real(wp), intent(in) :: accuracy
+   !> Total energy
    real(wp), intent(out) :: energy
+   !> Gradient with respect to cartesian coordinates
    real(wp), contiguous, intent(out), optional :: gradient(:, :)
+   !> Strain derivatives with respect to strain deformations
    real(wp), contiguous, intent(out), optional :: sigma(:, :)
+   !> Verbosity level of output
    integer, intent(in), optional :: verbosity
+   !> Container for storing additional results
    type(results_type), intent(out), optional :: results
 
    logical :: grad, converged, econverged, pconverged

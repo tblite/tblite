@@ -42,10 +42,13 @@ subdir('xtb')
 
 srcs += files(
   'adjlist.f90',
+  'basis.f90',
   'blas.f90',
   'container.f90',
   'context.f90',
+  'coulomb.f90',
   'cutoff.f90',
+  'data.f90',
   'disp.f90',
   'lapack.f90',
   'ncoord.f90',
@@ -61,4 +64,5 @@ srcs += files(
   'version.f90',
   'wavefunction.f90',
   'wignerseitz.f90',
+  'xtb.f90',
 )

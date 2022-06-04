@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/version.f90
+!> Provides version and feature information
+
+!> Interfaces to query the version information of the library.
 module tblite_version
    implicit none
    private

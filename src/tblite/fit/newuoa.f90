@@ -1,5 +1,8 @@
 ! SPDX-Identifier: BSD-3-Clause
 
+!> @file tblite/fit/newuoa.f90
+!> Provides the new unconstrained optimization algorithm
+
 !> NEWUOA: **NEW** **U**nconstrained **O**ptimization **A**lgorithm
 !>
 !> The purpose of NEWUOA is to seek the least value of a function F of several

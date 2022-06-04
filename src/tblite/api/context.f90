@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/context.f90
+!> Provides API exports for the #tblite_context handle.
+
 !> API export for environment context setup
 module tblite_api_context
    use, intrinsic :: iso_c_binding

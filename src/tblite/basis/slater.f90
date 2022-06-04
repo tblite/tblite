@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/basis/slater.f90
+!> Provides coefficients for contracted Gaussian type orbitals to approximate Slater
+!> type orbitals.
+
 !> Implements expansion of Slater functions to contracted Gaussian functions.
 !>
 !> All the coefficients are taken from:

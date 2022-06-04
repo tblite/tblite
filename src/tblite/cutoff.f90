@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/cutoff.f90
+!> Provides realspace cutoff and lattice generation
+
 !> Realspace cutoff and lattice point generator utilities
 module tblite_cutoff
    use mctc_env, only : wp

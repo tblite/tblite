@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/utils.f90
+!> Common utilities for all API exports
+
+!> Provides utilities used for all API export modules
 module tblite_api_utils
    use, intrinsic :: iso_c_binding
    implicit none

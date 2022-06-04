@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/container.f90
+!> Provides API exports for the #tblite_container handle.
+
 !> API export for managing interaction containers
 module tblite_api_container
    use, intrinsic :: iso_c_binding

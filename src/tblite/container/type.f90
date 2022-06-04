@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/container/type.f90
+!> Provides an abstract base class for interaction containers
+
 !> Definition of abstract base class for general interactions
 module tblite_container_type
    use mctc_env, only : wp
@@ -25,10 +28,8 @@ module tblite_container_type
    implicit none
    private
 
-   public :: container_type
-
    !> Abstract base class for interactions containers
-   type, abstract :: container_type
+   type, public, abstract :: container_type
       !> Label identifying this contribution
       character(len=:), allocatable :: label
    contains

@@ -15,18 +15,13 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/param.h
- * Parametrization records
- * =======================
- *
- * ```c
- * include "tblite/param.h"
- * ```
- *
+/**@file tblite/param.h
+ * @brief
  * Provides a representation of a parametrization of an xTB Hamiltonian which can be used
- * to instantiate a #tblite_calculator object. The parametrization itself can be represented
- * as a #tblite_table data structure, which provides the possibility to customize the
- * parametrization programmatically.
+ * to instantiate a #tblite_calculator object.
+ *
+ * The parametrization data itself can be represented as a #tblite_table data structure,
+ * which provides the possibility to customize the parametrization programmatically.
  */
 
 #pragma once

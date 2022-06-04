@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/ncoord
+!> Contains the implementation for the coordination number evaluators.
+
+!> @file tblite/ncoord.f90
+!> Reexports the coordination number evaluation modules.
+
 !> Proxy module to expose coordination number containers
 module tblite_ncoord
    use mctc_env, only : wp

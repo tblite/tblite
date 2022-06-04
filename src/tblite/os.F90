@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/os.F90
+!> Provides operating system dependent functionality.
+
+!> Interfaces to the system libraries.
 module tblite_os
    use, intrinsic :: iso_c_binding, only : c_char, c_null_char, c_int
    implicit none

@@ -14,6 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/param
+!> Definition of the individual components of the parametrization data.
+
+!> @file tblite/param.f90
+!> Reexport of the parametrization records and definition of the high-level representation
+!> if the parametrization data format.
+
 !> Defininition of the parametrization data format
 module tblite_param
    use mctc_env, only : wp, error_type, fatal_error

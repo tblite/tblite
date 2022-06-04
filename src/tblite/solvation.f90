@@ -14,6 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/solvation
+!> Contains the implementation of the implicit solvation models.
+
+!> @file tblite/solvation.f90
+!> Provides reexports of the implict solvation model related implementations.
+
+!> Proxy module for implicit solvation models.
 module tblite_solvation
    use mctc_env, only : error_type, fatal_error
    use mctc_io, only : structure_type

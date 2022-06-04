@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/disp/d4.f90
+!> Provides a proxy for the [DFT-D4 dispersion correction](https://dftd4.readthedocs.io)
+
 !> Generally applicable charge-dependent London-dispersion correction, DFT-D4.
 module tblite_disp_d4
    use mctc_env, only : wp
@@ -33,11 +36,11 @@ module tblite_disp_d4
    implicit none
    private
 
-   public :: d4_dispersion, new_d4_dispersion, get_eeq_charges
+   public :: new_d4_dispersion, get_eeq_charges
 
 
    !> Container for self-consistent D4 dispersion interactions
-   type, extends(dispersion_type) :: d4_dispersion
+   type, public, extends(dispersion_type) :: d4_dispersion
       !> Instance of the actual D4 dispersion model
       type(d4_model) :: model
       !> Rational damping parameters

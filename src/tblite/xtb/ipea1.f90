@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/ipea1.f90
+!> Provides the parametrization for the IPEA1-xTB Hamiltonian
+
+!> Implementation of the IPEA1-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_ipea1
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -37,7 +41,7 @@ module tblite_xtb_ipea1
    private
 
    public :: new_ipea1_calculator
-   public :: ipea1_h0spec, export_ipea1_param
+   public :: export_ipea1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3
@@ -497,7 +501,7 @@ module tblite_xtb_ipea1
       &        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1]  ! Lu-Rn
 
    !> Specification of the IPEA1-xTB effective Hamiltonian
-   type, extends(tb_h0spec) :: ipea1_h0spec
+   type, public, extends(tb_h0spec) :: ipea1_h0spec
       real(wp) :: kshell(0:2, 0:2)
       real(wp), allocatable :: kpair(:, :)
       logical, allocatable :: valence(:, :)

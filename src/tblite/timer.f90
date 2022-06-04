@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/timer.f90
+!> Provides a timer implementation for internal profiling
+
+!> Implementation of a timer class to obtain runtimes for code ranges
 module tblite_timer
    use mctc_env_accuracy, only : wp, i8
    use tblite_output_format, only : format_string

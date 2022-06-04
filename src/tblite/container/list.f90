@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/container/list.f90
+!> Provides a collection for several interaction containers
+
 !> Definition of list of general interaction contaienrs
 module tblite_container_list
    use mctc_env, only : wp
@@ -27,8 +30,6 @@ module tblite_container_list
    implicit none
    private
 
-   public :: container_list
-
 
    !> Wrapped container type for creation of lists
    type :: container_node
@@ -37,7 +38,7 @@ module tblite_container_list
    end type container_node
 
    !> List of interaction containers
-   type, extends(container_type) :: container_list
+   type, public, extends(container_type) :: container_list
       private
       !> Number of stored containers
       integer :: nc = 0

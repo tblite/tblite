@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/table.f90
+!> Provides API exports for the #tblite_table handle.
+
+!> API export for managing data tables
 module tblite_api_table
    use, intrinsic :: iso_c_binding
    use mctc_env, only : fatal_error

@@ -14,14 +14,16 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/lapack/sygvd.f90
+!> Provides an inverface to symmetric divide-and-conquer solver
+
+!> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems
 module tblite_lapack_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error
    use tblite_output_format, only : format_string
    use tblite_scf_solver, only : solver_type
    implicit none
    private
-
-   public :: sygvd_solver
 
 
    interface lapack_sygvd
@@ -64,7 +66,8 @@ module tblite_lapack_sygvd
    end interface lapack_sygvd
 
 
-   type, extends(solver_type) :: sygvd_solver
+   !> Wrapper class for solving symmetric general eigenvalue problems
+   type, public, extends(solver_type) :: sygvd_solver
       private
       integer :: n = 0
       integer, allocatable :: iwork(:)

@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/calculator.f90
+!> Provides API exports for the #tblite_calculator handle.
+
 !> API export for managing tight-binding parameters and calculators
 module tblite_api_calculator
    use, intrinsic :: iso_c_binding

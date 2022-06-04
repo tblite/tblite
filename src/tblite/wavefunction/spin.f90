@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/wavefunction/spin.f90
+!> Provides conversion routines to change the representation of spin-polarized densities
+
 !> Handling of spin information in the wavefunction
 !>
 !> Spin is represented as charge and magnetization density in the population based

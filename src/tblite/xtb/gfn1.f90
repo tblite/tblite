@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/gfn1.f90
+!> Provides the parametrization for the GFN1-xTB Hamiltonian
+
+!> Implementation of the GFN1-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_gfn1
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -37,7 +41,7 @@ module tblite_xtb_gfn1
    private
 
    public :: new_gfn1_calculator
-   public :: gfn1_h0spec, export_gfn1_param
+   public :: export_gfn1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3
@@ -487,7 +491,7 @@ module tblite_xtb_gfn1
       & 0.000000_wp]
 
    !> Specification of the GFN1-xTB effective Hamiltonian
-   type, extends(tb_h0spec) :: gfn1_h0spec
+   type, public, extends(tb_h0spec) :: gfn1_h0spec
       real(wp) :: kshell(0:2, 0:2)
       real(wp), allocatable :: kpair(:, :)
       logical, allocatable :: valence(:, :)

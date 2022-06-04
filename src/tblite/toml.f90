@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/toml.f90
+!> Provides reexports of the [TOML Fortran](https://toml-f.readthedocs.io) modules
+
 !> Proxy module for TOML library implementation
 module tblite_toml
    use tomlf, only : toml_table, toml_array, toml_error, toml_serializer, toml_parse, &
@@ -26,9 +29,4 @@ module tblite_toml
    public :: toml_table, toml_array, toml_error, toml_serializer, toml_parse, toml_key, &
       & toml_value, len
    public :: get_value, set_value, add_table, add_array, merge_table
-
-
-
-contains
-
 end module tblite_toml

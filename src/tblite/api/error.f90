@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/error.f90
+!> Provides API exports for the #tblite_error handle.
+
 !> API export for error handling
 module tblite_api_error
    use, intrinsic :: iso_c_binding

@@ -14,24 +14,27 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/coulomb.f90
+!> Provides a collection for all Coulomb related interactions
+
+!> Collects all Coulomb related interaction in as single interaction container.
 module tblite_xtb_coulomb
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_container_cache, only : container_cache
-   use tblite_container_type, only : container_type
-   use tblite_coulomb_charge, only : coulomb_charge_type
-   use tblite_coulomb_multipole, only : damped_multipole
-   use tblite_coulomb_thirdorder, only : onsite_thirdorder
+   use tblite_container, only : container_cache, container_type
+   use tblite_coulomb, only : coulomb_charge_type, damped_multipole, onsite_thirdorder
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
-   public :: tb_coulomb
-
-   type, extends(container_type) :: tb_coulomb
+   !> Collection of Coulombic interactions
+   type, public, extends(container_type) :: tb_coulomb
+      !> Isotroptic second-order electrostatics
       class(coulomb_charge_type), allocatable :: es2
+      !> Anisotropic second-order electrostatic
       type(damped_multipole), allocatable :: aes2
+      !> Onsite third-order electrostatic
       type(onsite_thirdorder), allocatable :: es3
    contains
       procedure :: update

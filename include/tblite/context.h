@@ -15,13 +15,10 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/context.h
- * Context handler
- * ===============
- *
- * ```c
- * include "tblite/context.h"
- * ```
+/**@file tblite/context.h
+ * @brief
+ * Provides a persistent configuration object to modify the behaviour of a calculation.
+ * Acts as an error handler.
  *
  * The environment context #tblite_context can be considered a persistent setup for all
  * calculations performed with the library, it is usually used together with calculator

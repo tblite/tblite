@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/external
+!> Contains external potentials
+
+!> @file tblite/external/field.f90
+!> Provides interaction of charge density with external fields
+
 !> Interaction of Hamiltonian with external fields
 module tblite_external_field
    use mctc_env, only : wp
@@ -27,10 +33,10 @@ module tblite_external_field
    implicit none
    private
 
-   public :: electric_field, new_electric_field
+   public :: new_electric_field
 
    !> Container for contribution from an instantaneous electric field
-   type, extends(container_type) :: electric_field
+   type, public, extends(container_type) :: electric_field
       !> Instantaneous electric field
       real(wp) :: efield(3) = 0.0_wp
    contains

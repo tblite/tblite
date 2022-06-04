@@ -15,17 +15,12 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/table.h
- * Table data structure
- * ====================
+/**@file tblite/table.h
+ * @brief
+ * Provides a representation of a generic table data structure.
  *
- * ```c
- * include "tblite/table.h"
- * ```
- *
- * Representation of a generic table data structure #tblite_table. Used to mirror the
- * data available in the #tblite_param object. It aims to provide a programmatic accessible
- * representation of the parametrization records.
+ * Used to mirror the data available in the #tblite_param object. It aims to provide a
+ * programmatic accessible representation of the parametrization records.
  */
 
 #pragma once

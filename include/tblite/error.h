@@ -15,13 +15,9 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/error.h
- * Error handler
- * =============
- *
- * ```c
- * include "tblite/error.h"
- * ```
+/**@file tblite/error.h
+ * @brief
+ * Provides a light-weight error handler for communicating with the library.
  *
  * The library provides two different kinds handlers, a light error handle type
  * #tblite_error is defined here.

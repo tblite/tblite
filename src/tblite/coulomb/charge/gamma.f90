@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/charge/gamma.f90
+!> Provides the DFTB Coulomb functional for isotropic electrostatic interactions.
+
 !> Isotropic second-order electrostatics using the DFTB Coulomb functional.
 module tblite_coulomb_charge_gamma
    use mctc_env, only : wp
@@ -31,11 +34,11 @@ module tblite_coulomb_charge_gamma
    implicit none
    private
 
-   public :: gamma_coulomb, new_gamma_coulomb
+   public :: new_gamma_coulomb
 
 
    !> DFTB Gamma functional second-order electrostatics
-   type, extends(coulomb_charge_type) :: gamma_coulomb
+   type, public, extends(coulomb_charge_type) :: gamma_coulomb
       !> Chemical hardness for each shell and species
       real(wp), allocatable :: hubbard(:, :)
       !> Long-range cutoff

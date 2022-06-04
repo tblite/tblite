@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/context/type.f90
+!> Provides a context manager for storing persistent environment settings
+
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use iso_fortran_env, only : output_unit
@@ -23,11 +26,9 @@ module tblite_context_type
    implicit none
    private
 
-   public :: context_type
-
 
    !> Calculation context type for error handling and output messages
-   type :: context_type
+   type, public :: context_type
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context

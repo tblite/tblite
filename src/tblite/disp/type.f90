@@ -14,21 +14,17 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/disp/type.f90
+!> Provides a common base class for dispersion interactions
+
 !> Definition of abstract base class for dispersion interactions
 module tblite_disp_type
-   use mctc_env, only : wp
-   use mctc_io, only : structure_type
    use tblite_container_type, only : container_type
-   use tblite_scf_info, only : scf_info
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
-   public :: dispersion_type
-
    !> Abstract base class for dispersion interactions
-   type, extends(container_type), abstract :: dispersion_type
+   type, public, extends(container_type), abstract :: dispersion_type
    end type dispersion_type
 
 

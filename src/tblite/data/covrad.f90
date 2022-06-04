@@ -14,6 +14,11 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/data/covrad.f90
+!> Provides covalent radii for all elements
+
+!> Covalent radii (taken from Pyykko and Atsumi, Chem. Eur. J. 15, 2009,
+!> 188-197), values for metals decreased by 10 %
 module tblite_data_covrad
    use mctc_env, only : wp
    use mctc_io_convert, only : aatoau

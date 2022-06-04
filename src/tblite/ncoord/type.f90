@@ -14,15 +14,18 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/ncoord/type.f90
+!> Provides a coordination number evalulator base class
+
+!> Declaration of base class for coordination number evalulations
 module tblite_ncoord_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    implicit none
    private
 
-   public :: ncoord_type
-
-   type, abstract :: ncoord_type
+   !> Abstract base class for coordination number evaluator
+   type, public, abstract :: ncoord_type
    contains
       procedure(get_cn), deferred :: get_cn
    end type ncoord_type

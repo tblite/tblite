@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/repulsion/effective.f90
+!> Provides a screened Coulomb repulsion interaction
+
 !> Classical repulsion interaction as used with the xTB Hamiltonian
 module tblite_repulsion_effective
    use mctc_env, only : wp
@@ -24,11 +27,11 @@ module tblite_repulsion_effective
    implicit none
    private
 
-   public :: tb_repulsion, new_repulsion
+   public :: new_repulsion
 
 
    !> Container to evaluate classical repulsion interactions for the xTB Hamiltonian
-   type, extends(repulsion_type) :: tb_repulsion
+   type, public, extends(repulsion_type) :: tb_repulsion
       !> Exponent for the repulsion interaction
       real(wp), allocatable :: alpha(:, :)
       !> Effective nuclear charge

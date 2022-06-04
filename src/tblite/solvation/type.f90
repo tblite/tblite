@@ -14,24 +14,18 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/type.f90
+!> Provides a base class for all implicit solvation models
+
 !> Definition of an abstract base class for defining solvation models
 module tblite_solvation_type
-   use mctc_env, only : wp
-   use mctc_io, only : structure_type
-   use tblite_blas, only : dot
-   use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
-   use tblite_scf_info, only : scf_info, atom_resolved
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
-   public :: solvation_type
-
 
    !> Abstract base class for solvation models
-   type, extends(container_type), abstract :: solvation_type
+   type, public, extends(container_type), abstract :: solvation_type
    end type solvation_type
 
 

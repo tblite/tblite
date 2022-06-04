@@ -15,13 +15,9 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/calculator.h
- * Calculator instance
- * ===================
- *
- * ```c
- * include "tblite/calculator.h"
- * ```
+/**@file tblite/calculator.h
+ * @brief
+ * Provides a single point calculator for performing extended tight-binding computations.
  *
  * Provides a parametrized type #tblite_calculator storing the method parameters required
  * for the evaluation of single point calculations. The calculator is parametrized for

@@ -14,7 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Analytical linearized Poisson-Boltzmann solvation model.
+!> @file tblite/solvation/alpb.f90
+!> Provides the analytical linearized Poission-Boltzmann model.
+
+!> Analytical linearized Poisson-Boltzmann implicit solvation model.
 !>
 !> Implements a reaction field model of the Generalized Born type.
 module tblite_solvation_alpb
@@ -34,7 +37,7 @@ module tblite_solvation_alpb
    implicit none
    private
 
-   public :: alpb_solvation, new_alpb, alpb_input
+   public :: new_alpb
    public :: born_kernel
 
 
@@ -51,7 +54,7 @@ module tblite_solvation_alpb
 
 
    !> Input for ALPB solvation
-   type :: alpb_input
+   type, public :: alpb_input
       !> Dielectric constant
       real(wp) :: dielectric_const
       !> Scaling factor for Born radii
@@ -70,7 +73,7 @@ module tblite_solvation_alpb
 
 
    !> Definition of polarizable continuum model
-   type, extends(solvation_type) :: alpb_solvation
+   type, public, extends(solvation_type) :: alpb_solvation
       !> Dielectric function
       real(wp) :: keps
       !> Analytical linearized Poisson-Boltzmann constant

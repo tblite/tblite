@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/cds.f90
+!> Provides non-polar contributions to the solvation free energy
+
 !> Cavity, dispersion and surface contribution to the solvation free energy
 module tblite_solvation_cds
    use mctc_env, only : wp

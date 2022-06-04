@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/integral/overlap.f90
+!> Provides evaluation of overlap integrals
+
 !> Implementation of overlap integrals
 module tblite_integral_overlap
    use mctc_env, only : wp

@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/lapack/getri.f90
+!> Provides wrappers for computing a matrix inverse
+
+!> Wrappers to obtain the inverse of a matrix
 module tblite_lapack_getri
    use mctc_env, only : sp, dp
    implicit none

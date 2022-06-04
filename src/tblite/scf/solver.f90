@@ -14,14 +14,17 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/scf/solver.f90
+!> Provides a base class for defining electronic solvers
+
+!> Declaration of the abstract base class for electronic solvers
 module tblite_scf_solver
    use mctc_env, only : sp, dp, error_type
    implicit none
    private
 
-   public :: solver_type
-
-   type, abstract :: solver_type
+   !> Abstract base class for electronic solvers
+   type, public, abstract :: solver_type
    contains
       generic :: solve => solve_sp, solve_dp
       procedure(solve_sp), deferred :: solve_sp

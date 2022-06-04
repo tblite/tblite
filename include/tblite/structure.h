@@ -15,16 +15,12 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/structure.h
- * Molecular structure data
- * ========================
- *
- * ```c
- * include "tblite/structure.h"
- * ```
- *
+/**@file tblite/structure.h
+ * @brief
  * The structure data #tblite_structure is used to represent the system of interest
- * in the library. It contains immutable system specific information like the
+ * in the library.
+ *
+ * It contains immutable system specific information like the
  * number of atoms, the unique atom groups and the boundary conditions as well as
  * mutable geometry data like cartesian coordinates and lattice parameters.
  *

@@ -14,6 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/cpcm.f90
+!> Provides a polarizable continuum model
+
+!> Implicit solvation model based on a polarizable dielectric continuum
 module tblite_solvation_cpcm
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type

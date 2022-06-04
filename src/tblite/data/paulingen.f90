@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/data/paulingen.f90
+!> Provides electronegativities for all elements
+
 !> Pauling electronegativities
 module tblite_data_paulingen
    use mctc_env, only : wp
