@@ -15,10 +15,23 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+/** @file tblite/version.h
+ * Version query
+ * =============
+ *
+ * ```c
+ * include "tblite/version.h"
+ * ```
+ *
+ * Provides access to the version, compatibility and features exported by this API.
+ */
+
 #pragma once
 
 #include "tblite/macros.h"
 
 /// Retrieve version of library used
+///
+/// @return Compact version number in the format 10000 * major + 100 * minor + patch
 TBLITE_API_ENTRY int TBLITE_API_CALL
 tblite_get_version(void);

@@ -15,6 +15,19 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+/** @file tblite.h
+ * C bindings for tblite
+ * =====================
+ *
+ * ```
+ * include "tblite.h"
+ * ```
+ *
+ * Provides convenience functionality for working with the C API bindings for tblite
+ * by including all relevant headers and defining general type generic macros for
+ * working with the object handles.
+ */
+
 #pragma once
 
 #include "tblite/error.h"
@@ -27,6 +40,7 @@
 #include "tblite/param.h"
 #include "tblite/version.h"
 
+/// Generic macro to free an object handle.
 #define tblite_delete(ptr) _Generic((ptr), \
                        tblite_error: tblite_delete_error, \
                    tblite_container: tblite_delete_container, \
