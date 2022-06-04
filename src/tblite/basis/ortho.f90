@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/basis/ortho.f90
+!> Provides utilities for orthonormalizing basis functions
+
 !> Gram-Schmidt orthonormalization routines for contracted Gaussian basis functions
 module tblite_basis_ortho
    use mctc_env, only : wp

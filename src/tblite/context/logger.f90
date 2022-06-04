@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/context/logger.f90
+!> Provides an abstract base class for implementing a logger
+
 !> Logger to display strings
 module tblite_context_logger
    implicit none

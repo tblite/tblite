@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/wavefunction/type.f90
 !> Base model for the extended tight binding hamiltonian
 module tblite_wavefunction_type
    use mctc_env, only : wp

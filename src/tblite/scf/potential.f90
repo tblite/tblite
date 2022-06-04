@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/scf/potential.f90
 !> Implementation of the density dependent potential and its contribution
 !> to the effective Hamiltonian
 module tblite_scf_potential

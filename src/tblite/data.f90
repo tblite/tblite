@@ -14,22 +14,19 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/solvation/input.f90
-module tblite_solvation_input
-   use tblite_solvation_alpb, only : alpb_input
-   use tblite_solvation_cpcm, only : cpcm_input
+!> @dir tblite/data
+!> Contains element data used for defining interactions.
+
+!> @file tblite/data.f90
+!> Reexports access to element-specific data.
+
+!> Proxy module for providing access to element data.
+module tblite_data
+   use tblite_data_atomicrad, only : get_atomic_rad
+   use tblite_data_covrad, only : get_covalent_rad
+   use tblite_data_paulingen, only : get_pauling_en
+   use tblite_data_spin, only : get_spin_constant
    implicit none
-   private
 
-   public :: solvation_input
-
-
-   !> Collection of possible solvation models
-   type :: solvation_input
-      !> Input for CPCM solvation model
-      type(cpcm_input), allocatable :: cpcm
-      !> Input for ALPB solvation model
-      type(alpb_input), allocatable :: alpb
-   end type solvation_input
-
-end module tblite_solvation_input
+   public :: get_atomic_rad, get_covalent_rad, get_pauling_en, get_spin_constant
+end module tblite_data

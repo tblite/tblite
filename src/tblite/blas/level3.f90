@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/blas/level3.f90
+!> Provides interfactes to level 3 BLAS routines
+
 !> High-level interface to level 3 basic linear algebra subprogram operations
 module tblite_blas_level3
    use mctc_env, only : sp, dp

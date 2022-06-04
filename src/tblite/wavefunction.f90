@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/wavefunction
 !> Proxy module for wavefunction related types and procedures
 module tblite_wavefunction
    use tblite_wavefunction_guess, only : sad_guess, eeq_guess

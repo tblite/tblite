@@ -14,7 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Proxy module for repulsion interactions
+!> @dir tblite/repulsion
+!> Contains the repulsive interaction implementations.
+
+!> @file tblite/repulsion.f90
+!> Reexport for the repulsion container implementations.
+
+!> Proxy module for repulsion interactions.
 module tblite_repulsion
    use tblite_repulsion_effective, only : tb_repulsion, new_repulsion
    use tblite_repulsion_type, only : repulsion_type

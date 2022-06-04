@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/cache.f90
+!> Provides a cache specific for all Coulomb interactions
+
 !> Data container for mutable data in electrostatic calculations
 module tblite_coulomb_cache
    use mctc_env, only : wp

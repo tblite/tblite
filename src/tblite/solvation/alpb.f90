@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/alpb.f90
 !> Analytical linearized Poisson-Boltzmann solvation model.
 !>
 !> Implements a reaction field model of the Generalized Born type.

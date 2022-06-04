@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/coulomb/charge
+!> Contains the implementation of the isotropic second-order electrostatics
+
+!> @file tblite/coulomb/charge.f90
+!> Provides a reexport of the isotropic second-order electrostatic implementations
+
 !> Proxy module for defining isotropic electrostatic interactions
 module tblite_coulomb_charge
    use tblite_coulomb_charge_effective, only : effective_coulomb, new_effective_coulomb, &

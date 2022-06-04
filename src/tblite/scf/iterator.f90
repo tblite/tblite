@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/scf/iterator.f90
 module tblite_scf_iterator
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type

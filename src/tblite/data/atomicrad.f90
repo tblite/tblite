@@ -14,7 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Atomic Radii of the Elements
+!> @file tblite/data/atomicrad.f90
+!> Provides atomic radii for all elements
+
+!> Atomic radii of the elements
 !>
 !> M. Mantina, R. Valero, C. J. Cramer, and D. G. Truhlar,
 !> in CRC Handbook of Chemistry and Physics, 91st Edition (2010-2011),

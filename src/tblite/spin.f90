@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/spin.f90
+!> Provides spin-interactions for spin-polarized tight-binding calculations.
+
 !> Implementation of spin-interactions for spin-polarized tight-binding.
 !>
 !> The spin-components are represented as difference between alpha and beta population

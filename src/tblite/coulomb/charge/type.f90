@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/charge/type.f90
+!> Provides a general base class for electrostatic interactions
+
 !> General isotropic second-order electrostatics model
 module tblite_coulomb_charge_type
    use mctc_env, only : wp

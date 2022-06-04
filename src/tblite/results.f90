@@ -14,7 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Container for holding results produced by a calculation
+!> @file tblite/results.f90
+!> Provides a container for storing additional calculation results.
+
+!> Container for holding results produced by a calculation.
 module tblite_results
    use mctc_env, only : wp
    implicit none

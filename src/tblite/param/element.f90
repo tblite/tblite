@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/param/element.f90
 !> Definition of the element specific parameter records
 module tblite_param_element
    use mctc_env, only : wp, error_type, fatal_error

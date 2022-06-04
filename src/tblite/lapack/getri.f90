@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/lapack/getri.f90
 module tblite_lapack_getri
    use mctc_env, only : sp, dp
    implicit none

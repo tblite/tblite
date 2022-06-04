@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/scf/info.f90
 module tblite_scf_info
    use mctc_env, only : sp, dp, error_type
    implicit none

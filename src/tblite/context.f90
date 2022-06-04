@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/context
+!> Contains the individual components of the context manager.
+
+!> @file tblite/context.f90
+!> Provides reexports for the context manager.
+
 !> Proxy module for the calculation context related data types.
 !>
 !> Provides access to the [[context_type]] to manage the calculation.

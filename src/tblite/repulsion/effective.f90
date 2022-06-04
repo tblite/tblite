@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/repulsion/effective.f90
 !> Classical repulsion interaction as used with the xTB Hamiltonian
 module tblite_repulsion_effective
    use mctc_env, only : wp

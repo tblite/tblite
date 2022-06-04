@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/external/field.f90
 !> Interaction of Hamiltonian with external fields
 module tblite_external_field
    use mctc_env, only : wp

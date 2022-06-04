@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/ewald.f90
+!> Provides an utilities for implementing Ewald summations
+
 !> Helper tools for dealing with Ewald summation related calculations
 module tblite_coulomb_ewald
    use mctc_env, only : wp

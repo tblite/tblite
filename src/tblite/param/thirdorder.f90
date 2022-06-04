@@ -14,7 +14,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Definition of the isotropic third-order electrostatic contributions
+!> @file tblite/param/thirdorder.f90
+!> Definition of the isotropic third-order electrostatic contributions.
 module tblite_param_thirdorder
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_param_serde, only : serde_record

@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/wignerseitz.f90
 module tblite_wignerseitz
    use mctc_env, only : wp
    use mctc_io, only : structure_type

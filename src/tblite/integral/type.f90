@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/integral/type.f90
 !> Declaration of an integral storage container to collect all overlap related integrals
 module tblite_integral_type
    use mctc_env, only : wp

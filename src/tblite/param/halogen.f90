@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/param/halogen.f90
 module tblite_param_halogen
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_param_serde, only : serde_record

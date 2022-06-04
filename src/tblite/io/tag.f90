@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/io/tag.f90
 module tblite_io_tag
    use mctc_io_utils, only : getline
    use mctc_env, only : sp, dp

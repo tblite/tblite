@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/disp/d4.f90
+!> Provides a proxy for the [DFT-D4 dispersion correction](https://dftd4.readthedocs.io)
+
 !> Generally applicable charge-dependent London-dispersion correction, DFT-D4.
 module tblite_disp_d4
    use mctc_env, only : wp

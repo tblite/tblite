@@ -15,14 +15,8 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/version.h
- * Version query
- * =============
- *
- * ```c
- * include "tblite/version.h"
- * ```
- *
+/**@file tblite/version.h
+ * @brief
  * Provides access to the version, compatibility and features exported by this API.
  */
 

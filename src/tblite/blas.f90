@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/blas
+!> Contains wrappers for the basic linear algebra subprograms
+
+!> @file tblite/blas.f90
+!> Provides high-level interfaces to the basic linear algebra subprograms
+
 !> Proxy module to reexport high-level basic linear algebra subprogram wrappers
 module tblite_blas
    use tblite_blas_level1, only : dot => wrap_dot

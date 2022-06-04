@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/mesh/lebedev.f90
 !> Generator for Lebedev-Laikov grids.
 !> Adapted from John Burkardt's portation of Dmitri Laikov's C implementation of
 !>

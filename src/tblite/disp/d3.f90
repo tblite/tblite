@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/disp/d3.f90
+!> Provides a proxy for the [DFT-D3 dispersion correction](https://dftd3.readthedocs.io)
+
 !> Semiclassical DFT-D3 dispersion correction
 module tblite_disp_d3
    use mctc_env, only : wp

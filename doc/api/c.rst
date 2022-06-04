@@ -22,25 +22,103 @@ Overall four classes of objects are provided by the library
 
    Generally, all quantities provided to the library are assumed to be in `atomic units <https://en.wikipedia.org/wiki/Hartree_atomic_units>`_.
 
+Main header
+-----------
+
+.. code:: c
+
+   #include "tblite.h"
 
 .. doxygenfile:: tblite.h
 
+
+Version query
+-------------
+
+.. code:: c
+
+   #include "tblite/version.h"
+
 .. doxygenfile:: tblite/version.h
+
+
+Macro definitions
+-----------------
+
+.. code:: c
+
+   #include "tblite/macros.h"
 
 .. doxygenfile:: tblite/macros.h
 
+Error handler
+-------------
+
+.. code:: c
+
+   #include "tblite/error.h"
+
 .. doxygenfile:: tblite/error.h
+
+Context handler
+---------------
+
+.. code:: c
+
+   #include "tblite/context.h"
 
 .. doxygenfile:: tblite/context.h
 
+Molecular structure data
+------------------------
+
+.. code:: c
+
+   #include "tblite/structure.h"
+
 .. doxygenfile:: tblite/structure.h
+
+Calculator instance
+-------------------
+
+.. code:: c
+
+   #include "tblite/calculator.h"
 
 .. doxygenfile:: tblite/calculator.h
 
+Interaction container
+---------------------
+
+.. code:: c
+
+   #include "tblite/container.h"
+
 .. doxygenfile:: tblite/container.h
+
+Result container
+----------------
+
+.. code:: c
+
+   #include "tblite/result.h"
 
 .. doxygenfile:: tblite/result.h
 
+Parametrization records
+-----------------------
+
+.. code:: c
+
+   #include "tblite/param.h"
+
 .. doxygenfile:: tblite/param.h
+
+Table data structure
+--------------------
+
+.. code:: c
+
+   #include "tblite/table.h"
 
 .. doxygenfile:: tblite/table.h

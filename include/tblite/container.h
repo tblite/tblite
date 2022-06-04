@@ -15,13 +15,9 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/container.h
- * Interaction container
- * =====================
- *
- * ```c
- * include "tblite/container.h"
- * ```
+/**@file tblite/container.h
+ * @brief
+ * Provides an interaction container which can be added to an #tblite_calculator.
  */
 
 #pragma once

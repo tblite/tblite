@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/multipole.f90
+!> Provides an implemenation of a multipole based second-order electrostatic
+
 !> Anisotropic second-order electrostatics using a damped multipole expansion
 module tblite_coulomb_multipole
    use mctc_env, only : wp

@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/lapack
+!> Contains wrappers for linear algebra
+
+!> @file tblite/lapack.f90
+!> Reexports of the high-level linear algebra wrappers
+
 !> Proxy module to reexport high-level linear algebra package wrappers
 module tblite_lapack
    use tblite_lapack_getrf, only : getrf => wrap_getrf

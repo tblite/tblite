@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/spec.f90
+!> Provides generator base class for Hamiltonian parameters.
+
 !> Definition of an abstract base class of the generator for the Hamiltonian.
 module tblite_xtb_spec
    use mctc_env, only : wp
@@ -30,7 +33,7 @@ module tblite_xtb_spec
    !>
    !> An instance of the specification is consumed by the constructor of the
    !> Hamiltonian to generate the respective entries in the derived type.
-   type, abstract :: tb_h0spec
+   type, public, abstract :: tb_h0spec
    contains
       !> Generator for the self energy / atomic levels of the Hamiltonian
       procedure(get_selfenergy), deferred :: get_selfenergy

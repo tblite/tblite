@@ -15,14 +15,8 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/result.h
- * Result container
- * ================
- *
- * ```c
- * include "tblite/result.h"
- * ```
- *
+/**@file tblite/result.h
+ * @brief
  * Provides a storage container #tblite_result for all persistent quantities produced
  * in a calculation by #tblite_get_singlepoint. The data stored in #tblite_result can
  * be used as restart data for subsequent calculations.

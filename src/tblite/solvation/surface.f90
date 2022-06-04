@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/surface.f90
 !> Surface integrator for solvent accessible surface area
 module tblite_solvation_surface
    use mctc_env, only : wp

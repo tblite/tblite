@@ -15,14 +15,8 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/** @file tblite/macros.h
- * Macro definitions
- * =================
- *
- * ```c
- * include "tblite/macros.h"
- * ```
- *
+/**@file tblite/macros.h
+ * @brief
  * General macro definitions for the tblite C API bindings.
  */
 

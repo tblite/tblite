@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/param/dispersion.f90
 !> Definition of the dispersion corrections
 module tblite_param_dispersion
    use mctc_env, only : wp, error_type, fatal_error

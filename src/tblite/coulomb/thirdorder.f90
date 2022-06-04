@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/thirdorder.f90
+!> Provides an onsite third-order electrostatic interaction
+
 !> Isotropic third-order onsite correction
 module tblite_coulomb_thirdorder
    use mctc_env, only : wp

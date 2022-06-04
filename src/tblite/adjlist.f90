@@ -14,27 +14,32 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/adjlist.f90
+!> Sparse neighbour map / adjacency list implementation.
+
 !> Implementation of a sparse neighbour map in compressed sparse row format.
 !>
 !> A symmetric neighbour map given in dense format like
 !>
-!>       | 1 | 2 | 3 | 4 | 5 | 6
-!>    ---|---|---|---|---|---|---
-!>     1 |   | x |   | x | x |
-!>     2 | x |   | x |   | x | x
-!>     3 |   | x |   | x |   | x
-!>     4 | x |   | x |   | x | x
-!>     5 | x | x |   | x |   |
-!>     6 |   | x | x | x |   |
+!>   |   | 1 | 2 | 3 | 4 | 5 | 6 |
+!>   |---|---|---|---|---|---|---|
+!>   | 1 |   | x |   | x | x |   |
+!>   | 2 | x |   | x |   | x | x |
+!>   | 3 |   | x |   | x |   | x |
+!>   | 4 | x |   | x |   | x | x |
+!>   | 5 | x | x |   | x |   |   |
+!>   | 6 |   | x | x | x |   |   |
 !>
 !> Is stored in two compressed array identifying the neighbouring atom `nlat`
 !> and its cell index `nltr`. Two index arrays `inl` for the offset
 !> and `nnl` for the number of entries map the atomic index to the row index.
 !>
-!>    inl   =  0,       3,          7,      10,         14,      17, 20
-!>    nnl   =  |  2 ->  |  3 ->     |  2 ->  |  3 ->     |  2 ->  |  |
-!>    nlat  =     2, 4, 5, 1, 3, 5, 6, 2, 4, 6, 1, 3, 5, 6, 1, 2, 4, 2, 3, 4
-!>    nltr  =     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+!> ```
+!> inl   =  0,       3,          7,      10,         14,      17, 20
+!> nnl   =  |  2 ->  |  3 ->     |  2 ->  |  3 ->     |  2 ->  |  |
+!> nlat  =     2, 4, 5, 1, 3, 5, 6, 2, 4, 6, 1, 3, 5, 6, 1, 2, 4, 2, 3, 4
+!> nltr  =     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+!> ```
 !>
 !> An alternative representation would be to store just the offsets in `inl` and
 !> additional beyond the last element the total number of neighbors. However,
@@ -49,6 +54,7 @@ module tblite_adjlist
 
    public :: adjacency_list, new_adjacency_list
 
+   !> @class adjacency_list
    !> Neighbourlist in CSR format
    type :: adjacency_list
       !> Offset index in the neighbour map

@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/api/structure.f90
+!> Provides API exports for the #tblite_structure handle.
+
 !> API export for working with molecular structure data objects
 module tblite_api_structure
    use, intrinsic :: iso_c_binding

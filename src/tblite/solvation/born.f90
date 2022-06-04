@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/solvation/born.f90
 !> Integrator for Born radii
 module tblite_solvation_born
    use mctc_env, only : wp

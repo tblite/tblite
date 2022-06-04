@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/lapack/sygvd.f90
 module tblite_lapack_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error
    use tblite_output_format, only : format_string

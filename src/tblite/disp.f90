@@ -14,7 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Proxy module for dispersion interactions
+!> @dir tblite/disp
+!> Contains implemenations for the evaluation of London-dispersion interactions.
+
+!> @file tblite/disp.f90
+!> Reexports of the available dispersion interactions.
+
+!> Proxy module for dispersion interactions.
 module tblite_disp
    use mctc_env, only : wp
    use tblite_disp_cache, only : dispersion_cache

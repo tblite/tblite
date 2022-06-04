@@ -14,6 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/scf
+!> Contains the implementation for the self-consistent field iterations
+
+!> @file tblite/scf.f90
+!> Reexports the self-consistent field iteration related functionality.
+
 !> Proxy module for rexports from SCF related modules
 module tblite_scf
    use tblite_scf_broyden, only : broyden_mixer, new_broyden

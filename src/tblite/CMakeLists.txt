@@ -48,7 +48,9 @@ list(
   "${dir}/blas.f90"
   "${dir}/container.f90"
   "${dir}/context.f90"
+  "${dir}/coulomb.f90"
   "${dir}/cutoff.f90"
+  "${dir}/data.f90"
   "${dir}/disp.f90"
   "${dir}/lapack.f90"
   "${dir}/ncoord.f90"
@@ -64,6 +66,7 @@ list(
   "${dir}/version.f90"
   "${dir}/wavefunction.f90"
   "${dir}/wignerseitz.f90"
+  "${dir}/xtb.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

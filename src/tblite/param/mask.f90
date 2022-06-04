@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/param/mask.f90
 module tblite_param_mask
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number, symbol_length

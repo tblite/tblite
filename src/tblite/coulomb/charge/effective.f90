@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/coulomb/charge/effective.f90
+!> Provides an effective Coulomb operator for isotropic electrostatic interactions
+
 !> Isotropic second-order electrostatics using an effective Coulomb operator
 module tblite_coulomb_charge_effective
    use mctc_env, only : wp

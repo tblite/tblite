@@ -14,6 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/repulsion/type.f90
 !> Definition of the abstract base class for classical interactions.
 module tblite_repulsion_type
    use mctc_env, only : wp

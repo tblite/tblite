@@ -18,6 +18,8 @@
 !                             ALL RIGHT RESERVED.                              !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
+!> @file tblite/solvation/cpcm_dd.f90
+!
 ! A modular implementation of COSMO using a domain decomposition linear scaling
 ! strategy.
 !

@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @file tblite/xtb/h0.f90
+!> Provides the effective core Hamiltonian for xTB.
+
 !> Implementation of the effective core Hamiltonian used in the extended tight binding.
 module tblite_xtb_h0
    use mctc_env, only : wp
@@ -30,7 +33,7 @@ module tblite_xtb_h0
    public :: get_selfenergy, get_hamiltonian, get_occupation, get_hamiltonian_gradient
 
 
-   type :: tb_hamiltonian
+   type, public :: tb_hamiltonian
       !> Atomic level information
       real(wp), allocatable :: selfenergy(:, :)
       !> Coordination number dependence of the atomic levels
