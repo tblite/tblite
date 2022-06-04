@@ -30,11 +30,9 @@ module tblite_coulomb_charge_type
    implicit none
    private
 
-   public :: coulomb_charge_type
-
 
    !> General second-order electrostatics
-   type, extends(coulomb_type), abstract :: coulomb_charge_type
+   type, public, extends(coulomb_type), abstract :: coulomb_charge_type
       !> Number of shells for each atom
       integer, allocatable :: nshell(:)
       !> Index offset for each shell

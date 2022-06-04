@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/lapack/getrs.f90
+!> Provides wrappers to solve a linear equation system
+
+!> Wrappers to solve a system of linear equations
 module tblite_lapack_getrs
    use mctc_env, only : sp, dp
    implicit none

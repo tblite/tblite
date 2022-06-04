@@ -41,7 +41,7 @@ module tblite_xtb_ipea1
    private
 
    public :: new_ipea1_calculator
-   public :: ipea1_h0spec, export_ipea1_param
+   public :: export_ipea1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3

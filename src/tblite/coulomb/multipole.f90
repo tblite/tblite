@@ -36,11 +36,11 @@ module tblite_coulomb_multipole
    implicit none
    private
 
-   public :: damped_multipole, new_damped_multipole
+   public :: new_damped_multipole
 
 
    !> Container to handle multipole electrostatics
-   type, extends(coulomb_type) :: damped_multipole
+   type, public, extends(coulomb_type) :: damped_multipole
       !> Damping function for inverse quadratic contributions
       real(wp) :: kdmp3 = 0.0_wp
       !> Damping function for inverse cubic contributions

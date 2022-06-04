@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/integral/trafo.f90
+!> Provides transformation from cartesian to spherical harmonic basis functions
+
 !> Implemenation of transformations from cartesian to spherical harmonic basis functions
 !>
 !> Spherical harmonics use standard ordering, *i.e.* [-l, ..., 0, ..., l].

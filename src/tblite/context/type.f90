@@ -26,11 +26,9 @@ module tblite_context_type
    implicit none
    private
 
-   public :: context_type
-
 
    !> Calculation context type for error handling and output messages
-   type :: context_type
+   type, public :: context_type
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context

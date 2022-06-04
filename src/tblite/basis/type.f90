@@ -24,8 +24,7 @@ module tblite_basis_type
    implicit none
    private
 
-   public :: cgto_type
-   public :: basis_type, new_basis, get_cutoff
+   public :: new_basis, get_cutoff
 
    !> Maximum contraction length of basis functions.
    !> The limit is chosen as twice the maximum size returned by the STO-NG expansion

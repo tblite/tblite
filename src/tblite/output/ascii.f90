@@ -14,7 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/output
+!> Contains routines for terminal or string output generation
+
 !> @file tblite/output/ascii.f90
+!> Provides routines for terminal or text file output
+
+!> Implementation of terminal or text file output
 module tblite_output_ascii
    use mctc_env, only : wp
    use mctc_io, only : structure_type

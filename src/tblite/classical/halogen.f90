@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/classical
+!> Contains classical correction potentials
+
 !> @file tblite/classical/halogen.f90
 !> Provides a classical halogen bonding correction
 
@@ -28,7 +31,7 @@ module tblite_classical_halogen
    implicit none
    private
 
-   public :: halogen_correction, new_halogen_correction
+   public :: new_halogen_correction
 
 
    !> Container for evaluating halogen bonding energy terms by a classical potential

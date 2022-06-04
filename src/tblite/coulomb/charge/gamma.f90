@@ -34,11 +34,11 @@ module tblite_coulomb_charge_gamma
    implicit none
    private
 
-   public :: gamma_coulomb, new_gamma_coulomb
+   public :: new_gamma_coulomb
 
 
    !> DFTB Gamma functional second-order electrostatics
-   type, extends(coulomb_charge_type) :: gamma_coulomb
+   type, public, extends(coulomb_charge_type) :: gamma_coulomb
       !> Chemical hardness for each shell and species
       real(wp), allocatable :: hubbard(:, :)
       !> Long-range cutoff

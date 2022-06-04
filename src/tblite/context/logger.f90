@@ -22,11 +22,9 @@ module tblite_context_logger
    implicit none
    private
 
-   public :: context_logger
-
 
    !> Base class defining the logger interface
-   type, abstract :: context_logger
+   type, public, abstract :: context_logger
    contains
       !> Entry point for displaying a string in the logger
       procedure(message), deferred :: message

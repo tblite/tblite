@@ -15,14 +15,17 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/output/property.f90
+!> Provides helper routines to print properties together with units
+
+!> Simple derived type with formatted IO procedure to provide simple debug printing
 module tblite_output_property
    use mctc_env, only : wp
    implicit none
    private
 
-   public :: property, write(formatted)
+   public :: write(formatted)
 
-   type :: property
+   type, public :: property
       character(len=:), allocatable :: label
       real(wp) :: value
       character(len=:), allocatable :: unit

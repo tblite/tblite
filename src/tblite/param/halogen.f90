@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/param/halogen.f90
+!> Provides record for the halogen bonding model
+
+!> Defines model for the halogen bonding model
 module tblite_param_halogen
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_param_serde, only : serde_record
@@ -22,12 +25,13 @@ module tblite_param_halogen
    implicit none
    private
 
-   public :: halogen_record, halogen_mask, count
+   public :: count
 
    character(len=*), parameter :: k_classical = "classical", k_damping = "damping", &
       & k_rscale = "rscale"
 
-   type, extends(serde_record) :: halogen_record
+   !> Parametrization model for the halogen bonding
+   type, public, extends(serde_record) :: halogen_record
       real(wp) :: damping
       real(wp) :: rscale
    contains
@@ -44,7 +48,8 @@ module tblite_param_halogen
    end type
 
 
-   type :: halogen_mask
+   !> Masking for the halogen bonding model
+   type, public :: halogen_mask
    end type halogen_mask
 
 

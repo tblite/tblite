@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/output/format.f90
+!> Provides conversion routines from intrinsic data types to string
+
+!> Functional procedures for creating strings from intrinsic data types
 module tblite_output_format
    use mctc_env, only : wp
    implicit none

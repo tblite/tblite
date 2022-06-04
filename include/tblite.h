@@ -15,7 +15,7 @@
  * along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-/**@dir tblite
+/**@dir include/tblite
  * @brief
  * Collection of public API bindings for the tblite library.
  */

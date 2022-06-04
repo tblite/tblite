@@ -19,20 +19,12 @@
 
 !> Definition of the abstract base class for electrostatic and coulombic interactions
 module tblite_coulomb_type
-   use mctc_env, only : wp
-   use mctc_io, only : structure_type
-   use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
-   use tblite_scf_info, only : scf_info
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
-   public :: coulomb_type
-
    !> General base class for Coulombic interactions
-   type, extends(container_type), abstract :: coulomb_type
+   type, public, extends(container_type), abstract :: coulomb_type
    end type coulomb_type
 
 end module tblite_coulomb_type

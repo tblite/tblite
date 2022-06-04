@@ -29,7 +29,7 @@ module tblite_xtb_h0
    implicit none
    private
 
-   public :: tb_hamiltonian, new_hamiltonian
+   public ::  new_hamiltonian
    public :: get_selfenergy, get_hamiltonian, get_occupation, get_hamiltonian_gradient
 
 

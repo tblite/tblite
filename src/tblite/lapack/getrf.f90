@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/lapack/getrf.f90
+!> Provides wrappers for LU factorization routines
+
+!> Wrapper rountines for LU factorization
 module tblite_lapack_getrf
    use mctc_env, only : sp, dp
    implicit none

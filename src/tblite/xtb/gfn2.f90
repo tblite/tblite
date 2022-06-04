@@ -40,7 +40,7 @@ module tblite_xtb_gfn2
    private
 
    public :: new_gfn2_calculator
-   public :: gfn2_h0spec, export_gfn2_param
+   public :: export_gfn2_param
 
 
    integer, parameter :: max_elem = 86

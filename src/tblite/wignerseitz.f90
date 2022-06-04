@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/xtb/wignerseitz.f90
+!> Provides a Wigner-Seitz cell
+
+!> Implementation of finding the relevant nearest neighbours in a Wigner-Seitz cell
 module tblite_wignerseitz
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -22,9 +25,10 @@ module tblite_wignerseitz
    implicit none
    private
 
-   public :: wignerseitz_cell, new_wignerseitz_cell
+   public :: new_wignerseitz_cell
 
-   type :: wignerseitz_cell
+   !> Information on Wigner-Seitz images
+   type, public :: wignerseitz_cell
       integer, allocatable :: nimg(:, :)
       integer, allocatable :: tridx(:, :, :)
       real(wp), allocatable :: trans(:, :)

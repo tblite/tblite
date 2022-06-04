@@ -41,7 +41,7 @@ module tblite_xtb_gfn1
    private
 
    public :: new_gfn1_calculator
-   public :: gfn1_h0spec, export_gfn1_param
+   public :: export_gfn1_param
 
    integer, parameter :: max_elem = 86
    integer, parameter :: max_shell = 3

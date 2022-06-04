@@ -34,12 +34,12 @@ module tblite_coulomb_charge_effective
    implicit none
    private
 
-   public :: effective_coulomb, new_effective_coulomb
+   public :: new_effective_coulomb
    public :: average_interface, harmonic_average, arithmetic_average, geometric_average
 
 
    !> Effective, Klopman-Ohno-type, second-order electrostatics
-   type, extends(coulomb_charge_type) :: effective_coulomb
+   type, public, extends(coulomb_charge_type) :: effective_coulomb
       !> Hubbard parameter for each shell and species
       real(wp), allocatable :: hubbard(:, :, :, :)
       !> Exponent of Coulomb kernel

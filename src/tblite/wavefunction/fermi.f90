@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/wavefunction/fermi.f90
+!> Provides a Fermi based electronic filling function
+
+!> Implementation of a Fermi distribution for filling the electronic levels
 module tblite_wavefunction_fermi
    use mctc_env, only : wp
    implicit none

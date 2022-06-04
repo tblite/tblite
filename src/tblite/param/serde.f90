@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/param/serde.f90
+!> Provides a base class for serializable and deserializable data
+
 !> Definition of a parameter record with serde properties.
 !> Each record knows how to serialize and deserialize itself.
 module tblite_param_serde
@@ -23,11 +25,9 @@ module tblite_param_serde
    implicit none
    private
 
-   public :: serde_record
-
 
    !> Serializable and deserializable parameter record
-   type, abstract :: serde_record
+   type, public, abstract :: serde_record
    contains
       !> Reading of parametrization data
       generic :: load => load_from_file, load_from_unit, load_from_toml

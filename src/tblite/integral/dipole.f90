@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/integral/dipole.f90
+!> Provides evaluation of dipole moment integrals
+
 !> Implementation of dipole moment integrals
 module tblite_integral_dipole
    use mctc_env, only : wp

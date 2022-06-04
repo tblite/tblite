@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/scf/potential.f90
+!> Defines a container for holding density dependent potentials
+
 !> Implementation of the density dependent potential and its contribution
 !> to the effective Hamiltonian
 module tblite_scf_potential
@@ -26,11 +28,11 @@ module tblite_scf_potential
    implicit none
    private
 
-   public :: potential_type, new_potential, add_pot_to_h1
+   public :: new_potential, add_pot_to_h1
 
 
    !> Container for density dependent potential-shifts
-   type :: potential_type
+   type, public :: potential_type
       !> Atom-resolved charge-dependent potential shift
       real(wp), allocatable :: vat(:, :)
       !> Shell-resolved charge-dependent potential shift

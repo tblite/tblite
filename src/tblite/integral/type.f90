@@ -14,17 +14,22 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/integral
+!> Contains the integral evaluation implementations
+
 !> @file tblite/integral/type.f90
+!> Provides an integral storage container
+
 !> Declaration of an integral storage container to collect all overlap related integrals
 module tblite_integral_type
    use mctc_env, only : wp
    implicit none
    private
 
-   public :: integral_type, new_integral
+   public :: new_integral
 
    !> Integral container to store all overlap related integrals
-   type :: integral_type
+   type, public :: integral_type
       !> Effective one-electron Hamiltonian
       real(wp), allocatable :: hamiltonian(:, :)
       !> Overlap integrals

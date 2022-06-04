@@ -28,8 +28,6 @@ module tblite_xtb_coulomb
    implicit none
    private
 
-   public :: tb_coulomb
-
    !> Collection of Coulombic interactions
    type, public, extends(container_type) :: tb_coulomb
       !> Isotroptic second-order electrostatics

@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/api
+!> Provides C API bindings for tblite library
+
 !> @file tblite/api/version.f90
 !> Provides a stable version query with #tblite_get_version.
 

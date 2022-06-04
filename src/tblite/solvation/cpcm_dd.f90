@@ -19,9 +19,10 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 !> @file tblite/solvation/cpcm_dd.f90
+!> Provides a domain decomposition solver for the conductor like screening model.
 !
-! A modular implementation of COSMO using a domain decomposition linear scaling
-! strategy.
+!> A modular implementation of COSMO using a domain decomposition linear scaling
+!> strategy.
 !
 ! This code is governed by the LGPL license and abiding by the rules of
 ! distribution of free software.

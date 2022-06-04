@@ -26,8 +26,6 @@ module tblite_xtb_spec
    implicit none
    private
 
-   public :: tb_h0spec
-
 
    !> Specification of the effective Hamiltonian.
    !>

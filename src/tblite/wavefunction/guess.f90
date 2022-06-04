@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/wavefunction/guess.f90
+!> Provides guesses for the wavefunction
+
+!> Implementation of the guess wavefunctions
 module tblite_wavefunction_guess
    use mctc_env, only : wp
    use mctc_io, only : structure_type

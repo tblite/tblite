@@ -28,8 +28,6 @@ module tblite_container_type
    implicit none
    private
 
-   public :: container_type
-
    !> Abstract base class for interactions containers
    type, public, abstract :: container_type
       !> Label identifying this contribution

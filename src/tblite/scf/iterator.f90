@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/scf/iterator.f90
+!> Provides the implementation of the actual self-consistent field iteractions
+
+!> Iterator for evaluating the Hamiltonian self-consistently
 module tblite_scf_iterator
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type

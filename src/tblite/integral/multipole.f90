@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/integral/multipole.f90
+!> Provides evaluation of multipole moment integrals
+
 !> Implementation of multipole moment integrals, dipole and quadrupole.
 module tblite_integral_multipole
    use mctc_env, only : wp

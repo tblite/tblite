@@ -14,21 +14,21 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @dir tblite/wavefunction
-!> Contains wavefunction related information
+!> @dir tblite/basis
+!> Contains basis set related implementations
 
-!> @file tblite/wavefunction.f90
-!> Provides reexports of wavefunction related procedures and types
+!> @file tblite/basis.f90
+!> Reexports the basis set related data classes
 
-!> Proxy module for wavefunction related types and procedures
-module tblite_wavefunction
-   use tblite_wavefunction_guess, only : sad_guess, eeq_guess
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment
-   use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
-      & get_density_matrix, get_alpha_beta_occupation
+!> Proxy module for the basis set related procedures and types
+module tblite_basis
+   use tblite_basis_ortho, only : orthogonalize
+   use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, get_cutoff, cgto_type
    implicit none
-   public
+   private
 
-end module tblite_wavefunction
+   public :: basis_type, new_basis, get_cutoff, cgto_type
+   public :: orthogonalize
+   public :: slater_to_gauss
+end module tblite_basis

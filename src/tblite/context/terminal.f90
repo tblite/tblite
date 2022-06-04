@@ -23,7 +23,7 @@ module tblite_context_terminal
    implicit none
    private
 
-   public :: context_terminal, escape, operator(+), operator(//)
+   public :: escape, operator(+), operator(//)
 
    !> Container for terminal escape code
    type :: color
@@ -76,7 +76,7 @@ module tblite_context_terminal
 
 
    !> Colorizer class for handling colorful output in the terminal
-   type :: context_terminal
+   type, public :: context_terminal
 
       type(color) :: &
          reset = color(), &

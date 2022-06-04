@@ -30,8 +30,6 @@ module tblite_container_list
    implicit none
    private
 
-   public :: container_list
-
 
    !> Wrapped container type for creation of lists
    type :: container_node

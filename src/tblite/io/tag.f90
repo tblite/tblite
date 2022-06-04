@@ -14,7 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/io
+!> Contains interfaces to IO formats
+
 !> @file tblite/io/tag.f90
+!> Provides tagged input and output routines
+
+!> Implementation of tagged input and output files
 module tblite_io_tag
    use mctc_io_utils, only : getline
    use mctc_env, only : sp, dp

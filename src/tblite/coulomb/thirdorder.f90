@@ -30,10 +30,10 @@ module tblite_coulomb_thirdorder
    implicit none
    private
 
-   public :: onsite_thirdorder, new_onsite_thirdorder
+   public :: new_onsite_thirdorder
 
    !> Onsite correction for third-order charge expansion
-   type, extends(coulomb_type) :: onsite_thirdorder
+   type, public, extends(coulomb_type) :: onsite_thirdorder
       !> Whether the third order contribution is shell-dependent
       logical :: shell_resolved
       !> Number of shell for each atom

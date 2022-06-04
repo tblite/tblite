@@ -22,7 +22,7 @@ module tblite_container_cache
    implicit none
    private
 
-   public :: container_cache, resize
+   public :: resize
 
    !> Restart data for an interaction container
    type, public :: container_cache

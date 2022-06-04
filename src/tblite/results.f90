@@ -23,11 +23,9 @@ module tblite_results
    implicit none
    private
 
-   public :: results_type
-
 
    !> Results container
-   type results_type
+   type, public :: results_type
       !> Atom-resolved energies
       real(wp), allocatable :: energies(:)
       !> Overlap integrals

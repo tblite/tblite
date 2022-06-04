@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/param/thirdorder.f90
+!> Provides a model for the isotropic third-order electrostatic
+
 !> Definition of the isotropic third-order electrostatic contributions.
 module tblite_param_thirdorder
    use mctc_env, only : wp, error_type, fatal_error
@@ -23,13 +25,13 @@ module tblite_param_thirdorder
    implicit none
    private
 
-   public :: thirdorder_record, thirdorder_mask, count
+   public :: count
 
 
    character(len=*), parameter :: k_shell = "shell", k_ang(0:4) = ["s", "p", "d", "f", "g"]
 
    !> Parametrization record for third-order electrostatic contributions
-   type, extends(serde_record) :: thirdorder_record
+   type, public, extends(serde_record) :: thirdorder_record
       integer :: lmax
       logical :: shell
       real(wp) :: ksh(0:4)
@@ -47,7 +49,8 @@ module tblite_param_thirdorder
    end type
 
 
-   type :: thirdorder_mask
+   !> Masking for the third order electrostatics
+   type, public :: thirdorder_mask
    end type thirdorder_mask
 
 

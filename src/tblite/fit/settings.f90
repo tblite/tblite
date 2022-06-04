@@ -14,7 +14,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/fit
+!> Contains routines for parameter optimization
+
 !> @file tblite/fit/settings.f90
+!> Provides setting for the optimization driver
+
+!> Declaration of options for the optimization driver
 module tblite_fit_settings
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_param_serde, only : serde_record
@@ -23,9 +29,8 @@ module tblite_fit_settings
    implicit none
    private
 
-   public :: fit_settings
-
-   type, extends(serde_record) :: fit_settings
+   !> Optimization configuration
+   type, public, extends(serde_record) :: fit_settings
       character(len=:), allocatable :: method
       character(len=:), allocatable :: script
       character(len=:), allocatable :: output

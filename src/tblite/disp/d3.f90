@@ -30,11 +30,11 @@ module tblite_disp_d3
    implicit none
    private
 
-   public :: d3_dispersion, new_d3_dispersion
+   public :: new_d3_dispersion
 
 
    !> Container for DFT-D3 type dispersion correction
-   type, extends(dispersion_type) :: d3_dispersion
+   type, public, extends(dispersion_type) :: d3_dispersion
       type(d3_model) :: model
       type(rational_damping_param) :: param
       type(realspace_cutoff) :: cutoff

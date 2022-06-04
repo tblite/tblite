@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/ncoord/gfn.f90
+!> Provides a coordination number implementation with double exponential counting function
+
+!> Coordination number implementation using a double exponential counting function
 module tblite_ncoord_gfn
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -24,10 +27,11 @@ module tblite_ncoord_gfn
    implicit none
    private
 
-   public :: gfn_ncoord_type, new_gfn_ncoord
+   public :: new_gfn_ncoord
    public :: get_coordination_number
 
-   type, extends(ncoord_type) :: gfn_ncoord_type
+   !> Coordination number evaluator
+   type, public, extends(ncoord_type) :: gfn_ncoord_type
       real(wp) :: cutoff
       real(wp), allocatable :: rcov(:)
    contains

@@ -45,7 +45,7 @@ module tblite_xtb_calculator
    implicit none
    private
 
-   public :: xtb_calculator, new_xtb_calculator
+   public :: new_xtb_calculator
    public :: param_h0spec
 
    !> Default value for self-consistent iteration mixing

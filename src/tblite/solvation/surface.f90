@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/solvation/surface.f90
+!> Provides a surface integrator
+
 !> Surface integrator for solvent accessible surface area
 module tblite_solvation_surface
    use mctc_env, only : wp
@@ -26,9 +28,9 @@ module tblite_solvation_surface
    implicit none
    private
 
-   public :: surface_integrator, new_surface_integrator
+   public :: new_surface_integrator
 
-   type :: surface_integrator
+   type, public :: surface_integrator
       !> Number of angular grid points
       integer :: nang
       !> Angular grid coordinates

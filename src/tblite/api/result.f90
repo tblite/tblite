@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/api/result.f90
+!> Provides API exports for the #tblite_result handle.
+
+!> API export for managing calculation results
 module tblite_api_result
    use, intrinsic :: iso_c_binding
    use mctc_env, only : wp, error_type, fatal_error

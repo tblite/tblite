@@ -45,6 +45,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 list(
   APPEND srcs
   "${dir}/adjlist.f90"
+  "${dir}/basis.f90"
   "${dir}/blas.f90"
   "${dir}/container.f90"
   "${dir}/context.f90"

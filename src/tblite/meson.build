@@ -42,6 +42,7 @@ subdir('xtb')
 
 srcs += files(
   'adjlist.f90',
+  'basis.f90',
   'blas.f90',
   'container.f90',
   'context.f90',
