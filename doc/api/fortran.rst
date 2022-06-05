@@ -7,7 +7,9 @@ The *tblite* library seamlessly integrates with other Fortran projects via modul
 
    Generally, all quantities used in the library are stored in `atomic units <https://en.wikipedia.org/wiki/Hartree_atomic_units>`_.
 
-.. contents::
+.. toctree::
+
+   Full reference <https://tblite.github.io/tblite>
 
 
 Handling of geometries and structure

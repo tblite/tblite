@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/xtb/wignerseitz.f90
+!> @file tblite/wignerseitz.f90
 !> Provides a Wigner-Seitz cell
 
 !> Implementation of finding the relevant nearest neighbours in a Wigner-Seitz cell

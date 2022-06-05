@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/github/license/tblite/tblite)](https://github.com/tblite/tblite/blob/HEAD/COPYING.LESSER)
 [![Build Status](https://github.com/tblite/tblite/workflows/CI/badge.svg)](https://github.com/tblite/tblite/actions)
+[![Doxygen Status](https://github.com/tblite/tblite/workflows/docs/badge.svg)](https://tblite.github.io/tblite)
 [![Documentation Status](https://readthedocs.org/projects/tblite/badge/?version=latest)](https://tblite.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/tblite/tblite/branch/main/graph/badge.svg?token=JXIE6myqNH)](https://codecov.io/gh/tblite/tblite)
 
