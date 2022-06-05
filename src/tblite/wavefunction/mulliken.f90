@@ -15,6 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/wavefunction/mulliken.f90
+!> Provides Mulliken population analysis
+
+!> Wavefunction analysis via Mulliken populations
 module tblite_wavefunction_mulliken
    use mctc_env, only : wp
    use mctc_io, only : structure_type

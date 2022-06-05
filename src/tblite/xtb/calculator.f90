@@ -18,8 +18,8 @@
 !> Provides the calculator type for holding xTB Hamiltonian parametrization.
 
 !> Implementation of calculator type for the extended-tight binding Hamiltonian.
-!> The #xtb_calculator collects the basic interactions required to perform a
-!> tight-binding calculation.
+!> The #tblite_xtb_calculator::xtb_calculator collects the basic interactions
+!> required to perform a tight-binding calculation.
 module tblite_xtb_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
