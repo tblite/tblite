@@ -18,8 +18,13 @@
 !> Provides interfactes to level 3 BLAS routines
 
 !> High-level interface to level 3 basic linear algebra subprogram operations
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_blas_level3
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -61,7 +66,10 @@ module tblite_blas_level3
    interface blas_gemm
       pure subroutine sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, &
             & beta, c, ldc)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
+         integer(ik), intent(in) :: ldc
          real(sp), intent(in) :: a(lda, *)
          real(sp), intent(in) :: b(ldb, *)
          real(sp), intent(inout) :: c(ldc, *)
@@ -69,16 +77,16 @@ module tblite_blas_level3
          character(len=1), intent(in) :: transb
          real(sp), intent(in) :: alpha
          real(sp), intent(in) :: beta
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: k
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
-         integer, intent(in) :: ldc
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
+         integer(ik), intent(in) :: k
       end subroutine sgemm
       pure subroutine dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, &
             & beta, c, ldc)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
+         integer(ik), intent(in) :: ldc
          real(dp), intent(in) :: a(lda, *)
          real(dp), intent(in) :: b(ldb, *)
          real(dp), intent(inout) :: c(ldc, *)
@@ -86,12 +94,9 @@ module tblite_blas_level3
          character(len=1), intent(in) :: transb
          real(dp), intent(in) :: alpha
          real(dp), intent(in) :: beta
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: k
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
-         integer, intent(in) :: ldc
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
+         integer(ik), intent(in) :: k
       end subroutine dgemm
    end interface blas_gemm
 
@@ -109,7 +114,7 @@ pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta)
    real(sp), intent(in), optional :: beta
    character(len=1) :: tra, trb
    real(sp) :: a, b
-   integer :: m, n, k, lda, ldb, ldc
+   integer(ik) :: m, n, k, lda, ldb, ldc
    if (present(alpha)) then
       a = alpha
    else
@@ -154,7 +159,7 @@ pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta)
    real(dp), intent(in), optional :: beta
    character(len=1) :: tra, trb
    real(dp) :: a, b
-   integer :: m, n, k, lda, ldb, ldc
+   integer(ik) :: m, n, k, lda, ldb, ldc
    if (present(alpha)) then
       a = alpha
    else

@@ -18,8 +18,13 @@
 !> Provides wrappers to solve a linear equation system
 
 !> Wrappers to solve a system of linear equations
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_lapack_getrs
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -42,28 +47,28 @@ module tblite_lapack_getrs
    !> by ?GETRF.
    interface lapack_getrs
       pure subroutine sgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
          real(sp), intent(in) :: a(lda, *)
-         integer, intent(in) :: ipiv(*)
+         integer(ik), intent(in) :: ipiv(*)
          real(sp), intent(inout) :: b(ldb, *)
          character(len=1), intent(in) :: trans
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: nrhs
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
+         integer(ik), intent(in) :: nrhs
       end subroutine sgetrs
       pure subroutine dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
          real(dp), intent(in) :: a(lda, *)
-         integer, intent(in) :: ipiv(*)
+         integer(ik), intent(in) :: ipiv(*)
          real(dp), intent(inout) :: b(ldb, *)
          character(len=1), intent(in) :: trans
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: nrhs
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
+         integer(ik), intent(in) :: nrhs
       end subroutine dgetrs
    end interface lapack_getrs
 
@@ -72,11 +77,11 @@ contains
 subroutine wrap_sgetrs(amat, bmat, ipiv, info, trans)
    real(sp), intent(in) :: amat(:, :)
    real(sp), intent(inout) :: bmat(:, :)
-   integer, intent(in) :: ipiv(:)
-   integer, intent(out) :: info
+   integer(ik), intent(in) :: ipiv(:)
+   integer(ik), intent(out) :: info
    character(len=1), intent(in), optional :: trans
    character(len=1) :: tra
-   integer :: n, nrhs, lda, ldb
+   integer(ik) :: n, nrhs, lda, ldb
    if (present(trans)) then
       tra = trans
    else
@@ -93,11 +98,11 @@ end subroutine wrap_sgetrs
 subroutine wrap_dgetrs(amat, bmat, ipiv, info, trans)
    real(dp), intent(in) :: amat(:, :)
    real(dp), intent(inout) :: bmat(:, :)
-   integer, intent(in) :: ipiv(:)
-   integer, intent(out) :: info
+   integer(ik), intent(in) :: ipiv(:)
+   integer(ik), intent(out) :: info
    character(len=1), intent(in), optional :: trans
    character(len=1) :: tra
-   integer :: n, nrhs, lda, ldb
+   integer(ik) :: n, nrhs, lda, ldb
    if (present(trans)) then
       tra = trans
    else

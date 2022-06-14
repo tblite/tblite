@@ -18,8 +18,13 @@
 !> Provides an electronic mixer implementation
 
 !> Implementation of a modified Broyden mixing
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_scf_broyden
-   use mctc_env, only : wp
+   use mctc_env, only : wp, ik => IK
    use tblite_lapack, only : getrf, getrs
    implicit none
    private
@@ -255,8 +260,8 @@ subroutine lineq(a, c)
    real(wp), intent(inout) :: a(:, :)
    real(wp), intent(inout) :: c(:, :)
 
-   integer info
-   integer, allocatable :: ipiv(:)
+   integer(ik) info
+   integer(ik), allocatable :: ipiv(:)
 
    allocate(ipiv(size(a, 1)))
    ! LU decomoposition of a general matrix

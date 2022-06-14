@@ -38,6 +38,13 @@ if(NOT TARGET "OpenMP::OpenMP_Fortran")
   endif()
 endif()
 
+if(WITH_ILP64)
+  if(NOT (BLAS_LIBRARIES AND LAPACK_LIBRARIES))
+    message(FATAL_ERROR "WITH_ILP64 needs BLAS_LIBRARIES and LAPACK_LIBRARIES")
+  endif()
+  message(STATUS "Using LAPACK/BLAS ILP64 interface")
+endif()
+
 if(NOT TARGET "LAPACK::LAPACK")
   find_package("LAPACK" REQUIRED)
 endif()
@@ -102,6 +109,15 @@ target_include_directories(
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
 )
+if(WITH_ILP64)
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC -DIK=i8)
+else()
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC -DIK=i4)
+endif()
 if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()

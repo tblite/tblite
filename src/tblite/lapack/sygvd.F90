@@ -18,8 +18,13 @@
 !> Provides an inverface to symmetric divide-and-conquer solver
 
 !> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_lapack_sygvd
-   use mctc_env, only : sp, dp, error_type, fatal_error
+   use mctc_env, only : sp, dp, error_type, fatal_error, ik => IK
    use tblite_output_format, only : format_string
    use tblite_scf_solver, only : solver_type
    implicit none
@@ -29,39 +34,39 @@ module tblite_lapack_sygvd
    interface lapack_sygvd
       pure subroutine ssygvd(itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, &
             & iwork, liwork, info)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
          real(sp), intent(inout) :: a(lda, *)
          real(sp), intent(inout) :: b(ldb, *)
          real(sp), intent(out) :: w(*)
-         integer, intent(in) :: itype
+         integer(ik), intent(in) :: itype
          character(len=1), intent(in) :: jobz
          character(len=1), intent(in) :: uplo
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
          real(sp), intent(inout) :: work(*)
-         integer, intent(in) :: lwork
-         integer, intent(inout) :: iwork(*)
-         integer, intent(in) :: liwork
+         integer(ik), intent(in) :: lwork
+         integer(ik), intent(inout) :: iwork(*)
+         integer(ik), intent(in) :: liwork
       end subroutine ssygvd
       pure subroutine dsygvd(itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, &
             & iwork, liwork, info)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
+         integer(ik), intent(in) :: ldb
          real(dp), intent(inout) :: a(lda, *)
          real(dp), intent(inout) :: b(ldb, *)
          real(dp), intent(out) :: w(*)
-         integer, intent(in) :: itype
+         integer(ik), intent(in) :: itype
          character(len=1), intent(in) :: jobz
          character(len=1), intent(in) :: uplo
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
-         integer, intent(in) :: ldb
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
          real(dp), intent(inout) :: work(*)
-         integer, intent(in) :: lwork
-         integer, intent(inout) :: iwork(*)
-         integer, intent(in) :: liwork
+         integer(ik), intent(in) :: lwork
+         integer(ik), intent(inout) :: iwork(*)
+         integer(ik), intent(in) :: liwork
       end subroutine dsygvd
    end interface lapack_sygvd
 
@@ -69,8 +74,8 @@ module tblite_lapack_sygvd
    !> Wrapper class for solving symmetric general eigenvalue problems
    type, public, extends(solver_type) :: sygvd_solver
       private
-      integer :: n = 0
-      integer, allocatable :: iwork(:)
+      integer(ik) :: n = 0
+      integer(ik), allocatable :: iwork(:)
       real(sp), allocatable :: swork(:)
       real(sp), allocatable :: sbmat(:, :)
       real(dp), allocatable :: dwork(:)
@@ -88,7 +93,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    real(sp), contiguous, intent(in) :: smat(:, :)
    real(sp), contiguous, intent(inout) :: eval(:)
    type(error_type), allocatable, intent(out) :: error
-   integer :: info, lswork, liwork
+   integer(ik) :: info, lswork, liwork, one
 
    if (self%n == 0) then
       self%n = size(hmat, 1)
@@ -102,8 +107,9 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    self%sbmat = smat
    lswork = size(self%swork)
    liwork = size(self%iwork)
+   one = 1
 
-   call lapack_sygvd(1, 'v', 'u', self%n, hmat, self%n, self%sbmat, self%n, eval, &
+   call lapack_sygvd(one, 'v', 'u', self%n, hmat, self%n, self%sbmat, self%n, eval, &
       & self%swork, lswork, self%iwork, liwork, info)
 
    call handle_info(error, info)
@@ -116,7 +122,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    real(dp), contiguous, intent(in) :: smat(:, :)
    real(dp), contiguous, intent(inout) :: eval(:)
    type(error_type), allocatable, intent(out) :: error
-   integer :: info, ldwork, liwork
+   integer(ik) :: info, ldwork, liwork, one
 
    if (self%n == 0) then
       self%n = size(hmat, 1)
@@ -130,8 +136,9 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    self%dbmat = smat
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
+   one = 1
 
-   call lapack_sygvd(1, 'v', 'u', self%n, hmat, self%n, self%dbmat, self%n, eval, &
+   call lapack_sygvd(one, 'v', 'u', self%n, hmat, self%n, self%dbmat, self%n, eval, &
       & self%dwork, ldwork, self%iwork, liwork, info)
 
    call handle_info(error, info)
@@ -140,11 +147,11 @@ end subroutine solve_dp
 
 subroutine handle_info(error, info)
    type(error_type), allocatable, intent(out) :: error
-   integer, intent(in) :: info
+   integer(ik), intent(in) :: info
 
    if (info /= 0) then
       call fatal_error(error, "(sygvd) failed to solve eigenvalue problem.&
-         & info="//format_string(info, '(i0)'))
+         & info="//format_string(int(info), '(i0)'))
    end if
 end subroutine handle_info
 

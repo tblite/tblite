@@ -18,8 +18,13 @@
 !> Provides wrappers for computing a matrix inverse
 
 !> Wrappers to obtain the inverse of a matrix
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_lapack_getri
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -44,24 +49,24 @@ module tblite_lapack_getri
    !> inv(A)*L = inv(U) for inv(A).
    interface lapack_getri
       pure subroutine sgetri(n, a, lda, ipiv, work, lwork, info)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
          real(sp), intent(inout) :: a(lda, *)
-         integer, intent(in) :: ipiv(*)
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: ipiv(*)
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
          real(sp), intent(inout) :: work(*)
-         integer, intent(in) :: lwork
+         integer(ik), intent(in) :: lwork
       end subroutine sgetri
       pure subroutine dgetri(n, a, lda, ipiv, work, lwork, info)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
          real(dp), intent(inout) :: a(lda, *)
-         integer, intent(in) :: ipiv(*)
-         integer, intent(out) :: info
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: ipiv(*)
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: n
          real(dp), intent(inout) :: work(*)
-         integer, intent(in) :: lwork
+         integer(ik), intent(in) :: lwork
       end subroutine dgetri
    end interface lapack_getri
 
@@ -69,9 +74,9 @@ contains
 
 subroutine wrap_sgetri(amat, ipiv, info)
    real(sp), intent(inout) :: amat(:, :)
-   integer, intent(in) :: ipiv(:)
-   integer, intent(out) :: info
-   integer :: n, lda, lwork
+   integer(ik), intent(in) :: ipiv(:)
+   integer(ik), intent(out) :: info
+   integer(ik) :: n, lda, lwork
    real(sp), allocatable :: work(:)
    real(sp) :: test(1)
    lda = max(1, size(amat, 1))
@@ -88,9 +93,9 @@ end subroutine wrap_sgetri
 
 subroutine wrap_dgetri(amat, ipiv, info)
    real(dp), intent(inout) :: amat(:, :)
-   integer, intent(in) :: ipiv(:)
-   integer, intent(out) :: info
-   integer :: n, lda, lwork
+   integer(ik), intent(in) :: ipiv(:)
+   integer(ik), intent(out) :: info
+   integer(ik) :: n, lda, lwork
    real(dp), allocatable :: work(:)
    real(dp) :: test(1)
    lda = max(1, size(amat, 1))
