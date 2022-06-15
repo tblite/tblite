@@ -18,8 +18,13 @@
 !> Provides wrappers for LU factorization routines
 
 !> Wrapper rountines for LU factorization
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_lapack_getrf
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -50,22 +55,22 @@ module tblite_lapack_getrf
    !> triangular (upper trapezoidal if m < n).
    interface lapack_getrf
       pure subroutine sgetrf(m, n, a, lda, ipiv, info)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
          real(sp), intent(inout) :: a(lda, *)
-         integer, intent(out) :: ipiv(*)
-         integer, intent(out) :: info
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(out) :: ipiv(*)
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
       end subroutine sgetrf
       pure subroutine dgetrf(m, n, a, lda, ipiv, info)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
          real(dp), intent(inout) :: a(lda, *)
-         integer, intent(out) :: ipiv(*)
-         integer, intent(out) :: info
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(out) :: ipiv(*)
+         integer(ik), intent(out) :: info
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
       end subroutine dgetrf
    end interface lapack_getrf
 
@@ -73,9 +78,9 @@ contains
 
 subroutine wrap_sgetrf(amat, ipiv, info)
    real(sp), intent(inout) :: amat(:, :)
-   integer, intent(out) :: ipiv(:)
-   integer, intent(out) :: info
-   integer :: m, n, lda
+   integer(ik), intent(out) :: ipiv(:)
+   integer(ik), intent(out) :: info
+   integer(ik) :: m, n, lda
    lda = max(1, size(amat, 1))
    m = size(amat, 1)
    n = size(amat, 2)
@@ -85,9 +90,9 @@ end subroutine wrap_sgetrf
 
 subroutine wrap_dgetrf(amat, ipiv, info)
    real(dp), intent(inout) :: amat(:, :)
-   integer, intent(out) :: ipiv(:)
-   integer, intent(out) :: info
-   integer :: m, n, lda
+   integer(ik), intent(out) :: ipiv(:)
+   integer(ik), intent(out) :: info
+   integer(ik) :: m, n, lda
    lda = max(1, size(amat, 1))
    m = size(amat, 1)
    n = size(amat, 2)

@@ -15,7 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'level1.f90',
-  'level2.f90',
-  'level3.f90',
+  'level1.F90',
+  'level2.F90',
+  'level3.F90',
 )

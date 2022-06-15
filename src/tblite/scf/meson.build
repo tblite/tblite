@@ -15,7 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'broyden.f90',
+  'broyden.F90',
   'info.f90',
   'iterator.f90',
   'potential.f90',

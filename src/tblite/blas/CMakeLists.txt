@@ -18,9 +18,9 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/level1.f90"
-  "${dir}/level2.f90"
-  "${dir}/level3.f90"
+  "${dir}/level1.F90"
+  "${dir}/level2.F90"
+  "${dir}/level3.F90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

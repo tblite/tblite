@@ -18,8 +18,13 @@
 !> Provides interfactes to level 2 BLAS routines
 
 !> High-level interface to level 2 basic linear algebra subprogram operations
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_blas_level2
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -63,32 +68,32 @@ module tblite_blas_level2
    !> m by n matrix.
    interface blas_gemv
       pure subroutine sgemv(trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
          real(sp), intent(in) :: a(lda, *)
          real(sp), intent(in) :: x(*)
          real(sp), intent(inout) :: y(*)
          real(sp), intent(in) :: alpha
          real(sp), intent(in) :: beta
          character(len=1), intent(in) :: trans
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
       end subroutine sgemv
       pure subroutine dgemv(trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
          real(dp), intent(in) :: a(lda, *)
          real(dp), intent(in) :: x(*)
          real(dp), intent(inout) :: y(*)
          real(dp), intent(in) :: alpha
          real(dp), intent(in) :: beta
          character(len=1), intent(in) :: trans
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: m
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: m
+         integer(ik), intent(in) :: n
       end subroutine dgemv
    end interface blas_gemv
 
@@ -100,30 +105,30 @@ module tblite_blas_level2
    !> A is an n by n symmetric matrix.
    interface blas_symv
       pure subroutine ssymv(uplo, n, alpha, a, lda, x, incx, beta, y, incy)
-         import :: sp
+         import :: sp, ik
+         integer(ik), intent(in) :: lda
          real(sp), intent(in) :: a(lda, *)
          real(sp), intent(in) :: x(*)
          real(sp), intent(inout) :: y(*)
          character(len=1), intent(in) :: uplo
          real(sp), intent(in) :: alpha
          real(sp), intent(in) :: beta
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: n
       end subroutine ssymv
       pure subroutine dsymv(uplo, n, alpha, a, lda, x, incx, beta, y, incy)
-         import :: dp
+         import :: dp, ik
+         integer(ik), intent(in) :: lda
          real(dp), intent(in) :: a(lda, *)
          real(dp), intent(in) :: x(*)
          real(dp), intent(inout) :: y(*)
          character(len=1), intent(in) :: uplo
          real(dp), intent(in) :: alpha
          real(dp), intent(in) :: beta
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: n
-         integer, intent(in) :: lda
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: n
       end subroutine dsymv
    end interface blas_symv
 
@@ -282,7 +287,7 @@ pure subroutine wrap_sgemv(amat, xvec, yvec, alpha, beta, trans)
    character(len=1), intent(in), optional :: trans
    real(sp) :: a, b
    character(len=1) :: tra
-   integer :: incx, incy, m, n, lda
+   integer(ik) :: incx, incy, m, n, lda
    if (present(alpha)) then
       a = alpha
    else
@@ -316,7 +321,7 @@ pure subroutine wrap_dgemv(amat, xvec, yvec, alpha, beta, trans)
    character(len=1), intent(in), optional :: trans
    real(dp) :: a, b
    character(len=1) :: tra
-   integer :: incx, incy, m, n, lda
+   integer(ik) :: incx, incy, m, n, lda
    if (present(alpha)) then
       a = alpha
    else
@@ -350,7 +355,7 @@ pure subroutine wrap_ssymv(amat, xvec, yvec, uplo, alpha, beta)
    real(sp), intent(in), optional :: beta
    character(len=1) :: ula
    real(sp) :: a, b
-   integer :: incx, incy, n, lda
+   integer(ik) :: incx, incy, n, lda
    if (present(alpha)) then
       a = alpha
    else
@@ -383,7 +388,7 @@ pure subroutine wrap_dsymv(amat, xvec, yvec, uplo, alpha, beta)
    real(dp), intent(in), optional :: beta
    character(len=1) :: ula
    real(dp) :: a, b
-   integer :: incx, incy, n, lda
+   integer(ik) :: incx, incy, n, lda
    if (present(alpha)) then
       a = alpha
    else

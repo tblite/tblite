@@ -18,8 +18,13 @@
 !> Provides interfactes to level 1 BLAS routines
 
 !> High-level interface to level 1 basic linear algebra subprogram operations
+
+#ifndef IK
+#define IK i4
+#endif
+
 module tblite_blas_level1
-   use mctc_env, only : sp, dp
+   use mctc_env, only : sp, dp, ik => IK
    implicit none
    private
 
@@ -43,22 +48,22 @@ module tblite_blas_level1
    !> Uses unrolled loops for increments equal to one.
    interface blas_dot
       pure function sdot(n, x, incx, y, incy)
-         import :: sp
+         import :: sp, ik
          real(sp) :: sdot
          real(sp), intent(in) :: x(*)
          real(sp), intent(in) :: y(*)
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: n
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: n
       end function sdot
       pure function ddot(n, x, incx, y, incy)
-         import :: dp
+         import :: dp, ik
          real(dp) :: ddot
          real(dp), intent(in) :: x(*)
          real(dp), intent(in) :: y(*)
-         integer, intent(in) :: incx
-         integer, intent(in) :: incy
-         integer, intent(in) :: n
+         integer(ik), intent(in) :: incx
+         integer(ik), intent(in) :: incy
+         integer(ik), intent(in) :: n
       end function ddot
    end interface blas_dot
 
@@ -70,7 +75,7 @@ function wrap_sdot(xvec, yvec) result(dot)
    real(sp) :: dot
    real(sp), intent(in) :: xvec(:)
    real(sp), intent(in) :: yvec(:)
-   integer :: incx, incy, n
+   integer(ik) :: incx, incy, n
    incx = 1
    incy = 1
    n = size(xvec)
@@ -82,7 +87,7 @@ function wrap_ddot(xvec, yvec) result(dot)
    real(dp) :: dot
    real(dp), intent(in) :: xvec(:)
    real(dp), intent(in) :: yvec(:)
-   integer :: incx, incy, n
+   integer(ik) :: incx, incy, n
    incx = 1
    incy = 1
    n = size(xvec)

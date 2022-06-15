@@ -18,7 +18,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/broyden.f90"
+  "${dir}/broyden.F90"
   "${dir}/info.f90"
   "${dir}/iterator.f90"
   "${dir}/potential.f90"
