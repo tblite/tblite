@@ -21,7 +21,11 @@ list(
   "${dir}/getrf.f90"
   "${dir}/getri.f90"
   "${dir}/getrs.f90"
+  "${dir}/potrf.f90"
+  "${dir}/solver.f90"
+  "${dir}/sygst.f90"
   "${dir}/sygvd.f90"
+  "${dir}/sygvr.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
