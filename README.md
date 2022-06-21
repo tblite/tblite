@@ -28,26 +28,34 @@ Explicit non-goals are
 
 ### Conda package
 
-[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite.svg)](https://anaconda.org/conda-forge/tblite)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite.svg?label=tblite)](https://anaconda.org/conda-forge/tblite)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite-python.svg?label=tblite-python)](https://anaconda.org/conda-forge/tblite-python)
 
 This project is packaged for the *conda* package manager and available on the *conda-forge* channel.
-To install the *conda* package manager we recommend the [miniforge](https://github.com/conda-forge/miniforge/releases) installer.
+To install the *mamba* package manager we recommend the [mambaforge](https://github.com/conda-forge/miniforge/releases) installer.
 If the *conda-forge* channel is not yet enabled, add it to your channels with
 
 ```
-conda config --add channels conda-forge
+mamba config --add channels conda-forge
+mamba config --set channel_priority strict
 ```
 
 Once the *conda-forge* channel has been enabled, this project can be installed with:
 
 ```
-conda install tblite
+mamba install tblite
+```
+
+If you want to enable the Python API as well install
+
+```
+mamba install tblite-python
 ```
 
 It is possible to list all of the versions available on your platform with:
 
 ```
-conda search tblite --channel conda-forge
+mamba repoquery search tblite --channel conda-forge
 ```
 
 Now you are ready to use ``tblite``.
