@@ -176,7 +176,35 @@ For more details on all available subcommands checkout the [``tblite(1)``](man/t
 
 ## Documentation
 
-User and developer documentation is available [here](https://tblite.readthedocs.io).
+The user documentation is available at [readthedocs](https://tblite.readthedocs.io).
+Additionally, the [doxygen](https://doxygen.nl) generated API documentation is available [here](https://tblite.github.io/tblite).
+
+To build the user documentation locally we use sphinx, install the dependencies you can use the *mamba* package manager
+
+```
+mamba create -n sphinx --file doc/requirements.txt
+mamba activate sphinx
+```
+
+The documentation is build with
+
+```
+sphinx-build doc _doc
+```
+
+You can inspect the generated documentation by starting a webserver
+
+```
+python3 -m http.server -d _doc
+```
+
+And open the down URL in a browser.
+
+
+## Contributing
+
+This is a volunteer open source projects and contributions are always welcome.
+Please, take a moment to read the [contributing guidelines](CONTRIBUTING.md) on how to get involved in tblite.
 
 
 ## License
