@@ -22,8 +22,9 @@ module tblite_context_type
    use iso_fortran_env, only : output_unit
    use mctc_env, only : error_type
    use tblite_context_logger, only : context_logger
-   use tblite_context_solver, only : context_solver, solver_type
+   use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
+   use tblite_scf_solver, only : solver_type
    implicit none
    private
 
@@ -134,7 +135,7 @@ subroutine new_solver(self, solver, ndim)
       self%solver = lapack_solver()
    end if
 
-   call self%solver%new_solver(solver, ndim)
+   call self%solver%new(solver, ndim)
 end subroutine new_solver
 
 
@@ -146,7 +147,7 @@ subroutine delete_solver(self, solver)
    class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%solver%delete_solver(solver)
+      call self%solver%delete(solver)
    end if
 
    if (allocated(solver)) deallocate(solver)

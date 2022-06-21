@@ -29,13 +29,13 @@ module tblite_xtb_singlepoint
    use tblite_container, only : container_cache
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
-   use tblite_context_solver, only : solver_type
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
    use tblite_results, only : results_type
    use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
+   use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
       & get_alpha_beta_occupation, magnet_to_updown, updown_to_magnet

@@ -24,7 +24,7 @@ module tblite_lapack_sygvr
    implicit none
    private
 
-   public :: sygvr_solver
+   public :: new_sygvr
 
 
    !> Computes selected eigenvalues and, optionally, eigenvectors
@@ -88,7 +88,7 @@ module tblite_lapack_sygvr
    end interface lapack_syevr
 
 
-   type, extends(solver_type) :: sygvr_solver
+   type, public, extends(solver_type) :: sygvr_solver
       private
       integer :: n = 0
       integer, allocatable :: iwork(:)
@@ -105,6 +105,12 @@ module tblite_lapack_sygvr
    end type sygvr_solver
 
 contains
+
+subroutine new_sygvr(self, ndim)
+   type(sygvr_solver), intent(out) :: self
+   integer, intent(in) :: ndim
+   self%n = ndim
+end subroutine new_sygvr
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvr_solver), intent(inout) :: self

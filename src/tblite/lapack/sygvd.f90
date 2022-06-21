@@ -25,6 +25,8 @@ module tblite_lapack_sygvd
    implicit none
    private
 
+   public :: new_sygvd
+
 
    interface lapack_sygvd
       pure subroutine ssygvd(itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, &
@@ -81,6 +83,12 @@ module tblite_lapack_sygvd
    end type sygvd_solver
 
 contains
+
+subroutine new_sygvd(self, ndim)
+   type(sygvd_solver), intent(out) :: self
+   integer, intent(in) :: ndim
+   self%n = ndim
+end subroutine new_sygvd
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvd_solver), intent(inout) :: self

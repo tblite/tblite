@@ -20,8 +20,8 @@
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
    use tblite_context_solver, only : context_solver
-   use tblite_lapack_sygvd, only : sygvd_solver
-   use tblite_lapack_sygvr, only : sygvr_solver
+   use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
+   use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -47,9 +47,9 @@ module tblite_lapack_solver
       integer :: algorithm = lapack_algorithm%gvd
    contains
       !> Create new instance of electronic solver
-      procedure :: new_solver
+      procedure :: new
       !> Delete an electronic solver instance
-      procedure :: delete_solver
+      procedure :: delete
    end type lapack_solver
 
 
@@ -57,7 +57,7 @@ contains
 
 
 !> Create new electronic solver
-subroutine new_solver(self, solver, ndim)
+subroutine new(self, solver, ndim)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> New electronic solver
@@ -67,22 +67,32 @@ subroutine new_solver(self, solver, ndim)
 
    select case(self%algorithm)
    case(lapack_algorithm%gvd)
-      solver = sygvd_solver()
+      block
+         type(sygvd_solver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvd(tmp, ndim)
+         call move_alloc(tmp, solver)
+      end block
    case(lapack_algorithm%gvr)
-      solver = sygvr_solver()
+      block
+         type(sygvr_solver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvr(tmp, ndim)
+         call move_alloc(tmp, solver)
+      end block
    end select
-end subroutine new_solver
+end subroutine new
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self, solver)
+subroutine delete(self, solver)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(solver)) deallocate(solver)
-end subroutine delete_solver
+end subroutine delete
 
 
 end module tblite_lapack_solver

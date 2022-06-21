@@ -23,22 +23,20 @@ module tblite_context_solver
    implicit none
    private
 
-   public :: solver_type
-
 
    !> Abstract base class for creating electronic solver instances
    type, public, abstract :: context_solver
    contains
       !> Create new instance of electronic solver
-      procedure(new_solver), deferred :: new_solver
+      procedure(new), deferred :: new
       !> Delete an electronic solver instance
-      procedure(delete_solver), deferred :: delete_solver
+      procedure(delete), deferred :: delete
    end type context_solver
 
 
    abstract interface
       !> Create new electronic solver
-      subroutine new_solver(self, solver, ndim)
+      subroutine new(self, solver, ndim)
          import :: context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
@@ -46,16 +44,16 @@ module tblite_context_solver
          class(solver_type), allocatable, intent(out) :: solver
          !> Dimension of the eigenvalue problem
          integer, intent(in) :: ndim
-      end subroutine new_solver
+      end subroutine new
 
       !> Delete electronic solver instance
-      subroutine delete_solver(self, solver)
+      subroutine delete(self, solver)
          import :: context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
          !> Electronic solver instance
          class(solver_type), allocatable, intent(inout) :: solver
-      end subroutine delete_solver
+      end subroutine delete
    end interface
 
 end module tblite_context_solver
