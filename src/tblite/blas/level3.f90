@@ -423,31 +423,17 @@ pure subroutine wrap_strsm(amat, bmat, side, uplo, transa, diag, alpha)
    real(sp) :: a
    character(len=1) :: sda, ula, tra, dga
    integer :: m, n, lda, ldb
-   if (present(alpha)) then
-      a = alpha
-   else
-      a = 1.0_sp
-   end if
-   if (present(diag)) then
-      dga = diag
-   else
-      dga = 'n'
-   end if
-   if (present(side)) then
-      sda = side
-   else
-      sda = 'l'
-   end if
-   if (present(transa)) then
-      tra = transa
-   else
-      tra = 'n'
-   end if
-   if (present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   end if
+
+   a = 1.0_sp
+   if (present(alpha)) a = alpha
+   dga = 'n'
+   if (present(diag)) dga = diag
+   sda = 'l'
+   if (present(side)) sda = side
+   tra = 'n'
+   if (present(transa)) tra = transa
+   ula = 'u'
+   if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    m = size(bmat, 1)
@@ -467,31 +453,17 @@ pure subroutine wrap_dtrsm(amat, bmat, side, uplo, transa, diag, alpha)
    real(dp) :: a
    character(len=1) :: sda, ula, tra, dga
    integer :: m, n, lda, ldb
-   if (present(alpha)) then
-      a = alpha
-   else
-      a = 1.0_dp
-   end if
-   if (present(diag)) then
-      dga = diag
-   else
-      dga = 'n'
-   end if
-   if (present(side)) then
-      sda = side
-   else
-      sda = 'l'
-   end if
-   if (present(transa)) then
-      tra = transa
-   else
-      tra = 'n'
-   end if
-   if (present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   end if
+
+   a = 1.0_dp
+   if (present(alpha)) a = alpha
+   dga = 'n'
+   if (present(diag)) dga = diag
+   sda = 'l'
+   if (present(side)) sda = side
+   tra = 'n'
+   if (present(transa)) tra = transa
+   ula = 'u'
+   if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    m = size(bmat, 1)
