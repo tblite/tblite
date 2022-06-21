@@ -28,26 +28,34 @@ Explicit non-goals are
 
 ### Conda package
 
-[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite.svg)](https://anaconda.org/conda-forge/tblite)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite.svg?label=tblite)](https://anaconda.org/conda-forge/tblite)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/tblite-python.svg?label=tblite-python)](https://anaconda.org/conda-forge/tblite-python)
 
 This project is packaged for the *conda* package manager and available on the *conda-forge* channel.
-To install the *conda* package manager we recommend the [miniforge](https://github.com/conda-forge/miniforge/releases) installer.
+To install the *mamba* package manager we recommend the [mambaforge](https://github.com/conda-forge/miniforge/releases) installer.
 If the *conda-forge* channel is not yet enabled, add it to your channels with
 
 ```
-conda config --add channels conda-forge
+mamba config --add channels conda-forge
+mamba config --set channel_priority strict
 ```
 
 Once the *conda-forge* channel has been enabled, this project can be installed with:
 
 ```
-conda install tblite
+mamba install tblite
+```
+
+If you want to enable the Python API as well install
+
+```
+mamba install tblite-python
 ```
 
 It is possible to list all of the versions available on your platform with:
 
 ```
-conda search tblite --channel conda-forge
+mamba repoquery search tblite --channel conda-forge
 ```
 
 Now you are ready to use ``tblite``.
@@ -176,7 +184,35 @@ For more details on all available subcommands checkout the [``tblite(1)``](man/t
 
 ## Documentation
 
-User and developer documentation is available [here](https://tblite.readthedocs.io).
+The user documentation is available at [readthedocs](https://tblite.readthedocs.io).
+Additionally, the [doxygen](https://doxygen.nl) generated API documentation is available [here](https://tblite.github.io/tblite).
+
+To build the user documentation locally we use sphinx, install the dependencies you can use the *mamba* package manager
+
+```
+mamba create -n sphinx --file doc/requirements.txt
+mamba activate sphinx
+```
+
+The documentation is build with
+
+```
+sphinx-build doc _doc
+```
+
+You can inspect the generated documentation by starting a webserver
+
+```
+python3 -m http.server -d _doc
+```
+
+And open the down URL in a browser.
+
+
+## Contributing
+
+This is a volunteer open source projects and contributions are always welcome.
+Please, take a moment to read the [contributing guidelines](CONTRIBUTING.md) on how to get involved in tblite.
 
 
 ## License
