@@ -23,6 +23,7 @@ module tblite_cli
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff
    use tblite_features, only : get_tblite_feature
+   use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & solvent_data, get_solvent_data
    use tblite_version, only : get_tblite_version
@@ -37,25 +38,46 @@ module tblite_cli
       logical :: color = .false.
    end type driver_config
 
+   !> Configuration for evaluating tight binding model on input structure
    type, extends(driver_config) :: run_config
+      !> Geometry input file
       character(len=:), allocatable :: input
+      !> Format for reading the input file
       integer, allocatable :: input_format
+      !> Evaluate gradient
       logical :: grad = .false.
+      !> File for output of gradient information
       character(len=:), allocatable :: grad_output
+      !> Verbosity of calculation
       integer :: verbosity = 2
+      !> Total charge of the system
       integer, allocatable :: charge
+      !> Number of unpaired electrons
       integer, allocatable :: spin
+      !> Parametrization of the xTB Hamiltonian to use
       character(len=:), allocatable :: method
+      !> Parametrization file to use for calculation
       character(len=:), allocatable :: param
+      !> Guess for SCF calculation
       character(len=:), allocatable :: guess
+      !> Create JSON dump
       logical :: json = .false.
+      !> File for output of JSON dump
       character(len=:), allocatable :: json_output
+      !> Input for solvation model
       type(solvation_input), allocatable :: solvation
+      !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
+      !> Maximum number of iterations for SCF
       integer, allocatable :: max_iter
+      !> Electronic temperature
       real(wp) :: etemp = 300.0_wp
+      !> Electric field
       real(wp), allocatable :: efield(:)
+      !> Spin polarization
       logical :: spin_polarized = .false.
+      !> Algorithm for electronic solver
+      integer :: solver = lapack_algorithm%gvd
    end type run_config
 
    type, extends(driver_config) :: param_config
@@ -339,6 +361,24 @@ subroutine get_run_arguments(config, list, start, error)
          allocate(config%max_iter)
          call get_argument_as_int(arg, config%max_iter, error)
          if (allocated(error)) exit
+
+      case("--solver")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for solver")
+            exit
+         end if
+
+         select case(arg)
+         case default
+            call fatal_error(error, "Unknown electronic solver '"//arg//"' specified")
+            exit
+         case("gvd")
+            config%solver = lapack_algorithm%gvd
+         case("gvr")
+            config%solver = lapack_algorithm%gvr
+         end select
 
       case("--etemp")
          iarg = iarg + 1

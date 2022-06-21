@@ -79,6 +79,10 @@ Supported geometry input formats are:
      Number of iterations for converging the electronic structure.
      Default: 250.
 
+*--solver* _name_::
+     Electronic solver for SCF, possible options:
+     _gvd_ (default), and _gvr_
+
 *--grad* [_file_]::
      Evaluates analytical gradient,
      results are stored in _file_ (default: tblite.txt)

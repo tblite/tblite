@@ -73,11 +73,9 @@ subroutine wrap_spotrf(amat, info, uplo)
    character(len=1), intent(in), optional :: uplo
    integer :: m, n, lda
    character(len=1) :: ula
-   if (present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   end if
+
+   ula = 'u'
+   if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    n = size(amat, 2)
    call lapack_potrf(ula, n, amat, lda, info)
@@ -89,11 +87,9 @@ subroutine wrap_dpotrf(amat, info, uplo)
    character(len=1), intent(in), optional :: uplo
    integer :: m, n, lda
    character(len=1) :: ula
-   if (present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   end if
+
+   ula = 'u'
+   if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    n = size(amat, 2)
    call lapack_potrf(ula, n, amat, lda, info)

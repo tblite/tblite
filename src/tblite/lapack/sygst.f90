@@ -82,16 +82,11 @@ pure subroutine wrap_ssygst(amat, bmat, info, itype, uplo)
    integer, intent(out) :: info
    character(len=1) :: ula
    integer :: ita, n, lda, ldb
-   if(present(itype)) then
-      ita = itype
-   else
-      ita = 1
-   endif
-   if(present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   endif
+
+   ita = 1
+   if(present(itype)) ita = itype
+   ula = 'u'
+   if(present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    n = size(amat, 2)
@@ -106,16 +101,11 @@ pure subroutine wrap_dsygst(amat, bmat, info, itype, uplo)
    integer, intent(out) :: info
    character(len=1) :: ula
    integer :: ita, n, lda, ldb
-   if(present(itype)) then
-      ita = itype
-   else
-      ita = 1
-   endif
-   if(present(uplo)) then
-      ula = uplo
-   else
-      ula = 'u'
-   endif
+
+   ita = 1
+   if(present(itype)) ita = itype
+   ula = 'u'
+   if(present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    n = size(amat, 2)

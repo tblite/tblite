@@ -21,6 +21,7 @@ module test_gfn1_xtb
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
+   use tblite_lapack_solver, only : lapack_solver, lapack_algorithm
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -395,6 +396,7 @@ subroutine test_g_mb02(error)
       & 5.0312912247987E-03_wp,   1.9370384553649E-02_wp,  -2.2296588485063E-02_wp],&
       & shape(ref))
 
+   ctx%solver = lapack_solver(lapack_algorithm%gvr)
    call get_structure(mol, "MB16-43", "02")
 
    allocate(gradient(3, mol%nat), sigma(3, 3))

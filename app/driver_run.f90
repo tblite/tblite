@@ -27,6 +27,7 @@ module tblite_driver_run
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_lapack_solver, only : lapack_solver
    use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_results, only : results_type
@@ -73,6 +74,7 @@ subroutine run_main(config, error)
    type(results_type) :: results
 
    ctx%terminal = context_terminal(config%color)
+   ctx%solver = lapack_solver(config%solver)
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then

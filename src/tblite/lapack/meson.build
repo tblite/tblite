@@ -18,5 +18,9 @@ srcs += files(
   'getrf.f90',
   'getri.f90',
   'getrs.f90',
+  'potrf.f90',
+  'solver.f90',
+  'sygst.f90',
   'sygvd.f90',
+  'sygvr.f90',
 )

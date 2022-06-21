@@ -29,7 +29,7 @@ module tblite_xtb_singlepoint
    use tblite_container, only : container_cache
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
-   use tblite_lapack_sygvd, only : sygvd_solver
+   use tblite_context_solver, only : solver_type
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
@@ -103,7 +103,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(error_type), allocatable :: error
 
    type(scf_info) :: info
-   type(sygvd_solver) :: sygvd
+   class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
    integer :: iscf, spin
 
@@ -118,7 +118,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    econv = 1.e-6_wp*accuracy
    pconv = 2.e-5_wp*accuracy
 
-   sygvd = sygvd_solver()
+   call ctx%new_solver(solver, calc%bas%nao)
 
    grad = present(gradient) .and. present(sigma)
 
@@ -232,7 +232,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
-      call next_scf(iscf, mol, calc%bas, wfn, sygvd, mixer, info, &
+      call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
       econverged = abs(sum(eelec) - elast) < econv
@@ -269,6 +269,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
+   call ctx%delete_solver(solver)
    if (ctx%failed()) return
 
    if (grad) then
