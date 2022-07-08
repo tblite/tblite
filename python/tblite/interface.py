@@ -455,9 +455,15 @@ class Calculator(Structure):
          max-iter          Maximum number of SCC iterations     250
          mixer-damping     Parameter for the SCC mixer          0.4
          save-integrals    Keep integral matrices in results    0 (False)
-         temperature       Electronic temperature for filling   300.0
+         temperature       Electronic temperature for filling   9.500e-4
          verbosity         Set verbosity of printout            1
         ================= ==================================== =================
+
+        .. note::
+
+           The electronic temperature is given in Hartree, rather than Kelvin.
+           The conversion factor from Kelvin to Hartree is the Boltzmann constant
+           in Hartree/Kelvin (3.166808578545117e-6).
 
         Raises
         ------
