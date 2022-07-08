@@ -174,7 +174,7 @@ subroutine compute_bornr(nat, xyz, list, vdwr, rho, svdw, c1, obc, &
 
       br = br*s2
 
-      arg2 = br*(obc(3)*br-obc(3))
+      arg2 = br*(obc(3)*br-obc(2))
       arg = br*(obc(1)+arg2)
       arg2 = 2.0_wp*arg2+obc(1)+obc(3)*br*br
 
