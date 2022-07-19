@@ -19,7 +19,7 @@
 
 !> Implementation of a modified Broyden mixing
 module tblite_scf_broyden
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type, fatal_error
    use tblite_lapack, only : getrf, getrs
    implicit none
    private
@@ -131,14 +131,21 @@ subroutine diff_1d(self, qvec)
    self%idif = self%idif + size(qvec)
 end subroutine diff_1d
 
-subroutine next(self)
+subroutine next(self, error)
    class(broyden_mixer), intent(inout) :: self
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: info
+
    self%iset = 0
    self%idif = 0
    self%iget = 0
    self%iter = self%iter + 1
    call broyden(self%ndim, self%q_in, self%qlast_in, self%dq, self%dqlast, &
-      & self%iter, self%memory, self%damp, self%omega, self%df, self%u, self%a)
+      & self%iter, self%memory, self%damp, self%omega, self%df, self%u, self%a, info)
+   if (info /= 0) then
+      call fatal_error(error, "Broyden mixing failed to obtain next iteration")
+   end if
 end subroutine next
 
 subroutine get_2d(self, qvec)
@@ -164,7 +171,7 @@ subroutine get_1d(self, qvec)
    self%iget = self%iget + size(qvec)
 end subroutine get_1d
 
-subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a)
+subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a, info)
    integer, intent(in) :: n
    integer, intent(in) :: iter
    integer, intent(in) :: memory
@@ -177,11 +184,13 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    real(wp), intent(inout) :: a(memory, memory)
    real(wp), intent(inout) :: omega(memory)
    real(wp), intent(in) :: alpha
+   integer, intent(out) :: info
 
    real(wp), allocatable :: beta(:,:), c(:, :)
    integer :: i, it1
    real(wp) :: inv, omega0, minw, maxw, wfac
 
+   info = 0
    it1 = iter - 1
 
    ! set parameters
@@ -233,7 +242,8 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    end do
 
    ! build beta^-1
-   call lineq(beta, c)
+   call lineq(beta, c, info)
+   if (info /= 0) return
 
    ! Build |u>
    u(:, it1) = alpha * df(:, it1) + inv * (q-qlast) !!!
@@ -251,11 +261,11 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
 
 end subroutine broyden
 
-subroutine lineq(a, c)
+subroutine lineq(a, c, info)
    real(wp), intent(inout) :: a(:, :)
    real(wp), intent(inout) :: c(:, :)
+   integer, intent(out) :: info
 
-   integer info
    integer, allocatable :: ipiv(:)
 
    allocate(ipiv(size(a, 1)))
@@ -265,10 +275,6 @@ subroutine lineq(a, c)
       ! generate inverse of a matrix given its LU decomposition
       call getrs(a, c, ipiv, info, trans="t")
    endif
-   if (info /= 0)then
-      error stop "Error in Broyden matrix inversion!"
-   endif
-
 end subroutine lineq
 
 pure function get_error(self) result(error)
