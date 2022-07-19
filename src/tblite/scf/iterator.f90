@@ -87,7 +87,8 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    real(wp) :: ts
 
    if (iscf > 0) then
-      call mixer%next
+      call mixer%next(error)
+      if (allocated(error)) return
       call get_mixer(mixer, bas, wfn, info)
    end if
 
