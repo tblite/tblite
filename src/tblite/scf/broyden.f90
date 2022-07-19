@@ -190,6 +190,7 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    integer :: i, it1
    real(wp) :: inv, omega0, minw, maxw, wfac
 
+   info = 0
    it1 = iter - 1
 
    ! set parameters
