@@ -22,14 +22,14 @@
 
 !> Proxy module for rexports from SCF related modules
 module tblite_scf
-   use tblite_scf_broyden, only : broyden_mixer, new_broyden
+   use tblite_scf_mixer, only : mixer_type, new_mixer
    use tblite_scf_info, only : scf_info
    use tblite_scf_iterator, only : next_scf, get_mixer_dimension
    use tblite_scf_potential, only : potential_type, new_potential
    implicit none
    private
 
-   public :: broyden_mixer, new_broyden, scf_info, next_scf, get_mixer_dimension, &
+   public :: mixer_type, new_mixer, scf_info, next_scf, get_mixer_dimension, &
       & potential_type, new_potential
 
 end module tblite_scf

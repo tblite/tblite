@@ -14,19 +14,20 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/scf/broyden.f90
+!> @file tblite/scf/mixer/broyden.f90
 !> Provides an electronic mixer implementation
 
 !> Implementation of a modified Broyden mixing
-module tblite_scf_broyden
+module tblite_scf_mixer_broyden
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_lapack, only : getrf, getrs
+   use tblite_scf_mixer_type, only : mixer_type
    implicit none
    private
 
    public :: new_broyden, broyden
 
-   type, public :: broyden_mixer
+   type, public, extends(mixer_type) :: broyden_mixer
       integer :: ndim
       integer :: memory
       integer :: iter
@@ -44,18 +45,9 @@ module tblite_scf_broyden
       real(wp), allocatable :: q_in(:)
    contains
       procedure :: next
-      generic :: set => set_1d, set_2d, set_3d
       procedure :: set_1d
-      procedure :: set_2d
-      procedure :: set_3d
-      generic :: diff => diff_1d, diff_2d, diff_3d
       procedure :: diff_1d
-      procedure :: diff_2d
-      procedure :: diff_3d
-      generic :: get => get_1d, get_2d, get_3d
       procedure :: get_1d
-      procedure :: get_2d
-      procedure :: get_3d
       procedure :: get_error
    end type broyden_mixer
 
@@ -84,44 +76,12 @@ subroutine new_broyden(self, memory, ndim, damp)
    allocate(self%q_in(ndim))
 end subroutine new_broyden
 
-subroutine set_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%set(qptr)
-end subroutine set_2d
-
-subroutine set_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%set(qptr)
-end subroutine set_3d
-
 subroutine set_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
    real(wp), intent(in) :: qvec(:)
    self%q_in(self%iset+1:self%iset+size(qvec)) = qvec
    self%iset = self%iset + size(qvec)
 end subroutine set_1d
-
-subroutine diff_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%diff(qptr)
-end subroutine diff_2d
-
-subroutine diff_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%diff(qptr)
-end subroutine diff_3d
 
 subroutine diff_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
@@ -147,22 +107,6 @@ subroutine next(self, error)
       call fatal_error(error, "Broyden mixing failed to obtain next iteration")
    end if
 end subroutine next
-
-subroutine get_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(out), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%get(qptr)
-end subroutine get_2d
-
-subroutine get_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(out), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%get(qptr)
-end subroutine get_3d
 
 subroutine get_1d(self, qvec)
    class(broyden_mixer), intent(inout) :: self
@@ -288,4 +232,4 @@ pure function get_error(self) result(error)
    error = sqrt(error)
 end function get_error
 
-end module tblite_scf_broyden
+end module tblite_scf_mixer_broyden
