@@ -25,7 +25,7 @@ module tblite_scf_mixer_broyden
    implicit none
    private
 
-   public :: new_broyden, broyden
+   public :: new_broyden
 
 
    !> Configuration for the Broyden mixer
@@ -54,10 +54,15 @@ module tblite_scf_mixer_broyden
       real(wp), allocatable :: omega(:)
       real(wp), allocatable :: q_in(:)
    contains
+      !> Apply mixing to the density
       procedure :: next
+      !> Set new density from 1D array
       procedure :: set_1d
+      !> Set difference between new and old density from 1D array
       procedure :: diff_1d
+      !> Get density as 1D array
       procedure :: get_1d
+      !> Get error metric from mixing
       procedure :: get_error
    end type broyden_mixer
 
@@ -89,23 +94,32 @@ subroutine new_broyden(self, ndim, input)
    allocate(self%q_in(ndim))
 end subroutine new_broyden
 
+!> Set new density from 1D array
 subroutine set_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(in) :: qvec(:)
    self%q_in(self%iset+1:self%iset+size(qvec)) = qvec
    self%iset = self%iset + size(qvec)
 end subroutine set_1d
 
+!> Set difference between new and old density from 1D array
 subroutine diff_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(in) :: qvec(:)
    self%dq(self%idif+1:self%idif+size(qvec)) = qvec &
       & - self%q_in(self%idif+1:self%idif+size(qvec))
    self%idif = self%idif + size(qvec)
 end subroutine diff_1d
 
+!> Apply mixing to the density
 subroutine next(self, error)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer :: info
@@ -121,8 +135,11 @@ subroutine next(self, error)
    end if
 end subroutine next
 
+!> Get density as 1D array
 subroutine get_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(out) :: qvec(:)
    qvec(:) = self%q_in(self%iget+1:self%iget+size(qvec))
    self%iget = self%iget + size(qvec)
