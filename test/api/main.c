@@ -215,6 +215,13 @@ int test_uninitialized_result(void)
     if (!tblite_check_error(error))
         goto unexpected;
 
+    double mbo[20];
+    tblite_get_result_bond_orders(error, res, mbo);
+    if (!tblite_check_error(error))
+        goto unexpected;
+
+    show_error(error);
+
     show_error(error);
 
     double dipole[3];

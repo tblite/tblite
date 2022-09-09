@@ -32,6 +32,8 @@ module tblite_results
       real(wp), allocatable :: overlap(:, :)
       !> (Core) Hamiltonian integrals
       real(wp), allocatable :: hamiltonian(:, :)
+      !> Wiberg/Mayer bond orders
+      real(wp), allocatable :: bond_orders(:, :, :)
    end type results_type
 
 end module tblite_results
