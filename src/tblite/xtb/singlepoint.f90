@@ -38,7 +38,8 @@ module tblite_xtb_singlepoint
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation, magnet_to_updown, updown_to_magnet
+      & get_alpha_beta_occupation, get_mayer_bond_orders, &
+      & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
@@ -316,6 +317,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
+   if (present(results)) then
+      allocate(results%bond_orders(mol%nat, mol%nat, wfn%nspin))
+      call get_mayer_bond_orders(calc%bas, ints%overlap, wfn%density, results%bond_orders)
+   end if
+
    if (calc%save_integrals .and. present(results)) then
       call move_alloc(ints%overlap, results%overlap)
       call move_alloc(ints%hamiltonian, results%hamiltonian)
@@ -347,6 +353,5 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
 end subroutine xtb_singlepoint
-
 
 end module tblite_xtb_singlepoint

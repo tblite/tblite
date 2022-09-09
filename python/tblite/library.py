@@ -246,6 +246,17 @@ def get_charges(res):
     return _charges
 
 
+def get_bond_orders(res):
+    """Retrieve Wiberg / Mayer bond orders from result container"""
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    _bond_orders = np.zeros((_natoms[0], _natoms[0]))
+    error_check(lib.tblite_get_result_bond_orders)(
+        res, ffi.cast("double*", _bond_orders.ctypes.data)
+    )
+    return _bond_orders
+
+
 def get_dipole(res):
     """Retrieve dipole moment from result container"""
     _dipole = np.zeros((3,))

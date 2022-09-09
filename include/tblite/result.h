@@ -134,6 +134,16 @@ tblite_get_result_charges(tblite_error error,
                           tblite_result res,
                           double* charges);
 
+/// Retrieve bond orders from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param mbo: Bond orders, shape [nat][nat]
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_bond_orders(tblite_error error,
+                              tblite_result res,
+                              double* mbo);
+
 /// Retrieve dipole moment from result container (order x, y, z)
 ///
 /// @param error: Handle for error messages
