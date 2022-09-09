@@ -33,7 +33,7 @@ module tblite_xtb_singlepoint
    use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
    use tblite_results, only : results_type
-   use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
+   use tblite_scf, only : mixer_type, new_mixer, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
@@ -98,7 +98,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
    type(container_cache) :: ccache, dcache, icache, hcache, rcache
-   type(broyden_mixer) :: mixer
+   class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
 
@@ -223,7 +223,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_broyden(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
+   call new_mixer(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
       & calc%mixer_damping)
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
