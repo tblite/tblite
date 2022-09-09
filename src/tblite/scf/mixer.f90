@@ -23,16 +23,25 @@
 !> Provides an electronic mixer implementation
 module tblite_scf_mixer
    use mctc_env, only : wp
-   use tblite_scf_mixer_broyden, only : broyden_mixer, new_broyden
+   use tblite_scf_mixer_broyden, only : broyden_mixer, broyden_input, new_broyden
    use tblite_scf_mixer_type, only : mixer_type
    implicit none
    private
 
    public :: mixer_type, new_mixer
 
+
+   !> Input for selecting electronic mixer
+   type, public :: mixer_input
+      !> Input for Broyden mixer
+      type(broyden_input), allocatable :: broyden
+   end type mixer_input
+
 contains
 
+!> Create a new instance of the mixer
 subroutine new_mixer(self, memory, ndim, damp)
+   !> Instance of the mixer on exit
    class(mixer_type), allocatable, intent(out) :: self
    integer, intent(in) :: memory
    integer, intent(in) :: ndim
@@ -41,7 +50,7 @@ subroutine new_mixer(self, memory, ndim, damp)
    block
       type(broyden_mixer), allocatable :: mixer
       allocate(mixer)
-      call new_broyden(mixer, memory, ndim, damp)
+      call new_broyden(mixer, ndim, broyden_input(memory, damp))
       call move_alloc(mixer, self)
    end block
 end subroutine new_mixer

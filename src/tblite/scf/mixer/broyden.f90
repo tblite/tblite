@@ -27,6 +27,16 @@ module tblite_scf_mixer_broyden
 
    public :: new_broyden, broyden
 
+
+   !> Configuration for the Broyden mixer
+   type, public :: broyden_input
+      !> Number of steps to keep in memory
+      integer :: memory
+      !> Damping parameter
+      real(wp) :: damp
+   end type broyden_input
+
+   !> Electronic mixer using modified Broyden scheme
    type, public, extends(mixer_type) :: broyden_mixer
       integer :: ndim
       integer :: memory
@@ -53,26 +63,29 @@ module tblite_scf_mixer_broyden
 
 contains
 
-subroutine new_broyden(self, memory, ndim, damp)
+!> Create new instance of electronic mixer
+subroutine new_broyden(self, ndim, input)
+   !> Instance of the mixer
    type(broyden_mixer), intent(out) :: self
-   integer, intent(in) :: memory
+   !> Number of variables to consider
    integer, intent(in) :: ndim
-   real(wp), intent(in) :: damp
+   !> Configuration of the Broyden mixer
+   type(broyden_input), intent(in) :: input
 
    self%ndim = ndim
-   self%memory = memory
+   self%memory = input%memory
    self%iter = 0
    self%iset = 0
    self%idif = 0
    self%iget = 0
-   self%damp = damp
-   allocate(self%df(ndim, memory))
-   allocate(self%u(ndim, memory))
-   allocate(self%a(memory, memory))
+   self%damp = input%damp
+   allocate(self%df(ndim, input%memory))
+   allocate(self%u(ndim, input%memory))
+   allocate(self%a(input%memory, input%memory))
    allocate(self%dq(ndim))
    allocate(self%dqlast(ndim))
    allocate(self%qlast_in(ndim))
-   allocate(self%omega(memory))
+   allocate(self%omega(input%memory))
    allocate(self%q_in(ndim))
 end subroutine new_broyden
 
@@ -131,11 +144,12 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    integer, intent(out) :: info
 
    real(wp), allocatable :: beta(:,:), c(:, :)
-   integer :: i, it1
+   integer :: i, j, it1, itn
    real(wp) :: inv, omega0, minw, maxw, wfac
 
    info = 0
-   it1 = iter - 1
+   itn = iter - 1
+   it1 = mod(itn - 1, memory) + 1
 
    ! set parameters
    ! alpha = 0.25d0
@@ -153,7 +167,7 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
       return
    end if
 
-   allocate(beta(it1,it1),c(it1, 1))
+   allocate(beta(min(memory, itn), min(memory, itn)), c(min(memory, itn), 1))
 
    ! create omega (weight) for the current iteration
    omega(it1) = sqrt(dot_product(dq, dq))
@@ -173,14 +187,16 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    df(:, it1) = inv*df(:, it1)
 
    ! Next: build a, beta, c, gamma
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       a(i, it1) = dot_product(df(:, i), df(:, it1))
       a(it1, i) = a(i, it1)
       c(i, 1) = omega(i) * dot_product(df(:, i), dq)
    end do
 
    ! Build beta from a and omega
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       beta(:it1, i) = omega(:it1) * omega(i) * a(:it1, i)
       beta(i, i) = beta(i, i) + omega0*omega0
    end do
@@ -199,7 +215,8 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    ! calculate new charges
    q(:) = q + alpha * dq
 
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       q(:) = q - omega(i) * c(i, 1) * u(:, i)
    end do
 
