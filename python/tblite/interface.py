@@ -218,6 +218,7 @@ class Result:
         "gradient": library.get_gradient,
         "virial": library.get_virial,
         "charges": library.get_charges,
+        "bond-orders": library.get_bond_orders,
         "dipole": library.get_dipole,
         "quadrupole": library.get_quadrupole,
         "orbital-energies": library.get_orbital_energies,
