@@ -13,6 +13,7 @@ tblite-run - Run tight-binding calculations
 
 Evaluates the tight-binding model on the provided input structure.
 Periodic calculations are performed automatically for periodic input formats.
+Reads .CHRG and .UHF files if present in the same directory as the input.
 
 Supported geometry input formats are:
 
