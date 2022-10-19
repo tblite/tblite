@@ -56,6 +56,7 @@ class TBLite(ase.calculators.calculator.Calculator):
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
      cache_api                True              Reuse generate API objects (recommended)
+     verbosity                1                 Set verbosity of printout
     ======================== ================= ============================================
 
     Example
@@ -109,6 +110,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         "max_iterations": 250,
         "electronic_temperature": 300.0,
         "cache_api": True,
+        "verbosity": 1,
     }
 
     _res = None
