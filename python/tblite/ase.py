@@ -232,6 +232,7 @@ class TBLite(ase.calculators.calculator.Calculator):
                 "temperature", self.parameters.electronic_temperature * kB / Hartree
             )
             calc.set("max-iter", self.parameters.max_iterations)
+            calc.set("verbosity", self.parameters.verbosity)
 
         except RuntimeError:
             raise ase.calculators.calculator.InputError(
