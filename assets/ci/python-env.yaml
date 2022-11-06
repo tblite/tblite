@@ -1,0 +1,17 @@
+name: python
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - python-build
+  - pkgconfig
+  - pytest
+  - pytest-cov
+  - coverage
+  - cffi
+  - numpy
+  - ase
+  - qcelemental
+  - matplotlib-base
+  - meson
