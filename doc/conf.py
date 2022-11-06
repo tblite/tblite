@@ -25,7 +25,7 @@ project = "tblite"
 author = "Sebastian Ehlert"
 copyright = f"2021-2022, {author}"
 
-version = "0.2.1"
+version = "0.3.0"
 release = version
 
 
