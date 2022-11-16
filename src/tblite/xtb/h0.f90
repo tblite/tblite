@@ -412,7 +412,6 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                      ij = jao + nao*(iao-1)
                      do spin = 1, nspin
                         if (spin.EQ.1) then
-                          print *, "n"
                           pij = pmat(jj+jao, ii+iao, spin)
                           hpij = pij * hij * shpoly
                           sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin) &
@@ -428,14 +427,11 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                           dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
                           dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
                         else
-                          print *, "m"
                           pij = pmat(jj+jao, ii+iao, spin)
                           sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
-                          dG(:) = dG + sval * dstmp(:, ij) 
+                          dG(:) = dG + sval * dstmp(:, ij)  
 
-                          dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
-                          dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
                         end if
                      end do
                   end do
@@ -464,9 +460,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
          dhdcni = dsedcn(is+ish)
          dcni = 0.0_wp
          do iao = 1, msao(bas%cgto(ish, izp)%ang)
-            do spin = 1, nspin
-               dcni = dcni + dhdcni * pmat(ii+iao, ii+iao, spin)
-            end do
+            dcni = dcni + dhdcni * pmat(ii+iao, ii+iao, 1)
          end do
          dEdcn(iat) = dEdcn(iat) + dcni
       end do
