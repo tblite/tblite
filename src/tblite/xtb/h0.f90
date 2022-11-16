@@ -411,8 +411,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
                      do spin = 1, nspin
-                        if (spin.EQ.1) then
-                          pij = pmat(jj+jao, ii+iao, spin)
+                        pij = pmat(jj+jao, ii+iao, spin)
+                        if (spin.eq.1) then
                           hpij = pij * hij * shpoly
                           sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin) &
                              - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
@@ -427,7 +427,6 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                           dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
                           dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
                         else
-                          pij = pmat(jj+jao, ii+iao, spin)
                           sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
                           dG(:) = dG + sval * dstmp(:, ij)  
