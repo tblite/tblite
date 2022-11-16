@@ -411,20 +411,32 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
                      do spin = 1, nspin
-                        pij = pmat(jj+jao, ii+iao, spin)
-                        hpij = pij * hij * shpoly
-                        sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin) &
-                           - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
+                        if (spin.EQ.1) then
+                          print *, "n"
+                          pij = pmat(jj+jao, ii+iao, spin)
+                          hpij = pij * hij * shpoly
+                          sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin) &
+                             - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
-                        dG(:) = dG + sval * dstmp(:, ij) &
-                           + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
-                           - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat, spin)) &
-                           - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat, spin)) &
-                           - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, spin)) &
-                           - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat, spin))
+                          dG(:) = dG + sval * dstmp(:, ij) &
+                             + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
+                             - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat, spin)) &
+                             - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat, spin)) &
+                             - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, spin)) &
+                             - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat, spin))
 
-                        dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
-                        dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                          dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                          dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                        else
+                          print *, "m"
+                          pij = pmat(jj+jao, ii+iao, spin)
+                          sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
+
+                          dG(:) = dG + sval * dstmp(:, ij) 
+
+                          dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                          dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, spin) * stmp(ij)
+                        end if
                      end do
                   end do
                end do
