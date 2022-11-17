@@ -416,9 +416,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
                         dG(:) = dG + sval * dstmp(:, ij)  
                      end do
-                     pij = pmat(jj+jao, ii+iao, spin)
+                     pij = pmat(jj+jao, ii+iao, 1)
                      hpij = pij * hij * shpoly
-                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao, spin)
+                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao, 1)
 
                      dG(:) = dG + sval * dstmp(:, ij) &
                         + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
