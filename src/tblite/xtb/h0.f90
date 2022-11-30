@@ -370,8 +370,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
    !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list, nspin) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, spin, &
-   !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, shpoly, &
-   !$omp& dshpoly, dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img)
+   !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, &
+   !$omp& dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img, &
+   !$omp& hs, shpolyi, shpolyj, shpoly, dshpoly, dsv)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
