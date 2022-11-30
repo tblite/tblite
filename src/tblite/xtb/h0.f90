@@ -353,7 +353,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dshpoly, dG(3), hscale
+   real(wp) :: rr, r2, vec(3), cutoff2, hij, dG(3), hscale, hs
+   real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
    real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)
    real(wp), allocatable :: dstmp(:, :), ddtmpi(:, :, :), dqtmpi(:, :, :)
@@ -391,17 +392,20 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                call multipole_grad_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                   & r2, vec, bas%intcut, stmp, dtmp, qtmp, dstmp, ddtmpj, dqtmpj, &
                   & ddtmpi, dqtmpi)
-
-               shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                  & * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
-               dshpoly = ((1.0_wp + h0%shpoly(ish, izp)*rr)*h0%shpoly(jsh, jzp)*rr &
-                  & + (1.0_wp + h0%shpoly(jsh, jzp)*rr)*h0%shpoly(ish, izp)*rr) &
-                  & * 0.5_wp / r2
+               
+               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
+               shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr
+               shpoly = shpolyi * shpolyj
+               dshpoly = (shpolyi * h0%shpoly(jsh, jzp) + shpolyj * &
+                  & h0%shpoly(ish, izp)) * 0.5_wp * rr / r2
+               dsv(:) = dshpoly / shpoly * vec
 
                hscale = h0%hscale(jsh, ish, jzp, izp)
-               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hscale
-               dhdcni = dsedcn(is+ish) * shpoly * hscale
-               dhdcnj = dsedcn(js+jsh) * shpoly * hscale
+               hs = hscale * shpoly
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs 
+
+               dhdcni = dsedcn(is+ish) * hs
+               dhdcnj = dsedcn(js+jsh) * hs
 
                dG(:) = 0.0_wp
                dcni = 0.0_wp
@@ -417,11 +421,11 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                         dG(:) = dG + sval * dstmp(:, ij)  
                      end do
                      pij = pmat(jj+jao, ii+iao, 1)
-                     hpij = pij * hij * shpoly
+                     hpij = pij * hij 
                      sval = 2*hpij - 2*xmat(jj+jao, ii+iao, 1)
 
                      dG(:) = dG + sval * dstmp(:, ij) &
-                        + 2*hpij*stmp(ij) * dshpoly / shpoly * vec &
+                        + 2*hpij*stmp(ij) * dsv &
                         - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat, 1)) &
                         - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat, 1)) &
                         - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, 1)) &
