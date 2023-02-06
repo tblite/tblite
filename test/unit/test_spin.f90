@@ -97,13 +97,13 @@ subroutine test_e_p10(error)
    end block
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
-   
+
    call check(error, energy, ref1, thr=thr)
    if (allocated(error)) return
 
    call calc%pop(cont)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
-   
+
    call check(error, energy, ref0, thr=thr)
 
 end subroutine test_e_p10
@@ -144,12 +144,12 @@ subroutine test_e_crcp2(error)
 
    call check(error, energy, ref1, thr=thr)
    if (allocated(error)) return
-    
+
    mol%uhf = 0
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-   
+
    call check(error, energy, ref0, thr=thr)
    if (allocated(error)) return
 
@@ -157,7 +157,6 @@ subroutine test_e_crcp2(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
 
-   
    call check(error, energy, ref0, thr=thr)
 
 end subroutine test_e_crcp2
@@ -207,12 +206,10 @@ subroutine test_g_p10(error)
    end block
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-   
+
    call check(error, energy, eref, thr=thr)
    if (allocated(error)) return
- 
    call check(error, all(abs(gradient - gref) < thr))
-
 
 end subroutine test_g_p10
 
