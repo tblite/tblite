@@ -168,4 +168,3 @@ end function get_spin_constant_number
 
 
 end module tblite_data_spin
-
