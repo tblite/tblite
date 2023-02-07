@@ -24,7 +24,8 @@ module tblite_data_spin
    implicit none
    private
 
-   public :: get_spin_constant, read_spin_constants
+   public :: get_spin_constant
+
 
    !> Get spin constant for species
    interface get_spin_constant
@@ -35,7 +36,7 @@ module tblite_data_spin
    integer, parameter :: lidx(0:2, 0:2) = reshape(& ! ss sp sd  sp pp pd  sd pd dd
       & [1, 2, 4,  2, 3, 5,  4, 5, 6], shape(lidx))
 
-   real(wp) :: spin_constants(6, 86) = reshape([&  ! ss, sp, pp, sd, pd, dd
+   real(wp), parameter :: spin_constants(6, 86) = reshape([&  ! ss, sp, pp, sd, pd, dd
       -0.0716750_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
       -0.6146750_wp,-0.0335870_wp,-0.1258000_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
       -0.0177750_wp,-0.0139370_wp,-0.0180250_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
@@ -122,6 +123,7 @@ module tblite_data_spin
       -0.0137250_wp,-0.0096370_wp,-0.0108500_wp, 0.0000000_wp, 0.0000000_wp, 0.0000000_wp, &
       -0.0137750_wp,-0.0097370_wp,-0.0107250_wp,-0.0026250_wp,-0.0073620_wp,-0.0119250_wp, &
       -0.2544000_wp,-0.0504000_wp,-0.0806250_wp,-0.0010870_wp,-0.0110500_wp,-0.0351750_wp], &
+
       shape(spin_constants))
 
 contains
@@ -164,28 +166,6 @@ elemental function get_spin_constant_number(jang, iang, number) result(wll)
 
 end function get_spin_constant_number
 
-!> Read spin constants from external file
-subroutine read_spin_constants(filename)
-
-   !> Name of the inputfile
-   character(len=*),intent(in) :: filename
-   integer :: input 
-   integer :: i
-
-   open(newunit=input, file=filename, status='old')
-   do i=1,86
-     read(input, *) spin_constants(1,i), spin_constants(2,i), spin_constants(3,i), spin_constants(4,i), & 
-        & spin_constants(5,i), spin_constants(6,i)
-   end do
-    
-
-   close(input)
-
-   !> Read from spin_param.txt and modify spin_constants accordingly 
-
-end subroutine read_spin_constants
-
-
-
 
 end module tblite_data_spin
+
