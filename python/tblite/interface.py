@@ -258,7 +258,17 @@ class Result:
          orbital-energies       norb        Hartree
          orbital-occupations    norb        e
          orbital-coefficients   norb        unitless
+         overlap-matrix         norb, norb  unitless
+         hamiltonian-matrix     norb, norb  Hartree
+         density-matrix         norb, norb  e
         ====================== =========== ==============
+
+        Notes
+        -----
+        The Hamiltonian matrix is the core Hamiltonian rather than the
+        converged full Hamiltonian after selfconsistency. To reconstruct it
+        transform the orbital energies from the MO to the AO basis using
+        the orbital coefficients.
 
         Raises
         ------
