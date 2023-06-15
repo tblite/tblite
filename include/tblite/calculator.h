@@ -29,7 +29,6 @@
 #pragma once
 
 #include "tblite/macros.h"
-#include "tblite/container.h"
 #include "tblite/context.h"
 #include "tblite/structure.h"
 #include "tblite/result.h"
@@ -149,18 +148,6 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_save_integrals(tblite_context ctx,
                                      tblite_calculator calc,
                                      int save_integrals);
-
-/// Add container to calculator object.
-///
-/// Note: Ownership is transferred and container handle is destroyed after function call
-///
-/// @param ctx: Context handle
-/// @param calc: Calculator instance
-/// @param cont: Interaction container
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_calculator_push_back(tblite_context ctx,
-                            tblite_calculator calc,
-                            tblite_container* cont);
 
 /// Query calculator for the number of shells
 ///

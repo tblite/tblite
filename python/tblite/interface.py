@@ -119,8 +119,10 @@ class Structure:
 
     def update(
         self,
-        positions: np.ndarray,
+        positions: Optional[np.ndarray] = None,
         lattice: Optional[np.ndarray] = None,
+        charge: Optional[float] = None,
+        uhf: Optional[int] = None,
     ) -> None:
         """Update coordinates and lattice parameters, both provided in
         atomic units (Bohr).
@@ -136,6 +138,16 @@ class Structure:
         ValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
+        if charge is not None:
+            _charge = _ref("double", charge)
+            library.update_structure_charge(self._mol, _charge)
+
+        if uhf is not None:
+            _uhf = _ref("int", uhf)
+            library.update_structure_uhf(self._mol, _uhf)
+
+        if positions is None:
+            return
 
         if 3 * len(self) != positions.size:
             raise ValueError("Dimension missmatch for positions")
@@ -428,6 +440,10 @@ class Calculator(Structure):
         "orbital-map": library.get_calculator_orbital_map,
         "shell-map": library.get_calculator_shell_map,
     }
+    _interaction = {
+        "electric-field": library.new_electric_field,
+        "spin-polarization": library.new_spin_polarization,
+    }
 
     def __init__(
         self,
@@ -487,6 +503,25 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         self._setter[attribute](self._ctx, self._calc, value)
+
+    def add(self, interaction, *args) -> None:
+        """
+        Add an interaction to the calculator instance. Supported interactions are
+
+        =================== =========================== ===================
+         name                description                 Arguments
+        =================== =========================== ===================
+         electric-field      Uniform electric field      Field vector (3,)
+         spin-polarization   Spin polarization           Scaling factor
+        =================== =========================== ===================
+        """
+
+        if interaction not in self._interaction:
+            raise ValueError(
+                f"Interaction '{interaction}' is not supported in this calculator"
+            )
+        cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
+        library.calculator_push_back(self._ctx, self._calc, cont)
 
     def get(self, attribute: str) -> Any:
         """
