@@ -70,6 +70,8 @@ module tblite_xtb_calculator
       type(halogen_correction), allocatable :: halogen
       !> London-dispersion interaction
       class(dispersion_type), allocatable :: dispersion
+      !> 3 body dispersion correction only needed for xtbml
+      class(dispersion_type), allocatable :: dispersion_3body
       !> Parameter for self-consistent iteration mixing
       real(wp) :: mixer_damping = mixer_damping_default
       !> Maximum number of self-consistent iteractions
@@ -78,6 +80,10 @@ module tblite_xtb_calculator
       logical :: save_integrals = .false.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
+      !> Compute xtbml features, 1 base version 2 print with multipole vectors
+      integer :: xtbml = 0
+      !> array of a values, for the extended xtbml features
+      real(wp), allocatable :: a_array(:)
    contains
       !> Get information about density dependent quantities used in the energy
       procedure :: variable_info

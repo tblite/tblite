@@ -37,7 +37,7 @@ module tblite_scf_iterator
    implicit none
    private
 
-   public :: next_scf, get_mixer_dimension
+   public :: next_scf, get_mixer_dimension,get_electronic_energy, reduce
 
 contains
 

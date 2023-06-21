@@ -133,6 +133,11 @@ subroutine run_main(config, error)
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
          call new_gfn2_calculator(calc, mol)
+         if (config%xtbml) then 
+            calc%xtbml = 1
+         elseif (config%xtbmlxyz) then
+            calc%xtbml = 2
+         endif
       case("gfn1")
          call new_gfn1_calculator(calc, mol)
       case("ipea1")

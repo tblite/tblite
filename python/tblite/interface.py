@@ -227,6 +227,9 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "xtbml" : library.get_xtbml,
+        "xtbml weights" : library.get_w_xtbml,
+        "xtbml labels" : library.get_xtbml_labels
     }
     _setter = {}
 
@@ -261,6 +264,9 @@ class Result:
          overlap-matrix         norb, norb  unitless
          hamiltonian-matrix     norb, norb  Hartree
          density-matrix         norb, norb  e
+         xtbml                  nfeat, nat  /
+         xtbml weights          nat         unitless
+         xtbml labels           nfeat       string
         ====================== =========== ==============
 
         Notes
@@ -422,6 +428,8 @@ class Calculator(Structure):
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
         "verbosity": library.set_calculator_verbosity,
+        "xtbml": library.set_calculator_xtbml,
+        "xtbml_a_array" : library.set_calculator_xtbml_a_array,
     }
     _getter = {
         "angular-momenta": library.get_calculator_angular_momenta,
@@ -468,6 +476,8 @@ class Calculator(Structure):
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
          verbosity         Set verbosity of printout            1
+         xtbml             Set flag to compute xtbml features   0
+         xtbml_a_array     Set steepness for logistic function  1.0
         ================= ==================================== =================
 
         .. note::

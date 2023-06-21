@@ -102,6 +102,8 @@ class TBLite(ase.calculators.calculator.Calculator):
         "charges",
         "dipole",
         "stress",
+        "xtbml",
+        "xtbml weights"
     ]
 
     default_parameters = {
@@ -111,6 +113,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
+        "xtbml":0,
     }
 
     _res = None
@@ -169,6 +172,15 @@ class TBLite(ase.calculators.calculator.Calculator):
 
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
+            
+            if "xtbml" in changed_parameters:
+                self._xtb.set("xtbml",self.parameters.xtbml)
+            
+            if "xtbml_a_array" in changed_parameters:
+                self._xtb.set("xtbml_a_array",self.parameters.xtbml_a_array)
+
+            if "charge" in changed_parameters:
+                self._xtb.set("charge",self.parameters.charge)
 
         return changed_parameters
 
@@ -217,8 +229,14 @@ class TBLite(ase.calculators.calculator.Calculator):
         try:
             _cell = self.atoms.cell
             _periodic = self.atoms.pbc
-            _charge = self.atoms.get_initial_charges().sum()
-            _uhf = int(self.atoms.get_initial_magnetic_moments().sum().round())
+            if hasattr(self.parameters,"charge"):
+                _charge = self.parameters.charge
+            else:
+                _charge = self.atoms.get_initial_charges().sum()
+            if hasattr(self.parameters,"uhf"):
+                _uhf = self.parameters.uhf
+            else:
+                _uhf = int(self.atoms.get_initial_magnetic_moments().sum().round())
 
             calc = Calculator(
                 self.parameters.method,
@@ -235,6 +253,9 @@ class TBLite(ase.calculators.calculator.Calculator):
             )
             calc.set("max-iter", self.parameters.max_iterations)
             calc.set("verbosity", self.parameters.verbosity)
+            calc.set("xtbml",self.parameters.xtbml)
+            if hasattr(self.parameters, "xtbml_a_array"):
+                calc.set("xtbml_a_array",self.parameters.xtbml_a_array)
 
         except RuntimeError:
             raise ase.calculators.calculator.InputError(
@@ -298,6 +319,11 @@ class TBLite(ase.calculators.calculator.Calculator):
         self.results["forces"] = -self._res.get("gradient") * Hartree / Bohr
         self.results["charges"] = self._res.get("charges")
         self.results["dipole"] = self._res.get("dipole") * Bohr
+        if self.parameters.xtbml != 0:
+            self.results["xtbml"] = self._res.get("xtbml")
+            self.results["xtbml weights"] = self._res.get("xtbml weights")
+            self.results["xtbml labels"] = self._res.get("xtbml labels")
+            self.results["bond-orders"] = self._res.get("bond-orders")
         # stress tensor is only returned for periodic systems
         if self.atoms.pbc.any():
             _stress = self._res.get("virial") * Hartree / self.atoms.get_volume()

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # This file is part of tblite.
 # SPDX-Identifier: LGPL-3.0-or-later
 #
@@ -13,11 +14,28 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Minimal Python wrapper for testing the dftd4 command line interface.
 
-subdir('unit')
-subdir('validation')
-subdir('validation_xtbml')
+The wrapper will assume a specific order in the arguments rather than
+providing a generic command line interface by itself since it is
+supposed to be used by meson for testing purposes only.
+"""
 
-if get_option('api')
-  subdir('api')
-endif
+try:
+    import subprocess, sys, pandas, os, pytest, numpy as np
+    
+except ImportError:
+    exit(77)
+from test import *
+#if len(sys.argv) < 4:
+#    raise RuntimeError("Requires at least four arguments")
+
+thr = 5.0e-7
+prog = sys.argv[1]
+folder = sys.argv[2]
+ref_file = sys.argv[3]
+args = sys.argv[4:]
+#if "xyz" in folder:
+test_dir(folder,ref_file,prog,args)
+

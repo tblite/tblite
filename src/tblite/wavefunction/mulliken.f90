@@ -29,7 +29,7 @@ module tblite_wavefunction_mulliken
 
    public :: get_mulliken_shell_charges, get_mulliken_atomic_multipoles
    public :: get_molecular_dipole_moment, get_molecular_quadrupole_moment
-   public :: get_mayer_bond_orders
+   public :: get_mayer_bond_orders, get_mulliken_shell_multipoles
 
 contains
 
@@ -88,6 +88,32 @@ subroutine get_mulliken_atomic_multipoles(bas, mpmat, pmat, mpat)
    call updown_to_magnet(mpat)
 
 end subroutine get_mulliken_atomic_multipoles
+
+subroutine get_mulliken_shell_multipoles(bas, mpmat, pmat, mpat)
+   type(basis_type), intent(in) :: bas
+   real(wp), intent(in) :: mpmat(:, :, :)
+   real(wp), intent(in) :: pmat(:, :, :)
+   real(wp), intent(out) :: mpat(:, :, :)
+
+   integer :: iao, jao, spin
+   real(wp) :: pao(size(mpmat, 1))
+
+   mpat(:, :, :) = 0.0_wp
+   !$omp parallel do default(none) schedule(runtime) reduction(+:mpat) &
+   !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao)
+   do spin = 1, size(pmat, 3)
+      do iao = 1, bas%nao
+         pao(:) = 0.0_wp
+         do jao = 1, bas%nao
+            pao(:) = pao + pmat(jao, iao, spin) * mpmat(:, jao, iao)
+         end do
+         mpat(:, bas%ao2sh(iao), spin) = mpat(:, bas%ao2sh(iao), spin) - pao
+      end do
+   end do
+
+   call updown_to_magnet(mpat)
+
+end subroutine get_mulliken_shell_multipoles
 
 
 subroutine get_molecular_dipole_moment(mol, qat, dpat, dpmom)

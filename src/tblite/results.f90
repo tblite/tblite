@@ -34,6 +34,14 @@ module tblite_results
       real(wp), allocatable :: hamiltonian(:, :)
       !> Wiberg/Mayer bond orders
       real(wp), allocatable :: bond_orders(:, :, :)
+      !> xtbml features (nat,nfeatures)
+      real(wp), allocatable :: ml_features(:,:)
+      !> xtbml partitioning weights based on the totel GFN2 energy
+      real(wp), allocatable :: w_xtbml(:)
+      !> number of xtbml features
+      integer :: n_features = 40
+      !> labels of the xtbml features
+      character(len=30),allocatable :: xtbml_labels(:)
    end type results_type
 
 end module tblite_results

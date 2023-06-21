@@ -78,6 +78,10 @@ module tblite_cli
       logical :: spin_polarized = .false.
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
+      !> Compute xtbml features
+      logical :: xtbml = .false.
+      !> Compute xtbml features and printout cartesian multipole monets instead of norm
+      logical :: xtbmlxyz = .false.
    end type run_config
 
    type, extends(driver_config) :: param_config
@@ -100,8 +104,7 @@ module tblite_cli
       character(len=:), allocatable :: actual
       character(len=:), allocatable :: reference
       logical :: fit = .false.
-   end type tagdiff_config
-
+   end type tagdiff_config 
 contains
 
 subroutine get_arguments(config, error)
@@ -417,6 +420,12 @@ subroutine get_run_arguments(config, list, start, error)
             end if
             call move_alloc(arg, config%json_output)
          end if
+      case("--xtbml")
+         config%method = "gfn2"
+         config%xtbml = .true. 
+      case("--xtbml_xyz")
+         config%method = "gfn2"
+         config%xtbmlxyz = .true. 
       end select
    end do
 

@@ -14,10 +14,28 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('unit')
-subdir('validation')
-subdir('validation_xtbml')
+validation_tester = find_program(files('tester.py'))
 
-if get_option('api')
-  subdir('api')
-endif
+run_element = [
+  'ethene_xyz',
+  'oh-',
+  'ch3_uhf_1'
+]
+
+foreach t : run_element
+    test(t,
+      validation_tester,
+      args: [
+        tblite_exe,
+        t,
+        files(t/'ml_feature.csv'),
+        #'--method', m,
+        #'--grad', '@0@-@1@.txt'.format(m, t),
+        t.contains('+') ? ['--charge', '+1'] : [],
+        t.contains('-') ? ['--charge', '-1'] : [],
+        t.contains('uhf_1') ? ['--spin', '1'] : [],
+        t.contains('uhf_2') ? ['--spin', '2'] : [],
+      ],
+      suite: 'validation',
+    )
+endforeach

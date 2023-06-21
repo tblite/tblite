@@ -39,6 +39,7 @@ subdir('scf')
 subdir('solvation')
 subdir('wavefunction')
 subdir('xtb')
+subdir('xtb-ml')
 
 srcs += files(
   'adjlist.f90',

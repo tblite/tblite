@@ -51,6 +51,7 @@ tests = [
   'tagged-io',
   'xtb-param',
   'xtb-external',
+  'xtbml',
 ]
 
 test_srcs = files(

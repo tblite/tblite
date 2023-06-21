@@ -14,10 +14,15 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('unit')
-subdir('validation')
-subdir('validation_xtbml')
+set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
-if get_option('api')
-  subdir('api')
-endif
+list(
+  APPEND srcs
+  "${dir}/atomic_frontier_orbitals.f90"
+  "${dir}/xtbml.f90"
+  "${dir}/type.f90"
+  "${dir}/functions.f90"
+  "${dir}/xtbml_xyz.f90"
+)
+
+set(srcs "${srcs}" PARENT_SCOPE)

@@ -630,11 +630,16 @@ subroutine add_dispersion(calc, mol)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
 
-   type(d4_dispersion), allocatable :: tmp
+   type(d4_dispersion), allocatable :: tmp,tmp2
+
 
    allocate(tmp)
    call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
    call move_alloc(tmp, calc%dispersion)
+   allocate(tmp2)
+   call new_d4_dispersion(tmp2, mol, s6=0.0_wp, s8=0.0_wp, a1=a1, a2=a2, s9=s9)
+   call move_alloc(tmp2, calc%dispersion_3body)
+   
 end subroutine add_dispersion
 
 subroutine add_repulsion(calc, mol)

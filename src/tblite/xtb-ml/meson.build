@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('unit')
-subdir('validation')
-subdir('validation_xtbml')
-
-if get_option('api')
-  subdir('api')
-endif
+srcs += files(
+  'atomic_frontier_orbitals.f90',
+  'functions.f90',
+  'type.f90',
+  'xtbml.f90',
+  'xtbml_xyz.f90',
+)
