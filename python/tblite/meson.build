@@ -79,6 +79,7 @@ if install
       'test_library.py',
     ),
     subdir: 'tblite',
+    pure: false,
   )
 endif
 
