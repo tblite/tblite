@@ -38,6 +38,7 @@ set(
   "tagged-io"
   "xtb-param"
   "xtb-external"
+  "xtbml"
 )
 set(
   test-srcs

@@ -353,52 +353,52 @@ end subroutine set_calculator_save_integrals_api
 
 
 subroutine set_calculator_xtbml_api(vctx, vcalc, xtbml) &
-   & bind(C, name=namespace//"set_calculator_xtbml")
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-integer(c_int), value :: xtbml
-type(error_type), allocatable :: error
+      & bind(C, name=namespace//"set_calculator_xtbml")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: xtbml
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "set_calculator_xtbml"
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_xtbml"
 
-if (.not.c_associated(vctx)) return
-call c_f_pointer(vctx, ctx)
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
 
-if (.not.c_associated(vcalc)) then
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
 
-calc%ptr%xtbml = xtbml 
+   calc%ptr%xtbml = xtbml
 end subroutine set_calculator_xtbml_api
 
 subroutine set_calculator_xtbml_a_array_api(vctx, vcalc, a_array, len_array) &
-   & bind(C, name=namespace//"set_calculator_xtbml_a_array")
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-integer(c_int), value :: len_array
-real(c_double), intent(in) :: a_array(len_array)
-type(error_type), allocatable :: error
+      & bind(C, name=namespace//"set_calculator_xtbml_a_array")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: len_array
+   real(c_double), intent(in) :: a_array(len_array)
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "set_calculator_xtbml_a_array"
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_xtbml_a_array"
 
-if (.not.c_associated(vctx)) return
-call c_f_pointer(vctx, ctx)
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
 
-if (.not.c_associated(vcalc)) then
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
-allocate(calc%ptr%a_array(len_array))
-calc%ptr%a_array = a_array
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+   allocate(calc%ptr%a_array(len_array))
+   calc%ptr%a_array = a_array
 end subroutine set_calculator_xtbml_a_array_api
 
 subroutine get_calculator_shell_count(vctx, vcalc, nsh) &

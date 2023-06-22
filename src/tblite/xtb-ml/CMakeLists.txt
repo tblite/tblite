@@ -19,9 +19,9 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 list(
   APPEND srcs
   "${dir}/atomic_frontier_orbitals.f90"
-  "${dir}/xtbml.f90"
-  "${dir}/type.f90"
   "${dir}/functions.f90"
+  "${dir}/type.f90"
+  "${dir}/xtbml.f90"
   "${dir}/xtbml_xyz.f90"
 )
 

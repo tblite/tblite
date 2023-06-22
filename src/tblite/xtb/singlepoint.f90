@@ -39,13 +39,13 @@ module tblite_xtb_singlepoint
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
       & get_alpha_beta_occupation, get_mayer_bond_orders, &
-      & magnet_to_updown, updown_to_magnet, occu
+      & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
-   use xtbml_base, only : xtbml_base_type
-   use xtbml_xyz, only: xtbml_xyz_type
-   use xtbml_class, only: xtbml_type
+   use tblite_xtbml_base, only : xtbml_base_type
+   use tblite_xtbml_xyz, only : xtbml_xyz_type
+   use tblite_xtbml_class, only : xtbml_type
    implicit none
    private
 
@@ -112,7 +112,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer :: iscf, spin
 
    call timer%push("total")
-   
+
    if (present(verbosity)) then
       prlevel = verbosity
    else
@@ -273,36 +273,27 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
-   if (calc%xtbml /= 0) then 
-      allocate(wfn%focca(size(wfn%focc(:,:),dim=1)),source= 0.0_wp)
-      allocate(wfn%foccb(size(wfn%focc(:,:),dim=1)),source= 0.0_wp)
-   if (mol%uhf /= 0) then
-      call occu(calc%bas%nao,nint(sum(wfn%nel(:))),nint(wfn%nuhf),wfn%ihomoa,wfn%ihomob,wfn%focca,wfn%foccb)
-   else
-      wfn%focca =  wfn%focc(:,1)/2.0_wp
-      wfn%foccb =  wfn%focc(:,1)/2.0_wp
-   endif
-   call timer%push("xtb-ml features")
-   select case(calc%xtbml)
-   case(1)
-      block
-         type(xtbml_base_type),allocatable :: ml
-         allocate(ml)
-         call move_alloc(ml, xtbml)
-      end block
-   case(2)
-      block
-         type(xtbml_xyz_type), allocatable :: ml
-         allocate(ml)
-         call move_alloc(ml, xtbml)
-      end block
-   end select
-   call xtbml%get_xtbml(mol,wfn,ints,erep,calc,ccache,dcache,prlevel,calc%a_array,results)
-   deallocate(wfn%focca,wfn%foccb)
-   call timer%pop
+   if (calc%xtbml /= 0) then
+      call timer%push("xtb-ml features")
+      select case(calc%xtbml)
+      case(1)
+         block
+            type(xtbml_base_type),allocatable :: ml
+            allocate(ml)
+            call move_alloc(ml, xtbml)
+         end block
+      case(2)
+         block
+            type(xtbml_xyz_type), allocatable :: ml
+            allocate(ml)
+            call move_alloc(ml, xtbml)
+         end block
+      end select
+      call xtbml%get_xtbml(mol,wfn,ints,erep,calc,ccache,dcache,prlevel,calc%a_array,ctx,results)
+      call timer%pop
    end if
    call ctx%delete_solver(solver)
-   
+
    if (ctx%failed()) return
 
    if (grad) then
@@ -378,8 +369,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          if (calc%xtbml /= 0) then
             stime = timer%get("xtb-ml features")
             call ctx%message(" - "//"xtb-ml features     "//format_time(stime) &
-               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")  
-         end if         
+               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+         end if
          call ctx%message("")
       end if
    end block

@@ -23,12 +23,12 @@ supposed to be used by meson for testing purposes only.
 """
 
 try:
-    import subprocess, sys, pandas, os, pytest, numpy as np
-    
+    import sys
+    from test import test_dir
 except ImportError:
     exit(77)
-from test import *
-#if len(sys.argv) < 4:
+
+# if len(sys.argv) < 4:
 #    raise RuntimeError("Requires at least four arguments")
 
 thr = 5.0e-7
@@ -36,6 +36,5 @@ prog = sys.argv[1]
 folder = sys.argv[2]
 ref_file = sys.argv[3]
 args = sys.argv[4:]
-#if "xyz" in folder:
-test_dir(folder,ref_file,prog,args)
-
+# if "xyz" in folder:
+test_dir(folder, ref_file, prog, args)

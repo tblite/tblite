@@ -231,8 +231,8 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
 /// @param ml_features: xtbml features, shape [nat][nfeatures]
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_xtbml(tblite_error error,
-                                     tblite_result res,
-                                     double* ml_features);
+                        tblite_result res,
+                        double* ml_features);
 
 /// Retrieve xtbml weights from result container
 ///
@@ -241,8 +241,8 @@ tblite_get_result_xtbml(tblite_error error,
 /// @param w_xtbml: partitioning weights based on GFN2 energy, shape [nat]
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_xtbml_weights(tblite_error error,
-                                     tblite_result res,
-                                     double* w_xtbml);
+                                tblite_result res,
+                                double* w_xtbml);
 
 
 /// Retrieve number xtbml features per atom from result container
@@ -252,8 +252,8 @@ tblite_get_result_xtbml_weights(tblite_error error,
 /// @param n_features: number of xtbml features per atom
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_xtbml_n_features(tblite_error error,
-                                     tblite_result res,
-                                     int* n_features);
+                                   tblite_result res,
+                                   int* n_features);
 
 
 /// Retrieve xtbml feature labels from result container
@@ -265,7 +265,7 @@ tblite_get_result_xtbml_n_features(tblite_error error,
 /// @param index: index of feature label in fortran string array
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_xtbml_labels(tblite_error error,
-                                     tblite_result res,
-                                     char* message,
-                                     const int* buffersize/* buffersize */,
-                                     const int* index/*index of label array*/);
+                               tblite_result res,
+                               char* message,
+                               const int* buffersize/* buffersize */,
+                               const int* index/*index of label array*/);

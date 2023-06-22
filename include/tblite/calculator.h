@@ -157,8 +157,8 @@ tblite_set_calculator_save_integrals(tblite_context ctx,
 /// @param xtbml: Flag to compute xtbml features
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_xtbml(tblite_context ctx,
-                                     tblite_calculator calc,
-                                     int xtbml);
+                            tblite_calculator calc,
+                            int xtbml);
 
 /// Set the vlaues for the steepnes parameter in the logistic function of D3 CN
 ///
@@ -168,9 +168,9 @@ tblite_set_calculator_xtbml(tblite_context ctx,
 /// @param len_array: length of the array entered, used for proper allocation
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_xtbml_a_array(tblite_context ctx,
-                                     tblite_calculator calc,
-                                     double* a_array,
-                                     int len_array);
+                                    tblite_calculator calc,
+                                    double* a_array,
+                                    int len_array);
 
 /// Add container to calculator object.
 ///

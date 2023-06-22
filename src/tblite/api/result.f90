@@ -531,128 +531,128 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
 end subroutine get_result_bond_orders_api
 
 subroutine get_result_xtbml_api(verror, vres, ml_features) &
-   & bind(C, name=namespace//"get_result_xtbml")
-type(c_ptr), value :: verror
-type(vp_error), pointer :: error
-type(c_ptr), value :: vres
-type(vp_result), pointer :: res
-real(c_double), intent(out) :: ml_features(*)
-logical :: ok
+      & bind(C, name=namespace//"get_result_xtbml")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: ml_features(*)
+   logical :: ok
 
-if (debug) print '("[Info]", 1x, a)', "get_result_xtbml"
+   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml"
 
-call get_result(verror, vres, error, res, ok)
-if (.not.ok) return
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
-if (.not.allocated(res%results)) then
-   call fatal_error(error%ptr, "Result does not contain result container")
-   return
-end if
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain result container")
+      return
+   end if
 
-if (.not.allocated(res%results%ml_features)) then
-   call fatal_error(error%ptr, "Result does not contain xtbml features")
-   return
-end if
+   if (.not.allocated(res%results%ml_features)) then
+      call fatal_error(error%ptr, "Result does not contain xtbml features")
+      return
+   end if
 
-ml_features(:size(res%results%ml_features)) = &
-& reshape(res%results%ml_features, [size(res%results%ml_features)])
+   ml_features(:size(res%results%ml_features)) = &
+      & reshape(res%results%ml_features, [size(res%results%ml_features)])
 
 end subroutine get_result_xtbml_api
 
 subroutine get_result_xtbml_weights_api(verror, vres, ml_features) &
-   & bind(C, name=namespace//"get_result_xtbml_weights")
-type(c_ptr), value :: verror
-type(vp_error), pointer :: error
-type(c_ptr), value :: vres
-type(vp_result), pointer :: res
-real(c_double), intent(out) :: ml_features(*)
-logical :: ok
+      & bind(C, name=namespace//"get_result_xtbml_weights")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: ml_features(*)
+   logical :: ok
 
-if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_weights"
+   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_weights"
 
-call get_result(verror, vres, error, res, ok)
-if (.not.ok) return
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
-if (.not.allocated(res%results)) then
-   call fatal_error(error%ptr, "Result does not contain result container")
-   return
-end if
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain result container")
+      return
+   end if
 
-if (.not.allocated(res%results%w_xtbml)) then
-   call fatal_error(error%ptr, "Result does not contain xtbml features")
-   return
-end if
+   if (.not.allocated(res%results%w_xtbml)) then
+      call fatal_error(error%ptr, "Result does not contain xtbml features")
+      return
+   end if
 
-ml_features(:size(res%results%w_xtbml)) = &
-& reshape(res%results%w_xtbml, [size(res%results%w_xtbml)])
+   ml_features(:size(res%results%w_xtbml)) = &
+      & reshape(res%results%w_xtbml, [size(res%results%w_xtbml)])
 
 end subroutine get_result_xtbml_weights_api
 
 
 subroutine get_result_xtbml_n_features_api(verror, vres, n_features) &
-   & bind(C, name=namespace//"get_result_xtbml_n_features")
-type(c_ptr), value :: verror
-type(vp_error), pointer :: error
-type(c_ptr), value :: vres
-type(vp_result), pointer :: res
-integer(c_int), intent(out) :: n_features
-logical :: ok
+      & bind(C, name=namespace//"get_result_xtbml_n_features")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: n_features
+   logical :: ok
 
-if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_n_features"
+   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_n_features"
 
-call get_result(verror, vres, error, res, ok)
-if (.not.ok) return
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
-if (.not.allocated(res%results)) then
-   call fatal_error(error%ptr, "Result does not contain result container")
-   return
-end if
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain result container")
+      return
+   end if
 
-if (.not.allocated(res%results%w_xtbml)) then
-   call fatal_error(error%ptr, "Result does not contain xtbml features")
-   return
-end if
+   if (.not.allocated(res%results%w_xtbml)) then
+      call fatal_error(error%ptr, "Result does not contain xtbml features")
+      return
+   end if
 
-n_features = res%results%n_features
+   n_features = res%results%n_features
 
 end subroutine get_result_xtbml_n_features_api
 
 
 subroutine get_result_xtbml_labels_api(verror, vres, charptr,buffersize,index) &
-   & bind(C, name=namespace//"get_result_xtbml_labels")
-use tblite_api_utils, only : f_c_character
-type(c_ptr), value :: verror
-type(vp_error), pointer :: error
-type(c_ptr), value :: vres
-type(vp_result), pointer :: res
-character(kind=c_char), intent(out) :: charptr(*)
-integer(c_int), intent(in), optional :: buffersize
-integer(c_int), intent(in) :: index
-logical :: ok
-integer :: max_length
+      & bind(C, name=namespace//"get_result_xtbml_labels")
+   use tblite_api_utils, only : f_c_character
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   character(kind=c_char), intent(out) :: charptr(*)
+   integer(c_int), intent(in), optional :: buffersize
+   integer(c_int), intent(in) :: index
+   logical :: ok
+   integer :: max_length
 
-if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_labels"
+   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_labels"
 
-call get_result(verror, vres, error, res, ok)
-if (.not.ok) return
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
 
-if (.not.allocated(res%results)) then
-   call fatal_error(error%ptr, "Result does not contain result container")
-   return
-end if
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain result container")
+      return
+   end if
 
-if (.not.allocated(res%results%w_xtbml)) then
-   call fatal_error(error%ptr, "Result does not contain xtbml features")
-   return
-end if
+   if (.not.allocated(res%results%w_xtbml)) then
+      call fatal_error(error%ptr, "Result does not contain xtbml features")
+      return
+   end if
 
-if (present(buffersize)) then
-   max_length = buffersize
-else
-   max_length = huge(max_length) - 2
-end if
+   if (present(buffersize)) then
+      max_length = buffersize
+   else
+      max_length = huge(max_length) - 2
+   end if
 
-call f_c_character(res%results%xtbml_labels(index),charptr,max_length)
+   call f_c_character(res%results%xtbml_labels(index),charptr,max_length)
 
 end subroutine get_result_xtbml_labels_api
 

@@ -639,7 +639,7 @@ subroutine add_dispersion(calc, mol)
    allocate(tmp2)
    call new_d4_dispersion(tmp2, mol, s6=0.0_wp, s8=0.0_wp, a1=a1, a2=a2, s9=s9)
    call move_alloc(tmp2, calc%dispersion_3body)
-   
+
 end subroutine add_dispersion
 
 subroutine add_repulsion(calc, mol)

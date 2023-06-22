@@ -241,28 +241,28 @@ subroutine get_energy_aes_xtb(self, mol, cache, wfn, energies)
 
    allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
 
-   allocate(mur(mol%nat), source=0.0_wp) 
+   allocate(mur(mol%nat), source=0.0_wp)
    allocate(e01(mol%nat),e11(mol%nat),e02(mol%nat),source=0.0_wp)
    allocate(t1(mol%nat),source=0.0_wp)
 
    call gemv(ptr%amat_sd, wfn%qat(:, 1), vd)
    do i = 1,3
-   call gemv(ptr%amat_sd(i,:,:),wfn%dpat(i,:,1),mur,beta=1.0_wp, alpha=1.0_wp,trans="T")
+      call gemv(ptr%amat_sd(i,:,:),wfn%dpat(i,:,1),mur,beta=1.0_wp, alpha=1.0_wp,trans="T")
    end do
-  
-   e01 = (mur)*wfn%qat(:,1) + sum(wfn%dpat(:, :, 1) * vd, 1) 
-   
+
+   e01 = (mur)*wfn%qat(:,1) + sum(wfn%dpat(:, :, 1) * vd, 1)
+
    vd = 0.0_wp
    call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
-   e11 = sum(wfn%dpat(:, :, 1) * vd, 1) 
-    
+   e11 = sum(wfn%dpat(:, :, 1) * vd, 1)
+
    call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
-   
+
    do i = 1,6
-   call gemv(ptr%amat_sq(i,:,:),wfn%qpat(i,:,1),t1,beta=1.0_wp, alpha=1.0_wp,trans="T")
+      call gemv(ptr%amat_sq(i,:,:),wfn%qpat(i,:,1),t1,beta=1.0_wp, alpha=1.0_wp,trans="T")
    end do
    e02 = t1*wfn%qat(:,1) + sum(wfn%qpat(:, :, 1) * vq, 1)
-   
+
    energies(:) = energies + 0.5* e01 + e11 + 0.5_wp * e02
 
 end subroutine get_energy_aes_xtb
@@ -1197,7 +1197,7 @@ subroutine get_AXC(self, mol, wfn, energies)
 
    call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
    call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
-   
+
 end subroutine get_AXC
 
 end module tblite_coulomb_multipole

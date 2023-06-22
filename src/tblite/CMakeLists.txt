@@ -39,6 +39,7 @@ add_subdirectory("scf")
 add_subdirectory("solvation")
 add_subdirectory("wavefunction")
 add_subdirectory("xtb")
+add_subdirectory("xtb-ml")
 
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 

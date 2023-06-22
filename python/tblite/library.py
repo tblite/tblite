@@ -311,6 +311,7 @@ def _get_ao_matrix(getter):
 
     return with_allocation
 
+
 def _get_xtbml(getter):
     """Correctly set allocation for matrix objects ml features before querying the getter"""
 
@@ -327,6 +328,7 @@ def _get_xtbml(getter):
         return _mat
 
     return with_allocation
+
 
 def _get_w_xtbml(getter):
     """Correctly set allocation for matrix objects w_xtbml before querying the getter"""
@@ -353,13 +355,12 @@ def _get_xtbml_labels(getter):
         _nfeatures = ffi.new("int *")
         error_check(lib.tblite_get_result_xtbml_n_features)(res, _nfeatures)
         labels = list()
-        for i in range(1,_nfeatures[0]+1):
-            _index = ffi.new("const int*",i)
+        for i in range(1, _nfeatures[0] + 1):
+            _index = ffi.new("const int*", i)
             _message = ffi.new("char[]", 512)
-            error_check(getter)(res, _message,ffi.NULL,_index)
+            error_check(getter)(res, _message, ffi.NULL, _index)
             labels.append(ffi.string(_message).decode())
         return labels
-    
 
     return with_allocation
 
@@ -371,6 +372,7 @@ get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix
 get_xtbml = _get_xtbml(lib.tblite_get_result_xtbml)
 get_w_xtbml = _get_w_xtbml(lib.tblite_get_result_xtbml_weights)
 get_xtbml_labels = _get_xtbml_labels(lib.tblite_get_result_xtbml_labels)
+
 
 def _delete_calculator(calc) -> None:
     """Delete a tblite calculator object"""
@@ -435,12 +437,14 @@ def get_calculator_orbital_map(ctx, calc):
     )
     return _map
 
-def set_calculator_xtbml_a_array(ctx,calc,a_array):
 
+def set_calculator_xtbml_a_array(ctx, calc, a_array):
     _array = ffi.cast("double*", a_array.ctypes.data)
-    _len_array = ffi.cast("int",a_array.size)
+    _len_array = ffi.cast("int", a_array.size)
 
-    context_check(lib.tblite_set_calculator_xtbml_a_array)(ctx,calc,_array,_len_array) 
+    context_check(lib.tblite_set_calculator_xtbml_a_array)(
+        ctx, calc, _array, _len_array
+    )
 
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
