@@ -20,8 +20,9 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
+from typing import Any, Optional
+
 import numpy as np
-from typing import Optional, Any
 
 from . import library
 

@@ -14,9 +14,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-from tblite.interface import Structure, Calculator, Result
-from pytest import approx, raises
 import numpy as np
+from pytest import approx, raises
+
+from tblite.interface import Calculator, Result
 
 thr = 1.0e-9
 
@@ -201,9 +202,8 @@ def test_gfn2():
     angular_momenta = np.array(
         [
             *[0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
-            *[0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0]
+            *[0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
         ]
-
     )
     orbital_map = np.array(
         [

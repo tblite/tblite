@@ -20,8 +20,9 @@ This module mainly acts as a guard for importing the libtblite extension and
 also provides some FFI based wappers for memory handling.
 """
 
-import sys
 import functools
+import sys
+
 import numpy as np
 
 try:

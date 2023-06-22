@@ -29,10 +29,11 @@ except ModuleNotFoundError:
 
 from typing import List, Optional
 
-from .interface import Calculator
 import ase.calculators.calculator
 from ase.atoms import Atoms
-from ase.units import Hartree, Bohr, kB
+from ase.units import Bohr, Hartree, kB
+
+from .interface import Calculator
 
 
 class TBLite(ase.calculators.calculator.Calculator):
@@ -103,7 +104,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         "dipole",
         "stress",
         "xtbml",
-        "xtbml weights"
+        "xtbml weights",
     ]
 
     default_parameters = {
@@ -113,7 +114,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
-        "xtbml":0,
+        "xtbml": 0,
     }
 
     _res = None
@@ -172,15 +173,15 @@ class TBLite(ase.calculators.calculator.Calculator):
 
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
-            
+
             if "xtbml" in changed_parameters:
-                self._xtb.set("xtbml",self.parameters.xtbml)
-            
+                self._xtb.set("xtbml", self.parameters.xtbml)
+
             if "xtbml_a_array" in changed_parameters:
-                self._xtb.set("xtbml_a_array",self.parameters.xtbml_a_array)
+                self._xtb.set("xtbml_a_array", self.parameters.xtbml_a_array)
 
             if "charge" in changed_parameters:
-                self._xtb.set("charge",self.parameters.charge)
+                self._xtb.set("charge", self.parameters.charge)
 
         return changed_parameters
 
@@ -229,11 +230,11 @@ class TBLite(ase.calculators.calculator.Calculator):
         try:
             _cell = self.atoms.cell
             _periodic = self.atoms.pbc
-            if hasattr(self.parameters,"charge"):
+            if hasattr(self.parameters, "charge"):
                 _charge = self.parameters.charge
             else:
                 _charge = self.atoms.get_initial_charges().sum()
-            if hasattr(self.parameters,"uhf"):
+            if hasattr(self.parameters, "uhf"):
                 _uhf = self.parameters.uhf
             else:
                 _uhf = int(self.atoms.get_initial_magnetic_moments().sum().round())
@@ -253,9 +254,9 @@ class TBLite(ase.calculators.calculator.Calculator):
             )
             calc.set("max-iter", self.parameters.max_iterations)
             calc.set("verbosity", self.parameters.verbosity)
-            calc.set("xtbml",self.parameters.xtbml)
+            calc.set("xtbml", self.parameters.xtbml)
             if hasattr(self.parameters, "xtbml_a_array"):
-                calc.set("xtbml_a_array",self.parameters.xtbml_a_array)
+                calc.set("xtbml_a_array", self.parameters.xtbml_a_array)
 
         except RuntimeError:
             raise ase.calculators.calculator.InputError(
