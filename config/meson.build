@@ -123,6 +123,7 @@ lib_deps += mctc_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
+  version: '>=3.0.0',
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -139,6 +140,7 @@ lib_deps += sdftd3_dep
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',
+  version: '>=0.4.0',
   fallback: ['toml-f', 'tomlf_dep'],
   default_options: ['default_library=static'],
 )

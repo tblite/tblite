@@ -29,7 +29,7 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
 
-tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "v0.2.4")
+tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "v0.4.0")
 
 if(DEFINED "_${_pkg}_FIND_METHOD")
   unset("${_pkg}_FIND_METHOD")
