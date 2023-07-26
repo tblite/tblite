@@ -23,9 +23,9 @@ import tblite
 
 project = "tblite"
 author = "Sebastian Ehlert"
-copyright = f"2021-2022, {author}"
+copyright = f"2021-2023, {author}"
 
-version = "0.3.0"
+version = "0.4.0"
 release = version
 
 
