@@ -23,6 +23,9 @@
 #pragma once
 
 #include "tblite/macros.h"
+#include "tblite/structure.h"
+#include "tblite/calculator.h"
+#include "tblite/context.h"
 
 /// Interaction container
 typedef struct _tblite_container* tblite_container;
@@ -33,6 +36,31 @@ typedef struct _tblite_container* tblite_container;
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_electric_field(double* efield);
+
+/// Create new spin polarization container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param wscale: Scaling factor for spin polarization (default: 1)
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_spin_polarization(tblite_context ctx,
+                             tblite_structure mol,
+                             tblite_calculator calc,
+                             double wscale);
+
+/// Add container to calculator object.
+///
+/// Note: Ownership is transferred and container handle is destroyed after function call
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param cont: Interaction container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_calculator_push_back(tblite_context ctx,
+                            tblite_calculator calc,
+                            tblite_container* cont);
 
 /// Delete container handle
 ///

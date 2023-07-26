@@ -1763,6 +1763,136 @@ err:
     return 1;
 }
 
+int test_spgfn1()
+{
+    printf("Start test: spGFN1-xTB\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+
+    const double thr = 5.0e-7;
+
+    int natoms = 21;
+    int num[21] = { 24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1 };
+    double xyz[3 * 21] = {
+        +0.00000000000000, +0.00000000000000, -0.06044684528305,
+        +0.00000000000000, +3.19613712523833, +2.30877824528580,
+        +2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +0.00000000000000, +3.10509505378016, +4.34935395653655,
+        +4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.19613712523833, +2.30877824528580,
+        +1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.10509505378016, +4.34935395653655,
+        -1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +2.52190264478215, -3.60569548880831, -3.50208900904436,
+        -4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.52190264478215, -3.60569548880831, -3.50208900904436,
+    };
+    double energy;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check_error(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.349613833732931, thr, "energy error"))
+        goto err;
+
+    cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    if (!!cont)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.349613833732931, thr, "energy error"))
+        goto err;
+
+    int uhf = 2;
+    tblite_update_structure_uhf(error, mol, &uhf);
+    if (tblite_check_error(error))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.370520606196546, thr, "energy error"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 0;
+
+err:
+    if (tblite_check_error(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check_context(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
 int main(void)
 {
     int stat = 0;
@@ -1782,6 +1912,7 @@ int main(void)
     stat += test_ipea1_ch4();
     stat += test_gfn1_co2();
     stat += test_gfn2_convergence();
+    stat += test_spgfn1();
     stat += test_calc_restart();
     stat += test_callback();
 
