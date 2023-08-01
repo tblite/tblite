@@ -122,7 +122,8 @@ subroutine run_main(config, error)
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
    
-   call new_ceh_calculator(mol, error)
+   write(*,*) "Jumping into CEH mode."
+   call new_ceh_calculator(mol)
    stop
 
    if (allocated(config%param)) then

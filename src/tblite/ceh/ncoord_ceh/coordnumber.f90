@@ -15,6 +15,7 @@ module tblite_ceh_coordination
         integer, intent(out) :: cn
         integer :: ierr
 
+        cn = 0.0_wp
         ! call mctc_get_structure_type(ncoord, ierr)
         if (ierr /= 0) then
             write(*,*) 'ceh_ncoord: error getting structure type'

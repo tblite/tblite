@@ -142,10 +142,8 @@ module tblite_ceh_ceh
 
 contains
 
-   subroutine new_ceh_calculator(mol, error)
-
+   subroutine new_ceh_calculator(mol)
       type(structure_type), intent(in) :: mol
-      type(error_type), intent(out)   :: error
       type(xtb_calculator)            :: calc
       !  local variables
       real(wp),allocatable :: F(:), eps(:)    ! Fock and eigenvalues
@@ -177,6 +175,7 @@ contains
       write(*,*) "CEH: Initializing"
       write(*,*) "Hello world!"
       call add_ceh_basis(calc, mol)
+      stop
 
       ! call ceh_ncoord(n,at,kcn,rab,cn1,cn2) ! routine with standard radii-> CN, EN weigthed CN
 
