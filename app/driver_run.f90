@@ -40,6 +40,7 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_ceh_ceh, only : new_ceh_calculator
    implicit none
    private
 
@@ -75,6 +76,7 @@ subroutine run_main(config, error)
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
+
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then
@@ -119,6 +121,9 @@ subroutine run_main(config, error)
    if (config%grad) then
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
+   
+   call new_ceh_calculator(mol, error)
+   stop
 
    if (allocated(config%param)) then
       call param%load(config%param, error)
