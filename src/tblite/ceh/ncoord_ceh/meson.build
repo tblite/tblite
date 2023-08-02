@@ -15,5 +15,8 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'coordnumber.f90',
+  'ncoord_ceh.f90',
+  'ncoord_ceh_standard.f90',
+  'covrad_ceh.f90',
+  'type_ceh.f90',
 )

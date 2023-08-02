@@ -18,4 +18,5 @@ subdir('charge')
 
 srcs += files(
   'ceh.f90',
+  'ceh_calculator.f90',
 )

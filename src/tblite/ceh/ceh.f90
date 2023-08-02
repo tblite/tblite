@@ -24,8 +24,8 @@ module tblite_ceh_ceh
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis
-   use tblite_ceh_coordination, only : ceh_ncoord
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_ncoord_ceh, only: new_ncoord
+   use tblite_ceh_calculator, only : ceh_calculator
    implicit none
    private
 
@@ -93,7 +93,7 @@ module tblite_ceh_ceh
    & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4, & ! 78-84
    & 6, 6, 4,  6, 6, 4], shape(number_of_primitives))                       ! 85-86
 
-   !> Exponent of the Slater function # MM, August 01, 2023
+   !> Exponent of the Slater function # MM, August 00, 2023
    real(wp), parameter :: slater_exponent(max_shell, max_elem) = reshape([&
    &  1.13056314_wp,  0.00000000_wp,  0.00000000_wp,  1.50065094_wp,  0.00000000_wp,  0.00000000_wp, &
    &  1.19413208_wp,  1.00435986_wp,  0.00000000_wp,  1.04160365_wp,  1.58776712_wp,  0.00000000_wp, &
@@ -144,7 +144,7 @@ contains
 
    subroutine new_ceh_calculator(mol)
       type(structure_type), intent(in) :: mol
-      type(xtb_calculator)            :: calc
+      type(ceh_calculator)            :: calc
       !  local variables
       real(wp),allocatable :: F(:), eps(:)    ! Fock and eigenvalues
       real(wp),allocatable :: S(:), P(:)      ! overlap and density
@@ -163,19 +163,35 @@ contains
       integer, parameter   :: llao(0:3) = [1,3,5,7] ! # of AO in shell
       logical              :: EX, FIT
       character(len=80)    :: atmp
+      real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
+      !! GRADIENT NOT YET IMPLEMENTED !!
+      logical, parameter   :: grad = .false.
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       ! PARAMETER SECTION
       real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp] ! H0 spd-scaling 1.23
-      real(wp), parameter   :: kcn  = -3.09d0 ! CN erf expo
 
       !allocate(F(ndim*(ndim+1)/2), S(ndim*(ndim+1)/2), P(ndim*(ndim+1)/2), wbo(n,n), &
       !&         cn1(n), cn2(n), D(ndim*(ndim+1)/2,3), norm(ndim), eps(ndim), psh(maxsh,n), &
       !&         source=0.0_wp, stat=ierr)
 
       write(*,*) "CEH: Initializing"
-      write(*,*) "Hello world!"
       call add_ceh_basis(calc, mol)
-      stop
+      write(*,*) "Basis setup complete."
+      call add_ncoord(calc, mol)
+      write(*,*) "CN setup complete."
+      if (allocated(calc%ncoord)) then
+         allocate(cn(mol%nat))
+         allocate(cn_en(mol%nat))
+         if (grad) then
+            allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
+         end if
+         call calc%ncoord%get_cn(mol, cn, cn_en)
+         write(*,*) "CEH: Coordination number:"
+         write(*,*) cn
+         write(*,*) "CEH: Coordination number (EN weighted):"
+         write(*,*) cn_en
+      end if
 
       ! call ceh_ncoord(n,at,kcn,rab,cn1,cn2) ! routine with standard radii-> CN, EN weigthed CN
 
@@ -187,9 +203,18 @@ contains
 
    end subroutine new_ceh_calculator
 
+   subroutine add_ncoord(calc, mol)
+      !> Instance of the xTB evaluator
+      type(ceh_calculator), intent(inout) :: calc
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+
+      call new_ncoord(calc%ncoord, mol, cn_type="ceh")
+   end subroutine add_ncoord
+
    subroutine add_ceh_basis(calc, mol)
       !> Instance of the xTB evaluator
-      type(xtb_calculator), intent(inout) :: calc
+      type(ceh_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
 
