@@ -66,6 +66,8 @@ module tblite_ceh_calculator
       class(dispersion_type), allocatable :: dispersion
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
+      !> Calculate CEH charge gradient 
+      logical :: grad = .false.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
    contains

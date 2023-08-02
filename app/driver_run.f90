@@ -66,8 +66,9 @@ subroutine run_main(config, error)
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, stat, unit, nspin
    logical :: exist
-   real(wp) :: energy, dpmom(3), qpmom(6)
+   real(wp) :: energy, dpmom(3), qpmom(6), efield(3)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
+   real(wp), allocatable :: q_ceh(:), dq_ceh(:,:)
    type(param_record) :: param
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
@@ -119,15 +120,17 @@ subroutine run_main(config, error)
    nspin = merge(2, 1, config%spin_polarized)
 
    if (config%grad) then
-      allocate(gradient(3, mol%nat), sigma(3, 3))
+      allocate(gradient(3, mol%nat), sigma(3, 3), dq_ceh(3, mol%nat))
    end if
    
    if (config%ceh) then
+      allocate(q_ceh(mol%nat))
       if (allocated(config%efield)) then
-         call run_ceh(mol, config%efield, error)
+         efield = config%efield
       else
-         call run_ceh(mol, error)
+         efield = 0.0_wp
       end if
+      call run_ceh(mol, efield, error, q_ceh, dq_ceh)
       return
    endif
    if (allocated(error)) return

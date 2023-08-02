@@ -124,6 +124,7 @@ module tblite_cli_help
       "--cpcm <real>             Use polarizable continuum solvation model."//nl//&
       "                          Solvent is specified by dielectric constant."//nl//&
       "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
+      "      --ceh               Use Charge-Extended Hückel method"//nl//&
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&

@@ -140,39 +140,165 @@ module tblite_ceh_ceh
    &  2.54746694_wp,  2.83550170_wp,  1.88029428_wp,  2.26386287_wp,  2.46706218_wp,  2.09966650_wp],&
    & shape(slater_exponent))
 
+   !> Atomic orbital shell energy level # MM, August 00, 2023
+   real(wp), parameter :: ceh_level(max_shell, max_elem) = reshape([&
+   & -0.50000000_wp,  0.00000000_wp,  0.00000000_wp, -0.57125723_wp,  0.00000000_wp,  0.00000000_wp, &
+   & -0.39565609_wp, -0.16907309_wp,  0.00000000_wp, -0.46895051_wp, -0.34955238_wp,  0.00000000_wp, &
+   & -0.59747672_wp, -0.37636672_wp,  0.00000000_wp, -0.61483866_wp, -0.39087888_wp,  0.00000000_wp, &
+   & -0.54872469_wp, -0.43093840_wp,  0.00000000_wp, -0.54699351_wp, -0.42145348_wp,  0.00000000_wp, &
+   & -0.58434026_wp, -0.46052654_wp,  0.00000000_wp, -0.61062817_wp, -0.55100942_wp,  0.00000000_wp, &
+   & -0.41788970_wp, -0.17987754_wp,  0.00000000_wp, -0.47886929_wp, -0.22957173_wp,  0.00000000_wp, &
+   & -0.55132058_wp, -0.35311397_wp, -0.12176082_wp, -0.56321172_wp, -0.40581247_wp, -0.11309926_wp, &
+   & -0.66917833_wp, -0.42673915_wp, -0.10120352_wp, -0.53720655_wp, -0.44594494_wp, -0.14447503_wp, &
+   & -0.69824334_wp, -0.46955037_wp, -0.08507092_wp, -0.45558942_wp, -0.58263724_wp, -0.15380014_wp, &
+   & -0.45067129_wp, -0.21425082_wp,  0.00000000_wp, -0.45071787_wp, -0.24715593_wp, -0.36116434_wp, &
+   & -0.41411705_wp, -0.09023659_wp, -0.39582033_wp, -0.49489455_wp, -0.12171921_wp, -0.42870973_wp, &
+   & -0.26775746_wp,  0.02131362_wp, -0.47682296_wp, -0.30698882_wp, -0.08166219_wp, -0.42886348_wp, &
+   & -0.35893667_wp, -0.15681968_wp, -0.46796329_wp, -0.42189488_wp, -0.15158595_wp, -0.44515883_wp, &
+   & -0.26304867_wp, -0.28077502_wp, -0.44505112_wp, -0.40887861_wp, -0.09411084_wp, -0.50469491_wp, &
+   & -0.45774194_wp, -0.19313602_wp, -0.58014645_wp, -0.50481797_wp, -0.24203976_wp, -0.48025570_wp, &
+   & -0.56565639_wp, -0.37817956_wp, -0.06106926_wp, -0.58170224_wp, -0.42023981_wp, -0.21861265_wp, &
+   & -0.59773334_wp, -0.44273372_wp, -0.15372635_wp, -0.60341440_wp, -0.44377998_wp, -0.13702676_wp, &
+   & -0.75228843_wp, -0.46070782_wp, -0.16311997_wp, -0.45400718_wp, -0.55540080_wp, -0.29627321_wp, &
+   & -0.43480220_wp, -0.25268935_wp,  0.00000000_wp, -0.44963509_wp, -0.28690023_wp, -0.37294037_wp, &
+   & -0.43635740_wp, -0.15301650_wp, -0.42985795_wp, -0.49887749_wp, -0.12526225_wp, -0.41994890_wp, &
+   & -0.33637242_wp,  0.11506145_wp, -0.47063236_wp, -0.30236908_wp, -0.21307280_wp, -0.44059807_wp, &
+   & -0.41053189_wp, -0.08929977_wp, -0.48059019_wp, -0.26112615_wp, -0.21074503_wp, -0.46642678_wp, &
+   & -0.37000129_wp, -0.23755777_wp, -0.43199592_wp, -0.38974216_wp, -0.06650347_wp, -0.51904336_wp, &
+   & -0.46812094_wp, -0.20754727_wp, -0.55921606_wp, -0.50134195_wp, -0.25122862_wp, -0.80255009_wp, &
+   & -0.55190032_wp, -0.36279281_wp,  0.01756359_wp, -0.58038815_wp, -0.40263314_wp, -0.18395644_wp, &
+   & -0.65306924_wp, -0.43960193_wp, -0.13809004_wp, -0.54509849_wp, -0.44924670_wp, -0.16182853_wp, &
+   & -0.95593684_wp, -0.45693729_wp, -0.16969031_wp, -0.62532339_wp, -0.50865282_wp, -0.34806027_wp, &
+   & -0.39616051_wp, -0.26832346_wp,  0.00000000_wp, -0.44826735_wp, -0.21976536_wp, -0.37260694_wp, &
+   & -0.43176645_wp, -0.16248487_wp, -0.40748316_wp, -0.25060286_wp, -0.27387264_wp, -0.45115761_wp, &
+   & -0.23930086_wp, -0.27602116_wp, -0.45173181_wp, -0.22799886_wp, -0.27816969_wp, -0.45230601_wp, &
+   & -0.21669686_wp, -0.28031822_wp, -0.45288021_wp, -0.20539486_wp, -0.28246674_wp, -0.45345441_wp, &
+   & -0.19409286_wp, -0.28461527_wp, -0.45402861_wp, -0.18279086_wp, -0.28676380_wp, -0.45460281_wp, &
+   & -0.17148887_wp, -0.28891232_wp, -0.45517701_wp, -0.16018687_wp, -0.29106085_wp, -0.45575121_wp, &
+   & -0.14888487_wp, -0.29320937_wp, -0.45632542_wp, -0.13758287_wp, -0.29535790_wp, -0.45689962_wp, &
+   & -0.12628087_wp, -0.29750643_wp, -0.45747382_wp, -0.11497887_wp, -0.29965495_wp, -0.45804802_wp, &
+   & -0.10367688_wp, -0.30180348_wp, -0.45862222_wp, -0.51413540_wp, -0.06435519_wp, -0.44273659_wp, &
+   & -0.34859712_wp,  0.07959224_wp, -0.50110969_wp, -0.44821046_wp, -0.16269840_wp, -0.42026844_wp, &
+   & -0.49513987_wp, -0.08699315_wp, -0.47219426_wp, -0.27378562_wp, -0.18370746_wp, -0.48313060_wp, &
+   & -0.40293719_wp, -0.25066440_wp, -0.42516439_wp, -0.42858490_wp, -0.18782375_wp, -0.49166382_wp, &
+   & -0.49533468_wp, -0.19144863_wp, -0.50644911_wp, -0.51587320_wp, -0.29145452_wp, -0.53800387_wp, &
+   & -0.55257311_wp, -0.34898594_wp,  0.02606851_wp, -0.51728236_wp, -0.40709467_wp, -0.41799964_wp, &
+   & -0.65355387_wp, -0.44221646_wp, -0.14897940_wp, -0.57437177_wp, -0.44267376_wp, -0.18531561_wp, &
+   & -0.79336611_wp, -0.45416764_wp, -0.18618812_wp, -0.98227018_wp, -0.49955181_wp, -0.28755078_wp],&
+   & shape(ceh_level))
+
+   !> Dependence of orbital shell energy level on standard CN (shell-resolved) # MM, August 00, 2023
+   real(wp), parameter :: ceh_kcn(max_shell, max_elem) = reshape([&
+   & -0.01626957_wp,  0.00000000_wp,  0.00000000_wp, -0.14712486_wp,  0.00000000_wp,  0.00000000_wp, &
+   &  0.00863841_wp,  0.00494496_wp,  0.00000000_wp, -0.08288884_wp,  0.00649581_wp,  0.00000000_wp, &
+   &  0.01514747_wp, -0.00629044_wp,  0.00000000_wp, -0.00205353_wp, -0.04733032_wp,  0.00000000_wp, &
+   & -0.05954040_wp, -0.08236997_wp,  0.00000000_wp, -0.07734635_wp, -0.16068330_wp,  0.00000000_wp, &
+   & -0.01491119_wp, -0.27326542_wp,  0.00000000_wp, -0.05286409_wp, -0.40977373_wp,  0.00000000_wp, &
+   &  0.10509451_wp, -0.01346266_wp,  0.00000000_wp, -0.02900627_wp, -0.01793791_wp,  0.00000000_wp, &
+   &  0.00189897_wp, -0.00948821_wp, -0.02317406_wp, -0.01335877_wp, -0.01156999_wp, -0.00182405_wp, &
+   &  0.03475586_wp, -0.03701144_wp, -0.02765386_wp, -0.01870669_wp, -0.07543686_wp, -0.01303772_wp, &
+   &  0.04301284_wp, -0.11599174_wp, -0.03729682_wp, -0.20417822_wp, -0.07409862_wp, -0.02246543_wp, &
+   &  0.34322188_wp,  0.01318320_wp,  0.00000000_wp, -0.01229019_wp,  0.03743403_wp,  0.01151337_wp, &
+   & -0.12157369_wp, -0.06487047_wp,  0.12081987_wp,  0.05591202_wp, -0.03578924_wp,  0.04248427_wp, &
+   & -0.04786277_wp, -0.02467660_wp,  0.00842692_wp, -0.01433692_wp,  0.03090773_wp, -0.01130523_wp, &
+   & -0.05867434_wp, -0.02278037_wp, -0.01229249_wp,  0.00479160_wp, -0.03674844_wp, -0.02044685_wp, &
+   & -0.09953767_wp,  0.02054226_wp, -0.03114463_wp,  0.11728275_wp, -0.05821580_wp, -0.03465944_wp, &
+   &  0.03156397_wp,  0.00033800_wp, -0.05822776_wp, -0.04575552_wp, -0.01278541_wp, -0.11231628_wp, &
+   & -0.01576923_wp,  0.02005206_wp, -0.05292968_wp, -0.03253403_wp,  0.00567502_wp,  0.00447648_wp, &
+   & -0.01163885_wp, -0.02613921_wp,  0.00434336_wp,  0.00570942_wp, -0.06347916_wp, -0.00699032_wp, &
+   &  0.05551107_wp, -0.09877832_wp, -0.01657677_wp, -0.24065971_wp, -0.05569917_wp,  0.02076511_wp, &
+   &  0.37289705_wp,  0.00600915_wp,  0.00000000_wp,  0.00669819_wp,  0.07812375_wp, -0.00299273_wp, &
+   &  0.08506897_wp, -0.05475700_wp,  0.03494791_wp, -0.01889109_wp, -0.04616713_wp,  0.02275678_wp, &
+   & -0.00759356_wp, -0.05795806_wp,  0.01355074_wp, -0.04241473_wp,  0.02035114_wp, -0.00933872_wp, &
+   & -0.04182419_wp, -0.04857672_wp,  0.00336497_wp, -0.09422350_wp, -0.01501399_wp, -0.01515242_wp, &
+   & -0.10124578_wp,  0.00201696_wp, -0.04131672_wp,  0.03033805_wp, -0.08593120_wp, -0.02564891_wp, &
+   &  0.08778117_wp, -0.01713825_wp, -0.07598911_wp, -0.02900415_wp, -0.02705660_wp,  0.15303569_wp, &
+   & -0.04211022_wp,  0.02701719_wp, -0.08508553_wp, -0.00348280_wp, -0.01167965_wp,  0.01715785_wp, &
+   &  0.03121942_wp, -0.02388064_wp, -0.00882082_wp, -0.00908386_wp, -0.05053057_wp, -0.00175911_wp, &
+   &  0.28073776_wp, -0.07497037_wp, -0.06496945_wp, -0.04236284_wp, -0.05477997_wp,  0.02800537_wp, &
+   &  0.16635470_wp,  0.07094546_wp,  0.00000000_wp,  0.03038949_wp,  0.06317391_wp,  0.01584630_wp, &
+   &  0.07546793_wp, -0.04035467_wp,  0.04007654_wp, -0.10920538_wp,  0.01342832_wp,  0.03455530_wp, &
+   & -0.11693057_wp,  0.01732656_wp,  0.03367679_wp, -0.12465575_wp,  0.02122480_wp,  0.03279829_wp, &
+   & -0.13238094_wp,  0.02512304_wp,  0.03191978_wp, -0.14010612_wp,  0.02902128_wp,  0.03104127_wp, &
+   & -0.14783131_wp,  0.03291952_wp,  0.03016276_wp, -0.15555649_wp,  0.03681775_wp,  0.02928425_wp, &
+   & -0.16328167_wp,  0.04071599_wp,  0.02840574_wp, -0.17100686_wp,  0.04461423_wp,  0.02752723_wp, &
+   & -0.17873204_wp,  0.04851247_wp,  0.02664872_wp, -0.18645723_wp,  0.05241071_wp,  0.02577022_wp, &
+   & -0.19418241_wp,  0.05630895_wp,  0.02489171_wp, -0.20190759_wp,  0.06020718_wp,  0.02401320_wp, &
+   & -0.20963278_wp,  0.06410542_wp,  0.02313469_wp,  0.02596189_wp, -0.06122644_wp,  0.03375121_wp, &
+   & -0.00323387_wp, -0.09185345_wp,  0.03248178_wp, -0.01857132_wp,  0.00174848_wp, -0.01183479_wp, &
+   & -0.02028725_wp, -0.05422920_wp,  0.00195873_wp, -0.07001977_wp, -0.02376318_wp, -0.01485681_wp, &
+   & -0.10137711_wp,  0.00872310_wp, -0.04240400_wp, -0.03299086_wp, -0.01794242_wp, -0.05587321_wp, &
+   &  0.04479228_wp, -0.03116888_wp, -0.09950389_wp, -0.07151097_wp,  0.01595180_wp, -0.09129392_wp, &
+   & -0.05856389_wp,  0.02497592_wp, -0.05393627_wp, -0.09750939_wp,  0.01204451_wp, -0.01448104_wp, &
+   &  0.01891168_wp, -0.01620237_wp, -0.00996082_wp, -0.04354041_wp, -0.04464475_wp,  0.02445958_wp, &
+   &  0.13451910_wp, -0.04984156_wp, -0.03343742_wp,  0.08695188_wp, -0.06402913_wp,  0.02033733_wp],&
+   & shape(ceh_kcn))
+
+   !> Dependence of orbital shell energy level on EN-weighted CN (atom-resolved) # MM, August 00, 2023
+   real(wp), parameter :: ceh_kcnen(max_elem) = [&
+   & -0.12768184_wp, -0.30481937_wp,  0.00302231_wp,  0.07200407_wp, -0.04294759_wp, -0.07955338_wp, &
+   & -0.09493707_wp, -0.07198264_wp,  0.03080274_wp, -0.01999000_wp, -0.00232660_wp,  0.04746226_wp, &
+   &  0.01262132_wp, -0.00849344_wp, -0.00867003_wp, -0.00730045_wp,  0.01104749_wp, -0.00040887_wp, &
+   & -0.08045470_wp,  0.01026750_wp,  0.04205488_wp, -0.01175355_wp, -0.02151850_wp, -0.04419584_wp, &
+   & -0.02732939_wp, -0.04970992_wp, -0.04216317_wp, -0.03601579_wp, -0.02613562_wp,  0.05601951_wp, &
+   &  0.02220564_wp,  0.00675828_wp, -0.01083386_wp, -0.01866043_wp,  0.00431215_wp, -0.01972074_wp, &
+   & -0.04276521_wp, -0.00344024_wp,  0.00887900_wp,  0.02360741_wp, -0.02038550_wp, -0.02639773_wp, &
+   & -0.02954938_wp, -0.03654088_wp, -0.02867754_wp, -0.00282480_wp, -0.00734717_wp,  0.04537368_wp, &
+   &  0.04130496_wp, -0.02390599_wp, -0.01759813_wp, -0.00914366_wp,  0.01045523_wp, -0.03440882_wp, &
+   & -0.07875308_wp, -0.02476772_wp,  0.00043117_wp,  0.04086382_wp,  0.03949769_wp,  0.03813156_wp, &
+   &  0.03676543_wp,  0.03539930_wp,  0.03403318_wp,  0.03266705_wp,  0.03130092_wp,  0.02993479_wp, &
+   &  0.02856866_wp,  0.02720253_wp,  0.02583640_wp,  0.02447027_wp,  0.02310414_wp,  0.00251351_wp, &
+   & -0.01970384_wp, -0.02447100_wp, -0.02845688_wp, -0.02733732_wp, -0.02856101_wp,  0.01266183_wp, &
+   &  0.02207229_wp,  0.06732818_wp,  0.03457416_wp, -0.00347199_wp, -0.01934747_wp, -0.00166422_wp, &
+   & -0.02282661_wp, -0.01354102_wp]
+
+   real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp] ! H0 spd-scaling 1.23
+
    interface run_ceh
-      module procedure run_ceh_empty
       module procedure run_ceh_full
    end interface run_ceh
 
 contains
 
-   subroutine run_ceh_empty(mol, error)
+   ! subroutine run_ceh_empty(mol, error, charges)
+   !    !> Run the CEH calculation
+   !    type(structure_type), intent(in)  :: mol
+   !    type(error_type), allocatable, intent(out) :: error
+   !    real(wp), intent(out) :: charges(:)
+   !    real(wp) :: efield(3) = 0.0_wp
+
+   !    call run_ceh(mol, efield, error, charges)
+
+   ! end subroutine run_ceh_empty
+
+   subroutine run_ceh_full(mol,efield,error,charges,dcharges)
       !> Run the CEH calculation
       type(structure_type), intent(in)  :: mol
-      type(error_type), allocatable, intent(out) :: error
-      real(wp) :: efield(3) = 0.0_wp
-
-      call run_ceh(mol, efield, error)
-
-   end subroutine run_ceh_empty
-
-   subroutine run_ceh_full(mol,efield,error)
-      !> Run the CEH calculation
-      type(structure_type), intent(in)  :: mol
-      type(error_type), allocatable, intent(out) :: error
       real(wp), intent(in) :: efield(:)
+      type(error_type), allocatable, intent(out) :: error
+      real(wp), intent(out) :: charges(:)
+      real(wp), intent(out), optional :: dcharges(:, :)
+
       type(ceh_calculator) :: calc
 
+      charges = 0.0_wp
+
       call header()
-      call new_ceh_calculator(calc, mol)
+      if (present(dcharges)) then
+         write(*,*) "CEH: Gradient not yet implemented"
+         ! ### For future implementation - use the following logical ###
+         calc%grad = .true.
+         stop
+      endif
+      call new_ceh_calculator(calc, mol, efield)
 
    end subroutine run_ceh_full
 
-   subroutine new_ceh_calculator(calc,mol)
+   subroutine new_ceh_calculator(calc,mol, efield)
       !> Instance of the CEH evaluator
       type(ceh_calculator), intent(out) :: calc
       type(structure_type), intent(in)  :: mol
+      real(wp), intent(in)              :: efield(:)
       !  local variables
       real(wp),allocatable :: F(:), eps(:)    ! Fock and eigenvalues
       real(wp),allocatable :: S(:), P(:)      ! overlap and density
@@ -182,22 +308,7 @@ contains
       real(wp),allocatable :: psh(:,:)        ! shell populations
       real(wp),allocatable :: wbo(:,:)        ! BO
 
-      real(wp)             :: tmp, hav, hdii, hdjj, ps, dum, dcal1, dcal2
-      real(wp)             :: klli, kllj
-      real(wp)             :: dip(3)
-      integer              :: i, j, k, l, m, ii, jj, iat, jat
-      integer              :: ati, atj, ish, jsh, iish, li, lj, ij
-      integer              :: ierr
-      integer, parameter   :: llao(0:3) = [1,3,5,7] ! # of AO in shell
-      logical              :: EX, FIT
-      character(len=80)    :: atmp
       real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
-      !! GRADIENT NOT YET IMPLEMENTED !!
-      logical, parameter   :: grad = .false.
-      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! PARAMETER SECTION
-      real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp] ! H0 spd-scaling 1.23
 
       !allocate(F(ndim*(ndim+1)/2), S(ndim*(ndim+1)/2), P(ndim*(ndim+1)/2), wbo(n,n), &
       !&         cn1(n), cn2(n), D(ndim*(ndim+1)/2,3), norm(ndim), eps(ndim), psh(maxsh,n), &
@@ -208,23 +319,7 @@ contains
       write(*,*) "Basis setup complete."
       call add_ncoord(calc, mol)
       write(*,*) "CN setup complete."
-
-      if (allocated(calc%ncoord)) then
-         allocate(cn(mol%nat))
-         allocate(cn_en(mol%nat))
-         if (grad) then
-            allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
-         end if
-         call calc%ncoord%get_cn(mol, cn, cn_en)
-         write(*,*) "CN (classic erf.)   CN (EN weighted)"
-         do i = 1, mol%nat
-            write(*,'(f10.6,10x,f10.6)') cn(i), cn_en(i)
-         end do
-      end if
-
-      ! call ceh_ncoord(n,at,kcn,rab,cn1,cn2) ! routine with standard radii-> CN, EN weigthed CN
-
-      ! call ncoord_basq(n,at,    rab,cn_eeq)  ! CN for q-vSZP basis compression term
+      call get_hamiltonian(calc, mol)
 
       ! call sint_ceh(norm,S,F)                ! sig,pi,del scaled overlap on F, standard overlap on S
       ! call dipint_ceh(norm,D) ! dipole ints
@@ -281,10 +376,56 @@ contains
 
    end subroutine add_ceh_basis
 
+   subroutine get_hamiltonian(calc, mol)
+      type(ceh_calculator), intent(inout) :: calc
+      type(structure_type), intent(in) :: mol
+
+      real(wp), allocatable   :: ceh_h0(:,:), hlevel(:)
+      real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
+
+      integer                 :: i, ii, j
+      integer                 :: iat, ish, k
+
+      allocate(ceh_h0(calc%bas%nao, calc%bas%nao), hlevel(calc%bas%nao))
+
+      if (allocated(calc%ncoord)) then
+         allocate(cn(mol%nat))
+         allocate(cn_en(mol%nat))
+         if (calc%grad) then
+            allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
+         end if
+         call calc%ncoord%get_cn(mol, cn, cn_en)
+         ! write(*,*) "CN (classic erf.)   CN (EN weighted)"
+         ! do i = 1, mol%nat
+         !    write(*,'(f10.6,10x,f10.6)') cn(i), cn_en(i)
+         ! end do
+      end if
+
+      ! define diagonal elements of CEH Hamiltonian
+      k = 0
+      do iat = 1, mol%nat
+         ii = calc%bas%ish_at(iat)
+         do ish = 1, calc%bas%nsh_at(iat)
+            do j = 1, calc%bas%nao_sh(ish + ii)
+               k = k + 1
+               hlevel(k) = ceh_level(ish, mol%num(mol%id(iat))) + &
+               &             ceh_kcn(ish, mol%num(mol%id(iat))) * cn(iat) + &
+               &                ceh_kcnen(mol%num(mol%id(iat))) * cn_en(iat)
+               ! write(*,*) "H0(", k, ") = ", hlevel(k)
+            end do
+         end do
+      end do
+      if (k /= calc%bas%nao) then
+         error stop "ERROR: k /= calc%bas%nao"
+         stop
+      end if
+
+   end subroutine get_hamiltonian
+
    subroutine header()
       write(*,*) '      ---------------------------------------------------- '
       write(*,*) '       C H A R G E    E X T E N D E D    H U C K E L (CEH) '
-      write(*,*) '                       SG, MM, AH, May 2023                        '        
+      write(*,*) '                       SG, MM, AH, TF, May 2023                        '
       write(*,*) '      ---------------------------------------------------- '
    end subroutine header
 
