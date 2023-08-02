@@ -40,7 +40,7 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_ceh_ceh, only : run_ceh 
    implicit none
    private
 
@@ -122,9 +122,15 @@ subroutine run_main(config, error)
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
    
-   write(*,*) "Jumping into CEH mode."
-   call new_ceh_calculator(mol)
-   stop
+   if (config%ceh) then
+      if (allocated(config%efield)) then
+         call run_ceh(mol, config%efield, error)
+      else
+         call run_ceh(mol, error)
+      end if
+      return
+   endif
+   if (allocated(error)) return
 
    if (allocated(config%param)) then
       call param%load(config%param, error)

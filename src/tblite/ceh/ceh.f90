@@ -29,7 +29,7 @@ module tblite_ceh_ceh
    implicit none
    private
 
-   public :: new_ceh_calculator
+   public :: run_ceh
 
    integer, parameter, private :: max_elem = 86
    integer, parameter, private :: max_shell = 3
@@ -140,11 +140,39 @@ module tblite_ceh_ceh
    &  2.54746694_wp,  2.83550170_wp,  1.88029428_wp,  2.26386287_wp,  2.46706218_wp,  2.09966650_wp],&
    & shape(slater_exponent))
 
+   interface run_ceh
+      module procedure run_ceh_empty
+      module procedure run_ceh_full
+   end interface run_ceh
+
 contains
 
-   subroutine new_ceh_calculator(mol)
-      type(structure_type), intent(in) :: mol
-      type(ceh_calculator)            :: calc
+   subroutine run_ceh_empty(mol, error)
+      !> Run the CEH calculation
+      type(structure_type), intent(in)  :: mol
+      type(error_type), allocatable, intent(out) :: error
+      real(wp) :: efield(3) = 0.0_wp
+
+      call run_ceh(mol, efield, error)
+
+   end subroutine run_ceh_empty
+
+   subroutine run_ceh_full(mol,efield,error)
+      !> Run the CEH calculation
+      type(structure_type), intent(in)  :: mol
+      type(error_type), allocatable, intent(out) :: error
+      real(wp), intent(in) :: efield(:)
+      type(ceh_calculator) :: calc
+
+      call header()
+      call new_ceh_calculator(calc, mol)
+
+   end subroutine run_ceh_full
+
+   subroutine new_ceh_calculator(calc,mol)
+      !> Instance of the CEH evaluator
+      type(ceh_calculator), intent(out) :: calc
+      type(structure_type), intent(in)  :: mol
       !  local variables
       real(wp),allocatable :: F(:), eps(:)    ! Fock and eigenvalues
       real(wp),allocatable :: S(:), P(:)      ! overlap and density
@@ -180,6 +208,7 @@ contains
       write(*,*) "Basis setup complete."
       call add_ncoord(calc, mol)
       write(*,*) "CN setup complete."
+
       if (allocated(calc%ncoord)) then
          allocate(cn(mol%nat))
          allocate(cn_en(mol%nat))
@@ -187,10 +216,10 @@ contains
             allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
          end if
          call calc%ncoord%get_cn(mol, cn, cn_en)
-         write(*,*) "CEH: Coordination number:"
-         write(*,*) cn
-         write(*,*) "CEH: Coordination number (EN weighted):"
-         write(*,*) cn_en
+         write(*,*) "CN (classic erf.)   CN (EN weighted)"
+         do i = 1, mol%nat
+            write(*,'(f10.6,10x,f10.6)') cn(i), cn_en(i)
+         end do
       end if
 
       ! call ceh_ncoord(n,at,kcn,rab,cn1,cn2) ! routine with standard radii-> CN, EN weigthed CN
@@ -251,5 +280,12 @@ contains
       call new_basis(calc%bas, mol, nsh_id, cgto, 1.0_wp)
 
    end subroutine add_ceh_basis
+
+   subroutine header()
+      write(*,*) '      ---------------------------------------------------- '
+      write(*,*) '       C H A R G E    E X T E N D E D    H U C K E L (CEH) '
+      write(*,*) '                       SG, MM, AH, May 2023                        '        
+      write(*,*) '      ---------------------------------------------------- '
+   end subroutine header
 
 end module tblite_ceh_ceh

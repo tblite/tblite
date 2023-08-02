@@ -76,6 +76,8 @@ module tblite_cli
       real(wp), allocatable :: efield(:)
       !> Spin polarization
       logical :: spin_polarized = .false.
+      !> Charge extended Hückel method
+      logical :: ceh = .false.
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
    end type run_config
@@ -291,6 +293,10 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Missing argument for method")
             exit
          end if
+      
+      case("--ceh")
+         write(output_unit, '(a)') "WARNING: CEH is an experimental feature and may not work as expected!"
+         config%ceh = .true.
 
       case("--guess")
          iarg = iarg + 1
