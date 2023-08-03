@@ -26,6 +26,7 @@ module tblite_ceh_ceh
    use tblite_basis_type, only : cgto_type, new_basis
    use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
+   use tblite_ceh_h0, only : ceh_hamiltonian
    implicit none
    private
 
@@ -258,6 +259,11 @@ module tblite_ceh_ceh
       module procedure run_ceh_full
    end interface run_ceh
 
+   interface ceh_h0_entry
+      module procedure ceh_h0_entry_od
+      module procedure ceh_h0_entry_d
+   end interface ceh_h0_entry
+
 contains
 
    ! subroutine run_ceh_empty(mol, error, charges)
@@ -378,15 +384,15 @@ contains
 
    subroutine get_hamiltonian(calc, mol)
       type(ceh_calculator), intent(inout) :: calc
-      type(structure_type), intent(in) :: mol
+      type(structure_type), intent(in)    :: mol
+      type(ceh_hamiltonian)               :: self
 
-      real(wp), allocatable   :: ceh_h0(:,:), hlevel(:)
       real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
 
-      integer                 :: i, ii, j
-      integer                 :: iat, ish, k
+      integer                 :: ii, offset_iat, offset_jat
+      integer                 :: iat, ish, jsh, k, l, iao, jao, jat, shell
 
-      allocate(ceh_h0(calc%bas%nao, calc%bas%nao), hlevel(calc%bas%nao))
+      allocate(self%h0(calc%bas%nao, calc%bas%nao), self%hlevel(calc%bas%nsh), source=0.0_wp)
 
       if (allocated(calc%ncoord)) then
          allocate(cn(mol%nat))
@@ -395,32 +401,110 @@ contains
             allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
          end if
          call calc%ncoord%get_cn(mol, cn, cn_en)
-         ! write(*,*) "CN (classic erf.)   CN (EN weighted)"
-         ! do i = 1, mol%nat
-         !    write(*,'(f10.6,10x,f10.6)') cn(i), cn_en(i)
-         ! end do
       end if
 
-      ! define diagonal elements of CEH Hamiltonian
-      k = 0
+      !> define diagonal elements of CEH Hamiltonian
+      !> shell-resolved, not AO resolved
       do iat = 1, mol%nat
          ii = calc%bas%ish_at(iat)
          do ish = 1, calc%bas%nsh_at(iat)
-            do j = 1, calc%bas%nao_sh(ish + ii)
-               k = k + 1
-               hlevel(k) = ceh_level(ish, mol%num(mol%id(iat))) + &
-               &             ceh_kcn(ish, mol%num(mol%id(iat))) * cn(iat) + &
-               &                ceh_kcnen(mol%num(mol%id(iat))) * cn_en(iat)
-               ! write(*,*) "H0(", k, ") = ", hlevel(k)
-            end do
+            self%hlevel(ii+ish) = ceh_level(ish, mol%num(mol%id(iat))) + &
+            &             ceh_kcn(ish, mol%num(mol%id(iat))) * cn(iat) + &
+            &                ceh_kcnen(mol%num(mol%id(iat))) * cn_en(iat)
+            !end do
          end do
       end do
+
+      ! define off-diagonal elements of CEH Hamiltonian
+      k = 0
+      do iat = 1, mol%nat
+         offset_iat = calc%bas%ish_at(iat)
+         ! write(*,*) "offset_iat ", offset_iat
+         do ish = 1, calc%bas%nsh_at(iat)
+            do iao = 1, calc%bas%nao_sh(ish + offset_iat)
+               !> iterator for AO of i increased by 1 -> k
+               k = k + 1
+               !> iterator for AO of j set to 0
+               l = 0
+
+               !> loop over all AOs in atoms before current atom
+               do jat = 1,iat-1 
+                  offset_jat = calc%bas%ish_at(jat)
+                  do jsh = 1, calc%bas%nsh_at(jat)
+                     do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
+                        ! write(*,*) "atom iteration executed"
+                        l = l + 1
+                        self%h0(k, l) = ceh_h0_entry(iat, jat, ish, jsh, & 
+                        & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
+                     end do
+                  end do
+               end do
+
+               !> loop over all AOs in shells before current shell (same atom)
+               do jsh = 1, ish - 1
+                  do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
+                     l = l + 1
+                     self%h0(k, l) = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
+                     & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
+                  end do
+               end do 
+
+               !> loop over all AOs before current AO (same atom and shell)
+               shell = calc%bas%nsh_at(iat) ! current shell of "i"
+               do jao = 1, iao - 1 
+                  l = l + 1
+                  self%h0(k, l) = ceh_h0_entry(iat, iat, ish, ish, & 
+                  & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
+               enddo
+
+               !> diagonal term (AO(i) == AO(j))
+               l = l + 1
+               self%h0(k, l) = ceh_h0_entry(iao, self%hlevel)
+               if ( l /= k ) then
+                  error stop "ERROR: l /= k"
+                  stop
+               end if
+            enddo
+         enddo
+      enddo
       if (k /= calc%bas%nao) then
          error stop "ERROR: k /= calc%bas%nao"
          stop
       end if
 
+      if (allocated(calc%ncoord)) then
+         deallocate(cn, cn_en)
+         if (calc%grad) then
+            deallocate(dcndr, dcndL)
+         end if
+      end if
+
+      calc%h0 = self
+
    end subroutine get_hamiltonian
+
+   function ceh_h0_entry_od(iat,jat,ish,jsh, hleveli, hlevelj) result(level)
+      integer, intent(in) :: ish, iat, jsh, jat
+      real(wp), intent(in) :: hleveli, hlevelj
+      real(wp) :: level
+
+      integer :: ang_i, ang_j
+      
+      ang_i = ang_shell(ish, iat)
+      ang_j = ang_shell(jsh, jat)
+      level = 0.25_wp * (hleveli + hlevelj) * &
+      & ( kll(ang_i + 1) + kll(ang_j + 1) )
+
+   end function ceh_h0_entry_od
+
+   function ceh_h0_entry_d(iao,hlevel) result(level)
+      integer, intent(in) :: iao
+      real(wp), intent(in) :: hlevel(:)
+      real(wp) :: level
+
+      level = hlevel(iao)
+
+   end function ceh_h0_entry_d
 
    subroutine header()
       write(*,*) '      ---------------------------------------------------- '

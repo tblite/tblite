@@ -40,7 +40,7 @@ module tblite_ceh_calculator
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
    use tblite_xtb_coulomb, only : tb_coulomb
-   use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
+   use tblite_ceh_h0, only : ceh_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
    implicit none
    private
@@ -53,7 +53,7 @@ module tblite_ceh_calculator
       !> Basis set definition
       type(basis_type) :: bas
       !> Core Hamiltonian
-      type(tb_hamiltonian) :: h0
+      type(ceh_hamiltonian) :: h0
       !> Coordination number for modifying the self-energies
       class(ncoord_type_ceh), allocatable :: ncoord
       !> Repulsion energy interactions
