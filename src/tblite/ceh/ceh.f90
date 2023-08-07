@@ -22,10 +22,13 @@ module tblite_ceh_ceh
    use mctc_io, only: structure_type
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type, only : cgto_type, new_basis
+   use tblite_basis_type, only : cgto_type, new_basis, get_cutoff
    use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
    use tblite_ceh_h0, only : ceh_hamiltonian
+
+   use tblite_integral_overlap, only : get_overlap
+   use tblite_cutoff, only : get_lattice_points
    implicit none
    private
 
@@ -343,6 +346,7 @@ contains
          stop
       endif
       call new_ceh_calculator(calc, mol, efield)
+      call get_hamiltonian(calc, mol)
 
    end subroutine run_ceh_full
 
@@ -362,19 +366,11 @@ contains
 
       real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
 
-      !allocate(F(ndim*(ndim+1)/2), S(ndim*(ndim+1)/2), P(ndim*(ndim+1)/2), wbo(n,n), &
-      !&         cn1(n), cn2(n), D(ndim*(ndim+1)/2,3), norm(ndim), eps(ndim), psh(maxsh,n), &
-      !&         source=0.0_wp, stat=ierr)
-
       write(*,*) "CEH: Initializing"
       call add_ceh_basis(calc, mol)
       write(*,*) "Basis setup complete."
       call add_ncoord(calc, mol)
       write(*,*) "CN setup complete."
-      call get_hamiltonian(calc, mol)
-
-      ! call sint_ceh(norm,S,F)                ! sig,pi,del scaled overlap on F, standard overlap on S
-      ! call dipint_ceh(norm,D) ! dipole ints
 
 
    end subroutine new_ceh_calculator
@@ -433,13 +429,21 @@ contains
       type(structure_type), intent(in)    :: mol
       type(ceh_hamiltonian)               :: self
 
-      real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
+      real(wp), allocatable   :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
+
+      real(wp), allocatable   :: overlap(:,:), lattr(:,:), overlap_diat(:,:)
+      real(wp) :: cutoff
 
       integer                 :: ii, offset_iat, offset_jat
       integer                 :: iat, ish, jsh, k, l, iao, jao, jat, shell
 
-      allocate(self%h0(calc%bas%nao, calc%bas%nao), self%hlevel(calc%bas%nsh), source=0.0_wp)
+      !> allocate CEH diagonal elements
+      allocate(self%hlevel(calc%bas%nsh), source=0.0_wp)
 
+      !> allocate full CEH Hamiltonian
+      allocate(self%h0(calc%bas%nao, calc%bas%nao), source=0.0_wp)
+
+      !> calculate coordination number (CN) and CN-weighted energy
       if (allocated(calc%ncoord)) then
          allocate(cn(mol%nat))
          allocate(cn_en(mol%nat))
@@ -457,11 +461,33 @@ contains
             self%hlevel(ii+ish) = ceh_level(ish, mol%num(mol%id(iat))) + &
             &             ceh_kcn(ish, mol%num(mol%id(iat))) * cn(iat) + &
             &                ceh_kcnen(mol%num(mol%id(iat))) * cn_en(iat)
-            !end do
          end do
       end do
 
-      ! define off-diagonal elements of CEH Hamiltonian
+      !> calculate overlap matrix
+      cutoff = get_cutoff(calc%bas)
+      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+      allocate(overlap(calc%bas%nao, calc%bas%nao), &
+      & overlap_diat(calc%bas%nao, calc%bas%nao), source=0.0_wp)
+      call get_overlap(mol, lattr, cutoff, calc%bas, overlap, overlap_diat)
+      ! Print overlap matrix in a readable format
+      write(*,*) "Overlap matrix:"
+      do iao = 1, calc%bas%nao
+         do jao = 1, calc%bas%nao
+            write(*,'(f10.5)',advance="no") overlap(iao, jao)
+         end do
+         write(*,'(/)', advance="no")
+      end do
+      write(*,*) "Overlap matrix (diat):"
+      do iao = 1, calc%bas%nao
+         do jao = 1, calc%bas%nao
+            write(*,'(f10.5)',advance="no") overlap_diat(iao, jao)
+         end do
+         write(*,'(/)', advance="no")
+      end do
+      stop
+
+      !> define off-diagonal elements of CEH Hamiltonian
       k = 0
       do iat = 1, mol%nat
          offset_iat = calc%bas%ish_at(iat)
