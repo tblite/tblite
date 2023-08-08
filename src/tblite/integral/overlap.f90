@@ -459,7 +459,7 @@ end subroutine get_overlap_lat
 
 !> Evaluate overlap for a molecular structure,
 !> with scaled elements in the diatomic frame
-   subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, overlap, overlap_diat)
+   subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap, overlap_scaled)
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Lattice points within a given realspace cutoff
@@ -468,31 +468,35 @@ end subroutine get_overlap_lat
       real(wp), intent(in) :: cutoff
       !> Basis set information
       type(basis_type), intent(in) :: bas
+      !> Scaling factors for the diatomic frame
+      real(wp), intent(in) :: scal_fac(:,:)
       !> Overlap matrix
       real(wp), intent(out) :: overlap(:, :)
       !> Overlap matrix with scaled elements in the diatomic frame
-      real(wp), intent(out) :: overlap_diat(:, :)
+      real(wp), intent(out) :: overlap_scaled(:, :)
       !> Transformation vector for the diatomic frame
       real(wp) :: vec_diat_trafo(3)
 
       integer :: iat, jat, izp, jzp, itr, is, js
       integer :: nao_ati, nao_atj, lbi, lbj, ubi, ubj
       integer :: ish, jsh, ii, jj, iao, jao, nao, maxl_ish_jsh
-      real(wp) :: r2, vec(3), cutoff2
+      real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
       real(wp), allocatable :: stmp(:)
       real(wp) :: trafomat(9,9), block_overlap(9,9), trans_block_s(9,9)
 
-      integer :: i,j
-
-      overlap(:, :) = 0.0_wp
-      overlap_diat(:, :) = 0.0_wp
+      if (size(scal_fac,1) /= 3) then
+         write(*,*) 'Error: scal_fac must have 3 rows'
+         stop
+      end if
 
       allocate(stmp(msao(bas%maxl)**2))
       cutoff2 = cutoff**2
 
       !$omp parallel do schedule(runtime) default(none) &
-      !$omp shared(mol, bas, trans, cutoff2, overlap) private(r2, vec, stmp) &
-      !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao)
+      !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled) private(r2, vec, stmp) &
+      !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
+      !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, trafomat, block_overlap) &
+      !$omp private(trans_block_s, ksig, kpi, kdel, vec_diat_trafo)
       do iat = 1, mol%nat
          izp = mol%id(iat)
          is = bas%ish_at(iat)
@@ -525,61 +529,122 @@ end subroutine get_overlap_lat
                         do jao = 1, nao
                            overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(jao + nao*(iao-1))
-                           overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
-                           & + stmp(jao + nao*(iao-1))
                         end do
                      end do
 
                   end do
                end do
-               !> Transform 9x9 submatrix (in minimal basis case with s,p,d) to diatomic frame
-               write(*,*) "iat, jat: ", iat, jat
+
+               !> Transform 9x9 submatrix (in minimal basis case with s,p,d) to diatomic frame,
+               !> scale the elements with the corresponding factor,
+               !> transform them back and add them to the scaled overlap matrix
+
+               !> 1. Define elements of overlap that should be transformed (or copied back plain)
+               lbi = bas%iao_sh(is+1)+1
+               ubi = bas%iao_sh(is+1)+nao_ati
+               lbj = bas%iao_sh(js+1)+1
+               ubj = bas%iao_sh(js+1)+nao_atj
+               ! ### DEV ###
+               !write(*,*) "lbi, ubi, lbj, ubj: ", lbi, ubi, lbj, ubj
+               ! ### DEV ###
                if (iat /= jat) then
                   block_overlap = 0.0_wp
                   !> Fill a 9x9 submatrix (initialized with 0's) with the overlap matrix elements
-                  !> Use maxl_ish_jsh to determine the size of the submatrix
-                  !> 1. Define elements of overlap that should be transformed
-                  lbi = bas%iao_sh(is+1)+1
-                  ubi = bas%iao_sh(is+1)+nao_ati
-                  lbj = bas%iao_sh(js+1)+1
-                  ubj = bas%iao_sh(js+1)+nao_atj
-                  write(*,*) "lbi, ubi, lbj, ubj: ", lbi, ubi, lbj, ubj
+
                   !> 2. Fill the submatrix with the correct overlap matrix elements
                   block_overlap(1:nao_atj, 1:nao_ati) = overlap(lbj:ubj, lbi:ubi)
-                  !> 2.1. Transpose the submatrix to correspond to MSINDO processing,
-                  !>      can be removed later
-                  block_overlap = transpose(block_overlap)
-                  write(*,*) "vec_diat_trafo:"
-                  write(*,*) vec_diat_trafo
-                  call harmtr(2, vec_diat_trafo, trafomat)
-                  ! call harmtr(maxl_ish_jsh, vec_diat_trafo, trafomat)
-                  write(*,*) "trafomat:"
-                  do i = 1, 9
-                     write(*,'(9f10.6)') (trafomat(i,j), j=1,9)
-                  end do
 
-                  write(*,*) "block_overlap:"
-                  do i = 1, 9
-                     write(*,'(9f10.6)') (block_overlap(i,j), j=1,9)
-                  end do
+                  !> (optional) 1.1. Transpose the submatrix to correspond to MSINDO processing,
+                  ! ### Transposing back and forth doesn't make a difference for the total overlap matrix
+                  ! ### but it does for the comparison of submatrices with MSINDO
+                  ! block_overlap = transpose(block_overlap)
+
+                  ! ### DEV ###
+                  ! write(*,*) "vec_diat_trafo:"
+                  ! write(*,*) vec_diat_trafo
+                  ! ### DEV ###
+
+                  call harmtr(2, vec_diat_trafo, trafomat)
+                  ! Doing it only for the maxl_ish_jsh elements (for s,p -> 4x4) would in
+                  ! theory be more efficient, but is not implemented yet:
+                  ! call harmtr(maxl_ish_jsh, vec_diat_trafo, trafomat) 
+
+                  ! ### DEV ###
+                  ! write(*,*) "trafomat:"
+                  ! do i = 1, 9
+                  !    write(*,'(9f10.6)') (trafomat(i,j), j=1,9)
+                  ! end do
+                  ! write(*,*) "block_overlap:"
+                  ! do i = 1, 9
+                  !    write(*,'(9f10.6)') (block_overlap(i,j), j=1,9)
+                  ! end do
+                  ! ### DEV ###
+
                   !> 3. Transform the submatrix
                   trans_block_s = matmul(matmul(transpose(trafomat), block_overlap),trafomat)
-                  write(*,*) "transformed block overlap:"
-                  do i = 1, 9
-                     write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
-                  end do
-                  !> Scale elements in diatomic frame
-                  ! ...
-                  !> Transform back to original frame
-                  trans_block_s = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
-                  write(*,*) "Original overlap:"
-                  do i = 1, 9
-                     write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
-                  end do
 
-                  !> 4. Fill the overlap_diat matrix with the back-transformed submatrix
-                  trans_block_s = transpose(trans_block_s)
-                  overlap_diat(lbj:ubj, lbi:ubi) = trans_block_s(1:nao_atj, 1:nao_ati)
+                  ! ### DEV ###
+                  ! write(*,*) "transformed block overlap:"
+                  ! do i = 1, 9
+                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
+                  ! end do
+                  ! ### DEV ###
+
+                  !> 4. Scale elements in diatomic frame
+                  !> 4.1. Determine scaling factors from atom parameters
+                  ksig = 2.0_wp / (1.0_wp / scal_fac(1,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / scal_fac(1,mol%num(mol%id(jat))) )
+                  kpi = 2.0_wp / (1.0_wp / scal_fac(2,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / scal_fac(2,mol%num(mol%id(jat))) )
+                  kdel = 2.0_wp / (1.0_wp / scal_fac(3,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / scal_fac(3,mol%num(mol%id(jat))) )
+                  !> 4.2. Scale elements with equivalent bonding situation in the
+                  !>      diatomic frame.
+                  trans_block_s(1,1) = trans_block_s(1,1)*ksig ! Sigma bond s   <-> s
+                  trans_block_s(1,3) = trans_block_s(1,3)*ksig ! Sigma bond s   <-> pz
+                  trans_block_s(3,1) = trans_block_s(3,1)*ksig ! Sigma bond pz  <-> s
+                  trans_block_s(1,5) = trans_block_s(1,5)*ksig ! Sigma bond s   <-> dz2
+                  trans_block_s(5,1) = trans_block_s(5,1)*ksig ! Sigma bond dz2 <-> s
+                  trans_block_s(3,3) = trans_block_s(3,3)*ksig ! Sigma bond pz  <-> pz
+                  trans_block_s(3,5) = trans_block_s(3,5)*ksig ! Sigma bond pz  <-> dz2
+                  trans_block_s(5,3) = trans_block_s(5,3)*ksig ! Sigma bond dz2 <-> pz
+                  trans_block_s(5,5) = trans_block_s(5,5)*ksig ! Sigma bond dz2 <-> dz2
+                  trans_block_s(4,4) = trans_block_s(4,4)*kpi  ! Pi    bond px  <-> px
+                  trans_block_s(4,6) = trans_block_s(4,6)*kpi  ! Pi    bond px  <-> dxz
+                  trans_block_s(6,4) = trans_block_s(6,4)*kpi  ! Pi    bond dxz <-> px
+                  trans_block_s(6,6) = trans_block_s(6,6)*kpi  ! Pi    bond dxz <-> dxz
+                  trans_block_s(2,2) = trans_block_s(2,2)*kpi  ! Pi    bond py  <-> py
+                  trans_block_s(2,7) = trans_block_s(2,7)*kpi  ! Pi    bond py  <-> dyz
+                  trans_block_s(7,2) = trans_block_s(7,2)*kpi  ! Pi    bond dyz <-> py
+                  trans_block_s(7,7) = trans_block_s(7,7)*kpi  ! Pi    bond dyz <-> dyz
+                  trans_block_s(8,8) = trans_block_s(8,8)*kdel ! Delta bond dx2-y2 <-> dx2-y2
+                  trans_block_s(9,9) = trans_block_s(9,9)*kdel ! Delta bond dxy <-> dxy
+
+                  ! ### DEV ###
+                  ! write(*,*) "transformed scaled block overlap:"
+                  ! do i = 1, 9
+                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
+                  ! end do
+                  ! ### DEV ###
+
+                  !> 5. Transform back to original frame
+                  block_overlap = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
+
+                  ! ### DEV ###
+                  ! write(*,*) "Scaled block overlap in cartesian frame:"
+                  ! do i = 1, 9
+                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
+                  ! end do
+                  ! ### DEV ###
+
+                  !> 6. Fill the overlap_diat matrix with the back-transformed submatrix
+                  ! ### Transposing back and forth doesn't make a difference for the total overlap matrix
+                  ! ### but it does for the comparison of submatrices with MSINDO
+                  ! trans_block_s = transpose(trans_block_s)
+                  overlap_scaled(lbj:ubj, lbi:ubi) = block_overlap(1:nao_atj, 1:nao_ati)
+               else
+                  !> 7. Fill the overlap_diat matrix with the plain overlap submatrix (no transformation)
+                  overlap_scaled(lbj:ubj, lbi:ubi) = overlap(lbj:ubj, lbi:ubi)
                endif
             end do
          end do
@@ -657,18 +722,15 @@ end subroutine get_overlap_lat
       endif
 
       trafomat = 0.0_wp
-      write(*,*) "maxkl: ", maxkl
       !     -----------------------------
       !     *** s functions (trafomat(1x1)) ***
       !     -----------------------------
-      write(*,*) "s function setup..."
       trafomat(1,1) = 1.0
 
       if ( maxkl == 0 ) return
       !     -----------------------------
       !     *** p functions (trafomat(4x4)) ***
       !     -----------------------------
-      write(*,*) "p function setup..."
 
       cost = veckl(3)
       if ( abs(cost) .eq. 1.0_wp ) then
@@ -685,7 +747,7 @@ end subroutine get_overlap_lat
          sinp = veckl(2)/SINT
       endif
 
-      !> Original ordering (-> x, y, z)
+      !> Original MSINDO ordering (-> x, y, z)
       ! trafomat(2,2) = SINT*COSP
       ! trafomat(3,2) = SINT*SINP
       ! trafomat(4,2) = COST
@@ -758,37 +820,6 @@ end subroutine get_overlap_lat
       trafomat(7,9) = -SINT*COSP
       trafomat(8,9) = -COST*SIN2P
       trafomat(9,9) = COST*COS2P
-
-      !> OLD ORDERING TRIALS -> CAN BE MOVED TO TRASH
-      ! trafomat(6,8) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp  ! (5 -> 6, 5 -> 8)
-      ! trafomat(8,8) = SQRT3*SIN2T*COSP*0.5_wp               ! (6 -> 8, 5 -> 8)
-      ! trafomat(7,8) = SQRT3*SIN2T*SINP*0.5_wp               ! (eq    , 5 -> 8)
-      ! trafomat(5,8) = SQRT3*SINT**2*COS2P*0.5_wp            ! (8 -> 5, 5 -> 8)
-      ! trafomat(9,8) = SQRT3*SINT**2*SIN2P*0.5_wp            ! (eq    , 5 -> 8)
-
-      ! trafomat(6,5) = -SQRT3*SIN2T*0.5_wp                   ! (5 -> 6, 6 -> 5)
-      ! trafomat(8,5) = COS2T*COSP                            ! (6 -> 8, 6 -> 5)
-      ! trafomat(7,5) = COS2T*SINP                            ! (eq    , 6 -> 5)
-      ! trafomat(5,5) = SIN2T*COS2P*0.5_wp                    ! (8 -> 5, 6 -> 5)
-      ! trafomat(9,5) = SIN2T*SIN2P*0.5_wp                    ! (eq    , 6 -> 5)
-
-      ! trafomat(6,7) = 0.0_wp                                ! (5 -> 6, eq    )
-      ! trafomat(8,7) = -COST*SINP                            ! (6 -> 8, eq    )
-      ! trafomat(7,7) = COST*COSP                             ! (eq    , eq    )
-      ! trafomat(5,7) = -SINT*SIN2P                           ! (8 -> 5, eq    )
-      ! trafomat(9,7) = SINT*COS2P                            ! (eq    , eq    )
-
-      ! trafomat(6,6) = SQRT3*SINT**2 * 0.5_wp                ! (5 -> 6, 8 -> 6)
-      ! trafomat(8,6) = -SIN2T*COSP*0.5_wp                    ! (6 -> 8, 8 -> 6)
-      ! trafomat(7,6) = -SIN2T*SINP*0.5_wp                    ! (eq    , 8 -> 6)
-      ! trafomat(5,6) = (1.0_wp + COST**2) * COS2P * 0.5_wp   ! (8 -> 5, 8 -> 6)
-      ! trafomat(9,6) = (1.0_wp + COST**2) * SIN2P * 0.5_wp   ! (eq    , 8 -> 6)
-
-      ! trafomat(6,9) = 0.0_wp                                ! (5 -> 6, eq    )
-      ! trafomat(8,9) = SINT*SINP                             ! (6 -> 8, eq    )
-      ! trafomat(7,9) = -SINT*COSP                            ! (eq    , eq    )
-      ! trafomat(5,9) = -COST*SIN2P                           ! (8 -> 5, eq    )
-      ! trafomat(9,9) = COST*COS2P                            ! (eq    , eq    )
 
    end subroutine harmtr
 

@@ -310,7 +310,7 @@ module tblite_ceh_ceh
 
    interface ceh_h0_entry
       module procedure ceh_h0_entry_od
-      module procedure ceh_h0_entry_d
+      ! module procedure ceh_h0_entry_d
    end interface ceh_h0_entry
 
 contains
@@ -469,7 +469,7 @@ contains
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       allocate(overlap(calc%bas%nao, calc%bas%nao), &
       & overlap_diat(calc%bas%nao, calc%bas%nao), source=0.0_wp)
-      call get_overlap(mol, lattr, cutoff, calc%bas, overlap, overlap_diat)
+      call get_overlap(mol, lattr, cutoff, calc%bas, ceh_h0k, overlap, overlap_diat)
       ! Print overlap matrix in a readable format
       write(*,*) "Overlap matrix:"
       do iao = 1, calc%bas%nao
@@ -485,7 +485,6 @@ contains
          end do
          write(*,'(/)', advance="no")
       end do
-      stop
 
       !> define off-diagonal elements of CEH Hamiltonian
       k = 0
@@ -531,7 +530,7 @@ contains
 
                !> diagonal term (AO(i) == AO(j))
                l = l + 1
-               self%h0(k, l) = ceh_h0_entry(iao, self%hlevel)
+               self%h0(k, l) = self%hlevel(offset_iat + ish)
                if ( l /= k ) then
                   error stop "ERROR: l /= k"
                   stop
@@ -568,15 +567,6 @@ contains
       & ( kll(ang_i + 1) + kll(ang_j + 1) )
 
    end function ceh_h0_entry_od
-
-   function ceh_h0_entry_d(iao,hlevel) result(level)
-      integer, intent(in) :: iao
-      real(wp), intent(in) :: hlevel(:)
-      real(wp) :: level
-
-      level = hlevel(iao)
-
-   end function ceh_h0_entry_d
 
    subroutine header()
       write(*,*) '      ---------------------------------------------------- '
