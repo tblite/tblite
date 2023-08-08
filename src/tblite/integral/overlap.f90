@@ -24,6 +24,7 @@ module tblite_integral_overlap
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
    use tblite_integral_trafo, only : transform0, transform1, transform2
+   use tblite_blas, only: gemm
    implicit none
    private
 
@@ -482,7 +483,7 @@ end subroutine get_overlap_lat
       integer :: ish, jsh, ii, jj, iao, jao, nao, maxl_ish_jsh
       real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
       real(wp), allocatable :: stmp(:)
-      real(wp) :: trafomat(9,9), block_overlap(9,9), trans_block_s(9,9)
+      real(wp) :: trafomat(9,9), block_overlap(9,9), trans_block_s(9,9),tmp(9,9)
 
       if (size(scal_fac,1) /= 3) then
          write(*,*) 'Error: scal_fac must have 3 rows'
@@ -581,7 +582,10 @@ end subroutine get_overlap_lat
                   ! ### DEV ###
 
                   !> 3. Transform the submatrix
-                  trans_block_s = matmul(matmul(transpose(trafomat), block_overlap),trafomat)
+                  ! trans_block_s = matmul(matmul(transpose(trafomat), block_overlap),trafomat)
+                  ! trans_block_s = O^T * S * O
+                  call gemm(amat=trafomat,bmat=block_overlap,cmat=tmp,transa='T',transb='N')
+                  call gemm(amat=tmp,bmat=trafomat,cmat=trans_block_s,transa='N',transb='N')
 
                   ! ### DEV ###
                   ! write(*,*) "transformed block overlap:"
@@ -628,7 +632,10 @@ end subroutine get_overlap_lat
                   ! ### DEV ###
 
                   !> 5. Transform back to original frame
-                  block_overlap = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
+                  ! block_overlap = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
+                  ! block_overlap = O * S * O^T 
+                  call gemm(amat=trafomat,bmat=trans_block_s,cmat=tmp,transa='N',transb='N')
+                  call gemm(amat=tmp,bmat=trafomat,cmat=block_overlap,transa='N',transb='T')
 
                   ! ### DEV ###
                   ! write(*,*) "Scaled block overlap in cartesian frame:"
@@ -638,8 +645,7 @@ end subroutine get_overlap_lat
                   ! ### DEV ###
 
                   !> 6. Fill the overlap_diat matrix with the back-transformed submatrix
-                  ! ### Transposing back and forth doesn't make a difference for the total overlap matrix
-                  ! ### but it does for the comparison of submatrices with MSINDO
+                  ! (see 'optional (1.1)' above)
                   ! trans_block_s = transpose(trans_block_s)
                   overlap_scaled(lbj:ubj, lbi:ubi) = block_overlap(1:nao_atj, 1:nao_ati)
                else
