@@ -505,7 +505,8 @@ contains
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         ! write(*,*) "atom iteration executed"
                         l = l + 1
-                        self%h0(k, l) = ceh_h0_entry(iat, jat, ish, jsh, & 
+                        self%h0(k, l) = overlap_diat(k,l) * & 
+                        & ceh_h0_entry(iat, jat, ish, jsh, & 
                         & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      end do
                   end do
@@ -515,7 +516,8 @@ contains
                do jsh = 1, ish - 1
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = l + 1
-                     self%h0(k, l) = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
+                     self%h0(k, l) =  overlap_diat(k,l) * & 
+                     & ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
                      & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   end do
                end do 
@@ -524,7 +526,8 @@ contains
                shell = calc%bas%nsh_at(iat) ! current shell of "i"
                do jao = 1, iao - 1 
                   l = l + 1
-                  self%h0(k, l) = ceh_h0_entry(iat, iat, ish, ish, & 
+                  self%h0(k, l) = overlap_diat(k,l) * &
+                  & ceh_h0_entry(iat, iat, ish, ish, & 
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
                enddo
 

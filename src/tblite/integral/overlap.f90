@@ -649,7 +649,7 @@ end subroutine get_overlap_lat
                   ! trans_block_s = transpose(trans_block_s)
                   overlap_scaled(lbj:ubj, lbi:ubi) = block_overlap(1:nao_atj, 1:nao_ati)
                else
-                  !> 7. Fill the overlap_diat matrix with the plain overlap submatrix (no transformation)
+                  !> 7. Fill the overlap_scaled matrix with the plain overlap submatrix (no transformation)
                   overlap_scaled(lbj:ubj, lbi:ubi) = overlap(lbj:ubj, lbi:ubi)
                endif
             end do
