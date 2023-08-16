@@ -22,10 +22,16 @@ module tblite_ceh_ceh
    use mctc_io, only: structure_type
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type, only : cgto_type, new_basis, get_cutoff
+   use tblite_basis_type, only : cgto_type, new_basis, get_cutoff, basis_type
+   use tblite_integral_type, only : integral_type, new_integral
    use tblite_integral_overlap, only : get_overlap
    use tblite_cutoff, only : get_lattice_points
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
+   & get_alpha_beta_occupation
+   use tblite_scf_iterator, only: get_density
+
+   use tblite_lapack_solver, only: lapack_solver
+   use tblite_scf_solver, only : solver_type
 
    !> CEH specific
    use tblite_ncoord_ceh, only: new_ncoord
@@ -98,6 +104,38 @@ module tblite_ceh_ceh
    & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4, & ! 71-77
    & 6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4,  6, 6, 4, & ! 78-84
    & 6, 6, 4,  6, 6, 4], shape(number_of_primitives))                       ! 85-86
+
+   !> Reference occupation of the atom
+   real(wp), parameter :: reference_occ(max_shell, max_elem) = reshape([&
+   & 1.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 0.0_wp,  1.0_wp, 0.0_wp, 0.0_wp, & ! 1-3
+   & 2.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 1.0_wp, 0.0_wp,  2.0_wp, 2.0_wp, 0.0_wp, & ! 4-6
+   & 2.0_wp, 3.0_wp, 0.0_wp,  2.0_wp, 4.0_wp, 0.0_wp,  2.0_wp, 5.0_wp, 0.0_wp, & ! 7-9
+   & 2.0_wp, 6.0_wp, 0.0_wp,  1.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 0.0_wp, & ! 10-12
+   & 2.0_wp, 1.0_wp, 0.0_wp,  2.0_wp, 2.0_wp, 0.0_wp,  2.0_wp, 3.0_wp, 0.0_wp, & ! 13-15
+   & 2.0_wp, 4.0_wp, 0.0_wp,  2.0_wp, 5.0_wp, 0.0_wp,  2.0_wp, 6.0_wp, 0.0_wp, & ! 16-18
+   & 1.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 19-21
+   & 2.0_wp, 0.0_wp, 2.0_wp,  2.0_wp, 0.0_wp, 3.0_wp,  2.0_wp, 0.0_wp, 4.0_wp, & ! 22-24
+   & 2.0_wp, 0.0_wp, 5.0_wp,  2.0_wp, 0.0_wp, 6.0_wp,  2.0_wp, 0.0_wp, 7.0_wp, & ! 25-27
+   & 2.0_wp, 0.0_wp, 8.0_wp,  2.0_wp, 0.0_wp, 9.0_wp,  2.0_wp, 0.0_wp, 0.0_wp, & ! 28-30
+   & 2.0_wp, 1.0_wp, 0.0_wp,  2.0_wp, 2.0_wp, 0.0_wp,  2.0_wp, 3.0_wp, 0.0_wp, & ! 31-33
+   & 2.0_wp, 4.0_wp, 0.0_wp,  2.0_wp, 5.0_wp, 0.0_wp,  2.0_wp, 6.0_wp, 0.0_wp, & ! 34-36
+   & 1.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 37-39
+   & 2.0_wp, 0.0_wp, 2.0_wp,  2.0_wp, 0.0_wp, 3.0_wp,  2.0_wp, 0.0_wp, 4.0_wp, & ! 40-42
+   & 2.0_wp, 0.0_wp, 5.0_wp,  2.0_wp, 0.0_wp, 6.0_wp,  2.0_wp, 0.0_wp, 7.0_wp, & ! 43-45
+   & 2.0_wp, 0.0_wp, 8.0_wp,  2.0_wp, 0.0_wp, 9.0_wp,  2.0_wp, 0.0_wp, 0.0_wp, & ! 46-48
+   & 2.0_wp, 1.0_wp, 0.0_wp,  2.0_wp, 2.0_wp, 0.0_wp,  2.0_wp, 3.0_wp, 0.0_wp, & ! 49-51
+   & 2.0_wp, 4.0_wp, 0.0_wp,  2.0_wp, 5.0_wp, 0.0_wp,  2.0_wp, 6.0_wp, 0.0_wp, & ! 52-54
+   & 1.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 55-57
+   & 2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 58-60
+   & 2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 61-63
+   & 2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 64-66
+   & 2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp, & ! 67-69
+   & 2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 1.0_wp,  2.0_wp, 0.0_wp, 2.0_wp, & ! 70-72
+   & 2.0_wp, 0.0_wp, 3.0_wp,  2.0_wp, 0.0_wp, 4.0_wp,  2.0_wp, 0.0_wp, 5.0_wp, & ! 73-75
+   & 2.0_wp, 0.0_wp, 6.0_wp,  2.0_wp, 0.0_wp, 7.0_wp,  2.0_wp, 0.0_wp, 8.0_wp, & ! 76-78
+   & 2.0_wp, 0.0_wp, 9.0_wp,  2.0_wp, 0.0_wp, 0.0_wp,  2.0_wp, 1.0_wp, 0.0_wp, & ! 79-81
+   & 2.0_wp, 2.0_wp, 0.0_wp,  2.0_wp, 3.0_wp, 0.0_wp,  2.0_wp, 4.0_wp, 0.0_wp, & ! 82-84
+   & 2.0_wp, 5.0_wp, 0.0_wp,  2.0_wp, 6.0_wp, 0.0_wp], shape(reference_occ))     ! 85-86
 
    !> Exponent of the Slater function # MM, August 00, 2023
    real(wp), parameter :: slater_exponent(max_shell, max_elem) = reshape([&
@@ -306,6 +344,7 @@ module tblite_ceh_ceh
    & -0.02282661_wp, -0.01354102_wp]
 
    real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp] ! H0 spd-scaling 1.23
+   real(wp), parameter   :: kt = 3.166808578545117e-06_wp
 
    interface run_ceh
       module procedure run_ceh_full
@@ -329,15 +368,26 @@ contains
 
    ! end subroutine run_ceh_empty
 
+   !> Run the CEH calculation
    subroutine run_ceh_full(mol,efield,error,charges,dcharges)
-      !> Run the CEH calculation
       type(structure_type), intent(in)  :: mol
       real(wp), intent(in) :: efield(:)
       type(error_type), allocatable, intent(out) :: error
       real(wp), intent(out) :: charges(:)
       real(wp), intent(out), optional :: dcharges(:, :)
+      !> Electronic temperature
+      real(wp) :: etemp = 300.0_wp
+      real(wp) :: elec_entropy
+      real(wp) :: nel = 0.0_wp
 
+      !> Integral container
+      type(integral_type) :: ints
       type(ceh_calculator) :: calc
+      type(wavefunction_type) :: wfn
+      type(lapack_solver) :: solvertype
+      class(solver_type), allocatable :: solver
+
+      integer :: i,j
 
       charges = 0.0_wp
 
@@ -349,7 +399,33 @@ contains
          stop
       endif
       call new_ceh_calculator(calc, mol, efield)
-      call get_hamiltonian(calc, mol)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, etemp * kt)
+      call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
+      !> Define occupation
+      call get_occupation(mol, calc%bas, calc%hamiltonian, wfn%nocc, wfn%n0at, wfn%n0sh)
+      nel = sum(wfn%n0at) - mol%charge
+      write(*,*) "Number of electrons:", nel
+      if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
+         wfn%nuhf = mol%uhf
+      else
+         wfn%nuhf = mod(nint(nel), 2)
+      end if
+      call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
+
+      call new_integral(ints, calc%bas%nao)
+      call get_hamiltonian(calc, mol, ints%overlap)
+      wfn%coeff(:, :, 1) = calc%hamiltonian%h0
+      if (size(wfn%coeff, 3) > 1) wfn%coeff(:, :, 2:) = 0.0_wp
+      call solvertype%new(solver, calc%bas%nao)
+      call get_density(wfn, solver, ints, elec_entropy, error)
+      write(*,*) "Density matrix:"
+      do i = 1, calc%bas%nao
+         do j = 1, calc%bas%nao
+            write(*,'(f10.5)',advance="no") wfn%density(i, j, 1)
+         end do
+         write(*,'(/)', advance="no")
+      end do
+
 
    end subroutine run_ceh_full
 
@@ -417,14 +493,85 @@ contains
 
    end subroutine add_ceh_basis
 
-   subroutine get_hamiltonian(calc, mol)
+   subroutine get_reference_occ(mol, bas, refocc)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Reference occupation numbers
+      real(wp), allocatable, intent(out) :: refocc(:, :)
+      logical, allocatable  :: valence(:,:)
+
+      integer :: isp, izp, ish, il, mshell
+      integer :: ang_idx(0:2)
+
+
+      allocate(valence(3, mol%nid))
+      do isp = 1, mol%nid
+         ang_idx = 0
+         izp = mol%num(isp)
+         do ish = 1, nshell(izp)
+            il = ang_shell(ish, izp)
+            valence(ish, isp) = ang_idx(il) == 0
+            if (valence(ish, isp)) ang_idx(il) = ish
+         end do
+      end do
+
+      mshell = maxval(bas%nsh_id)
+      allocate(refocc(mshell, mol%nid))
+      refocc(:, :) = 0.0_wp
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            if (valence(ish, isp)) then
+               refocc(ish, isp) = reference_occ(bas%cgto(ish, isp)%ang+1, izp)
+            else
+               refocc(ish, isp) = 0.0_wp
+            end if
+         end do
+      end do
+   end subroutine get_reference_occ
+
+   subroutine get_occupation(mol, bas, hamiltonian, nocc, n0at, n0sh)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Hamiltonian interaction data
+      type(ceh_hamiltonian), intent(in) :: hamiltonian
+      !> Occupation number
+      real(wp), intent(out) :: nocc
+      !> Reference occupation for each atom
+      real(wp), intent(out) :: n0at(:)
+      !> Reference occupation for each shell
+      real(wp), intent(out) :: n0sh(:)
+
+      integer :: iat, ish, izp, ii
+
+      nocc = -mol%charge
+      n0at(:) = 0.0_wp
+      n0sh(:) = 0.0_wp
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         ii = bas%ish_at(iat)
+         do ish = 1, bas%nsh_id(izp)
+            nocc = nocc + hamiltonian%refocc(ish, izp)
+            n0at(iat) = n0at(iat) + hamiltonian%refocc(ish, izp)
+            n0sh(ii+ish) = n0sh(ii+ish) + hamiltonian%refocc(ish, izp)
+         end do
+      end do
+
+   end subroutine get_occupation
+
+   subroutine get_hamiltonian(calc, mol, overlap)
+      type(ceh_hamiltonian)               :: self
       type(ceh_calculator), intent(inout) :: calc
       type(structure_type), intent(in)    :: mol
-      type(ceh_hamiltonian)               :: self
+      real(wp), allocatable, intent(out)  :: overlap(:,:)
 
       real(wp), allocatable   :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
 
-      real(wp), allocatable   :: overlap(:,:), lattr(:,:), overlap_diat(:,:)
+      real(wp), allocatable   :: lattr(:,:), overlap_diat(:,:)
       real(wp) :: cutoff, felem
 
       integer                 :: ii, offset_iat, offset_jat
@@ -491,15 +638,15 @@ contains
                l = 0
 
                !> loop over all AOs in atoms before current atom
-               do jat = 1,iat-1 
+               do jat = 1,iat-1
                   offset_jat = calc%bas%ish_at(jat)
                   do jsh = 1, calc%bas%nsh_at(jat)
-                     felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
+                     felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
                      & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         ! write(*,*) "atom iteration executed"
                         l = l + 1
-                        self%h0(k, l) = overlap_diat(k,l) * felem 
+                        self%h0(k, l) = overlap_diat(k,l) * felem
                         self%h0(l, k) = self%h0(k, l)
                      end do
                   end do
@@ -507,19 +654,19 @@ contains
 
                !> loop over all AOs in shells before current shell (same atom)
                do jsh = 1, ish - 1
-                  felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, & 
+                  felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = l + 1
-                     self%h0(k, l) = overlap_diat(k,l) * felem 
+                     self%h0(k, l) = overlap_diat(k,l) * felem
                      self%h0(l, k) = self%h0(k, l)
                   end do
-               end do 
+               end do
 
                !> loop over all AOs before current AO (same atom and shell)
-               felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, & 
+               felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
                & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
-               do jao = 1, iao - 1 
+               do jao = 1, iao - 1
                   l = l + 1
                   self%h0(k, l) = overlap_diat(k,l) * felem
                   self%h0(l, k) = self%h0(k, l)
@@ -548,7 +695,7 @@ contains
          write(*,'(/)', advance="no")
       end do
 
-      calc%h0 = self
+      calc%hamiltonian = self
 
    end subroutine get_hamiltonian
 
@@ -558,7 +705,7 @@ contains
       real(wp) :: level
 
       integer :: ang_i, ang_j
-      
+
       ang_i = ang_shell(ish, ati)
       ang_j = ang_shell(jsh, atj)
       level = 0.25_wp * (hleveli + hlevelj) * &

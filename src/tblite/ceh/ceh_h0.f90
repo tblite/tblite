@@ -18,7 +18,6 @@
 !> @file tblite/ceh/ceh_h0.f90
 !> Provides the Hamiltonian type for CEH.
 
-
 module tblite_ceh_h0
    use mctc_env, only : wp
    implicit none
@@ -29,6 +28,8 @@ module tblite_ceh_h0
       real(wp), allocatable :: hlevel(:)
       !> Full Hamiltonian
       real(wp), allocatable :: h0(:, :)
+      !> Reference occupation
+      real(wp), allocatable :: refocc(:,:)
    end type ceh_hamiltonian
 
 end module tblite_ceh_h0

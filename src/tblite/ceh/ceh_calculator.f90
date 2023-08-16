@@ -53,7 +53,7 @@ module tblite_ceh_calculator
       !> Basis set definition
       type(basis_type) :: bas
       !> Core Hamiltonian
-      type(ceh_hamiltonian) :: h0
+      type(ceh_hamiltonian) :: hamiltonian
       !> Coordination number for modifying the self-energies
       class(ncoord_type_ceh), allocatable :: ncoord
       !> Repulsion energy interactions
