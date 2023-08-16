@@ -23,12 +23,15 @@ module tblite_ceh_ceh
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis, get_cutoff
+   use tblite_integral_overlap, only : get_overlap
+   use tblite_cutoff, only : get_lattice_points
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction
+
+   !> CEH specific
    use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
    use tblite_ceh_h0, only : ceh_hamiltonian
 
-   use tblite_integral_overlap, only : get_overlap
-   use tblite_cutoff, only : get_lattice_points
    implicit none
    private
 
@@ -355,16 +358,6 @@ contains
       type(ceh_calculator), intent(out) :: calc
       type(structure_type), intent(in)  :: mol
       real(wp), intent(in)              :: efield(:)
-      !  local variables
-      real(wp),allocatable :: F(:), eps(:)    ! Fock and eigenvalues
-      real(wp),allocatable :: S(:), P(:)      ! overlap and density
-      real(wp),allocatable :: D(:,:)          ! dipole integrals
-      real(wp),allocatable :: cn1(:),cn2(:)   ! CN for H0
-      real(wp),allocatable :: norm(:)         ! AO norm
-      real(wp),allocatable :: psh(:,:)        ! shell populations
-      real(wp),allocatable :: wbo(:,:)        ! BO
-
-      real(wp), allocatable :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
 
       write(*,*) "CEH: Initializing"
       call add_ceh_basis(calc, mol)
@@ -432,10 +425,10 @@ contains
       real(wp), allocatable   :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
 
       real(wp), allocatable   :: overlap(:,:), lattr(:,:), overlap_diat(:,:)
-      real(wp) :: cutoff
+      real(wp) :: cutoff, felem
 
       integer                 :: ii, offset_iat, offset_jat
-      integer                 :: iat, ish, jsh, k, l, iao, jao, jat, shell
+      integer                 :: iat, ish, jsh, k, l, iao, jao, jat
 
       !> allocate CEH diagonal elements
       allocate(self%hlevel(calc%bas%nsh), source=0.0_wp)
@@ -490,7 +483,6 @@ contains
       k = 0
       do iat = 1, mol%nat
          offset_iat = calc%bas%ish_at(iat)
-         ! write(*,*) "offset_iat ", offset_iat
          do ish = 1, calc%bas%nsh_at(iat)
             do iao = 1, calc%bas%nao_sh(ish + offset_iat)
                !> iterator for AO of i increased by 1 -> k
@@ -502,33 +494,35 @@ contains
                do jat = 1,iat-1 
                   offset_jat = calc%bas%ish_at(jat)
                   do jsh = 1, calc%bas%nsh_at(jat)
+                     felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
+                     & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         ! write(*,*) "atom iteration executed"
                         l = l + 1
-                        self%h0(k, l) = overlap_diat(k,l) * & 
-                        & ceh_h0_entry(iat, jat, ish, jsh, & 
-                        & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
+                        self%h0(k, l) = overlap_diat(k,l) * felem 
+                        self%h0(l, k) = self%h0(k, l)
                      end do
                   end do
                end do
 
                !> loop over all AOs in shells before current shell (same atom)
                do jsh = 1, ish - 1
+                  felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, & 
+                  & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = l + 1
-                     self%h0(k, l) =  overlap_diat(k,l) * & 
-                     & ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, & 
-                     & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
+                     self%h0(k, l) = overlap_diat(k,l) * felem 
+                     self%h0(l, k) = self%h0(k, l)
                   end do
                end do 
 
                !> loop over all AOs before current AO (same atom and shell)
-               shell = calc%bas%nsh_at(iat) ! current shell of "i"
+               felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, & 
+               & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
                do jao = 1, iao - 1 
                   l = l + 1
-                  self%h0(k, l) = overlap_diat(k,l) * &
-                  & ceh_h0_entry(iat, iat, ish, ish, & 
-                  & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
+                  self%h0(k, l) = overlap_diat(k,l) * felem
+                  self%h0(l, k) = self%h0(k, l)
                enddo
 
                !> diagonal term (AO(i) == AO(j))
@@ -546,26 +540,27 @@ contains
          stop
       end if
 
-      if (allocated(calc%ncoord)) then
-         deallocate(cn, cn_en)
-         if (calc%grad) then
-            deallocate(dcndr, dcndL)
-         end if
-      end if
+      write(*,*) "Hamiltonian matrix:"
+      do iao = 1, calc%bas%nao
+         do jao = 1, calc%bas%nao
+            write(*,'(f10.5)',advance="no") self%h0(iao, jao)
+         end do
+         write(*,'(/)', advance="no")
+      end do
 
       calc%h0 = self
 
    end subroutine get_hamiltonian
 
-   function ceh_h0_entry_od(iat,jat,ish,jsh, hleveli, hlevelj) result(level)
-      integer, intent(in) :: ish, iat, jsh, jat
+   function ceh_h0_entry_od(ati,atj,ish,jsh, hleveli, hlevelj) result(level)
+      integer, intent(in) :: ish, ati, jsh, atj
       real(wp), intent(in) :: hleveli, hlevelj
       real(wp) :: level
 
       integer :: ang_i, ang_j
       
-      ang_i = ang_shell(ish, iat)
-      ang_j = ang_shell(jsh, jat)
+      ang_i = ang_shell(ish, ati)
+      ang_j = ang_shell(jsh, atj)
       level = 0.25_wp * (hleveli + hlevelj) * &
       & ( kll(ang_i + 1) + kll(ang_j + 1) )
 
