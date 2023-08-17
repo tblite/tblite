@@ -120,17 +120,20 @@ subroutine run_main(config, error)
    nspin = merge(2, 1, config%spin_polarized)
 
    if (config%grad) then
-      allocate(gradient(3, mol%nat), sigma(3, 3), dq_ceh(3, mol%nat))
+      allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
    
    if (config%ceh) then
       allocate(q_ceh(mol%nat))
+      if (config%grad) then
+         allocate(dq_ceh(3, mol%nat))
+      end if
       if (allocated(config%efield)) then
          efield = config%efield
       else
          efield = 0.0_wp
       end if
-      call run_ceh(mol, efield, error, q_ceh, dq_ceh)
+      call run_ceh(ctx, mol, efield, error, q_ceh, dq_ceh)
       return
    endif
    if (allocated(error)) return

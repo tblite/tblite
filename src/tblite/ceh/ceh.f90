@@ -23,12 +23,14 @@ module tblite_ceh_ceh
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis, get_cutoff, basis_type
+   use tblite_context, only : context_type
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_integral_overlap, only : get_overlap
    use tblite_cutoff, only : get_lattice_points
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
    & get_alpha_beta_occupation
-   use tblite_scf_iterator, only: get_density
+   use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges
+   use tblite_scf_iterator, only: get_density, get_qat_from_qsh
 
    use tblite_lapack_solver, only: lapack_solver
    use tblite_scf_solver, only : solver_type
@@ -369,7 +371,8 @@ contains
    ! end subroutine run_ceh_empty
 
    !> Run the CEH calculation
-   subroutine run_ceh_full(mol,efield,error,charges,dcharges)
+   subroutine run_ceh_full(ctx, mol,efield,error,charges,dcharges)
+      type(context_type), intent(in) :: ctx
       type(structure_type), intent(in)  :: mol
       real(wp), intent(in) :: efield(:)
       type(error_type), allocatable, intent(out) :: error
@@ -398,7 +401,7 @@ contains
          calc%grad = .true.
          stop
       endif
-      call new_ceh_calculator(calc, mol, efield)
+      call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, etemp * kt)
       call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
       !> Define occupation
@@ -425,15 +428,22 @@ contains
          end do
          write(*,'(/)', advance="no")
       end do
-
+      call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
+      & wfn%qsh)
+      call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
+      charges = wfn%qat(:, 1)
+      write(*,*) "Mulliken charges:"
+      do i = 1, mol%nat
+         write(*,'(f10.5)',advance="no") charges(i)
+      end do
+      write(*,'(/)', advance="no")
 
    end subroutine run_ceh_full
 
-   subroutine new_ceh_calculator(calc,mol, efield)
+   subroutine new_ceh_calculator(calc,mol)
       !> Instance of the CEH evaluator
       type(ceh_calculator), intent(out) :: calc
       type(structure_type), intent(in)  :: mol
-      real(wp), intent(in)              :: efield(:)
 
       write(*,*) "CEH: Initializing"
       call add_ceh_basis(calc, mol)
