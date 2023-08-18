@@ -133,6 +133,7 @@ subroutine run_main(config, error)
       else
          efield = 0.0_wp
       end if
+      ctx%verbosity = config%verbosity
       call run_ceh(ctx, mol, efield, error, q_ceh, dq_ceh)
       return
    endif

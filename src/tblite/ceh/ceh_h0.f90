@@ -26,8 +26,6 @@ module tblite_ceh_h0
    type, public :: ceh_hamiltonian
       !> Atomic level information
       real(wp), allocatable :: hlevel(:)
-      !> Full Hamiltonian
-      real(wp), allocatable :: h0(:, :)
       !> Reference occupation
       real(wp), allocatable :: refocc(:,:)
    end type ceh_hamiltonian

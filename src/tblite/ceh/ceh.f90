@@ -33,6 +33,10 @@ module tblite_ceh_ceh
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
+   use tblite_scf, only: new_potential, potential_type
+   use tblite_external_field, only : electric_field
+   use tblite_container, only : container_type, container_cache
+   use tblite_scf_potential, only: add_pot_to_h1
 
    use tblite_lapack_solver, only: lapack_solver
    use tblite_scf_solver, only : solver_type
@@ -405,12 +409,18 @@ contains
       type(wavefunction_type) :: wfn
       !> Electronic solver
       class(solver_type), allocatable :: solver
+      !> Potential type
+      type(potential_type) :: pot
+      !> Container class for additional potentials
+      class(container_type), allocatable :: cont
+      !> Restart data for interaction containers
+      type(container_cache) :: icache
 
       real(wp) :: elec_entropy
       real(wp) :: nel = 0.0_wp
       real(wp), allocatable :: tmp(:)
 
-      integer :: i, prlevel, j
+      integer :: i, prlevel
 
       prlevel = ctx%verbosity
 
@@ -424,7 +434,9 @@ contains
          stop
       endif
       call new_ceh_calculator(calc, mol)
-      call ctx%message("Basis set and CN setup complete.")
+      if (prlevel > 1) then
+         call ctx%message("Basis set and CN setup complete.")
+      endif
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, etemp * kt)
       call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
       !> Define occupation
@@ -439,41 +451,25 @@ contains
       call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
       call new_integral(ints, calc%bas%nao)
-      call get_hamiltonian(calc, mol, ints%overlap, ints%dipole)
-      write(*,*) "Dip int matrix 'X':"
-      do i = 1, calc%bas%nao
-         do j = 1, calc%bas%nao
-            write(*,'(f10.5)',advance="no") ints%dipole(1, i, j)
-         end do
-         write(*,'(/)', advance="no")
-      end do
-      write(*,*) "Dip int matrix 'Y':"
-      do i = 1, calc%bas%nao
-         do j = 1, calc%bas%nao
-            write(*,'(f10.5)',advance="no") ints%dipole(2, i, j)
-         end do
-         write(*,'(/)', advance="no")
-      end do
-      write(*,*) "Dip int matrix 'Z':"
-      do i = 1, calc%bas%nao
-         do j = 1, calc%bas%nao
-            write(*,'(f10.5)',advance="no") ints%dipole(3, i, j)
-         end do
-         write(*,'(/)', advance="no")
-      end do
-      if(norm2(efield) >= 1.0e-6_wp) then
-         call add_efield(calc,efield,ints%dipole)
+      ints%quadrupole = 0.0_wp
+      call get_hamiltonian(calc, mol, ints%overlap, ints%dipole, ints%hamiltonian)
+      call new_potential(pot, mol, calc%bas, wfn%nspin)
+      call pot%reset
+      if(norm2(efield) >= 1.0e-8_wp) then
+         cont = electric_field(efield)
+         call calc%push_back(cont)
+         call calc%interactions%update(mol, icache)
+         call calc%interactions%get_potential(mol, icache, wfn, pot)
       endif
-      ! write(*,*) "Hamiltonian matrix:"
+      call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
+      call ctx%new_solver(solver, calc%bas%nao)
+      ! write(*,*) "Effective Hamiltonian matrix after addition:"
       ! do i = 1, calc%bas%nao
       !    do j = 1, calc%bas%nao
-      !       write(*,'(f10.5)',advance="no") calc%hamiltonian%h0(i, j)
+      !       write(*,'(f10.5)',advance="no") wfn%coeff(i, j, 1)
       !    end do
       !    write(*,'(/)', advance="no")
       ! end do
-      wfn%coeff(:, :, 1) = calc%hamiltonian%h0
-      if (size(wfn%coeff, 3) > 1) wfn%coeff(:, :, 2:) = 0.0_wp
-      call ctx%new_solver(solver, calc%bas%nao)
       call get_density(wfn, solver, ints, elec_entropy, error)
       ! write(*,*) "Density matrix:"
       ! do i = 1, calc%bas%nao
@@ -491,7 +487,7 @@ contains
       allocate(tmp(3), source = 0.0_wp)
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
-      if (prlevel > 0) then
+      if (prlevel > 2) then
          call ctx%message(repeat("-", 60))
          call ctx%message(label_charges)
          call ctx%message("Atom index      Charge / a.u.")
@@ -640,13 +636,14 @@ contains
 
    end subroutine get_occupation
 
-   subroutine get_hamiltonian(calc, mol, overlap, dipole)
+   subroutine get_hamiltonian(calc, mol, overlap, dipole, hamiltonian)
       type(ceh_hamiltonian)               :: self
       type(ceh_calculator), intent(inout) :: calc
       type(structure_type), intent(in)    :: mol
       real(wp), allocatable, intent(out)  :: overlap(:,:)
       !> Dipole moment integral matrix
       real(wp), allocatable, intent(out)  :: dipole(:, :, :)
+      real(wp), allocatable, intent(out)  :: hamiltonian(:,:)
 
       real(wp), allocatable   :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
       real(wp), allocatable   :: dum(:,:)
@@ -661,7 +658,7 @@ contains
       allocate(self%hlevel(calc%bas%nsh), source=0.0_wp)
 
       !> allocate full CEH Hamiltonian
-      allocate(self%h0(calc%bas%nao, calc%bas%nao), source=0.0_wp)
+      allocate(hamiltonian(calc%bas%nao, calc%bas%nao), source=0.0_wp)
 
       !> calculate coordination number (CN) and CN-weighted energy
       if (allocated(calc%ncoord)) then
@@ -729,8 +726,8 @@ contains
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         ! write(*,*) "atom iteration executed"
                         l = l + 1
-                        self%h0(k, l) = overlap_diat(k,l) * felem
-                        self%h0(l, k) = self%h0(k, l)
+                        hamiltonian(k, l) = overlap_diat(k,l) * felem
+                        hamiltonian(l, k) = hamiltonian(k, l)
                      end do
                   end do
                end do
@@ -741,8 +738,8 @@ contains
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = l + 1
-                     self%h0(k, l) = overlap_diat(k,l) * felem
-                     self%h0(l, k) = self%h0(k, l)
+                     hamiltonian(k, l) = overlap_diat(k,l) * felem
+                     hamiltonian(l, k) = hamiltonian(k, l)
                   end do
                end do
 
@@ -751,13 +748,13 @@ contains
                & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
                do jao = 1, iao - 1
                   l = l + 1
-                  self%h0(k, l) = overlap_diat(k,l) * felem
-                  self%h0(l, k) = self%h0(k, l)
+                  hamiltonian(k, l) = overlap_diat(k,l) * felem
+                  hamiltonian(l, k) = hamiltonian(k, l)
                enddo
 
                !> diagonal term (AO(i) == AO(j))
                l = l + 1
-               self%h0(k, l) = self%hlevel(offset_iat + ish)
+               hamiltonian(k, l) = self%hlevel(offset_iat + ish)
                if ( l /= k ) then
                   error stop "ERROR: l /= k"
                   stop
@@ -773,22 +770,6 @@ contains
       calc%hamiltonian = self
 
    end subroutine get_hamiltonian
-
-   subroutine add_efield(calc,efield,dpints)
-      type(ceh_calculator), intent(inout) :: calc
-      real(wp), intent(in)                :: dpints(:,:,:)
-      real(wp), intent(in)                :: efield(3)
-      integer :: i,k,l
-      !> Add external electric field
-      do i = 1,3
-         do k=1,calc%bas%nao
-            do l=1,calc%bas%nao
-               calc%hamiltonian%h0(k,l) = calc%hamiltonian%h0(k,l) - &
-               & dpints(i,k,l) * efield(i) 
-            enddo
-         enddo
-      enddo
-   end subroutine add_efield
 
    function ceh_h0_entry_od(ati,atj,ish,jsh, hleveli, hlevelj) result(level)
       integer, intent(in) :: ish, ati, jsh, atj
