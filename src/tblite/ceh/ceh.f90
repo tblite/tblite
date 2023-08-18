@@ -18,31 +18,37 @@
 !> Contains the implementation of the Charge Extended Hückel (CEH) method.
 
 module tblite_ceh_ceh
+   !> mctc-lib
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
+   !> Basis set
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis, get_cutoff, basis_type
+   !> Calculation context
    use tblite_context, only : context_type
+   use tblite_output_format, only: format_string
+   !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_integral_overlap, only : get_overlap
    use tblite_integral_dipole, only: get_dipole_integrals
    use tblite_cutoff, only : get_lattice_points
+   !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
    & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
+   !> Additional potentials (external field)
    use tblite_scf, only: new_potential, potential_type
    use tblite_external_field, only : electric_field
    use tblite_container, only : container_type, container_cache
    use tblite_scf_potential, only: add_pot_to_h1
-
+   !> Electronic solver
    use tblite_lapack_solver, only: lapack_solver
    use tblite_scf_solver, only : solver_type
-   use tblite_output_format, only: format_string
-   use tblite_blas, only: gemv,gemm
-
+   !> BLAS
+   use tblite_blas, only: gemv
    !> CEH specific
    use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
@@ -83,7 +89,7 @@ module tblite_ceh_ceh
    & 0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2, & ! 78-84
    & 0, 1, 2,  0, 1, 2], shape(ang_shell))                                  ! 85-86
 
-   !> Principal quantum number of each shell
+   !> Principal quantum number of each shell (see commeent above regarding angular momentum)
    integer, parameter :: principal_quantum_number(max_shell, max_elem) = reshape([&
    & 1, 2, 0,  1, 0, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0, & ! 1-7
    & 2, 2, 0,  2, 2, 0,  2, 2, 3,  3, 3, 0,  3, 3, 0,  3, 3, 3,  3, 3, 3, & ! 8-14
@@ -353,7 +359,9 @@ module tblite_ceh_ceh
    &  0.02207229_wp,  0.06732818_wp,  0.03457416_wp, -0.00347199_wp, -0.01934747_wp, -0.00166422_wp, &
    & -0.02282661_wp, -0.01354102_wp]
 
-   real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp] ! H0 spd-scaling 1.23
+   !> Angular momentum-specific scaling factors for H0
+   real(wp), parameter   :: kll(1:3) = [0.6366_wp, 0.9584_wp, 1.2320_wp]
+   !> Conversion constant
    real(wp), parameter   :: kt = 3.166808578545117e-06_wp
 
    character(len=*), parameter :: real_format = "(es18.6)"
@@ -371,17 +379,6 @@ module tblite_ceh_ceh
    end interface ceh_h0_entry
 
 contains
-
-   ! subroutine run_ceh_empty(mol, error, charges)
-   !    !> Run the CEH calculation
-   !    type(structure_type), intent(in)  :: mol
-   !    type(error_type), allocatable, intent(out) :: error
-   !    real(wp), intent(out) :: charges(:)
-   !    real(wp) :: efield(3) = 0.0_wp
-
-   !    call run_ceh(mol, efield, error, charges)
-
-   ! end subroutine run_ceh_empty
 
    !> Run the CEH calculation
    subroutine run_ceh_full(ctx, mol, efield, error, charges, dcharges)
@@ -426,23 +423,28 @@ contains
 
       charges = 0.0_wp
 
-      call header(ctx)
+      if (prlevel > 1) call header(ctx)
+      !> Gradient logical
       if (present(dcharges)) then
          call ctx%message("CEH: Gradient not yet implemented")
          ! ### For future implementation - use the following logical ###
          calc%grad = .true.
          stop
       endif
+      
+      !> Start of calculation setup (Basis and CN)
       call new_ceh_calculator(calc, mol)
       if (prlevel > 1) then
          call ctx%message("Basis set and CN setup complete.")
       endif
+
+      !> Empty wavefunction
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, etemp * kt)
+      !> Reference occupation for number of electrons and formal charges
       call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
       !> Define occupation
       call get_occupation(mol, calc%bas, calc%hamiltonian, wfn%nocc, wfn%n0at, wfn%n0sh)
       nel = sum(wfn%n0at) - mol%charge
-      ! write(*,*) "Number of electrons:", nel
       if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
          wfn%nuhf = mol%uhf
       else
@@ -450,10 +452,15 @@ contains
       end if
       call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
+      !> Initialize integrals
       call new_integral(ints, calc%bas%nao)
       ints%quadrupole = 0.0_wp
+      !> Get Hamiltonian and integrals
       call get_hamiltonian(calc, mol, ints%overlap, ints%dipole, ints%hamiltonian)
+
+      !> Get initial potential
       call new_potential(pot, mol, calc%bas, wfn%nspin)
+      !> Set potential to zero
       call pot%reset
       if(norm2(efield) >= 1.0e-8_wp) then
          cont = electric_field(efield)
@@ -461,7 +468,10 @@ contains
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
       endif
+      !> Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
+
+      !> Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
       ! write(*,*) "Effective Hamiltonian matrix after addition:"
       ! do i = 1, calc%bas%nao
@@ -470,6 +480,8 @@ contains
       !    end do
       !    write(*,'(/)', advance="no")
       ! end do
+
+      !> Get the density matrix
       call get_density(wfn, solver, ints, elec_entropy, error)
       ! write(*,*) "Density matrix:"
       ! do i = 1, calc%bas%nao
@@ -478,6 +490,8 @@ contains
       !    end do
       !    write(*,'(/)', advance="no")
       ! end do
+
+      !> Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
       & wfn%qsh)
       call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
@@ -487,6 +501,8 @@ contains
       allocate(tmp(3), source = 0.0_wp)
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
+
+      !> Printout of results
       if (prlevel > 2) then
          call ctx%message(repeat("-", 60))
          call ctx%message(label_charges)
