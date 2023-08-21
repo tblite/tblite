@@ -393,11 +393,9 @@ contains
       type(error_type), allocatable, intent(out) :: error
       !> Wavefunction data
       type(wavefunction_type), intent(inout) :: wfn
-      !> Wavefunction data
+      !> Wavefunction derivative data
       type(wavefunction_derivative_type), intent(inout) :: &
       & dwfn
-      !> Gradient of atomic charges
-      real(wp), allocatable :: dcharges(:, :)
       !> Molecular dipole moment
       real(wp) :: dipole(3) = 0.0_wp
       !> Integral container
@@ -418,8 +416,6 @@ contains
       integer :: i, prlevel
 
       prlevel = ctx%verbosity
-
-      allocate(dcharges(3, mol%nat), source = 0.0_wp)
 
       if (prlevel > 2) call header(ctx)
       !> Gradient logical
