@@ -35,7 +35,8 @@ module tblite_ceh_ceh
    use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-   & get_alpha_beta_occupation
+   & get_alpha_beta_occupation, wavefunction_derivative_type, &
+   & new_wavefunction_derivative
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
@@ -57,7 +58,7 @@ module tblite_ceh_ceh
    implicit none
    private
 
-   public :: run_ceh
+   public :: ceh_guess, new_ceh_calculator
 
    integer, parameter, private :: max_elem = 86
    integer, parameter, private :: max_shell = 3
@@ -369,9 +370,9 @@ module tblite_ceh_ceh
    &  label_charges = "CEH atomic charges", &
    &  label_dipole = "CEH molecular dipole moment / a.u."
 
-   interface run_ceh
+   interface ceh_guess
       module procedure run_ceh_full
-   end interface run_ceh
+   end interface ceh_guess
 
    interface ceh_h0_entry
       module procedure ceh_h0_entry_od
@@ -381,37 +382,34 @@ module tblite_ceh_ceh
 contains
 
    !> Run the CEH calculation
-   subroutine run_ceh_full(ctx, mol, efield, error, charges, dcharges)
+   subroutine run_ceh_full(ctx, calc, mol, error, wfn, dwfn)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
+      !> CEH calculator
+      type(ceh_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in)  :: mol
-      !> External electric field
-      real(wp), intent(in) :: efield(:)
       !> Error container
       type(error_type), allocatable, intent(out) :: error
-      !> Atomic charges
-      real(wp), intent(out) :: charges(:)
+      !> Wavefunction data
+      type(wavefunction_type), intent(inout) :: wfn
+      !> Wavefunction data
+      type(wavefunction_derivative_type), intent(inout) :: &
+      & dwfn
       !> Gradient of atomic charges
-      real(wp), intent(out), optional :: dcharges(:, :)
+      real(wp), allocatable :: dcharges(:, :)
       !> Molecular dipole moment
       real(wp) :: dipole(3) = 0.0_wp
-      !> Electronic temperature
-      real(wp) :: etemp = 300.0_wp
       !> Integral container
       type(integral_type) :: ints
-      !> Single-point calculator
-      type(ceh_calculator) :: calc
-      !> Wavefunction data
-      type(wavefunction_type) :: wfn
       !> Electronic solver
       class(solver_type), allocatable :: solver
       !> Potential type
       type(potential_type) :: pot
-      !> Container class for additional potentials
-      class(container_type), allocatable :: cont
       !> Restart data for interaction containers
       type(container_cache) :: icache
+
+      logical :: grad = .false.
 
       real(wp) :: elec_entropy
       real(wp) :: nel = 0.0_wp
@@ -421,25 +419,16 @@ contains
 
       prlevel = ctx%verbosity
 
-      charges = 0.0_wp
+      allocate(dcharges(3, mol%nat), source = 0.0_wp)
 
-      if (prlevel > 1) call header(ctx)
+      if (prlevel > 2) call header(ctx)
       !> Gradient logical
-      if (present(dcharges)) then
+      if (allocated(dwfn%ddensity)) then
+         grad = .true.
          call ctx%message("CEH: Gradient not yet implemented")
-         ! ### For future implementation - use the following logical ###
-         calc%grad = .true.
          stop
       endif
-      
-      !> Start of calculation setup (Basis and CN)
-      call new_ceh_calculator(calc, mol)
-      if (prlevel > 1) then
-         call ctx%message("Basis set and CN setup complete.")
-      endif
 
-      !> Empty wavefunction
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, etemp * kt)
       !> Reference occupation for number of electrons and formal charges
       call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
       !> Define occupation
@@ -462,34 +451,19 @@ contains
       call new_potential(pot, mol, calc%bas, wfn%nspin)
       !> Set potential to zero
       call pot%reset
-      if(norm2(efield) >= 1.0e-8_wp) then
-         cont = electric_field(efield)
-         call calc%push_back(cont)
+      if (allocated(calc%interactions)) then
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
       endif
+
       !> Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
       !> Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
-      ! write(*,*) "Effective Hamiltonian matrix after addition:"
-      ! do i = 1, calc%bas%nao
-      !    do j = 1, calc%bas%nao
-      !       write(*,'(f10.5)',advance="no") wfn%coeff(i, j, 1)
-      !    end do
-      !    write(*,'(/)', advance="no")
-      ! end do
 
       !> Get the density matrix
       call get_density(wfn, solver, ints, elec_entropy, error)
-      ! write(*,*) "Density matrix:"
-      ! do i = 1, calc%bas%nao
-      !    do j = 1, calc%bas%nao
-      !       write(*,'(f10.5)',advance="no") wfn%density(i, j, 1)
-      !    end do
-      !    write(*,'(/)', advance="no")
-      ! end do
 
       !> Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
@@ -497,19 +471,17 @@ contains
       call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
       call get_mulliken_atomic_multipoles(calc%bas, ints%dipole, wfn%density, &
       & wfn%dpat)
-      charges = wfn%qat(:, 1)
       allocate(tmp(3), source = 0.0_wp)
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
 
       !> Printout of results
       if (prlevel > 2) then
-         call ctx%message(repeat("-", 60))
          call ctx%message(label_charges)
          call ctx%message("Atom index      Charge / a.u.")
          do i = 1, mol%nat
             call ctx%message(format_string(i, "(i7)") // &
-            & "   " // format_string(charges(i), real_format))
+            & "   " // format_string(wfn%qat(i,1), real_format))
          end do
          call ctx%message(repeat("-", 60))
          call ctx%message(label_dipole)
@@ -678,11 +650,7 @@ contains
 
       !> calculate coordination number (CN) and CN-weighted energy
       if (allocated(calc%ncoord)) then
-         allocate(cn(mol%nat))
-         allocate(cn_en(mol%nat))
-         if (calc%grad) then
-            allocate(dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat))
-         end if
+         allocate(cn(mol%nat), cn_en(mol%nat))
          call calc%ncoord%get_cn(mol, cn, cn_en)
       end if
 

@@ -34,13 +34,15 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment
+      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
+      & wavefunction_derivative_type, new_wavefunction_derivative
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_ceh, only : run_ceh 
+   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
+   use tblite_ceh_calculator, only : ceh_calculator
    implicit none
    private
 
@@ -66,13 +68,14 @@ subroutine run_main(config, error)
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, stat, unit, nspin
    logical :: exist
-   real(wp) :: energy, dpmom(3), qpmom(6), efield(3)
+   real(wp) :: energy, dpmom(3), qpmom(6)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), allocatable :: q_ceh(:), dq_ceh(:,:)
    type(param_record) :: param
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
+   type(ceh_calculator):: calc_ceh
+   type(wavefunction_type) :: wfn, wfn_ceh
+   type(wavefunction_derivative_type) :: dwfn_ceh
    type(results_type) :: results
 
    ctx%terminal = context_terminal(config%color)
@@ -123,20 +126,6 @@ subroutine run_main(config, error)
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
    
-   if (config%ceh) then
-      allocate(q_ceh(mol%nat))
-      if (config%grad) then
-         allocate(dq_ceh(3, mol%nat))
-      end if
-      if (allocated(config%efield)) then
-         efield = config%efield
-      else
-         efield = 0.0_wp
-      end if
-      ctx%verbosity = config%verbosity
-      call run_ceh(ctx, mol, efield, error, q_ceh, dq_ceh)
-      return
-   endif
    if (allocated(error)) return
 
    if (allocated(config%param)) then
@@ -164,6 +153,26 @@ subroutine run_main(config, error)
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
+   if (config%guess == "ceh") then
+      call new_ceh_calculator(calc_ceh, mol)
+      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+      if (config%grad) &
+         & call new_wavefunction_derivative(dwfn_ceh, &
+         & mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+   end if
+
+   if (allocated(config%efield)) then
+      block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc%push_back(cont)
+         if (config%guess == "ceh") then
+            cont = electric_field(config%efield*vatoau)
+            call calc_ceh%push_back(cont)
+         end if
+      end block
+   end if
+
    select case(config%guess)
    case default
       call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
@@ -171,16 +180,16 @@ subroutine run_main(config, error)
       call sad_guess(mol, calc, wfn)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
+   case("ceh")
+      if (config%guessonly) then
+         ctx%verbosity = config%verbosity + 1
+      else
+         ctx%verbosity = config%verbosity
+      end if
+      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, dwfn_ceh)
+      if (config%guessonly) return
    end select
    if (allocated(error)) return
-
-   if (allocated(config%efield)) then
-      block
-         class(container_type), allocatable :: cont
-         cont = electric_field(config%efield*vatoau)
-         call calc%push_back(cont)
-      end block
-   end if
 
    if (config%spin_polarized) then
       block

@@ -24,7 +24,7 @@ module tblite_wavefunction_type
    implicit none
    private
 
-   public :: new_wavefunction
+   public :: new_wavefunction, new_wavefunction_derivative
    public :: get_density_matrix, get_alpha_beta_occupation
 
    !> Tight-binding wavefunction
@@ -66,6 +66,45 @@ module tblite_wavefunction_type
       real(wp), allocatable :: qpat(:, :, :)
    end type wavefunction_type
 
+   !> Tight-binding wavefunction derivative
+   type, public :: wavefunction_derivative_type
+      !> Electronic temperature
+      real(wp) :: kt = 0.0_wp
+      !> Number of electrons in this wavefunction
+      real(wp) :: nocc = 0.0_wp
+      !> Number of unpaired electrons in this wavefunction
+      real(wp) :: nuhf = 0.0_wp
+      !> Number of spin channels
+      integer :: nspin = 1
+      !> Index of the highest occupied molecular orbitals
+      integer, allocatable :: homo(:)
+      !> Number of electrons
+      real(wp), allocatable :: nel(:)
+      !> Reference occupation number for each atom, shape: [nat]
+      real(wp), allocatable :: n0at(:)
+      !> Reference occupation number for each shell, shape: [nsh]
+      real(wp), allocatable :: n0sh(:)
+
+      !> Density matrix, shape: [nao, nao, spin]
+      real(wp), allocatable :: ddensity(:, :, :, :)
+      !> Orbital coefficients, shape: [nao, nao, spin]
+      real(wp), allocatable :: dcoeff(:, :, :, :)
+      !> Orbital energies, eigenvalues, shape: [nao, spin]
+      real(wp), allocatable :: demo(:, :, :)
+      !> Occupation numbers, shape: [nao, spin]
+      real(wp), allocatable :: dfocc(:, :, :)
+
+      !> Number of electrons for each atom, shape: [nat, spin]
+      real(wp), allocatable :: dqat(:, :, :)
+      !> Number of electrons for each shell, shape: [nsh, spin]
+      real(wp), allocatable :: dqsh(:, :, :)
+
+      !> Atomic dipole moments for each atom, shape: [3, nat, spin]
+      real(wp), allocatable :: ddpat(:, :, :, :)
+      !> Atomic quadrupole moments for each atom, shape: [5, nat, spin]
+      real(wp), allocatable :: dqpat(:, :, :, :)
+   end type wavefunction_derivative_type
+
 contains
 
 
@@ -103,6 +142,39 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt)
    self%qpat(:, :, :) = 0.0_wp
 end subroutine new_wavefunction
 
+subroutine new_wavefunction_derivative(self, nat, nsh, nao, nspin, kt)
+   type(wavefunction_derivative_type), intent(out) :: self
+   integer, intent(in) :: nat
+   integer, intent(in) :: nsh
+   integer, intent(in) :: nao
+   integer, intent(in) :: nspin
+   real(wp), intent(in) :: kt
+
+   self%nspin = nspin
+   self%kt = kt
+
+   allocate(self%homo(max(2, nspin)))
+   allocate(self%nel(max(2, nspin)))
+
+   allocate(self%n0at(nat))
+   allocate(self%n0sh(nsh))
+
+   allocate(self%ddensity(3, nao, nao, nspin))
+   allocate(self%dcoeff(3, nao, nao, nspin))
+   allocate(self%demo(3, nao, nspin))
+   allocate(self%dfocc(3, nao, nspin))
+
+   allocate(self%dqat(3, nat, nspin))
+   allocate(self%dqsh(3, nsh, nspin))
+
+   allocate(self%ddpat(3, 3, nat, nspin))
+   allocate(self%dqpat(3, 6, nat, nspin))
+
+   self%dqat(:, :, :) = 0.0_wp
+   self%dqsh(:, :, :) = 0.0_wp
+   self%ddpat(:, :, :, :) = 0.0_wp
+   self%dqpat(:, :, :, :) = 0.0_wp
+end subroutine new_wavefunction_derivative
 
 subroutine get_density_matrix(focc, coeff, pmat)
    real(wp), intent(in) :: focc(:)

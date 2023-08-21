@@ -27,7 +27,8 @@ module tblite_wavefunction
       & get_molecular_quadrupole_moment, get_mayer_bond_orders
    use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
-      & get_density_matrix, get_alpha_beta_occupation
+      & get_density_matrix, get_alpha_beta_occupation, new_wavefunction_derivative, &
+      & wavefunction_derivative_type
    implicit none
    public
 
