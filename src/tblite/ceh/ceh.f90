@@ -32,6 +32,7 @@ module tblite_ceh_ceh
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_integral_overlap, only : get_overlap
    use tblite_integral_dipole, only: get_dipole_integrals
+   use tblite_integral_multipole, only: get_multipole_integrals
    use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
@@ -629,8 +630,7 @@ contains
       real(wp), allocatable, intent(out)  :: dipole(:, :, :)
       real(wp), allocatable, intent(out)  :: hamiltonian(:,:)
 
-      real(wp), allocatable   :: cn(:), cn_en(:), dcndr(:, :, :), dcndL(:, :, :)
-      real(wp), allocatable   :: dum(:,:)
+      real(wp), allocatable   :: cn(:), cn_en(:)
 
       real(wp), allocatable   :: lattr(:,:), overlap_diat(:,:)
       real(wp) :: cutoff, felem
@@ -661,30 +661,14 @@ contains
          end do
       end do
 
-      !> calculate overlap matrix
+      !> calculate overlap and dipole moment matrix
       cutoff = get_cutoff(calc%bas)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       allocate(overlap(calc%bas%nao, calc%bas%nao), &
-      & overlap_diat(calc%bas%nao, calc%bas%nao), source=0.0_wp)
-      allocate(dipole(3, calc%bas%nao, calc%bas%nao), dum(calc%bas%nao, calc%bas%nao), source=0.0_wp)
-      call get_overlap(mol, lattr, cutoff, calc%bas, ceh_h0k, overlap, overlap_diat)
-      call get_dipole_integrals(mol, lattr, cutoff, calc%bas, dum, dipole)
-      deallocate(dum)
-      ! Print overlap matrix in a readable format
-      ! write(*,*) "Overlap matrix:"
-      ! do iao = 1, calc%bas%nao
-      !    do jao = 1, calc%bas%nao
-      !       write(*,'(f10.5)',advance="no") overlap(iao, jao)
-      !    end do
-      !    write(*,'(/)', advance="no")
-      ! end do
-      ! write(*,*) "Overlap matrix (diat):"
-      ! do iao = 1, calc%bas%nao
-      !    do jao = 1, calc%bas%nao
-      !       write(*,'(f10.5)',advance="no") overlap_diat(iao, jao)
-      !    end do
-      !    write(*,'(/)', advance="no")
-      ! end do
+      & overlap_diat(calc%bas%nao, calc%bas%nao))
+      allocate(dipole(3, calc%bas%nao, calc%bas%nao))
+      call get_dipole_integrals(mol, lattr, cutoff, calc%bas, ceh_h0k, &
+      &  overlap, overlap_diat, dipole)
 
       !> define off-diagonal elements of CEH Hamiltonian
       k = 0
@@ -704,7 +688,6 @@ contains
                      felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
                      & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
-                        ! write(*,*) "atom iteration executed"
                         l = l + 1
                         hamiltonian(k, l) = overlap_diat(k,l) * felem
                         hamiltonian(l, k) = hamiltonian(k, l)

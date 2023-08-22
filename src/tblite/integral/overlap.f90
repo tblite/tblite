@@ -23,8 +23,8 @@ module tblite_integral_overlap
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
+   use tblite_integral_diat_trafo, only: relvec, diat_trafo 
    use tblite_integral_trafo, only : transform0, transform1, transform2
-   use tblite_blas, only: gemm
    implicit none
    private
 
@@ -36,10 +36,6 @@ module tblite_integral_overlap
       module procedure :: get_overlap_lat
       module procedure :: get_overlap_diatframe_lat
    end interface get_overlap
-
-   interface eff_equality
-      module procedure :: eff_equality_two_numbers
-   end interface eff_equality
 
    integer, parameter :: maxl = 6
    integer, parameter :: maxl2 = maxl*2
@@ -458,8 +454,8 @@ subroutine get_overlap_lat(mol, trans, cutoff, bas, overlap)
 
 end subroutine get_overlap_lat
 
-!> Evaluate overlap for a molecular structure,
-!> with scaled elements in the diatomic frame
+   !> Evaluate overlap for a molecular structure,
+   !> with scaled elements in the diatomic frame
    subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap, overlap_scaled)
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
@@ -483,21 +479,26 @@ end subroutine get_overlap_lat
       integer :: ish, jsh, ii, jj, iao, jao, nao, maxl_ish_jsh
       real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
       real(wp), allocatable :: stmp(:)
-      real(wp) :: trafomat(9,9), block_overlap(9,9), trans_block_s(9,9),tmp(9,9)
+      real(wp) :: block_overlap(9,9)
 
       if (size(scal_fac,1) /= 3) then
-         write(*,*) 'Error: scal_fac must have 3 rows'
+         write(*,*) 'Error: scal_fac must have the dimension of 3, &
+         & since it covers the three different types of bonding'
          stop
       end if
+
+      overlap(:, :) = 0.0_wp
+      overlap_scaled(:, :) = 0.0_wp
 
       allocate(stmp(msao(bas%maxl)**2))
       cutoff2 = cutoff**2
 
       !$omp parallel do schedule(runtime) default(none) &
-      !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled) private(r2, vec, stmp) &
+      !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled) &
+      !$omp private(r2, vec, stmp) &
       !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
-      !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, trafomat, block_overlap) &
-      !$omp private(trans_block_s, ksig, kpi, kdel, vec_diat_trafo)
+      !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, block_overlap) &
+      !$omp private(ksig, kpi, kdel, vec_diat_trafo)
       do iat = 1, mol%nat
          izp = mol%id(iat)
          is = bas%ish_at(iat)
@@ -545,111 +546,34 @@ end subroutine get_overlap_lat
                ubi = bas%iao_sh(is+1)+nao_ati
                lbj = bas%iao_sh(js+1)+1
                ubj = bas%iao_sh(js+1)+nao_atj
-               ! ### DEV ###
-               !write(*,*) "lbi, ubi, lbj, ubj: ", lbi, ubi, lbj, ubj
-               ! ### DEV ###
+               !> Conduct only for atoms of different type
                if (iat /= jat) then
                   block_overlap = 0.0_wp
-                  !> Fill a 9x9 submatrix (initialized with 0's) with the overlap matrix elements
-
-                  !> 2. Fill the submatrix with the correct overlap matrix elements
+                  !> 2.1. Fill the 9x9 submatrix (initialized with 0's)
+                  !> with the correct overlap matrix elements
                   block_overlap(1:nao_atj, 1:nao_ati) = overlap(lbj:ubj, lbi:ubi)
-
-                  !> (optional) 1.1. Transpose the submatrix to correspond to MSINDO processing,
+                  !> (optional) 2.2. Transpose the submatrix to correspond to MSINDO processing,
                   ! ### Transposing back and forth doesn't make a difference for the total overlap matrix
                   ! ### but it does for the comparison of submatrices with MSINDO
                   ! block_overlap = transpose(block_overlap)
-
-                  ! ### DEV ###
-                  ! write(*,*) "vec_diat_trafo:"
-                  ! write(*,*) vec_diat_trafo
-                  ! ### DEV ###
-
-                  call harmtr(2, vec_diat_trafo, trafomat)
-                  ! Doing it only for the maxl_ish_jsh elements (for s,p -> 4x4) would in
-                  ! theory be more efficient, but is not implemented yet:
-                  ! call harmtr(maxl_ish_jsh, vec_diat_trafo, trafomat) 
-
-                  ! ### DEV ###
-                  ! write(*,*) "trafomat:"
-                  ! do i = 1, 9
-                  !    write(*,'(9f10.6)') (trafomat(i,j), j=1,9)
-                  ! end do
-                  ! write(*,*) "block_overlap:"
-                  ! do i = 1, 9
-                  !    write(*,'(9f10.6)') (block_overlap(i,j), j=1,9)
-                  ! end do
-                  ! ### DEV ###
-
-                  !> 3. Transform the submatrix
-                  ! trans_block_s = matmul(matmul(transpose(trafomat), block_overlap),trafomat)
-                  ! trans_block_s = O^T * S * O
-                  call gemm(amat=trafomat,bmat=block_overlap,cmat=tmp,transa='T',transb='N')
-                  call gemm(amat=tmp,bmat=trafomat,cmat=trans_block_s,transa='N',transb='N')
-
-                  ! ### DEV ###
-                  ! write(*,*) "transformed block overlap:"
-                  ! do i = 1, 9
-                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
-                  ! end do
-                  ! ### DEV ###
-
-                  !> 4. Scale elements in diatomic frame
-                  !> 4.1. Determine scaling factors from atom parameters
+                  !> 3.1. Determine scaling factors from atom parameters
                   ksig = 2.0_wp / (1.0_wp / scal_fac(1,mol%num(mol%id(iat))) &
                   & + 1.0_wp / scal_fac(1,mol%num(mol%id(jat))) )
                   kpi = 2.0_wp / (1.0_wp / scal_fac(2,mol%num(mol%id(iat))) &
                   & + 1.0_wp / scal_fac(2,mol%num(mol%id(jat))) )
                   kdel = 2.0_wp / (1.0_wp / scal_fac(3,mol%num(mol%id(iat))) &
                   & + 1.0_wp / scal_fac(3,mol%num(mol%id(jat))) )
-                  !> 4.2. Scale elements with equivalent bonding situation in the
-                  !>      diatomic frame.
-                  trans_block_s(1,1) = trans_block_s(1,1)*ksig ! Sigma bond s   <-> s
-                  trans_block_s(1,3) = trans_block_s(1,3)*ksig ! Sigma bond s   <-> pz
-                  trans_block_s(3,1) = trans_block_s(3,1)*ksig ! Sigma bond pz  <-> s
-                  trans_block_s(1,5) = trans_block_s(1,5)*ksig ! Sigma bond s   <-> dz2
-                  trans_block_s(5,1) = trans_block_s(5,1)*ksig ! Sigma bond dz2 <-> s
-                  trans_block_s(3,3) = trans_block_s(3,3)*ksig ! Sigma bond pz  <-> pz
-                  trans_block_s(3,5) = trans_block_s(3,5)*ksig ! Sigma bond pz  <-> dz2
-                  trans_block_s(5,3) = trans_block_s(5,3)*ksig ! Sigma bond dz2 <-> pz
-                  trans_block_s(5,5) = trans_block_s(5,5)*ksig ! Sigma bond dz2 <-> dz2
-                  trans_block_s(4,4) = trans_block_s(4,4)*kpi  ! Pi    bond px  <-> px
-                  trans_block_s(4,6) = trans_block_s(4,6)*kpi  ! Pi    bond px  <-> dxz
-                  trans_block_s(6,4) = trans_block_s(6,4)*kpi  ! Pi    bond dxz <-> px
-                  trans_block_s(6,6) = trans_block_s(6,6)*kpi  ! Pi    bond dxz <-> dxz
-                  trans_block_s(2,2) = trans_block_s(2,2)*kpi  ! Pi    bond py  <-> py
-                  trans_block_s(2,7) = trans_block_s(2,7)*kpi  ! Pi    bond py  <-> dyz
-                  trans_block_s(7,2) = trans_block_s(7,2)*kpi  ! Pi    bond dyz <-> py
-                  trans_block_s(7,7) = trans_block_s(7,7)*kpi  ! Pi    bond dyz <-> dyz
-                  trans_block_s(8,8) = trans_block_s(8,8)*kdel ! Delta bond dx2-y2 <-> dx2-y2
-                  trans_block_s(9,9) = trans_block_s(9,9)*kdel ! Delta bond dxy <-> dxy
 
-                  ! ### DEV ###
-                  ! write(*,*) "transformed scaled block overlap:"
-                  ! do i = 1, 9
-                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
-                  ! end do
-                  ! ### DEV ###
-
-                  !> 5. Transform back to original frame
-                  ! block_overlap = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
-                  ! block_overlap = O * S * O^T 
-                  call gemm(amat=trafomat,bmat=trans_block_s,cmat=tmp,transa='N',transb='N')
-                  call gemm(amat=tmp,bmat=trafomat,cmat=block_overlap,transa='N',transb='T')
-
-                  ! ### DEV ###
-                  ! write(*,*) "Scaled block overlap in cartesian frame:"
-                  ! do i = 1, 9
-                  !    write(*,'(9f10.6)') (trans_block_s(i,j), j=1,9)
-                  ! end do
-                  ! ### DEV ###
-
-                  !> 6. Fill the overlap_diat matrix with the back-transformed submatrix
+                  !> 3. Set up transformation matrix, transform the submatrix,
+                  !> scale the elements with the corresponding factor, transform back 
+                  ! trans_block_s = O^T * S * O
+                  call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel)
                   ! (see 'optional (1.1)' above)
                   ! trans_block_s = transpose(trans_block_s)
+                  !> 4. Fill the overlap_diat matrix with the back-transformed submatrix
                   overlap_scaled(lbj:ubj, lbi:ubi) = block_overlap(1:nao_atj, 1:nao_ati)
                else
-                  !> 7. Fill the overlap_scaled matrix with the plain overlap submatrix (no transformation)
+                  !> 5. Fill the overlap_scaled matrix with the plain overlap submatrix (no transformation)
                   overlap_scaled(lbj:ubj, lbi:ubi) = overlap(lbj:ubj, lbi:ubi)
                endif
             end do
@@ -657,176 +581,5 @@ end subroutine get_overlap_lat
       end do
 
    end subroutine get_overlap_diatframe_lat
-
-   subroutine relvec(vec, rkl, veckl)
-
-      !> Original vector between atoms A and B
-      real(wp), intent(in)             :: vec(3)
-      !> Distance between the two atoms
-      real(wp), intent(in)             :: rkl
-      !> Normalized vector from atom k to atom l
-      real(wp), intent(out)            :: veckl(3)
-
-      real(wp), parameter              :: eps = 4.0e-08_wp
-
-      real(wp)                         :: sq
-
-      veckl(1:3) = vec(1:3) / rkl
-      if ( abs(1.0_wp-abs(veckl(1))) .lt. eps ) then
-         veckl(1) = sign(1.0_wp,veckl(1))
-         veckl(2) = 0.0_wp
-         veckl(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(veckl(2))) .lt. eps ) then
-         veckl(1) = 0.0_wp
-         veckl(2) = sign(1.0_wp,veckl(2))
-         veckl(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(veckl(3))) .lt. eps ) then
-         veckl(1) = 0.0_wp
-         veckl(2) = 0.0_wp
-         veckl(3) = sign(1.0_wp,veckl(3))
-      else if ( (abs(veckl(1)) .lt. eps) .and. .not. eff_equality(veckl(1),0.0_wp) ) then
-         veckl(1) = 0.0_wp
-         sq = sqrt( veckl(2)**2 + veckl(3)**2 )
-         veckl(2) = veckl(2)/sq
-         veckl(3) = veckl(3)/sq
-      else if ( (abs(veckl(2)) .lt. eps) .and. .not. eff_equality(veckl(2),0.0_wp) ) then
-         veckl(2) = 0.0_wp
-         sq = sqrt( veckl(1)**2 + veckl(3)**2 )
-         veckl(1) = veckl(1)/sq
-         veckl(3) = veckl(3)/sq
-      else if ( (abs(veckl(3)) .lt. eps) .and. .not. eff_equality(veckl(3),0.0_wp) ) then
-         veckl(3) = 0.0_wp
-         sq = sqrt(veckl(1)**2 + veckl(2)**2)
-         veckl(1) = veckl(1)/sq
-         veckl(2) = veckl(2)/sq
-      endif
-
-   end subroutine relvec
-
-   logical pure function eff_equality_two_numbers(num1, num2)
-      !> Numbers to compare
-      real(wp), intent(in) :: num1, num2
-      !> Logical deciding if numbers are (almost) equal or not
-      eff_equality_two_numbers = (abs( num1 - num2 ) .le. 1.0e-12_wp)
-
-   end function eff_equality_two_numbers
-
-   subroutine harmtr(maxkl,veckl,trafomat)
-      !> Maximum angular momentum
-      integer, intent(in)  :: maxkl
-      !> Normalized vector from atom k to atom l
-      real(wp), intent(in) :: veckl(3)
-      !> Transformation matrix
-      real(wp), intent(out) :: trafomat(9,9)
-
-      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3
-
-      !     ------------------------------------------------------------------
-      if (maxkl > 2) then
-         write(*,*) "ERROR: f function or higher ang. mom. not implemented in harmtr"
-         stop
-      endif
-
-      trafomat = 0.0_wp
-      !     -----------------------------
-      !     *** s functions (trafomat(1x1)) ***
-      !     -----------------------------
-      trafomat(1,1) = 1.0
-
-      if ( maxkl == 0 ) return
-      !     -----------------------------
-      !     *** p functions (trafomat(4x4)) ***
-      !     -----------------------------
-
-      cost = veckl(3)
-      if ( abs(cost) .eq. 1.0_wp ) then
-         sint = 0.0_wp
-         cosp = 1.0_wp
-         sinp = 0.0_wp
-      else if ( abs(cost) .eq. 0.0_wp ) then
-         sint = 1.0_wp
-         cosp = veckl(1)
-         sinp = veckl(2)
-      else
-         sint = SQRT(1.0_wp-COST**2)
-         cosp = veckl(1)/SINT
-         sinp = veckl(2)/SINT
-      endif
-
-      !> Original MSINDO ordering (-> x, y, z)
-      ! trafomat(2,2) = SINT*COSP
-      ! trafomat(3,2) = SINT*SINP
-      ! trafomat(4,2) = COST
-      ! trafomat(2,3) = COST*COSP
-      ! trafomat(3,3) = COST*SINP
-      ! trafomat(4,3) = -SINT
-      ! trafomat(2,4) = -SINP
-      ! trafomat(3,4) = COSP
-      ! trafomat(4,4) = 0.0_wp
-
-      !> tblite ordering with adapted column ordering
-      ! 1st index:
-      ! MSINDO defintion of p function ordering is converted to
-      ! tblite definition of p function ordering. E.g. for first entry:
-      ! trafomat(2,:)_MSINDO -> trafomat(px,:) -> trafomat(4:)_tblite
-      ! 2nd index:
-      ! Final ordering of p functions (see below) corresponds to the
-      ! tblite ordering of p functions. For the second index, the ordering
-      ! 3, 4, 2 holds, corresponding (in MSINDO convention)
-      ! to the tblite ordering of p functions, i.e.
-      ! y, z, x
-      trafomat(4,3) = SINT*COSP
-      trafomat(2,3) = SINT*SINP
-      trafomat(3,3) = COST
-      trafomat(4,4) = COST*COSP
-      trafomat(2,4) = COST*SINP
-      trafomat(3,4) = -SINT
-      trafomat(4,2) = -SINP
-      trafomat(2,2) = COSP
-      trafomat(3,2) = 0.0_wp
-
-      if ( maxkl <= 1 ) return
-
-!     -----------------------------
-!     *** d functions (trafomat(9x9)) ***
-!     -----------------------------
-
-      COS2T = COST**2 - SINT**2
-      SIN2T = 2.0_wp * SINT*COST
-      COS2P = COSP**2 - SINP**2
-      SIN2P = 2.0_wp * SINP*COSP
-      SQRT3 = SQRT(3.0_wp)
-
-      !> Original MSINDO ordering
-      !> The MSINDO d SAO ordering apparently corresponds to the
-      !> tblite ordering of d SAOs, which is why it doesn't have
-      !> to be adapted
-      trafomat(5,5) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(6,5) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat(7,5) = SQRT3*SIN2T*SINP*0.5_wp
-      trafomat(8,5) = SQRT3*SINT**2*COS2P*0.5_wp
-      trafomat(9,5) = SQRT3*SINT**2*SIN2P*0.5_wp
-      trafomat(5,6) = -SQRT3*SIN2T*0.5_wp
-      trafomat(6,6) = COS2T*COSP
-      trafomat(7,6) = COS2T*SINP
-      trafomat(8,6) = SIN2T*COS2P*0.5_wp
-      trafomat(9,6) = SIN2T*SIN2P*0.5_wp
-      trafomat(5,7) = 0.0_wp
-      trafomat(6,7) = -COST*SINP
-      trafomat(7,7) = COST*COSP
-      trafomat(8,7) = -SINT*SIN2P
-      trafomat(9,7) = SINT*COS2P
-      trafomat(5,8) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(6,8) = -SIN2T*COSP*0.5_wp
-      trafomat(7,8) = -SIN2T*SINP*0.5_wp
-      trafomat(8,8) = (1.0_wp + COST**2) * COS2P * 0.5_wp
-      trafomat(9,8) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
-      trafomat(5,9) = 0.0_wp
-      trafomat(6,9) = SINT*SINP
-      trafomat(7,9) = -SINT*COSP
-      trafomat(8,9) = -COST*SIN2P
-      trafomat(9,9) = COST*COS2P
-
-   end subroutine harmtr
 
 end module tblite_integral_overlap

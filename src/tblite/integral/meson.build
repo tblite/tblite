@@ -20,4 +20,5 @@ srcs += files(
   'overlap.f90',
   'trafo.f90',
   'type.f90',
+  'diat_trafo.f90',
 )
