@@ -21,6 +21,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 list(
   APPEND srcs
   "${dir}/ceh.f90"
+  "${dir}/ceh_h0.f90"
   "${dir}/ceh_calculator.f90"
 )
 

@@ -30,9 +30,7 @@ module tblite_ceh_ceh
    use tblite_output_format, only: format_string
    !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
-   use tblite_integral_overlap, only : get_overlap
    use tblite_integral_dipole, only: get_dipole_integrals
-   use tblite_integral_multipole, only: get_multipole_integrals
    use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
@@ -512,7 +510,7 @@ contains
    end subroutine add_ncoord
 
    subroutine add_ceh_basis(calc, mol)
-      !> Instance of the xTB evaluator
+      !> Instance of the CEH evaluator
       type(ceh_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol

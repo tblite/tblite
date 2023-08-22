@@ -724,7 +724,7 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
    !$omp private(r2, vec, stmp, dtmp, qtmp) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
    !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, block_overlap) &
-   !$omp private(ksig, kpi, kdel, vec_diat_trafo)
+   !$omp private(ksig, kpi, kdel, vec_diat_trafo, scal_fac)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)

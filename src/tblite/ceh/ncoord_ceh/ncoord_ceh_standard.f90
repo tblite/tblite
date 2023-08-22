@@ -182,8 +182,8 @@ contains
       cn_en(:) = 0.0_wp
       cutoff2 = cutoff**2
 
-      !$omp parallel do default(none) reduction(+:cn) &
-      !$omp shared(mol, trans, cutoff2, rcov, en) &
+      !$omp parallel do default(none) reduction(+:cn) reduction(+:cn_en) &
+      !$omp shared(mol, trans, cutoff2, rcov) &
       !$omp private(jat, itr, izp, jzp, r2, rij, r1, rc, countf)
       do iat = 1, mol%nat
          izp = mol%id(iat)
@@ -205,10 +205,6 @@ contains
                   cn(jat) = cn(jat) + countf
                   cn_en(jat) = cn_en(jat) + countf * ( en(mol%num(izp)) - en(mol%num((jzp))) )
                end if
-               ! write(*,*)  "AT (i) ", mol%num(izp), "CN2 (i) ", cn_en(iat), "tmpxdEN: ", &
-               ! & countf * (en(mol%num(jzp))-en(mol%num(izp))), "countf ", countf, "dEN: ", en(jzp)-en(izp)
-               ! write(*,*)  "AT (j) ", mol%num(jzp), "CN2 (j) ", cn_en(jat), "tmpxdEN: ", & 
-               ! & countf * (en(mol%num(izp))-en(mol%num(jzp))), "countf ", countf, "dEN: ", en(jzp)-en(izp)
             end do
          end do
       end do
