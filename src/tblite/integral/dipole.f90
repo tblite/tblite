@@ -548,11 +548,11 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint) &
+   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint, scal_fac) &
    !$omp private(r2, vec, stmp, dtmp) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
    !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, block_overlap) &
-   !$omp private(ksig, kpi, kdel, vec_diat_trafo, scal_fac)
+   !$omp private(ksig, kpi, kdel, vec_diat_trafo)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
