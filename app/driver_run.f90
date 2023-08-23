@@ -35,7 +35,7 @@ module tblite_driver_run
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
-      & wavefunction_derivative_type, new_wavefunction_derivative
+      & wavefunction_derivative_type, new_wavefunction_derivative, shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -181,8 +181,10 @@ subroutine run_main(config, error)
       call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
    case("sad")
       call sad_guess(mol, calc, wfn)
+      if (config%guessonly) return
    case("eeq")
       call eeq_guess(mol, calc, wfn)
+      if (config%guessonly) return
    case("ceh")
       if (config%guessonly) then
          ctx%verbosity = config%verbosity + 1
@@ -190,7 +192,12 @@ subroutine run_main(config, error)
          ctx%verbosity = config%verbosity
       end if
       call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, dwfn_ceh)
-      if (config%guessonly) return
+      if (config%guessonly) then
+         return
+      else
+         wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
+         call shell_partition(mol, calc, wfn)
+      end if
    end select
    if (allocated(error)) return
 

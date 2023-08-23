@@ -111,7 +111,7 @@ module tblite_cli_help
       "      --param <file>      Parametrization file to use for calculation"//nl//&
       "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>      Guess for the initial populations, possible options:"//nl//&
-      "                          sad (default), and eeq."//nl//&
+      "                          sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
       "      --iterations <int>  Maximum number of SCF iterations (Default: 250)"//nl//&
       "      --solver <name>     Electronic solver for SCF, possible options:"//nl//&
       "                          gvd (default), and gvr"//nl//&
@@ -124,7 +124,8 @@ module tblite_cli_help
       "--cpcm <real>             Use polarizable continuum solvation model."//nl//&
       "                          Solvent is specified by dielectric constant."//nl//&
       "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
-      "      --ceh               Use Charge-Extended Hückel method"//nl//&
+      "      --guessonly         Perform only the guess and stop directly afterwards,"//nl//&
+      "                          the print level is increased to print the guess charges."//nl//&
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
