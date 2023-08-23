@@ -369,19 +369,10 @@ module tblite_ceh_ceh
    &  label_charges = "CEH atomic charges", &
    &  label_dipole = "CEH molecular dipole moment / a.u."
 
-   interface ceh_guess
-      module procedure run_ceh_full
-   end interface ceh_guess
-
-   interface ceh_h0_entry
-      module procedure ceh_h0_entry_od
-      ! module procedure ceh_h0_entry_d
-   end interface ceh_h0_entry
-
 contains
 
    !> Run the CEH calculation
-   subroutine run_ceh_full(ctx, calc, mol, error, wfn, dwfn)
+   subroutine ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
       !> CEH calculator
@@ -487,7 +478,7 @@ contains
          call ctx%message(repeat("-", 60))
       endif
 
-   end subroutine run_ceh_full
+   end subroutine ceh_guess
 
    subroutine new_ceh_calculator(calc,mol)
       !> Instance of the CEH evaluator
@@ -683,7 +674,7 @@ contains
                do jat = 1,iat-1
                   offset_jat = calc%bas%ish_at(jat)
                   do jsh = 1, calc%bas%nsh_at(jat)
-                     felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
+                     felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
                      & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         l = l + 1
@@ -695,7 +686,7 @@ contains
 
                !> loop over all AOs in shells before current shell (same atom)
                do jsh = 1, ish - 1
-                  felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
+                  felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = l + 1
@@ -705,7 +696,7 @@ contains
                end do
 
                !> loop over all AOs before current AO (same atom and shell)
-               felem = ceh_h0_entry(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
+               felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
                & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
                do jao = 1, iao - 1
                   l = l + 1
