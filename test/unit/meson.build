@@ -36,6 +36,7 @@ tests = [
   'fit',
   'gfn1-xtb',
   'gfn2-xtb',
+  'ceh',
   'hamiltonian',
   'halogen',
   'integral-overlap',
