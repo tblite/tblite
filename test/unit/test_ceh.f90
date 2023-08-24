@@ -53,42 +53,11 @@ contains
       testsuite = [ &
          new_unittest("dipmom-mol", test_d_mb01), &
          new_unittest("charge-mol", test_q_mb01), &
-         new_unittest("charge-mol", test_d_mb04) &
+         new_unittest("dipmom-field-mol", test_d_mb04), &
+         new_unittest("dipmom-field-change-mol", test_d_hcn) &
          ]
 
    end subroutine collect_ceh
-
-
-! subroutine numdiff_grad(ctx, mol, calc, wfn, numgrad)
-!    type(context_type), intent(inout) :: ctx
-!    type(structure_type), intent(in) :: mol
-!    type(xtb_calculator), intent(in) :: calc
-!    type(wavefunction_type), intent(in) :: wfn
-!    real(wp), intent(out) :: numgrad(:, :)
-!
-!    integer :: iat, ic
-!    real(wp) :: er, el
-!    type(structure_type) :: moli
-!    type(wavefunction_type) :: wfni
-!    real(wp), parameter :: step = 1.0e-9_wp
-!
-!    do iat = 1, mol%nat
-!       do ic = 1, 3
-!          moli = mol
-!          wfni = wfn
-!          moli%xyz(ic, iat) = mol%xyz(ic, iat) + step
-!          call xtb_singlepoint(ctx, moli, calc, wfni, acc, er, verbosity=0)
-!
-!          moli = mol
-!          wfni = wfn
-!          moli%xyz(ic, iat) = mol%xyz(ic, iat) - step
-!          call xtb_singlepoint(ctx, moli, calc, wfni, acc, el, verbosity=0)
-!
-!          numgrad(ic, iat) = 0.5_wp*(er - el)/step
-!       end do
-!    end do
-! end subroutine numdiff_grad
-
 
    subroutine test_d_mb01(error)
 
@@ -137,16 +106,33 @@ contains
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(wavefunction_derivative_type) :: dwfn
-      real(wp) :: dipole(3)
-      real(wp), parameter :: ref = 0.5340202097_wp
+      real(wp), parameter :: ref(16) = reshape([ & 
+       0.5041712306_wp, & 
+      -0.0768741000_wp, & 
+      -0.4935157669_wp, & 
+      -0.0831876027_wp, & 
+      -0.2122917586_wp, & 
+       0.1274119295_wp, & 
+      -0.0434563264_wp, & 
+      -0.3788163344_wp, & 
+      -0.3016588466_wp, & 
+       0.1576514268_wp, & 
+       0.1353213766_wp, & 
+       0.0150687156_wp, & 
+       0.0511522155_wp, & 
+       0.1399127014_wp, & 
+      -0.0749090701_wp, & 
+       0.5340202097_wp], shape(ref))
+      integer :: i
 
       call get_structure(mol, "MB16-43", "01")
-
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
-      !> Check charge of last atom for sake of easiness
-      call check(error, wfn%qat(mol%nat,1), ref, thr=1e-6_wp)
+      do i = 1, mol%nat
+         call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
+         if (allocated(error)) return
+      enddo
 
    end subroutine test_q_mb01
 
@@ -161,7 +147,7 @@ contains
       type(wavefunction_type) :: wfn
       type(wavefunction_derivative_type) :: dwfn
       class(container_type), allocatable :: cont
-      real(wp) :: energy, efield(3), numdip(3), dipole(3), tmp(3)
+      real(wp) :: energy, efield(3), dipole(3), tmp(3)
       real(wp), parameter :: ref(3) = reshape([ &
          -16.4396031161495_wp, &
          90.2215123832578_wp, &
@@ -195,4 +181,62 @@ contains
 
    end subroutine test_d_mb04
 
+   subroutine test_d_hcn(error)
+
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(context_type) :: ctx
+      type(structure_type) :: mol1,mol2
+      type(ceh_calculator) :: calc1,calc2
+      type(wavefunction_type) :: wfn1,wfn2
+      type(wavefunction_derivative_type) :: dwfn
+      class(container_type), allocatable :: cont1,cont2
+      real(wp) :: efield(3), dip1(3), dip2(3), tmp(3)
+      integer, parameter :: num(3) = reshape([ &
+         7, &
+         6, &
+         1], shape(num))
+      integer, parameter :: nat = 3
+      real(wp) :: xyz(3, nat) = reshape([ &
+      & -0.09604091224796_wp,  0.0_wp, 0.0_wp, &
+      &  2.09604091224796_wp,  0.0_wp, 0.0_wp, &
+      &  4.10859879422050_wp,  0.0_wp, 0.0_wp], &
+      & shape(xyz))
+
+      call new(mol1, num, xyz) 
+      efield = 0.0_wp
+      efield(1) = -0.1_wp
+      call new_ceh_calculator(calc1, mol1)
+      call new_wavefunction(wfn1, mol1%nat, calc1%bas%nsh, calc1%bas%nao, 1, kt)
+      cont1 = electric_field(efield)
+      call calc1%push_back(cont1)
+      call ceh_guess(ctx, calc1, mol1, error, wfn1, dwfn)
+      tmp = 0.0_wp
+      dip1 = 0.0_wp
+      call gemv(mol1%xyz, wfn1%qat(:, 1), tmp)
+      dip1(:) = tmp + sum(wfn1%dpat(:, :, 1), 2)
+
+      xyz(1, :) = xyz(1, :) - 1.0_wp
+      call new(mol2, num, xyz) 
+      call new_ceh_calculator(calc2, mol2)
+      call new_wavefunction(wfn2, mol2%nat, calc2%bas%nsh, calc2%bas%nao, 1, kt)
+      cont2 = electric_field(efield)
+      call calc2%push_back(cont2)
+      call ceh_guess(ctx, calc2, mol2, error, wfn2, dwfn)
+      tmp = 0.0_wp
+      dip2 = 0.0_wp
+      call gemv(mol2%xyz, wfn2%qat(:, 1), tmp)
+      dip2(:) = tmp + sum(wfn2%dpat(:, :, 1), 2)
+
+      if (any(abs(dip1 - dip2) > 1e-7_wp)) then
+         call test_failed(error, "Numerical dipole moment does not match")
+         print '(3es21.14)', dip1
+         print '("---")'
+         print '(3es21.14)', dip2
+         print '("---")'
+         print '(3es21.14)', dip1 - dip2
+      end if
+
+   end subroutine test_d_hcn
 end module test_ceh
