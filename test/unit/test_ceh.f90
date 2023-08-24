@@ -36,65 +36,25 @@ module test_ceh
 
    public :: collect_ceh
 
-   real(wp), parameter :: acc = 0.01_wp
-   real(wp), parameter :: thr = 100_wp*epsilon(1.0_wp)
-   real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
 
 contains
 
-
-!> Collect all exported unit tests
+   !> Collect all exported unit tests
    subroutine collect_ceh(testsuite)
 
       !> Collection of tests
       type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
       testsuite = [ &
-         new_unittest("dipmom-mol", test_d_mb01), &
-         new_unittest("charge-mol", test_q_mb01), &
-         new_unittest("dipmom-field-mol", test_d_mb04), &
-         new_unittest("dipmom-field-change-mol", test_d_hcn) &
+         new_unittest("q-mol", test_q_mb01), &
+         new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
+         new_unittest("d-mol", test_d_mb01), &
+         new_unittest("d-field-mol", test_d_mb04), &
+         new_unittest("d-field-change-mol", test_d_hcn) &
          ]
 
    end subroutine collect_ceh
-
-   subroutine test_d_mb01(error)
-
-      !> Error handling
-      type(error_type), allocatable, intent(out) :: error
-
-      type(context_type) :: ctx
-      type(structure_type) :: mol
-      type(ceh_calculator) :: calc
-      type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
-      real(wp) :: dipole(3), tmp(3)
-      real(wp), parameter :: ref(3) = reshape([ &
-         0.584361099036660_wp, &
-         -1.47304239280996_wp, &
-         -2.25861915370679_wp], shape(ref))
-
-      call get_structure(mol, "MB16-43", "01")
-
-      call new_ceh_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
-      tmp = 0.0_wp
-      dipole = 0.0_wp
-      call gemv(mol%xyz, wfn%qat(:, 1), tmp)
-      dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
-      ! call check(error, sum(dipole), sum(ref), thr=1e-5_wp)
-      if (any(abs(dipole - ref) > 1e-5_wp)) then
-         call test_failed(error, "Numerical dipole moment does not match")
-         print '(3es21.14)', dipole
-         print '("---")'
-         print '(3es21.14)', ref 
-         print '("---")'
-         print '(3es21.14)', dipole - ref 
-      end if
-
-   end subroutine test_d_mb01
 
    subroutine test_q_mb01(error)
 
@@ -106,7 +66,7 @@ contains
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(wavefunction_derivative_type) :: dwfn
-      real(wp), parameter :: ref(16) = reshape([ & 
+      real(wp), parameter :: ref(16) = reshape([ & ! calculated with GP3 standalone 
        0.5041712306_wp, & 
       -0.0768741000_wp, & 
       -0.4935157669_wp, & 
@@ -136,6 +96,93 @@ contains
 
    end subroutine test_q_mb01
 
+   subroutine test_q_ef_chrg_mb01(error)
+
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(context_type) :: ctx
+      type(structure_type) :: mol
+      type(ceh_calculator) :: calc
+      type(wavefunction_type) :: wfn
+      type(wavefunction_derivative_type) :: dwfn
+      class(container_type), allocatable :: cont
+      real(wp), parameter :: ref(16) = reshape([ & ! calculated with GP3 standalone
+      -6.1090763982_wp, &
+      -0.9999265530_wp, &
+       3.7865813535_wp, &
+      -0.9753348768_wp, &
+       6.9999970090_wp, &
+       0.6329394986_wp, &
+      -0.6638462346_wp, &
+       5.2331540651_wp, &
+       1.3850165624_wp, &
+       0.7793708797_wp, &
+       0.9967264400_wp, &
+      -10.7642634986_wp, &
+      -4.9181285308_wp, &
+       2.4379171576_wp, &
+       4.2321691647_wp, &
+      -0.0532960387_wp &
+       & ], shape(ref))
+      real(wp) :: efield(3)
+      integer :: i
+
+      efield = 0.0_wp
+      efield(3) = 0.2_wp
+
+      call get_structure(mol, "MB16-43", "01")
+      mol%charge = 2.0_wp
+      call new_ceh_calculator(calc, mol)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      cont = electric_field(efield)
+      call calc%push_back(cont)
+      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      do i = 1, mol%nat
+         write(*,*) wfn%qat(i,1), ref(i)
+         call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge& 
+         & does not match reference")
+         if (allocated(error)) return
+      enddo
+
+   end subroutine test_q_ef_chrg_mb01
+
+   subroutine test_d_mb01(error)
+
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(context_type) :: ctx
+      type(structure_type) :: mol
+      type(ceh_calculator) :: calc
+      type(wavefunction_type) :: wfn
+      type(wavefunction_derivative_type) :: dwfn
+      real(wp) :: dipole(3), tmp(3)
+      real(wp), parameter :: ref(3) = reshape([ & ! calculated with GP3 standalone
+         0.584361099036660_wp, &
+         -1.47304239280996_wp, &
+         -2.25861915370679_wp], shape(ref))
+
+      call get_structure(mol, "MB16-43", "01")
+
+      call new_ceh_calculator(calc, mol)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      tmp = 0.0_wp
+      dipole = 0.0_wp
+      call gemv(mol%xyz, wfn%qat(:, 1), tmp)
+      dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
+      if (any(abs(dipole - ref) > 1e-5_wp)) then
+         call test_failed(error, "Numerical dipole moment does not match")
+         print '(3es21.14)', dipole
+         print '("---")'
+         print '(3es21.14)', ref 
+         print '("---")'
+         print '(3es21.14)', dipole - ref 
+      end if
+
+   end subroutine test_d_mb01
+
    subroutine test_d_mb04(error)
 
       !> Error handling
@@ -148,7 +195,7 @@ contains
       type(wavefunction_derivative_type) :: dwfn
       class(container_type), allocatable :: cont
       real(wp) :: energy, efield(3), dipole(3), tmp(3)
-      real(wp), parameter :: ref(3) = reshape([ &
+      real(wp), parameter :: ref(3) = reshape([ & ! calculated with GP3 standalone
          -16.4396031161495_wp, &
          90.2215123832578_wp, &
          -8.00262461340548_wp], shape(ref))
