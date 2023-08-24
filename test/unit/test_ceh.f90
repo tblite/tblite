@@ -139,7 +139,6 @@ contains
       call calc%push_back(cont)
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       do i = 1, mol%nat
-         write(*,*) wfn%qat(i,1), ref(i)
          call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge& 
          & does not match reference")
          if (allocated(error)) return

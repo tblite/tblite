@@ -53,6 +53,8 @@ module tblite_ceh_ceh
    use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
    use tblite_ceh_h0, only : ceh_hamiltonian
+   !> Miscelaneous
+   use tblite_timer, only : timer_type, format_time
 
    implicit none
    private
@@ -396,6 +398,9 @@ contains
       type(potential_type) :: pot
       !> Restart data for interaction containers
       type(container_cache) :: icache
+      !> Timer
+      type(timer_type) :: timer
+      real(wp) :: ttime
 
       logical :: grad = .false.
 
@@ -404,10 +409,16 @@ contains
       real(wp), allocatable :: tmp(:)
 
       integer :: i, prlevel
+      
+      call timer%push("wall time CEH")
 
       prlevel = ctx%verbosity
 
-      if (prlevel > 2) call header(ctx)
+      if (prlevel > 2) then
+         call header(ctx)
+      else
+         call ctx%message("CEH guess...")
+      endif
       !> Gradient logical
       if (allocated(dwfn%ddensity)) then
          grad = .true.
@@ -460,6 +471,9 @@ contains
       allocate(tmp(3), source = 0.0_wp)
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
+      
+      call timer%pop
+      ttime = timer%get("wall time CEH")
 
       !> Printout of results
       if (prlevel > 2) then
@@ -477,6 +491,7 @@ contains
          & format_string(dipole(3), "(f12.5)"))
          call ctx%message(repeat("-", 60))
       endif
+      call ctx%message(" wall time CEH:"//repeat(" ", 4)//format_time(ttime))
 
    end subroutine ceh_guess
 
