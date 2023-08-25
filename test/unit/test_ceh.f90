@@ -47,6 +47,7 @@ contains
       type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
       testsuite = [ &
+         new_unittest("cn-mol", test_cn_mb12), &
          new_unittest("q-mol", test_q_mb01), &
          new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
          new_unittest("d-mol", test_d_mb01), &
@@ -55,6 +56,68 @@ contains
          ]
 
    end subroutine collect_ceh
+
+   subroutine test_cn_mb12(error)
+
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(context_type) :: ctx
+      type(structure_type) :: mol
+      type(ceh_calculator) :: calc
+      type(wavefunction_type) :: wfn
+      type(wavefunction_derivative_type) :: dwfn
+      real(wp), allocatable :: cn(:), cn_en(:)
+      real(wp), parameter :: ref1(16) = reshape([ & ! calculated with GP3 standalone
+      1.31825913_wp, &
+      1.47303090_wp, &
+      0.46520171_wp, &
+      1.01541807_wp, &
+      0.48417989_wp, &
+      1.00793531_wp, &
+      0.42618861_wp, &
+      0.23257833_wp, &
+      0.73395771_wp, &
+      1.02341545_wp, &
+      1.22594362_wp, &
+      0.26119136_wp, &
+      1.55186287_wp, &
+      1.40171890_wp, &
+      0.44331842_wp, &
+      0.50585021_wp], shape(ref1))
+      real(wp), parameter :: ref2(16) = reshape([ & ! calculated with GP3 standalone
+       0.30785024_wp, &
+      -0.02792822_wp, &
+      -0.11358521_wp, &
+       0.03271103_wp, &
+       0.10217515_wp, &
+       0.25825112_wp, &
+      -0.20769464_wp, &
+      -0.03447769_wp, &
+      -0.25817610_wp, &
+       0.24460001_wp, &
+       0.26974150_wp, &
+      -0.01050015_wp, &
+      -0.28007123_wp, &
+      -0.42862573_wp, &
+       0.03898681_wp, &
+       0.10674311_wp], shape(ref2))
+      integer :: i
+
+      call get_structure(mol, "MB16-43", "12")
+      call new_ceh_calculator(calc, mol)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      allocate(cn(mol%nat), cn_en(mol%nat))
+      call calc%ncoord%get_cn(mol, cn, cn_en)
+      do i = 1, mol%nat
+         call check(error, cn(i), ref1(i), thr=1e-7_wp)
+         if (allocated(error)) return
+         call check(error, cn_en(i), ref2(i), thr=1e-7_wp)
+         if (allocated(error)) return
+      enddo
+
+   end subroutine test_cn_mb12
 
    subroutine test_q_mb01(error)
 

@@ -417,7 +417,7 @@ contains
       if (prlevel > 2) then
          call header(ctx)
       else
-         call ctx%message("CEH guess...")
+         call ctx%message("CEH guess")
       endif
       !> Gradient logical
       if (allocated(dwfn%ddensity)) then
@@ -491,7 +491,7 @@ contains
          & format_string(dipole(3), "(f12.5)"))
          call ctx%message(repeat("-", 60))
       endif
-      call ctx%message(" wall time CEH:"//repeat(" ", 4)//format_time(ttime))
+      call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
 
    end subroutine ceh_guess
 
