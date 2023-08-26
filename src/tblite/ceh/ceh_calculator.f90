@@ -14,34 +14,20 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/xtb/calculator.f90
-!> Provides the calculator type for holding xTB Hamiltonian parametrization.
+!> @file tblite/ceh/ceh_calculator.f90
+!> Provides the calculator type for holding CEH Hamiltonian parametrization.
 
-!> Implementation of calculator type for the extended-tight binding Hamiltonian.
-!> The #tblite_xtb_calculator::xtb_calculator collects the basic interactions
-!> required to perform a tight-binding calculation.
+!> Implementation of calculator type for the Charge-Extended Hückel Hamiltonian.
 module tblite_ceh_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_type, container_list
-   use tblite_coulomb_charge, only : coulomb_kernel, new_gamma_coulomb, gamma_coulomb, &
-   & new_effective_coulomb, effective_coulomb, average_interface, &
-   & harmonic_average, arithmetic_average, geometric_average
-   use tblite_coulomb_multipole, only : new_damped_multipole
-   use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
-   use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
-   & d3_dispersion, new_d3_dispersion
    use tblite_ncoord_ceh, only : ncoord_type_ceh, new_ncoord
    use tblite_param, only : param_record
-   use tblite_repulsion, only : new_repulsion
-   use tblite_repulsion_effective, only : tb_repulsion
-   use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_ceh_h0, only : ceh_hamiltonian
-   use tblite_xtb_spec, only : tb_h0spec
    implicit none
    private
 
@@ -56,14 +42,6 @@ module tblite_ceh_calculator
       type(ceh_hamiltonian) :: hamiltonian
       !> Coordination number for modifying the self-energies
       class(ncoord_type_ceh), allocatable :: ncoord
-      !> Repulsion energy interactions
-      type(tb_repulsion), allocatable :: repulsion
-      !> Collection of all Coulombic interactions
-      type(tb_coulomb), allocatable :: coulomb
-      !> Halogen bonding correction
-      type(halogen_correction), allocatable :: halogen
-      !> London-dispersion interaction
-      class(dispersion_type), allocatable :: dispersion
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
       !> List of additional interaction containers
@@ -118,14 +96,6 @@ contains
 
       info = scf_info()
 
-      if (allocated(self%coulomb)) then
-         info = max(info, self%coulomb%variable_info())
-      end if
-
-      if (allocated(self%dispersion)) then
-         info = max(info, self%dispersion%variable_info())
-      end if
-
       if (allocated(self%interactions)) then
          info = max(info, self%interactions%variable_info())
       end if
@@ -147,18 +117,6 @@ contains
       character(len=*), parameter :: nl = new_line('a')
 
       str = "CEH calculator"
-
-      if (allocated(self%repulsion)) then
-         str = str // nl // indent // self%repulsion%info(verbosity, indent)
-      end if
-
-      if (allocated(self%coulomb)) then
-         str = str // nl // indent // self%coulomb%info(verbosity, indent)
-      end if
-
-      if (allocated(self%dispersion)) then
-         str = str // nl // indent // self%dispersion%info(verbosity, indent)
-      end if
 
       if (allocated(self%interactions)) then
          str = str // nl // indent // self%interactions%info(verbosity, indent)
