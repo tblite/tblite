@@ -14,8 +14,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @dir tblite/ncoord
-!> Contains the implementation for the coordination number evaluators.
+!> @dir tblite/ceh/ncoord
+!> Contains the implementation of the CEH coordination number.
 
 !> @file tblite/ceh/ncoord_ceh/ncoord_ceh.f90
 !> Reexports the coordination number evaluation modules.

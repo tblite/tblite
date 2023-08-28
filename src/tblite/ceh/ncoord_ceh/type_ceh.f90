@@ -31,7 +31,7 @@ module tblite_ncoord_type_ceh
    end type ncoord_type_ceh
 
    abstract interface
-      subroutine get_cn(self, mol, cn, cn_en, dcndr, dcndL)
+      subroutine get_cn(self, mol, cn, cn_en, dcndr, dcndL, dcnendr, dcnendL)
          import :: ncoord_type_ceh, structure_type, wp
          !> Coordination number container
          class(ncoord_type_ceh), intent(in) :: self
@@ -45,6 +45,10 @@ module tblite_ncoord_type_ceh
          real(wp), intent(out), optional :: dcndr(:, :, :)
          !> Derivative of the CN with respect to strain deformations.
          real(wp), intent(out), optional :: dcndL(:, :, :)
+         !> Derivative of the CN_EN with respect to the Cartesian coordinates.
+         real(wp), intent(out), optional :: dcnendr(:, :, :)
+         !> Derivative of the CN_EN with respect to strain deformations.
+         real(wp), intent(out), optional :: dcnendL(:, :, :)
       end subroutine get_cn
    end interface
 

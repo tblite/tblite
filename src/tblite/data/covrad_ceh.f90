@@ -25,14 +25,14 @@ module tblite_data_covrad_ceh
    implicit none
    private
 
-   public :: get_covalent_rad
+   public :: get_covalent_cehrad
 
 
    !> Covalent radii for DFT-D3 coordination number
-   interface get_covalent_rad
+   interface get_covalent_cehrad
       module procedure :: get_covalent_rad_num
       module procedure :: get_covalent_rad_sym
-   end interface get_covalent_rad
+   end interface get_covalent_cehrad
 
 
    integer, parameter :: max_elem = 86
@@ -68,7 +68,7 @@ elemental function get_covalent_rad_sym(sym) result(rad)
    !> Covalent radius
    real(wp) :: rad
 
-   rad = get_covalent_rad(to_number(sym))
+   rad = get_covalent_cehrad(to_number(sym))
 
 end function get_covalent_rad_sym
 
