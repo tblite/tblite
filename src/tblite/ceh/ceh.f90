@@ -410,14 +410,14 @@ contains
       real(wp), allocatable :: tmp(:)
 
       integer :: i, prlevel
-      
+
       call timer%push("wall time CEH")
 
       prlevel = ctx%verbosity
 
       if (prlevel > 2) then
          call header(ctx)
-      else
+      elseif (prlevel > 0) then
          call ctx%message("CEH guess")
       endif
       !> Gradient logical
@@ -472,7 +472,7 @@ contains
       allocate(tmp(3), source = 0.0_wp)
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
-      
+
       call timer%pop
       ttime = timer%get("wall time CEH")
 
@@ -492,7 +492,8 @@ contains
          & format_string(dipole(3), "(f12.5)"))
          call ctx%message(repeat("-", 60))
       endif
-      call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
+      if (prlevel > 0) &
+      & call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
 
    end subroutine ceh_guess
 

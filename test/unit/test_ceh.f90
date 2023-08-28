@@ -107,6 +107,7 @@ contains
       call get_structure(mol, "MB16-43", "12")
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       allocate(cn(mol%nat), cn_en(mol%nat))
       call calc%ncoordstd%get_cn(mol, cn)
@@ -152,6 +153,7 @@ contains
       call get_structure(mol, "MB16-43", "01")
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
@@ -201,6 +203,7 @@ contains
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       cont = electric_field(efield)
       call calc%push_back(cont)
+      ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge& 
@@ -230,6 +233,7 @@ contains
 
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+      ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       tmp = 0.0_wp
       dipole = 0.0_wp
@@ -274,6 +278,7 @@ contains
       cont = electric_field(efield)
       call calc%push_back(cont)
 
+      ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       tmp = 0.0_wp
       dipole = 0.0_wp
@@ -314,6 +319,7 @@ contains
       &  4.10859879422050_wp,  0.0_wp, 0.0_wp], &
       & shape(xyz))
 
+      ctx%verbosity = 0
       call new(mol1, num, xyz) 
       efield = 0.0_wp
       efield(1) = -0.1_wp
