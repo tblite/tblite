@@ -215,6 +215,8 @@ subroutine get_arguments(config, error)
       call get_param_arguments(config, list, iarg, error)
    type is (run_config)
       call get_run_arguments(config, list, iarg, error)
+   type is (guess_config)
+      call get_guess_arguments(config, list, iarg, error)
    type is (tagdiff_config)
       call get_tagdiff_arguments(config, list, iarg, error)
    end select

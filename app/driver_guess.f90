@@ -34,8 +34,8 @@ module tblite_driver_guess
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
-      & shell_partition
+   & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
+   & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -49,7 +49,7 @@ module tblite_driver_guess
    public :: main
 
    interface main
-      module procedure :: run_main
+      module procedure :: guess_main
    end interface
 
    real(wp), parameter :: kt = 3.166808578545117e-06_wp
@@ -60,269 +60,265 @@ module tblite_driver_guess
 contains
 
 
-subroutine run_main(config, error)
-   type(guess_config), intent(in) :: config
-   type(error_type), allocatable, intent(out) :: error
+   subroutine guess_main(config, error)
+      type(guess_config), intent(in) :: config
+      type(error_type), allocatable, intent(out) :: error
 
-   type(structure_type) :: mol
-   character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin
-   real(wp) :: energy, dpmom(3), qpmom(6)
-   real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   type(context_type) :: ctx
-   type(xtb_calculator) :: calc
-   type(ceh_calculator):: calc_ceh
-   type(wavefunction_type) :: wfn, wfn_ceh
-   type(results_type) :: results
+      type(structure_type) :: mol
+      character(len=:), allocatable :: method, filename
+      integer :: unpaired, charge,nspin
+      real(wp) :: dpmom(3), qpmom(6)
+      real(wp), allocatable :: gradient(:, :), sigma(:, :)
+      type(context_type) :: ctx
+      type(xtb_calculator) :: calc
+      type(ceh_calculator):: calc_ceh
+      type(wavefunction_type) :: wfn, wfn_ceh
+      type(results_type) :: results
 
-   ctx%terminal = context_terminal(config%color)
-   ctx%solver = lapack_solver(config%solver)
+      ctx%terminal = context_terminal(config%color)
+      ctx%solver = lapack_solver(config%solver)
+      ctx%verbosity = 3
+      ! ctx%verbosity = config%verbosity + 2
 
-   if (config%input == "-") then
-      if (allocated(config%input_format)) then
-         call read_structure(mol, input_unit, config%input_format, error)
+      if (config%input == "-") then
+         if (allocated(config%input_format)) then
+            call read_structure(mol, input_unit, config%input_format, error)
+         else
+            call read_structure(mol, input_unit, filetype%xyz, error)
+         end if
       else
-         call read_structure(mol, input_unit, filetype%xyz, error)
+         call read_structure(mol, config%input, error, config%input_format)
       end if
-   else
-      call read_structure(mol, config%input, error, config%input_format)
-   end if
-   if (allocated(error)) return
+      if (allocated(error)) return
 
-   if (allocated(config%charge)) then
-      mol%charge = config%charge
-   else
-      filename = join(dirname(config%input), ".CHRG")
-      if (exists(filename)) then
-         call read_file(filename, charge, error)
-         if (allocated(error)) return
-         if (config%verbosity > 0) &
+      if (allocated(config%charge)) then
+         mol%charge = config%charge
+      else
+         filename = join(dirname(config%input), ".CHRG")
+         if (exists(filename)) then
+            call read_file(filename, charge, error)
+            if (allocated(error)) return
+            if (config%verbosity > 0) &
             & call info(ctx, "Molecular charge read from '"//filename//"'")
-         mol%charge = charge
+            mol%charge = charge
+         end if
       end if
-   end if
-   if (allocated(error)) return
+      if (allocated(error)) return
 
-   if (allocated(config%spin)) then
-      mol%uhf = config%spin
-   else
-      filename = join(dirname(config%input), ".UHF")
-      if (exists(filename)) then
-         call read_file(filename, unpaired, error)
-         if (allocated(error)) return
-         if (config%verbosity > 0) &
+      if (allocated(config%spin)) then
+         mol%uhf = config%spin
+      else
+         filename = join(dirname(config%input), ".UHF")
+         if (exists(filename)) then
+            call read_file(filename, unpaired, error)
+            if (allocated(error)) return
+            if (config%verbosity > 0) &
             & call info(ctx, "Molecular spin read from '"//filename//"'")
-         mol%uhf = unpaired
+            mol%uhf = unpaired
+         end if
       end if
-   end if
 
-   nspin = 1 
-
-   if (config%grad) then
-      allocate(gradient(3, mol%nat), sigma(3, 3))
-   end if
-   
-   if (allocated(error)) return
-
-
-   if (config%method == "ceh") then
-      call new_ceh_calculator(calc_ceh, mol)
-      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
       if (config%grad) then
-         call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
-         return
+         allocate(gradient(3, mol%nat), sigma(3, 3))
       end if
-   end if
 
-   if (allocated(config%efield)) then
-      block
-         class(container_type), allocatable :: cont
-         cont = electric_field(config%efield*vatoau)
-         call calc%push_back(cont)
-      end block
-         if (config%method == "ceh") then
-            block
+      if (allocated(error)) return
+
+      nspin = 1
+      call new_gfn2_calculator(calc, mol)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+
+      method = "ceh"
+      if (allocated(config%method)) method = config%method
+      if (method == "ceh") then
+         call new_ceh_calculator(calc_ceh, mol)
+         call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+         if (config%grad) then
+            call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
+            return
+         end if
+      end if
+
+      if (allocated(config%efield)) then
+         block
             class(container_type), allocatable :: cont
             cont = electric_field(config%efield*vatoau)
-            call calc_ceh%push_back(cont)
+            call calc%push_back(cont)
+         end block
+         if (config%method == "ceh") then
+            block
+               class(container_type), allocatable :: cont
+               cont = electric_field(config%efield*vatoau)
+               call calc_ceh%push_back(cont)
             end block
          end if
-   end if
-
-   select case(config%method)
-   case default
-      call fatal_error(error, "Unknown starting guess requested")
-   case("sad")
-      call sad_guess(mol, calc, wfn)
-   case("eeq")
-      call eeq_guess(mol, calc, wfn)
-   case("ceh")
-      ctx%verbosity = config%verbosity + 1
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
-   end select
-   if (allocated(error)) return
-
-   if (config%verbosity > 0) then
-      call ctx%message(calc%info(config%verbosity, " | "))
-      call ctx%message("")
-   end if
-
-   if (ctx%failed()) then
-      call fatal(ctx, "Singlepoint calculation failed")
-      do while(ctx%failed())
-         call ctx%get_error(error)
-         write(error_unit, '("->", 1x, a)') error%message
-      end do
-      error stop
-   end if
-
-   if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
-
-      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
-      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
-         & wfn%qpat(:, :, 1), qpmom)
-      call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
-      call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
-   end if
-
-   if (config%json) then
-      open(file=config%json_output, newunit=unit)
-      call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma, &
-         & energies=results%energies)
-      close(unit)
-      if (config%verbosity > 0) then
-         call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
-   end if
-end subroutine run_main
+
+      select case(method)
+       case default
+         call fatal_error(error, "Unknown method '"//method//"' requested")
+      case("sad")
+         call sad_guess(mol, calc, wfn)
+      case("eeq")
+         call eeq_guess(mol, calc, wfn)
+      case("ceh")
+         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
+         wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
+         call shell_partition(mol, calc, wfn)
+      end select
+      if (allocated(error)) return
+
+      if (config%verbosity > 0) then
+         call ctx%message(calc_ceh%info(config%verbosity, " | "))
+         call ctx%message("")
+      end if
+
+      ! if (ctx%failed()) then
+      !    call fatal(ctx, "Singlepoint calculation failed")
+      !    do while(ctx%failed())
+      !       call ctx%get_error(error)
+      !       write(error_unit, '("->", 1x, a)') error%message
+      !    end do
+      !    error stop
+      ! end if
+
+      ! if (config%verbosity > 2) then
+      !    call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
+
+      !    call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
+      !    call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
+      !    & wfn%qpat(:, :, 1), qpmom)
+      !    call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
+      !    call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
+      ! end if
+   end subroutine guess_main
 
 
-subroutine info(ctx, message)
-   type(context_type), intent(inout) :: ctx
-   character(len=*), intent(in) :: message
+   subroutine info(ctx, message)
+      type(context_type), intent(inout) :: ctx
+      character(len=*), intent(in) :: message
 
-   call ctx%message( &
+      call ctx%message( &
       & escape(ctx%terminal%bold) // "[" // &
       & escape(ctx%terminal%bold_cyan) // "Info" // &
       & escape(ctx%terminal%bold) // "]" // &
       & escape(ctx%terminal%reset) // " " // &
       & message)
-end subroutine info
+   end subroutine info
 
 
-subroutine warn(ctx, message)
-   type(context_type), intent(inout) :: ctx
-   character(len=*), intent(in) :: message
+   subroutine warn(ctx, message)
+      type(context_type), intent(inout) :: ctx
+      character(len=*), intent(in) :: message
 
-   call ctx%message( &
+      call ctx%message( &
       & escape(ctx%terminal%bold) // "[" // &
       & escape(ctx%terminal%bold_yellow) // "Warn" // &
       & escape(ctx%terminal%bold) // "]" // &
       & escape(ctx%terminal%reset) // " " // &
       & message)
-end subroutine warn
+   end subroutine warn
 
 
-subroutine fatal(ctx, message)
-   type(context_type), intent(inout) :: ctx
-   character(len=*), intent(in) :: message
+   subroutine fatal(ctx, message)
+      type(context_type), intent(inout) :: ctx
+      character(len=*), intent(in) :: message
 
-   call ctx%message( &
+      call ctx%message( &
       & escape(ctx%terminal%bold) // "[" // &
       & escape(ctx%terminal%bold_red) // "Fatal" // &
       & escape(ctx%terminal%bold) // "]" // &
       & escape(ctx%terminal%reset) // " " // &
       & message)
-end subroutine fatal
+   end subroutine fatal
 
 
-subroutine get_spin_constants(wll, mol, bas)
-   real(wp), allocatable, intent(out) :: wll(:, :, :)
-   type(structure_type), intent(in) :: mol
-   type(basis_type), intent(in) :: bas
+   subroutine get_spin_constants(wll, mol, bas)
+      real(wp), allocatable, intent(out) :: wll(:, :, :)
+      type(structure_type), intent(in) :: mol
+      type(basis_type), intent(in) :: bas
 
-   integer :: izp, ish, jsh, il, jl
+      integer :: izp, ish, jsh, il, jl
 
-   allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
+      allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
 
-   do izp = 1, mol%nid
-      do ish = 1, bas%nsh_id(izp)
-         il = bas%cgto(ish, izp)%ang
-         do jsh = 1, bas%nsh_id(izp)
-            jl = bas%cgto(jsh, izp)%ang
-            wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
+      do izp = 1, mol%nid
+         do ish = 1, bas%nsh_id(izp)
+            il = bas%cgto(ish, izp)%ang
+            do jsh = 1, bas%nsh_id(izp)
+               jl = bas%cgto(jsh, izp)%ang
+               wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
+            end do
          end do
       end do
-   end do
-end subroutine get_spin_constants
+   end subroutine get_spin_constants
 
 
 !> Extract dirname from path
-function dirname(filename)
-   character(len=*), intent(in) :: filename
-   character(len=:), allocatable :: dirname
+   function dirname(filename)
+      character(len=*), intent(in) :: filename
+      character(len=:), allocatable :: dirname
 
-   dirname = filename(1:scan(filename, "/\", back=.true.))
-   if (len_trim(dirname) == 0) dirname = "."
-end function dirname
+      dirname = filename(1:scan(filename, "/\", back=.true.))
+      if (len_trim(dirname) == 0) dirname = "."
+   end function dirname
 
 
 !> Construct path by joining strings with os file separator
-function join(a1, a2) result(path)
-   use mctc_env_system, only : is_windows
-   character(len=*), intent(in) :: a1, a2
-   character(len=:), allocatable :: path
-   character :: filesep
+   function join(a1, a2) result(path)
+      use mctc_env_system, only : is_windows
+      character(len=*), intent(in) :: a1, a2
+      character(len=:), allocatable :: path
+      character :: filesep
 
-   if (is_windows()) then
-      filesep = '\'
-   else
-      filesep = '/'
-   end if
+      if (is_windows()) then
+         filesep = '\'
+      else
+         filesep = '/'
+      end if
 
-   path = a1 // filesep // a2
-end function join
+      path = a1 // filesep // a2
+   end function join
 
 
 !> test if pathname already exists
-function exists(filename)
-    character(len=*), intent(in) :: filename
-    logical :: exists
-    inquire(file=filename, exist=exists)
-end function exists
+   function exists(filename)
+      character(len=*), intent(in) :: filename
+      logical :: exists
+      inquire(file=filename, exist=exists)
+   end function exists
 
 
-subroutine read_file(filename, val, error)
-   use mctc_io_utils, only : next_line, read_next_token, io_error, token_type
-   character(len=*), intent(in) :: filename
-   integer, intent(out) :: val
-   type(error_type), allocatable, intent(out) :: error
+   subroutine read_file(filename, val, error)
+      use mctc_io_utils, only : next_line, read_next_token, io_error, token_type
+      character(len=*), intent(in) :: filename
+      integer, intent(out) :: val
+      type(error_type), allocatable, intent(out) :: error
 
-   integer :: io, stat, lnum, pos
-   type(token_type) :: token
-   character(len=:), allocatable :: line
+      integer :: io, stat, lnum, pos
+      type(token_type) :: token
+      character(len=:), allocatable :: line
 
-   lnum = 0
+      lnum = 0
 
-   open(file=filename, newunit=io, status='old', iostat=stat)
-   if (stat /= 0) then
-      call fatal_error(error, "Error: Could not open file '"//filename//"'")
-      return
-   end if
+      open(file=filename, newunit=io, status='old', iostat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Error: Could not open file '"//filename//"'")
+         return
+      end if
 
-   call next_line(io, line, pos, lnum, stat)
-   if (stat == 0) &
-      call read_next_token(line, pos, token, val, stat)
-   if (stat /= 0) then
-      call io_error(error, "Cannot read value from file", line, token, &
-         filename, lnum, "expected integer value")
-      return
-   end if
+      call next_line(io, line, pos, lnum, stat)
+      if (stat == 0) &
+         call read_next_token(line, pos, token, val, stat)
+      if (stat /= 0) then
+         call io_error(error, "Cannot read value from file", line, token, &
+            filename, lnum, "expected integer value")
+         return
+      end if
 
-   close(io, iostat=stat)
+      close(io, iostat=stat)
 
-end subroutine read_file
+   end subroutine read_file
 
 
 end module tblite_driver_guess
