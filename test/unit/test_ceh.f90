@@ -22,8 +22,7 @@ module test_ceh
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
    use tblite_lapack_solver, only : lapack_solver, lapack_algorithm
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
-   & new_wavefunction_derivative, wavefunction_derivative_type
+   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_ceh_calculator, only : ceh_calculator
    use tblite_ceh_ceh, only: ceh_guess, new_ceh_calculator
 
@@ -66,7 +65,6 @@ contains
       type(structure_type) :: mol
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
       real(wp), allocatable :: cn(:), cn_en(:)
       real(wp), parameter :: ref1(16) = reshape([ & ! calculated with GP3 standalone
       1.31825913_wp, &
@@ -108,7 +106,7 @@ contains
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      call ceh_guess(ctx, calc, mol, error, wfn)
       allocate(cn(mol%nat), cn_en(mol%nat))
       call calc%ncoordstd%get_cn(mol, cn)
       call calc%ncoorden%get_cn(mol, cn_en)
@@ -130,7 +128,6 @@ contains
       type(structure_type) :: mol
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
       real(wp), parameter :: ref(16) = reshape([ & ! calculated with GP3 standalone 
        0.5041712306_wp, & 
       -0.0768741000_wp, & 
@@ -154,7 +151,7 @@ contains
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      call ceh_guess(ctx, calc, mol, error, wfn)
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
          if (allocated(error)) return
@@ -171,7 +168,6 @@ contains
       type(structure_type) :: mol
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
       class(container_type), allocatable :: cont
       real(wp), parameter :: ref(16) = reshape([ & ! calculated with GP3 standalone
       -6.1090763982_wp, &
@@ -204,7 +200,7 @@ contains
       cont = electric_field(efield)
       call calc%push_back(cont)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      call ceh_guess(ctx, calc, mol, error, wfn)
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge& 
          & does not match reference")
@@ -222,7 +218,6 @@ contains
       type(structure_type) :: mol
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
       real(wp) :: dipole(3), tmp(3)
       real(wp), parameter :: ref(3) = reshape([ & ! calculated with GP3 standalone
          0.584361099036660_wp, &
@@ -234,7 +229,7 @@ contains
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      call ceh_guess(ctx, calc, mol, error, wfn)
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -259,7 +254,6 @@ contains
       type(structure_type) :: mol
       type(ceh_calculator) :: calc
       type(wavefunction_type) :: wfn
-      type(wavefunction_derivative_type) :: dwfn
       class(container_type), allocatable :: cont
       real(wp) :: energy, efield(3), dipole(3), tmp(3)
       real(wp), parameter :: ref(3) = reshape([ & ! calculated with GP3 standalone
@@ -279,7 +273,7 @@ contains
       call calc%push_back(cont)
 
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+      call ceh_guess(ctx, calc, mol, error, wfn)
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -305,7 +299,6 @@ contains
       type(structure_type) :: mol1,mol2
       type(ceh_calculator) :: calc1,calc2
       type(wavefunction_type) :: wfn1,wfn2
-      type(wavefunction_derivative_type) :: dwfn
       class(container_type), allocatable :: cont1,cont2
       real(wp) :: efield(3), dip1(3), dip2(3), tmp(3)
       integer, parameter :: num(3) = reshape([ &
@@ -327,7 +320,7 @@ contains
       call new_wavefunction(wfn1, mol1%nat, calc1%bas%nsh, calc1%bas%nao, 1, kt)
       cont1 = electric_field(efield)
       call calc1%push_back(cont1)
-      call ceh_guess(ctx, calc1, mol1, error, wfn1, dwfn)
+      call ceh_guess(ctx, calc1, mol1, error, wfn1)
       tmp = 0.0_wp
       dip1 = 0.0_wp
       call gemv(mol1%xyz, wfn1%qat(:, 1), tmp)
@@ -339,7 +332,7 @@ contains
       call new_wavefunction(wfn2, mol2%nat, calc2%bas%nsh, calc2%bas%nao, 1, kt)
       cont2 = electric_field(efield)
       call calc2%push_back(cont2)
-      call ceh_guess(ctx, calc2, mol2, error, wfn2, dwfn)
+      call ceh_guess(ctx, calc2, mol2, error, wfn2)
       tmp = 0.0_wp
       dip2 = 0.0_wp
       call gemv(mol2%xyz, wfn2%qat(:, 1), tmp)

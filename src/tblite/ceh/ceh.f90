@@ -36,8 +36,7 @@ module tblite_ceh_ceh
    use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-   & get_alpha_beta_occupation, wavefunction_derivative_type, &
-   & new_wavefunction_derivative
+   & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
@@ -375,7 +374,7 @@ module tblite_ceh_ceh
 contains
 
    !> Run the CEH calculation
-   subroutine ceh_guess(ctx, calc, mol, error, wfn, dwfn)
+   subroutine ceh_guess(ctx, calc, mol, error, wfn)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
       !> CEH calculator
@@ -386,9 +385,6 @@ contains
       type(error_type), allocatable, intent(out) :: error
       !> Wavefunction data
       type(wavefunction_type), intent(inout) :: wfn
-      !> Wavefunction derivative data
-      type(wavefunction_derivative_type), intent(inout) :: &
-      & dwfn
       !> Molecular dipole moment
       real(wp) :: dipole(3) = 0.0_wp
       !> Integral container
@@ -420,12 +416,11 @@ contains
       elseif (prlevel > 0) then
          call ctx%message("CEH guess")
       endif
-      !> Gradient logical
-      if (allocated(dwfn%ddensity)) then
-         grad = .true.
-         call ctx%message("CEH: Gradient not yet implemented")
-         stop
-      endif
+      !> Gradient logical as future starting point (not implemented yet)
+      !> Entry point could either be (i) modified wavefunction type (including derivatives),
+      !> (iii) additional wavefunction derivative type (see old commits) or (ii) optional 
+      !> dqdR variable in this routine
+      grad = .false.
 
       !> Reference occupation for number of electrons and formal charges
       call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)

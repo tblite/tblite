@@ -43,7 +43,7 @@ subroutine collect_integral_multipole(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
-      new_unittest("overlap_dipole_diat_alh3", test_overlap_dipole_diat_alh3), &
+      new_unittest("overlap-dipole-diat-alh3", test_overlap_dipole_diat_alh3), &
       new_unittest("dipole-trans-ss", test_dipole_ss), &
       new_unittest("dipole-trans-pp", test_dipole_pp), &
       new_unittest("dipole-trans-dd", test_dipole_dd), &

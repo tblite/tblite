@@ -35,7 +35,7 @@ module tblite_driver_run
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
-      & wavefunction_derivative_type, new_wavefunction_derivative, shell_partition
+      & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -75,12 +75,10 @@ subroutine run_main(config, error)
    type(xtb_calculator) :: calc
    type(ceh_calculator):: calc_ceh
    type(wavefunction_type) :: wfn, wfn_ceh
-   type(wavefunction_derivative_type) :: dwfn_ceh
    type(results_type) :: results
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
-
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then
@@ -156,9 +154,10 @@ subroutine run_main(config, error)
    if (config%guess == "ceh") then
       call new_ceh_calculator(calc_ceh, mol)
       call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
-      if (config%grad) &
-         & call new_wavefunction_derivative(dwfn_ceh, &
-         & mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+      if (config%grad) then
+         call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
+         return
+      end if
    end if
 
    if (allocated(config%efield)) then
@@ -191,7 +190,7 @@ subroutine run_main(config, error)
       else
          ctx%verbosity = config%verbosity
       end if
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, dwfn_ceh)
+      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
       if (config%guessonly) then
          return
       else
