@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ceh/ncoord_ceh/covrad_ceh.f90
+!> @file tblite/data/covrad_ceh.f90
 !> Provides covalent radii for all elements (up to 86)
 !> Covalent radii were fitted together with other empirical parameters # MM, August 02, 2023
 

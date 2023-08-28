@@ -17,6 +17,5 @@
 srcs += files(
   'ncoord_ceh.f90',
   'ncoord_ceh_standard.f90',
-  'covrad_ceh.f90',
   'type_ceh.f90',
 )
