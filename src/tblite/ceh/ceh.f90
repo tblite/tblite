@@ -25,6 +25,8 @@ module tblite_ceh_ceh
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis, get_cutoff, basis_type
+   !> Coordination number
+   use tblite_ncoord, only : new_ncoord
    !> Calculation context
    use tblite_context, only : context_type
    use tblite_output_format, only: format_string
@@ -50,7 +52,6 @@ module tblite_ceh_ceh
    !> BLAS
    use tblite_blas, only: gemv
    !> CEH specific
-   use tblite_ncoord_ceh, only: new_ncoord
    use tblite_ceh_calculator, only : ceh_calculator
    use tblite_ceh_h0, only : ceh_hamiltonian
    !> Miscelaneous
@@ -512,7 +513,8 @@ contains
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
 
-      call new_ncoord(calc%ncoord, mol, cn_type="ceh")
+      call new_ncoord(calc%ncoordstd, mol, cn_type="ceh_std")
+      call new_ncoord(calc%ncoorden, mol, cn_type="ceh_en")
    end subroutine add_ncoord
 
    subroutine add_ceh_basis(calc, mol)
@@ -649,9 +651,13 @@ contains
       allocate(hamiltonian(calc%bas%nao, calc%bas%nao), source=0.0_wp)
 
       !> calculate coordination number (CN) and CN-weighted energy
-      if (allocated(calc%ncoord)) then
-         allocate(cn(mol%nat), cn_en(mol%nat))
-         call calc%ncoord%get_cn(mol, cn, cn_en)
+      if (allocated(calc%ncoordstd)) then
+         allocate(cn(mol%nat))
+         call calc%ncoordstd%get_cn(mol, cn)
+      end if
+      if (allocated(calc%ncoorden)) then
+         allocate(cn_en(mol%nat))
+         call calc%ncoorden%get_cn(mol, cn_en)
       end if
 
       !> define diagonal elements of CEH Hamiltonian

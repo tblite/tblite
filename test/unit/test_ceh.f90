@@ -109,7 +109,8 @@ contains
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call ceh_guess(ctx, calc, mol, error, wfn, dwfn)
       allocate(cn(mol%nat), cn_en(mol%nat))
-      call calc%ncoord%get_cn(mol, cn, cn_en)
+      call calc%ncoordstd%get_cn(mol, cn)
+      call calc%ncoorden%get_cn(mol, cn_en)
       do i = 1, mol%nat
          call check(error, cn(i), ref1(i), thr=1e-7_wp)
          if (allocated(error)) return

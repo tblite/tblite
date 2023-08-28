@@ -25,7 +25,7 @@ module tblite_ceh_calculator
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_container, only : container_type, container_list
-   use tblite_ncoord_ceh, only : ncoord_type_ceh, new_ncoord
+   use tblite_ncoord, only : ncoord_type, new_ncoord
    use tblite_param, only : param_record
    use tblite_ceh_h0, only : ceh_hamiltonian
    implicit none
@@ -41,7 +41,7 @@ module tblite_ceh_calculator
       !> Core Hamiltonian
       type(ceh_hamiltonian) :: hamiltonian
       !> Coordination number for modifying the self-energies
-      class(ncoord_type_ceh), allocatable :: ncoord
+      class(ncoord_type), allocatable :: ncoordstd, ncoorden
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
       !> List of additional interaction containers

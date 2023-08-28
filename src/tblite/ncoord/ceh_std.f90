@@ -19,63 +19,36 @@
 
 !> Coordination number implementation for the CEH method with two different coordination numbers
 !> EN-weighted and usual form.
-module tblite_ncoord_ceh_standard
+module tblite_ncoord_ceh_std
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_ncoord_type_ceh, only : ncoord_type_ceh
    use tblite_data_covrad_ceh, only : get_covalent_cehrad
+   use tblite_ncoord_type, only : ncoord_type
    implicit none
    private
 
-   public :: new_ceh_ncoord
+   public :: new_ceh_std_ncoord
    public :: get_coordination_number
 
    !> Coordination number evaluator
-   type, public, extends(ncoord_type_ceh) :: ceh_ncoord_type
+   type, public, extends(ncoord_type) :: ceh_std_ncoord_type
       real(wp) :: cutoff
       real(wp), allocatable :: rcov(:)
    contains
       procedure :: get_cn
-   end type ceh_ncoord_type
+   end type ceh_std_ncoord_type
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
    !> Steepness of counting function
    real(wp), parameter :: kcn = 3.09_wp
 
-   ! Pauling EN normalized to EN(F)=1
-   ! TM and group 1/2 (from K on) hand optimized
-   ! also adjusted: Rn,Xe,Kr,He,LNs
-   real(wp), parameter :: en(86)    = (1.0_wp/3.98_wp) * [ &
-   &         2.200,3.100&
-   &        ,0.980,1.570&                          !Li
-   &        ,2.040,2.550,3.040,3.440,3.980,4.500 & !  -Ne
-   &        ,0.930,1.310&                          !Na-
-   &        ,1.610,1.900,2.190,2.580,3.160,3.500 & !   Ar
-   &        ,0.700,1.050 &                         !K-
-   !             Sc    Ti     V     Cr   Mn     Fe    Co    Ni   Cu     Zn
-   &        ,1.280,1.350,1.620,1.710,1.800,1.850,1.930,1.870,1.870,1.600 &
-   &        ,1.810,2.010,2.180,2.550,2.960,3.200 & !   Kr
-   &        ,0.700,0.900 &                         !Rb-
-   !             Y     Zr     Nb    Mo   Tc     Ru    Rh    Pd   Ag     Cd
-   &        ,1.320,1.380,1.570,1.800,1.900,2.180,2.300,2.100,1.800,1.600 &
-   &        ,1.780,1.960,2.050,2.100,2.660,2.750 & !   Xe
-   &        ,0.700,0.800 &                         !Cs-
-   !             La
-      ,1.050 &
-      ,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350,1.350  & ! Ce-Lu
-   !                   Hf     Ta    W    Re     Os    Ir    Pt   Au     Hg
-   &        ,      1.350,1.530,1.610,1.730,1.920,2.150,2.010,2.000,1.600 &
-   &        ,1.620,2.330,2.020,2.000,2.200,2.600 ] !   Rn
-
-
 contains
 
-
-   subroutine new_ceh_ncoord(self, mol, cutoff, rcov)
+   subroutine new_ceh_std_ncoord(self, mol, cutoff, rcov)
       !> Coordination number container
-      type(ceh_ncoord_type), intent(out) :: self
+      type(ceh_std_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Real space cutoff
@@ -95,38 +68,32 @@ contains
       else
          self%rcov(:) = get_covalent_cehrad(mol%num)
       end if
-   end subroutine new_ceh_ncoord
+   end subroutine new_ceh_std_ncoord
 
 
-   subroutine get_cn(self, mol, cn, cn_en, dcndr, dcndL, dcnendr, dcnendL)
+   subroutine get_cn(self, mol, cn, dcndr, dcndL)
       !> Coordination number container
-      class(ceh_ncoord_type), intent(in) :: self
+      class(ceh_std_ncoord_type), intent(in) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Error function coordination number.
       real(wp), intent(out) :: cn(:)
-      !> Error function coordination number.
-      real(wp), intent(out) :: cn_en(:)
       !> Derivative of the CN with respect to the Cartesian coordinates.
       real(wp), intent(out), optional :: dcndr(:, :, :)
       !> Derivative of the CN with respect to strain deformations.
       real(wp), intent(out), optional :: dcndL(:, :, :)
-      !> Derivative of the CN_EN with respect to the Cartesian coordinates.
-      real(wp), intent(out), optional :: dcnendr(:, :, :)
-      !> Derivative of the CN_EN with respect to strain deformations.
-      real(wp), intent(out), optional :: dcnendL(:, :, :)
 
       real(wp), allocatable :: lattr(:, :)
 
       call get_lattice_points(mol%periodic, mol%lattice, self%cutoff, lattr)
-      call get_coordination_number(mol, lattr, self%cutoff, self%rcov, cn, cn_en, &
-      & dcndr, dcndL, dcnendr, dcnendL)
+      call get_coordination_number(mol, lattr, self%cutoff, self%rcov, cn, &
+      & dcndr, dcndL)
    end subroutine get_cn
 
 
 !> Geometric fractional coordination number, supports exponential counting functions.
-   subroutine get_coordination_number(mol, trans, cutoff, rcov, cn, cn_en, &
-      & dcndr, dcndL, dcnendr, dcnendL)
+   subroutine get_coordination_number(mol, trans, cutoff, rcov, cn, &
+      & dcndr, dcndL)
 
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
@@ -142,8 +109,6 @@ contains
 
       !> Error function coordination number.
       real(wp), intent(out) :: cn(:)
-      !> Error function coordination number.
-      real(wp), intent(out) :: cn_en(:)
 
       !> Derivative of the CN with respect to the Cartesian coordinates.
       real(wp), intent(out), optional :: dcndr(:, :, :)
@@ -151,18 +116,12 @@ contains
       !> Derivative of the CN with respect to strain deformations.
       real(wp), intent(out), optional :: dcndL(:, :, :)
 
-      !> Derivative of the CN_EN with respect to the Cartesian coordinates.
-      real(wp), intent(out), optional :: dcnendr(:, :, :)
-
-      !> Derivative of the CN_EN with respect to strain deformations.
-      real(wp), intent(out), optional :: dcnendL(:, :, :)
-
-      call ncoord_erf(mol, trans, cutoff, rcov, cn, cn_en)
+      call ncoord_erf(mol, trans, cutoff, rcov, cn)
 
    end subroutine get_coordination_number
 
 
-   subroutine ncoord_erf(mol, trans, cutoff, rcov, cn, cn_en)
+   subroutine ncoord_erf(mol, trans, cutoff, rcov, cn)
 
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
@@ -178,18 +137,14 @@ contains
 
       !> Error function coordination number.
       real(wp), intent(out) :: cn(:)
-
-      !> EN-difference-weighted error function coordination number.
-      real(wp), intent(out) :: cn_en(:)
 
       integer :: iat, jat, izp, jzp, itr
       real(wp) :: r2, r1, rc, rij(3), countf, cutoff2
 
       cn(:) = 0.0_wp
-      cn_en(:) = 0.0_wp
       cutoff2 = cutoff**2
 
-      !$omp parallel do default(none) reduction(+:cn) reduction(+:cn_en) &
+      !$omp parallel do default(none) reduction(+:cn) &
       !$omp shared(mol, trans, cutoff2, rcov) &
       !$omp private(jat, itr, izp, jzp, r2, rij, r1, rc, countf)
       do iat = 1, mol%nat
@@ -207,10 +162,8 @@ contains
                countf = erf_count(kcn, r1, rc)
 
                cn(iat) = cn(iat) + countf
-               cn_en(iat) = cn_en(iat) + countf * ( en(mol%num(jzp)) - en(mol%num((izp))) )
                if (iat /= jat) then
                   cn(jat) = cn(jat) + countf
-                  cn_en(jat) = cn_en(jat) + countf * ( en(mol%num(izp)) - en(mol%num((jzp))) )
                end if
             end do
          end do
@@ -236,4 +189,4 @@ contains
 
    end function erf_count
 
-end module tblite_ncoord_ceh_standard
+end module tblite_ncoord_ceh_std
