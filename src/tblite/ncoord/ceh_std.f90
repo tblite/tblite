@@ -14,11 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ceh/ncoord_ceh/ncoord_ceh_standard.f90
-!> Provides a coordination number implementation for the CEH method
+!> @file tblite/ncoord/ceh_std.f90
+!> Provides a (standard) coordination number implementation for the CEH method
 
-!> Coordination number implementation for the CEH method with two different coordination numbers
-!> EN-weighted and usual form.
+!> Coordination number implementation for the CEH method in the usual form.
 module tblite_ncoord_ceh_std
    use mctc_env, only : wp
    use mctc_io, only : structure_type
