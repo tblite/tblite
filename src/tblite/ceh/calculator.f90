@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ceh/ceh_calculator.f90
+!> @file tblite/ceh/calculator.f90
 !> Provides the calculator type for holding CEH Hamiltonian parametrization.
 
 !> Implementation of calculator type for the Charge-Extended Hückel Hamiltonian.
