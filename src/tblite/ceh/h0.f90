@@ -15,7 +15,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ceh/ceh_h0.f90
+!> @file tblite/ceh/h0.f90
 !> Provides the Hamiltonian type for CEH.
 
 module tblite_ceh_h0
