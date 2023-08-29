@@ -68,7 +68,6 @@ contains
 
       ctx%terminal = context_terminal(config%color)
       ctx%solver = lapack_solver(config%solver)
-      ctx%verbosity = config%verbosity
 
       if (config%input == "-") then
          if (allocated(config%input_format)) then
@@ -156,7 +155,15 @@ contains
       case("eeq")
          call eeq_guess(mol, calc, wfn)
       case("ceh")
-         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
+         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+         if (ctx%failed()) then
+            call fatal(ctx, "CEH singlepoint calculation failed")
+            do while(ctx%failed())
+               call ctx%get_error(error)
+               write(error_unit, '("->", 1x, a)') error%message
+            end do
+            error stop
+         end if
          wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
          call shell_partition(mol, calc, wfn)
          wfn%dpat(:, :, 1) = wfn_ceh%dpat(:, :, 1)

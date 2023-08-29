@@ -66,8 +66,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, stat, unit, nspin
-   logical :: exist
+   integer :: unpaired, charge, unit, nspin
    real(wp) :: energy, dpmom(3), qpmom(6)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    type(param_record) :: param
@@ -183,8 +182,15 @@ subroutine run_main(config, error)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
    case("ceh")
-      ctx%verbosity = config%verbosity
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
+      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+      if (ctx%failed()) then
+         call fatal(ctx, "CEH singlepoint calculation failed")
+         do while(ctx%failed())
+            call ctx%get_error(error)
+            write(error_unit, '("->", 1x, a)') error%message
+         end do
+         error stop
+      end if
       wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
       call shell_partition(mol, calc, wfn)
    end select

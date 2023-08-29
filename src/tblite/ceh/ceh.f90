@@ -374,7 +374,7 @@ module tblite_ceh_ceh
 contains
 
    !> Run the CEH calculation
-   subroutine ceh_guess(ctx, calc, mol, error, wfn)
+   subroutine ceh_guess(ctx, calc, mol, error, wfn,verbosity)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
       !> CEH calculator
@@ -385,6 +385,8 @@ contains
       type(error_type), allocatable, intent(out) :: error
       !> Wavefunction data
       type(wavefunction_type), intent(inout) :: wfn
+      !> Verbosity level of output
+      integer, intent(in), optional :: verbosity
       !> Molecular dipole moment
       real(wp) :: dipole(3) = 0.0_wp
       !> Integral container
@@ -409,7 +411,11 @@ contains
 
       call timer%push("wall time CEH")
 
-      prlevel = ctx%verbosity
+      if (present(verbosity)) then
+         prlevel = verbosity
+      else
+         prlevel = ctx%verbosity
+      end if
 
       if (prlevel > 2) then
          call header(ctx)
@@ -457,6 +463,9 @@ contains
 
       !> Get the density matrix
       call get_density(wfn, solver, ints, elec_entropy, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+      end if
 
       !> Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &

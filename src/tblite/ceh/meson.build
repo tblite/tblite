@@ -16,6 +16,6 @@
 
 srcs += files(
   'ceh.f90',
-  'ceh_h0.f90',
-  'ceh_calculator.f90',
+  'h0.f90',
+  'calculator.f90',
 )
