@@ -180,23 +180,13 @@ subroutine run_main(config, error)
       call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
    case("sad")
       call sad_guess(mol, calc, wfn)
-      if (config%guessonly) return
    case("eeq")
       call eeq_guess(mol, calc, wfn)
-      if (config%guessonly) return
    case("ceh")
-      if (config%guessonly) then
-         ctx%verbosity = config%verbosity + 1
-      else
-         ctx%verbosity = config%verbosity
-      end if
+      ctx%verbosity = config%verbosity
       call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
-      if (config%guessonly) then
-         return
-      else
-         wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
-         call shell_partition(mol, calc, wfn)
-      end if
+      wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
+      call shell_partition(mol, calc, wfn)
    end select
    if (allocated(error)) return
 
