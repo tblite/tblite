@@ -413,7 +413,7 @@ contains
 
       if (prlevel > 2) then
          call header(ctx)
-      elseif (prlevel > 0) then
+      elseif (prlevel > 1) then
          call ctx%message("CEH guess")
       endif
       !> Gradient logical as future starting point (not implemented yet)
@@ -487,8 +487,10 @@ contains
          & format_string(dipole(3), "(f12.5)"))
          call ctx%message(repeat("-", 60))
       endif
-      if (prlevel > 0) &
-      & call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
+      if (prlevel > 0) then
+         call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
+         call ctx%message("")
+      endif
 
    end subroutine ceh_guess
 

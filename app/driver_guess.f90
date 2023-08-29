@@ -25,22 +25,14 @@ module tblite_driver_guess
    use tblite_basis_type, only : basis_type
    use tblite_container, only : container_type
    use tblite_context, only : context_type, context_terminal, escape
-   use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_lapack_solver, only : lapack_solver
    use tblite_output_ascii
-   use tblite_param, only : param_record
-   use tblite_results, only : results_type
-   use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
    & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
    & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
-   use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
-   use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
-   use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
    use tblite_ceh_calculator, only : ceh_calculator
    implicit none
@@ -73,12 +65,10 @@ contains
       type(xtb_calculator) :: calc
       type(ceh_calculator):: calc_ceh
       type(wavefunction_type) :: wfn, wfn_ceh
-      type(results_type) :: results
 
       ctx%terminal = context_terminal(config%color)
       ctx%solver = lapack_solver(config%solver)
-      ctx%verbosity = 3
-      ! ctx%verbosity = config%verbosity + 2
+      ctx%verbosity = config%verbosity
 
       if (config%input == "-") then
          if (allocated(config%input_format)) then
@@ -88,6 +78,11 @@ contains
          end if
       else
          call read_structure(mol, config%input, error, config%input_format)
+      end if
+      if (allocated(error)) return
+
+      if (config%grad) then
+         call fatal_error(error, "Charge gradient not yet implemented.")
       end if
       if (allocated(error)) return
 
@@ -117,11 +112,6 @@ contains
             mol%uhf = unpaired
          end if
       end if
-
-      if (config%grad) then
-         allocate(gradient(3, mol%nat), sigma(3, 3))
-      end if
-
       if (allocated(error)) return
 
       nspin = 1
@@ -133,29 +123,33 @@ contains
       if (method == "ceh") then
          call new_ceh_calculator(calc_ceh, mol)
          call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
-         if (config%grad) then
-            call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
-            return
-         end if
       end if
 
-      if (allocated(config%efield)) then
+      if (allocated(config%efield) .and. config%method == "ceh") then
          block
             class(container_type), allocatable :: cont
             cont = electric_field(config%efield*vatoau)
-            call calc%push_back(cont)
+            call calc_ceh%push_back(cont)
          end block
-         if (config%method == "ceh") then
-            block
-               class(container_type), allocatable :: cont
-               cont = electric_field(config%efield*vatoau)
-               call calc_ceh%push_back(cont)
-            end block
-         end if
+      end if
+
+      if (config%verbosity > 0) then
+         select case(method)
+         case default
+            call fatal_error(error, "Unknown method '"//method//"' requested")
+         case("sad")
+            call ctx%message("Superposition of atomic densities (SAD) guess")
+            call ctx%message("")
+         case("eeq")
+            call ctx%message("Electronegativity equilibration (EEQ) guess")
+            call ctx%message("")
+         case("ceh")
+            call ctx%message(calc_ceh%info(config%verbosity, " | "))
+         end select
       end if
 
       select case(method)
-       case default
+      case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("sad")
          call sad_guess(mol, calc, wfn)
@@ -165,32 +159,13 @@ contains
          call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh)
          wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
          call shell_partition(mol, calc, wfn)
+         wfn%dpat(:, :, 1) = wfn_ceh%dpat(:, :, 1)
       end select
       if (allocated(error)) return
 
-      if (config%verbosity > 0) then
-         call ctx%message(calc_ceh%info(config%verbosity, " | "))
-         call ctx%message("")
-      end if
-
-      ! if (ctx%failed()) then
-      !    call fatal(ctx, "Singlepoint calculation failed")
-      !    do while(ctx%failed())
-      !       call ctx%get_error(error)
-      !       write(error_unit, '("->", 1x, a)') error%message
-      !    end do
-      !    error stop
-      ! end if
-
-      ! if (config%verbosity > 2) then
-      !    call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
-
-      !    call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
-      !    call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
-      !    & wfn%qpat(:, :, 1), qpmom)
-      !    call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
-      !    call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
-      ! end if
+      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
+      call ascii_atomic_charges(ctx%unit, 1, mol, wfn%qat(:, 1))
+      call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
    end subroutine guess_main
 
 
@@ -231,28 +206,6 @@ contains
       & escape(ctx%terminal%reset) // " " // &
       & message)
    end subroutine fatal
-
-
-   subroutine get_spin_constants(wll, mol, bas)
-      real(wp), allocatable, intent(out) :: wll(:, :, :)
-      type(structure_type), intent(in) :: mol
-      type(basis_type), intent(in) :: bas
-
-      integer :: izp, ish, jsh, il, jl
-
-      allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
-
-      do izp = 1, mol%nid
-         do ish = 1, bas%nsh_id(izp)
-            il = bas%cgto(ish, izp)%ang
-            do jsh = 1, bas%nsh_id(izp)
-               jl = bas%cgto(jsh, izp)%ang
-               wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
-            end do
-         end do
-      end do
-   end subroutine get_spin_constants
-
 
 !> Extract dirname from path
    function dirname(filename)

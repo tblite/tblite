@@ -20,7 +20,7 @@ module tblite_cli_help
    private
 
    public :: prog_name, help_text, help_text_run, help_text_param, help_text_fit, &
-      & help_text_tagdiff
+      & help_text_tagdiff, help_text_guess
 
    character(len=*), parameter :: nl = new_line('a')
 
@@ -60,6 +60,9 @@ module tblite_cli_help
       ""//nl//&
       "  run       Evaluate tight-binding module on the provided input structure."//nl//&
       "            If no command is specified run is selected by default."//nl//&
+      ""//nl//&
+      "  guess     Execute only the atomic charge / density guess."//nl//&
+      "            Prints the initializing charges and dipole moments."//nl//&
       ""//nl//&
       "  param     Inspect and manipulate tight-binding parametrization data."//nl//&
       ""//nl//&
@@ -129,6 +132,36 @@ module tblite_cli_help
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
+      "  -i, --input <format>    Hint for the format of the input file"//nl//&
+      "  -v, --verbose           Increase verbosity of printout"//nl//&
+      "  -s, --silent            Reduce verbosity of printout"//nl//&
+      help_text_general//nl//&
+      ""//nl//&
+      help_text_response
+
+   !> Help text for run command
+   character(len=*), parameter :: help_text_guess = &
+      "Usage: "//prog_name//" [guess] [options] <input>"//nl//&
+      ""//nl//&
+      "Execute only the atomic charge / density guess."//nl//&
+      "Prints the initializing charges and dipole moments."//nl//&
+      "Reads .CHRG and .UHF files if present in the same directory as the input."//nl//&
+      ""//nl//&
+      help_text_geometry//nl//&
+      ""//nl//&
+      "Options"//nl//&
+      ""//nl//&
+      "  -c, --charge <real>     Set charge to molecule, overwrites .CHRG file"//nl//&
+      "      --spin <int>        Set number of unpaired electrons, overwrites .UHF file"//nl//&
+      "      --method <name>     Guess for the initial populations, possible options:"//nl//&
+      "                          sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --solver <name>     Electronic solver for SCF, possible options:"//nl//&
+      "                          gvd (default), and gvr"//nl//&
+      "      --efield <real>,<real>,<real>"//nl//&
+      "                          Homogeneous electric field in V/Å."//nl//&
+      "      --grad              Evaluate analytic gradient of charges."//nl//&
+      ! "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
       "  -i, --input <format>    Hint for the format of the input file"//nl//&
       "  -v, --verbose           Increase verbosity of printout"//nl//&
       "  -s, --silent            Reduce verbosity of printout"//nl//&

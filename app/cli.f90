@@ -21,7 +21,7 @@ module tblite_cli
    use mctc_io, only : filetype, get_filetype, to_symbol
    use tblite_argument, only : argument_list, len
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
-      & help_text_fit, help_text_tagdiff
+      & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
@@ -91,7 +91,7 @@ module tblite_cli
       !> Evaluate gradient
       logical :: grad = .false.
       !> Verbosity of calculation
-      integer :: verbosity = 2
+      integer :: verbosity = 1
       !> Total charge of the system
       integer, allocatable :: charge
       !> Number of unpaired electrons
@@ -510,7 +510,7 @@ subroutine get_guess_arguments(config, list, start, error)
          getopts = .false.
 
       case("--help")
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, '(a)') help_text_guess
          stop
 
       case("--version")
@@ -595,6 +595,9 @@ subroutine get_guess_arguments(config, list, start, error)
          call get_argument_as_realv(arg, config%efield, error)
          if (allocated(error)) exit
 
+      case("--grad")
+         config%grad = .true.
+
       case("--json")
          config%json = .true.
          config%json_output = "tblite.json"
@@ -612,7 +615,7 @@ subroutine get_guess_arguments(config, list, start, error)
 
    if (.not.(allocated(config%input))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, '(a)') help_text_guess
          error stop
       end if
    end if
