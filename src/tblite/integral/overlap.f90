@@ -481,11 +481,8 @@ end subroutine get_overlap_lat
       real(wp), allocatable :: stmp(:)
       real(wp) :: block_overlap(9,9)
 
-      if (size(scal_fac,1) /= 3) then
-         write(*,*) 'Error: scal_fac must have the dimension of 3, &
+      if (size(scal_fac,1) /= 3) error stop 'Error: scal_fac must have the dimension of 3, &
          & since it covers the three different types of bonding'
-         stop
-      end if
 
       overlap(:, :) = 0.0_wp
       overlap_scaled(:, :) = 0.0_wp
