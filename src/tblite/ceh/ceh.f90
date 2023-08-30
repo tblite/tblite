@@ -688,15 +688,12 @@ contains
       &  overlap, overlap_diat, dipole)
 
       !> define off-diagonal elements of CEH Hamiltonian
-      k = 0
       do iat = 1, mol%nat
          offset_iat = calc%bas%ish_at(iat)
          do ish = 1, calc%bas%nsh_at(iat)
             do iao = 1, calc%bas%nao_sh(ish + offset_iat)
-               !> iterator for AO of i increased by 1 -> k
-               k = k + 1
-               !> iterator for AO of j set to 0
-               l = 0
+               !> AO iterator of i 
+               k = calc%bas%iao_sh(ish + offset_iat) + iao
 
                !> loop over all AOs in atoms before current atom
                do jat = 1,iat-1
@@ -705,7 +702,7 @@ contains
                      felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
                      & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
-                        l = l + 1
+                        l = calc%bas%iao_sh(jsh + offset_jat) + jao
                         hamiltonian(k, l) = overlap_diat(k,l) * felem
                         hamiltonian(l, k) = hamiltonian(k, l)
                      end do
@@ -717,7 +714,7 @@ contains
                   felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
-                     l = l + 1
+                     l = calc%bas%iao_sh(jsh + offset_iat) + jao
                      hamiltonian(k, l) = overlap_diat(k,l) * felem
                      hamiltonian(l, k) = hamiltonian(k, l)
                   end do
@@ -727,24 +724,19 @@ contains
                felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
                & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
                do jao = 1, iao - 1
-                  l = l + 1
+                  l = calc%bas%iao_sh(ish + offset_iat) + jao
                   hamiltonian(k, l) = overlap_diat(k,l) * felem
                   hamiltonian(l, k) = hamiltonian(k, l)
                enddo
 
                !> diagonal term (AO(i) == AO(j))
-               l = l + 1
+               l = calc%bas%iao_sh(ish + offset_iat) + iao
                hamiltonian(k, l) = self%hlevel(offset_iat + ish)
-               if ( l /= k ) then
-                  error stop "ERROR: l /= k"
-                  stop
-               end if
             enddo
          enddo
       enddo
       if (k /= calc%bas%nao) then
          error stop "ERROR: k /= calc%bas%nao"
-         stop
       end if
 
       calc%hamiltonian = self
