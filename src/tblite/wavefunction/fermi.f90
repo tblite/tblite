@@ -28,25 +28,22 @@ module tblite_wavefunction_fermi
 
 contains
 
-subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi, ts)
+subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi)
    real(wp), intent(in) :: nel
    real(wp), intent(in) :: emo(:)
    real(wp), intent(in) :: kt
    integer, intent(out) :: homo
    real(wp), intent(out) :: focc(:)
    real(wp), intent(out) :: e_fermi
-   real(wp), intent(out) :: ts
 
    real(wp) :: etmp, stmp
 
-   ts = 0.0_wp
    e_fermi = 0.0_wp
 
    call get_aufbau_filling(nel, homo, focc)
 
    if (homo > 0) then
       call get_fermi_filling_(homo, kt, emo, focc, etmp)
-      call get_electronic_entropy(focc, kt, ts)
       e_fermi = 0.5_wp * etmp
    end if
 
@@ -102,25 +99,5 @@ subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
    end do
 
 end subroutine get_fermi_filling_
-
-subroutine get_electronic_entropy(occ, kt, s)
-   real(wp), intent(in) :: occ(:)
-   real(wp), intent(in) :: kt
-   real(wp), intent(out) :: s
-
-   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
-   integer :: iao
-
-   s = 0.0_wp
-   do iao = 1, size(occ)
-      if (occ(iao) > thr .and. 1.0_wp - occ(iao) > thr) then
-         s = s + occ(iao)*log(occ(iao)) + (1.0_wp - occ(iao))*log(1.0_wp - occ(iao))
-      end if
-   enddo
-   s=s*kt
-
-end subroutine get_electronic_entropy
-
-
 
 end module tblite_wavefunction_fermi
