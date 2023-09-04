@@ -19,14 +19,14 @@
 
 !> Proxy module for TOML library implementation
 module tblite_toml
-   use tomlf, only : toml_table, toml_array, toml_error, toml_serializer, toml_parse, &
+   use tomlf, only : toml_table, toml_array, toml_error, toml_dump, toml_parse, &
       & toml_key, get_value, set_value, add_table, add_array, len
    use tomlf_build, only : merge_table
    use tomlf_type, only : toml_value
    implicit none
    private
 
-   public :: toml_table, toml_array, toml_error, toml_serializer, toml_parse, toml_key, &
+   public :: toml_table, toml_array, toml_error, toml_dump, toml_parse, toml_key, &
       & toml_value, len
    public :: get_value, set_value, add_table, add_array, merge_table
 end module tblite_toml

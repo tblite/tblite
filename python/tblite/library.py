@@ -138,6 +138,8 @@ def new_structure(natoms, numbers, positions, charge, uhf, lattice, periodic):
 
 
 update_structure_geometry = error_check(lib.tblite_update_structure_geometry)
+update_structure_charge = error_check(lib.tblite_update_structure_charge)
+update_structure_uhf = error_check(lib.tblite_update_structure_uhf)
 
 
 def _delete_table(table):
@@ -244,6 +246,17 @@ def get_charges(res):
         res, ffi.cast("double*", _charges.ctypes.data)
     )
     return _charges
+
+
+def get_bond_orders(res):
+    """Retrieve Wiberg / Mayer bond orders from result container"""
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    _bond_orders = np.zeros((_natoms[0], _natoms[0]))
+    error_check(lib.tblite_get_result_bond_orders)(
+        res, ffi.cast("double*", _bond_orders.ctypes.data)
+    )
+    return _bond_orders
 
 
 def get_dipole(res):
@@ -386,3 +399,28 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
+
+
+def _delete_container(cont) -> None:
+    """Delete a tblite container object"""
+    ptr = ffi.new("tblite_container *")
+    ptr[0] = cont
+    lib.tblite_delete_container(ptr)
+
+
+def new_electric_field(ctx, mol, calc, efield):
+    """Create new tblite electric field object"""
+    return lib.tblite_new_electric_field(efield)
+
+
+@context_check
+def new_spin_polarization(ctx, mol, calc, wscale: float = 1.0):
+    """Create new tblite spin polarization object"""
+    return lib.tblite_new_spin_polarization(ctx, mol, calc, wscale)
+
+
+@context_check
+def calculator_push_back(ctx, calc, cont) -> None:
+    ptr = ffi.new("tblite_container *")
+    ptr[0] = cont
+    lib.tblite_calculator_push_back(ctx, calc, ptr)

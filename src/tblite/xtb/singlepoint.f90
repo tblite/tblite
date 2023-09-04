@@ -33,12 +33,13 @@ module tblite_xtb_singlepoint
    use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
    use tblite_results, only : results_type
-   use tblite_scf, only : broyden_mixer, new_broyden, scf_info, next_scf, &
+   use tblite_scf, only : mixer_type, new_mixer, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation, magnet_to_updown, updown_to_magnet
+      & get_alpha_beta_occupation, get_mayer_bond_orders, &
+      & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
@@ -98,7 +99,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
    type(container_cache) :: ccache, dcache, icache, hcache, rcache
-   type(broyden_mixer) :: mixer
+   class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
 
@@ -223,7 +224,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_broyden(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
+   call new_mixer(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
       & calc%mixer_damping)
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
@@ -316,6 +317,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
+   if (present(results)) then
+      allocate(results%bond_orders(mol%nat, mol%nat, wfn%nspin))
+      call get_mayer_bond_orders(calc%bas, ints%overlap, wfn%density, results%bond_orders)
+   end if
+
    if (calc%save_integrals .and. present(results)) then
       call move_alloc(ints%overlap, results%overlap)
       call move_alloc(ints%hamiltonian, results%hamiltonian)
@@ -347,6 +353,5 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
 end subroutine xtb_singlepoint
-
 
 end module tblite_xtb_singlepoint

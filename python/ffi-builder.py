@@ -37,7 +37,7 @@ include_header = '#include "' + library + '.h"'
 prefix_var = library.upper() + "_PREFIX"
 if prefix_var not in os.environ:
     prefix_var = "CONDA_PREFIX"
-version = "0.2.1"
+version = "0.3.0"
 
 if __name__ == "__main__":
     import sys

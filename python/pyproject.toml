@@ -4,7 +4,7 @@ build-backend = "mesonpy"
 
 [project]
 name = "tblite"
-version = "0.2.1"
+version = "0.3.0"
 description = "Light-weight tight-binding framework"
 readme = "README.rst"
 license.text = "LGPL-3.0-or-later"
@@ -14,15 +14,15 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Programming Language :: Fortran",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.6",
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Scientific/Engineering :: Physics",
 ]
-requires-python = ">=3.6"
+requires-python = ">=3.7"
 dependencies = [
    "cffi",
    "numpy",

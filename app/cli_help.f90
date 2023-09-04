@@ -98,6 +98,7 @@ module tblite_cli_help
       ""//nl//&
       "Evaluates the tight-binding model on the provided input structure."//nl//&
       "Periodic calculations are performed automatically for periodic input formats."//nl//&
+      "Reads .CHRG and .UHF files if present in the same directory as the input."//nl//&
       ""//nl//&
       help_text_geometry//nl//&
       ""//nl//&

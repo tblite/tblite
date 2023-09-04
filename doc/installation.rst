@@ -308,18 +308,18 @@ Supported Compilers
 This is a non-comprehensive list of tested compilers for *tblite*.
 Compilers with the label *latest* are tested with continuous integration for each commit.
 
-=========== ================= ================ ================== ======================
+=========== ================= ================ ================== =============================
  Compiler    Version           Platform         Architecture       *tblite*
-=========== ================= ================ ================== ======================
- GCC         11.1, 10.3        Ubuntu 20.04     x86_64             0.2.0, 0.2.1, latest
- GCC               10.3, 9.4   MacOS 11.6.5     x86_64             0.2.0, 0.2.1, latest
+=========== ================= ================ ================== =============================
+ GCC         11.1, 10.3        Ubuntu 20.04     x86_64             0.2.0, 0.2.1, 0.3.0, latest
+ GCC               10.3, 9.4   MacOS 11.6.5     x86_64             0.2.0, 0.2.1, 0.3.0, latest
  GCC                     9.4   MacOS 10.15.7    x86_64             0.2.0, 0.2.1
  GCC         11.0              MacOS 11.0       arm64              0.2.0, 0.2.1
  GCC               10.3        CentOS 7         aarch64, ppc64le   0.2.0, 0.2.1
- GCC/MinGW   11.2              Windows 2022     x86_64                    0.2.1, latest
- Intel       2021.2            Ubuntu 20.04     x86_64             0.2.0, 0.2.1, latest
+ GCC/MinGW   11.2              Windows 2022     x86_64                    0.2.1  0.3.0, latest
+ Intel       2021.2            Ubuntu 20.04     x86_64             0.2.0, 0.2.1, 0.3.0, latest
  NAG         7.1               AlmaLinux 8.5    x86_64             0.2.0, 0.2.1
-=========== ================= ================ ================== ======================
+=========== ================= ================ ================== =============================
 
 Compiler known to fail are documented here, together with the last commit where this behaviour was encountered.
 If available an issue in on the projects issue tracker or the issue tracker of the dependencies is linked.

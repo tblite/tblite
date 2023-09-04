@@ -1,21 +1,54 @@
 name: wheel
 
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
+  source:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Python
+      uses: mamba-org/provision-with-micromamba@main
+      with:
+        environment-file: assets/ci/build-env.yaml
+    - run: |
+        meson setup _build
+        meson dist -C _build --no-tests --include-subprojects
+        mv _build/meson-dist/*.tar.xz .
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tblite-source
+        path: ./*.tar.xz
+        retention-days: 5
+
   sdist:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - name: Setup Python
+      uses: mamba-org/provision-with-micromamba@main
+      with:
+        environment-file: assets/ci/python-env.yaml
+        extra-specs: |
+          meson-python
+          python-build
     - name: Reorganize repository
       run: |
         git config user.email ""
         git config user.name "dummy"
         git subtree add --prefix python/subprojects/tblite . HEAD
-        git mv python/{mesonpep517,pyproject}.toml
-        git commit -m "Python dist"
     - run: |
-        pipx run build python/ --sdist --outdir .
+        python -m build python/ --sdist --outdir . -n
     - uses: actions/upload-artifact@v3
       with:
         name: tblite-python-sdist
@@ -30,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10']
+        python: ['3.7', '3.8', '3.9', '3.10', '3.11']
 
     defaults:
       run:
@@ -75,3 +108,54 @@ jobs:
         name: tblite-python-${{ matrix.python }}
         path: ./*.whl
         retention-days: 5
+
+  release:
+    needs:
+      - source
+      - sdist
+      - manylinux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: ${{ github.workspace }}  # This will download all files
+
+      - name: Create SHA256 checksums
+        run: |
+          set -ex
+          for output in tblite*/tblite*; do
+            pushd $(dirname "$output")
+            sha256sum $(basename "$output") | tee $(basename "$output").sha256
+            popd
+          done
+
+      - name: Copy release artifacts
+        run: |
+          mkdir dist/
+          cp -v tblite*/tblite*.whl tblite*/tblite*.tar.gz dist/
+
+      - name: Publish to Test PyPI
+        if: ${{ github.event_name == 'release' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+
+      - name: Upload assets
+        uses: svenstaro/upload-release-action@v2
+        if: ${{ github.event_name == 'release' }}
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: tblite*/tblite*
+          file_glob: true
+          tag: ${{ github.ref }}
+          overwrite: true
+
+      - name: Publish to PyPI
+        if: ${{ github.event_name == 'release' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}

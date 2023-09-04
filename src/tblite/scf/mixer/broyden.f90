@@ -14,19 +14,30 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/scf/broyden.f90
+!> @file tblite/scf/mixer/broyden.f90
 !> Provides an electronic mixer implementation
 
 !> Implementation of a modified Broyden mixing
-module tblite_scf_broyden
+module tblite_scf_mixer_broyden
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_lapack, only : getrf, getrs
+   use tblite_scf_mixer_type, only : mixer_type
    implicit none
    private
 
-   public :: new_broyden, broyden
+   public :: new_broyden
 
-   type, public :: broyden_mixer
+
+   !> Configuration for the Broyden mixer
+   type, public :: broyden_input
+      !> Number of steps to keep in memory
+      integer :: memory
+      !> Damping parameter
+      real(wp) :: damp
+   end type broyden_input
+
+   !> Electronic mixer using modified Broyden scheme
+   type, public, extends(mixer_type) :: broyden_mixer
       integer :: ndim
       integer :: memory
       integer :: iter
@@ -43,96 +54,72 @@ module tblite_scf_broyden
       real(wp), allocatable :: omega(:)
       real(wp), allocatable :: q_in(:)
    contains
+      !> Apply mixing to the density
       procedure :: next
-      generic :: set => set_1d, set_2d, set_3d
+      !> Set new density from 1D array
       procedure :: set_1d
-      procedure :: set_2d
-      procedure :: set_3d
-      generic :: diff => diff_1d, diff_2d, diff_3d
+      !> Set difference between new and old density from 1D array
       procedure :: diff_1d
-      procedure :: diff_2d
-      procedure :: diff_3d
-      generic :: get => get_1d, get_2d, get_3d
+      !> Get density as 1D array
       procedure :: get_1d
-      procedure :: get_2d
-      procedure :: get_3d
+      !> Get error metric from mixing
       procedure :: get_error
    end type broyden_mixer
 
 contains
 
-subroutine new_broyden(self, memory, ndim, damp)
+!> Create new instance of electronic mixer
+subroutine new_broyden(self, ndim, input)
+   !> Instance of the mixer
    type(broyden_mixer), intent(out) :: self
-   integer, intent(in) :: memory
+   !> Number of variables to consider
    integer, intent(in) :: ndim
-   real(wp), intent(in) :: damp
+   !> Configuration of the Broyden mixer
+   type(broyden_input), intent(in) :: input
 
    self%ndim = ndim
-   self%memory = memory
+   self%memory = input%memory
    self%iter = 0
    self%iset = 0
    self%idif = 0
    self%iget = 0
-   self%damp = damp
-   allocate(self%df(ndim, memory))
-   allocate(self%u(ndim, memory))
-   allocate(self%a(memory, memory))
+   self%damp = input%damp
+   allocate(self%df(ndim, input%memory))
+   allocate(self%u(ndim, input%memory))
+   allocate(self%a(input%memory, input%memory))
    allocate(self%dq(ndim))
    allocate(self%dqlast(ndim))
    allocate(self%qlast_in(ndim))
-   allocate(self%omega(memory))
+   allocate(self%omega(input%memory))
    allocate(self%q_in(ndim))
 end subroutine new_broyden
 
-subroutine set_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%set(qptr)
-end subroutine set_2d
-
-subroutine set_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%set(qptr)
-end subroutine set_3d
-
+!> Set new density from 1D array
 subroutine set_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(in) :: qvec(:)
    self%q_in(self%iset+1:self%iset+size(qvec)) = qvec
    self%iset = self%iset + size(qvec)
 end subroutine set_1d
 
-subroutine diff_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%diff(qptr)
-end subroutine diff_2d
-
-subroutine diff_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(in), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%diff(qptr)
-end subroutine diff_3d
-
+!> Set difference between new and old density from 1D array
 subroutine diff_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(in) :: qvec(:)
    self%dq(self%idif+1:self%idif+size(qvec)) = qvec &
       & - self%q_in(self%idif+1:self%idif+size(qvec))
    self%idif = self%idif + size(qvec)
 end subroutine diff_1d
 
+!> Apply mixing to the density
 subroutine next(self, error)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer :: info
@@ -148,24 +135,11 @@ subroutine next(self, error)
    end if
 end subroutine next
 
-subroutine get_2d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(out), target :: qvec(:, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%get(qptr)
-end subroutine get_2d
-
-subroutine get_3d(self, qvec)
-   class(broyden_mixer), intent(inout) :: self
-   real(wp), contiguous, intent(out), target :: qvec(:, :, :)
-   real(wp), pointer :: qptr(:)
-   qptr(1:size(qvec)) => qvec
-   call self%get(qptr)
-end subroutine get_3d
-
+!> Get density as 1D array
 subroutine get_1d(self, qvec)
+   !> Instance of the mixer
    class(broyden_mixer), intent(inout) :: self
+   !> Density vector
    real(wp), intent(out) :: qvec(:)
    qvec(:) = self%q_in(self%iget+1:self%iget+size(qvec))
    self%iget = self%iget + size(qvec)
@@ -187,11 +161,12 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    integer, intent(out) :: info
 
    real(wp), allocatable :: beta(:,:), c(:, :)
-   integer :: i, it1
+   integer :: i, j, it1, itn
    real(wp) :: inv, omega0, minw, maxw, wfac
 
    info = 0
-   it1 = iter - 1
+   itn = iter - 1
+   it1 = mod(itn - 1, memory) + 1
 
    ! set parameters
    ! alpha = 0.25d0
@@ -209,7 +184,7 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
       return
    end if
 
-   allocate(beta(it1,it1),c(it1, 1))
+   allocate(beta(min(memory, itn), min(memory, itn)), c(min(memory, itn), 1))
 
    ! create omega (weight) for the current iteration
    omega(it1) = sqrt(dot_product(dq, dq))
@@ -229,14 +204,16 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    df(:, it1) = inv*df(:, it1)
 
    ! Next: build a, beta, c, gamma
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       a(i, it1) = dot_product(df(:, i), df(:, it1))
       a(it1, i) = a(i, it1)
       c(i, 1) = omega(i) * dot_product(df(:, i), dq)
    end do
 
    ! Build beta from a and omega
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       beta(:it1, i) = omega(:it1) * omega(i) * a(:it1, i)
       beta(i, i) = beta(i, i) + omega0*omega0
    end do
@@ -255,7 +232,8 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    ! calculate new charges
    q(:) = q + alpha * dq
 
-   do i = 1, it1
+   do j = max(1, itn - memory + 1), itn
+      i = mod(j - 1, memory) + 1
       q(:) = q - omega(i) * c(i, 1) * u(:, i)
    end do
 
@@ -288,4 +266,4 @@ pure function get_error(self) result(error)
    error = sqrt(error)
 end function get_error
 
-end module tblite_scf_broyden
+end module tblite_scf_mixer_broyden
