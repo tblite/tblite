@@ -21,12 +21,46 @@ subroutine collect_double_dictionary(testsuite)
       new_unittest("get label from index", test_get_label_from_index), &
       new_unittest("test = assigment operator", test_assigment_operator), &
       new_unittest("test + operator", test_addition_operator), &
+      new_unittest("test remove functionality by index", test_removal_index), &
       new_unittest("access entries with invalid label or index", test_invalid_label_index), &
       new_unittest("access valid entries with wrong size of array as return", test_invalid_array_size), &
       new_unittest("compare index and label lookup", test_equivalence_index_label_lookup), &
       new_unittest("initialize labels", test_initialize_labels) &
       ]
 end subroutine collect_double_dictionary
+
+subroutine test_removal_index(error)
+   type(error_type), allocatable, intent(out) :: error
+   character(len=:), allocatable :: label1, label2
+   real(wp), allocatable :: array1(:), array2(:, :)
+
+   type(double_dictionary_type) :: dict, ini_dict
+
+   call fill_test_dict(dict)
+   ini_dict = dict
+   call dict%remove_entry(3)
+   call check(error, dict%get_n_entries(), 2)
+
+   call dict%remove_entry(3)
+   call check(error, dict%get_n_entries(), 2)
+   call dict%get_label(1, label1)
+   call dict%get_label(2,label2)
+
+   call check(error, (label1 == "test1"))
+   call check(error, (label1 == "test2"))
+   call dict%get_entry("test1", array1)
+   call dict%get_entry("test2", array2)
+
+   call check(error, sum(ini_dict%record(1)%array1 - array1), 0.0_wp)
+   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp)
+
+   call dict%remove_entry(1)
+   call check(error, dict%get_n_entries(), 1)
+
+   call dict%get_entry("test2", array2)
+   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp) 
+
+end subroutine
 
 subroutine test_initialize_labels(error)
 
