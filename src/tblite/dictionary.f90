@@ -49,10 +49,47 @@ module tblite_double_dictionary
       procedure :: copy
       generic :: operator(+) => combine_dict
       procedure :: combine_dict
+      generic, public :: remove_entry => remove_entry_label, remove_entry_index
+      procedure :: remove_entry_label
+      procedure :: remove_entry_index
    end type double_dictionary_type
 
 
 contains
+
+subroutine remove_entry_index(self, index)
+   class(double_dictionary_type) :: self
+   integer :: index, old_n, i, it
+   type(double_dictionary_type) :: tmp
+
+   if (index > self%n) return
+   old_n = self%n
+   self%n = self%n - 1
+
+   tmp = self
+   deallocate(self%record)
+   allocate(self%record(self%n))
+   it = 1
+   do i = 1, old_n
+      if (i == index) cycle
+      self%record(it) = tmp%record(it)
+      it = it + 1
+   end do
+ 
+end subroutine
+
+subroutine remove_entry_label(self, label)
+   class(double_dictionary_type) :: self
+   character(len=*) :: label
+   type(double_dictionary_type) :: tmp
+   integer :: it 
+   it = return_label_index(self, label)
+   if (it /= 0) then
+      call self%remove_entry_index(it) 
+   else
+      return
+   end if
+end subroutine 
 
 function get_n_entries(self) result(n)
    class(double_dictionary_type) :: self
@@ -105,8 +142,6 @@ function combine_dict(self, dict2) result(new_dict)
    integer :: it, i, n_entries
 
    new_dict = self
-
-   n_entries = self%get_n_entries()
 
    associate(dict => dict2)
       n_entries = dict%get_n_entries()
