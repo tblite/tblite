@@ -19,6 +19,7 @@ subroutine new_ml_features_param(self, ml_param)
         case(ml_features_method%xtbml)
            block 
               type(xtbml_type), allocatable :: tmp_ml
+              allocate(tmp_ml)
               call new_xtbml_features(ml_param, tmp_ml)
               call move_alloc(tmp_ml, self)
            end block
@@ -33,11 +34,10 @@ subroutine new_ml_features_cli(self, config, error)
     select case(config)
     case("xtbml")
         block 
-            type(xtbml_type), allocatable :: tmp_ml
+            type(xtbml_type) :: tmp_ml
             type(ml_features_record) :: ml_param
             call populate_default_param(ml_param)
-            call new_xtbml_features(ml_param, tmp_ml)
-            call move_alloc(tmp_ml, self)
+            call new_ml_features(self, ml_param)
         end block
     case default
         block
@@ -45,7 +45,7 @@ subroutine new_ml_features_cli(self, config, error)
             use tblite_param_ml_features, only : ml_features_record
             type(toml_table), allocatable :: table
             integer :: io
-            type(ml_features_record) :: param
+            type(ml_features_record) :: ml_param
             type(toml_error), allocatable :: t_error
             open(file=config, newunit=io, status="old")
             call toml_parse(table, io, t_error)
@@ -58,15 +58,16 @@ subroutine new_ml_features_cli(self, config, error)
             if (allocated(error)) then
                 call fatal_error(error, "File name provided could not be parsed as a toml table")
             end if
-            call param%load_from_toml(table, error)
-            call new_ml_features(self, param)
+            call ml_param%load_from_toml(table, error)
             
+            call new_ml_features(self, ml_param) 
         end block
     end select
+    
 end subroutine
 
 subroutine populate_default_param(param)
-    type(ml_features_record) :: param    
+    type(ml_features_record), intent(inout) :: param    
     param%ml_features = 1
 
       !> Compute geometry-based xtbml features

@@ -116,6 +116,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
 
    call comp_norm(bas%nsh, dipm_shell_tmp, qm_shell_tmp, self%dipm_shell, self%qm_shell)
    call comp_norm(mol%nat, wfn%dpat, wfn%qpat, self%dipm_atom, self%qm_atom)
+   allocate(self%dict)
    call resolve_shellwise(self%mulliken_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
    call self%dict%add_entry("p_s", tmp_s_array)
    call self%dict%add_entry("p_p", tmp_p_array)
@@ -322,6 +323,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
 
    call comp_norm_3(mol%nat, n, self%delta_dipm_e_xyz, self%delta_qm_e_xyz, self%delta_dipm_e, self%delta_qm_e)
    call comp_norm_3(mol%nat, n, self%delta_dipm_Z_xyz, self%delta_qm_Z_xyz, self%delta_dipm_Z, self%delta_qm_Z)
+   allocate(self%dict_ext)
    do j = 1, n
       call self%dict%add_entry("delta_q_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_partial_charge(:, j))
       call self%dict%add_entry("delta_dipm_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_dipm(:, j))

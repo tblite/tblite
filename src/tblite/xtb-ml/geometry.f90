@@ -49,7 +49,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
     integer, intent(in) :: prlevel
     type(exp_ncoord_type) :: ncoord_exp
     self%n_features = self%n_features + features
-
+    allocate(self%dict)
     allocate(self%cn_atom(mol%nat))
     
     call new_exp_ncoord(ncoord_exp, mol)
@@ -77,7 +77,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
     integer, intent(in) :: prlevel
     !> Convolution container
     type(xtbml_convolution_type) :: convolution
-    
+    allocate(self%dict_ext)
     allocate(self%delta_cn(mol%nat, convolution%n_a))
     convolution%cn = self%cn_atom 
     call get_delta_cn(mol%nat, self%cn_atom, mol%id, mol%xyz, self%delta_cn, convolution)

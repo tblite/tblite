@@ -32,8 +32,8 @@ contains
         type(ml_features_record) :: param
         logical :: xtbml_geometry, xtbml_density, xtbml_convolution, xtbml_tensor
         
-        type(xtbml_type), intent(out) :: new_xtbml_model
-
+        type(xtbml_type), intent(inout) :: new_xtbml_model
+        write(*,*) param%xtbml_density
         if (param%xtbml_geometry) allocate(new_xtbml_model%geom)
         if (param%xtbml_density) then
             allocate(new_xtbml_model%dens)
