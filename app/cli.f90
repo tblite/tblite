@@ -66,6 +66,8 @@ module tblite_cli
       character(len=:), allocatable :: json_output
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
+      !> Input for ml feature generation
+      character(len=:), allocatable :: ml_features
       !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
       !> Maximum number of iterations for SCF
@@ -349,6 +351,13 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end if
 
+      case("--ml_features")
+         iarg = iarg + 1 
+         call list%get(iarg, config%ml_features)
+         if (.not.allocated(config%ml_features)) then
+            call fatal_error(error, "Missing argument for ml_features")
+            exit
+         end if
       case("--acc")
          iarg = iarg + 1
          call list%get(iarg, arg)

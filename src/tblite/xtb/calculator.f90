@@ -42,6 +42,8 @@ module tblite_xtb_calculator
    use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
+   use tblite_ml_features_type, only : ml_features_type
+
    implicit none
    private
 
@@ -70,6 +72,8 @@ module tblite_xtb_calculator
       type(halogen_correction), allocatable :: halogen
       !> London-dispersion interaction
       class(dispersion_type), allocatable :: dispersion
+      !> ML Features container
+      class(ml_features_type), allocatable :: ml_features
       !> Parameter for self-consistent iteration mixing
       real(wp) :: mixer_damping = mixer_damping_default
       !> Maximum number of self-consistent iteractions
@@ -149,6 +153,7 @@ subroutine new_xtb_calculator(calc, mol, param, error)
    call add_halogen(calc, mol, param, irc)
    call add_dispersion(calc, mol, param)
    call add_coulomb(calc, mol, param, irc)
+   call add_ml_features(calc, mol, param, irc)
 
 end subroutine new_xtb_calculator
 
@@ -361,6 +366,19 @@ subroutine add_coulomb(calc, mol, param, irc)
 
 end subroutine add_coulomb
 
+subroutine add_ml_features(calc, mol, param, irc)
+   use tblite_ml_features, only : new_ml_features
+   !> Instance of the xTB evaluator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Parametrization records
+   type(param_record), intent(in) :: param
+   !> Record identifiers
+   integer, intent(in) :: irc(:)
+
+   if (allocated(param%ml_param)) call new_ml_features(calc%ml_features ,param%ml_param)
+end subroutine
 
 subroutine get_average(average_type, averager)
    character(len=*), intent(in) :: average_type

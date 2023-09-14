@@ -121,7 +121,6 @@ subroutine copy_record(to, from)
    if (allocated(from%array1)) to%array1 = from%array1
    if (allocated(from%array2)) to%array2 = from%array2
    if (allocated(from%array3)) to%array3 = from%array3
-
 end subroutine
 
 subroutine concatenate_overwrite(self, dict2)
@@ -383,26 +382,26 @@ end subroutine
 subroutine add_1d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:)
+   real(wp) :: array(:)
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
-      call move_alloc(array, record%array1)
+      record%array1 = array
    end associate
 end subroutine
 
 subroutine add_2d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:,:)
+   real(wp) :: array(:,:)
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
-      call move_alloc(array, record%array2)
+      record%array2 = array
    end associate
 
 end subroutine
@@ -416,7 +415,7 @@ subroutine add_3d(self, label, array)
    call self%push(label, it)
 
    associate(record => self%record(it))
-      call move_alloc(array, record%array3)
+      record%array3 = array
    end associate
 end subroutine
 

@@ -15,11 +15,11 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
-  'atomic_frontier_orbitals.f90',
+  'convolution.f90',
+  'density.f90',
   'features.f90',
-  'functions.f90',
   'geometry.f90',
+  'methods.f90',
   'type.f90',
   'xtbml.f90',
-  'xtbml_xyz.f90',
 )

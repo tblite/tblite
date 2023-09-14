@@ -24,6 +24,7 @@ list(
   "${dir}/halogen.f90"
   "${dir}/hamiltonian.f90"
   "${dir}/mask.f90"
+  "${dir}/ml_features.f90" 
   "${dir}/multipole.f90"
   "${dir}/repulsion.f90"
   "${dir}/serde.f90"

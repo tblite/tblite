@@ -43,6 +43,7 @@ module tblite_xtb_singlepoint
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
+   use tblite_double_dictionary, only : double_dictionary_type
    implicit none
    private
 
@@ -98,11 +99,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
+   type(double_dictionary_type), allocatable :: dict
    type(container_cache) :: ccache, dcache, icache, hcache, rcache
    class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
-
+   type(double_dictionary_type), allocatable :: ml_dict
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
@@ -263,6 +265,13 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       results%energies = energies
    end if
    call timer%pop
+
+   if (allocated(calc%ml_features)) then
+      allocate(ml_dict)
+      call calc%ml_features%compute(mol, wfn, ints, calc%bas, ccache, dcache, rcache&
+      &, ctx, prlevel, ml_dict)
+      call calc%ml_features%print_csv(mol, ml_dict)
+   end if
 
    if (prlevel > 1) then
       call ctx%message(label_electronic // format_string(sum(eelec), real_format) // " Eh")

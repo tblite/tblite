@@ -21,6 +21,7 @@ srcs += files(
   'halogen.f90',
   'hamiltonian.f90',
   'mask.f90',
+  'ml_features.f90',
   'multipole.f90',
   'repulsion.f90',
   'serde.f90',

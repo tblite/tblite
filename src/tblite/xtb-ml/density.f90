@@ -2,24 +2,20 @@ module tblite_xtbml_density_based
    use mctc_env, only : wp
    use tblite_xtbml_feature_type, only : xtbml_feature_type
    use mctc_env, only : wp
-   use tblite_wavefunction, only : wavefunction_type
+   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_basis_type, only : basis_type 
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
    implicit none
    private
 
-   integer, parameter :: features = 12
-   integer, parameter :: ext_features = 40
 
-
-
-   type, public, extends(xtbml_feature_type) :: xtbml_geometry_features_type
-      character(len=*) :: label = "density-based features"
-      type(double_dictionary_type) :: dict, dict_ext
+   type, public, extends(xtbml_feature_type) :: xtbml_density_features_type
+      character(len=22) :: label = "density-based features"
       real(wp),allocatable ::  mulliken_shell(:)
       real(wp),allocatable ::  dipm_shell(:)
       real(wp),allocatable ::  qm_shell(:)
@@ -56,25 +52,23 @@ module tblite_xtbml_density_based
       !> delta qm only nuclear effect
       real(wp),allocatable ::  delta_qm_Z_xyz(:,:,:)
 
-      integer :: n_features
-      type(enum_density_features) :: labels = enum_geometry_features()
-      type(enum_ext_density_features) :: ext_labels = enum_geometry_features()
       logical :: return_xyz
 
    contains
       procedure :: compute_features
       procedure :: compute_extended
-      procedure :: get_n_features
-      procedure :: get_feature_labels
       procedure, private :: allocate
       procedure, private :: allocate_extended
    end type
 
 contains
 
-subroutine compute_features(self, mol, wfn, integrals, calc, cache, prlevel, ctx)
+
+
+subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
    use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
-   class(xtbml_feature_type), intent(inout) :: self
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles 
+   class(xtbml_density_features_type), intent(inout) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
@@ -82,7 +76,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache, prlevel, ctx
    !> Integral container
    type(integral_type) :: integrals
    !> Single-point calculator
-   type(xtb_calculator), intent(in) :: calc
+   type(basis_type), intent(in) :: bas
    !> Container
    type(container_cache), intent(inout) :: cache
    !> Context type
@@ -91,26 +85,28 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache, prlevel, ctx
    integer, intent(in) :: prlevel
    character(len=20), allocatable :: tmp_labels(:)
    real(wp), allocatable :: tmp_s_array(:), tmp_p_array(:), tmp_d_array(:), tmp_array(:, :)
-
-    !shellwise mulliken charges
-   call mulliken_shellwise(calc%bas%nao, calc%bas%nsh, calc%bas%ao2sh, wfn%density(:, :, wfn%nspin), &
-      integrals%overlap, self%mulliken_shell)
+   real(wp) :: z(mol%nat), dipm_shell_tmp(3, bas%nsh, 1), qm_shell_tmp(6, bas%nsh, 1)
+   integer :: i, mu 
    
+   !shellwise mulliken charges
+   call self%allocate(bas%nsh, mol%nat)
+   call mulliken_shellwise(bas%nao, bas%nsh, bas%ao2sh, wfn%density(:, :, wfn%nspin), &
+      integrals%overlap, self%mulliken_shell)
 
    call mol_set_nuclear_charge(mol%nat, mol%num, mol%id, z)
 
-   do mu=1, calc%bas%nsh
-      self%partial_charge_atom(calc%bas%sh2at(mu))=self%partial_charge_atom(calc%bas%sh2at(mu))+self%mulliken_shell(mu)
+   do mu=1, bas%nsh
+      self%partial_charge_atom(bas%sh2at(mu))=self%partial_charge_atom(bas%sh2at(mu))+self%mulliken_shell(mu)
    enddo
    self%partial_charge_atom=-self%partial_charge_atom+z
    
-   !multipole moments shellwise und then atomwise
-   call get_mulliken_shell_multipoles(calc%bas, integrals%dipole, wfn%density, &
+   !multipole moments shellwise and then atomwise
+   call get_mulliken_shell_multipoles(bas, integrals%dipole, wfn%density, &
       & dipm_shell_tmp)
    self%dipm_shell_xyz=dipm_shell_tmp(:, :, 1)
    
   
-   call get_mulliken_shell_multipoles(calc%bas, integrals%quadrupole, wfn%density, &
+   call get_mulliken_shell_multipoles(bas, integrals%quadrupole, wfn%density, &
       & qm_shell_tmp)
    self%qm_shell_xyz=qm_shell_tmp(:, :, 1)
    
@@ -118,56 +114,63 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache, prlevel, ctx
 
    self%qm_atom_xyz=wfn%qpat(:, :, 1)
 
-   call comp_norm(calc%bas%nsh, dipm_shell_tmp, qm_shell_tmp, self%dipm_shell, self%qm_shell)
+   call comp_norm(bas%nsh, dipm_shell_tmp, qm_shell_tmp, self%dipm_shell, self%qm_shell)
    call comp_norm(mol%nat, wfn%dpat, wfn%qpat, self%dipm_atom, self%qm_atom)
-   call resolve_shellwise(self%mulliken_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
+   call resolve_shellwise(self%mulliken_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
    call self%dict%add_entry("p_s", tmp_s_array)
    call self%dict%add_entry("p_p", tmp_p_array)
    call self%dict%add_entry("p_d", tmp_d_array)
-   call resolve_shellwise(self%dipm_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
+   call resolve_shellwise(self%dipm_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
    call self%dict%add_entry("dipm_s", tmp_s_array)
    call self%dict%add_entry("dipm_p", tmp_p_array)
    call self%dict%add_entry("dipm_d", tmp_d_array)
-   
-   call resolve_xyz_shell(self%dipm_shell_xyz, tmp_array, calc%bas%nsh_at, mol%nat)
-   tmp_labels = [ character(len=20) ::
-   &"dipm_s_x", "dipm_s_y", "dipm_s_z",&
-   &"dipm_p_x", "dipm_p_y", "dipm_p_z",&
-   &"dipm_d_x", "dipm_d_y", "dipm_d_z",&
-   ]
-   do i = 1, size(tmp_labels)
-      call self%dict%add_entry(trim(tmp_labels(i)), tmp_array(i))
-   end do
-   call resolve_shellwise(self%qm_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
+   if (self%return_xyz) then
+      call resolve_xyz_shell(self%dipm_shell_xyz, tmp_array, bas%nsh_at, mol%nat)
+      tmp_labels = [ character(len=20) :: &
+      &"dipm_s_x", "dipm_s_y", "dipm_s_z",&
+      &"dipm_p_x", "dipm_p_y", "dipm_p_z",&
+      &"dipm_d_x", "dipm_d_y", "dipm_d_z"]
+
+      do i = 1, size(tmp_labels)
+         call self%dict%add_entry(trim(tmp_labels(i)), tmp_array(:, i))
+      end do
+   end if
+   call resolve_shellwise(self%qm_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
    call self%dict%add_entry("qm_s", tmp_s_array)
    call self%dict%add_entry("qm_p", tmp_p_array)
    call self%dict%add_entry("qm_d", tmp_d_array)
-   call resolve_xyz_shell(self%qm_shell_xyz, tmp_array, calc%bas%nsh_at, mol%nat)
-   tmp_labels = [ character(len=20) ::
-   &"qm_s_xx", "qm_s_xy", "qm_s_yy", "qm_s_xz", "qm_s_yz", "qm_s_zz",&
-   &"qm_p_xx", "qm_p_xy", "qm_p_yy", "qm_p_xz", "qm_p_yz", "qm_p_zz",&
-   &"qm_d_xx", "qm_d_xy", "qm_d_yy", "qm_d_xz", "qm_d_yz", "qm_d_zz",& 
-   ]
-   do i = 1, size(tmp_labels)
-      call self%dict%add_entry(trim(tmp_labels(i)), tmp_array(i))
-   end do
+   if (self%return_xyz) then 
+      call resolve_xyz_shell(self%qm_shell_xyz, tmp_array, bas%nsh_at, mol%nat)
+      tmp_labels = [ character(len=20) :: &
+      &"qm_s_xx", "qm_s_xy", "qm_s_yy", "qm_s_xz", "qm_s_yz", "qm_s_zz",&
+      &"qm_p_xx", "qm_p_xy", "qm_p_yy", "qm_p_xz", "qm_p_yz", "qm_p_zz",&
+      &"qm_d_xx", "qm_d_xy", "qm_d_yy", "qm_d_xz", "qm_d_yz", "qm_d_zz"]
+
+      do i = 1, size(tmp_labels)
+         call self%dict%add_entry(trim(tmp_labels(i)), tmp_array(:, i))
+      end do
+   end if
+
    call self%dict%add_entry("q_A", self%partial_charge_atom)
    call self%dict%add_entry("dipm_A", self%dipm_atom)
-   tmp_labels = [ character(len=20) ::
-   &"dipm_A_x", "dipm_A_y", "dipm_A_z",&
-   ]
-   do i = 1, size(tmp_labels)
-      call self%dict%add_entry(trim(tmp_labels(i)), self%dimp_atom_xyz(i, :))
-   end do
-   call self%dict%add_entry("qm_A", self%dipm_atom)
-   tmp_labels = [ character(len=20) ::
-   &"qm_A_xx", "qm_A_xy", "qm_A_yy", "qm_A_xz", "qm_A_yz", "qm_A_zz",&
-   ]
-   do i = 1, size(tmp_labels)
-      call self%dict%add_entry(trim(tmp_labels(i)), self%qm_atom_xyz(i, :))
-   end do
+   if (self%return_xyz) then
+      tmp_labels = [ character(len=20) :: &
+      &"dipm_A_x", "dipm_A_y", "dipm_A_z"]
+      do i = 1, size(tmp_labels)
+         call self%dict%add_entry(trim(tmp_labels(i)), self%dipm_atom_xyz(i, :))
+      end do
+   end if
+   
+   call self%dict%add_entry("qm_A", self%qm_atom)
+   if (self%return_xyz) then
+      tmp_labels = [ character(len=20) :: &
+      &"qm_A_xx", "qm_A_xy", "qm_A_yy", "qm_A_xz", "qm_A_yz", "qm_A_zz"]
 
-   self%n_features = self%n_features + features
+      do i = 1, size(tmp_labels)
+         call self%dict%add_entry(trim(tmp_labels(i)), self%qm_atom_xyz(i, :))
+      end do
+   end if
+
 end subroutine
 
 subroutine mol_set_nuclear_charge(nat, at, id, z)
@@ -208,7 +211,7 @@ end function ncore
 end subroutine mol_set_nuclear_charge
 
 subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh, nat)
-   real(wp), allocatable, intent(out) :: array_s(nat), array_p(nat), array_d(nat) 
+   real(wp), allocatable, intent(out) :: array_s(:), array_p(:), array_d(:) 
    real(wp), intent(in) :: shell_prop(:)
    integer, intent(in) ::  nat, at2nsh(:)
    integer :: nsh, i
@@ -278,8 +281,9 @@ subroutine resolve_xyz_shell(mult_xyz, array, at2nsh, nat)
    end do
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, calc, cache, prlevel, ctx)
-   class(xtbml_feature_type), intent(inout) :: self
+subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+   use tblite_output_format, only : format_string
+   class(xtbml_density_features_type), intent(inout) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
@@ -287,24 +291,103 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache, prlevel, ctx
    !> Integral container
    type(integral_type) :: integrals
    !> Single-point calculator
-   type(xtb_calculator), intent(in) :: calc
+   type(basis_type), intent(in) :: bas
    !> Container
    type(container_cache), intent(inout) :: cache
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
    integer, intent(in) :: prlevel
+   !> Convolution container
+   type(xtbml_convolution_type) :: convolution
+   real(wp) :: mull_charge_atomic(mol%nat)
+   real(wp) :: z(mol%nat)
+   integer :: n, i, j
+   character(len=20), allocatable :: tmp_labels(:) 
+   n = convolution%n_a 
+   call self%allocate_extended(bas%nsh, mol%nat, n)
    
+   call get_delta_partial(mol%nat, n, self%partial_charge_atom, mol%id, mol%xyz, &
+      convolution, self%delta_partial_charge)
+   !delta multipole moments
+   call get_delta_mm(mol%nat, n, self%partial_charge_atom, wfn%dpat, wfn%qpat, mol%id, mol%xyz, &
+      convolution, self%delta_dipm_xyz, self%delta_qm_xyz)
+
+   call comp_norm_3(mol%nat, n, self%delta_dipm_xyz, self%delta_qm_xyz, self%delta_dipm, self%delta_qm)
+   call get_delta_mm_Z(mol%nat, n, z, wfn%dpat, wfn%qpat, mol%id, mol%xyz, convolution, self%delta_dipm_Z_xyz, &
+      self%delta_qm_Z_xyz)
+   call sum_up_mulliken(mol%nat, bas%nsh, bas%sh2at, bas%sh2at, self%mulliken_shell, mull_charge_atomic)
+   call get_delta_mm_p(mol%nat, n, mull_charge_atomic, wfn%dpat, wfn%qpat, mol%id, mol%xyz, convolution, &
+      self%delta_dipm_e_xyz, self%delta_qm_e_xyz)
+
+   call comp_norm_3(mol%nat, n, self%delta_dipm_e_xyz, self%delta_qm_e_xyz, self%delta_dipm_e, self%delta_qm_e)
+   call comp_norm_3(mol%nat, n, self%delta_dipm_Z_xyz, self%delta_qm_Z_xyz, self%delta_dipm_Z, self%delta_qm_Z)
+   do j = 1, n
+      call self%dict%add_entry("delta_q_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_partial_charge(:, j))
+      call self%dict%add_entry("delta_dipm_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_dipm(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_dipm_A_x", "delta_dipm_A_y", "delta_dipm_A_z"]
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_dipm_xyz(i, :, j))
+         end do
+      end if
    
+      call self%dict%add_entry("delta_qm_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_qm(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_qm_A_xx", "delta_qm_A_xy", "delta_qm_A_yy", "delta_qm_A_xz", "delta_qm_A_yz", "delta_qm_A_zz"]
+
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_qm_xyz(i, :, j))
+         end do
+      end if
    
-   self%n_features = self%n_features + ext_features
+      call self%dict%add_entry("delta_dipm_e"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_dipm_e(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_dipm_e_x", "delta_dipm_e_y", "delta_dipm_e_z"]
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_dipm_e_xyz(i, :, j))
+         end do
+      end if
+
+      call self%dict%add_entry("delta_qm_e"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_qm_e(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_qm_e_xx", "delta_qm_e_xy", "delta_qm_e_yy", "delta_qm_e_xz", "delta_qm_e_yz", "delta_qm_e_zz"]
+
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_qm_e_xyz(i, :, j))
+         end do
+      end if
+
+      call self%dict%add_entry("delta_dipm_Z"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_dipm_Z(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_dipm_Z_x", "delta_dipm_Z_y", "delta_dipm_Z_z"]
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_dipm_Z_xyz(i, :, j))
+         end do
+      end if
+
+      call self%dict%add_entry("delta_qm_Z"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')), self%delta_qm_Z(:, j))
+      if (self%return_xyz) then
+         tmp_labels = [ character(len=20) :: &
+         &"delta_qm_Z_xx", "delta_qm_Z_xy", "delta_qm_Z_yy", "delta_qm_Z_xz", "delta_qm_Z_yz", "delta_qm_Z_zz"]
+
+         do i = 1, size(tmp_labels)
+            call self%dict%add_entry(trim(tmp_labels(i)//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))), self%delta_qm_Z_xyz(i, :, j))
+         end do
+      end if
+   end do
 end subroutine
 
 subroutine allocate(self, nsh, nat)
-    class(xtbml_feature_type), intent(inout) :: self
+   class(xtbml_density_features_type), intent(inout) :: self 
     integer :: nsh, nat
     
-    allocate(self%mulliken_shell(nsh), source=0.0_wp)
+   allocate(self%mulliken_shell(nsh), source=0.0_wp)
    allocate(self%dipm_shell(nsh), source=0.0_wp)
    allocate(self%qm_shell(nsh), source=0.0_wp)
    allocate(self%partial_charge_atom(nat), source=0.0_wp)
@@ -318,8 +401,8 @@ subroutine allocate(self, nsh, nat)
 end subroutine
 
 subroutine allocate_extended(self, nsh, nat, n_a)
-    class(xtbml_feature_type), intent(inout) :: self
-    integer :: nsh, nat, n_a
+   class(xtbml_density_features_type), intent(inout) :: self
+   integer :: nsh, nat, n_a
     
    allocate(self%delta_partial_charge(nat, n_a), source=0.0_wp)
    allocate(self%delta_dipm(nat, n_a), source=0.0_wp)
@@ -359,11 +442,12 @@ subroutine mulliken_shellwise(nao, nshell, ao2shell, p, s, charges_shell)
 
 end subroutine
 
-subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, cn, delta_partial)
+subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, conv, delta_partial)
    implicit none
-   integer, INTENT(IN) :: nat, at(nat), n_a
-   real(wp), INTENT(IN) :: atom_partial(nat), xyz(3, nat), cn(nat)
-   real(wp), INTENT(OUT) :: delta_partial(nat, n_a)
+   type(xtbml_convolution_type) :: conv
+   integer, intent(in) :: nat, at(nat), n_a
+   real(wp), intent(in) :: atom_partial(nat), xyz(3, nat)
+   real(wp), intent(out) :: delta_partial(nat, n_a)
    real(wp) :: delta_partial_tmp(nat, n_a), f_log(nat, nat, n_a)
    integer :: a, b, k
    real(wp) :: result
@@ -376,8 +460,8 @@ subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, cn, delta_partial)
       do a = 1, nat
          do b = 1, nat
                     
-            delta_partial(a,k) = delta_partial(a,k) + atom_partial(b) / (inv_cn_a(a,b,k)*(cn(b)+1))
-               f_log(a,b,k) = 1.0_wp / (inv_cn_a(a,b,k)*(cn(b)+1))
+            delta_partial(a,k) = delta_partial(a,k) + atom_partial(b) / (conv%inv_cn_a(a,b,k)*(conv%cn(b)+1))
+               f_log(a,b,k) = 1.0_wp / (conv%inv_cn_a(a,b,k)*(conv%cn(b)+1))
          enddo
       enddo
    enddo
@@ -386,9 +470,9 @@ end subroutine
 
 subroutine sum_up_mm(nat, nshell, aoat2, ash, dipm_shell, qm_shell, dipm_at, qm_at)
    implicit none
-   integer, INTENT(IN) :: nat, nshell, aoat2(:), ash(:)
-   real(wp), INTENT(IN) :: dipm_shell(:, :), qm_shell(:, :)
-   real(wp), INTENT(OUT) :: dipm_at(3, nat), qm_at(6, nat)
+   integer, intent(in) :: nat, nshell, aoat2(:), ash(:)
+   real(wp), intent(in) :: dipm_shell(:, :), qm_shell(:, :)
+   real(wp), intent(out) :: dipm_at(3, nat), qm_at(6, nat)
    integer :: i
 
    dipm_at = 0.0_wp
@@ -403,9 +487,9 @@ end subroutine
 
 subroutine sum_up_mulliken(nat, nshell, aoat2, ash, mull_shell, mull_at)
    implicit none
-   integer, INTENT(IN) :: nat, nshell, aoat2(:), ash(:)
-   real(wp), INTENT(IN) :: mull_shell(nshell)
-   real(wp), INTENT(OUT) :: mull_at(nat)
+   integer, intent(in) :: nat, nshell, aoat2(:), ash(:)
+   real(wp), intent(in) :: mull_shell(nshell)
+   real(wp), intent(out) :: mull_at(nat)
    integer :: i
 
    mull_at = 0.0_wp
@@ -416,11 +500,12 @@ subroutine sum_up_mulliken(nat, nshell, aoat2, ash, mull_shell, mull_at)
 
 end subroutine
 
-subroutine get_delta_mm(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_qp)
+subroutine get_delta_mm(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delta_qp)
    implicit none
-   integer, INTENT(IN) :: nat, at(nat), n_a
-   real(wp), INTENT(IN) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat), cn(nat)
-   real(wp), INTENT(OUT) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
+   type(xtbml_convolution_type) :: conv
+   integer, intent(in) :: nat, at(nat), n_a
+   real(wp), intent(in) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat)
+   real(wp), intent(out) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
    integer :: a, b, k
    real(wp) :: result, r_ab(3), qp_part(6, nat, n_a), sum_qm(6)
 
@@ -432,33 +517,33 @@ subroutine get_delta_mm(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_qp
       do a = 1, nat
          do b = 1, nat
 
-            result = inv_cn_a(a, b, k)
+            result = conv%inv_cn_a(a, b, k)
 
             r_ab = xyz(:, a) - xyz(:, b)
 
-            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (dipm(:, b) - r_ab(:)*q(b))/(result*(cn(b) + 1))
+            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (dipm(:, b) - r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
 
             delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) + r_ab(1)*r_ab(1)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) + r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) + r_ab(1)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) + r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) + r_ab(2)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) + r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) + r_ab(1)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) + r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) + r_ab(2)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) + r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) + r_ab(3)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) + r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             qp_part(:, a, k) = qp_part(:, a, k) + &
-               qp(:, b)/(result*(cn(b) + 1))
+               qp(:, b)/(result*(conv%cn(b) + 1))
          end do
       end do
    end do
@@ -469,9 +554,9 @@ end subroutine
 
 subroutine comp_norm_3(ndim, n_a, dipm, qm, dipm_norm, qm_norm)
    implicit none
-   integer, INTENT(IN) :: ndim, n_a
-   real(wp), INTENT(IN) :: dipm(3, ndim, n_a), qm(6, ndim, n_a)
-   real(wp), INTENT(OUT) :: dipm_norm(ndim, n_a), qm_norm(ndim, n_a)
+   integer, intent(in) :: ndim, n_a
+   real(wp), intent(in) :: dipm(3, ndim, n_a), qm(6, ndim, n_a)
+   real(wp), intent(out) :: dipm_norm(ndim, n_a), qm_norm(ndim, n_a)
    real(wp) :: r(ndim, n_a), r2(ndim, n_a)
    INTEGER :: i
 
@@ -492,9 +577,9 @@ end subroutine
 
 subroutine comp_norm(ndim, dipm, qm, dipm_norm, qm_norm)
    implicit none
-   integer, INTENT(IN) :: ndim
-   real(wp), INTENT(IN) :: dipm(3, ndim), qm(6, ndim)
-   real(wp), INTENT(OUT) :: dipm_norm(ndim), qm_norm(ndim)
+   integer, intent(in) :: ndim
+   real(wp), intent(in) :: dipm(3, ndim), qm(6, ndim)
+   real(wp), intent(out) :: dipm_norm(ndim), qm_norm(ndim)
    real(wp) :: r(ndim), r2(ndim)
    INTEGER :: i
 
@@ -513,11 +598,12 @@ subroutine comp_norm(ndim, dipm, qm, dipm_norm, qm_norm)
 
 end subroutine
 
-subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_qp)! all effects due to the electrons are set to 0, only the distribution of positive charges is left
+subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delta_qp)! all effects due to the electrons are set to 0, only the distribution of positive charges is left
    implicit none
-   integer, INTENT(IN) :: nat, at(nat), n_a
-   real(wp), INTENT(IN) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat), cn(nat)
-   real(wp), INTENT(OUT) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
+   type(xtbml_convolution_type) :: conv
+   integer, intent(in) :: nat, at(nat), n_a
+   real(wp), intent(in) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat)
+   real(wp), intent(out) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
    integer :: a, b, k
    real(wp) :: result, r_ab(3), qp_part(6, nat, n_a)
 
@@ -528,28 +614,28 @@ subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-            result = inv_cn_a(a, b, k)
+            result = conv%inv_cn_a(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
-            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(cn(b) + 1))
+            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
 
             delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(1)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(r_ab(2)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(r_ab(2)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(r_ab(3)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
             !qp_part(:,a) = qp_part(:,a) + qp(:,b) / (result*(cn(b)+1))
          end do
          !delta_dipm(:,a) = dipm(:,a) + delta_dipm(:,a)
@@ -561,11 +647,12 @@ subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_
 
 end subroutine
 
-subroutine get_delta_mm_p(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_qp) ! the sign of q was changed to respect the charge of the electrons
+subroutine get_delta_mm_p(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delta_qp) ! the sign of q was changed to respect the charge of the electrons
    implicit none
-   integer, INTENT(IN) :: nat, at(nat), n_a
-   real(wp), INTENT(IN) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat), cn(nat)
-   real(wp), INTENT(OUT) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
+   type(xtbml_convolution_type) :: conv
+   integer, intent(in) :: nat, at(nat), n_a
+   real(wp), intent(in) :: dipm(3, nat), xyz(3, nat), qp(6, nat), q(nat)
+   real(wp), intent(out) :: delta_dipm(3, nat, n_a), delta_qp(6, nat, n_a)
    integer :: a, b, k
    real(wp) :: result, r_ab(3), qp_part(6, nat, n_a)
 
@@ -576,31 +663,31 @@ subroutine get_delta_mm_p(nat, n_a, q, dipm, qp, at, xyz, cn, delta_dipm, delta_
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-            result = inv_cn_a(a, b, k)
+            result = conv%inv_cn_a(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
 
             delta_dipm(:, a, k) = delta_dipm(:, a, k) + &
-               (dipm(:, b) + r_ab(:)*q(b))/(result*(cn(b) + 1))
+               (dipm(:, b) + r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
 
             delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) - r_ab(1)*r_ab(1)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) - r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) - r_ab(1)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) - r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) - r_ab(2)*r_ab(2)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) - r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) - r_ab(1)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) - r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) - r_ab(2)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) - r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
 
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) - r_ab(3)*r_ab(3)*q(b)))/(result*(cn(b) + 1))
-            qp_part(:, a, k) = qp_part(:, a, k) + qp(:, b)/(result*(cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) - r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+            qp_part(:, a, k) = qp_part(:, a, k) + qp(:, b)/(result*(conv%cn(b) + 1))
          end do
          !delta_dipm(:,a) = dipm(:,a) + delta_dipm(:,a)
          !delta_qp(:,a) = qp(:,a) + delta_qp(:,a)
@@ -613,9 +700,9 @@ end subroutine
 
 subroutine remove_trac_qp(nat, n_a, qp_matrix, qp_part)
    implicit none
-   integer, INTENT(IN) :: nat, n_a
-   real(wp), INTENT(IN) :: qp_part(6, nat, n_a)
-   real(wp), INTENT(INOUT) :: qp_matrix(6, nat, n_a)
+   integer, intent(in) :: nat, n_a
+   real(wp), intent(in) :: qp_part(6, nat, n_a)
+   real(wp), intent(inout) :: qp_matrix(6, nat, n_a)
    integer :: i
    real(wp) :: tii(n_a)
 

@@ -5,30 +5,41 @@ module tblite_xtbml_convolution
   
     implicit none
     private
-
+    real(wp) :: k1 = 16.0_wp
+    public :: xtbml_convolution_type
     type xtbml_convolution_type
         real(wp), allocatable :: rcov(:)
         real(wp), allocatable :: inv_cn_a(:, :, :)
         real(wp), allocatable :: a(:)
-        real(wp) :: k1 = 16.0_wp
+        real(wp), allocatable :: cn(:)
         integer :: n_a
     contains
         procedure :: setup
         procedure, private :: populate_inv_cn_array
         procedure, private :: get_rcov
+        procedure, private :: compute_cn
     end type
 
     contains
 
-    subroutine setup(self, mol, a_array)
-        class(xtbml_convolution_type), intent(in) :: self
+    subroutine setup(self, mol)
+        class(xtbml_convolution_type), intent(inout) :: self
         type(structure_type), intent(in) :: mol
-        real(wp), intent(in) :: a_array(:)
 
-        self%a = a_array
-        self%n_a = size(a_array)
+    
+        call self%get_rcov(mol)
+        call self%populate_inv_cn_array(mol%nat, mol%id, mol%xyz)
+        if (.not.allocated(self%cn)) call self%compute_cn(mol)
+    end subroutine
 
-        call self%populate_inv_cn_array(mol%nat, mol%at, mol%xyz)
+    subroutine compute_cn(self, mol)
+        use tblite_ncoord_exp, only : exp_ncoord_type, new_exp_ncoord
+        class(xtbml_convolution_type) :: self
+        type(structure_type) :: mol
+        type(exp_ncoord_type) :: ncoord_exp
+
+        call new_exp_ncoord(ncoord_exp, mol)
+        call ncoord_exp%get_cn(mol, self%cn) 
     end subroutine
 
     subroutine get_rcov(self,mol)
@@ -49,33 +60,29 @@ module tblite_xtbml_convolution
         real(wp) :: result
         integer :: i, j, k, n_a
         n_a = size(self%a)
-        if (allocated(self%rcov)) then
-            deallocate (self%rcov)
-        end if
-        allocate (self%inv_rcov(nat), source=0.0_wp)
-        call get_rcov(mol)
+    
         if (allocated(self%inv_cn_a)) then
-           deallocate (slef%inv_cn_a)
+           deallocate (self%inv_cn_a)
         end if
         allocate (self%inv_cn_a(nat, nat, n_a), source=0.0_wp)
         !$omp parallel do default(none) collapse(2)&
-        !$omp shared(self%a,nat, at,xyz,self%inv_cn_a,n_a)&
+        !$omp shared(self, nat, at, xyz, n_a)&
         !$omp private(result,i,j,k)
         do k = 1, n_a
            do i = 1, nat
               do j = 1, nat
                  !if (i == j) cycle
-                 call inv_cn(nat, i, j, at, xyz, self%a(k), result)
+                 call inv_cn(self, nat, i, j, at, xyz, self%a(k), result)
                  self%inv_cn_a(i, j, k) = result
               end do
            end do
         end do
-        !$omp end parallel do
+        
      
      end subroutine populate_inv_cn_array
     
-    subroutine inv_cn(nat, a, b, at, xyz, dampening_fact, result)
-       
+    subroutine inv_cn(self, nat, a, b, at, xyz, dampening_fact, result)
+        type(xtbml_convolution_type) :: self
         integer, intent(in) :: a, b, nat
         integer, intent(in) :: at(:)
         real(wp), intent(in)  :: xyz(3, nat), dampening_fact

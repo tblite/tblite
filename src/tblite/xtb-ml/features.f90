@@ -1,26 +1,28 @@
 module tblite_xtbml_feature_type
     use mctc_env, only : wp
-   use tblite_wavefunction, only : wavefunction_type
+   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_basis_type, only : basis_type
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_double_dictionary, only : double_dictionary_type
    implicit none
    private
 
 type, public, abstract :: xtbml_feature_type
-
+    integer :: n_features
+    type(double_dictionary_type), allocatable :: dict, dict_ext
 contains
     procedure(compute_features), deferred :: compute_features
     procedure(compute_extended), deferred :: compute_extended
-    procedure(get_n_features), deferred :: get_n_features
+    procedure :: get_n_features
 end type xtbml_feature_type
 
 abstract interface
-    subroutine compute_features(self, mol, wfn, integrals, calc, cache, prlevel, ctx)
-        import :: wp, wavefunction_type, structure_type, wavefunction_type, integral_type, xtb_calculator,&
+    subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
+        import :: wp, wavefunction_type, structure_type, integral_type, basis_type,&
         & container_cache, context_type, xtbml_feature_type
         class(xtbml_feature_type), intent(inout) :: self
         !> Molecular structure data
@@ -30,7 +32,7 @@ abstract interface
         !> Integral container
         type(integral_type) :: integrals
         !> Single-point calculator
-        type(xtb_calculator), intent(in) :: calc
+        type(basis_type), intent(in) :: bas
         !> Container
         type(container_cache), intent(inout) :: cache
         !> Context type
@@ -38,8 +40,8 @@ abstract interface
         !> Print Level
         integer, intent(in) :: prlevel
     end subroutine
-    subroutine compute_extended(self, mol, wfn, integrals, calc, cache, prlevel, ctx, convolution)
-        import :: wp, wavefunction_type, structure_type, wavefunction_type, integral_type, xtb_calculator,&
+    subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+        import :: wp, wavefunction_type, structure_type, integral_type, basis_type,&
         & container_cache, context_type, xtbml_feature_type, xtbml_convolution_type
         class(xtbml_feature_type), intent(inout) :: self
         !> Molecular structure data
@@ -49,7 +51,7 @@ abstract interface
         !> Integral container
         type(integral_type) :: integrals
         !> Single-point calculator
-        type(xtb_calculator), intent(in) :: calc
+        type(basis_type), intent(in) :: bas
         !> Container
         type(container_cache), intent(inout) :: cache
         !> Context type
@@ -59,13 +61,18 @@ abstract interface
         !> Convolution container
         type(xtbml_convolution_type) :: convolution 
     end subroutine
-    subroutine get_n_features(self,n)
-        import :: xtbml_feature_type
-        class(xtbml_feature_type), intent(inout) :: self
-        !> Number of features in feature type
-        integer :: n
-    end subroutine
+
 end interface
+
+contains
+
+function get_n_features(self) result(n)
+    class(xtbml_feature_type) :: self
+    integer :: n 
+
+    n = self%dict%get_n_entries()
+    n = n + self%dict_ext%get_n_entries()
+end function
 
 
 end module  

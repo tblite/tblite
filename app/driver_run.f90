@@ -40,6 +40,7 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_ml_features, only : ml_features_type
    implicit none
    private
 
@@ -185,6 +186,17 @@ subroutine run_main(config, error)
          call move_alloc(solv, cont)
          call calc%push_back(cont)
       end block
+   end if
+
+   if (allocated(config%ml_features)) then
+      if (.not.allocated(calc%ml_features)) then
+         block
+            use tblite_ml_features, only : new_ml_features
+            class(ml_features_type), allocatable :: ml
+            call new_ml_features(ml, config%ml_features, error)
+            call move_alloc(ml, calc%ml_features)
+         end block
+      end if
    end if
 
    if (config%verbosity > 0) then
