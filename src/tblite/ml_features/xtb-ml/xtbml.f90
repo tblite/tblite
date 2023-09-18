@@ -14,12 +14,14 @@ module tblite_xtbml_features
     use tblite_results, only : results_type
     use tblite_context, only : context_type
     use tblite_double_dictionary, only : double_dictionary_type
+    use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
     implicit none
     private
     public :: xtbml_type, new_xtbml_features
     type, extends(ml_features_type) :: xtbml_type
         type(xtbml_geometry_features_type), allocatable :: geom
         type(xtbml_density_features_type), allocatable :: dens
+        type(xtbml_orbital_features_type), allocatable :: orb
         type(xtbml_convolution_type), allocatable :: conv
     contains
         procedure :: compute
@@ -39,12 +41,12 @@ contains
             allocate(new_xtbml_model%dens)
             new_xtbml_model%dens%return_xyz = param%xtbml_tensor
         end if
+        if (param%xtbml_orbital_energy) allocate(new_xtbml_model%orb)
         if (param%xtbml_convolution) then
             allocate(new_xtbml_model%conv)
             new_xtbml_model%conv%a = param%xtbml_a
             new_xtbml_model%conv%n_a = size(param%xtbml_a)
         end if
-        !if (param%xtbml_orbital_energy)
 
     end subroutine
 
@@ -83,6 +85,13 @@ contains
             end associate
         end if
 
+        if (allocated(ml_model%orb)) then
+            associate(category => ml_model%orb)
+                call category%compute_features(mol, wfn, integrals, bas, void_cache, prlevel, ctx)
+                dict = dict + category%dict
+            end associate
+        end if
+
         if (allocated(ml_model%conv)) then 
 
             if (allocated(ml_model%geom)) then
@@ -98,6 +107,13 @@ contains
     
             if (allocated(ml_model%dens)) then
                 associate(category => ml_model%dens)
+                    call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
+                    dict = dict + category%dict_ext
+                end associate
+            end if
+
+            if (allocated(ml_model%orb)) then
+                associate(category => ml_model%orb)
                     call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate

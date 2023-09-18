@@ -305,7 +305,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
    real(wp) :: z(mol%nat)
    integer :: n, i, j
    character(len=20), allocatable :: tmp_labels(:) 
-   character(len=:), allocatable :: tmp_label
+   character(len=:), allocatable :: tmp_label, a_label
    n = convolution%n_a 
    call self%allocate_extended(bas%nsh, mol%nat, n)
    
@@ -325,79 +325,80 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
    call comp_norm_3(mol%nat, n, self%delta_dipm_e_xyz, self%delta_qm_e_xyz, self%delta_dipm_e, self%delta_qm_e)
    call comp_norm_3(mol%nat, n, self%delta_dipm_Z_xyz, self%delta_qm_Z_xyz, self%delta_dipm_Z, self%delta_qm_Z)
    allocate(self%dict_ext)
+   associate( dict => self%dict_ext)
    do j = 1, n
-      associate( dict => self%dict_ext)
-      tmp_label = "delta_q_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      a_label = adjustl(format_string(convolution%a(j), '(f12.2)')) 
+      tmp_label = "delta_q_A"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_partial_charge(:, j))
 
-      tmp_label = "delta_dipm_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_dipm_A"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_dipm(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_A_x", "delta_dipm_A_y", "delta_dipm_A_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_xyz(i, :, j))
          end do
       end if
       
-      tmp_label = "delta_qm_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_qm_A"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_qm(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_A_xx", "delta_qm_A_xy", "delta_qm_A_yy", "delta_qm_A_xz", "delta_qm_A_yz", "delta_qm_A_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_qm_xyz(i, :, j))
          end do
       end if
 
-      tmp_label = "delta_dipm_e"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_dipm_e"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_dipm_e(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_e_x", "delta_dipm_e_y", "delta_dipm_e_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_e_xyz(i, :, j))
          end do
       end if
 
-      tmp_label = "delta_qm_e"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_qm_e"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_qm_e(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_e_xx", "delta_qm_e_xy", "delta_qm_e_yy", "delta_qm_e_xz", "delta_qm_e_yz", "delta_qm_e_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_qm_e_xyz(i, :, j))
          end do
       end if
-      tmp_label = "delta_dipm_Z"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_dipm_Z"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_dipm_Z(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_Z_x", "delta_dipm_Z_y", "delta_dipm_Z_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_Z_xyz(i, :, j))
          end do
       end if
-      tmp_label = "delta_qm_Z"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+      tmp_label = "delta_qm_Z"//'_'//a_label
       call dict%add_entry(tmp_label, self%delta_qm_Z(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_Z_xx", "delta_qm_Z_xy", "delta_qm_Z_yy", "delta_qm_Z_xz", "delta_qm_Z_yz", "delta_qm_Z_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+            tmp_label = trim(tmp_labels(i))//'_'//a_label
             call dict%add_entry(tmp_label, self%delta_qm_Z_xyz(i, :, j))
          end do
       end if
-      end associate
    end do
+   end associate
 end subroutine
 
 subroutine allocate(self, nsh, nat)

@@ -84,7 +84,7 @@ subroutine populate_default_param(param)
       !> Return vectorial information additional to norm of the corresponding multipole moments
     param%xtbml_tensor = .true.
       !> Compute orbital energy based xtbml features
-    param%xtbml_orbital_energy = .false.
+    param%xtbml_orbital_energy = .true.
       !> Compute energy based features, necessary for partitioning weights
     param%xtbml_energy = .false.
       !> Compute extended feature i.e. do CN weigthed real space convolution
