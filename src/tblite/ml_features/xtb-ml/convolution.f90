@@ -25,11 +25,11 @@ module tblite_xtbml_convolution
     subroutine setup(self, mol)
         class(xtbml_convolution_type), intent(inout) :: self
         type(structure_type), intent(in) :: mol
-
-    
+ 
         call self%get_rcov(mol)
         call self%populate_inv_cn_array(mol%nat, mol%id, mol%xyz)
         if (.not.allocated(self%cn)) call self%compute_cn(mol)
+
     end subroutine
 
     subroutine compute_cn(self, mol)
@@ -39,6 +39,7 @@ module tblite_xtbml_convolution
         type(exp_ncoord_type) :: ncoord_exp
 
         call new_exp_ncoord(ncoord_exp, mol)
+        allocate(self%cn(mol%nat))
         call ncoord_exp%get_cn(mol, self%cn) 
     end subroutine
 

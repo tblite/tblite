@@ -267,10 +267,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call timer%pop
 
    if (allocated(calc%ml_features)) then
+      call timer%push("ML features")
       allocate(ml_dict)
       call calc%ml_features%compute(mol, wfn, ints, calc%bas, ccache, dcache, rcache&
       &, ctx, prlevel, ml_dict)
       call calc%ml_features%print_csv(mol, ml_dict)
+      call timer%pop()
    end if
 
    if (prlevel > 1) then
@@ -340,7 +342,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       integer :: it
       real(wp) :: ttime, stime
       character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "scc"]
+         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "ML features", "scc"]
       if (prlevel > 0) then
          ttime = timer%get("total")
          call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))

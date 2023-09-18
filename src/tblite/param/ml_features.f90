@@ -29,8 +29,9 @@ module tblite_param_ml_features
 
    public :: count
 
-   character(len=*), parameter :: k_xtbml = "xtbml", k_xtbmlgeometry = "geometry", k_xtbmldensity = "density", &
-      & k_xtbmlorbital = "orbital", k_xtbmlenergy = "energy", k_xtbmlconvolution = "convolution", k_xtbmla = "a", k_tensor = "tensorial-output"
+   character(len=*), parameter :: k_representation = "representation", k_xtbmlgeometry = "geometry", k_xtbmldensity = "density", &
+      & k_xtbmlorbital = "orbital", k_xtbmlenergy = "energy", k_xtbmlconvolution = "convolution", k_xtbmla = "a", &
+      & k_tensor = "tensorial-output", k_xtbml = "xtbml"
 
    !> Parametrization record specifying the dispersion model
    type, public, extends(serde_record) :: ml_features_record
@@ -89,70 +90,92 @@ subroutine load_from_toml(self, table, error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_array), pointer :: array
    type(toml_table), pointer :: child
-   integer :: stat, i
+   integer :: stat, i, stat2
+   character(len=:), allocatable :: method
 
-   if (.not.(table%has_key(k_xtbml))) then
-      call fatal_error(error, "Currently only xtbml fetaures are implemented.")
+   if (.not.(table%has_key(k_representation)) .and. .not.(table%has_key(k_xtbml))) then
+      call fatal_error(error, "You have to enter the desired representation as string.")
       return
    end if
 
-   call get_value(table, k_xtbml, child, requested=.false., stat=stat)
-   if (stat /= 0) then
-      call fatal_error(error, "Cannot read xtbml feaure table")
-      return
+   call get_value(table, k_representation, method, stat=stat)
+   if (stat == 0) then
+      select case(method)
+      case("xtbml")
+         self%ml_features = ml_features_method%xtbml
+      case default 
+         self%ml_features = 0
+      end select
+      child = table
+   else
+      call get_value(table, k_xtbml, child, requested=.false., stat=stat2)
+      if (stat2 == 0 .and. associated(child)) then 
+         self%ml_features = ml_features_method%xtbml
+      else
+         call fatal_error(error, "Cannot read representation, wether the representation key nor a known representation key has been found.")
+         return
+      end if
    end if
-   self%ml_features = ml_features_method%xtbml
-   if (self%ml_features == ml_features_method%xtbml) then
-    call get_value(child, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
-    if (stat /= 0) then
-        call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
-        return
-    end if
 
-    call get_value(child, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
-    if (stat /= 0) then
-        call fatal_error(error, "Cannot read entry for xtbml density based features, boolean expected")
-        return
-    end if
-    if (self%xtbml_convolution) then 
-        call get_value(child, k_tensor, self%xtbml_tensor, .false., stat=stat)
-        if (stat /= 0) then
-            call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
-            return
-        end if 
-    end if
+   select case(self%ml_features)
+   case(ml_features_method%xtbml)
 
-    call get_value(child, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
-    if (stat /= 0) then
-      call fatal_error(error, "Cannot read entry for xtbml orbital energy based features, boolean expected")
-    return
-    end if
+      call get_value(child, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
+         return
+      end if
 
-    call get_value(child, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
-    if (stat /= 0) then
-      call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
-    return
-    end if
+      call get_value(child, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for xtbml density based features, boolean expected")
+         return
+      end if
+      if (self%xtbml_density) then 
+         call get_value(child, k_tensor, self%xtbml_tensor, .false., stat=stat)
+         if (stat /= 0) then
+               call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
+               return
+         end if 
+      end if
 
-    call get_value(child, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
-    if (stat /= 0) then
-      call fatal_error(error, "Cannot read entry for xtbml convolution, boolean expected")
+      call get_value(child, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for xtbml orbital energy based features, boolean expected")
       return
-    end if
-    if (self%xtbml_convolution) then
-        call get_value(child, k_xtbmla, array, stat=stat)
-        if (stat /= 0) then
-            call fatal_error(error, "Cannot read entry for xtbml convolution scale array, array of real values expected")
-            return
-        end if
-        allocate(self%xtbml_a(len(array)))
-        do i=1, size(self%xtbml_a)
-         call get_value(array, i, self%xtbml_a(i))
-      end do
-   endif
-   end if
-   
-   
+      end if
+
+      call get_value(child, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
+      return
+      end if
+
+      call get_value(child, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for xtbml convolution, boolean expected")
+         return
+      end if
+      if (self%xtbml_convolution) then
+         if (child%has_key(k_xtbmla)) then
+            call get_value(child, k_xtbmla, array, stat=stat)
+            if (stat /= 0) then
+               call fatal_error(error, "Cannot read entry for xtbml convolution scale array, array of real values expected")
+               return
+            end if
+            allocate(self%xtbml_a(len(array)))
+            do i=1, size(self%xtbml_a)
+               call get_value(array, i, self%xtbml_a(i))
+            end do
+         else 
+            self%xtbml_a = [1.0_wp]
+         end if
+         write(*, *) self%xtbml_a
+      end if
+      
+   case default
+      call fatal_error(error, "The entered representation is not (yet) ")
+   end select
 end subroutine load_from_toml
 
 

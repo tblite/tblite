@@ -33,7 +33,7 @@ contains
         logical :: xtbml_geometry, xtbml_density, xtbml_convolution, xtbml_tensor
         
         type(xtbml_type), intent(inout) :: new_xtbml_model
-        write(*,*) param%xtbml_density
+        
         if (param%xtbml_geometry) allocate(new_xtbml_model%geom)
         if (param%xtbml_density) then
             allocate(new_xtbml_model%dens)
@@ -84,11 +84,16 @@ contains
         end if
 
         if (allocated(ml_model%conv)) then 
+
             if (allocated(ml_model%geom)) then
+                ml_model%conv%cn = ml_model%geom%cn_atom
+                call ml_model%conv%setup(mol)
                 associate(category => ml_model%geom)
                     call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
+            else
+                call ml_model%conv%setup(mol)
             end if
     
             if (allocated(ml_model%dens)) then

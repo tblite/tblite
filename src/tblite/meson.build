@@ -31,6 +31,7 @@ subdir('integral')
 subdir('io')
 subdir('lapack')
 subdir('mesh')
+subdir('ml_features')
 subdir('ncoord')
 subdir('output')
 subdir('param')
@@ -39,7 +40,7 @@ subdir('scf')
 subdir('solvation')
 subdir('wavefunction')
 subdir('xtb')
-subdir('xtb-ml')
+
 
 srcs += files(
   'adjlist.f90',

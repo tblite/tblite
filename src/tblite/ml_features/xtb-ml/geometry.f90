@@ -60,6 +60,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
 end subroutine
 
 subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+    use tblite_output_format, only : format_string
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
     type(structure_type), intent(in) :: mol
@@ -77,13 +78,18 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
     integer, intent(in) :: prlevel
     !> Convolution container
     type(xtbml_convolution_type) :: convolution
+    character(len=:), allocatable :: tmp_label
+    integer :: j
     allocate(self%dict_ext)
     allocate(self%delta_cn(mol%nat, convolution%n_a))
     convolution%cn = self%cn_atom 
     call get_delta_cn(mol%nat, self%cn_atom, mol%id, mol%xyz, self%delta_cn, convolution)
     self%n_features = self%n_features + ext_features
-
-    call self%dict_ext%add_entry("delta_CN", self%delta_cn) 
+    
+    do j = 1, convolution%n_a
+        tmp_label = "delta_CN"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+        call self%dict_ext%add_entry(tmp_label, self%delta_cn(:, j))
+    end do 
 end subroutine
 
 subroutine get_delta_cn(nat, cn, at, xyz, delta_cn, conv)
@@ -92,21 +98,22 @@ subroutine get_delta_cn(nat, cn, at, xyz, delta_cn, conv)
     type(xtbml_convolution_type) :: conv
     real(wp), intent(in) :: cn(nat), xyz(3, nat)
     real(wp), intent(out) :: delta_cn(nat, conv%n_a)
-    real(wp):: delta_cn_tmp(nat, conv%n_a), stime
     integer :: i, j, k
+    real(wp) :: result
     !> Convolution container
     
 
     delta_cn = 0.0_wp
     !$omp parallel do default(none) collapse(2)&
-    !$omp shared(nat, conv, cn)&
-    !$omp private(delta_cn,i,j,k)
+    !$omp shared(nat, conv, cn, delta_cn)&
+    !$omp private(i, j , k, result)
     do k = 1, conv%n_a
        do i = 1, nat
           do j = 1, nat
              if (i == j) cycle
+             result = cn(j)/conv%inv_cn_a(i, j, k)
              !$omp atomic
-             delta_cn(i, k) = delta_cn(i, k) + cn(j)/conv%inv_cn_a(i, j, k)
+             delta_cn(i, k) = delta_cn(i, k) + result
  
           end do
        end do

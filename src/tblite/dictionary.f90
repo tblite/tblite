@@ -386,7 +386,6 @@ subroutine add_1d(self, label, array)
    integer :: it
 
    call self%push(label, it)
-
    associate(record => self%record(it))
       record%array1 = array
    end associate

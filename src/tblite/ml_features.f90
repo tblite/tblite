@@ -34,20 +34,21 @@ subroutine new_ml_features_cli(self, config, error)
     select case(config)
     case("xtbml")
         block 
-            type(xtbml_type) :: tmp_ml
             type(ml_features_record) :: ml_param
             call populate_default_param(ml_param)
             call new_ml_features(self, ml_param)
         end block
     case default
         block
-            use tblite_toml, only : toml_error, toml_parse, toml_table
+            use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
             use tblite_param_ml_features, only : ml_features_record
             type(toml_table), allocatable :: table
-            integer :: io
+            integer :: io, stat
             type(ml_features_record) :: ml_param
             type(toml_error), allocatable :: t_error
+            type(toml_table), pointer :: child
             open(file=config, newunit=io, status="old")
+            
             call toml_parse(table, io, t_error)
             close(io)
             if (allocated(t_error)) then
@@ -58,7 +59,13 @@ subroutine new_ml_features_cli(self, config, error)
             if (allocated(error)) then
                 call fatal_error(error, "File name provided could not be parsed as a toml table")
             end if
-            call ml_param%load_from_toml(table, error)
+            call get_value(table, "ml-features", child, requested=.false., stat=stat)
+            
+            if (stat /= 0 .and. associated(child)) then
+              call fatal_error(error, "Could not find ml-features key in toml file. Be sure to include it")
+              return
+            end if
+            call ml_param%load_from_toml(child, error)
             
             call new_ml_features(self, ml_param) 
         end block
@@ -83,7 +90,7 @@ subroutine populate_default_param(param)
       !> Compute extended feature i.e. do CN weigthed real space convolution
     param%xtbml_convolution = .true.
       !> Scaling for logistic function, convolution over an array of values is supported
-    param%xtbml_a = (1.0_wp)
+    param%xtbml_a = [1.0_wp]
 
 end subroutine
 

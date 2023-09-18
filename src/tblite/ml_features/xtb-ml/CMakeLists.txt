@@ -18,11 +18,11 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/atomic_frontier_orbitals.f90"
-  "${dir}/functions.f90"
-  "${dir}/type.f90"
+  "${dir}/convolution.f90"
+  "${dir}/density.f90"
+  "${dir}/features.f90"
+  "${dir}/geometry.f90"
   "${dir}/xtbml.f90"
-  "${dir}/xtbml_xyz.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

@@ -14,12 +14,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+subdir('xtb-ml')
+
 srcs += files(
-  'convolution.f90',
-  'density.f90',
-  'features.f90',
-  'geometry.f90',
   'methods.f90',
   'type.f90',
-  'xtbml.f90',
 )

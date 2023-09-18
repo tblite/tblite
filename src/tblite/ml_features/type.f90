@@ -70,8 +70,11 @@ subroutine print_csv(self, mol, dict)
     allocate(tmp_array(n, mol%nat))
     do i=1, n
       call dict%get_label(i, tmp_label)
-      write(out, '(a)', advance="no") trim(tmp_label)//','
-      if (i == n) write(out, '(a)', advance="no") trim(tmp_label) 
+      if (i == n) then 
+        write(out, '(a)') trim(tmp_label)
+        cycle
+      end if
+      write(out, '(a)', advance="no") trim(tmp_label)//',' 
       call dict%get_entry(i, array)
       tmp_array(i, :) = array
     end do
@@ -81,8 +84,12 @@ subroutine print_csv(self, mol, dict)
     do j = 1, mol%nat
         write(out, '(i2,a)', advance="no") z_array(j), ','
         do i = 1, n
+            if (i == n) then 
+                write(out, '(f14.8)') tmp_array(i, j) 
+                cycle
+            end if
             write(out, '(f14.8,a)', advance="no") tmp_array(i, j), ','
-            if (i == n) write(out, '(f14.8)') tmp_array(i, j) 
+            
       end do
     end do
 
