@@ -9,6 +9,7 @@ module tblite_xtbml_geometry_based
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
+  use tblite_container, only : container_list
     implicit none
     private
 
@@ -30,7 +31,7 @@ contains
 
 
 
-subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
     use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -41,8 +42,10 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
     type(integral_type) :: integrals
     !> Single-point calculator
     type(basis_type), intent(in) :: bas
+    !> List of containers 
+    type(container_list), intent(inout) :: contain_list
     !> Container
-    type(container_cache), intent(inout) :: cache
+    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level
@@ -59,7 +62,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
     
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
     use tblite_output_format, only : format_string
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -70,8 +73,9 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
     type(integral_type) :: integrals
     !> Single-point calculator
     type(basis_type), intent(in) :: bas
+    type(container_list), intent(inout) :: contain_list
     !> Container
-    type(container_cache), intent(inout) :: cache
+    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level

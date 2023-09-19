@@ -8,6 +8,7 @@ module tblite_xtbml_feature_type
    use tblite_context , only : context_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_double_dictionary, only : double_dictionary_type
+  use tblite_container, only : container_list
    implicit none
    private
 
@@ -21,9 +22,9 @@ contains
 end type xtbml_feature_type
 
 abstract interface
-    subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
+    subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
         import :: wp, wavefunction_type, structure_type, integral_type, basis_type,&
-        & container_cache, context_type, xtbml_feature_type
+        & container_cache, context_type, xtbml_feature_type, container_list
         class(xtbml_feature_type), intent(inout) :: self
         !> Molecular structure data
         type(structure_type), intent(in) :: mol
@@ -33,16 +34,18 @@ abstract interface
         type(integral_type) :: integrals
         !> Single-point calculator
         type(basis_type), intent(in) :: bas
+        !> List of containers 
+        type(container_list), intent(inout) :: contain_list
         !> Container
-        type(container_cache), intent(inout) :: cache
+        type(container_cache), intent(inout) :: cache_list(:)
         !> Context type
         type(context_type),intent(inout) :: ctx
         !> Print Level
         integer, intent(in) :: prlevel
     end subroutine
-    subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+    subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
         import :: wp, wavefunction_type, structure_type, integral_type, basis_type,&
-        & container_cache, context_type, xtbml_feature_type, xtbml_convolution_type
+        & container_cache, context_type, xtbml_feature_type, xtbml_convolution_type, container_list
         class(xtbml_feature_type), intent(inout) :: self
         !> Molecular structure data
         type(structure_type), intent(in) :: mol
@@ -52,8 +55,10 @@ abstract interface
         type(integral_type) :: integrals
         !> Single-point calculator
         type(basis_type), intent(in) :: bas
+        !> List of containers 
+        type(container_list), intent(inout) :: contain_list
         !> Container
-        type(container_cache), intent(inout) :: cache
+        type(container_cache), intent(inout) :: cache_list(:)
         !> Context type
         type(context_type),intent(inout) :: ctx
         !> Print Level

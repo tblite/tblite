@@ -9,6 +9,7 @@ module tblite_xtbml_density_based
    use tblite_context , only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
+  use tblite_container, only : container_list
    implicit none
    private
 
@@ -64,7 +65,7 @@ contains
 
 
 
-subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
    use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles 
    class(xtbml_density_features_type), intent(inout) :: self
@@ -76,8 +77,9 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
    type(integral_type) :: integrals
    !> Single-point calculator
    type(basis_type), intent(in) :: bas
+   type(container_list), intent(inout) :: contain_list
    !> Container
-   type(container_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
@@ -220,7 +222,7 @@ subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh, nat)
    if (allocated(array_s)) deallocate(array_s)
    if (allocated(array_p)) deallocate(array_p)
    if (allocated(array_d)) deallocate(array_d)
-   allocate(array_s(nat), array_p(nat), array_d(nat))
+   allocate(array_s(nat), array_p(nat), array_d(nat), source= 0.0_wp)
    do i = 1, nat
       array_s(i) = shell_prop(nsh) !s shell always filled
       nsh = nsh + 1
@@ -282,7 +284,7 @@ subroutine resolve_xyz_shell(mult_xyz, array, at2nsh, nat)
    end do
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
    use tblite_output_format, only : format_string
    class(xtbml_density_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -293,8 +295,9 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
    type(integral_type) :: integrals
    !> Single-point calculator
    type(basis_type), intent(in) :: bas
+   type(container_list), intent(inout) :: contain_list
    !> Container
-   type(container_cache), intent(inout) :: cache
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level

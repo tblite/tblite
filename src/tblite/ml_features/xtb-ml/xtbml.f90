@@ -15,6 +15,8 @@ module tblite_xtbml_features
     use tblite_context, only : context_type
     use tblite_double_dictionary, only : double_dictionary_type
     use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
+    use tblite_container, only : container_list
+    use tblite_xtbml_energy_features, only : xtbml_energy_features_type
     implicit none
     private
     public :: xtbml_type, new_xtbml_features
@@ -22,6 +24,7 @@ module tblite_xtbml_features
         type(xtbml_geometry_features_type), allocatable :: geom
         type(xtbml_density_features_type), allocatable :: dens
         type(xtbml_orbital_features_type), allocatable :: orb
+        type(xtbml_energy_features_type), allocatable :: energy
         type(xtbml_convolution_type), allocatable :: conv
     contains
         procedure :: compute
@@ -42,6 +45,7 @@ contains
             new_xtbml_model%dens%return_xyz = param%xtbml_tensor
         end if
         if (param%xtbml_orbital_energy) allocate(new_xtbml_model%orb)
+        if (param%xtbml_energy) allocate(new_xtbml_model%energy)
         if (param%xtbml_convolution) then
             allocate(new_xtbml_model%conv)
             new_xtbml_model%conv%a = param%xtbml_a
@@ -50,7 +54,7 @@ contains
 
     end subroutine
 
-    subroutine compute(self, mol, wfn, integrals, bas, ccache, dcache, rcache, ctx, prlevel, dict)
+    subroutine compute(self, mol, wfn, integrals, bas, contain_list, cache_list, ctx, prlevel, dict)
         class(xtbml_type),intent(in) :: self
         !> Molecular structure data
         type(structure_type), intent(in) :: mol
@@ -62,10 +66,10 @@ contains
         type(basis_type), intent(in) :: bas
         !> Context container for writing to stdout
         type(context_type), intent(inout) :: ctx
+        type(container_list), intent(inout) :: contain_list
         !> Compute cache containers
-        type(container_cache),intent(inout) :: ccache, dcache, rcache
+        type(container_cache),intent(inout) :: cache_list(:)
         type(double_dictionary_type), intent(inout) :: dict
-        type(container_cache) :: void_cache
         integer :: prlevel
         type(xtbml_type) :: ml_model
 
@@ -73,21 +77,28 @@ contains
 
         if (allocated(ml_model%geom)) then
             associate(category => ml_model%geom)
-                call category%compute_features(mol, wfn, integrals, bas, void_cache, prlevel, ctx)
+                call category%compute_features(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
         end if
 
         if (allocated(ml_model%dens)) then
             associate(category => ml_model%dens)
-                call category%compute_features(mol, wfn, integrals, bas, void_cache, prlevel, ctx)
+                call category%compute_features(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
         end if
 
         if (allocated(ml_model%orb)) then
             associate(category => ml_model%orb)
-                call category%compute_features(mol, wfn, integrals, bas, void_cache, prlevel, ctx)
+                call category%compute_features(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
+                dict = dict + category%dict
+            end associate
+        end if
+
+        if (allocated(ml_model%energy)) then
+            associate(category => ml_model%energy)
+                call category%compute_features(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
         end if
@@ -98,7 +109,7 @@ contains
                 ml_model%conv%cn = ml_model%geom%cn_atom
                 call ml_model%conv%setup(mol)
                 associate(category => ml_model%geom)
-                    call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
+                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
             else
@@ -107,14 +118,14 @@ contains
     
             if (allocated(ml_model%dens)) then
                 associate(category => ml_model%dens)
-                    call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
+                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
             end if
 
             if (allocated(ml_model%orb)) then
                 associate(category => ml_model%orb)
-                    call category%compute_extended(mol, wfn, integrals, bas, void_cache, prlevel, ctx, ml_model%conv)
+                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
             end if

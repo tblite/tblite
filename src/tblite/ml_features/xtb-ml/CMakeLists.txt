@@ -21,6 +21,7 @@ list(
   "${dir}/atomic_frontier_orbital.f90"
   "${dir}/convolution.f90"
   "${dir}/density.f90"
+  "${dir}/energy.f90"
   "${dir}/features.f90"
   "${dir}/geometry.f90"
   "${dir}/orbital_energy.f90"

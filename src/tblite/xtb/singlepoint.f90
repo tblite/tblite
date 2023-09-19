@@ -26,7 +26,7 @@ module tblite_xtb_singlepoint
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
-   use tblite_container, only : container_cache
+   use tblite_container, only : container_cache, container_list, container_type
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
@@ -44,6 +44,8 @@ module tblite_xtb_singlepoint
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
    use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_container_list, only : cache_list
+   use tblite_ml_features_collect_containers, only : collect_containers_caches
    implicit none
    private
 
@@ -99,7 +101,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
-   type(double_dictionary_type), allocatable :: dict
    type(container_cache) :: ccache, dcache, icache, hcache, rcache
    class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
@@ -108,6 +109,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
+   type(cache_list), pointer :: cach_list
+   type(container_list), allocatable :: contain_list
+   class(container_type), allocatable :: tmp_container
    integer :: iscf, spin
 
    call timer%push("total")
@@ -268,10 +272,13 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%ml_features)) then
       call timer%push("ML features")
+      call collect_containers_caches(calc%repulsion, rcache, calc%coulomb, ccache, calc%halogen, hcache, &
+      calc%dispersion, dcache, calc%interactions, icache, contain_list, cach_list)
       allocate(ml_dict)
-      call calc%ml_features%compute(mol, wfn, ints, calc%bas, ccache, dcache, rcache&
-      &, ctx, prlevel, ml_dict)
+      call calc%ml_features%compute(mol, wfn, ints, calc%bas, contain_list, cach_list%list,&
+      & ctx, prlevel, ml_dict)
       call calc%ml_features%print_csv(mol, ml_dict)
+      deallocate(contain_list)
       call timer%pop()
    end if
 

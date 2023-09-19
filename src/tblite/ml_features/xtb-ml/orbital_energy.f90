@@ -11,6 +11,7 @@ module tblite_xtbml_orbital_energy
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
+  use tblite_container, only : container_list
    implicit none
    private
 
@@ -53,7 +54,7 @@ end subroutine
 subroutine allocate_extended(self, nat, n_a)
   class(xtbml_orbital_features_type) :: self
   integer :: nat, n_a
-
+  
   allocate(self%delta_chempot(nat, n_a), source=0.0_wp)
   allocate(self%delta_egap(nat, n_a), source=0.0_wp)
   allocate(self%delta_eluao(nat, n_a), source=0.0_wp)
@@ -61,7 +62,7 @@ subroutine allocate_extended(self, nat, n_a)
 
 end subroutine
 
-subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
   class(xtbml_orbital_features_type), intent(inout) :: self
   !> Molecular structure data
   type(structure_type), intent(in) :: mol
@@ -71,8 +72,10 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
   type(integral_type) :: integrals
   !> Single-point calculator
   type(basis_type), intent(in) :: bas
+  !> List of containers 
+  type(container_list), intent(inout) :: contain_list
   !> Container
-  type(container_cache), intent(inout) :: cache
+  type(container_cache), intent(inout) :: cache_list(:)
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
@@ -121,11 +124,10 @@ subroutine compute_features(self, mol, wfn, integrals, bas, cache, prlevel, ctx)
   end associate
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx, convolution)
-  use tblite_output_format, only : format_string
- 
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
+  use tblite_output_format, only : format_string 
   class(xtbml_orbital_features_type), intent(inout) :: self
-  !> Molecular structure data
+   !> Molecular structure data
   type(structure_type), intent(in) :: mol
   !> Wavefunction strcuture data
   type(wavefunction_type), intent(in) :: wfn
@@ -133,14 +135,17 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
   type(integral_type) :: integrals
   !> Single-point calculator
   type(basis_type), intent(in) :: bas
+  !> List of containers 
+  type(container_list), intent(inout) :: contain_list
   !> Container
-  type(container_cache), intent(inout) :: cache
+  type(container_cache), intent(inout) :: cache_list(:)
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
   integer, intent(in) :: prlevel
   !> Convolution container
   type(xtbml_convolution_type) :: convolution
+
   integer :: n, i
   character(len=:), allocatable :: a_label
   real(wp), allocatable :: beta(:, :, :)
@@ -166,10 +171,10 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, cache, prlevel, ctx,
   associate( dict => self%dict_ext)
   do i = 1, n
     a_label = adjustl(format_string(convolution%a(i), '(f12.2)')) 
-    call dict%add_entry("delta_gap"//"_"//a_label, self%delta_egap)
-    call dict%add_entry("delta_chem_pot"//"_"//a_label, self%delta_chempot)
-    call dict%add_entry("delta_HOAO"//"_"//a_label, self%delta_ehoao) 
-    call dict%add_entry("delta_LUAO"//"_"//a_label, self%delta_eluao)
+    call dict%add_entry("delta_gap"//"_"//a_label, self%delta_egap(:, i))
+    call dict%add_entry("delta_chem_pot"//"_"//a_label, self%delta_chempot(:, i))
+    call dict%add_entry("delta_HOAO"//"_"//a_label, self%delta_ehoao(:, i)) 
+    call dict%add_entry("delta_LUAO"//"_"//a_label, self%delta_eluao(:, i))
   end do
   end associate
 end subroutine

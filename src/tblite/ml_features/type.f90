@@ -10,6 +10,7 @@ module tblite_ml_features_type
     use tblite_container, only : container_cache
     use tblite_results, only : results_type
     use tblite_context, only : context_type
+   use tblite_container, only : container_list
     implicit none
     private
     public :: ml_features_type
@@ -26,7 +27,7 @@ end type
 
 contains
 
-    subroutine compute(self, mol, wfn, integrals, bas, ccache, dcache, rcache, ctx, prlevel, dict)
+    subroutine compute(self, mol, wfn, integrals, bas, contain_list, cache_list, ctx, prlevel, dict)
             class(ml_features_type),intent(in) :: self
             !> Molecular structure data
             type(structure_type), intent(in) :: mol
@@ -37,8 +38,9 @@ contains
             type(basis_type), intent(in) :: bas
             !> Context container for writing to stdout
             type(context_type), intent(inout) :: ctx
+            type(container_list), intent(inout) :: contain_list
             !> Compute cache containers
-            type(container_cache),intent(inout) :: ccache, dcache, rcache
+            type(container_cache), intent(inout) :: cache_list(:)
             integer :: prlevel
             type(double_dictionary_type), intent(inout) :: dict
     end subroutine
@@ -70,13 +72,14 @@ subroutine print_csv(self, mol, dict)
     allocate(tmp_array(n, mol%nat))
     do i=1, n
       call dict%get_label(i, tmp_label)
+      call dict%get_entry(i, array)
+      tmp_array(i, :) = array
       if (i == n) then 
         write(out, '(a)') trim(tmp_label)
         cycle
       end if
       write(out, '(a)', advance="no") trim(tmp_label)//',' 
-      call dict%get_entry(i, array)
-      tmp_array(i, :) = array
+      
     end do
 
     

@@ -74,6 +74,10 @@ module tblite_coulomb_multipole
       procedure :: get_potential
       !> Get derivatives of anisotropic electrostatics
       procedure :: get_gradient
+      !> Get only AXC part of the anisotropic electrostatics
+      procedure :: get_AXC
+      !> Get xtb type AES energy
+      procedure :: get_energy_aes_xtb
    end type damped_multipole
 
    real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
@@ -213,6 +217,55 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
    call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
 end subroutine get_energy
+
+!> Get anisotropic electrostatic energy
+subroutine get_energy_aes_xtb(self, mol, cache, wfn, energies)
+   !> Instance of the multipole container
+   class(damped_multipole), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Electrostatic energy
+   real(wp), intent(inout) :: energies(:)
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+
+   real(wp), allocatable :: vs(:), vd(:, :), vq(:, :),mur(:)
+   real(wp),allocatable :: e01(:),e11(:),e02(:)
+   real(wp),allocatable :: t1(:)
+   type(coulomb_cache), pointer :: ptr
+   integer :: i,j
+
+   call view(cache, ptr)
+
+   allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
+
+   allocate(mur(mol%nat), source=0.0_wp)
+   allocate(e01(mol%nat),e11(mol%nat),e02(mol%nat),source=0.0_wp)
+   allocate(t1(mol%nat),source=0.0_wp)
+
+   call gemv(ptr%amat_sd, wfn%qat(:, 1), vd)
+   do i = 1,3
+      call gemv(ptr%amat_sd(i,:,:),wfn%dpat(i,:,1),mur,beta=1.0_wp, alpha=1.0_wp,trans="T")
+   end do
+
+   e01 = (mur)*wfn%qat(:,1) + sum(wfn%dpat(:, :, 1) * vd, 1)
+
+   vd = 0.0_wp
+   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
+   e11 = sum(wfn%dpat(:, :, 1) * vd, 1)
+
+   call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
+
+   do i = 1,6
+      call gemv(ptr%amat_sq(i,:,:),wfn%qpat(i,:,1),t1,beta=1.0_wp, alpha=1.0_wp,trans="T")
+   end do
+   e02 = t1*wfn%qat(:,1) + sum(wfn%qpat(:, :, 1) * vq, 1)
+
+   energies(:) = energies + 0.5* e01 + e11 + 0.5_wp * e02
+
+end subroutine get_energy_aes_xtb
 
 !> Get multipolar anisotropic exchange-correlation kernel
 subroutine get_kernel_energy(mol, kernel, mpat, energies)
@@ -434,11 +487,11 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
    real(wp), intent(in) :: kdmp3
    !> Damping function for inverse cubic contributions
    real(wp), intent(in) :: kdmp5
-   !> Interation matrix for charges and dipoles
+   !> Interaction matrix for charges and dipoles
    real(wp), intent(inout) :: amat_sd(:, :, :)
-   !> Interation matrix for dipoles and dipoles
+   !> Interaction matrix for dipoles and dipoles
    real(wp), intent(inout) :: amat_dd(:, :, :, :)
-   !> Interation matrix for charges and quadrupoles
+   !> Interaction matrix for charges and quadrupoles
    real(wp), intent(inout) :: amat_sq(:, :, :)
 
    integer :: iat, jat
@@ -1132,5 +1185,19 @@ subroutine view(cache, ptr)
    end select
 end subroutine view
 
+subroutine get_AXC(self, mol, wfn, energies)
+   !> Instance of the multipole container
+   class(damped_multipole), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Electrostatic energy
+   real(wp), intent(inout) :: energies(:)
+
+   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
+   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
+
+end subroutine get_AXC
 
 end module tblite_coulomb_multipole

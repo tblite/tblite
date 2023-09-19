@@ -19,6 +19,7 @@ module tblite_double_dictionary
       integer :: n = 0
       type(double_record), allocatable :: record(:)
    contains
+      private
       generic, public :: initialize_entry => ini_label, ini_1d, ini_2d, ini_3d
       procedure :: ini_label
       procedure :: ini_1d
@@ -45,9 +46,9 @@ module tblite_double_dictionary
       procedure, public :: get_n_entries
       generic, public :: concatenate => concatenate_overwrite
       procedure :: concatenate_overwrite
-      generic :: assignment(=) => copy
+      generic, public :: assignment(=) => copy
       procedure :: copy
-      generic :: operator(+) => combine_dict
+      generic, public :: operator(+) => combine_dict
       procedure :: combine_dict
       generic, public :: remove_entry => remove_entry_label, remove_entry_index
       procedure :: remove_entry_label

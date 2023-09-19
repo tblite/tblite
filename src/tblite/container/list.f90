@@ -30,6 +30,7 @@ module tblite_container_list
    implicit none
    private
 
+   public :: taint
 
    !> Wrapped container type for creation of lists
    type :: container_node
@@ -63,6 +64,8 @@ module tblite_container_list
       procedure :: pop
       !> Information about the container list
       procedure :: info
+      !> get number of containers
+      procedure :: get_n_containers
    end type container_list
 
 
@@ -73,7 +76,7 @@ module tblite_container_list
 
 
    !> List of container chach instances
-   type :: cache_list
+   type, public :: cache_list
       !> Actual cache instances
       type(container_cache), allocatable :: list(:)
    end type cache_list
@@ -81,6 +84,12 @@ module tblite_container_list
 
 contains
 
+function get_n_containers(self) result(n)
+    !> Instance of the interaction container
+   class(container_list), intent(in) :: self
+   integer :: n
+   n = self%nc
+end function   
 
 !> Update container cache
 subroutine update(self, mol, cache)
