@@ -18,6 +18,7 @@ subdir('xtb-ml')
 
 srcs += files(
   'collect_containers.f90',
+  'convolution.f90',
   'methods.f90',
   'type.f90',
 )

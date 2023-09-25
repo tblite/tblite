@@ -36,6 +36,8 @@ module tblite_container_list
    type :: container_node
       !> Actual interaction container
       class(container_type), allocatable :: raw
+      !> container cache to along
+      type(container_cache), allocatable :: cache
    end type container_node
 
    !> List of interaction containers
@@ -75,7 +77,7 @@ module tblite_container_list
    end interface
 
 
-   !> List of container chach instances
+   !> List of container cache instances
    type, public :: cache_list
       !> Actual cache instances
       type(container_cache), allocatable :: list(:)
@@ -282,30 +284,37 @@ end function info
 
 
 !> Add a container
-subroutine push_back(self, cont)
+subroutine push_back(self, cont, cache)
    !> Instance of the container list
    class(container_list), intent(inout) :: self
    !> Container to be added
    class(container_type), allocatable, intent(inout) :: cont
-
+   !> Container cache, optional
+   type(container_cache), allocatable, optional :: cache 
    if (.not.allocated(self%list)) call resize(self%list)
 
    if (allocated(cont)) then
       if (self%nc >= size(self%list)) call resize(self%list)
       self%nc = self%nc + 1
       call move_alloc(cont, self%list(self%nc)%raw)
+      if (present(cache)) then
+         if (allocated(cache)) call move_alloc(cache, self%list(self%nc)%cache)
+      end if
    end if
+
 end subroutine push_back
 
 
 !> Add a container
-subroutine pop(self, cont, idx)
+subroutine pop(self, cont, idx, cache)
    !> Instance of the container list
    class(container_list), intent(inout) :: self
    !> Container to be removed
    class(container_type), allocatable, intent(out) :: cont
    !> Index to remove container from
    integer, intent(in), optional :: idx
+   !> Container cache, optional
+   type(container_cache), allocatable, optional :: cache 
 
    integer :: ic, pos
 
@@ -318,13 +327,14 @@ subroutine pop(self, cont, idx)
    if (pos <= 0) return
 
    call move_alloc(self%list(pos)%raw, cont)
-
+   if (present(cache)) then
+      if (allocated(self%list(pos)%cache)) call move_alloc(self%list(pos)%cache, cache)
+   end if
    self%nc = self%nc - 1
    do ic = pos, self%nc
       call move_alloc(self%list(ic+1)%raw, self%list(ic)%raw)
    end do
 end subroutine pop
-
 
 !> Reallocate list of containers
 pure subroutine resize_node(list, n)

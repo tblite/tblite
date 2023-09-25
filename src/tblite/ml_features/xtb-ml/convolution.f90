@@ -1,35 +1,43 @@
 module tblite_xtbml_convolution
     use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_ml_feature_convolution, only : convolution_type
    
   
     implicit none
     private
     real(wp) :: k1 = 16.0_wp
     public :: xtbml_convolution_type
-    type xtbml_convolution_type
+    type, extends(convolution_type) :: xtbml_convolution_type
         real(wp), allocatable :: rcov(:)
-        real(wp), allocatable :: inv_cn_a(:, :, :)
         real(wp), allocatable :: a(:)
         real(wp), allocatable :: cn(:)
         integer :: n_a
     contains
         procedure :: setup
-        procedure, private :: populate_inv_cn_array
+        procedure :: compute_kernel
+        procedure, private :: populate_kernel
         procedure, private :: get_rcov
         procedure, private :: compute_cn
     end type
+    character(len=*), parameter :: label = "CN-based convolution"
+
 
     contains
 
-    subroutine setup(self, mol)
+    subroutine setup(self)
+        class(xtbml_convolution_type), intent(inout) :: self
+        self%label = label
+    end subroutine    
+
+    subroutine compute_kernel(self, mol)
         class(xtbml_convolution_type), intent(inout) :: self
         type(structure_type), intent(in) :: mol
  
         call self%get_rcov(mol)
-        call self%populate_inv_cn_array(mol%nat, mol%id, mol%xyz)
+        call self%populate_kernel(mol%nat, mol%id, mol%xyz)
         if (.not.allocated(self%cn)) call self%compute_cn(mol)
-
+        
     end subroutine
 
     subroutine compute_cn(self, mol)
@@ -54,7 +62,7 @@ module tblite_xtbml_convolution
         self%rcov(:) = get_covalent_rad(mol%num)
     end subroutine
     
-    subroutine populate_inv_cn_array(self, nat, at, xyz)
+    subroutine populate_kernel(self, nat, at, xyz)
         class(xtbml_convolution_type) :: self
         integer, intent(in) :: nat, at(nat)
         real(wp), intent(in) :: xyz(:, :)
@@ -62,10 +70,10 @@ module tblite_xtbml_convolution
         integer :: i, j, k, n_a
         n_a = size(self%a)
     
-        if (allocated(self%inv_cn_a)) then
-           deallocate (self%inv_cn_a)
+        if (allocated(self%kernel)) then
+           deallocate (self%kernel)
         end if
-        allocate (self%inv_cn_a(nat, nat, n_a), source=0.0_wp)
+        allocate (self%kernel(nat, nat, n_a), source=0.0_wp)
         !$omp parallel do default(none) collapse(2)&
         !$omp shared(self, nat, at, xyz, n_a)&
         !$omp private(result,i,j,k)
@@ -74,13 +82,13 @@ module tblite_xtbml_convolution
               do j = 1, nat
                  !if (i == j) cycle
                  call inv_cn(self, nat, i, j, at, xyz, self%a(k), result)
-                 self%inv_cn_a(i, j, k) = result
+                 self%kernel(i, j, k) = result
               end do
            end do
         end do
         
      
-     end subroutine populate_inv_cn_array
+     end subroutine populate_kernel
     
     subroutine inv_cn(self, nat, a, b, at, xyz, dampening_fact, result)
         type(xtbml_convolution_type) :: self

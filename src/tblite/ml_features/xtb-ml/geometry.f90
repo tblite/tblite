@@ -15,23 +15,27 @@ module tblite_xtbml_geometry_based
 
     integer, parameter ::features = 1
     integer, parameter :: ext_features = 1
-    
+    character(len=23), parameter :: label = "geometry-based features"
 
 type, public, extends(xtbml_feature_type) :: xtbml_geometry_features_type
-    character(len=23) :: label = "geometry-based features"
+    
     real(wp), allocatable ::  cn_atom(:)
     real(wp), allocatable ::  delta_cn(:, :)
 
 contains
     procedure :: compute_features
     procedure :: compute_extended
+    procedure :: setup
 end type
 
 contains
 
+subroutine setup(self)
+    class(xtbml_geometry_features_type) :: self
+    self%label = label
+end subroutine
 
-
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
     use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -44,13 +48,12 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
     type(basis_type), intent(in) :: bas
     !> List of containers 
     type(container_list), intent(inout) :: contain_list
-    !> Container
-    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level
     integer, intent(in) :: prlevel
     type(exp_ncoord_type) :: ncoord_exp
+    
     self%n_features = self%n_features + features
     allocate(self%dict)
     allocate(self%cn_atom(mol%nat))
@@ -62,7 +65,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
     
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
     use tblite_output_format, only : format_string
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -74,8 +77,6 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
     !> Single-point calculator
     type(basis_type), intent(in) :: bas
     type(container_list), intent(inout) :: contain_list
-    !> Container
-    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level
@@ -115,7 +116,7 @@ subroutine get_delta_cn(nat, cn, at, xyz, delta_cn, conv)
        do i = 1, nat
           do j = 1, nat
              if (i == j) cycle
-             result = cn(j)/conv%inv_cn_a(i, j, k)
+             result = cn(j)/conv%kernel(i, j, k)
              !$omp atomic
              delta_cn(i, k) = delta_cn(i, k) + result
  

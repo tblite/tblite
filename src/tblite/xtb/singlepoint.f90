@@ -45,7 +45,7 @@ module tblite_xtb_singlepoint
       & get_hamiltonian_gradient
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_container_list, only : cache_list
-   use tblite_ml_features_collect_containers, only : collect_containers_caches
+   use tblite_ml_features_collect_containers, only : collect_containers_caches, distribute_cache
    implicit none
    private
 
@@ -101,7 +101,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
-   type(container_cache) :: ccache, dcache, icache, hcache, rcache
+   type(container_cache), allocatable :: ccache, dcache, icache, hcache, rcache
    class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
@@ -109,7 +109,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
-   type(cache_list), pointer :: cach_list
    type(container_list), allocatable :: contain_list
    class(container_type), allocatable :: tmp_container
    integer :: iscf, spin
@@ -141,6 +140,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%halogen)) then
       call timer%push("halogen")
+      allocate(hcache)
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
       if (prlevel > 1) &
@@ -151,6 +151,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%repulsion)) then
       call timer%push("repulsion")
+      allocate(rcache)
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
       if (prlevel > 1) &
@@ -161,6 +162,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%dispersion)) then
       call timer%push("dispersion")
+      allocate(dcache)
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
       if (prlevel > 1) &
@@ -171,6 +173,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%interactions)) then
       call timer%push("interactions")
+      allocate(icache)
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
       if (prlevel > 1) &
@@ -181,6 +184,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
    if (allocated(calc%coulomb)) then
+      allocate(ccache)
       call timer%push("coulomb")
       call calc%coulomb%update(mol, ccache)
       call timer%pop
@@ -273,11 +277,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (allocated(calc%ml_features)) then
       call timer%push("ML features")
       call collect_containers_caches(calc%repulsion, rcache, calc%coulomb, ccache, calc%halogen, hcache, &
-      calc%dispersion, dcache, calc%interactions, icache, contain_list, cach_list)
+      calc%dispersion, dcache, calc%interactions, icache, contain_list)
       allocate(ml_dict)
-      call calc%ml_features%compute(mol, wfn, ints, calc%bas, contain_list, cach_list%list,&
+      call calc%ml_features%compute(mol, wfn, ints, calc%bas, contain_list, &
       & ctx, prlevel, ml_dict)
-      call calc%ml_features%print_csv(mol, ml_dict)
+      call calc%ml_features%pack_res(mol, ml_dict, results)
+      if (prlevel > 1) then 
+         call calc%ml_features%print_csv(mol, ml_dict)
+      end if
+      call distribute_cache(rcache, ccache, hcache, dcache, icache, contain_list)
       deallocate(contain_list)
       call timer%pop()
    end if

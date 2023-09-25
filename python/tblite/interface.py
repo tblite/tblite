@@ -21,7 +21,7 @@ CFFI generated wrappers.
 """
 
 import numpy as np
-from typing import Optional, Any
+from typing import Any, Optional
 
 from . import library
 
@@ -239,6 +239,9 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "ml features": library.get_ml_features,
+        "xtbml weights": library.get_w_xtbml,
+        "ml labels": library.get_ml_labels,
     }
     _setter = {}
 
@@ -273,6 +276,9 @@ class Result:
          overlap-matrix         norb, norb  unitless
          hamiltonian-matrix     norb, norb  Hartree
          density-matrix         norb, norb  e
+         ml features            nfeat, nat  /
+         xtbml weights          nat         unitless
+         ml labels              nfeat       string
         ====================== =========== ==============
 
         Notes
@@ -434,6 +440,7 @@ class Calculator(Structure):
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
         "verbosity": library.set_calculator_verbosity,
+        "ml_features": library.set_calculator_ml_features,
     }
     _getter = {
         "angular-momenta": library.get_calculator_angular_momenta,
@@ -484,6 +491,7 @@ class Calculator(Structure):
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
          verbosity         Set verbosity of printout            1
+         xtbml             Set string of ml features to compute ""
         ================= ==================================== =================
 
         .. note::

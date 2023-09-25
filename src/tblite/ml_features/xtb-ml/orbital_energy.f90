@@ -14,9 +14,9 @@ module tblite_xtbml_orbital_energy
   use tblite_container, only : container_list
    implicit none
    private
-
+  character(len=*), parameter :: label = "orbital energy-based features"
    type, public, extends(xtbml_feature_type) :: xtbml_orbital_features_type
-      character(len=29) :: label = "orbital energy-based features"
+      
       real(wp),allocatable ::  response(:)
       real(wp),allocatable ::  egap(:)
       real(wp),allocatable ::  chempot(:)
@@ -32,10 +32,16 @@ module tblite_xtbml_orbital_energy
       procedure :: compute_features
       procedure :: compute_extended
       procedure, private :: allocate
-      procedure, private :: allocate_extended    
+      procedure, private :: allocate_extended
+      procedure :: setup 
     end type
 
 contains
+
+subroutine setup(self)
+  class(xtbml_orbital_features_type) :: self
+  self%label = label
+end subroutine
 
 subroutine allocate(self, nat)
   class(xtbml_orbital_features_type) :: self
@@ -62,7 +68,7 @@ subroutine allocate_extended(self, nat, n_a)
 
 end subroutine
 
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
   class(xtbml_orbital_features_type), intent(inout) :: self
   !> Molecular structure data
   type(structure_type), intent(in) :: mol
@@ -74,20 +80,21 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
   type(basis_type), intent(in) :: bas
   !> List of containers 
   type(container_list), intent(inout) :: contain_list
-  !> Container
-  type(container_cache), intent(inout) :: cache_list(:)
+  
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
   integer, intent(in) :: prlevel
-  logical :: print_afo
+  logical :: print_afo = .false.
   real(wp) :: focc_(2,size(wfn%focc))
   integer :: i, j
   real(wp) :: nel_
   call self%allocate(mol%nat)
-
+  self%label = label
 
   focc_ = 0.0_wp
+
+  if (prlevel > 2) print_afo = .true.
 
   if (size(wfn%nel(:)) > 1) then
     do j = 1,2
@@ -124,7 +131,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
   end associate
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
   use tblite_output_format, only : format_string 
   class(xtbml_orbital_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -137,8 +144,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
   type(basis_type), intent(in) :: bas
   !> List of containers 
   type(container_list), intent(inout) :: contain_list
-  !> Container
-  type(container_cache), intent(inout) :: cache_list(:)
+  
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
@@ -156,7 +162,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
 
   n=convolution%n_a
   allocate(beta(mol%nat, mol%nat, n))
-  call get_beta(mol%nat, n, mol%id, mol%xyz, beta, convolution%inv_cn_a)
+  call get_beta(mol%nat, n, mol%id, mol%xyz, beta, convolution%kernel)
 
   call get_chem_pot_ext(mol%nat, n, beta, self%chempot, self%delta_chempot)
   hl_gap=(wfn%emo(wfn%homo(1), 1)-wfn%emo(wfn%homo(1)+1, 1)) * autoev
@@ -179,10 +185,10 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
   end associate
 end subroutine
 
-subroutine get_beta(nat, n_a, at, xyz, beta, inv_cn_a)
+subroutine get_beta(nat, n_a, at, xyz, beta, kernel)
   intrinsic :: sum
   integer, intent(in) :: nat, at(nat), n_a
-  real(wp), intent(in) :: xyz(3, nat), inv_cn_a(nat, nat, n_a)
+  real(wp), intent(in) :: xyz(3, nat), kernel(nat, nat, n_a)
   real(wp) :: beta(nat, nat, n_a)
   real(wp) :: sigma_tot, sigma(nat, nat, n_a)
   real(wp) :: damp_func
@@ -191,7 +197,7 @@ subroutine get_beta(nat, n_a, at, xyz, beta, inv_cn_a)
   do k = 1, n_a
      do a = 1, nat
         do b = 1, nat
-           damp_func = inv_cn_a(a, b, k)
+           damp_func = kernel(a, b, k)
            sigma(a, b, k) = 1/damp_func
         end do
      end do

@@ -16,39 +16,74 @@ module tblite_ml_features_type
     public :: ml_features_type
 
 type, abstract :: ml_features_type
+    character(len=:), allocatable :: label 
     
 contains
     !setup container
     procedure :: compute
     procedure :: pack_res
     procedure :: print_csv
+    procedure :: info
     !print toml could be possible
 end type
 
 contains
 
-    subroutine compute(self, mol, wfn, integrals, bas, contain_list, cache_list, ctx, prlevel, dict)
-            class(ml_features_type),intent(in) :: self
-            !> Molecular structure data
-            type(structure_type), intent(in) :: mol
-            !> Wavefunction strcuture data
-            type(wavefunction_type), intent(in) :: wfn
-            !> integral container for dipole and quadrupole integrals for CAMMs
-            type(integral_type) :: integrals
-            type(basis_type), intent(in) :: bas
-            !> Context container for writing to stdout
-            type(context_type), intent(inout) :: ctx
-            type(container_list), intent(inout) :: contain_list
-            !> Compute cache containers
-            type(container_cache), intent(inout) :: cache_list(:)
-            integer :: prlevel
-            type(double_dictionary_type), intent(inout) :: dict
-    end subroutine
+subroutine compute(self, mol, wfn, integrals, bas, contain_list, ctx, prlevel, dict)
+    class(ml_features_type),intent(in) :: self
+    !> Molecular structure data
+    type(structure_type), intent(in) :: mol
+    !> Wavefunction strcuture data
+    type(wavefunction_type), intent(in) :: wfn
+    !> integral container for dipole and quadrupole integrals for CAMMs
+    type(integral_type) :: integrals
+    type(basis_type), intent(in) :: bas
+    !> Context container for writing to stdout
+    type(context_type), intent(inout) :: ctx
+    type(container_list), intent(inout) :: contain_list
+    integer :: prlevel
+    type(double_dictionary_type), intent(inout) :: dict
+end subroutine
 
+pure function info(self, verbosity, indent) result(str)
+   !> Instance of the interaction container
+   class(ml_features_type), intent(in) :: self
+   !> Verbosity level
+   integer, intent(in) :: verbosity
+   !> Indentation level
+   character(len=*), intent(in) :: indent
+   !> Information on the container
+   character(len=:), allocatable :: str
+
+   if (allocated(self%label)) then
+      str = self%label
+   else
+      str = "Unknown"
+   end if
+end function info
+
+subroutine pack_res(self, mol, dict, res)
+    class(ml_features_type),intent(in) :: self
+    type(structure_type), intent(in) :: mol
+    type(results_type), intent(inout) :: res
+    type(double_dictionary_type) :: dict 
+    integer :: i, n
+    real(wp), allocatable :: tmp_array(:)
+    character(len=:), allocatable :: tmp_label
+    !the partitioning weights are also included allthough they are stored seperately 
+    n = dict%get_n_entries()
+    res%n_features = n
+
+    allocate(res%ml_features(mol%nat, n))
+    allocate(res%ml_labels(res%n_features))
+
+    do i = 1, n
+        call dict%get_label(i, tmp_label)
+        res%ml_labels(i) = tmp_label
+        call dict%get_entry(i, tmp_array)
+        res%ml_features(:, i) = tmp_array 
+    end do
     
-subroutine pack_res(self, res)
-    class(ml_features_type),intent(inout) :: self
-    type(results_type) :: res
 end subroutine
 
 subroutine print_csv(self, mol, dict)

@@ -314,10 +314,66 @@ def _get_ao_matrix(getter):
     return with_allocation
 
 
+def _get_ml_features(getter):
+    """Correctly set allocation for matrix objects ml features before querying the getter"""
+
+    @functools.wraps(getter)
+    def with_allocation(res):
+        """Get a matrix property from the results object"""
+        _natoms = ffi.new("int *")
+        _nfeatures = ffi.new("int *")
+        error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+        error_check(lib.tblite_get_result_ml_n_features)(res, _nfeatures)
+        _mat = np.zeros((_nfeatures[0], _natoms[0]))
+        error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+        _mat = _mat.T
+        return _mat
+
+    return with_allocation
+
+
+def _get_w_xtbml(getter):
+    """Correctly set allocation for matrix objects w_xtbml before querying the getter"""
+
+    @functools.wraps(getter)
+    def with_allocation(res):
+        """Get a matrix property from the results object"""
+        _natoms = ffi.new("int *")
+        error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+        _mat = np.zeros((_natoms[0]))
+        error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+        _mat = _mat
+        return _mat
+
+    return with_allocation
+
+
+def _get_ml_labels(getter):
+    """Correctly set allocation for matrix objects ml features before querying the getter"""
+
+    @functools.wraps(getter)
+    def with_allocation(res):
+        """Get a matrix property from the results object"""
+        _nfeatures = ffi.new("int *")
+        error_check(lib.tblite_get_result_ml_n_features)(res, _nfeatures)
+        labels = list()
+        for i in range(1, _nfeatures[0] + 1):
+            _index = ffi.new("const int*", i)
+            _message = ffi.new("char[]", 512)
+            error_check(getter)(res, _message, ffi.NULL, _index)
+            labels.append(ffi.string(_message).decode())
+        return labels
+
+    return with_allocation
+
+
 get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients)
 get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
 get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
+get_ml_features = _get_ml_features(lib.tblite_get_result_ml_features)
+get_w_xtbml = _get_w_xtbml(lib.tblite_get_result_xtbml_weights)
+get_ml_labels = _get_ml_labels(lib.tblite_get_result_ml_labels)
 
 
 def _delete_calculator(calc) -> None:
@@ -390,6 +446,7 @@ set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_dam
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
+set_calculator_ml_features = context_check(lib.tblite_set_calculator_ml_features)
 
 
 @context_check
@@ -424,3 +481,8 @@ def calculator_push_back(ctx, calc, cont) -> None:
     ptr = ffi.new("tblite_container *")
     ptr[0] = cont
     lib.tblite_calculator_push_back(ctx, calc, ptr)
+
+def set_calculator_ml_features(ctx, calc, str):
+    """Set the string for ml features to be computed"""
+    _string = ffi.new("char[]", str.encode("ascii"))
+    lib.tblite_set_calculator_ml_features(ctx, calc, _string)

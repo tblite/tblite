@@ -377,7 +377,7 @@ subroutine add_ml_features(calc, mol, param, irc)
    !> Record identifiers
    integer, intent(in) :: irc(:)
 
-   if (allocated(param%ml_param)) call new_ml_features(calc%ml_features ,param%ml_param)
+   if (allocated(param%ml_param)) call new_ml_features(calc%ml_features, param%ml_param)
 end subroutine
 
 subroutine get_average(average_type, averager)
@@ -713,6 +713,11 @@ pure function info(self, verbosity, indent) result(str)
 
    if (allocated(self%interactions)) then
       str = str // nl // indent // self%interactions%info(verbosity, indent)
+   end if
+
+   if (allocated(self%ml_features)) then
+      str = str // nl // "ML features"
+      str = str // nl // indent // self%ml_features%info(verbosity, indent)
    end if
 end function info
 

@@ -11,20 +11,26 @@ module tblite_xtbml_energy_features
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
-  use tblite_container, only : container_list, container_type
+    use tblite_container, only : container_list, container_type
    implicit none
    private
-
+  character(len=*), parameter :: label = "energy-based features"
    type, public, extends(xtbml_feature_type) :: xtbml_energy_features_type
-      character(len=21) :: label = "energy-based features"
+      
     contains
       procedure :: compute_features
       procedure :: compute_extended
+      procedure :: setup
     end type
 
 contains
 
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
+subroutine setup(self)
+  class(xtbml_energy_features_type) :: self
+  self%label = label
+end subroutine
+
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
     use tblite_repulsion, only : tb_repulsion
     use tblite_xtb_coulomb, only : tb_coulomb
   use tblite_scf_iterator, only : get_electronic_energy, reduce
@@ -42,8 +48,8 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
   type(basis_type), intent(in) :: bas
   !> List of containers 
   type(container_list), intent(inout) :: contain_list
-  !> Container
-  type(container_cache), intent(inout) :: cache_list(:)
+  type(container_list), allocatable :: tmp_list 
+  type(container_cache), allocatable :: cache
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
@@ -51,35 +57,35 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
   type(d3_dispersion), allocatable :: d3
   type(d4_dispersion), allocatable :: d4
   class(container_type), allocatable :: cont
-  real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:)
+  real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:)
   integer :: i
-
+  self%label = label
   allocate(self%dict)
   
   allocate(e_ao(bas%nao), source=0.0_wp)
-  allocate(tmp_energy(mol%nat), source=0.0_wp)
+  allocate(tmp_energy(mol%nat), tot_energy(mol%nat),source=0.0_wp)
   call get_electronic_energy(integrals%hamiltonian, wfn%density, e_ao)
   call reduce(tmp_energy, e_ao, bas%ao2at)
-
+  allocate(tmp_list)
   call self%dict%add_entry("E_EHT", tmp_energy)
-
-  do i = 1, size(cache_list)
+tot_energy = tmp_energy
+  do i = 1, contain_list%get_n_containers()
     tmp_energy = 0.0_wp
-    call contain_list%pop(cont, 1)
+    call contain_list%pop(cont, cache=cache)
     select type(cont)
     type is (tb_repulsion)
-        call cont%update(mol, cache_list(i))
-        call cont%get_engrad(mol, cache_list(i), tmp_energy)
+        call cont%update(mol, cache)
+        call cont%get_engrad(mol, cache, tmp_energy)
         call self%dict%add_entry("E_rep", tmp_energy)
     type is (tb_coulomb)
-        call cont%update(mol, cache_list(i))
+        call cont%update(mol, cache)
         if (allocated(cont%es2)) then
-            call cont%es2%update(mol, cache_list(i))
-            call cont%es2%get_energy(mol, cache_list(i), wfn, tmp_energy)
+            call cont%es2%update(mol, cache)
+            call cont%es2%get_energy(mol, cache, wfn, tmp_energy)
         end if
         if (allocated(cont%es3)) then
-            call cont%es3%update(mol, cache_list(i))
-            call cont%es3%get_energy(mol, cache_list(i), wfn, tmp_energy)
+            call cont%es3%update(mol, cache)
+            call cont%es3%get_energy(mol, cache, wfn, tmp_energy)
         end if
         call self%dict%add_entry("E_ies_ixc", tmp_energy)
         if (allocated(cont%aes2)) then
@@ -87,47 +93,54 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
             call cont%aes2%get_AXC(mol, wfn, tmp_energy)
             call self%dict%add_entry("E_AXC", tmp_energy)
             tmp_energy = 0.0_wp 
-            call cont%aes2%get_energy_aes_xtb(mol, cache_list(i), wfn, tmp_energy)
+            call cont%aes2%get_energy_aes_xtb(mol, cache, wfn, tmp_energy)
             call self%dict%add_entry("E_AES", tmp_energy) 
         end if
     type is (halogen_correction)
-        call cont%update(mol, cache_list(i))
-        call cont%get_engrad(mol, cache_list(i), tmp_energy)
+        call cont%update(mol, cache)
+        call cont%get_engrad(mol, cache, tmp_energy)
         call self%dict%add_entry("E_HX", tmp_energy)
     type is (d3_dispersion)
         allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
-        call cont%update(mol, cache_list(i))
-        call cont%get_engrad(mol, cache_list(i), e_disp_tot)
-        write(*,*) cont%param%s9
+        call cont%update(mol, cache)
+        call cont%get_engrad(mol, cache, e_disp_tot)
+        
         allocate(d3)
         call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
-        call d3%update(mol, cache_list(i))
-        call d3%get_engrad(mol, cache_list(i), e_disp_ATM)
+        call d3%update(mol, cache)
+        call d3%get_engrad(mol, cache, e_disp_ATM)
         call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
         call self%dict%add_entry("E_disp3", e_disp_ATM) 
+        tmp_energy = e_disp_tot
     type is (d4_dispersion)
         allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
-        call cont%update(mol, cache_list(i))
-        call cont%get_engrad(mol, cache_list(i), e_disp_tot)
-        call cont%get_energy(mol, cache_list(i), wfn, e_disp_tot)
+        call cont%update(mol, cache)
+        call cont%get_engrad(mol, cache, e_disp_tot)
+        call cont%get_energy(mol, cache, wfn, e_disp_tot)
             
         allocate(d4)
         call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
-        call d4%update(mol, cache_list(i))
-        call d4%get_engrad(mol, cache_list(i), e_disp_ATM)
+        call d4%update(mol, cache)
+        call d4%get_engrad(mol, cache, e_disp_ATM)
         call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
         call self%dict%add_entry("E_disp3", e_disp_ATM)
+        tmp_energy = e_disp_tot
     class default
-        call cont%update(mol, cache_list(i))
-        call cont%get_engrad(mol, cache_list(i), tmp_energy)
-        call cont%get_energy(mol, cache_list(i), wfn, tmp_energy)
+        call cont%update(mol, cache)
+        call cont%get_engrad(mol, cache, tmp_energy)
+        call cont%get_energy(mol, cache, wfn, tmp_energy)
         call self%dict%add_entry(cont%info(0, ""), tmp_energy)
     end select
+    call tmp_list%push_back(cont, cache)
+    tot_energy = tot_energy + tmp_energy
   end do
+  contain_list = tmp_list
+  call self%dict%add_entry("E_tot", tot_energy)
+  call self%dict%add_entry("w_tot", tot_energy/sum(tot_energy))
 
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
   use tblite_output_format, only : format_string 
   class(xtbml_energy_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -140,8 +153,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
   type(basis_type), intent(in) :: bas
   !> List of containers 
   type(container_list), intent(inout) :: contain_list
-  !> Container
-  type(container_cache), intent(inout) :: cache_list(:)
+  
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level

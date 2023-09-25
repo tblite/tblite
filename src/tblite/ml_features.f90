@@ -35,9 +35,15 @@ subroutine new_ml_features_cli(self, config, error)
     case("xtbml")
         block 
             type(ml_features_record) :: ml_param
-            call populate_default_param(ml_param)
+            call populate_default_param(ml_param, .false.)
             call new_ml_features(self, ml_param)
         end block
+    case("xtbml_xyz")
+      block 
+        type(ml_features_record) :: ml_param
+        call populate_default_param(ml_param, .true.)
+        call new_ml_features(self, ml_param)
+      end block
     case default
         block
             use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
@@ -73,8 +79,9 @@ subroutine new_ml_features_cli(self, config, error)
     
 end subroutine
 
-subroutine populate_default_param(param)
+subroutine populate_default_param(param, tensor)
     type(ml_features_record), intent(inout) :: param    
+    logical, optional :: tensor
     param%ml_features = 1
 
       !> Compute geometry-based xtbml features
@@ -82,11 +89,15 @@ subroutine populate_default_param(param)
       !> Compute density-based xtbml features
     param%xtbml_density = .true.
       !> Return vectorial information additional to norm of the corresponding multipole moments
-    param%xtbml_tensor = .true.
+    if (present(tensor)) then 
+      param%xtbml_tensor = tensor
+    else
+      param%xtbml_tensor = .false.
+    end if
       !> Compute orbital energy based xtbml features
     param%xtbml_orbital_energy = .true.
       !> Compute energy based features, necessary for partitioning weights
-    param%xtbml_energy = .false.
+    param%xtbml_energy = .true.
       !> Compute extended feature i.e. do CN weigthed real space convolution
     param%xtbml_convolution = .true.
       !> Scaling for logistic function, convolution over an array of values is supported

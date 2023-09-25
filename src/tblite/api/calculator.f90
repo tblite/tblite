@@ -44,7 +44,7 @@ module tblite_api_calculator
       & new_xtb_calculator_api
    public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
-      & set_calculator_save_integrals_api
+      & set_calculator_save_integrals_api, set_calculator_ml_features_api
    public :: get_singlepoint_api
 
 
@@ -70,7 +70,7 @@ module tblite_api_calculator
    end type vp_calculator
 
 
-   logical, parameter :: debug = .false.
+   logical, parameter :: debug = .true.
 
 
 contains
@@ -352,6 +352,39 @@ subroutine set_calculator_save_integrals_api(vctx, vcalc, save_integrals) &
    calc%ptr%save_integrals = save_integrals /= 0
 end subroutine set_calculator_save_integrals_api
 
+
+subroutine set_calculator_ml_features_api(vctx, vcalc, charptr) &
+      & bind(C, name=namespace//"set_calculator_ml_features")
+   use tblite_api_utils, only : c_f_character
+   use tblite_ml_features, only : new_ml_features, ml_features_type
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   character(kind=c_char), intent(in) :: charptr(*)
+   type(error_type), allocatable :: error
+   integer :: max_length
+   character(len=:), allocatable :: f_char
+   class(ml_features_type), allocatable :: ml
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_ml_features"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   call c_f_character(charptr, f_char)
+   
+   f_char = trim(f_char)
+   call new_ml_features(ml, f_char, error)
+   call move_alloc(ml, calc%ptr%ml_features)
+
+end subroutine set_calculator_ml_features_api
 
 subroutine get_calculator_shell_count(vctx, vcalc, nsh) &
       & bind(C, name=namespace//"get_calculator_shell_count")

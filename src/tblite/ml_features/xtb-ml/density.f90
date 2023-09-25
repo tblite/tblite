@@ -12,10 +12,10 @@ module tblite_xtbml_density_based
   use tblite_container, only : container_list
    implicit none
    private
-
+   character(len=*), parameter :: label = "density-based features"
 
    type, public, extends(xtbml_feature_type) :: xtbml_density_features_type
-      character(len=22) :: label = "density-based features"
+      
       real(wp),allocatable ::  mulliken_shell(:)
       real(wp),allocatable ::  dipm_shell(:)
       real(wp),allocatable ::  qm_shell(:)
@@ -59,13 +59,17 @@ module tblite_xtbml_density_based
       procedure :: compute_extended
       procedure, private :: allocate
       procedure, private :: allocate_extended
+      procedure :: setup
    end type
 
 contains
 
+subroutine setup(self)
+   class(xtbml_density_features_type) :: self
+   self%label = label
+end subroutine
 
-
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
    use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles 
    class(xtbml_density_features_type), intent(inout) :: self
@@ -78,8 +82,6 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, cache_
    !> Single-point calculator
    type(basis_type), intent(in) :: bas
    type(container_list), intent(inout) :: contain_list
-   !> Container
-   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
@@ -284,7 +286,7 @@ subroutine resolve_xyz_shell(mult_xyz, array, at2nsh, nat)
    end do
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
    use tblite_output_format, only : format_string
    class(xtbml_density_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -296,8 +298,6 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, cache_
    !> Single-point calculator
    type(basis_type), intent(in) :: bas
    type(container_list), intent(inout) :: contain_list
-   !> Container
-   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
@@ -481,7 +481,7 @@ subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, conv, delta_partia
       do a = 1, nat
          do b = 1, nat
             !$omp atomic
-            delta_partial(a, k) = delta_partial(a, k) + atom_partial(b) / (conv%inv_cn_a(a, b, k) * (conv%cn(b)+1))
+            delta_partial(a, k) = delta_partial(a, k) + atom_partial(b) / (conv%kernel(a, b, k) * (conv%cn(b)+1))
                
          enddo
       enddo
@@ -541,7 +541,7 @@ subroutine get_delta_mm(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delta_
       do a = 1, nat
          do b = 1, nat
 
-            result = conv%inv_cn_a(a, b, k)
+            result = conv%kernel(a, b, k)
 
             r_ab = xyz(:, a) - xyz(:, b)
             
@@ -641,7 +641,7 @@ subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delt
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-            result = conv%inv_cn_a(a, b, k)
+            result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
             delta_dipm(:, a, k) = delta_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
@@ -691,7 +691,7 @@ subroutine get_delta_mm_p(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delt
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-            result = conv%inv_cn_a(a, b, k)
+            result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
 
             delta_dipm(:, a, k) = delta_dipm(:, a, k) + &
