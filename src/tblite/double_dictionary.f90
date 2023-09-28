@@ -40,6 +40,7 @@ module tblite_double_dictionary
       integer :: n = 0
       type(double_record), allocatable :: record(:)
    contains
+      private
       generic, public :: initialize_entry => ini_label, ini_1d, ini_2d, ini_3d
       procedure :: ini_label
       procedure :: ini_1d
@@ -57,7 +58,7 @@ module tblite_double_dictionary
       procedure :: get_1d_label
       procedure :: get_2d_label
       procedure :: get_3d_label
-      generic, public :: update_entry => update_1d, update_2d, update_3d
+      generic, public :: update => update_1d, update_2d, update_3d
       procedure :: update_1d
       procedure :: update_2d
       procedure :: update_3d
@@ -66,9 +67,9 @@ module tblite_double_dictionary
       procedure, public :: get_n_entries
       generic, public :: concatenate => concatenate_overwrite
       procedure :: concatenate_overwrite
-      generic :: assignment(=) => copy
+      generic, public :: assignment(=) => copy
       procedure :: copy
-      generic :: operator(+) => combine_dict
+      generic, public :: operator(+) => combine_dict
       procedure :: combine_dict
       generic, public :: remove_entry => remove_entry_label, remove_entry_index
       procedure :: remove_entry_label
@@ -124,12 +125,14 @@ subroutine copy(to, from)
    integer :: n_entries, i
    to%n = from%n
    if (allocated(to%record)) deallocate(to%record)
-   allocate(to%record(size(from%record)))
-   n_entries = from%get_n_entries()
+   if (from%get_n_entries() > 0) then 
+      allocate(to%record(size(from%record)))
+      n_entries = from%get_n_entries()
 
-   do i = 1, n_entries
-      to%record(i) = from%record(i)
-   end do
+      do i = 1, n_entries
+         to%record(i) = from%record(i)
+      end do
+   end if
 
 end subroutine
 
@@ -145,13 +148,11 @@ subroutine copy_record(to, from)
 end subroutine
 
 subroutine concatenate_overwrite(self, dict2)
-   class(double_dictionary_type) :: self
-   type(double_dictionary_type) :: dict2
-
-   type(double_dictionary_type) :: new_dict
-   integer :: it, i, n_entries
-
-   self = self + dict2
+   class(double_dictionary_type), intent(inout) :: self
+   type(double_dictionary_type), intent(in) :: dict2
+   type(double_dictionary_type) :: tmp_dict
+   tmp_dict = self + dict2
+   self = tmp_dict
 
 end subroutine
 
@@ -160,9 +161,7 @@ function combine_dict(self, dict2) result(new_dict)
    type(double_dictionary_type), intent(in) :: dict2
    type(double_dictionary_type) :: new_dict
    integer :: it, i, n_entries
-
    new_dict = self
-
    associate(dict => dict2)
       n_entries = dict%get_n_entries()
       do i = 1, n_entries
@@ -176,7 +175,7 @@ end function
 subroutine update_1d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:)
+   real(wp) :: array(:)
    integer :: it
 
    it = return_label_index(self, label)
@@ -185,7 +184,7 @@ subroutine update_1d(self, label, array)
          if (allocated(record%array1)) deallocate(record%array1)
          if (allocated(record%array2)) deallocate(record%array2)
          if (allocated(record%array3)) deallocate(record%array3)
-         call move_alloc(array, record%array1)
+         record%array1 = array
       end associate
    else
       return
@@ -195,7 +194,7 @@ end subroutine
 subroutine update_2d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:, :)
+   real(wp) :: array(:, :)
    integer :: it
 
    it = return_label_index(self, label)
@@ -204,7 +203,7 @@ subroutine update_2d(self, label, array)
          if (allocated(record%array1)) deallocate(record%array1)
          if (allocated(record%array2)) deallocate(record%array2)
          if (allocated(record%array3)) deallocate(record%array3)
-         call move_alloc(array, record%array2)
+         record%array2 = array
       end associate
    else
       return
@@ -214,7 +213,7 @@ end subroutine
 subroutine update_3d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:, :, :)
+   real(wp) :: array(:, :, :)
    integer :: it
 
    it = return_label_index(self, label)
@@ -223,7 +222,7 @@ subroutine update_3d(self, label, array)
          if (allocated(record%array1)) deallocate(record%array1)
          if (allocated(record%array2)) deallocate(record%array2)
          if (allocated(record%array3)) deallocate(record%array3)
-         call move_alloc(array, record%array3)
+         record%array3 = array
       end associate
    else
       return
@@ -483,7 +482,7 @@ pure subroutine resize(var, n)
 
    type(double_record), allocatable :: tmp(:)
    integer :: this_size, new_size
-   integer, parameter :: initial_size = 20
+   integer, parameter :: initial_size = 0
 
    if (allocated(var)) then
       this_size = size(var, 1)
@@ -495,7 +494,7 @@ pure subroutine resize(var, n)
    if (present(n)) then
       new_size = n
    else
-      new_size = this_size + this_size/2 + 1
+      new_size = this_size + 1
    end if
 
    allocate(var(new_size))
