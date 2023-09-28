@@ -49,7 +49,7 @@ srcs += files(
   'coulomb.f90',
   'cutoff.f90',
   'data.f90',
-  'dictionary.f90',
+  'double_dictionary.f90',
   'disp.f90',
   'lapack.f90',
   'ncoord.f90',

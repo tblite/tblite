@@ -52,7 +52,7 @@ list(
   "${dir}/coulomb.f90"
   "${dir}/cutoff.f90"
   "${dir}/data.f90"
-  "${dir}/dictionary.f90"
+  "${dir}/double_dictionary.f90"
   "${dir}/disp.f90"
   "${dir}/lapack.f90"
   "${dir}/ncoord.f90"
