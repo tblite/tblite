@@ -437,6 +437,7 @@ pure subroutine multipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, vec_diat
    real(wp), intent(in) :: intcut
    !> Transformation vector for the diatomic frame
    real(wp), intent(in) :: vec_diat_trafo(3)
+   !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    real(wp), intent(in) :: ksig, kpi, kdel
    !> Overlap integrals for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
@@ -446,8 +447,10 @@ pure subroutine multipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, vec_diat
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
    !> Quadrupole moment integrals for the given pair i  and j
    real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
-
+   !> Block overlap matrix as a technical intermediate for the diatomic frame
    real(wp) :: block_overlap(9,9)
+   !> Offset array for the block overlap matrix 
+   !> (number of AOs that appear before the current angular momentum)
    integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
 
    integer :: ip, jp, mli, mlj, l
@@ -799,10 +802,13 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
    real(wp), intent(out) :: qpint(:, :, :)
    !> Transformation vector for the diatomic frame
    real(wp) :: vec_diat_trafo(3)
+   !> Scaling factors for the diatomic frame for the three differnt bonding motifs
+   !> (sigma, pi, delta)
+   real(wp) :: ksig, kpi, kdel
 
    integer :: iat, jat, izp, jzp, itr, is, js
    integer :: ish, jsh, ii, jj, iao, jao, nao
-   real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
+   real(wp) :: r2, vec(3), cutoff2
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :), sscaledtmp(:)
 
    if (size(scal_fac,1) /= 3) then
