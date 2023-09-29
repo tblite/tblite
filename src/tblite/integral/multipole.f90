@@ -799,7 +799,7 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
                !> 3. Set up transformation matrix, transform the submatrix,
                !> scale the elements with the corresponding factor, transform back 
                ! trans_block_s = O^T * S * O
-               call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel)
+               ! call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel)
                ! (see 'optional (1.1)' above)
                ! trans_block_s = transpose(trans_block_s)
                !> 4. Fill the overlap_diat matrix with the back-transformed submatrix
