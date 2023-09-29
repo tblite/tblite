@@ -52,7 +52,7 @@ contains
    real(wp), parameter :: damp = 0.5_wp ! damping in response function (in eV)
    logical, intent(in) :: print
    type(timer_type) :: timer
-   logical, parameter :: debug = .false.
+   logical, parameter :: debug = .true.
    character(len=150)  :: tmp_str
    call timer%push("total")
    call timer%push("occupation a")
@@ -63,8 +63,8 @@ contains
    ! collect the atomic MO populations (alpha)
    ! we collect occ & virt separately (and allow for fractional occupation)
    !$omp parallel do default(private) schedule(runtime)&
-   !$omp shared( aoat,nao , s, C,focca,po,pv) &
-   !$omp private(ps,occa,jj,kk,virta,j,i,k)
+   !$omp shared(aoat, nao, s, C, focca, po, pv) &
+   !$omp private(ps, occa, jj, kk, virta, j, i, k)
    do i = 1, nao
       ! occ part
       occa = focca(i)

@@ -285,6 +285,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       if (prlevel > 1) then 
          call calc%ml_features%print_csv(mol, ml_dict)
       end if
+      call calc%ml_features%print_timer(prlevel, ctx)
       call distribute_cache(rcache, ccache, hcache, dcache, icache, contain_list)
       deallocate(contain_list)
       call timer%pop()

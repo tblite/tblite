@@ -60,7 +60,6 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
   real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:)
   integer :: i
   self%label = label
-  allocate(self%dict)
   
   allocate(e_ao(bas%nao), source=0.0_wp)
   allocate(tmp_energy(mol%nat), tot_energy(mol%nat),source=0.0_wp)

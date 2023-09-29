@@ -31,6 +31,8 @@
 *.out
 *.app
 
+test_xtbml
+
 # Build directories
 /build*/
 /_*/

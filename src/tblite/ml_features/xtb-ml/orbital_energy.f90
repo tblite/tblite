@@ -119,7 +119,6 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
     bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
     self%response, self%egap, self%chempot, self%ehoao_a, &
     self%eluao_a, self%ehoao_b, self%eluao_b, print_afo, ctx)
-  allocate(self%dict)
   associate(dict => self%dict)
     call dict%add_entry("response", self%response)
     call dict%add_entry("gap", self%egap)
@@ -173,7 +172,6 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
 
   call get_eluao_ext(mol%nat, n, self%delta_chempot, self%delta_egap, self%delta_eluao)
   
-  allocate(self%dict_ext)
   associate( dict => self%dict_ext)
   do i = 1, n
     a_label = adjustl(format_string(convolution%a(i), '(f12.2)')) 

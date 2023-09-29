@@ -15,7 +15,7 @@ module tblite_xtbml_feature_type
 type, public, abstract :: xtbml_feature_type
     integer :: n_features
     character(len=:), allocatable :: label
-    type(double_dictionary_type), allocatable :: dict, dict_ext
+    type(double_dictionary_type) :: dict, dict_ext
 contains
     procedure(compute_features), deferred :: compute_features
     procedure(compute_extended), deferred :: compute_extended

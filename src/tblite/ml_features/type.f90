@@ -11,6 +11,7 @@ module tblite_ml_features_type
     use tblite_results, only : results_type
     use tblite_context, only : context_type
    use tblite_container, only : container_list
+   use tblite_timer, only : timer_type, format_time
     implicit none
     private
     public :: ml_features_type
@@ -24,8 +25,11 @@ contains
     procedure :: pack_res
     procedure :: print_csv
     procedure :: info
+    procedure :: print_timer
     !print toml could be possible
 end type
+
+type(timer_type) :: timer
 
 contains
 
@@ -132,4 +136,19 @@ subroutine print_csv(self, mol, dict)
     end do
 
 end subroutine
+
+subroutine print_timer(self, prlevel, ctx)
+    !> Instance of the interaction container
+    class(ml_features_type), intent(in) :: self
+    integer :: prlevel
+    type(context_type) :: ctx
+    real(wp) :: ttime
+
+        if (prlevel > 1) then
+            ttime = timer%get("total")
+            call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))        
+            call ctx%message("")
+         end if
+end subroutine
+
 end module tblite_ml_features_type

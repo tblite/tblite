@@ -17,6 +17,8 @@ module tblite_xtbml_features
     use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
     use tblite_container, only : container_list
     use tblite_xtbml_energy_features, only : xtbml_energy_features_type
+    use tblite_timer, only : timer_type, format_time
+    use tblite_output_format, only : format_string
     implicit none
     private
     public :: xtbml_type, new_xtbml_features
@@ -30,8 +32,10 @@ module tblite_xtbml_features
         procedure :: compute
         procedure :: pack_res
         procedure :: info
+        procedure :: print_timer
     end type
     character(len=*), parameter :: label = "xtbml features"
+    type(timer_type) :: timer
 contains
 
 subroutine pack_res(self, mol, dict, res)
@@ -115,64 +119,79 @@ end subroutine
         integer :: prlevel
         type(xtbml_type) :: ml_model
 
+        call timer%push("total")
         ml_model = self
 
         if (allocated(ml_model%geom)) then
+            call timer%push("geometry") 
             associate(category => ml_model%geom)
                 call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
+            call timer%pop()
         end if
 
         if (allocated(ml_model%dens)) then
+            call timer%push("density")
             associate(category => ml_model%dens)
                 call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
+            call timer%pop()
         end if
 
         if (allocated(ml_model%orb)) then
+            call timer%push("orbital energy")
             associate(category => ml_model%orb)
                 call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
+            call timer%pop()
         end if
 
         if (allocated(ml_model%energy)) then
+            call timer%push("energy")
             associate(category => ml_model%energy)
                 call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
                 dict = dict + category%dict
             end associate
+            call timer%pop()
         end if
 
         if (allocated(ml_model%conv)) then 
 
             if (allocated(ml_model%geom)) then
+                call timer%push("geometry convolution")
                 ml_model%conv%cn = ml_model%geom%cn_atom
                 call ml_model%conv%compute_kernel(mol)
                 associate(category => ml_model%geom)
                     call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
+                call timer%pop()
             else
                 call ml_model%conv%compute_kernel(mol) 
             end if
     
             if (allocated(ml_model%dens)) then
+                call timer%push("density convolution")
                 associate(category => ml_model%dens)
                     call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
+                call timer%pop()
             end if
 
             if (allocated(ml_model%orb)) then
+                call timer%push("orbital energy convolution")
                 associate(category => ml_model%orb)
                     call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
                     dict = dict + category%dict_ext
                 end associate
+                call timer%pop()
             end if
         end if            
-
+        call timer%pop()
     end subroutine
 
 pure function info(self, verbosity, indent) result(str)
@@ -213,6 +232,32 @@ pure function info(self, verbosity, indent) result(str)
     if (allocated(self%conv)) then
         str = str // nl // self%conv%info(verbosity, category_indent)
     end if
- end function info
+end function info
+
+subroutine print_timer(self, prlevel, ctx)
+    !> Instance of the interaction container
+    class(xtbml_type), intent(in) :: self
+    integer :: prlevel
+    type(context_type) :: ctx
+    real(wp) :: ttime, stime
+    integer :: it
+    character(len=*), parameter :: labels(*) = [character(len=20):: &
+         & "geometry", "density", "orbital energy", "energy", "geometry convolution", "density convolution", "orbital energy convolution"]
+
+    
+
+    if (prlevel > 2) then
+        call ctx%message("ML features timing details:")
+        ttime = timer%get("total")
+        call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))        
+        do it = 1, size(labels)
+            stime = timer%get(labels(it))
+            if (stime <= epsilon(0.0_wp)) cycle
+            call ctx%message(" - "//labels(it)//format_time(stime) &
+                & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+        end do
+        call ctx%message("")
+    end if
+end subroutine
     
 end module tblite_xtbml_features
