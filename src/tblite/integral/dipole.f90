@@ -28,7 +28,7 @@ module tblite_integral_dipole
    implicit none
    private
 
-   public :: dipole_cgto, dipole_grad_cgto
+   public :: dipole_cgto, dipole_cgto_diat_scal, dipole_grad_cgto
    public :: get_dipole_integrals
    public :: maxl, msao
 
