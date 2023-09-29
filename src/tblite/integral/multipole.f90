@@ -423,6 +423,108 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
 end subroutine multipole_cgto
 
 
+pure subroutine multipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, vec_diat_trafo,  &
+& ksig, kpi, kdel, overlap, overlap_scaled, dpint, qpint)
+   !> Description of contracted Gaussian function on center i
+   type(cgto_type), intent(in) :: cgtoi
+   !> Description of contracted Gaussian function on center j
+   type(cgto_type), intent(in) :: cgtoj
+   !> Square distance between center i and j
+   real(wp), intent(in) :: r2
+   !> Distance vector between center i and j, ri - rj
+   real(wp), intent(in) :: vec(3)
+   !> Maximum value of integral prefactor to consider
+   real(wp), intent(in) :: intcut
+   !> Transformation vector for the diatomic frame
+   real(wp), intent(in) :: vec_diat_trafo(3)
+   real(wp), intent(in) :: ksig, kpi, kdel
+   !> Overlap integrals for the given pair i  and j
+   real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Scaled overlap integrals for the given pair i  and j
+   real(wp), intent(out) :: overlap_scaled(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Dipole moment integrals for the given pair i  and j
+   real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Quadrupole moment integrals for the given pair i  and j
+   real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
+
+   real(wp) :: block_overlap(9,9)
+   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
+
+   integer :: ip, jp, mli, mlj, l
+   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
+   real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
+   real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
+   real(wp) :: q3d(6, mlao(cgtoj%ang), mlao(cgtoi%ang))
+
+   s3d(:, :) = 0.0_wp
+   d3d(:, :, :) = 0.0_wp
+   q3d(:, :, :) = 0.0_wp
+
+   do ip = 1, cgtoi%nprim
+      do jp = 1, cgtoj%nprim
+         eab = cgtoi%alpha(ip) + cgtoj%alpha(jp)
+         oab = 1.0_wp/eab
+         est = cgtoi%alpha(ip) * cgtoj%alpha(jp) * r2 * oab
+         if (est > intcut) cycle
+         pre = exp(-est) * sqrtpi3*sqrt(oab)**3
+         rpi = -vec * cgtoj%alpha(jp) * oab
+         rpj = +vec * cgtoi%alpha(ip) * oab
+         do l = 0, cgtoi%ang + cgtoj%ang + 2
+            s1d(l) = overlap_1d(l, eab)
+         end do
+         cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
+         do mli = 1, mlao(cgtoi%ang)
+            do mlj = 1, mlao(cgtoj%ang)
+               call multipole_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
+                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
+                  & s1d, val, dip, quad)
+               s3d(mlj, mli) = s3d(mlj, mli) + cc*val
+               d3d(:, mlj, mli) = d3d(:, mlj, mli) + cc*dip
+               q3d(:, mlj, mli) = q3d(:, mlj, mli) + cc*quad
+            end do
+         end do
+      end do
+   end do
+
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
+   call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint)
+
+   ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
+   do mli = 1, msao(cgtoi%ang)
+      do mlj = 1, msao(cgtoj%ang)
+         tr = 0.5_wp * (qpint(1, mlj, mli) + qpint(3, mlj, mli) + qpint(6, mlj, mli))
+         qpint(1, mlj, mli) = 1.5_wp * qpint(1, mlj, mli) - tr
+         qpint(2, mlj, mli) = 1.5_wp * qpint(2, mlj, mli)
+         qpint(3, mlj, mli) = 1.5_wp * qpint(3, mlj, mli) - tr
+         qpint(4, mlj, mli) = 1.5_wp * qpint(4, mlj, mli)
+         qpint(5, mlj, mli) = 1.5_wp * qpint(5, mlj, mli)
+         qpint(6, mlj, mli) = 1.5_wp * qpint(6, mlj, mli) - tr
+      end do
+   end do
+
+   !> ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
+   !> Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
+   !> scale the elements with the corresponding factor,
+   !> transform them back and add them to the scaled overlap matrix
+   block_overlap = 0.0_wp
+   !> 1. Fill the 9x9 submatrix (initialized with 0's)
+   !> with the correct overlap matrix elements
+   block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
+     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+     & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
+   !> 2. Set up transformation matrix, transform the submatrix,
+   !> scale the elements with the corresponding factor, transform back 
+   !> according to: trans_block_s = O^T * S * O
+   call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
+   !> 3. Fill the overlap_scaled matrix with the back-transformed submatrix
+   overlap_scaled(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
+     & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
+     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
+   !> ----------------------------------------------------------------
+
+end subroutine multipole_cgto_diat_scal
+
 pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qpint, &
       & doverlap, ddpintj, dqpintj, ddpinti, dqpinti)
    !> Description of contracted Gaussian function on center i
@@ -699,11 +801,9 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
    real(wp) :: vec_diat_trafo(3)
 
    integer :: iat, jat, izp, jzp, itr, is, js
-   integer :: nao_ati, nao_atj, lbi, lbj, ubi, ubj
-   integer :: ish, jsh, ii, jj, iao, jao, nao, maxl_ish_jsh
+   integer :: ish, jsh, ii, jj, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
-   real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)
-   real(wp) :: block_overlap(9,9)
+   real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :), sscaledtmp(:)
 
    if (size(scal_fac,1) /= 3) then
       write(*,*) 'Error: scal_fac must have the dimension of 3, &
@@ -716,14 +816,14 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
    dpint(:, :, :) = 0.0_wp
    qpint(:, :, :) = 0.0_wp
 
-   allocate(stmp(msao(bas%maxl)**2), dtmp(3, msao(bas%maxl)**2), qtmp(6, msao(bas%maxl)**2))
+   allocate(stmp(msao(bas%maxl)**2), dtmp(3, msao(bas%maxl)**2), qtmp(6, msao(bas%maxl)**2), &
+      & sscaledtmp(msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
    !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint, qpint, scal_fac) &
-   !$omp private(r2, vec, stmp, dtmp, qtmp) &
+   !$omp private(r2, vec, stmp, dtmp, qtmp, sscaledtmp) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
-   !$omp private(nao_ati, nao_atj, lbi, lbj, ubi, ubj, maxl_ish_jsh, block_overlap) &
    !$omp private(ksig, kpi, kdel, vec_diat_trafo)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -737,26 +837,37 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
             if (r2 > cutoff2) cycle
             if (iat /= jat) then
                call relvec(vec, sqrt(r2), vec_diat_trafo)
+               !> Determine scaling factors from atom parameters
+               ksig = 2.0_wp / (1.0_wp / scal_fac(1,mol%num(mol%id(iat))) &
+               & + 1.0_wp / scal_fac(1,mol%num(mol%id(jat))) )
+               kpi = 2.0_wp / (1.0_wp / scal_fac(2,mol%num(mol%id(iat))) &
+               & + 1.0_wp / scal_fac(2,mol%num(mol%id(jat))) )
+               kdel = 2.0_wp / (1.0_wp / scal_fac(3,mol%num(mol%id(iat))) &
+               & + 1.0_wp / scal_fac(3,mol%num(mol%id(jat))) )
             end if
-            maxl_ish_jsh = 0
-            nao_ati = 0
             do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
-               nao_ati = nao_ati + bas%nao_sh(is+ish)
-               nao_atj = 0
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  nao_atj = nao_atj + bas%nao_sh(js+jsh)
-                  call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmp, qtmp)
+                  if (iat /= jat) then
+                     call multipole_cgto_diat_scal(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
+                        & r2, vec, bas%intcut, vec_diat_trafo, ksig, kpi, kdel, stmp, &
+                        & sscaledtmp, dtmp, qtmp)
+                  else
+                     call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
+                        & r2, vec, bas%intcut, stmp, dtmp, qtmp)
+                     sscaledtmp = stmp
+                  endif
 
-                  maxl_ish_jsh = max(maxl_ish_jsh, bas%cgto(ish, izp)%ang, bas%cgto(jsh, jzp)%ang)
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   !$omp simd collapse(2)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(jao + nao*(iao-1))
+
+                        overlap_scaled(jj+jao, ii+iao) = overlap_scaled(jj+jao, ii+iao) &
+                           & + sscaledtmp(jao + nao*(iao-1))
 
                         dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
                            & + dtmp(:, jao + nao*(iao-1))
@@ -769,45 +880,6 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
                end do
             end do
 
-            !> Transform 9x9 submatrix (in minimal basis case with s,p,d) to diatomic frame,
-            !> scale the elements with the corresponding factor,
-            !> transform them back and add them to the scaled overlap matrix
-
-            !> 1. Define elements of overlap that should be transformed (or copied back plain)
-            lbi = bas%iao_sh(is+1)+1
-            ubi = bas%iao_sh(is+1)+nao_ati
-            lbj = bas%iao_sh(js+1)+1
-            ubj = bas%iao_sh(js+1)+nao_atj
-            !> Conduct only for atoms of different type
-            if (iat /= jat) then
-               block_overlap = 0.0_wp
-               !> 2.1. Fill the 9x9 submatrix (initialized with 0's)
-               !> with the correct overlap matrix elements
-               block_overlap(1:nao_atj, 1:nao_ati) = overlap(lbj:ubj, lbi:ubi)
-               !> (optional) 2.2. Transpose the submatrix to correspond to MSINDO processing,
-               ! ### Transposing back and forth doesn't make a difference for the total overlap matrix
-               ! ### but it does for the comparison of submatrices with MSINDO
-               ! block_overlap = transpose(block_overlap)
-               !> 3.1. Determine scaling factors from atom parameters
-               ksig = 2.0_wp / (1.0_wp / scal_fac(1,mol%num(mol%id(iat))) &
-               & + 1.0_wp / scal_fac(1,mol%num(mol%id(jat))) )
-               kpi = 2.0_wp / (1.0_wp / scal_fac(2,mol%num(mol%id(iat))) &
-               & + 1.0_wp / scal_fac(2,mol%num(mol%id(jat))) )
-               kdel = 2.0_wp / (1.0_wp / scal_fac(3,mol%num(mol%id(iat))) &
-               & + 1.0_wp / scal_fac(3,mol%num(mol%id(jat))) )
-               
-               !> 3. Set up transformation matrix, transform the submatrix,
-               !> scale the elements with the corresponding factor, transform back 
-               ! trans_block_s = O^T * S * O
-               ! call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel)
-               ! (see 'optional (1.1)' above)
-               ! trans_block_s = transpose(trans_block_s)
-               !> 4. Fill the overlap_diat matrix with the back-transformed submatrix
-               overlap_scaled(lbj:ubj, lbi:ubi) = block_overlap(1:nao_atj, 1:nao_ati)
-            else
-               !> 5. Fill the overlap_scaled matrix with the plain overlap submatrix (no transformation)
-               overlap_scaled(lbj:ubj, lbi:ubi) = overlap(lbj:ubj, lbi:ubi)
-            endif
          end do
       end do
    end do

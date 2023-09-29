@@ -611,8 +611,6 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
    integer :: ish, jsh, ii, jj, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2, ksig, kpi, kdel
    real(wp), allocatable :: stmp(:), dtmp(:, :), sscaledtmp(:)
-   !> Offset in nao for the different angular momentum types
-   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
 
    if (size(scal_fac,1) /= 3) then
       write(*,*) 'Error: scal_fac must have the dimension of 3, &
@@ -629,7 +627,7 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint, scal_fac, offset_nao) &
+   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint, scal_fac) &
    !$omp private(r2, vec, stmp, dtmp, sscaledtmp) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
    !$omp private(ksig, kpi, kdel, vec_diat_trafo)
