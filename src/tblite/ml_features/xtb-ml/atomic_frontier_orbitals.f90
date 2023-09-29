@@ -62,9 +62,9 @@ contains
 
    ! collect the atomic MO populations (alpha)
    ! we collect occ & virt separately (and allow for fractional occupation)
-   !$omp parallel do default(private) schedule(runtime)&
-   !$omp shared(aoat, nao, s, C, focca, po, pv) &
-   !$omp private(ps, occa, jj, kk, virta, j, i, k)
+   !$omp parallel do default(private) schedule(runtime) reduction(+:po)&
+   !$omp shared(aoat, nao, s, C, focca) &
+   !$omp private(ps, occa, jj, kk, j, i, k)
    do i = 1, nao
       ! occ part
       occa = focca(i)
@@ -74,16 +74,19 @@ contains
             do k = 1, j - 1
                kk = aoat(k)
                ps = s(k, j)*C(j, i)*C(k, i)*occa
-               !$omp atomic
                po(kk, i) = po(kk, i) + ps
-               !$omp atomic
                po(jj, i) = po(jj, i) + ps
             end do
             ps = s(j, j)*C(j, i)*C(j, i)*occa
-            !$omp atomic
             po(jj, i) = po(jj, i) + ps
          end do
       end if
+   end do
+   
+   !$omp parallel do default(private) schedule(runtime) reduction(+:pv)&
+   !$omp shared(aoat, nao, s, C, focca) &
+   !$omp private(ps, jj, kk, virta, j, i, k)
+   do i = 1, nao
       virta = (1.0_wp - focca(i))
       if (virta .gt. 0.0001_wp) then
          do j = 1, nao
@@ -91,18 +94,14 @@ contains
             do k = 1, j - 1
                kk = aoat(k)
                ps = s(k, j)*C(j, i)*C(k, i)*virta
-               !$omp atomic
                pv(kk, i) = pv(kk, i) + ps
-               !$omp atomic
                pv(jj, i) = pv(jj, i) + ps
             end do
             ps = s(j, j)*C(j, i)*C(j, i)*virta
-            !$omp atomic
             pv(jj, i) = pv(jj, i) + ps
          end do
       end if
    end do
-   !$omp end parallel do
 
    call timer%pop()
 
@@ -222,9 +221,10 @@ contains
    call timer%push("occupation b")
    po = 0.0_wp
    pv = 0.0_wp
-   !$omp parallel do default(private) &
-   !$omp shared( aoat,nao , s, C,foccb,po,pv) &
-   !$omp private(ps,occb,jj,kk,virtb,j,i,k)
+   
+   !$omp parallel do default(private) schedule(runtime) reduction(+:po)&
+   !$omp shared(aoat, nao, s, C, foccb) &
+   !$omp private(ps, occb, jj, kk, j, i, k)
    do i = 1, nao
       ! occ part
       occb = foccb(i)
@@ -234,37 +234,35 @@ contains
             do k = 1, j - 1
                kk = aoat(k)
                ps = s(k, j)*C(j, i)*C(k, i)*occb
-               !$omp atomic
                po(kk, i) = po(kk, i) + ps
-               !$omp atomic
                po(jj, i) = po(jj, i) + ps
             end do
-            ps = s(j, j)*C(j, i)*C(k, i)*occb
-            !$omp atomic
+            ps = s(j, j)*C(j, i)*C(j, i)*occb
             po(jj, i) = po(jj, i) + ps
          end do
       end if
-      !virt part
+   end do
+   
+   !$omp parallel do default(private) schedule(runtime) reduction(+:pv)&
+   !$omp shared(aoat, nao, s, C, foccb) &
+   !$omp private(ps, jj, kk, virtb, j, i, k)
+   do i = 1, nao
       virtb = (1.0_wp - foccb(i))
       if (virtb .gt. 0.0001_wp) then
          do j = 1, nao
             jj = aoat(j)
             do k = 1, j - 1
                kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*virtb
-               !$omp atomic
+               ps = s(k, j)*C(j, i)*C(k, i)*virta
                pv(kk, i) = pv(kk, i) + ps
-               !$omp atomic
                pv(jj, i) = pv(jj, i) + ps
             end do
-            ps = s(j, j)*C(j, i)*C(k, i)*virtb
-            !$omp atomic
+            ps = s(j, j)*C(j, i)*C(j, i)*virta
             pv(jj, i) = pv(jj, i) + ps
          end do
       end if
    end do
-   !$omp end parallel do
-
+   
    call timer%pop()
    call timer%push("prep b")
 
@@ -348,7 +346,7 @@ contains
          chempot(m) = 0.0_wp
          do j = 1, nao
             occb = foccb(j)
-            if (occa .gt. 0.0001_wp) then
+            if (occb .gt. 0.0001_wp) then
                tmp = 1.0_wp/((eps(j))**2 + damp**2)
                tmp2 = eps(j)
                tmp3 = 1.0_wp/(1.0d100 - eps(j) + damp)
