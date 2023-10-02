@@ -28,7 +28,7 @@ module tblite_integral_overlap
    implicit none
    private
 
-   public :: overlap_cgto, overlap_grad_cgto
+   public :: overlap_cgto, overlap_cgto_diat_scal, overlap_grad_cgto
    public :: get_overlap
    public :: maxl, msao
 
@@ -563,9 +563,8 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
    real(wp), allocatable :: stmp(:), sscaledtmp(:)
 
    if (size(scal_fac,1) /= 3) then
-      write(*,*) 'Error: scal_fac must have the dimension of 3, &
+      error stop 'Error: scal_fac must have the dimension of 3, &
       & since it covers the three different types of bonding'
-      stop
    end if
 
    overlap(:, :) = 0.0_wp
@@ -603,6 +602,8 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
+                  stmp = 0.0_wp
+                  sscaledtmp = 0.0_wp
                   if (iat /= jat) then
                      call overlap_cgto_diat_scal(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                         & r2, vec, bas%intcut, vec_diat_trafo, & 
@@ -618,7 +619,7 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, msao(bas%cgto(jsh, jzp)%ang)
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
-                        & + stmp(jao + nao*(iao-1))
+                           & + stmp(jao + nao*(iao-1))
                         
                         overlap_scaled(jj+jao, ii+iao) = overlap_scaled(jj+jao, ii+iao) &
                            & + sscaledtmp(jao + nao*(iao-1))

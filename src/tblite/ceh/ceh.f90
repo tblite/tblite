@@ -35,7 +35,6 @@ module tblite_ceh_ceh
    use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
    & dipole_cgto_diat_scal, maxl, msao
    use tblite_integral_diat_trafo, only: relvec
-   use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
    & get_alpha_beta_occupation
@@ -637,12 +636,17 @@ contains
    end subroutine get_occupation
 
    subroutine get_hamiltonian(calc, mol, overlap, dipole, hamiltonian)
+      !> CEH Hamiltonian type
       type(ceh_hamiltonian)               :: self
+      !> CEH calculator
       type(ceh_calculator), intent(inout) :: calc
+      !> Molecular structure type
       type(structure_type), intent(in)    :: mol
+      !> Overlap integral matrix
       real(wp), allocatable, intent(out)  :: overlap(:,:)
       !> Dipole moment integral matrix
       real(wp), allocatable, intent(out)  :: dipole(:, :, :)
+      !> Full Hamiltonian matrix
       real(wp), allocatable, intent(out)  :: hamiltonian(:,:)
       !> Scaling factors for the diatomic frame for the three differnt bonding motifs
       !> (sigma, pi, delta)
@@ -697,15 +701,15 @@ contains
       & overlap_scaled_tmp(msao(calc%bas%maxl)**2), & 
       & dipole_tmp(3, msao(calc%bas%maxl)**2))
 
-      !> define off-diagonal elements of CEH Hamiltonian
+      !> define effective CEH Hamiltonian
       do iat = 1, mol%nat
       izp = mol%id(iat)
          offset_iat = calc%bas%ish_at(iat)
          do ish = 1, calc%bas%nsh_at(iat)
-            !> loop over all AOs in atoms before current atom
-            !> AO loop over ish (-> iao) is done in the individual loops
-            !> to simplifiy overlap integral calculation
 
+            !> loop over all AOs in atoms before current atom
+            !> -- AO loop over ish-AOs (-> iao) is done in the individual loops
+            !> -- to simplifiy overlap integral calculation
             do jat = 1,iat-1
                jzp = mol%id(jat)
                offset_jat = calc%bas%ish_at(jat)
@@ -742,10 +746,6 @@ contains
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         l = calc%bas%iao_sh(jsh + offset_jat) + jao
                         kl = jao + nao*(iao-1)
-                        !> Shift dipole operator from Ket function (center i) 
-                        !> to Bra function (center j), to be able to calculate it only once
-                        call shift_operator(vec, overlap_tmp(kl), &
-                           & dipole_tmp(:, kl), dipole_tmp_tf)
 
                         overlap_diat(k, l) = overlap_scaled_tmp(kl)
                         overlap_diat(l, k) = overlap_scaled_tmp(kl)
@@ -755,6 +755,10 @@ contains
                         hamiltonian(k, l) = overlap_diat(k, l) * felem
                         hamiltonian(l, k) = hamiltonian(k, l)
 
+                        !> Shift dipole operator from Ket function (center i) 
+                        !> to Bra function (center j) to save the redundant calculation 
+                        call shift_operator(vec, overlap_tmp(kl), &
+                           & dipole_tmp(:, kl), dipole_tmp_tf)
                         !> Order of l and k is not relevant for the result 
                         !> of the dipole moment but in this ordering it corresponds exactly to 
                         !> the result by the 'call get_dipole_integrals'

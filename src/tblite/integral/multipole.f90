@@ -28,7 +28,7 @@ module tblite_integral_multipole
    implicit none
    private
 
-   public :: multipole_cgto, multipole_grad_cgto
+   public :: multipole_cgto, multipole_cgto_diat_scal, multipole_grad_cgto
    public :: get_multipole_integrals
    public :: maxl, msao
 
@@ -812,9 +812,8 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :), sscaledtmp(:)
 
    if (size(scal_fac,1) /= 3) then
-      write(*,*) 'Error: scal_fac must have the dimension of 3, &
+      error stop 'Error: scal_fac must have the dimension of 3, &
       & since it covers the three different types of bonding'
-      stop
    end if
 
    overlap(:, :) = 0.0_wp
@@ -855,6 +854,10 @@ subroutine get_multipole_integrals_diat_overlap_lat(mol, &
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
+                  stmp = 0.0_wp
+                  sscaledtmp = 0.0_wp
+                  dtmp = 0.0_wp
+                  qtmp = 0.0_wp
                   if (iat /= jat) then
                      call multipole_cgto_diat_scal(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                         & r2, vec, bas%intcut, vec_diat_trafo, ksig, kpi, kdel, stmp, &
