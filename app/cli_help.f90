@@ -54,14 +54,14 @@ module tblite_cli_help
 
    !> Help text for main driver
    character(len=*), parameter :: help_text = &
-      "Usage: "//prog_name//" <run|param|fit|tagdiff> [options]"//nl//&
+      "Usage: "//prog_name//" <run|guess|param|fit|tagdiff> [options]"//nl//&
       ""//nl//&
       "Commands"//nl//&
       ""//nl//&
       "  run       Evaluate tight-binding module on the provided input structure."//nl//&
       "            If no command is specified run is selected by default."//nl//&
       ""//nl//&
-      "  guess     Execute only the atomic charge / density guess."//nl//&
+      "  guess     Execute only the atomic charge or density guess, respectively."//nl//&
       "            Prints the initializing charges and dipole moments."//nl//&
       ""//nl//&
       "  param     Inspect and manipulate tight-binding parametrization data."//nl//&
