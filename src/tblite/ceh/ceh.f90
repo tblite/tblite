@@ -32,7 +32,8 @@ module tblite_ceh_ceh
    use tblite_output_format, only: format_string
    !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
-   use tblite_integral_dipole, only: get_dipole_integrals
+   use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
+   & dipole_cgto_diat_scal, maxl, msao
    use tblite_integral_diat_trafo, only: relvec
    use tblite_cutoff, only : get_lattice_points
    !> Wavefunction
@@ -648,13 +649,14 @@ contains
       real(wp) :: ksig, kpi, kdel
 
       real(wp), allocatable   :: cn(:), cn_en(:), & 
-      & lattr(:,:), overlap_diat(:,:)
+      & overlap_diat(:,:)
       real(wp), allocatable :: overlap_tmp(:), dipole_tmp(:, :), &
-      & overlap_scaled_tmp(:, :)
-      real(wp) :: cutoff, felem, r2, vec(3), vec_diat_trafo(3)
+      & overlap_scaled_tmp(:)
+      real(wp) :: cutoff, cutoff2, felem, r2, vec(3), vec_diat_trafo(3)
+      real(wp) :: dipole_tmp_tf(3)
 
-      integer                 :: ii, offset_iat, offset_jat, jzp, izp
-      integer                 :: iat, ish, jsh, k, l, iao, jao, jat, i, j
+      integer                 :: ii, offset_iat, offset_jat, jzp, izp, nao
+      integer                 :: iat, ish, jsh, k, l, iao, jao, jat, kl
 
       !> allocate CEH diagonal elements
       allocate(self%hlevel(calc%bas%nsh), source=0.0_wp)
@@ -683,14 +685,17 @@ contains
          end do
       end do
 
-      !> calculate overlap and dipole moment matrix
       cutoff = get_cutoff(calc%bas)
-      call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+      cutoff2 = cutoff**2
+
+      !> Allocate matrices for overlap, scaled overlap and dipole moment integrals
       allocate(overlap(calc%bas%nao, calc%bas%nao), &
-      & overlap_diat(calc%bas%nao, calc%bas%nao))
-      allocate(dipole(3, calc%bas%nao, calc%bas%nao))
-      call get_dipole_integrals(mol, lattr, cutoff, calc%bas, ceh_h0k, &
-      &  overlap, overlap_diat, dipole)
+      & overlap_diat(calc%bas%nao, calc%bas%nao), &
+      & dipole(3, calc%bas%nao, calc%bas%nao), source = 0.0_wp)
+      !> Allocate temporary matrices for overlap, scaled overlap and dipole moment integrals
+      allocate(overlap_tmp(msao(calc%bas%maxl)**2), &
+      & overlap_scaled_tmp(msao(calc%bas%maxl)**2), & 
+      & dipole_tmp(3, msao(calc%bas%maxl)**2))
 
       !> define off-diagonal elements of CEH Hamiltonian
       do iat = 1, mol%nat
@@ -698,79 +703,141 @@ contains
          offset_iat = calc%bas%ish_at(iat)
          do ish = 1, calc%bas%nsh_at(iat)
             !> loop over all AOs in atoms before current atom
-            !> AO loop over ish is done in the individual loops
+            !> AO loop over ish (-> iao) is done in the individual loops
+            !> to simplifiy overlap integral calculation
+
             do jat = 1,iat-1
                jzp = mol%id(jat)
                offset_jat = calc%bas%ish_at(jat)
+               !> Calculate relative integral aufpoint vectors
+               vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat)
+               r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
+               if (r2 > cutoff2) cycle
+               call relvec(vec, sqrt(r2), vec_diat_trafo)
+
                do jsh = 1, calc%bas%nsh_at(jat)
                   felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
                   & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
 
-                  ! ### Integral call ####
-                  ! call relvec(vec, sqrt(r2), vec_diat_trafo)
-                  ! !> Determine scaling factors from atom parameters
-                  ! ksig = 2.0_wp / (1.0_wp / ceh_h0k(1,mol%num(mol%id(iat))) &
-                  ! & + 1.0_wp / ceh_h0k(1,mol%num(mol%id(jat))) )
-                  ! kpi = 2.0_wp / (1.0_wp / ceh_h0k(2,mol%num(mol%id(iat))) &
-                  ! & + 1.0_wp / ceh_h0k(2,mol%num(mol%id(jat))) )
-                  ! kdel = 2.0_wp / (1.0_wp / ceh_h0k(3,mol%num(mol%id(iat))) &
-                  ! & + 1.0_wp / ceh_h0k(3,mol%num(mol%id(jat))) )
-                  ! call dipole_cgto_diat_scal(calc%bas%cgto(jsh,jzp), calc%bas%cgto(ish,izp), &
-                  ! & r2, vec, calc%bas%intcut, vec_diat_trafo, ksig, kpi, kdel, & 
-                  ! & overlap_tmp, overlap_scaled_tmp, dipole_tmp)
-                  ! ######################
+                  !> Determine factors for diatomic overlap scaling from atom parameters
+                  ksig = 2.0_wp / (1.0_wp / ceh_h0k(1,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / ceh_h0k(1,mol%num(mol%id(jat))) )
+                  kpi = 2.0_wp / (1.0_wp / ceh_h0k(2,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / ceh_h0k(2,mol%num(mol%id(jat))) )
+                  kdel = 2.0_wp / (1.0_wp / ceh_h0k(3,mol%num(mol%id(iat))) &
+                  & + 1.0_wp / ceh_h0k(3,mol%num(mol%id(jat))) )
+                  
+                  !> Integral call for different atom and different shell (-> with diatomic scaling)
+                  overlap_tmp = 0.0_wp
+                  overlap_scaled_tmp = 0.0_wp
+                  dipole_tmp = 0.0_wp
+                  call dipole_cgto_diat_scal(calc%bas%cgto(jsh,jzp), calc%bas%cgto(ish,izp), &
+                  & r2, vec, calc%bas%intcut, vec_diat_trafo, ksig, kpi, kdel, & 
+                  & overlap_tmp, overlap_scaled_tmp, dipole_tmp)
 
+                  nao = msao(calc%bas%cgto(jsh, jzp)%ang)
                   do iao = 1, calc%bas%nao_sh(ish + offset_iat)
                      !> AO iterator of i 
                      k = calc%bas%iao_sh(ish + offset_iat) + iao
                      do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
                         l = calc%bas%iao_sh(jsh + offset_jat) + jao
-                        hamiltonian(k, l) = overlap_diat(k,l) * felem
+                        kl = jao + nao*(iao-1)
+                        !> Shift dipole operator from Ket function (center i) 
+                        !> to Bra function (center j), to be able to calculate it only once
+                        call shift_operator(vec, overlap_tmp(kl), &
+                           & dipole_tmp(:, kl), dipole_tmp_tf)
+
+                        overlap_diat(k, l) = overlap_scaled_tmp(kl)
+                        overlap_diat(l, k) = overlap_scaled_tmp(kl)
+                        overlap(k, l) = overlap_tmp(kl)
+                        overlap(l, k) = overlap_tmp(kl)
+
+                        hamiltonian(k, l) = overlap_diat(k, l) * felem
                         hamiltonian(l, k) = hamiltonian(k, l)
+
+                        !> Order of l and k is not relevant for the result 
+                        !> of the dipole moment but in this ordering it corresponds exactly to 
+                        !> the result by the 'call get_dipole_integrals'
+                        dipole(:, l, k) = dipole_tmp(:, kl)
+                        dipole(:, k, l) = dipole_tmp_tf(:)
                      end do
                   enddo
                end do
             end do
+
+            !> reset vectors to zero because we are only considering 1-center terms from now on
+            vec(:) = 0.0_wp 
+            r2 = 0.0_wp 
 
             !> loop over all AOs in shells before current shell (same atom)
             do jsh = 1, ish - 1
                felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
                & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
 
-               ! ### Integral call ####
-               ! call dipole_cgto(calc%bas%cgto(jsh,jzp), calc%bas%cgto(ish,izp), &
-               ! & r2, vec, calc%bas%intcut, overlap_tmp,  dipole_tmp)
-               ! ######################
+               !> Integral call for same atom and different shell
+               overlap_tmp = 0.0_wp
+               dipole_tmp = 0.0_wp
+               call dipole_cgto(calc%bas%cgto(jsh,izp), calc%bas%cgto(ish,izp), &
+               & r2, vec, calc%bas%intcut, overlap_tmp,  dipole_tmp)
 
+               nao = msao(calc%bas%cgto(jsh, izp)%ang)
                do iao = 1, calc%bas%nao_sh(ish + offset_iat)
                   !> AO iterator of i 
                   k = calc%bas%iao_sh(ish + offset_iat) + iao
                   do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
                      l = calc%bas%iao_sh(jsh + offset_iat) + jao
-                     hamiltonian(k, l) = overlap_diat(k,l) * felem
+                     kl = jao + nao*(iao-1)
+
+                     overlap_diat(k, l) = overlap_tmp(kl)
+                     overlap_diat(l, k) = overlap_tmp(kl)
+                     overlap(k, l) = overlap_tmp(kl)
+                     overlap(l, k) = overlap_tmp(kl)
+
+                     hamiltonian(k, l) = overlap_diat(k, l) * felem
                      hamiltonian(l, k) = hamiltonian(k, l)
+
+                     dipole(:, k, l) = dipole_tmp(:, kl)
+                     dipole(:, l, k) = dipole_tmp(:, kl)
                   end do
                end do
             end do
-
-            ! ### Integral call ####
-            ! call dipole_cgto(calc%bas%cgto(jsh,jzp), calc%bas%cgto(ish,izp), &
-            ! & r2, vec, calc%bas%intcut, overlap_tmp,  dipole_tmp)
-            ! ######################
-
+            
+            !> Integral call for same atom and same shell
+            overlap_tmp = 0.0_wp
+            dipole_tmp = 0.0_wp
+            call dipole_cgto(calc%bas%cgto(ish,izp), calc%bas%cgto(ish,izp), &
+            & r2, vec, calc%bas%intcut, overlap_tmp, dipole_tmp)
+            
             !> loop over all AOs before current AO (same atom and shell)
             felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
             & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
+            nao = msao(calc%bas%cgto(ish, izp)%ang)
             do iao = 1, calc%bas%nao_sh(ish + offset_iat)
                !> AO iterator of i 
                k = calc%bas%iao_sh(ish + offset_iat) + iao
                do jao = 1, iao - 1
                   l = calc%bas%iao_sh(ish + offset_iat) + jao
-                  hamiltonian(k, l) = overlap_diat(k,l) * felem
+                  kl = jao + nao*(iao-1)
+
+                  overlap_diat(k, l) = overlap_tmp(kl)
+                  overlap_diat(l, k) = overlap_tmp(kl)
+                  overlap(k, l) = overlap_tmp(kl)
+                  overlap(l, k) = overlap_tmp(kl)
+
+                  hamiltonian(k, l) = overlap_diat(k, l) * felem
                   hamiltonian(l, k) = hamiltonian(k, l)
+
+                  dipole(:, k, l) = dipole_tmp(:, jao + nao*(iao-1))
+                  dipole(:, l, k) = dipole_tmp(:, jao + nao*(iao-1))
                end do
                !> diagonal term (AO(i) == AO(j))
+               kl = iao + nao*(iao-1)
+
+               overlap_diat(k, k) = overlap_tmp(kl)
+               overlap(k, k) = overlap_tmp(kl)
                hamiltonian(k, k) = self%hlevel(offset_iat + ish)
+
+               dipole(:, k, k) = dipole_tmp(:, kl)
             end do
          enddo
       enddo
@@ -778,17 +845,30 @@ contains
          error stop "ERROR: k /= calc%bas%nao"
       end if
 
-      write(*,*) "Hamiltonian matrix"
-      do i = 1, calc%bas%nao
-         do j = 1, calc%bas%nao
-            write(*,'(f8.4)',advance="no") hamiltonian(i,j)
-         end do
-         write(*,'(a,/)', advance="no") " "
-      end do
-
       calc%hamiltonian = self
 
    end subroutine get_hamiltonian
+
+   !> Shift dipole operator from Ket function (center i) to Bra function (center j),
+   !> the dipole operator on the Bra function can be assembled from the lower moments
+   !> on the Ket function and the displacement vector using horizontal shift rules.
+   pure subroutine shift_operator(vec, s, di, dj)
+      !> Displacement vector of center i and j
+      real(wp),intent(in) :: vec(:)
+      !> Overlap integral between basis functions
+      real(wp),intent(in) :: s
+      !> Dipole integral with operator on Ket function (center i)
+      real(wp),intent(in) :: di(:)
+      !> Dipole integral with operator on Bra function (center j)
+      real(wp),intent(out) :: dj(:)
+
+      ! Create dipole operator on Bra function from Ket function and shift contribution
+      ! due to monopol displacement
+      dj(1) = di(1) + vec(1)*s
+      dj(2) = di(2) + vec(2)*s
+      dj(3) = di(3) + vec(3)*s
+
+   end subroutine shift_operator
 
    function ceh_h0_entry_od(ati,atj,ish,jsh, hleveli, hlevelj) result(level)
       integer, intent(in) :: ish, ati, jsh, atj
