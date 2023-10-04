@@ -20,6 +20,7 @@
 !> Container for holding results produced by a calculation.
 module tblite_results
    use mctc_env, only : wp
+   use tblite_double_dictionary, only : double_dictionary_type
    implicit none
    private
 
@@ -34,14 +35,13 @@ module tblite_results
       real(wp), allocatable :: hamiltonian(:, :)
       !> Wiberg/Mayer bond orders
       real(wp), allocatable :: bond_orders(:, :, :)
-      !> ml features (nat, nfeatures)
-      real(wp), allocatable :: ml_features(:, :)
-      !> xtbml partitioning weights based on the total GFN2 energy
-      real(wp), allocatable :: w_xtbml(:)
+      !> post processing values (nat, n_post_proc_labels)
+      real(wp), allocatable :: post_proc_values(:, :)
       !> number of ml features
-      integer :: n_features = 0
+      integer :: n_post_proc_labels = 0
       !> labels of the ml features
-      character(len=30),allocatable :: ml_labels(:)
+      character(len=30),allocatable :: post_proc_labels(:)
+      type(double_dictionary_type), allocatable :: dict
    end type results_type
 
 end module tblite_results

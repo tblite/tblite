@@ -1,24 +1,26 @@
 module tblite_xtbml_convolution
     use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_ml_feature_convolution, only : convolution_type
    
   
     implicit none
     private
     real(wp) :: k1 = 16.0_wp
     public :: xtbml_convolution_type
-    type, extends(convolution_type) :: xtbml_convolution_type
+    type :: xtbml_convolution_type
         real(wp), allocatable :: rcov(:)
         real(wp), allocatable :: a(:)
         real(wp), allocatable :: cn(:)
         integer :: n_a
+        real(wp), allocatable :: kernel(:, :, :)
+        character(len=:), allocatable :: label
     contains
         procedure :: setup
         procedure :: compute_kernel
         procedure, private :: populate_kernel
         procedure, private :: get_rcov
         procedure, private :: compute_cn
+        procedure :: info
     end type
     character(len=*), parameter :: label = "CN-based convolution"
 
@@ -110,7 +112,7 @@ module tblite_xtbml_convolution
      
     end subroutine
     
-    pure elemental function exp_count(k, r, r0) result(count)
+pure elemental function exp_count(k, r, r0) result(count)
        real(wp), intent(in) :: k
        real(wp), intent(in) :: r
        real(wp), intent(in) :: r0
@@ -118,5 +120,21 @@ module tblite_xtbml_convolution
        count = 1.0_wp/(1.0_wp + exp(-k*(r0/r - 1.0_wp)))
     end function exp_count
     
+    pure function info(self, verbosity, indent) result(str)
+    !> Instance of the interaction container
+    class(xtbml_convolution_type), intent(in) :: self
+    !> Verbosity level
+    integer, intent(in) :: verbosity
+    !> Indentation level
+    character(len=*), intent(in) :: indent
+    !> Information on the container
+    character(len=:), allocatable :: str
+
+    if (allocated(self%label)) then
+        str = indent // self%label
+    else
+        str = "Unknown"
+    end if
+end function info
 
 end module tblite_xtbml_convolution

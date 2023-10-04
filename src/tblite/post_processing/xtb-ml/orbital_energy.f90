@@ -5,7 +5,7 @@ module tblite_xtbml_orbital_energy
    use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_basis_type, only : basis_type 
+   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
@@ -41,6 +41,10 @@ contains
 subroutine setup(self)
   class(xtbml_orbital_features_type) :: self
   self%label = label
+  if (allocated(self%dict)) deallocate(self%dict)
+  allocate(self%dict)
+  if (allocated(self%dict_ext)) deallocate(self%dict_ext)
+  allocate(self%dict_ext)
 end subroutine
 
 subroutine allocate(self, nat)
@@ -68,7 +72,7 @@ subroutine allocate_extended(self, nat, n_a)
 
 end subroutine
 
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx)
   class(xtbml_orbital_features_type), intent(inout) :: self
   !> Molecular structure data
   type(structure_type), intent(in) :: mol
@@ -77,18 +81,19 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
   !> Integral container
   type(integral_type) :: integrals
   !> Single-point calculator
-  type(basis_type), intent(in) :: bas
+  type(xtb_calculator), intent(in) :: calc
   !> List of containers 
-  type(container_list), intent(inout) :: contain_list
+  type(container_cache), intent(inout) :: cache_list(:)
   
   !> Context type
   type(context_type),intent(inout) :: ctx
   !> Print Level
   integer, intent(in) :: prlevel
   logical :: print_afo = .false.
-  real(wp) :: focc_(2,size(wfn%focc))
+  real(wp) :: focc_(2,size(wfn%focc, dim=1))
   integer :: i, j
   real(wp) :: nel_
+  
   call self%allocate(mol%nat)
   self%label = label
 
@@ -114,9 +119,8 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
     focc_(2,:) = wfn%focc(:,1)/2.0_wp
   end if
 
-
-  call atomic_frontier_orbitals(mol%nat, bas%nao, focc_(1,:), focc_(2,:), wfn%emo(:, 1)*autoev, &
-    bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
+  call atomic_frontier_orbitals(mol%nat, calc%bas%nao, focc_(1,:), focc_(2,:), wfn%emo(:, 1)*autoev, &
+    calc%bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
     self%response, self%egap, self%chempot, self%ehoao_a, &
     self%eluao_a, self%ehoao_b, self%eluao_b, print_afo, ctx)
   associate(dict => self%dict)
@@ -130,7 +134,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
   end associate
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx, convolution)
   use tblite_output_format, only : format_string 
   class(xtbml_orbital_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -140,9 +144,9 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
   !> Integral container
   type(integral_type) :: integrals
   !> Single-point calculator
-  type(basis_type), intent(in) :: bas
+  type(xtb_calculator), intent(in) :: calc
   !> List of containers 
-  type(container_list), intent(inout) :: contain_list
+  type(container_cache), intent(inout) :: cache_list(:)
   
   !> Context type
   type(context_type),intent(inout) :: ctx

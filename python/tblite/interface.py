@@ -240,7 +240,6 @@ class Result:
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
         "ml features": library.get_ml_features,
-        "xtbml weights": library.get_w_xtbml,
         "ml labels": library.get_ml_labels,
     }
     _setter = {}
@@ -440,7 +439,6 @@ class Calculator(Structure):
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
         "verbosity": library.set_calculator_verbosity,
-        "ml_features": library.set_calculator_ml_features,
     }
     _getter = {
         "angular-momenta": library.get_calculator_angular_momenta,
@@ -555,6 +553,18 @@ class Calculator(Structure):
             )
         return self._getter[attribute](self._ctx, self._calc)
 
+    def add_post_proc(self, post_processing: str = "") -> None:
+        """
+        Add post processing to the single point calculation. 
+        Methods can also be entered as a toml file. 
+        Supported post processing methods are:
+
+
+        """
+        self._post_proc = library.ffi.NULL
+        self._post_proc = library.new_post_processing(post_processing)
+        
+
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """
         Perform actual single point calculation in the library backend.
@@ -571,8 +581,13 @@ class Calculator(Structure):
         """
 
         _res = Result(res) if copy or res is None else res
-
-        library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        
+        if hasattr(self, '_post_proc'):
+            print("Here")
+            library.get_singlepoint_w_post(self._ctx, self._mol, self._calc, _res._res, self._post_proc)
+        else:
+            library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        
         return _res
 
 

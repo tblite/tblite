@@ -37,7 +37,7 @@ module tblite_api_result
       & get_result_energies_api, get_result_density_matrix_api, &
       & get_result_overlap_matrix_api, get_result_hamiltonian_matrix_api, &
       & get_result_bond_orders_api, get_result_ml_features_api, get_result_ml_labels_api,&
-      & get_result_xtbml_weights_api, get_result_ml_n_features_api
+      & get_result_ml_n_features_api
 
 
 
@@ -510,6 +510,7 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: mbo(*)
    logical :: ok
+   real(wp), allocatable :: wbo(:, :, :)
 
    if (debug) print '("[Info]", 1x, a)', "get_result_bond_orders"
 
@@ -526,8 +527,10 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
       return
    end if
 
-   mbo(:size(res%results%bond_orders)) = &
-      & reshape(res%results%bond_orders, [size(res%results%bond_orders)])
+   call res%results%dict%get_entry("wbo", wbo)
+
+   mbo(:size(wbo)) = &
+      & reshape(wbo, [size(wbo)])
 end subroutine get_result_bond_orders_api
 
 subroutine get_result_ml_features_api(verror, vres, ml_features) &
@@ -549,45 +552,15 @@ subroutine get_result_ml_features_api(verror, vres, ml_features) &
       return
    end if
 
-   if (.not.allocated(res%results%ml_features)) then
+   if (.not.allocated(res%results%post_proc_values)) then
       call fatal_error(error%ptr, "Result does not contain xtbml features")
       return
    end if
 
-   ml_features(:size(res%results%ml_features)) = &
-      & reshape(res%results%ml_features, [size(res%results%ml_features)])
+   ml_features(:size(res%results%post_proc_values)) = &
+      & reshape(res%results%post_proc_values, [size(res%results%post_proc_values)])
 
 end subroutine get_result_ml_features_api
-
-subroutine get_result_xtbml_weights_api(verror, vres, ml_features) &
-      & bind(C, name=namespace//"get_result_xtbml_weights")
-   type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   type(c_ptr), value :: vres
-   type(vp_result), pointer :: res
-   real(c_double), intent(out) :: ml_features(*)
-   logical :: ok
-
-   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml_weights"
-
-   call get_result(verror, vres, error, res, ok)
-   if (.not.ok) return
-
-   if (.not.allocated(res%results)) then
-      call fatal_error(error%ptr, "Result does not contain result container")
-      return
-   end if
-
-   if (.not.allocated(res%results%w_xtbml)) then
-      call fatal_error(error%ptr, "Result does not contain xtbml feature weights")
-      return
-   end if
-
-   ml_features(:size(res%results%w_xtbml)) = &
-      & reshape(res%results%w_xtbml, [size(res%results%w_xtbml)])
-
-end subroutine get_result_xtbml_weights_api
-
 
 subroutine get_result_ml_n_features_api(verror, vres, n_features) &
       & bind(C, name=namespace//"get_result_ml_n_features")
@@ -608,12 +581,12 @@ subroutine get_result_ml_n_features_api(verror, vres, n_features) &
       return
    end if
 
-   if (.not.allocated(res%results%ml_features)) then
+   if (.not.allocated(res%results%post_proc_labels)) then
       call fatal_error(error%ptr, "Result does not contain ml features")
       return
    end if
 
-   n_features = res%results%n_features
+   n_features = res%results%n_post_proc_labels
 
 end subroutine get_result_ml_n_features_api
 
@@ -641,7 +614,7 @@ subroutine get_result_ml_labels_api(verror, vres, charptr, buffersize, index) &
       return
    end if
 
-   if (.not.allocated(res%results%ml_labels)) then
+   if (.not.allocated(res%results%post_proc_labels)) then
       call fatal_error(error%ptr, "Result does not contain ml feature labels")
       return
    end if
@@ -652,7 +625,7 @@ subroutine get_result_ml_labels_api(verror, vres, charptr, buffersize, index) &
       max_length = huge(max_length) - 2
    end if
 
-   call f_c_character(res%results%ml_labels(index), charptr, max_length)
+   call f_c_character(res%results%post_proc_labels(index), charptr, max_length)
 
 end subroutine get_result_ml_labels_api
 

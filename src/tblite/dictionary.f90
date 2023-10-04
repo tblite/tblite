@@ -409,7 +409,7 @@ end subroutine
 subroutine add_3d(self, label, array)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   real(wp), allocatable :: array(:, :, :)
+   real(wp) :: array(:, :, :)
    integer :: it
 
    call self%push(label, it)
@@ -462,7 +462,7 @@ pure subroutine resize(var, n)
 
    type(double_record), allocatable :: tmp(:)
    integer :: this_size, new_size
-   integer, parameter :: initial_size = 20
+   integer, parameter :: initial_size = 0
 
    if (allocated(var)) then
       this_size = size(var, 1)
@@ -474,7 +474,7 @@ pure subroutine resize(var, n)
    if (present(n)) then
       new_size = n
    else
-      new_size = this_size + this_size/2 + 1
+      new_size = this_size + 1
    end if
 
    allocate(var(new_size))

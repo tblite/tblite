@@ -18,25 +18,22 @@
 !> Provides model for the dispersion corrections
 
 !> Definition of the dispersion corrections
-module tblite_param_ml_features
+module tblite_param_xtbml_features
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, get_value, set_value, add_table, toml_array
-   use tblite_ml_features_methods, only : ml_features_method
    implicit none
    private
 
    public :: count
 
-   character(len=*), parameter :: k_representation = "representation", k_xtbmlgeometry = "geometry", k_xtbmldensity = "density", &
+   character(len=*), parameter :: k_xtbmlgeometry = "geometry", k_xtbmldensity = "density", &
       & k_xtbmlorbital = "orbital", k_xtbmlenergy = "energy", k_xtbmlconvolution = "convolution", k_xtbmla = "a", &
       & k_tensor = "tensorial-output", k_xtbml = "xtbml"
 
    !> Parametrization record specifying the dispersion model
-   type, public, extends(serde_record) :: ml_features_record
-      !> Which ml features should be computed, 1 := xtbml, other fetaures not yet implemented
-      integer :: ml_features
+   type, public, extends(serde_record) :: xtbml_features_record
       !> Compute geometry-based xtbml features
       logical :: xtbml_geometry
       !> Compute density-based xtbml features
@@ -63,6 +60,7 @@ module tblite_param_ml_features
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
+      procedure :: populate_default_param
    end type
 
 
@@ -78,12 +76,36 @@ module tblite_param_ml_features
 
 contains
 
+subroutine populate_default_param(param, tensor)
+   class(xtbml_features_record), intent(inout) :: param
+   logical, optional :: tensor
+
+     !> Compute geometry-based xtbml features
+   param%xtbml_geometry = .true.
+     !> Compute density-based xtbml features
+   param%xtbml_density = .true.
+     !> Return vectorial information additional to norm of the corresponding multipole moments
+   if (present(tensor)) then 
+     param%xtbml_tensor = tensor
+   else
+     param%xtbml_tensor = .false.
+   end if
+     !> Compute orbital energy based xtbml features
+   param%xtbml_orbital_energy = .true.
+     !> Compute energy based features, necessary for partitioning weights
+   param%xtbml_energy = .true.
+     !> Compute extended feature i.e. do CN weigthed real space convolution
+   param%xtbml_convolution = .true.
+     !> Scaling for logistic function, convolution over an array of values is supported
+   param%xtbml_a = [1.0_wp]
+
+end subroutine
 
 !> Read parametrization data from TOML data structure
 subroutine load_from_toml(self, table, error)
    use tblite_toml, only : len
    !> Instance of the parametrization data
-   class(ml_features_record), intent(inout) :: self
+   class(xtbml_features_record), intent(inout) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
    !> Error handling
@@ -93,128 +115,96 @@ subroutine load_from_toml(self, table, error)
    integer :: stat, i, stat2
    character(len=:), allocatable :: method
 
-   if (.not.(table%has_key(k_representation)) .and. .not.(table%has_key(k_xtbml))) then
-      call fatal_error(error, "You have to enter the desired representation as string.")
+   call get_value(table, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
       return
    end if
 
-   call get_value(table, k_representation, method, stat=stat)
-   if (stat == 0) then
-      select case(method)
-      case("xtbml")
-         self%ml_features = ml_features_method%xtbml
-      case default 
-         self%ml_features = 0
-      end select
-      child = table
-   else
-      call get_value(table, k_xtbml, child, requested=.false., stat=stat2)
-      if (stat2 == 0 .and. associated(child)) then 
-         self%ml_features = ml_features_method%xtbml
-      else
-         call fatal_error(error, "Cannot read representation, wether the representation key nor a known representation key has been found.")
-         return
-      end if
+   call get_value(table, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read entry for xtbml density based features, boolean expected")
+      return
+   end if
+   if (self%xtbml_density) then 
+      call get_value(table, k_tensor, self%xtbml_tensor, .false., stat=stat)
+      if (stat /= 0) then
+            call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
+            return
+      end if 
    end if
 
-   select case(self%ml_features)
-   case(ml_features_method%xtbml)
+   call get_value(table, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read entry for xtbml orbital energy based features, boolean expected")
+   return
+   end if
 
-      call get_value(child, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
-         return
-      end if
+   call get_value(table, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
+   return
+   end if
 
-      call get_value(child, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for xtbml density based features, boolean expected")
-         return
-      end if
-      if (self%xtbml_density) then 
-         call get_value(child, k_tensor, self%xtbml_tensor, .false., stat=stat)
+   call get_value(table, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read entry for xtbml convolution, boolean expected")
+      return
+   end if
+   if (self%xtbml_convolution) then
+      if (table%has_key(k_xtbmla)) then
+         call get_value(table, k_xtbmla, array, stat=stat)
          if (stat /= 0) then
-               call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
-               return
-         end if 
-      end if
-
-      call get_value(child, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for xtbml orbital energy based features, boolean expected")
-      return
-      end if
-
-      call get_value(child, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
-      return
-      end if
-
-      call get_value(child, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for xtbml convolution, boolean expected")
-         return
-      end if
-      if (self%xtbml_convolution) then
-         if (child%has_key(k_xtbmla)) then
-            call get_value(child, k_xtbmla, array, stat=stat)
-            if (stat /= 0) then
-               call fatal_error(error, "Cannot read entry for xtbml convolution scale array, array of real values expected")
-               return
-            end if
-            allocate(self%xtbml_a(len(array)))
-            do i=1, size(self%xtbml_a)
-               call get_value(array, i, self%xtbml_a(i))
-            end do
-         else 
-            self%xtbml_a = [1.0_wp]
+            call fatal_error(error, "Cannot read entry for xtbml convolution scale array, array of real values expected")
+            return
          end if
-         write(*, *) self%xtbml_a
+         allocate(self%xtbml_a(len(array)))
+         do i=1, size(self%xtbml_a)
+            call get_value(array, i, self%xtbml_a(i))
+         end do
+      else 
+         self%xtbml_a = [1.0_wp]
       end if
-      
-   case default
-      call fatal_error(error, "The entered representation is not (yet) ")
-   end select
+         
+   end if
+
 end subroutine load_from_toml
 
 
 !> Write parametrization data to TOML datastructure
 subroutine dump_to_toml(self, table, error)
    !> Instance of the parametrization data
-   class(ml_features_record), intent(in) :: self
+   class(xtbml_features_record), intent(in) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_table), pointer :: child
-   if (self%ml_features == ml_features_method%xtbml) then 
+   
+   call add_table(table, k_xtbml, child)
 
-      call add_table(table, k_xtbml, child)
-
-      call set_value(child, k_xtbmlgeometry, self%xtbml_geometry)
-      call set_value(child, k_xtbmldensity, self%xtbml_density)
-      if (self%xtbml_density) call set_value(child, k_tensor, self%xtbml_tensor)
-      call set_value(child, k_xtbmlorbital, self%xtbml_orbital_energy)
-      call set_value(child, k_xtbmlenergy, self%xtbml_energy)
-      call set_value(child, k_xtbmlconvolution, self%xtbml_convolution)
-      !if (self%xtbml_convolution) call set_value(child, k_xtbmla, self%xtbml_a)
-   end if
+   call set_value(child, k_xtbmlgeometry, self%xtbml_geometry)
+   call set_value(child, k_xtbmldensity, self%xtbml_density)
+   if (self%xtbml_density) call set_value(child, k_tensor, self%xtbml_tensor)
+   call set_value(child, k_xtbmlorbital, self%xtbml_orbital_energy)
+   call set_value(child, k_xtbmlenergy, self%xtbml_energy)
+   call set_value(child, k_xtbmlconvolution, self%xtbml_convolution)
+  
 end subroutine dump_to_toml
 
 
 !> Read parametrization data from parameter array
 subroutine load_from_array(self, array, offset, base, mask, error)
-   class(ml_features_record), intent(inout) :: self
+   class(xtbml_features_record), intent(inout) :: self
    real(wp), intent(in) :: array(:)
    integer, intent(inout) :: offset
-   type(ml_features_record), intent(in) :: base
+   type(xtbml_features_record), intent(in) :: base
    type(ml_features_mask), intent(in) :: mask
    type(error_type), allocatable, intent(out) :: error
 
    select type(self)
-   type is (ml_features_record)
+   type is (xtbml_features_record)
       self = base
    end select
 
@@ -222,7 +212,7 @@ end subroutine load_from_array
 
 !> Write parametrization data to parameter array
 subroutine dump_to_array(self, array, offset, mask, error)
-   class(ml_features_record), intent(in) :: self
+   class(xtbml_features_record), intent(in) :: self
    real(wp), intent(inout) :: array(:)
    integer, intent(inout) :: offset
    type(ml_features_mask), intent(in) :: mask
@@ -237,4 +227,4 @@ elemental function count_mask(mask) result(ncount)
 end function count_mask
 
 
-end module tblite_param_ml_features
+end module tblite_param_xtbml_features

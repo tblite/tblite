@@ -1,6 +1,5 @@
 module tblite_xtbml_features
     use mctc_env, only : wp
-    use tblite_ml_features_type, only : ml_features_type
     use tblite_xtbml_convolution, only : xtbml_convolution_type
     use tblite_xtbml_geometry_based, only : xtbml_geometry_features_type
     use tblite_xtbml_density_based, only : xtbml_density_features_type
@@ -9,7 +8,6 @@ module tblite_xtbml_features
     use tblite_basis_type, only : basis_type
     use tblite_results, only : results_type
     use tblite_integral_type, only : integral_type
-    use tblite_basis_type, only : basis_type
     use tblite_container, only : container_cache
     use tblite_results, only : results_type
     use tblite_context, only : context_type
@@ -19,10 +17,13 @@ module tblite_xtbml_features
     use tblite_xtbml_energy_features, only : xtbml_energy_features_type
     use tblite_timer, only : timer_type, format_time
     use tblite_output_format, only : format_string
+    use tblite_xtb_calculator, only : xtb_calculator
+    use tblite_post_processing_type, only : post_processing_type
+    use tblite_param_xtbml_features, only : xtbml_features_record
     implicit none
     private
     public :: xtbml_type, new_xtbml_features
-    type, extends(ml_features_type) :: xtbml_type
+    type, extends(post_processing_type) :: xtbml_type
         type(xtbml_geometry_features_type), allocatable :: geom
         type(xtbml_density_features_type), allocatable :: dens
         type(xtbml_orbital_features_type), allocatable :: orb
@@ -30,7 +31,6 @@ module tblite_xtbml_features
         type(xtbml_convolution_type), allocatable :: conv
     contains
         procedure :: compute
-        procedure :: pack_res
         procedure :: info
         procedure :: print_timer
     end type
@@ -38,44 +38,14 @@ module tblite_xtbml_features
     type(timer_type) :: timer
 contains
 
-subroutine pack_res(self, mol, dict, res)
-    class(xtbml_type),intent(in) :: self
-    type(structure_type), intent(in) :: mol
-    type(results_type), intent(inout) :: res
-    type(double_dictionary_type) :: dict 
-    integer :: i, n
-    real(wp), allocatable :: tmp_array(:)
-    character(len=:), allocatable :: tmp_label
-    !the partitioning weights are also included allthough they are stored seperately 
-    n = dict%get_n_entries()
-    res%n_features = n
-
-    allocate(res%ml_features(mol%nat, n))
-    allocate(res%ml_labels(res%n_features))
-
-    do i = 1, n
-        call dict%get_label(i, tmp_label)
-        res%ml_labels(i) = tmp_label
-        
-        call dict%get_entry(i, tmp_array)
-        if (trim(tmp_label) == "w_tot") then
-            allocate(res%w_xtbml(mol%nat))
-            res%w_xtbml = tmp_array
-            cycle
-        end if
-        res%ml_features(:, i) = tmp_array 
-    end do
-    
-end subroutine
-
-    subroutine new_xtbml_features(param, new_xtbml_model)
-        use tblite_param_ml_features, only : ml_features_record
-        type(ml_features_record) :: param 
-        type(xtbml_type), intent(inout) :: new_xtbml_model
+subroutine new_xtbml_features(param, new_xtbml_model)
+    type(xtbml_features_record) :: param 
+    type(xtbml_type), intent(inout) :: new_xtbml_model
         
         new_xtbml_model%label = label
 
         if (param%xtbml_geometry) then
+            
             allocate(new_xtbml_model%geom)
             call new_xtbml_model%geom%setup()
         end if
@@ -102,8 +72,8 @@ end subroutine
 
     end subroutine
 
-    subroutine compute(self, mol, wfn, integrals, bas, contain_list, ctx, prlevel, dict)
-        class(xtbml_type),intent(in) :: self
+    subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
+        class(xtbml_type),intent(inout) :: self
         !> Molecular structure data
         type(structure_type), intent(in) :: mol
         !> Wavefunction strcuture data
@@ -111,82 +81,89 @@ end subroutine
         !> integral container for dipole and quadrupole integrals for CAMMs
         type(integral_type) :: integrals
         !> Single-point calculator conatiner
-        type(basis_type), intent(in) :: bas
+        type(xtb_calculator), intent(in) :: calc
         !> Context container for writing to stdout
         type(context_type), intent(inout) :: ctx
-        type(container_list), intent(inout) :: contain_list
+        type(container_cache), intent(inout) :: cache_list(:)
         type(double_dictionary_type), intent(inout) :: dict
         integer :: prlevel
         type(xtbml_type) :: ml_model
 
         call timer%push("total")
-        ml_model = self
+        
 
-        if (allocated(ml_model%geom)) then
+        if (allocated(self%geom)) then
             call timer%push("geometry") 
-            associate(category => ml_model%geom)
-                call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+            associate(category => self%geom)
+                call category%compute_features(mol, wfn, integrals, calc, cache_list, prlevel, ctx)
                 dict = dict + category%dict
+                deallocate(category%dict)
             end associate
             call timer%pop()
         end if
 
-        if (allocated(ml_model%dens)) then
+        if (allocated(self%dens)) then
             call timer%push("density")
-            associate(category => ml_model%dens)
-                call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+            associate(category => self%dens)
+                call category%compute_features(mol, wfn, integrals, calc, cache_list, prlevel, ctx)
                 dict = dict + category%dict
+                deallocate(category%dict)
             end associate
             call timer%pop()
         end if
 
-        if (allocated(ml_model%orb)) then
+        if (allocated(self%orb)) then
             call timer%push("orbital energy")
-            associate(category => ml_model%orb)
-                call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+            associate(category => self%orb)
+                call category%compute_features(mol, wfn, integrals, calc, cache_list, prlevel, ctx)
                 dict = dict + category%dict
+                deallocate(category%dict)
             end associate
             call timer%pop()
         end if
 
-        if (allocated(ml_model%energy)) then
+        if (allocated(self%energy)) then
             call timer%push("energy")
-            associate(category => ml_model%energy)
-                call category%compute_features(mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+            associate(category => self%energy)
+                call category%compute_features(mol, wfn, integrals, calc, cache_list, prlevel, ctx)
                 dict = dict + category%dict
+                deallocate(category%dict)
             end associate
             call timer%pop()
         end if
 
-        if (allocated(ml_model%conv)) then 
+        if (allocated(self%conv)) then 
 
-            if (allocated(ml_model%geom)) then
+            if (allocated(self%geom)) then
                 call timer%push("geometry convolution")
-                ml_model%conv%cn = ml_model%geom%cn_atom
-                call ml_model%conv%compute_kernel(mol)
-                associate(category => ml_model%geom)
-                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
+                self%conv%cn = self%geom%cn_atom
+                call self%conv%compute_kernel(mol)
+                associate(category => self%geom)
+                    call category%compute_extended(mol, wfn, integrals, calc, cache_list, prlevel, ctx, self%conv)
                     dict = dict + category%dict_ext
+                    deallocate(category%dict_ext)
                 end associate
                 call timer%pop()
             else
-                call ml_model%conv%compute_kernel(mol) 
+                call self%conv%compute_kernel(mol) 
             end if
     
-            if (allocated(ml_model%dens)) then
+            if (allocated(self%dens)) then
                 call timer%push("density convolution")
-                associate(category => ml_model%dens)
-                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
+                associate(category => self%dens)
+                    call category%compute_extended(mol, wfn, integrals, calc, cache_list, prlevel, ctx, self%conv)
                     dict = dict + category%dict_ext
+                    deallocate(category%dict_ext)
                 end associate
                 call timer%pop()
             end if
 
-            if (allocated(ml_model%orb)) then
+            if (allocated(self%orb)) then
                 call timer%push("orbital energy convolution")
-                associate(category => ml_model%orb)
-                    call category%compute_extended(mol, wfn, integrals, bas, contain_list, prlevel, ctx, ml_model%conv)
+                associate(category => self%orb)
+                    call category%compute_extended(mol, wfn, integrals, calc, cache_list, prlevel, ctx, self%conv)
                     dict = dict + category%dict_ext
+                    deallocate(category%dict_ext)
                 end associate
                 call timer%pop()
             end if
@@ -213,7 +190,7 @@ pure function info(self, verbosity, indent) result(str)
 
     category_indent = indent // " * "
     
-    if (allocated(self%geom)) then 
+    if (allocated(self%geom)) then
         str = str // nl // self%geom%info(verbosity, category_indent)
     end if 
 

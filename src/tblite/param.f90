@@ -35,7 +35,7 @@ module tblite_param
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
-   use tblite_param_ml_features, only : ml_features_record
+   use tblite_param_post_processing, only :  post_processing_param_list
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none
    private
@@ -49,7 +49,7 @@ module tblite_param
       & k_charge = "charge", k_thirdorder = "thirdorder", k_multipole = "multipole", &
       & k_halogen = "halogen", k_hamiltonian = "hamiltonian", k_element = "element", &
       & k_meta = "meta", k_version = "version", k_name = "name", k_reference = "reference", &
-      & k_format = "format",  k_ml_features = "ml-features"
+      & k_format = "format",  k_ml_features = "ml-features", k_post_proc = "post-processing"
 
    !> Current parameter format version
    integer, parameter :: current_format = 1
@@ -79,8 +79,8 @@ module tblite_param
       type(thirdorder_record), allocatable :: thirdorder
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
-      !> ML Feature parameters
-      type(ml_features_record), allocatable :: ml_param
+      !> Abstract post processing class 
+      class(post_processing_param_list), allocatable :: post_proc
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array
@@ -109,7 +109,7 @@ subroutine load_from_toml(self, table, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   type(toml_table), pointer :: child
+   type(toml_table), pointer :: child, child2
    integer :: this_format
 
    call get_value(table, k_meta, child)
@@ -168,11 +168,10 @@ subroutine load_from_toml(self, table, error)
       if (allocated(error)) return
    end if
 
-   call get_value(table, k_ml_features, child, requested=.false.)
+   call get_value(table, k_post_proc, child, requested=.false.)
    if (associated(child)) then
-      allocate(self%ml_param)
-      call self%ml_param%load(child, error)
-      if (allocated(error)) return
+      allocate(self%post_proc)
+      call self%post_proc%load(child, error)
    end if 
 
    call get_value(table, k_element, child)
@@ -248,9 +247,9 @@ subroutine dump_to_toml(self, table, error)
       if (allocated(error)) return
    end if
 
-   if (allocated(self%ml_param)) then
-      call add_table(table, k_ml_features, child)
-      call self%ml_param%dump(child, error)
+   if (allocated(self%post_proc)) then
+      call add_table(table, k_post_proc, child)
+      call self%post_proc%dump(child, error)
       if (allocated(error)) return
    end if
 
@@ -449,5 +448,6 @@ subroutine dump_to_array(self, array, mask, error)
    end do
    if (allocated(error)) return
 end subroutine dump_to_array
+
 
 end module tblite_param

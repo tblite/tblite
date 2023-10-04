@@ -31,10 +31,10 @@ subdir('integral')
 subdir('io')
 subdir('lapack')
 subdir('mesh')
-subdir('ml_features')
 subdir('ncoord')
 subdir('output')
 subdir('param')
+subdir('post_processing')
 subdir('repulsion')
 subdir('scf')
 subdir('solvation')
@@ -54,7 +54,6 @@ srcs += files(
   'dictionary.f90',
   'disp.f90',
   'lapack.f90',
-  'ml_features.f90',
   'ncoord.f90',
   'os.F90',
   'param.f90',

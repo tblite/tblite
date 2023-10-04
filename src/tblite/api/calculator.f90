@@ -36,6 +36,7 @@ module tblite_api_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_api_post_processing, only : vp_post_processing, new_post_processing_api
    implicit none
    private
 
@@ -44,8 +45,8 @@ module tblite_api_calculator
       & new_xtb_calculator_api
    public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
-      & set_calculator_save_integrals_api, set_calculator_ml_features_api
-   public :: get_singlepoint_api
+      & set_calculator_save_integrals_api
+   public :: get_singlepoint_api, get_singlepoint_w_post_api
 
 
    enum, bind(c)
@@ -352,40 +353,6 @@ subroutine set_calculator_save_integrals_api(vctx, vcalc, save_integrals) &
    calc%ptr%save_integrals = save_integrals /= 0
 end subroutine set_calculator_save_integrals_api
 
-
-subroutine set_calculator_ml_features_api(vctx, vcalc, charptr) &
-      & bind(C, name=namespace//"set_calculator_ml_features")
-   use tblite_api_utils, only : c_f_character
-   use tblite_ml_features, only : new_ml_features, ml_features_type
-   type(c_ptr), value :: vctx
-   type(vp_context), pointer :: ctx
-   type(c_ptr), value :: vcalc
-   type(vp_calculator), pointer :: calc
-   character(kind=c_char), intent(in) :: charptr(*)
-   type(error_type), allocatable :: error
-   integer :: max_length
-   character(len=:), allocatable :: f_char
-   class(ml_features_type), allocatable :: ml
-   if (debug) print '("[Info]", 1x, a)', "set_calculator_ml_features"
-
-   if (.not.c_associated(vctx)) return
-   call c_f_pointer(vctx, ctx)
-
-   if (.not.c_associated(vcalc)) then
-      call fatal_error(error, "Calculator object is missing")
-      call ctx%ptr%set_error(error)
-      return
-   end if
-   call c_f_pointer(vcalc, calc)
-
-   call c_f_character(charptr, f_char)
-   
-   f_char = trim(f_char)
-   call new_ml_features(ml, f_char, error)
-   call move_alloc(ml, calc%ptr%ml_features)
-
-end subroutine set_calculator_ml_features_api
-
 subroutine get_calculator_shell_count(vctx, vcalc, nsh) &
       & bind(C, name=namespace//"get_calculator_shell_count")
    type(c_ptr), value :: vctx
@@ -578,6 +545,71 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
 end subroutine get_singlepoint_api
 
+subroutine get_singlepoint_w_post_api(vctx, vmol, vcalc, vres, vpost_proc) &
+      & bind(C, name=namespace//"get_singlepoint_w_post")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   type(error_type), allocatable :: error
+   type(c_ptr), value :: vpost_proc
+   type(vp_post_processing), pointer :: post_proc
+
+   if (debug) print '("[Info]", 1x, a)', "get_singlepoint POST"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vres)) then
+      call fatal_error(error, "Result container is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vres, res)
+
+   res%energy = 0.0_wp
+   res%gradient = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, mol%ptr%nat)
+   res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
+   res%dipole = spread(0.0_wp, 1, 3)
+   res%quadrupole = spread(0.0_wp, 1, 6)
+   res%results = results_type()
+   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
+
+   if (.not.c_associated(vpost_proc)) then 
+      call fatal_error(error, "Post Processor container is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vpost_proc, post_proc)
+   if (.not. associated(post_proc)) write(*,*) "Error!"
+
+   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
+   & gradient=res%gradient, sigma=res%sigma, results=res%results)
+
+   call get_molecular_dipole_moment(mol%ptr, res%wfn%qat(:, 1), res%wfn%dpat(:, :, 1), &
+      & res%dipole)
+   call get_molecular_quadrupole_moment(mol%ptr, res%wfn%qat(:, 1), res%wfn%dpat(:, :, 1), &
+      & res%wfn%qpat(:, :, 1), res%quadrupole)
+
+end subroutine get_singlepoint_w_post_api
 
 subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
    type(wavefunction_type), allocatable, intent(inout) :: wfn

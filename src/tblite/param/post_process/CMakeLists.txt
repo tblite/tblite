@@ -14,16 +14,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-add_subdirectory("xtb-ml")
-
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/collect_containers.f90"
-  "${dir}/convolution.f90"
-  "${dir}/methods.f90"
-  "${dir}/type.f90"
+  "${dir}/xtbml.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

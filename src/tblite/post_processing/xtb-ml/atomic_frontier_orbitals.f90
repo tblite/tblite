@@ -29,6 +29,11 @@
 ! ehoaoa,b: highest occ. atomic orbital for (alpha, beta) part
 ! eluaoa,b: lowest virt. atomic orbital for (alpha, beta) part
 module tblite_xtbml_atomic_frontier
+   use mctc_io_convert, only : autoev
+   use tblite_timer, only : timer_type, format_time
+   use tblite_context, only : context_type
+   use mctc_env, only : wp, sp
+   use tblite_output_format, only : format_string
    implicit none
    private
    public :: atomic_frontier_orbitals
@@ -36,15 +41,10 @@ module tblite_xtbml_atomic_frontier
 contains
    subroutine atomic_frontier_orbitals(nat, nao, focca, foccb, eps, aoat, C, S, response, egap, &
       chempot, ehoaoa, eluaoa, ehoaob, eluaob, print, ctx)
-   use mctc_env, only : wp, sp
-   !use xtb_mctc_accuracy, only : wp, sp
-   use mctc_io_convert, only : autoev
-   use tblite_timer, only : timer_type, format_time
-   use tblite_context, only : context_type
    integer, intent(in)    :: nat, nao, aoat(nao)
    real(wp), intent(in)    :: focca(nao), foccb(nao), eps(nao)
    real(wp), intent(in)    :: C(nao, nao), S(nao, nao)
-   type(context_type) :: ctx
+   type(context_type), intent(inout) :: ctx
    real(wp), intent(out)  :: ehoaoa(nat), eluaoa(nat), ehoaob(nat), eluaob(nat), egap(nat), response(nat), chempot(nat)
    integer  :: i, j, k, jj, kk, m
    real(wp):: po(nat, nao), pv(nat, nao)
@@ -52,7 +52,7 @@ contains
    real(wp), parameter :: damp = 0.5_wp ! damping in response function (in eV)
    logical, intent(in) :: print
    type(timer_type) :: timer
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
    character(len=150)  :: tmp_str
    call timer%push("total")
    call timer%push("occupation a")
@@ -253,11 +253,11 @@ contains
             jj = aoat(j)
             do k = 1, j - 1
                kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*virta
+               ps = s(k, j)*C(j, i)*C(k, i)*virtb
                pv(kk, i) = pv(kk, i) + ps
                pv(jj, i) = pv(jj, i) + ps
             end do
-            ps = s(j, j)*C(j, i)*C(j, i)*virta
+            ps = s(j, j)*C(j, i)*C(j, i)*virtb
             pv(jj, i) = pv(jj, i) + ps
          end do
       end if
@@ -374,7 +374,7 @@ contains
 
    if (debug) then
       block
-         use tblite_output_format, only : format_string
+         
          integer :: it
          real(wp) :: ttime, stime
          character(len=*), parameter :: label(*) = [character(len=20):: &

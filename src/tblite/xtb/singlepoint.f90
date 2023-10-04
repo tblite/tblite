@@ -43,9 +43,8 @@ module tblite_xtb_singlepoint
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
-   use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_container_list, only : cache_list
-   use tblite_ml_features_collect_containers, only : collect_containers_caches, distribute_cache
+   use tblite_post_processing_type, only : collect_containers_caches
+   use tblite_post_processing_list, only : post_processing_list
    implicit none
    private
 
@@ -91,7 +90,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    !> Container for storing additional results
    type(results_type), intent(out), optional :: results
-
+   !type(post_processing_list), intent(inout), optional :: post_process
+   
    logical :: grad, converged, econverged, pconverged
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, elast, nel
@@ -105,12 +105,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
-   type(double_dictionary_type), allocatable :: ml_dict
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
-   type(container_list), allocatable :: contain_list
-   class(container_type), allocatable :: tmp_container
+   type(container_cache), allocatable :: cache_list(:)
+   
    integer :: iscf, spin
 
    call timer%push("total")
@@ -274,22 +273,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    call timer%pop
 
-   if (allocated(calc%ml_features)) then
-      call timer%push("ML features")
-      call collect_containers_caches(calc%repulsion, rcache, calc%coulomb, ccache, calc%halogen, hcache, &
-      calc%dispersion, dcache, calc%interactions, icache, contain_list)
-      allocate(ml_dict)
-      call calc%ml_features%compute(mol, wfn, ints, calc%bas, contain_list, &
-      & ctx, prlevel, ml_dict)
-      call calc%ml_features%pack_res(mol, ml_dict, results)
-      if (prlevel > 1) then 
-         call calc%ml_features%print_csv(mol, ml_dict)
-      end if
-      call calc%ml_features%print_timer(prlevel, ctx)
-      call distribute_cache(rcache, ccache, hcache, dcache, icache, contain_list)
-      deallocate(contain_list)
-      call timer%pop()
-   end if
+   
 
    if (prlevel > 1) then
       call ctx%message(label_electronic // format_string(sum(eelec), real_format) // " Eh")
@@ -343,10 +327,24 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call timer%pop
    end if
-
+   !if (present(post_process)) then
+      !call timer%push("post processing")
+      !call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
+      !call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
+      !if (prlevel > 1) then 
+         !call post_process%print_csv(mol)
+      !end if
+      !call ctx%message(post_process%info(prlevel, " | "))
+      !call post_process%print_timer(prlevel, ctx)
+      !deallocate(cache_list)
+      !call timer%pop()
+   !end if
    if (present(results)) then
       allocate(results%bond_orders(mol%nat, mol%nat, wfn%nspin))
       call get_mayer_bond_orders(calc%bas, ints%overlap, wfn%density, results%bond_orders)
+      !if (present(post_process)) then 
+      !   call post_process%pack_res(mol, results)
+      !end if
    end if
 
    if (calc%save_integrals .and. present(results)) then
@@ -358,7 +356,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       integer :: it
       real(wp) :: ttime, stime
       character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "ML features", "scc"]
+         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "post processing", "scc"]
       if (prlevel > 0) then
          ttime = timer%get("total")
          call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))

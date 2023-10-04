@@ -18,17 +18,14 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/calculator.f90"
-  "${dir}/container.f90"
-  "${dir}/context.f90"
-  "${dir}/error.f90"
-  "${dir}/param.f90"
-  "${dir}/post_processing.f90"
-  "${dir}/result.f90"
-  "${dir}/structure.f90"
-  "${dir}/table.f90"
-  "${dir}/utils.f90"
-  "${dir}/version.f90"
+  "${dir}/atomic_frontier_orbitals.f90"
+  "${dir}/convolution.f90"
+  "${dir}/density.f90"
+  "${dir}/energy.f90"
+  "${dir}/features.f90"
+  "${dir}/geometry.f90"
+  "${dir}/orbital_energy.f90"
+  "${dir}/xtbml.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

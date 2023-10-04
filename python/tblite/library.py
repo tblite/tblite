@@ -372,7 +372,6 @@ get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
 get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
 get_ml_features = _get_ml_features(lib.tblite_get_result_ml_features)
-get_w_xtbml = _get_w_xtbml(lib.tblite_get_result_xtbml_weights)
 get_ml_labels = _get_ml_labels(lib.tblite_get_result_ml_labels)
 
 
@@ -404,8 +403,18 @@ def new_ipea1_calculator(ctx, mol):
 @context_check
 def new_xtb_calculator(ctx, mol, param):
     """Create new tblite calculator from parametrization records"""
-    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
+    return ffi.gc(lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator)
 
+def _delete_post_processing(calc) -> None:
+    """Delete a tblite pots-processing object"""
+    ptr = ffi.new("tblite_post_processing *")
+    ptr[0] = calc
+    lib.tblite_delete_calculator(ptr)
+
+def new_post_processing(string):
+    """Create new tblite calculator from parametrization records"""
+    _string = ffi.new("char[]", string.encode("ascii"))
+    return ffi.gc(lib.tblite_new_post_processing(_string), _delete_post_processing)
 
 def get_calculator_shell_map(ctx, calc):
     """Retrieve index mapping from shells to atomic centers"""
@@ -446,7 +455,6 @@ set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_dam
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
-set_calculator_ml_features = context_check(lib.tblite_set_calculator_ml_features)
 
 
 @context_check
@@ -456,7 +464,7 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
-
+get_singlepoint_w_post = context_check(lib.tblite_get_singlepoint_w_post)
 
 def _delete_container(cont) -> None:
     """Delete a tblite container object"""
@@ -481,8 +489,3 @@ def calculator_push_back(ctx, calc, cont) -> None:
     ptr = ffi.new("tblite_container *")
     ptr[0] = cont
     lib.tblite_calculator_push_back(ctx, calc, ptr)
-
-def set_calculator_ml_features(ctx, calc, str):
-    """Set the string for ml features to be computed"""
-    _string = ffi.new("char[]", str.encode("ascii"))
-    lib.tblite_set_calculator_ml_features(ctx, calc, _string)

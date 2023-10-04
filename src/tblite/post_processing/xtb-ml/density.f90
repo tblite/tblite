@@ -4,12 +4,12 @@ module tblite_xtbml_density_based
    use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_basis_type, only : basis_type 
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
   use tblite_container, only : container_list
+  use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
    character(len=*), parameter :: label = "density-based features"
@@ -67,9 +67,13 @@ contains
 subroutine setup(self)
    class(xtbml_density_features_type) :: self
    self%label = label
+   if (allocated(self%dict)) deallocate(self%dict)
+   allocate(self%dict)
+   if (allocated(self%dict_ext)) deallocate(self%dict_ext)
+   allocate(self%dict_ext)
 end subroutine
 
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx)
    use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles 
    class(xtbml_density_features_type), intent(inout) :: self
@@ -80,36 +84,36 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
    !> Integral container
    type(integral_type) :: integrals
    !> Single-point calculator
-   type(basis_type), intent(in) :: bas
-   type(container_list), intent(inout) :: contain_list
+   type(xtb_calculator), intent(in) :: calc
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
    integer, intent(in) :: prlevel
    character(len=20), allocatable :: tmp_labels(:)
    real(wp), allocatable :: tmp_s_array(:), tmp_p_array(:), tmp_d_array(:), tmp_array(:, :)
-   real(wp) :: z(mol%nat), dipm_shell_tmp(3, bas%nsh, 1), qm_shell_tmp(6, bas%nsh, 1)
+   real(wp) :: z(mol%nat), dipm_shell_tmp(3, calc%bas%nsh, 1), qm_shell_tmp(6, calc%bas%nsh, 1)
    integer :: i, mu 
    
    !shellwise mulliken charges
-   call self%allocate(bas%nsh, mol%nat)
-   call mulliken_shellwise(bas%nao, bas%nsh, bas%ao2sh, wfn%density(:, :, wfn%nspin), &
+   call self%allocate(calc%bas%nsh, mol%nat)
+   call mulliken_shellwise(calc%bas%nao, calc%bas%nsh, calc%bas%ao2sh, wfn%density(:, :, wfn%nspin), &
       integrals%overlap, self%mulliken_shell)
 
    call mol_set_nuclear_charge(mol%nat, mol%num, mol%id, z)
 
-   do mu=1, bas%nsh
-      self%partial_charge_atom(bas%sh2at(mu))=self%partial_charge_atom(bas%sh2at(mu))+self%mulliken_shell(mu)
+   do mu=1, calc%bas%nsh
+      self%partial_charge_atom(calc%bas%sh2at(mu))=self%partial_charge_atom(calc%bas%sh2at(mu))+self%mulliken_shell(mu)
    enddo
    self%partial_charge_atom=-self%partial_charge_atom+z
    
    !multipole moments shellwise and then atomwise
-   call get_mulliken_shell_multipoles(bas, integrals%dipole, wfn%density, &
+   call get_mulliken_shell_multipoles(calc%bas, integrals%dipole, wfn%density, &
       & dipm_shell_tmp)
    self%dipm_shell_xyz=dipm_shell_tmp(:, :, 1)
    
   
-   call get_mulliken_shell_multipoles(bas, integrals%quadrupole, wfn%density, &
+   call get_mulliken_shell_multipoles(calc%bas, integrals%quadrupole, wfn%density, &
       & qm_shell_tmp)
    self%qm_shell_xyz=qm_shell_tmp(:, :, 1)
    
@@ -117,19 +121,19 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
 
    self%qm_atom_xyz=wfn%qpat(:, :, 1)
 
-   call comp_norm(bas%nsh, dipm_shell_tmp, qm_shell_tmp, self%dipm_shell, self%qm_shell)
+   call comp_norm(calc%bas%nsh, dipm_shell_tmp, qm_shell_tmp, self%dipm_shell, self%qm_shell)
    call comp_norm(mol%nat, wfn%dpat, wfn%qpat, self%dipm_atom, self%qm_atom)
    associate(dict => self%dict)
-      call resolve_shellwise(self%mulliken_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
+      call resolve_shellwise(self%mulliken_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
       call dict%add_entry("p_s", tmp_s_array)
       call dict%add_entry("p_p", tmp_p_array)
       call dict%add_entry("p_d", tmp_d_array)
-      call resolve_shellwise(self%dipm_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
+      call resolve_shellwise(self%dipm_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
       call dict%add_entry("dipm_s", tmp_s_array)
       call dict%add_entry("dipm_p", tmp_p_array)
       call dict%add_entry("dipm_d", tmp_d_array)
       if (self%return_xyz) then
-         call resolve_xyz_shell(self%dipm_shell_xyz, tmp_array, bas%nsh_at, mol%nat)
+         call resolve_xyz_shell(self%dipm_shell_xyz, tmp_array, calc%bas%nsh_at, mol%nat)
          tmp_labels = [ character(len=20) :: &
          &"dipm_s_x", "dipm_s_y", "dipm_s_z",&
          &"dipm_p_x", "dipm_p_y", "dipm_p_z",&
@@ -139,12 +143,12 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
             call dict%add_entry(trim(tmp_labels(i)), tmp_array(:, i))
          end do
       end if
-      call resolve_shellwise(self%qm_shell, tmp_s_array, tmp_p_array, tmp_d_array, bas%nsh_at, mol%nat)
+      call resolve_shellwise(self%qm_shell, tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at, mol%nat)
       call dict%add_entry("qm_s", tmp_s_array)
       call dict%add_entry("qm_p", tmp_p_array)
       call dict%add_entry("qm_d", tmp_d_array)
       if (self%return_xyz) then 
-         call resolve_xyz_shell(self%qm_shell_xyz, tmp_array, bas%nsh_at, mol%nat)
+         call resolve_xyz_shell(self%qm_shell_xyz, tmp_array, calc%bas%nsh_at, mol%nat)
          tmp_labels = [ character(len=20) :: "qm_s_xx", &
          & "qm_s_xy", "qm_s_yy", "qm_s_xz", "qm_s_yz", "qm_s_zz",&
          &"qm_p_xx", "qm_p_xy", "qm_p_yy", "qm_p_xz", "qm_p_yz", "qm_p_zz",&
@@ -285,7 +289,7 @@ subroutine resolve_xyz_shell(mult_xyz, array, at2nsh, nat)
    end do
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx, convolution)
    use tblite_output_format, only : format_string
    class(xtbml_density_features_type), intent(inout) :: self
    !> Molecular structure data
@@ -295,8 +299,8 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
    !> Integral container
    type(integral_type) :: integrals
    !> Single-point calculator
-   type(basis_type), intent(in) :: bas
-   type(container_list), intent(inout) :: contain_list
+   type(xtb_calculator), intent(in) :: calc
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context type
    type(context_type),intent(inout) :: ctx
    !> Print Level
@@ -309,7 +313,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
    character(len=20), allocatable :: tmp_labels(:) 
    character(len=:), allocatable :: tmp_label, a_label
    n = convolution%n_a 
-   call self%allocate_extended(bas%nsh, mol%nat, n)
+   call self%allocate_extended(calc%bas%nsh, mol%nat, n)
    
    call get_delta_partial(mol%nat, n, self%partial_charge_atom, mol%id, mol%xyz, &
       convolution, self%delta_partial_charge)
@@ -320,7 +324,7 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
    call comp_norm_3(mol%nat, n, self%delta_dipm_xyz, self%delta_qm_xyz, self%delta_dipm, self%delta_qm)
    call get_delta_mm_Z(mol%nat, n, z, wfn%dpat, wfn%qpat, mol%id, mol%xyz, convolution, self%delta_dipm_Z_xyz, &
       self%delta_qm_Z_xyz)
-   call sum_up_mulliken(mol%nat, bas%nsh, bas%sh2at, bas%sh2at, self%mulliken_shell, mull_charge_atomic)
+   call sum_up_mulliken(mol%nat, calc%bas%nsh, calc%bas%sh2at, calc%bas%sh2at, self%mulliken_shell, mull_charge_atomic)
    call get_delta_mm_p(mol%nat, n, mull_charge_atomic, wfn%dpat, wfn%qpat, mol%id, mol%xyz, convolution, &
       self%delta_dipm_e_xyz, self%delta_qm_e_xyz)
 

@@ -20,6 +20,7 @@ srcs += files(
   'context.f90',
   'error.f90',
   'param.f90',
+  'post_processing.f90',
   'result.f90',
   'structure.f90',
   'table.f90',

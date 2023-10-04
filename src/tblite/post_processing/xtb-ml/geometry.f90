@@ -5,11 +5,11 @@ module tblite_xtbml_geometry_based
    use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_basis_type, only : basis_type
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
    use tblite_xtbml_convolution, only : xtbml_convolution_type
   use tblite_container, only : container_list
+  use tblite_xtb_calculator, only : xtb_calculator
     implicit none
     private
 
@@ -33,9 +33,13 @@ contains
 subroutine setup(self)
     class(xtbml_geometry_features_type) :: self
     self%label = label
+    if (allocated(self%dict)) deallocate(self%dict)
+    allocate(self%dict)
+    if (allocated(self%dict_ext)) deallocate(self%dict_ext)
+    allocate(self%dict_ext)
 end subroutine
 
-subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx)
+subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx)
     use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -45,9 +49,9 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
     !> Integral container
     type(integral_type) :: integrals
     !> Single-point calculator
-    type(basis_type), intent(in) :: bas
+    type(xtb_calculator), intent(in) :: calc
     !> List of containers 
-    type(container_list), intent(inout) :: contain_list
+    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level
@@ -64,7 +68,7 @@ subroutine compute_features(self, mol, wfn, integrals, bas, contain_list, prleve
     
 end subroutine
 
-subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prlevel, ctx, convolution)
+subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx, convolution)
     use tblite_output_format, only : format_string
     class(xtbml_geometry_features_type), intent(inout) :: self
     !> Molecular structure data
@@ -74,8 +78,8 @@ subroutine compute_extended(self, mol, wfn, integrals, bas, contain_list, prleve
     !> Integral container
     type(integral_type) :: integrals
     !> Single-point calculator
-    type(basis_type), intent(in) :: bas
-    type(container_list), intent(inout) :: contain_list
+    type(xtb_calculator), intent(in) :: calc
+    type(container_cache), intent(inout) :: cache_list(:)
     !> Context type
     type(context_type),intent(inout) :: ctx
     !> Print Level
