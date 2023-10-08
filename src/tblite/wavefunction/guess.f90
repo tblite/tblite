@@ -28,7 +28,7 @@ module tblite_wavefunction_guess
    implicit none
    private
 
-   public :: sad_guess, eeq_guess
+   public :: sad_guess, eeq_guess, shell_partition
 
 contains
 

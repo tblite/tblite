@@ -22,7 +22,7 @@
 
 !> Proxy module for wavefunction related types and procedures
 module tblite_wavefunction
-   use tblite_wavefunction_guess, only : sad_guess, eeq_guess
+   use tblite_wavefunction_guess, only : sad_guess, eeq_guess, shell_partition
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment, get_mayer_bond_orders
    use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet

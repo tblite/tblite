@@ -43,6 +43,8 @@ subroutine collect_integral_multipole(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
+      new_unittest("overlap-dipole-diat-alh3", test_overlap_dipole_diat_alh3), &
+      new_unittest("overlap-quadrupole-diat-alh3", test_overlap_quadrupole_diat_alh3), &
       new_unittest("dipole-trans-ss", test_dipole_ss), &
       new_unittest("dipole-trans-pp", test_dipole_pp), &
       new_unittest("dipole-trans-dd", test_dipole_dd), &
@@ -259,5 +261,207 @@ subroutine test_dipole_grad_ss(error)
 
 end subroutine test_dipole_grad_ss
 
+subroutine test_overlap_dipole_diat_mol(error, mol, ref)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: ref(:, :)
+
+   type(basis_type) :: bas
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_scaled(:, :)
+   real(wp), allocatable :: dipole(:, :, :)
+   real(wp) :: cutoff
+   integer :: ii, jj
+   real(wp) :: scalfac(3,86)
+
+   scalfac = 1.0_wp
+
+   call make_basis(bas, mol, 6)
+   call check(error, bas%nao, size(ref, 1))
+   if (allocated(error)) return
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+
+   allocate(overlap(bas%nao, bas%nao), overlap_scaled(bas%nao, bas%nao))
+   allocate(dipole(3, bas%nao, bas%nao))
+   call get_dipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_scaled, dipole)
+
+   do ii = 1, size(overlap_scaled, 2)
+      do jj = 1, size(overlap_scaled, 1)
+         call check(error, overlap_scaled(jj, ii), ref(jj, ii), thr=thr)
+         if (allocated(error)) return
+      end do
+   end do
+
+
+end subroutine test_overlap_dipole_diat_mol
+
+subroutine test_overlap_dipole_diat_alh3(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer, parameter :: nao = 12
+   real(wp), parameter :: overlap(nao, nao) = reshape([&
+      & 9.99999999869333E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.02664545809937E-1_wp, 4.02664545809937E-1_wp, 4.02664545809939E-1_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999998060E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.32775379754938E-1_wp,-4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999998060E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 9.99999999998060E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.49862982000156E-1_wp, 4.99725964000314E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999830206E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      &-2.26789082148469E-1_wp,-2.26789082148469E-1_wp,-2.26789082148469E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999830206E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 9.99999999830206E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999830206E-1_wp, 0.00000000000000E+0_wp,&
+      &-1.96405106441530E-1_wp,-1.96405106441530E-1_wp, 3.92810212883060E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999830206E-1_wp,&
+      &-3.40183623222704E-1_wp, 3.40183623222704E-1_wp, 0.00000000000000E+0_wp,&
+      & 4.02664545809937E-1_wp, 4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp,-1.96405106441530E-1_wp,-3.40183623222704E-1_wp,&
+      & 9.99999999881495E-1_wp, 3.54600353330803E-2_wp, 3.54600353330805E-2_wp,&
+      & 4.02664545809937E-1_wp,-4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp,-1.96405106441530E-1_wp, 3.40183623222704E-1_wp,&
+      & 3.54600353330803E-2_wp, 9.99999999881495E-1_wp, 3.54600353330805E-2_wp,&
+      & 4.02664545809939E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.99725964000314E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 3.92810212883060E-1_wp, 0.00000000000000E+0_wp,&
+      & 3.54600353330805E-2_wp, 3.54600353330805E-2_wp, 9.99999999881495E-1_wp],&
+      & shape(overlap))
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "AlH3")
+   call test_overlap_dipole_diat_mol(error, mol, overlap)
+
+end subroutine test_overlap_dipole_diat_alh3
+
+subroutine test_overlap_quadrupole_diat_mol(error, mol, ref)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: ref(:, :)
+
+   type(basis_type) :: bas
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_scaled(:, :)
+   real(wp), allocatable :: dipole(:, :, :), quadrupole(:, :, :)
+   real(wp) :: cutoff
+   integer :: ii, jj
+   real(wp) :: scalfac(3,86)
+
+   scalfac = 1.0_wp
+
+   call make_basis(bas, mol, 6)
+   call check(error, bas%nao, size(ref, 1))
+   if (allocated(error)) return
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+
+   allocate(overlap(bas%nao, bas%nao), overlap_scaled(bas%nao, bas%nao))
+   allocate(dipole(3, bas%nao, bas%nao), quadrupole(6, bas%nao, bas%nao))
+   call get_multipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_scaled, &
+      & dipole, quadrupole)
+
+   do ii = 1, size(overlap_scaled, 2)
+      do jj = 1, size(overlap_scaled, 1)
+         call check(error, overlap_scaled(jj, ii), ref(jj, ii), thr=thr)
+         if (allocated(error)) return
+      end do
+   end do
+
+
+end subroutine test_overlap_quadrupole_diat_mol
+
+subroutine test_overlap_quadrupole_diat_alh3(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer, parameter :: nao = 12
+   real(wp), parameter :: overlap(nao, nao) = reshape([&
+      & 9.99999999869333E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.02664545809937E-1_wp, 4.02664545809937E-1_wp, 4.02664545809939E-1_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999998060E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.32775379754938E-1_wp,-4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999998060E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 9.99999999998060E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.49862982000156E-1_wp, 4.99725964000314E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999830206E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      &-2.26789082148469E-1_wp,-2.26789082148469E-1_wp,-2.26789082148469E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999830206E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 9.99999999830206E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 9.99999999830206E-1_wp, 0.00000000000000E+0_wp,&
+      &-1.96405106441530E-1_wp,-1.96405106441530E-1_wp, 3.92810212883060E-1_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 9.99999999830206E-1_wp,&
+      &-3.40183623222704E-1_wp, 3.40183623222704E-1_wp, 0.00000000000000E+0_wp,&
+      & 4.02664545809937E-1_wp, 4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp,-1.96405106441530E-1_wp,-3.40183623222704E-1_wp,&
+      & 9.99999999881495E-1_wp, 3.54600353330803E-2_wp, 3.54600353330805E-2_wp,&
+      & 4.02664545809937E-1_wp,-4.32775379754938E-1_wp, 0.00000000000000E+0_wp,&
+      &-2.49862982000156E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp,-1.96405106441530E-1_wp, 3.40183623222704E-1_wp,&
+      & 3.54600353330803E-2_wp, 9.99999999881495E-1_wp, 3.54600353330805E-2_wp,&
+      & 4.02664545809939E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
+      & 4.99725964000314E-1_wp,-2.26789082148469E-1_wp, 0.00000000000000E+0_wp,&
+      & 0.00000000000000E+0_wp, 3.92810212883060E-1_wp, 0.00000000000000E+0_wp,&
+      & 3.54600353330805E-2_wp, 3.54600353330805E-2_wp, 9.99999999881495E-1_wp],&
+      & shape(overlap))
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "AlH3")
+   call test_overlap_quadrupole_diat_mol(error, mol, overlap)
+
+end subroutine test_overlap_quadrupole_diat_alh3
 
 end module test_integral_multipole

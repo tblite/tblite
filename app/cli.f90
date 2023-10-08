@@ -21,7 +21,7 @@ module tblite_cli
    use mctc_io, only : filetype, get_filetype, to_symbol
    use tblite_argument, only : argument_list, len
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
-      & help_text_fit, help_text_tagdiff
+      & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
@@ -31,7 +31,7 @@ module tblite_cli
    private
 
    public :: get_arguments, driver_config, run_config, param_config, fit_config, &
-      & tagdiff_config
+      & tagdiff_config, guess_config
 
 
    type, abstract :: driver_config
@@ -79,6 +79,34 @@ module tblite_cli
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
    end type run_config
+
+   !> Configuration for evaluating tight binding model on input structure
+   type, extends(driver_config) :: guess_config
+      !> Geometry input file
+      character(len=:), allocatable :: input
+      !> Format for reading the input file
+      integer, allocatable :: input_format
+      !> Evaluate gradient
+      logical :: grad = .false.
+      !> Verbosity of calculation
+      integer :: verbosity = 1
+      !> Total charge of the system
+      integer, allocatable :: charge
+      !> Number of unpaired electrons
+      integer, allocatable :: spin
+      !> Parametrization of the xTB Hamiltonian to use
+      character(len=:), allocatable :: method
+      !> Create JSON dump
+      logical :: json = .false.
+      !> File for output of JSON dump
+      character(len=:), allocatable :: json_output
+      !> Electronic temperature
+      real(wp) :: etemp = 300.0_wp
+      !> Electric field
+      real(wp), allocatable :: efield(:)
+      !> Algorithm for electronic solver
+      integer :: solver = lapack_algorithm%gvd
+   end type guess_config
 
    type, extends(driver_config) :: param_config
       integer :: verbosity = 2
@@ -163,6 +191,9 @@ subroutine get_arguments(config, error)
       case("run")
          allocate(run_config :: config)
          exit
+      case("guess")
+         allocate(guess_config :: config)
+         exit
       case("tagdiff")
          allocate(tagdiff_config :: config)
          exit
@@ -182,6 +213,8 @@ subroutine get_arguments(config, error)
       call get_param_arguments(config, list, iarg, error)
    type is (run_config)
       call get_run_arguments(config, list, iarg, error)
+   type is (guess_config)
+      call get_guess_arguments(config, list, iarg, error)
    type is (tagdiff_config)
       call get_tagdiff_arguments(config, list, iarg, error)
    end select
@@ -434,6 +467,155 @@ subroutine get_run_arguments(config, list, start, error)
    end if
 end subroutine get_run_arguments
 
+
+subroutine get_guess_arguments(config, list, start, error)
+
+   !> Command line options
+   type(guess_config), intent(out) :: config
+
+   !> List of command line arguments
+   type(argument_list), intent(in) :: list
+
+   !> First command line argument
+   integer, intent(in) :: start
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: iarg, narg
+   logical :: getopts
+   character(len=:), allocatable :: arg
+
+   iarg = start
+   getopts = .true.
+   narg = len(list)
+   do while(iarg < narg)
+      iarg = iarg + 1
+      call list%get(iarg, arg)
+      if (.not.getopts) then
+         if (.not.allocated(config%input)) then
+            call move_alloc(arg, config%input)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+      end if
+      select case(arg)
+      case("--")
+         getopts = .false.
+
+      case("--help")
+         write(output_unit, '(a)') help_text_guess
+         stop
+
+      case("--version")
+         call version(output_unit)
+         stop
+
+      case("-v", "-vv", "--verbose")
+         config%verbosity = config%verbosity + 1
+         if (arg == "-vv") config%verbosity = config%verbosity + 1
+
+      case("-s", "-ss", "--silent")
+         config%verbosity = config%verbosity - 1
+         if (arg == "-ss") config%verbosity = config%verbosity - 1
+
+      case default
+         if (.not.allocated(config%input)) then
+            call move_alloc(arg, config%input)
+            cycle
+         end if
+         call fatal_error(error, "Too many positional arguments present")
+         exit
+
+      case("-i", "--input")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for input format")
+            exit
+         end if
+         config%input_format = get_filetype("."//arg)
+
+      case("-c", "--charge")
+         iarg = iarg + 1
+         allocate(config%charge)
+         call list%get(iarg, arg)
+         call get_argument_as_int(arg, config%charge, error)
+         if (allocated(error)) exit
+
+      case("--spin")
+         iarg = iarg + 1
+         allocate(config%spin)
+         call list%get(iarg, arg)
+         call get_argument_as_int(arg, config%spin, error)
+         if (allocated(error)) exit
+
+      case("--method")
+         iarg = iarg + 1
+         call list%get(iarg, config%method)
+         if (.not.allocated(config%method)) then
+            call fatal_error(error, "Missing argument for method")
+            exit
+         end if
+
+      case("--solver")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for solver")
+            exit
+         end if
+
+         select case(arg)
+         case default
+            call fatal_error(error, "Unknown electronic solver '"//arg//"' specified")
+            exit
+         case("gvd")
+            config%solver = lapack_algorithm%gvd
+         case("gvr")
+            config%solver = lapack_algorithm%gvr
+         end select
+
+      case("--etemp")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%etemp, error)
+         if (allocated(error)) exit
+
+      case("--efield")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         allocate(config%efield(3))
+         call get_argument_as_realv(arg, config%efield, error)
+         if (allocated(error)) exit
+
+      case("--grad")
+         config%grad = .true.
+
+      case("--json")
+         config%json = .true.
+         config%json_output = "tblite.json"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-") then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%json_output)
+         end if
+      end select
+   end do
+
+   if (.not.(allocated(config%input))) then
+      if (.not.allocated(error)) then
+         write(output_unit, '(a)') help_text_guess
+         error stop
+      end if
+   end if
+
+end subroutine get_guess_arguments
 
 subroutine get_param_arguments(config, list, start, error)
 

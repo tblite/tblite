@@ -18,7 +18,7 @@ program main_driver
    use, intrinsic :: iso_fortran_env, only : error_unit
    use mctc_env, only : error_type
    use tblite_cli, only : get_arguments, driver_config, run_config, param_config, &
-      & fit_config, tagdiff_config
+      & fit_config, tagdiff_config, guess_config
    use tblite_context_type, only : context_type
    use tblite_driver, only : main
    implicit none
@@ -39,6 +39,8 @@ program main_driver
    type is (run_config)
       call main(config, error)
    type is (tagdiff_config)
+      call main(config, error)
+   type is (guess_config)
       call main(config, error)
    end select
    if (allocated(error)) then
