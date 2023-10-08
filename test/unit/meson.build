@@ -33,6 +33,7 @@ tests = [
   'cgto-ortho',
   'coulomb-charge',
   'coulomb-multipole',
+  'double-dictionary',
   'fit',
   'gfn1-xtb',
   'gfn2-xtb',
