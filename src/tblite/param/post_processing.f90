@@ -35,7 +35,7 @@ module tblite_param_post_processing
 
    type, public :: post_processing_param_list
       type(post_processing_record), allocatable :: list(:)
-      integer :: n
+      integer :: n = 0
    contains
       private
       procedure, public :: push
@@ -147,6 +147,8 @@ subroutine load_from_toml(self, table, error)
             type(molecular_multipole_record), allocatable :: tmp_record
             class(serde_record), allocatable :: cont
             allocate(tmp_record)
+            call get_value(table, list(ii), child)
+            call tmp_record%load(child, error) 
             call move_alloc(tmp_record, cont)
             call self%push(cont)
          end block
@@ -154,14 +156,7 @@ subroutine load_from_toml(self, table, error)
          return
       end select
    end do
-   do ii = 1, self%n
-      if (allocated(self%list(ii)%record)) then
-         associate(rec => self%list(ii)%record)
-            call get_value(table, list(ii), child)
-            call rec%load(child, error)
-         end associate
-      end if
-   end do
+   
    if (allocated(error)) return
 end subroutine load_from_toml
 

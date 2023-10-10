@@ -59,8 +59,8 @@ module tblite_post_processing_list
    end type
 
    interface add_post_processing
-      procedure :: new_post_processing_param
-      procedure :: new_post_processing_cli
+      procedure :: add_post_processing_param
+      procedure :: add_post_processing_cli
    end interface
    logical :: print_csv_bool =.false.
 contains
@@ -182,7 +182,7 @@ pure function info(self, verbosity, indent) result(str)
 
 end function info
 
-subroutine new_post_processing_param(self, param)
+subroutine add_post_processing_param(self, param)
    !> Instance of the xTB evaluator
    class(post_processing_list), intent(inout) :: self
    type(post_processing_param_list) :: param
@@ -202,7 +202,7 @@ subroutine new_post_processing_param(self, param)
    end do
 end subroutine
 
-subroutine new_post_processing_cli(self, config, error)
+subroutine add_post_processing_cli(self, config, error)
    class(post_processing_list), intent(inout) :: self
    type(error_type), intent(inout) , allocatable:: error
    character(len=:), allocatable :: config
