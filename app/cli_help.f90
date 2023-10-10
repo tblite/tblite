@@ -127,6 +127,11 @@ module tblite_cli_help
       "--cpcm <real>             Use polarizable continuum solvation model."//nl//&
       "                          Solvent is specified by dielectric constant."//nl//&
       "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
+      "--post-processing <file>  Add post processing methods to the calculation"//nl//&
+      "                          by using a toml file as input."//nl//&
+      "--post-processing <name>  Add post processing methods to the calculation,"//nl//&
+      "                          Mayer-Wiberg bond orders are computed by default."//nl//&
+      "                          Options: molmom (molecular multipole moments)" 
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&

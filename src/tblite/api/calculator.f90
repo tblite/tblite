@@ -38,6 +38,7 @@ module tblite_api_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_api_post_processing, only : vp_post_processing, new_post_processing_api, &
       & push_back_post_processing_api
+   use tblite_api_utils, only : f_c_character
    implicit none
    private
 
@@ -498,14 +499,20 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    type(c_ptr), value :: vres
    type(error_type), allocatable :: error
    type(c_ptr):: vpost_proc
-   character(kind=c_char, len=*), parameter :: wbo_charptr = "wbo"
-   character(kind=c_char, len=*), parameter :: molmom_charptr = "molmom"
+   character(kind=c_char), allocatable :: charptr(:)
+   character(len=:), allocatable :: f_char
    
    vpost_proc = new_post_processing_api()
-
-   call push_back_post_processing_api(vpost_proc, wbo_charptr)
-
-   call push_back_post_processing_api(vpost_proc, molmom_charptr)
+   
+   f_char = "wbo"
+   allocate(charptr(10))
+   call f_c_character(f_char, charptr, 10)
+   call push_back_post_processing_api(vpost_proc, charptr)
+   deallocate(charptr)
+   f_char = "molmom"
+   allocate(charptr(10))
+   call f_c_character(f_char, charptr, 10)
+   call push_back_post_processing_api(vpost_proc, charptr)
 
    call get_singlepoint_w_post_api(vctx, vmol, vcalc, vres, vpost_proc)
 
