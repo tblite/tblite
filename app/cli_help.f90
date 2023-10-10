@@ -131,7 +131,7 @@ module tblite_cli_help
       "                          by using a toml file as input."//nl//&
       "--post-processing <name>  Add post processing methods to the calculation,"//nl//&
       "                          Mayer-Wiberg bond orders are computed by default."//nl//&
-      "                          Options: molmom (molecular multipole moments)" 
+      "                          Options: molmom (molecular multipole moments)"//& 
       "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
       "                          Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
