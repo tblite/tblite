@@ -23,7 +23,7 @@ module tblite_api_post_processing
    use mctc_env, only : error_type, fatal_error
    use tblite_post_processing_list, only : post_processing_list, post_processing_type
    use tblite_api_version, only : namespace
-   use tblite_post_processing_list, only : new_post_processing
+   use tblite_post_processing_list, only : add_post_processing
    use tblite_api_utils, only : c_f_character, f_c_character
    use iso_c_binding
    implicit none
@@ -74,8 +74,7 @@ subroutine push_back_post_processing_api(vpost_proc, charptr) &
    end if
    call c_f_pointer(vpost_proc, post_proc)
 
-   call new_post_processing(pproc, config_str, error)
-   call post_proc%ptr%push(pproc) 
+   call add_post_processing(post_proc%ptr, config_str, error)
 
 end subroutine
 

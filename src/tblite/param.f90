@@ -80,7 +80,7 @@ module tblite_param
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
       !> Abstract post processing class 
-      class(post_processing_param_list), allocatable :: post_proc
+      type(post_processing_param_list), allocatable :: post_proc
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array

@@ -366,8 +366,7 @@ subroutine test_assigment_operator(error)
    type(error_type), allocatable, intent(out) :: error
    type(double_dictionary_type) :: dict1, dict2
    call fill_test_dict(dict1)
-   write(*,*) dict1%get_n_entries()
-   write(*,*) size(dict1%record, dim=1)
+   
    dict2 = dict1
 
    call check(error, dict1%n , dict2%n)

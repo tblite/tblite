@@ -39,7 +39,7 @@ module tblite_post_processing_list
    implicit none
    private
 
-   public :: new_post_processing, post_processing_type
+   public :: add_post_processing, post_processing_type
 
    type :: post_processing_record
       class(post_processing_type), allocatable :: pproc
@@ -58,7 +58,7 @@ module tblite_post_processing_list
       procedure :: push
    end type
 
-   interface new_post_processing
+   interface add_post_processing
       procedure :: new_post_processing_param
       procedure :: new_post_processing_cli
    end interface
@@ -184,35 +184,39 @@ end function info
 
 subroutine new_post_processing_param(self, param)
    !> Instance of the xTB evaluator
-   class(post_processing_type), allocatable, intent(inout) :: self
+   class(post_processing_list), intent(inout) :: self
    type(post_processing_param_list) :: param
    integer :: i
-   do i = 1, size(param%list)
+   do i = 1, param%n
       select type(par => param%list(i)%record)
       type is (molecular_multipole_record)
          block
             type(molecular_moments), allocatable :: tmp
+            class(post_processing_type), allocatable :: proc
             allocate(tmp)
             call new_molecular_moments(tmp, par)
-            call move_alloc(tmp, self)
+            call move_alloc(tmp, proc)
+            call self%push(proc)
          end block
       end select
    end do
 end subroutine
 
 subroutine new_post_processing_cli(self, config, error)
-   class(post_processing_type), allocatable, intent(inout) :: self
+   class(post_processing_list), intent(inout) :: self
    type(error_type), intent(inout) , allocatable:: error
    character(len=:), allocatable :: config
    type(post_processing_param_list), allocatable :: param
-   allocate(param)
+   class(post_processing_type), allocatable :: tmp_proc
+   
    select case(config)
    case("wbo")
       block
          type(wiberg_bond_orders), allocatable :: wbo_tmp
          allocate(wbo_tmp)
          call new_wbo(wbo_tmp)
-         call move_alloc(wbo_tmp, self)
+         call move_alloc(wbo_tmp, tmp_proc)
+         call self%push(tmp_proc)
          return
       end block
    case("molmom")
@@ -220,7 +224,8 @@ subroutine new_post_processing_cli(self, config, error)
          type(molecular_moments), allocatable :: molmom_tmp
          allocate(molmom_tmp)
          call new_molecular_moments(molmom_tmp)
-         call move_alloc(molmom_tmp, self)
+         call move_alloc(molmom_tmp, tmp_proc)
+         call self%push(tmp_proc)
       end block
    case default
       block
@@ -231,7 +236,7 @@ subroutine new_post_processing_cli(self, config, error)
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")
-
+         allocate(param)
          call toml_parse(table, io, t_error)
          close(io)
          if (allocated(t_error)) then
@@ -248,29 +253,37 @@ subroutine new_post_processing_cli(self, config, error)
          else
             call fatal_error(error, "Could not find post-processing key in toml file.")
          end if
-         call new_post_processing(self, param)
+         call add_post_processing(self, param)
       end block
    end select
 
-   if (.not.allocated(self)) then 
-      call fatal_error(error, "Outgoing post processing container is not allocated!")
-   end if
 end subroutine
 
 subroutine push(self, record)
    class(post_processing_list), intent(inout) :: self
    class(post_processing_type), allocatable, intent(inout) :: record
-
+   
    if (.not.allocated(self%list)) call resize(self%list)
+   if (is_duplicate(self, record)) return
    if (self%n >= size(self%list)) then
       call resize(self%list)
    end if
-   write(*,*) size(self%list)
+   
    self%n = self%n + 1
-   write(*,*) self%n
    call move_alloc(record, self%list(self%n)%pproc)
 
 end subroutine push
+
+function is_duplicate(self, record) result(duplicate)
+   class(post_processing_list), intent(inout) :: self
+   class(post_processing_type), allocatable, intent(inout) :: record
+   logical :: duplicate 
+   integer :: i
+   duplicate = .false.
+   do i = 1, self%n
+      if (record%label == self%list(i)%pproc%label) duplicate = .true.
+   end do
+end function
 
 pure subroutine resize(list, n)
    !> Instance of the array to be resized

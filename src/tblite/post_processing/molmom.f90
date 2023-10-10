@@ -53,6 +53,7 @@ contains
 subroutine new_molecular_moments(new_molmom_type, param)
    type(molecular_moments), intent(inout) :: new_molmom_type
    type(molecular_multipole_record), optional :: param
+   
    new_molmom_type%label = label
 
    if (present(param)) then

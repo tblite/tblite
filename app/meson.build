@@ -82,3 +82,7 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
     suite: 'app',
   )
 endforeach
+
+test('post-processing-str', tblite_exe, args: ['run', '--post-processing', 'molmom', files('test'/'input.xyz')], suite: 'app')
+test('post-processing-toml', tblite_exe, args: ['run', '--post-processing', files('test'/'molmom.toml'), files('test'/'input.xyz')], suite: 'app')
+test('post-processing-param', tblite_exe, args: ['run', '--param', files('test'/'gfn2-molmom.toml'), files('test'/'input.xyz')], suite: 'app')

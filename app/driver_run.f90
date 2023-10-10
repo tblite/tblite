@@ -42,7 +42,7 @@ module tblite_driver_run
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
    use tblite_ceh_calculator, only : ceh_calculator
-   use tblite_post_processing_list, only : new_post_processing, post_processing_type, post_processing_list
+   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
    implicit none
    private
 
@@ -79,7 +79,6 @@ subroutine run_main(config, error)
    type(wavefunction_type) :: wfn, wfn_ceh
    type(results_type) :: results
    class(post_processing_list), allocatable :: post_proc
-   class(post_processing_type), allocatable :: post_proc_tmp
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
@@ -235,29 +234,19 @@ subroutine run_main(config, error)
 
    wbo_label = "wbo"
    allocate(post_proc)
-   call new_post_processing(post_proc_tmp, wbo_label, error)
-   call post_proc%push(post_proc_tmp)
+   call add_post_processing(post_proc, wbo_label, error)
 
    if (config%verbosity > 2) then
       molmom_label = "molmom"
-      call new_post_processing(post_proc_tmp, molmom_label, error)
-      call post_proc%push(post_proc_tmp)
+      call add_post_processing(post_proc, molmom_label, error)
    end if
 
    if (allocated(config%post_processing)) then
-         block
-            class(post_processing_type), allocatable :: tmp_post_proc
-            call new_post_processing(tmp_post_proc, config%post_processing, error)
-            call post_proc%push(tmp_post_proc)
-         end block
+      call add_post_processing(post_proc, config%post_processing, error)
    end if
 
    if (allocated(param%post_proc)) then
-      block
-         class(post_processing_type), allocatable :: tmp_post_proc
-         call new_post_processing(tmp_post_proc, param%post_proc)
-         call post_proc%push(tmp_post_proc)
-      end block
+      call add_post_processing(post_proc, param%post_proc)
    end if
 
    if (config%verbosity > 0) then
@@ -288,6 +277,8 @@ subroutine run_main(config, error)
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
+
+   deallocate(post_proc)
 
    if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)
