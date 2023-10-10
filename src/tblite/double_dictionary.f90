@@ -482,7 +482,7 @@ pure subroutine resize(var, n)
 
    type(double_record), allocatable :: tmp(:)
    integer :: this_size, new_size
-   integer, parameter :: initial_size = 0
+   integer, parameter :: initial_size = 20
 
    if (allocated(var)) then
       this_size = size(var, 1)
@@ -494,7 +494,7 @@ pure subroutine resize(var, n)
    if (present(n)) then
       new_size = n
    else
-      new_size = this_size + 1
+      new_size = this_size + this_size/2 + 1
    end if
 
    allocate(var(new_size))

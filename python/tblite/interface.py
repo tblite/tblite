@@ -239,6 +239,7 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "post-processing-dict": library.get_post_processing_dict,
     }
     _setter = {}
 
@@ -547,6 +548,18 @@ class Calculator(Structure):
             )
         return self._getter[attribute](self._ctx, self._calc)
 
+    def add_post_proc(self, post_processing: str = "") -> None:
+        """
+        Add post processing to the single point calculation. 
+        Methods can also be entered as a toml file. 
+        Supported post processing methods are:
+
+
+        """
+        self._post_proc = library.ffi.NULL
+        self._post_proc = library.new_post_processing(post_processing)
+        
+
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """
         Perform actual single point calculation in the library backend.
@@ -563,8 +576,12 @@ class Calculator(Structure):
         """
 
         _res = Result(res) if copy or res is None else res
-
-        library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        
+        if hasattr(self, '_post_proc'):
+            library.get_singlepoint_w_post(self._ctx, self._mol, self._calc, _res._res, self._post_proc)
+        else:
+            library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        
         return _res
 
 

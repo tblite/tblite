@@ -250,12 +250,8 @@ def get_charges(res):
 
 def get_bond_orders(res):
     """Retrieve Wiberg / Mayer bond orders from result container"""
-    _natoms = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
-    _bond_orders = np.zeros((_natoms[0], _natoms[0]))
-    error_check(lib.tblite_get_result_bond_orders)(
-        res, ffi.cast("double*", _bond_orders.ctypes.data)
-    )
+    _dict = get_post_processing_dict(res=res)
+    _bond_orders = _dict['wbo']
     return _bond_orders
 
 
@@ -348,8 +344,18 @@ def new_ipea1_calculator(ctx, mol):
 @context_check
 def new_xtb_calculator(ctx, mol, param):
     """Create new tblite calculator from parametrization records"""
-    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
+    return ffi.gc(lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator)
 
+def _delete_post_processing(calc) -> None:
+    """Delete a tblite pots-processing object"""
+    ptr = ffi.new("tblite_post_processing *")
+    ptr[0] = calc
+    lib.tblite_delete_post_processing(ptr)
+
+def new_post_processing(string):
+    """Create new tblite calculator from parametrization records"""
+    _string = ffi.new("char[]", string.encode("ascii"))
+    return ffi.gc(lib.tblite_new_post_processing(_string), _delete_post_processing)
 
 def get_calculator_shell_map(ctx, calc):
     """Retrieve index mapping from shells to atomic centers"""
@@ -361,7 +367,38 @@ def get_calculator_shell_map(ctx, calc):
     )
     return _map
 
+def _delete_double_dictionary(calc) -> None:
+    """Delete a tblite double dictionary object"""
+    ptr = ffi.new("tblite_double_dictionary *")
+    ptr[0] = calc
+    lib.tblite_delete_double_dictionary(ptr)
 
+def get_post_processing_dict(res):
+    """Retrieve the dictionary containing all post processing results"""
+    _dict = ffi.gc(error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary)
+    _nentries = lib.tblite_get_n_entries_dict(_dict)
+    _dict_py = dict()
+    for i in range(1,_nentries+1):
+        _index = ffi.new("const int*", i)
+
+        _dim1 = ffi.new("int*")
+        _dim2 = ffi.new("int*")
+        _dim3 = ffi.new("int*")
+        lib.tblite_get_array_size_index(_dict, _index,  _dim1, _dim2, _dim3)
+        if (_dim3[0] == 0):
+            if (_dim2[0] == 0):
+                _array = np.zeros((_dim1[0],))
+            else:
+                _array = np.zeros((_dim1[0], _dim2[0]))
+        else:
+            _array = np.zeros((_dim1[0], _dim2[0], _dim3[0]))
+        lib.tblite_get_array_entry_index(_dict, _index, ffi.cast("double*", _array.ctypes.data))
+        _message = ffi.new("char[]", 512)
+        lib.tblite_get_label_entry_index(_dict, _index, _message)
+        label = ffi.string(_message).decode()
+        _dict_py[label] = _array
+    return _dict_py
+        
 def get_calculator_angular_momenta(ctx, calc):
     """Retrieve angular momenta of shells"""
     _nsh = ffi.new("int *")
@@ -399,7 +436,7 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
-
+get_singlepoint_w_post = context_check(lib.tblite_get_singlepoint_w_post)
 
 def _delete_container(cont) -> None:
     """Delete a tblite container object"""

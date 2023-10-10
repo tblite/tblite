@@ -18,18 +18,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/calculator.f90"
-  "${dir}/container.f90"
-  "${dir}/context.f90"
-  "${dir}/double_dictionary.f90"
-  "${dir}/error.f90"
-  "${dir}/param.f90"
-  "${dir}/post_processing.f90"
-  "${dir}/result.f90"
-  "${dir}/structure.f90"
-  "${dir}/table.f90"
-  "${dir}/utils.f90"
-  "${dir}/version.f90"
+  "${dir}/molmom.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

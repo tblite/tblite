@@ -35,6 +35,7 @@ module tblite_param
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
+   use tblite_param_post_processing, only :  post_processing_param_list
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none
    private
@@ -48,7 +49,7 @@ module tblite_param
       & k_charge = "charge", k_thirdorder = "thirdorder", k_multipole = "multipole", &
       & k_halogen = "halogen", k_hamiltonian = "hamiltonian", k_element = "element", &
       & k_meta = "meta", k_version = "version", k_name = "name", k_reference = "reference", &
-      & k_format = "format"
+      & k_format = "format", k_post_proc = "post-processing"
 
    !> Current parameter format version
    integer, parameter :: current_format = 1
@@ -78,6 +79,8 @@ module tblite_param
       type(thirdorder_record), allocatable :: thirdorder
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
+      !> Abstract post processing class 
+      class(post_processing_param_list), allocatable :: post_proc
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array
@@ -165,6 +168,12 @@ subroutine load_from_toml(self, table, error)
       if (allocated(error)) return
    end if
 
+   call get_value(table, k_post_proc, child, requested=.false.)
+   if (associated(child)) then
+      allocate(self%post_proc)
+      call self%post_proc%load(child, error)
+   end if 
+
    call get_value(table, k_element, child)
    call records_from_table(self%record, child, error)
    if (allocated(error)) return
@@ -235,6 +244,12 @@ subroutine dump_to_toml(self, table, error)
    if (allocated(self%multipole)) then
       call add_table(table, k_multipole, child)
       call self%multipole%dump(child, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(self%post_proc)) then
+      call add_table(table, k_post_proc, child)
+      call self%post_proc%dump(child, error)
       if (allocated(error)) return
    end if
 

@@ -20,6 +20,7 @@
 !> Container for holding results produced by a calculation.
 module tblite_results
    use mctc_env, only : wp
+   use tblite_double_dictionary, only : double_dictionary_type
    implicit none
    private
 
@@ -32,8 +33,17 @@ module tblite_results
       real(wp), allocatable :: overlap(:, :)
       !> (Core) Hamiltonian integrals
       real(wp), allocatable :: hamiltonian(:, :)
-      !> Wiberg/Mayer bond orders
-      real(wp), allocatable :: bond_orders(:, :, :)
+      type(double_dictionary_type), allocatable :: dict
    end type results_type
+
+   interface results_type
+      module procedure :: init
+   end interface
+contains
+   function init() result(this)
+      type(results_type) :: this
+      
+      allocate(this%dict)
+   end function
 
 end module tblite_results
