@@ -24,7 +24,6 @@ list(
   "${dir}/double_dictionary.f90"
   "${dir}/error.f90"
   "${dir}/param.f90"
-  "${dir}/post_processing.f90"
   "${dir}/result.f90"
   "${dir}/structure.f90"
   "${dir}/table.f90"
