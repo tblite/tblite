@@ -138,9 +138,9 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    character(len=:), allocatable :: key
    call table%get_keys(list)
-
    do ii = 1, size(list)
       key = trim(adjustl(list(ii)%key))
+      write(*,*) key
       select case(key)
       case("molecular-multipole")
          block

@@ -232,7 +232,7 @@ subroutine run_main(config, error)
       end block
    end if
 
-   wbo_label = "wbo"
+   wbo_label = "bond-orders"
    allocate(post_proc)
    call add_post_processing(post_proc, wbo_label, error)
 

@@ -30,43 +30,80 @@ typedef struct _tblite_double_dictionary* tblite_double_dictionary;
 
 /// Get number of entries
 ///
+/// @param error: Error handler
 /// @param dict: Double dictionary instance
 TBLITE_API_ENTRY int TBLITE_API_CALL
-tblite_get_n_entries_dict(tblite_double_dictionary dict);
+tblite_get_n_entries_dict(tblite_error error,
+                          tblite_double_dictionary dict);
 
 /// Get the array associated with an entry by index, together with its dimensions
 ///
+/// @param error: Error handler
 /// @param dict: Double dictionary instance
 /// @param index: Index of the entry for which to retrieve the label
 /// @param array: Array associated to the entry addressed by the index
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_array_entry_index(tblite_double_dictionary dict,
+tblite_get_array_entry_index(tblite_error error,
+                            tblite_double_dictionary dict,
                             const int* index,
                             double* array);
 
 /// Get the array associated with an entry by index, together with its dimensions
 ///
+/// @param error: Error handler
 /// @param dict: Double dictionary instance
 /// @param index: Index of the entry for which to retrieve the label
 /// @param dim1: 1st dimension of the associated tensor to the index
 /// @param dim2: 2nd dimension of the associated tensor to the index
 /// @param dim3: 3rd dimension of the associated tensor to the index
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_array_size_index(tblite_double_dictionary dict,
+tblite_get_array_size_index(tblite_error error,
+                            tblite_double_dictionary dict,
                             const int* index,
+                            int* dim1,
+                            int* dim2,
+                            int* dim3);
+
+/// Get the array associated with an entry by index, together with its dimensions
+///
+/// @param error: Error handler
+/// @param dict: Double dictionary instance
+/// @param label: label of the entry for which to retrieve the label
+/// @param array: Array associated to the entry addressed by the label
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_array_entry_label(tblite_error error,
+                            tblite_double_dictionary dict,
+                            char* label,
+                            double* array);
+
+/// Get the array associated with an entry by label, together with its dimensions
+///
+/// @param error: Error handler
+/// @param dict: Double dictionary instance
+/// @param label: label of the entry for which to retrieve the label
+/// @param dim1: 1st dimension of the associated tensor to the label
+/// @param dim2: 2nd dimension of the associated tensor to the label
+/// @param dim3: 3rd dimension of the associated tensor to the label
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_array_size_label(tblite_error error,
+                            tblite_double_dictionary dict,
+                            char* label,
                             int* dim1,
                             int* dim2,
                             int* dim3);
 
 /// Get label of an entry by index
 ///
+/// @param error: Error handler
 /// @param dict: Double dictionary instance
 /// @param index: Index of the entry for which to retrieve the label
 /// @param label: Label which is retrieved
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_label_entry_index(tblite_double_dictionary dict,
-                            const int* index,
-                            char* label);
+tblite_get_label_entry_index(tblite_error error,
+                             tblite_double_dictionary dict,
+                             const int* index,
+                             char* label,
+                             const int* buffersize);
 
 /// Delete dictionary
 ///

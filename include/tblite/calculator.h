@@ -33,7 +33,6 @@
 #include "tblite/structure.h"
 #include "tblite/result.h"
 #include "tblite/param.h"
-#include "tblite/post_processing.h"
 
 /// Possible initial guess of the wavefunction.
 typedef enum {
@@ -212,16 +211,20 @@ tblite_get_singlepoint(tblite_context ctx,
                        tblite_calculator calc,
                        tblite_result res);
 
-/// Perform single point calculation
+/// Push Back new conatiner to post processing construct
 ///
-/// @param ctx: Context handle
-/// @param mol: Molecular structure data
-/// @param calc: Calculator instance
-/// @param res: Result container
-/// @param post_process: Post processing container
+/// @param post_proc: Post Processing instance 
+/// @param charptr: String of the post processing desired
 TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_singlepoint_w_post(tblite_context ctx,
-                       tblite_structure mol,
-                       tblite_calculator calc,
-                       tblite_result res,
-                       tblite_post_processing post_process);
+tblite_push_back_post_processing_str(tblite_context ctx,
+                                     tblite_calculator calc, 
+                                     char* charptr);
+
+/// Push Back new conatiner to post processing construct
+///
+/// @param post_proc: Post Processing instance 
+/// @param param: Param instance containing post processing information
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_push_back_post_processing_param(tblite_context ctx,
+                                       tblite_calculator calc,
+                                       tblite_param param);

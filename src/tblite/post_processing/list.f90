@@ -206,11 +206,11 @@ subroutine add_post_processing_cli(self, config, error)
    class(post_processing_list), intent(inout) :: self
    type(error_type), intent(inout) , allocatable:: error
    character(len=:), allocatable :: config
-   type(post_processing_param_list), allocatable :: param
+   type(post_processing_param_list) :: param
    class(post_processing_type), allocatable :: tmp_proc
    
    select case(config)
-   case("wbo")
+   case("bond-orders")
       block
          type(wiberg_bond_orders), allocatable :: wbo_tmp
          allocate(wbo_tmp)
@@ -221,11 +221,12 @@ subroutine add_post_processing_cli(self, config, error)
       end block
    case("molmom")
       block
-         type(molecular_moments), allocatable :: molmom_tmp
+         type(molecular_multipole_record), allocatable :: molmom_tmp
+         class(serde_record), allocatable :: tmp
          allocate(molmom_tmp)
-         call new_molecular_moments(molmom_tmp)
-         call move_alloc(molmom_tmp, tmp_proc)
-         call self%push(tmp_proc)
+         call molmom_tmp%populate_default_param()
+         call move_alloc(molmom_tmp, tmp)
+         call param%push(tmp)
       end block
    case default
       block
@@ -236,7 +237,7 @@ subroutine add_post_processing_cli(self, config, error)
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")
-         allocate(param)
+         
          call toml_parse(table, io, t_error)
          close(io)
          if (allocated(t_error)) then
@@ -253,10 +254,10 @@ subroutine add_post_processing_cli(self, config, error)
          else
             call fatal_error(error, "Could not find post-processing key in toml file.")
          end if
-         call add_post_processing(self, param)
-      end block
+         
+      end block   
    end select
-
+   call add_post_processing(self, param)
 end subroutine
 
 subroutine push(self, record)

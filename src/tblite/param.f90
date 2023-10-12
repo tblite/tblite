@@ -170,6 +170,7 @@ subroutine load_from_toml(self, table, error)
 
    call get_value(table, k_post_proc, child, requested=.false.)
    if (associated(child)) then
+      write(*,*) "Found post proc"
       allocate(self%post_proc)
       call self%post_proc%load(child, error)
    end if 

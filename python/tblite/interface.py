@@ -294,7 +294,7 @@ class Result:
 
         if attribute not in self._getter:
             raise ValueError(f"Attribute '{attribute}' is not available in this result")
-
+        print(attribute)
         return self._getter[attribute](self._res)
 
     def set(self, attribute: str, value):
@@ -445,6 +445,10 @@ class Calculator(Structure):
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
     }
+    _post_processing = {
+        "bond-orders" : "bond-orders",
+        "molecular-multipoles" : "molmom",
+    }
 
     def __init__(
         self,
@@ -517,12 +521,19 @@ class Calculator(Structure):
         =================== =========================== ===================
         """
 
-        if interaction not in self._interaction:
+        if interaction in self._interaction:
+            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
+            library.calculator_push_back(self._ctx, self._calc, cont)
+        elif interaction in self._post_processing:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        elif ".toml" in interaction:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        else:
             raise ValueError(
-                f"Interaction '{interaction}' is not supported in this calculator"
+                f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-        cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
-        library.calculator_push_back(self._ctx, self._calc, cont)
+        
+        
 
     def get(self, attribute: str) -> Any:
         """
@@ -548,18 +559,6 @@ class Calculator(Structure):
             )
         return self._getter[attribute](self._ctx, self._calc)
 
-    def add_post_proc(self, post_processing: str = "") -> None:
-        """
-        Add post processing to the single point calculation. 
-        Methods can also be entered as a toml file. 
-        Supported post processing methods are:
-
-
-        """
-        self._post_proc = library.ffi.NULL
-        self._post_proc = library.new_post_processing(post_processing)
-        
-
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """
         Perform actual single point calculation in the library backend.
@@ -576,11 +575,7 @@ class Calculator(Structure):
         """
 
         _res = Result(res) if copy or res is None else res
-        
-        if hasattr(self, '_post_proc'):
-            library.get_singlepoint_w_post(self._ctx, self._mol, self._calc, _res._res, self._post_proc)
-        else:
-            library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
         
         return _res
 

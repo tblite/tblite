@@ -65,9 +65,8 @@ module tblite_param_molecular_moments
 
 contains
 
-subroutine populate_default_param(param, tensor)
+subroutine populate_default_param(param)
    class(molecular_multipole_record), intent(inout) :: param
-   logical, optional :: tensor
 
    param%moldipm = .true.
    param%molqp= .true.

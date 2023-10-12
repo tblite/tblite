@@ -66,7 +66,7 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(context_type), intent(inout) :: ctx
    type(container_cache), intent(inout) :: cache_list(:)
    type(double_dictionary_type), intent(inout) :: dict
-   real(kind=wp), allocatable :: wbo(:, :, :)
+   real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
    real(kind=wp), allocatable :: focc_(:, :)
    integer :: prlevel, nspin, i, j
    real(kind=wp) :: nel_
@@ -95,12 +95,21 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
          call get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
       end do
       call get_mayer_bond_orders(calc%bas, integrals%overlap, pmat, wbo)
+      wbo_2d = wbo(:, :, 1) + wbo(:, :, 2)
+      write(*,*) wbo_2d
+      call dict%add_entry("bond-orders", wbo_2d)
    else
       allocate(wbo(mol%nat, mol%nat, nspin), source=0.0_wp)
       call get_mayer_bond_orders(calc%bas, integrals%overlap, wfn%density, wbo)
+      if (size(wbo, dim = 3) == 1) then 
+         wbo_2d = wbo(:, : , 1)
+         call dict%add_entry("bond-orders", wbo_2d)
+      else
+         call dict%add_entry("bond-orders", wbo(:, :, :))
+      end if
    end if
 
-   call dict%add_entry("wbo", wbo(:, :, :))
+   
    call timer%pop()
 end subroutine
 

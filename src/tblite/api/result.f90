@@ -523,7 +523,7 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
       return
    end if
 
-   call res%results%dict%get_entry("wbo", mbo_f)
+   call res%results%dict%get_entry("bond-orders", mbo_f)
 
    if (.not.allocated(mbo_f)) then
       call fatal_error(error%ptr, "Could not find bond orders in results dictionary")
@@ -545,12 +545,12 @@ logical :: ok
 type(vp_double_dictionary), pointer :: dict
 
 if (debug) print '("[Info]", 1x, a)', "get_result_dict"
-
+vdict = c_null_ptr
 call get_result(verror, vres, error, res, ok)
 if (.not.ok) return
 
 if (.not.allocated(res%results)) then
-   call fatal_error(error%ptr, "Result does not contain bond orders")
+   call fatal_error(error%ptr, "Result does not contain post processing dictionary.")
    return
 end if
 allocate(dict)

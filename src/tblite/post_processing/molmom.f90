@@ -52,14 +52,12 @@ contains
 
 subroutine new_molecular_moments(new_molmom_type, param)
    type(molecular_moments), intent(inout) :: new_molmom_type
-   type(molecular_multipole_record), optional :: param
+   type(molecular_multipole_record), intent(in) :: param
    
    new_molmom_type%label = label
 
-   if (present(param)) then
-      new_molmom_type%comp_dipm = param%moldipm
-      new_molmom_type%comp_qm = param%molqp
-   end if
+   new_molmom_type%comp_dipm = param%moldipm
+   new_molmom_type%comp_qm = param%molqp
 
 end subroutine
 
