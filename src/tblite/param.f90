@@ -35,14 +35,15 @@ module tblite_param
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
-   use tblite_param_post_processing, only :  post_processing_param_list
+   use tblite_param_post_processing, only :  post_processing_param_list, molecular_multipole_record
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none
    private
 
    public :: param_record, param_mask, count
    public :: charge_record, dispersion_record, element_record, halogen_record, &
-      & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record
+      & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record, &
+      & post_processing_param_list, molecular_multipole_record
 
 
    character(len=*), parameter :: k_dispersion = "dispersion", k_repulsion = "repulsion", &

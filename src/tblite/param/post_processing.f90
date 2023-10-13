@@ -27,21 +27,21 @@ module tblite_param_post_processing
    implicit none
    private
 
-
+   public :: molecular_multipole_record, post_processing_param_list
    !> Parametrization record specifying the dispersion model
    type :: post_processing_record
       class(serde_record), allocatable :: record
    end type
 
-   type, public :: post_processing_param_list
+   type :: post_processing_param_list
       type(post_processing_record), allocatable :: list(:)
       integer :: n = 0
    contains
       private
-      procedure, public :: push
-      procedure, public :: get_n_records
       generic, public :: load => load_from_toml
       generic, public :: dump => dump_to_toml
+      procedure, public :: push
+      procedure, public :: get_n_records
       procedure :: load_from_toml
       procedure :: dump_to_toml
    end type
@@ -117,7 +117,7 @@ subroutine dump_to_toml(self, table, error)
    do ii = 1, self%get_n_records()
       select type(rec => self%list(ii)%record)
       class default
-         call rec%dump(child, error)
+         call rec%dump(table, error)
       end select
       if (allocated(error)) exit
    end do
@@ -135,7 +135,6 @@ subroutine load_from_toml(self, table, error)
 
    integer :: ii
    type(toml_key), allocatable :: list(:)
-   type(toml_table), pointer :: child
    character(len=:), allocatable :: key
    call table%get_keys(list)
    do ii = 1, size(list)
@@ -146,8 +145,7 @@ subroutine load_from_toml(self, table, error)
             type(molecular_multipole_record), allocatable :: tmp_record
             class(serde_record), allocatable :: cont
             allocate(tmp_record)
-            call get_value(table, list(ii), child)
-            call tmp_record%load(child, error) 
+            call tmp_record%load(table, error) 
             call move_alloc(tmp_record, cont)
             call self%push(cont)
          end block

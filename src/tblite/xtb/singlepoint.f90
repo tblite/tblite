@@ -329,7 +329,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
       call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
       call post_process%print_csv(mol)
-      call ctx%message(post_process%info(prlevel, " | "))
+      if (prlevel > 0) call ctx%message(post_process%info(prlevel, " | "))
       call post_process%print_timer(prlevel, ctx)
       deallocate(cache_list)
       call timer%pop()

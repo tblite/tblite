@@ -2793,7 +2793,7 @@ int test_post_processing_api()
 
     int n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 1, "Check number of entries in dict")) {
+    if (!check_int(n_dict_entries, 1, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
     double dipole[3];
@@ -2808,6 +2808,17 @@ int test_post_processing_api()
     show_error(error);
     double dipm_dict[3];
     double qp_dict[6];
+    int ndim1;
+    int ndim2;
+    int ndim3;
+    tblite_get_array_size_label(error, dict, "molecular-dipole", &ndim1, &ndim2, &ndim3);
+    if (!tblite_check_error(error))
+        goto err;
+    show_error(error);
+    tblite_get_array_size_label(error, dict, "molecular-quadrupole", &ndim1, &ndim2, &ndim3);
+    if (!tblite_check_error(error))
+        goto err;
+    show_error(error);
 
     tblite_get_array_entry_label(error, dict, "molecular-dipole", dipm_dict);
     if (!tblite_check_error(error))
@@ -2843,9 +2854,9 @@ int test_post_processing_api()
         goto err;
     }
 
-    int ndim1 = 0; 
-    int ndim2 = 0;
-    int ndim3 = 0;
+    ndim1 = 0; 
+    ndim2 = 0;
+    ndim3 = 0;
 
     tblite_get_array_size_index(error, dict, &n_dict_entries, &ndim1, &ndim2, &ndim3);
     if (tblite_check_error(error))
@@ -2924,8 +2935,6 @@ int test_post_processing_api()
         goto err;
     }
 
-
-    
     bottom = tblite_new_table(NULL);
     table_extra = tblite_new_table(NULL);
     table = tblite_new_table(NULL);
@@ -2937,8 +2946,8 @@ int test_post_processing_api()
     if (tblite_check_error(error))
         goto err;
     bottom = tblite_table_add_table(error, table_extra, "molecular-multipole");
-    //if (tblite_check_error(error))
-    //    goto err;
+    if (tblite_check_error(error))
+        goto err;
     bool bo = true;
     tblite_table_set_bool(error, bottom, "dipole", &bo, 0);
     if (tblite_check_error(error))
@@ -2948,6 +2957,7 @@ int test_post_processing_api()
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);
+    
     param = tblite_new_param();
     tblite_load_param(error, param, table);
 
@@ -2984,7 +2994,41 @@ int test_post_processing_api()
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
     if (tblite_check_error(error))
         goto err;
-    if (!check_int(n_dict_entries, 1, "Check number of entries in dict")) {
+    if (!check_int(n_dict_entries, 1, "Check number of entries in dict, using param for push_back")) {
+        goto err;
+    }
+
+    cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    if (!!cont)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+    dict = NULL;
+    dict = tblite_get_post_processing_dict(error, res);
+    if (tblite_check_error(error))
+        goto err;
+    if (!dict)
+        goto err;
+    
+    
+    int index = 1; 
+    tblite_get_array_size_index(error, dict, &index, &ndim1, &ndim2, &ndim3);
+
+    double* wbo_index = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
+    tblite_get_array_entry_index(error, dict, &index, wbo_index);
+    tblite_get_array_size_label(error, dict, "bond-orders", &ndim1, &ndim2, &ndim3);
+    double* wbo_label = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
+    tblite_get_array_entry_label(error, dict, "bond-orders", wbo_label);
+    if (!check(wbo_label, wbo_index, thr, get_array_dimension(ndim1, ndim2, ndim3), "WBO for spin-polarized hamiltonian are not equal!")){
         goto err;
     }
 

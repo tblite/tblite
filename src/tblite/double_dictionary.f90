@@ -445,9 +445,8 @@ end subroutine
 function return_label_index(self, label) result(it)
    class(double_dictionary_type), intent(in) :: self
    character(len=*), intent(in) :: label
-
    integer :: it
-
+   it = 0
    if (self%n <= 0) return
    it = find(self%record(:self%n), label)
    if (it == 0) return

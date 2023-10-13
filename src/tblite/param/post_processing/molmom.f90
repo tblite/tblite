@@ -33,9 +33,9 @@ module tblite_param_molecular_moments
    !> Parametrization record specifying the dispersion model
    type, public, extends(serde_record) :: molecular_multipole_record
       !> Compute density-based xtbml features
-      logical :: moldipm
+      logical :: moldipm = .false.
       !> Return vectorial information additional to norm of the corresponding multipole moments
-      logical :: molqp
+      logical :: molqp = .false.
 
 
    contains
@@ -80,17 +80,19 @@ subroutine load_from_toml(self, table, error)
    class(molecular_multipole_record), intent(inout) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
+   type(toml_table), pointer :: child
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
    integer :: stat
-
-   call get_value(table, k_dipm, self%moldipm, .false., stat=stat)
+   call get_value(table, k_key, child, requested=.false.)
+   if (.not.associated(child)) return
+   call get_value(child, k_dipm, self%moldipm, stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for molecular dipole, boolean expected")
       return
    end if
 
-   call get_value(table, k_qp, self%molqp, .false., stat=stat)
+   call get_value(child, k_qp, self%molqp, stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for molecular quadrupole, boolean expected")
       return
