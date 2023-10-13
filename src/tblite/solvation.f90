@@ -30,6 +30,7 @@ module tblite_solvation
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
+   use tblite_data_alpb, only: get_alpb_param
    implicit none
    private
 
@@ -43,25 +44,26 @@ module tblite_solvation
 contains
 
 !> Create new solvation model from input data
-subroutine new_solvation(solv, mol, input, error, method)
+subroutine new_solvation(solv, mol, input, error)!, method)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input data
-   type(solvation_input), intent(in) :: input
+   type(solvation_input), intent(inout) :: input
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
    !> Method for parameter selection
-   character(len=:), intent(in), optional :: method
+   character(len=:), allocatable :: method
 
-   if (.not. present(method)) then
+   !if (.not. present(method)) then
       method = "gfn2"
-   end if
+   !end if
 
    if (allocated(input%alpb)) then
+      !input%alpb%method = method
       !> Get parameters for alpb/gbsa -> descreening, scale, offset
-      call get_alpb_param(input%alpb, method)
+      call get_alpb_param(input%alpb, mol)
       solv = alpb_solvation(mol, input%alpb)
       return
    end if

@@ -369,7 +369,7 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(error)) exit
          allocate(config%solvation)
          config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb, solvent=solvent%solvent)
-         config%solvation%cds = cds_input(solvent=solvent%solvent)
+         !config%solvation%cds = cds_input(solvent=solvent%solvent)
 
       case("--param")
          if (allocated(config%param)) then
