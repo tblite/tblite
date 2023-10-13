@@ -36,14 +36,5 @@ module tblite_results
       type(double_dictionary_type), allocatable :: dict
    end type results_type
 
-   interface results_type
-      module procedure :: init
-   end interface
-contains
-   function init() result(this)
-      type(results_type) :: this
-      
-      allocate(this%dict)
-   end function
 
 end module tblite_results

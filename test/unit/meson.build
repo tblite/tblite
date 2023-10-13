@@ -44,6 +44,7 @@ tests = [
   'integral-multipole',
   'ipea1-xtb',
   'ncoord-gfn',
+  'post-processing',
   'repulsion',
   'slater-expansion',
   'spin',

@@ -225,8 +225,22 @@ subroutine test_equivalence_index_label_lookup(error)
    real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
 
    real(wp), allocatable :: array1_in(:), array2_in(:, :), array3_in(:, :, :)
+   integer :: index1, index2
+   character(len=:), allocatable :: label1, label2
 
+   index1 = 0
+   index2 = 0
+
+   index1 = dict%get_index("test1")
+   call check(error, index1, 0)
    call fill_test_dict(dict)
+   call dict%get_label(1, label1)
+   call dict%get_label(2, label2)
+   index1 = dict%get_index(label1)
+   index2 = dict%get_index(label2)
+   call check(error, 1, index1)
+   call check(error, 2, index2)
+   
 
    call dict%get_entry("test1", array1)
    call dict%get_entry("test2", array2)
@@ -442,7 +456,7 @@ subroutine test_update_entries_label(error)
 
    call dict1%update("test3", array)
    call dict1%get_entry("test3", array1)
-
+   call dict1%update("test", array)
    call check(error, (sum(array) == sum(array1)))
 
    allocate(array2(2, 2), source= 0.0_wp)
@@ -452,7 +466,7 @@ subroutine test_update_entries_label(error)
    call dict2%update("test1", array2)
    call dict2%update("test2", array2)
    call dict2%update("test3", array2)
-
+   call dict2%update("test", array2)
    deallocate(array2)
 
    call dict2%get_entry("test1", array2)
@@ -468,7 +482,7 @@ subroutine test_update_entries_label(error)
    call dict3%update("test1", array3)
    call dict3%update("test2", array3)
    call dict3%update("test3", array3)
-
+   call dict3%update("test", array3)
    deallocate(array2)
 
    call dict3%get_entry("test1", array3)

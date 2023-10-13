@@ -39,7 +39,7 @@ module tblite_param_post_processing
    contains
       private
       procedure, public :: push
-      procedure :: get_n_records
+      procedure, public :: get_n_records
       generic, public :: load => load_from_toml
       generic, public :: dump => dump_to_toml
       procedure :: load_from_toml
@@ -114,7 +114,7 @@ subroutine dump_to_toml(self, table, error)
    integer :: ii
    type(toml_table), pointer :: child
 
-   do ii = 1, size(self%list)
+   do ii = 1, self%get_n_records()
       select type(rec => self%list(ii)%record)
       class default
          call rec%dump(child, error)
@@ -140,7 +140,6 @@ subroutine load_from_toml(self, table, error)
    call table%get_keys(list)
    do ii = 1, size(list)
       key = trim(adjustl(list(ii)%key))
-      write(*,*) key
       select case(key)
       case("molecular-multipole")
          block

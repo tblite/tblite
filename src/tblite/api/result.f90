@@ -55,7 +55,7 @@ module tblite_api_result
    end type vp_result
 
 
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
 
 
 contains
@@ -315,7 +315,11 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
-
+   
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
    call res%results%dict%get_entry("molecular-dipole", dipm)
 
    if (.not.allocated(dipm)) then
@@ -341,6 +345,11 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
 
    call res%results%dict%get_entry("molecular-quadrupole", qp)
 

@@ -37,7 +37,7 @@ module tblite_api_double_dictionary
       type(double_dictionary_type) :: ptr
    end type
 
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
 contains
 
 function get_n_entries_dict_api(verror, vdict) result(n) &
@@ -86,6 +86,7 @@ subroutine get_array_size_label_api(verror, vdict, label, dim1, dim2, dim3) &
    integer(kind=c_int), intent(out) :: dim1, dim2, dim3
    logical :: ok
    real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+   integer :: index
    
    if (debug) print '("[Info]", 1x, a)', "get array size by label"
 
@@ -96,6 +97,11 @@ subroutine get_array_size_label_api(verror, vdict, label, dim1, dim2, dim3) &
    call check_dict(verror, vdict, error, dict, ok)
    if (.not.(ok)) return
    call c_f_character(label, f_char)
+   index = dict%ptr%get_index(f_char)
+   if (index == 0) then 
+      call fatal_error(error%ptr, "Label is not a key in the dictionary.")
+      return
+   end if
 
    call dict%ptr%get_entry(f_char, array1)
    if (allocated(array1)) then
@@ -117,6 +123,7 @@ subroutine get_array_size_label_api(verror, vdict, label, dim1, dim2, dim3) &
       dim3 = size(array3, dim=3)
       return
    end if
+
 end subroutine
 
 subroutine get_array_entry_label_api(verror, vdict, label, array_out) &
@@ -129,6 +136,7 @@ character(kind=c_char), intent(in) :: label(*)
 character(len=:), allocatable :: f_char
 real(c_double), intent(out) :: array_out(*)
 real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+integer :: index
 
 logical :: ok
 if (debug) print '("[Info]", 1x, a)', "get array values by label"
@@ -137,27 +145,32 @@ call check_dict(verror, vdict, error, dict, ok)
 if (.not.(ok)) return
 
 call c_f_character(label, f_char)
+index = dict%ptr%get_index(f_char)
+if (index == 0) then 
+   call fatal_error(error%ptr, "Label is not a key in the dictionary.")
+   return
+end if
 
-   call dict%ptr%get_entry(f_char, array1)
-   if (allocated(array1)) then
-      array_out(:size(array1)) = &
-         & reshape(array1, [size(array1)])
-      return
-   end if
+call dict%ptr%get_entry(index, array1)
+if (allocated(array1)) then
+   array_out(:size(array1)) = &
+      & reshape(array1, [size(array1)])
+   return
+end if
 
-   call dict%ptr%get_entry(f_char, array2)
-   if (allocated(array2)) then
-      array_out(:size(array2)) = &
-         & reshape(array2, [size(array2)])
-      return
-   end if
+call dict%ptr%get_entry(index, array2)
+if (allocated(array2)) then
+   array_out(:size(array2)) = &
+      & reshape(array2, [size(array2)])
+   return
+end if
 
-   call dict%ptr%get_entry(f_char, array3)
-   if (allocated(array3)) then
-      array_out(:size(array3)) = &
-         & reshape(array3, [size(array3)])
-      return
-   end if
+call dict%ptr%get_entry(index, array3)
+if (allocated(array3)) then
+   array_out(:size(array3)) = &
+      & reshape(array3, [size(array3)])
+   return
+end if
 
 end subroutine
 
@@ -179,6 +192,7 @@ subroutine get_array_size_index_api(verror, vdict, index, dim1, dim2, dim3) &
    call check_dict(verror, vdict, error, dict, ok)
    if (.not.(ok)) return
 
+
    call dict%ptr%get_entry(index, array1)
    if (allocated(array1)) then
       dim1 = size(array1, dim=1)
@@ -199,6 +213,9 @@ subroutine get_array_size_index_api(verror, vdict, index, dim1, dim2, dim3) &
       dim3 = size(array3, dim=3)
       return
    end if
+
+   call fatal_error(error%ptr, "Index is not a key in the dictionary.")
+   return
 
 end subroutine
 
@@ -236,6 +253,9 @@ subroutine get_array_entry_index_api(verror, vdict, index, array_out) &
          & reshape(array3, [size(array3)])
       return
    end if
+
+   call fatal_error(error%ptr, "Index is not a key in the dictionary.")
+   return
 
 end subroutine
 

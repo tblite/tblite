@@ -74,6 +74,8 @@ module tblite_double_dictionary
       generic, public :: remove_entry => remove_entry_label, remove_entry_index
       procedure :: remove_entry_label
       procedure :: remove_entry_index
+      generic, public :: get_index => return_label_index
+      procedure :: return_label_index
    end type double_dictionary_type
 
 

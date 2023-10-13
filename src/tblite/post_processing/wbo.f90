@@ -20,7 +20,7 @@ module tblite_post_processing_bond_orders
    use mctc_env, only : wp
    use tblite_post_processing_type, only : post_processing_type
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders
+   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_results, only : results_type
@@ -94,9 +94,8 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
       do j = 1, 2
          call get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
       end do
-      call get_mayer_bond_orders(calc%bas, integrals%overlap, pmat, wbo)
-      wbo_2d = wbo(:, :, 1) + wbo(:, :, 2)
-      write(*,*) wbo_2d
+      call get_mayer_bond_orders_uhf(calc%bas, integrals%overlap, pmat, wbo)
+      wbo_2d = 2*wbo(:, :, 1)
       call dict%add_entry("bond-orders", wbo_2d)
    else
       allocate(wbo(mol%nat, mol%nat, nspin), source=0.0_wp)
@@ -122,9 +121,6 @@ subroutine print_timer(self, prlevel, ctx)
    integer :: it
    character(len=*), parameter :: labels(*) = [character(len=20):: &
       & ]
-
-
-
    if (prlevel > 2) then
       call ctx%message(label//" timing details:")
       ttime = timer%get("total")

@@ -96,48 +96,6 @@ subroutine print_csv(self, mol)
    real(wp), allocatable :: tmp_array(:, :), array(:)
    integer, allocatable :: z_array(:)
 
-   if (.not.(print_csv_bool)) return
-
-   associate(dict => self%dict)
-      n = dict%get_n_entries()
-      out = 42
-
-      open (file='post_processing_tblite.csv', newunit=out)
-
-      allocate(z_array(mol%nat))
-      do i=1, mol%nat
-         z_array = mol%num(mol%id(i))
-      end do
-      write(out, '(a)', advance="no") trim("Atom")//','
-      allocate(tmp_array(n, mol%nat))
-
-      do i=1, n
-         call dict%get_label(i, tmp_label)
-         call dict%get_entry(i, array)
-         tmp_array(i, :) = array
-         if (i == n) then
-            write(out, '(a)') trim(tmp_label)
-            cycle
-         end if
-         write(out, '(a)', advance="no") trim(tmp_label)//','
-
-      end do
-
-
-
-      do j = 1, mol%nat
-         write(out, '(i2,a)', advance="no") z_array(j), ','
-         do i = 1, n
-            if (i == n) then
-               write(tmp_label, '(f14.8)') tmp_array(i, j)
-               write(out, '(a)') trim(adjustl(tmp_label))
-               cycle
-            end if
-            write(tmp_label, '(f14.8)') tmp_array(i, j)
-            write(out, '(a)', advance='no') trim(adjustl(tmp_label))//","
-         end do
-      end do
-   end associate
 
 end subroutine
 
@@ -187,7 +145,7 @@ subroutine add_post_processing_param(self, param)
    class(post_processing_list), intent(inout) :: self
    type(post_processing_param_list) :: param
    integer :: i
-   do i = 1, param%n
+   do i = 1, param%get_n_records()
       select type(par => param%list(i)%record)
       type is (molecular_multipole_record)
          block
@@ -294,7 +252,7 @@ pure subroutine resize(list, n)
 
    type(post_processing_record), allocatable :: tmp(:)
    integer :: this_size, new_size, item
-   integer, parameter :: initial_size = 20
+   integer, parameter :: initial_size = 1
 
    if (allocated(list)) then
       this_size = size(list, 1)
@@ -306,7 +264,7 @@ pure subroutine resize(list, n)
    if (present(n)) then
       new_size = n
    else
-      new_size = this_size + this_size/2 + 1
+      new_size = this_size + 1
    end if
 
    allocate(list(new_size))

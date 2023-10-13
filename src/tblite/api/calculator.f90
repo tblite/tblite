@@ -74,7 +74,7 @@ module tblite_api_calculator
    end type vp_calculator
 
 
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
 
 
 contains
@@ -650,8 +650,6 @@ if (.not.c_associated(vcalc)) then
    return
 end if
 call c_f_pointer(vcalc, calc)
-write(*,*) "Made it to here!"
-if (allocated(param%ptr%post_proc)) write(*,*) size(param%ptr%post_proc%list)
 call add_post_processing(calc%post_proc, param%ptr%post_proc)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
