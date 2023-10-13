@@ -21,6 +21,7 @@
 module tblite_solvation_input
    use tblite_solvation_alpb, only : alpb_input
    use tblite_solvation_cpcm, only : cpcm_input
+   use tblite_solvation_cds,  only : cds_input
    implicit none
    private
 
@@ -31,6 +32,8 @@ module tblite_solvation_input
       type(cpcm_input), allocatable :: cpcm
       !> Input for ALPB solvation model
       type(alpb_input), allocatable :: alpb
+      !> Input for CDS model 
+      type(cds_input), allocatable :: cds
    end type solvation_input
 
 end module tblite_solvation_input

@@ -213,7 +213,7 @@ subroutine run_main(config, error)
       block
          class(container_type), allocatable :: cont
          class(solvation_type), allocatable :: solv
-         call new_solvation(solv, mol, config%solvation, error)
+         call new_solvation(solv, mol, config%solvation, error, method)
          if (allocated(error)) return
          call move_alloc(solv, cont)
          call calc%push_back(cont)

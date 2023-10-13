@@ -49,6 +49,12 @@ module tblite_solvation_cds
       real(wp), allocatable :: tension(:)
       !> Hydrogen bonding strength for each species
       real(wp), allocatable :: hbond(:)
+      !> Linearized Poisson-Boltzmann model for parameter selection
+      logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
    end type cds_input
 
    !> Definition of the CDS model

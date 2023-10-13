@@ -69,6 +69,10 @@ module tblite_solvation_alpb
       integer :: kernel = born_kernel%p16
       !> Use analytical linearized Poisson-Boltzmann model
       logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
    end type alpb_input
 
 
@@ -154,7 +158,7 @@ subroutine new_alpb(self, mol, input, error)
 end subroutine new_alpb
 
 
-!> Type constructor for ALPB splvation
+!> Type constructor for ALPB solvation
 function create_alpb(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol

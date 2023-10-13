@@ -26,6 +26,7 @@ module tblite_solvation
    use mctc_io, only : structure_type
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input
    use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
+   use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
@@ -34,6 +35,7 @@ module tblite_solvation
 
    public :: alpb_solvation, new_alpb, alpb_input
    public :: cpcm_solvation, new_cpcm, cpcm_input
+   public :: cds_solvation, new_cds, cds_input
    public :: solvent_data, get_solvent_data
    public :: solvation_input, new_solvation, solvation_type
 
@@ -41,7 +43,7 @@ module tblite_solvation
 contains
 
 !> Create new solvation model from input data
-subroutine new_solvation(solv, mol, input, error)
+subroutine new_solvation(solv, mol, input, error, method)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
@@ -50,11 +52,25 @@ subroutine new_solvation(solv, mol, input, error)
    type(solvation_input), intent(in) :: input
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=:), intent(in), optional :: method
+
+   if (.not. present(method)) then
+      method = "gfn2"
+   end if
 
    if (allocated(input%alpb)) then
+      !> Get parameters for alpb/gbsa -> descreening, scale, offset
+      call get_alpb_param(input%alpb, method)
       solv = alpb_solvation(mol, input%alpb)
       return
    end if
+
+   !> enable cds later
+   ! if (allocated(input%cds)) then
+   !   solv = cds_solvation(mol, input%cds)
+   !   return
+   ! end if
 
    if (allocated(input%cpcm)) then
       solv = cpcm_solvation(mol, input%cpcm)
