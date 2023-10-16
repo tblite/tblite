@@ -27,6 +27,12 @@ module tblite_integral_diat_trafo
 
 contains
 
+   !> Transformation to the diatomic frame and back: 
+   !> 1. set up the transformation matrix, 
+   !> 2. transform to the diatomic frame
+   !> 3. scale in the diatomic frame (bonding type specific)
+   !> 4. transform back 
+   !> The transformation can be applied to both the overlap and each dimension of its derivative
    pure subroutine diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel, maxl)
       !> Transformation vector for the diatomic frame
       real(wp),intent(inout)    :: block_overlap(9,9)
