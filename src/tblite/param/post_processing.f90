@@ -115,10 +115,9 @@ subroutine dump_to_toml(self, table, error)
    type(toml_table), pointer :: child
 
    do ii = 1, self%get_n_records()
-      select type(rec => self%list(ii)%record)
-      class default
+      associate(rec => self%list(ii)%record)
          call rec%dump(table, error)
-      end select
+      end associate
       if (allocated(error)) exit
    end do
    if (allocated(error)) return

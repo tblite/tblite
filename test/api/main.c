@@ -2960,7 +2960,10 @@ int test_post_processing_api()
     
     param = tblite_new_param();
     tblite_load_param(error, param, table);
-
+    table = tblite_new_table(NULL);
+    tblite_dump_param(error, param, table);
+     if (tblite_check_error(error))
+        goto err;
     tblite_delete(calc);
     calc = NULL;
     
@@ -2997,7 +3000,7 @@ int test_post_processing_api()
     if (!check_int(n_dict_entries, 1, "Check number of entries in dict, using param for push_back")) {
         goto err;
     }
-
+    calc = tblite_new_gfn1_calculator(ctx, mol);
     cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
     if (tblite_check_context(ctx))
         goto err;
@@ -3008,7 +3011,7 @@ int test_post_processing_api()
 
     if (!!cont)
         goto err;
-
+    tblite_set_context_verbosity(ctx, 2);
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check_context(ctx))
         goto err;
