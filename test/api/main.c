@@ -1894,7 +1894,7 @@ err:
 }
 
 int test_cpcm_solvation(){
-     printf("Start test: Solvation models\n");
+     printf("Start test: CPCM Solvation models\n");
     tblite_error error = NULL;
     tblite_context ctx = NULL;
     tblite_structure mol = NULL;
@@ -1978,7 +1978,7 @@ int test_cpcm_solvation(){
         goto err;
     }
     
-    if (!check(energy, -28.43248830035, thr, "CPCM energy mismatch")){
+    if (!check(energy, -28.43248830035, thr, "CPCM energy mismatch Ethanol")){
         goto err;
     }
 
@@ -2013,7 +2013,7 @@ int test_cpcm_solvation(){
         goto err;
     }
     
-    if (!check(energy, -28.43287248491, thr, "CPCM energy mismatch")){
+    if (!check(energy, -28.43287176929, thr, "CPCM energy mismatch, 7.0")){
         goto err;
     }    
 

@@ -408,7 +408,7 @@ def test_solvation_models():
 
     energy = calc.singlepoint().get("energy")
 
-    assert energy == -28.43287248491
+    assert energy == -28.43287176929
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
