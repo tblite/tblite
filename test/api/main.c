@@ -1951,6 +1951,12 @@ int test_cpcm_solvation(){
     }
     show_context_error(ctx);
 
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "7f0");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
     calc = tblite_new_gfn2_calculator(ctx, mol);
     if (tblite_check_context(ctx)) {
         goto err;
@@ -2042,7 +2048,7 @@ int test_cpcm_solvation(){
 }
 
 int test_alpb_solvation(){
-     printf("Start test: Solvation models\n");
+     printf("Start test: ALPB Solvation models\n");
     tblite_error error = NULL;
     tblite_context ctx = NULL;
     tblite_structure mol = NULL;
@@ -2094,6 +2100,12 @@ int test_alpb_solvation(){
     mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
 
     cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
+     cont = tblite_new_alpb_solvation(ctx, mol, calc, "7f0");
     if (!tblite_check_context(ctx)) {
         goto err;
     }
