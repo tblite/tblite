@@ -412,6 +412,17 @@ def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
 
+@context_check
+def new_alpb_solvation(ctx, mol, calc, solventstr):
+    "Create new ALPB solvation model object"
+    _string = ffi.new("char[]", solventstr.encode("ascii"))
+    return lib.tblite_new_alpb_solvation(ctx, mol, calc, _string)
+
+@context_check
+def new_cpcm_solvation(ctx, mol, calc, solventstr):
+    "Create new ALPB solvation model object"
+    _string = ffi.new("char[]", solventstr.encode("ascii"))
+    return lib.tblite_new_cpcm_solvation(ctx, mol, calc, _string)    
 
 @context_check
 def new_spin_polarization(ctx, mol, calc, wscale: float = 1.0):
