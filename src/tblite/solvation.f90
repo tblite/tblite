@@ -40,12 +40,13 @@ module tblite_solvation
    public :: cds_solvation, new_cds, cds_input
    public :: solvent_data, get_solvent_data
    public :: solvation_input, new_solvation, solvation_type
+   public :: new_solvation_cds
 
 
 contains
 
 !> Create new solvation model from input data
-subroutine new_solvation(solv, mol, input, error)!, method)
+subroutine new_solvation(solv, mol, input, error)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
@@ -66,15 +67,8 @@ subroutine new_solvation(solv, mol, input, error)!, method)
       !> Get parameters for alpb/gbsa -> descreening, scale, offset
       call get_alpb_param(input%alpb, mol)
       solv = alpb_solvation(mol, input%alpb)
-      !return
-   end if
-
-   !> enable cds later
-   if (allocated(input%cds)) then
-      call get_cds_param(input%cds, mol)
-      solv = cds_solvation(mol, input%cds)
       return
-    end if
+   end if
 
    if (allocated(input%cpcm)) then
       solv = cpcm_solvation(mol, input%cpcm)
@@ -83,5 +77,32 @@ subroutine new_solvation(solv, mol, input, error)!, method)
 
    call fatal_error(error, "Unknown solvation model")
 end subroutine new_solvation
+
+!> Create new solvation model from input data
+subroutine new_solvation_cds(solv, mol, input, error)
+   !> Instance of the solvation model
+   class(solvation_type), allocatable, intent(out) :: solv
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Input data
+   type(solvation_input), intent(inout) :: input
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=:), allocatable :: method
+
+   !if (.not. present(method)) then
+      method = "gfn2"
+   !end if
+
+   !> enable cds later
+   if (allocated(input%cds)) then
+      call get_cds_param(input%cds, mol)
+      solv = cds_solvation(mol, input%cds)
+      return
+    end if
+
+   call fatal_error(error, "Unknown cds solvation model")
+end subroutine new_solvation_cds
 
 end module tblite_solvation
