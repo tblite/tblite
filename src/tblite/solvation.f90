@@ -31,6 +31,7 @@ module tblite_solvation
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
    use tblite_data_alpb, only: get_alpb_param
+   use tblite_data_cds, only: get_cds_param
    implicit none
    private
 
@@ -65,14 +66,15 @@ subroutine new_solvation(solv, mol, input, error)!, method)
       !> Get parameters for alpb/gbsa -> descreening, scale, offset
       call get_alpb_param(input%alpb, mol)
       solv = alpb_solvation(mol, input%alpb)
-      return
+      !return
    end if
 
    !> enable cds later
-   ! if (allocated(input%cds)) then
-   !   solv = cds_solvation(mol, input%cds)
-   !   return
-   ! end if
+   if (allocated(input%cds)) then
+      call get_cds_param(input%cds, mol)
+      solv = cds_solvation(mol, input%cds)
+      return
+    end if
 
    if (allocated(input%cpcm)) then
       solv = cpcm_solvation(mol, input%cpcm)

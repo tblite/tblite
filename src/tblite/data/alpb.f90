@@ -74,8 +74,12 @@ subroutine get_alpb_param(input, mol)
    !> born offset for GFN2/water 
    input%born_offset = 0.00000000_wp
 
+   if (.not. allocated(input%descreening)) then
+      allocate(input%descreening(mol%nid))
+   end if
+
    !> set descreening -> loop over nat and assign sx
-   do i = 1, mol%nat
+   do i = 1, mol%nid
       input%descreening(i) = sx(mol%num(i))
    end do
 

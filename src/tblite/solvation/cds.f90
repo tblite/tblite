@@ -32,6 +32,7 @@ module tblite_solvation_cds
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
+   use mctc_io_convert, only : aatoau
    implicit none
    private
 
@@ -40,9 +41,9 @@ module tblite_solvation_cds
    !> Input for CDS model
    type :: cds_input
       !> Probe radius of the solvent
-      real(wp) :: probe
+      real(wp) :: probe = 1.00000_wp * aatoau
       !> Number of angular grid points for integration
-      integer :: nang
+      integer :: nang = 110
       !> Van-der-Waals radii for each species
       real(wp), allocatable :: rad(:)
       !> Surface tension for each species
@@ -121,7 +122,7 @@ subroutine new_cds(self, mol, input)
    end if
 
    self%tension = input%tension
-
+  
    if (allocated(input%hbond)) then
       self%hbond = input%hbond
    end if
