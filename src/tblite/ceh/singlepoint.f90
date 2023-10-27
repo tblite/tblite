@@ -15,7 +15,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/ceh/singlepoint.f90
-!> Provides main entry point for performing a CEH calculation 
+!> Provides main entry point for performing a CEH calculation
 !> follows in close analogy the xtb singlepoint
 
 !> Implementation of the single point calculation for the CEH model
@@ -66,7 +66,7 @@ module tblite_ceh_singlepoint
    character(len=25), parameter :: &
       label_cutoff = "integral cutoff", &
       label_charges = "CEH atomic charges", &
-      label_dipole = "CEH molecular dipole moment / a.u."      
+      label_dipole = "CEH molecular dipole moment / a.u."
 
 contains
 
@@ -109,7 +109,7 @@ contains
       real(wp) :: elec_entropy
       real(wp) :: nel = 0.0_wp, cutoff
       real(wp), allocatable :: tmp(:)
-      
+
       integer :: i, prlevel
 
       !> coordination number related arrays
@@ -132,7 +132,7 @@ contains
       endif
       !> Gradient logical as future starting point (not implemented yet)
       !> Entry point could either be (i) modified wavefunction type (including derivatives),
-      !> (iii) additional wavefunction derivative type (see old commits) or (ii) optional 
+      !> (iii) additional wavefunction derivative type (see old commits) or (ii) optional
       !> dqdR variable in this routine
       grad = .false.
 
@@ -146,7 +146,7 @@ contains
       end if
       call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
-     ! calculate coordination number (CN) and the EN-weighted coordination number
+      ! calculate coordination number (CN) and the EN-weighted coordination number
       if (allocated(calc%ncoord)) then
          allocate(cn(mol%nat))
          if (grad) then
@@ -162,15 +162,15 @@ contains
          call calc%ncoord_en%get_cn(mol, cn_en, dcn_endr, dcn_endL)
       end if
 
-      ! calculate the scaled self energies 
+      ! calculate the scaled self energies
       allocate(selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
       call get_scaled_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, cn_en=cn_en, &
-         & selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
-  
+      & selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
+
       cutoff = get_cutoff(calc%bas, accuracy)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       call new_adjacency_list(list, mol, lattr, cutoff)
-  
+
       if (prlevel > 1) then
          call ctx%message(label_cutoff // format_string(cutoff, real_format) // " bohr")
          call ctx%message("")

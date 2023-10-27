@@ -20,7 +20,7 @@ list(
   APPEND srcs
   "${dir}/ceh.f90"
   "${dir}/h0.f90"
-  "${dir}/calculator.f90"
+  "${dir}/singlepoint.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

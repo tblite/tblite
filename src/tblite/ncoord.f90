@@ -27,8 +27,8 @@ module tblite_ncoord
    use tblite_ncoord_type, only : ncoord_type
    use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
    use tblite_ncoord_exp, only : exp_ncoord_type, new_exp_ncoord
-   use tblite_ncoord_ceh_std, only : ceh_std_ncoord_type, new_ceh_std_ncoord
-   use tblite_ncoord_ceh_en, only : ceh_en_ncoord_type, new_ceh_en_ncoord
+   use tblite_ncoord_erf, only : erf_ncoord_type, new_erf_ncoord
+   use tblite_ncoord_erf_en, only : erf_en_ncoord_type, new_erf_en_ncoord
    implicit none
    private
 
@@ -60,18 +60,18 @@ subroutine new_ncoord(self, mol, cn_type)
          call new_gfn_ncoord(tmp, mol)
          call move_alloc(tmp, self)
       end block
-   case("ceh_std")
+   case("erf")
       block
-         type(ceh_std_ncoord_type), allocatable :: tmp
+         type(erf_ncoord_type), allocatable :: tmp
          allocate(tmp)
-         call new_ceh_std_ncoord(tmp, mol)
+         call new_erf_ncoord(tmp, mol)
          call move_alloc(tmp, self)
       end block
-   case("ceh_en")
+   case("erf_en")
       block
-         type(ceh_en_ncoord_type), allocatable :: tmp
+         type(erf_en_ncoord_type), allocatable :: tmp
          allocate(tmp)
-         call new_ceh_en_ncoord(tmp, mol)
+         call new_erf_en_ncoord(tmp, mol)
          call move_alloc(tmp, self)
       end block
    end select

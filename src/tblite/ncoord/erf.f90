@@ -14,11 +14,11 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ncoord/ceh_std.f90
+!> @file tblite/ncoord/erf.f90
 !> Provides a (standard) coordination number implementation for the CEH method
 
 !> Coordination number implementation with single error function for the CEH and GP3-xTB methods.
-module tblite_ncoord_ceh_std
+module tblite_ncoord_erf
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
@@ -27,17 +27,17 @@ module tblite_ncoord_ceh_std
    implicit none
    private
 
-   public :: new_ceh_std_ncoord
+   public :: new_erf_ncoord
 
    !> Coordination number evaluator
-   type, public, extends(ncoord_type) :: ceh_std_ncoord_type
+   type, public, extends(ncoord_type) :: erf_ncoord_type
       real(wp), allocatable :: rcov(:)
    contains
-      !> Evaluates the error counting function 
+      !> Evaluates the error counting function
       procedure :: ncoord_count
       !> Evaluates the derivative of the error counting function
       procedure :: ncoord_dcount
-   end type ceh_std_ncoord_type
+   end type erf_ncoord_type
 
    !> Steepness of counting function
    real(wp), parameter :: kcn = 3.09_wp
@@ -47,9 +47,9 @@ module tblite_ncoord_ceh_std
 contains
 
 
-   subroutine new_ceh_std_ncoord(self, mol, cutoff, rcov)
+   subroutine new_erf_ncoord(self, mol, cutoff, rcov)
       !> Coordination number container
-      type(ceh_std_ncoord_type), intent(out) :: self
+      type(erf_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Real space cutoff
@@ -72,66 +72,66 @@ contains
 
       self%directed_factor = 1.0_wp
 
-   end subroutine new_ceh_std_ncoord
+   end subroutine new_erf_ncoord
 
 
-!> Error counting function for coordination number contributions.
-elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
+   !> Error counting function for coordination number contributions.
+   elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
 
-   !> Coordination number container
-   class(ceh_std_ncoord_type), intent(in) :: self
+      !> Coordination number container
+      class(erf_ncoord_type), intent(in) :: self
 
-   !> Molecular structure data (not used in std)
-   type(structure_type), intent(in) :: mol
+      !> Molecular structure data (not used in std)
+      type(structure_type), intent(in) :: mol
 
-   !> Atom i index
-   integer, intent(in)  :: izp
+      !> Atom i index
+      integer, intent(in)  :: izp
 
-   !> Atom j index
-   integer, intent(in)  :: jzp
+      !> Atom j index
+      integer, intent(in)  :: jzp
 
-   !> Current distance.
-   real(wp), intent(in) :: r
+      !> Current distance.
+      real(wp), intent(in) :: r
 
-   real(wp) :: rc, count
+      real(wp) :: rc, count
 
-   rc = self%rcov(izp) + self%rcov(jzp)
+      rc = self%rcov(izp) + self%rcov(jzp)
 
-   count = 0.5_wp * (1.0_wp + erf(-kcn*(r-rc)/rc))
+      count = 0.5_wp * (1.0_wp + erf(-kcn*(r-rc)/rc))
 
-end function ncoord_count
-
-
-!> Derivative of the error counting function w.r.t. the distance.
-elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
-
-   !> Coordination number container
-   class(ceh_std_ncoord_type), intent(in) :: self
-
-   !> Molecular structure data (not used in std)
-   type(structure_type), intent(in) :: mol
-
-   !> Atom i index
-   integer, intent(in)  :: izp
-
-   !> Atom j index
-   integer, intent(in)  :: jzp
-
-   !> Current distance.
-   real(wp), intent(in) :: r
-
-   real(wp) :: rc, exponent, expterm, count
-   
-   rc = self%rcov(izp) + self%rcov(jzp)
-   
-   exponent = kcn*(r-rc)/rc
-      
-   expterm = exp(-exponent**2)
-   
-   count = -(kcn*expterm)/(rc*sqrt(pi))
+   end function ncoord_count
 
 
-end function ncoord_dcount
+   !> Derivative of the error counting function w.r.t. the distance.
+   elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
+
+      !> Coordination number container
+      class(erf_ncoord_type), intent(in) :: self
+
+      !> Molecular structure data (not used in std)
+      type(structure_type), intent(in) :: mol
+
+      !> Atom i index
+      integer, intent(in)  :: izp
+
+      !> Atom j index
+      integer, intent(in)  :: jzp
+
+      !> Current distance.
+      real(wp), intent(in) :: r
+
+      real(wp) :: rc, exponent, expterm, count
+
+      rc = self%rcov(izp) + self%rcov(jzp)
+
+      exponent = kcn*(r-rc)/rc
+
+      expterm = exp(-exponent**2)
+
+      count = -(kcn*expterm)/(rc*sqrt(pi))
 
 
-end module tblite_ncoord_ceh_std
+   end function ncoord_dcount
+
+
+end module tblite_ncoord_erf

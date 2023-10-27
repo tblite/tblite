@@ -33,7 +33,7 @@ module tblite_ceh_ceh
    !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
    !> Wavefunction
-   use tblite_wavefunction, only : new_wavefunction 
+   use tblite_wavefunction, only : new_wavefunction
    !> H0 specification
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_calculator, only : xtb_calculator
@@ -350,7 +350,7 @@ module tblite_ceh_ceh
    real(wp), parameter   :: kt = 3.166808578545117e-06_wp
 
    !> Specification of the CEH hamiltonian
-   type, public, extends(tb_h0spec) :: ceh_h0spec
+   type, extends(tb_h0spec) :: ceh_h0spec
    contains
       !> Generator for the self energy / atomic levels of the Hamiltonian
       procedure :: get_selfenergy
@@ -435,7 +435,7 @@ contains
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
 
-      call new_ncoord(calc%ncoord, mol, cn_type="ceh_std")
+      call new_ncoord(calc%ncoord, mol, cn_type="erf")
    end subroutine add_ncoord
 
 
@@ -445,7 +445,7 @@ contains
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
 
-      call new_ncoord(calc%ncoord_en, mol, cn_type="ceh_en")
+      call new_ncoord(calc%ncoord_en, mol, cn_type="erf_en")
    end subroutine add_ncoord_en
 
 
@@ -454,7 +454,7 @@ contains
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-   
+
       call new_hamiltonian(calc%h0, mol, calc%bas, new_ceh_h0spec(mol))
 
    end subroutine add_hamiltonian
@@ -465,7 +465,7 @@ contains
       type(structure_type), intent(in) :: mol
       !> Instance of the Hamiltonian specification
       type(ceh_h0spec) :: self
-   
+
    end function new_ceh_h0spec
 
 
@@ -479,12 +479,12 @@ contains
       type(basis_type), intent(in) :: bas
       !> Scaling parameters for the Hamiltonian elements
       real(wp), intent(out) :: hscale(:, :, :, :)
-   
+
       integer :: isp, jsp, izp, jzp, ish, jsh, il, jl
       real(wp) :: km
-   
+
       hscale(:, :, :, :) = 0.0_wp
-   
+
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do jsp = 1, mol%nid
@@ -513,20 +513,20 @@ contains
       type(basis_type), intent(in) :: bas
       !> Self energy / atomic levels
       real(wp), intent(out) :: selfenergy(:, :)
-   
+
       integer :: isp, izp, ish, iat
-   
+
       selfenergy(:, :) = 0.0_wp
-   
+
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do ish = 1, bas%nsh_id(isp)
             iat = bas%ao2at(ish)
-            selfenergy(ish, isp) = p_ceh_selfenergy(ish, izp) 
+            selfenergy(ish, isp) = p_ceh_selfenergy(ish, izp)
          end do
       end do
    end subroutine get_selfenergy
-   
+
 
    !> Generator of the coordination number dependent shift of the self energy
    subroutine get_cnshift(self, mol, bas, kcn)
@@ -540,9 +540,9 @@ contains
       real(wp), intent(out) :: kcn(:, :)
 
       integer :: isp, izp, ish
-   
+
       kcn(:, :) = 0.0_wp
-   
+
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do ish = 1, bas%nsh_id(isp)
@@ -563,11 +563,11 @@ contains
       type(basis_type), intent(in) :: bas
       !> Coordination number dependent shift
       real(wp), intent(out) :: kcn_en(:, :)
-        
+
       integer :: isp, izp, ish
-   
+
       kcn_en(:, :) = 0.0_wp
-   
+
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do ish = 1, bas%nsh_id(isp)
@@ -615,7 +615,7 @@ contains
             end if
          end do
       end do
-      
+
    end subroutine get_reference_occ
 
 
@@ -629,9 +629,9 @@ contains
       type(basis_type), intent(in) :: bas
       !> Polynomial parameters for distant dependent scaleing
       real(wp), intent(out) :: shpoly(:, :)
-   
+
       integer :: isp, izp, ish
-   
+
       shpoly(:, :) = 0.0_wp
 
    end subroutine get_shpoly
@@ -651,7 +651,7 @@ contains
       real(wp), intent(out) :: kpi(:, :)
       !> Quadratic partial charge dependent shift
       real(wp), intent(out) :: kdel(:, :)
-   
+
       integer :: isp, izp, jsp, jzp
 
       ksig(:, :) = 0.0_wp

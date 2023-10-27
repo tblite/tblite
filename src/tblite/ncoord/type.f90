@@ -91,179 +91,180 @@ module tblite_ncoord_type
 contains
 
 
-subroutine get_cn(self, mol, cn, dcndr, dcndL)
-   !> Coordination number container
-   class(ncoord_type), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Error function coordination number.
-   real(wp), intent(out) :: cn(:)
-   !> Derivative of the CN with respect to the Cartesian coordinates.
-   real(wp), intent(out), optional :: dcndr(:, :, :)
-   !> Derivative of the CN with respect to strain deformations.
-   real(wp), intent(out), optional :: dcndL(:, :, :)
+   subroutine get_cn(self, mol, cn, dcndr, dcndL)
+      !> Coordination number container
+      class(ncoord_type), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Error function coordination number.
+      real(wp), intent(out) :: cn(:)
+      !> Derivative of the CN with respect to the Cartesian coordinates.
+      real(wp), intent(out), optional :: dcndr(:, :, :)
+      !> Derivative of the CN with respect to strain deformations.
+      real(wp), intent(out), optional :: dcndL(:, :, :)
 
-   real(wp), allocatable :: lattr(:, :)
+      real(wp), allocatable :: lattr(:, :)
 
-   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff, lattr)
-   call get_coordination_number(self, mol, lattr, self%cutoff, cn, dcndr, dcndL)
-end subroutine get_cn
-
-
-!> Geometric fractional coordination number, supports exponential and error counting functions.
-subroutine get_coordination_number(self, mol, trans, cutoff, cn, dcndr, dcndL)
-
-   !> Coordination number container
-   class(ncoord_type), intent(in) :: self
-
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   !> Lattice points
-   real(wp), intent(in) :: trans(:, :)
-
-   !> Real space cutoff
-   real(wp), intent(in) :: cutoff
-
-   !> Error function coordination number.
-   real(wp), intent(out) :: cn(:)
-
-   !> Derivative of the CN with respect to the Cartesian coordinates.
-   real(wp), intent(out), optional :: dcndr(:, :, :)
-
-   !> Derivative of the CN with respect to strain deformations.
-   real(wp), intent(out), optional :: dcndL(:, :, :)
-
-   if (present(dcndr) .and. present(dcndL)) then
-      call ncoord_d(self, mol, trans, cutoff, cn, dcndr, dcndL)
-   else
-      call ncoord(self, mol, trans, cutoff, cn)
-   end if
-
-end subroutine get_coordination_number
+      call get_lattice_points(mol%periodic, mol%lattice, self%cutoff, lattr)
+      call get_coordination_number(self, mol, lattr, self%cutoff, cn, dcndr, dcndL)
+   end subroutine get_cn
 
 
-subroutine ncoord(self, mol, trans, cutoff, cn)
-   
-   !> Coordination number container
-   class(ncoord_type), intent(in) :: self
+   !> Geometric fractional coordination number, supports exponential and error counting functions.
+   subroutine get_coordination_number(self, mol, trans, cutoff, cn, dcndr, dcndL)
 
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
+      !> Coordination number container
+      class(ncoord_type), intent(in) :: self
 
-   !> Lattice points
-   real(wp), intent(in) :: trans(:, :)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
 
-   !> Real space cutoff
-   real(wp), intent(in) :: cutoff
+      !> Lattice points
+      real(wp), intent(in) :: trans(:, :)
 
-   !> Error function coordination number.
-   real(wp), intent(out) :: cn(:)
+      !> Real space cutoff
+      real(wp), intent(in) :: cutoff
 
-   integer :: iat, jat, izp, jzp, itr
-   real(wp) :: r2, r1, rij(3), countf, cutoff2
+      !> Error function coordination number.
+      real(wp), intent(out) :: cn(:)
 
-   cn(:) = 0.0_wp
-   cutoff2 = cutoff**2
+      !> Derivative of the CN with respect to the Cartesian coordinates.
+      real(wp), intent(out), optional :: dcndr(:, :, :)
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:cn) &
-   !$omp shared(mol, trans, cutoff2) &
-   !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf)
-   do iat = 1, mol%nat
-      izp = mol%id(iat)
-      do jat = 1, iat
-         jzp = mol%id(jat)
+      !> Derivative of the CN with respect to strain deformations.
+      real(wp), intent(out), optional :: dcndL(:, :, :)
 
-         do itr = 1, size(trans, dim=2)
-            rij = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, itr))
-            r2 = sum(rij**2)
-            if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
-            r1 = sqrt(r2)
+      if (present(dcndr) .and. present(dcndL)) then
+         call ncoord_d(self, mol, trans, cutoff, cn, dcndr, dcndL)
+      else
+         call ncoord(self, mol, trans, cutoff, cn)
+      end if
 
-            countf = self%ncoord_count(mol, izp, jzp, r1)
+   end subroutine get_coordination_number
 
-            cn(iat) = cn(iat) + countf
-            if (iat /= jat) then
-               cn(jat) = cn(jat) + countf * self%directed_factor
-            end if
 
+   subroutine ncoord(self, mol, trans, cutoff, cn)
+
+      !> Coordination number container
+      class(ncoord_type), intent(in) :: self
+
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+
+      !> Lattice points
+      real(wp), intent(in) :: trans(:, :)
+
+      !> Real space cutoff
+      real(wp), intent(in) :: cutoff
+
+      !> Error function coordination number.
+      real(wp), intent(out) :: cn(:)
+
+      integer :: iat, jat, izp, jzp, itr
+      real(wp) :: r2, r1, rij(3), countf, cutoff2
+
+      cn(:) = 0.0_wp
+      cutoff2 = cutoff**2
+
+      !$omp parallel do schedule(runtime) default(none) reduction(+:cn) &
+      !$omp shared(self, mol, trans, cutoff2) &
+      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf)
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         do jat = 1, iat
+            jzp = mol%id(jat)
+
+            do itr = 1, size(trans, dim=2)
+               rij = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, itr))
+               r2 = sum(rij**2)
+               if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
+               r1 = sqrt(r2)
+
+               countf = self%ncoord_count(mol, izp, jzp, r1)
+
+               cn(iat) = cn(iat) + countf
+               if (iat /= jat) then
+                  cn(jat) = cn(jat) + countf * self%directed_factor
+               end if
+
+            end do
          end do
       end do
-   end do
 
-end subroutine ncoord
+   end subroutine ncoord
 
 
-subroutine ncoord_d(self, mol, trans, cutoff, cn, dcndr, dcndL)
+   subroutine ncoord_d(self, mol, trans, cutoff, cn, dcndr, dcndL)
 
-   !> Coordination number container
-   class(ncoord_type), intent(in) :: self
+      !> Coordination number container
+      class(ncoord_type), intent(in) :: self
 
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
 
-   !> Lattice points
-   real(wp), intent(in) :: trans(:, :)
+      !> Lattice points
+      real(wp), intent(in) :: trans(:, :)
 
-   !> Real space cutoff
-   real(wp), intent(in) :: cutoff
+      !> Real space cutoff
+      real(wp), intent(in) :: cutoff
 
-   !> Error function coordination number.
-   real(wp), intent(out) :: cn(:)
+      !> Error function coordination number.
+      real(wp), intent(out) :: cn(:)
 
-   !> Derivative of the CN with respect to the Cartesian coordinates.
-   real(wp), intent(out) :: dcndr(:, :, :)
+      !> Derivative of the CN with respect to the Cartesian coordinates.
+      real(wp), intent(out) :: dcndr(:, :, :)
 
-   !> Derivative of the CN with respect to strain deformations.
-   real(wp), intent(out) :: dcndL(:, :, :)
+      !> Derivative of the CN with respect to strain deformations.
+      real(wp), intent(out) :: dcndL(:, :, :)
 
-   integer :: iat, jat, izp, jzp, itr
-   real(wp) :: r2, r1, rij(3), countf, countd(3), sigma(3, 3), cutoff2
+      integer :: iat, jat, izp, jzp, itr
+      real(wp) :: r2, r1, rij(3), countf, countd(3), sigma(3, 3), cutoff2
 
-   cn(:) = 0.0_wp
-   dcndr(:, :, :) = 0.0_wp
-   dcndL(:, :, :) = 0.0_wp
-   cutoff2 = cutoff**2
+      cn(:) = 0.0_wp
+      dcndr(:, :, :) = 0.0_wp
+      dcndL(:, :, :) = 0.0_wp
+      cutoff2 = cutoff**2
 
-   !$omp parallel do schedule(runtime) default(none) &
-   !$omp reduction(+:cn, dcndr, dcndL) shared(mol, trans, cutoff2) &
-   !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf, countd, sigma)
-   do iat = 1, mol%nat
-      izp = mol%id(iat)
-      do jat = 1, iat
-         jzp = mol%id(jat)
+      !$omp parallel do schedule(runtime) default(none) &
+      !$omp reduction(+:cn, dcndr, dcndL) shared(mol, trans, cutoff2) &
+      !$omp shared(self) &
+      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf, countd, sigma)
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         do jat = 1, iat
+            jzp = mol%id(jat)
 
-         do itr = 1, size(trans, dim=2)
-            rij = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, itr))
-            r2 = sum(rij**2)
-            if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
-            r1 = sqrt(r2)
+            do itr = 1, size(trans, dim=2)
+               rij = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, itr))
+               r2 = sum(rij**2)
+               if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
+               r1 = sqrt(r2)
 
-            countf = self%ncoord_count(mol, izp, jzp, r1)
-            countd = self%ncoord_dcount(mol, izp, jzp, r1) * rij/r1
-            
-            cn(iat) = cn(iat) + countf
-            if (iat /= jat) then
-               cn(jat) = cn(jat) + countf * self%directed_factor
-            end if
+               countf = self%ncoord_count(mol, izp, jzp, r1)
+               countd = self%ncoord_dcount(mol, izp, jzp, r1) * rij/r1
 
-            dcndr(:, iat, iat) = dcndr(:, iat, iat) + countd 
-            dcndr(:, jat, jat) = dcndr(:, jat, jat) - countd * self%directed_factor 
-            dcndr(:, iat, jat) = dcndr(:, iat, jat) + countd * self%directed_factor  
-            dcndr(:, jat, iat) = dcndr(:, jat, iat) - countd 
+               cn(iat) = cn(iat) + countf
+               if (iat /= jat) then
+                  cn(jat) = cn(jat) + countf * self%directed_factor
+               end if
 
-            sigma = spread(countd, 1, 3) * spread(rij, 2, 3)
+               dcndr(:, iat, iat) = dcndr(:, iat, iat) + countd
+               dcndr(:, jat, jat) = dcndr(:, jat, jat) - countd * self%directed_factor
+               dcndr(:, iat, jat) = dcndr(:, iat, jat) + countd * self%directed_factor
+               dcndr(:, jat, iat) = dcndr(:, jat, iat) - countd
 
-            dcndL(:, :, iat) = dcndL(:, :, iat) + sigma
-            if (iat /= jat) then
-               dcndL(:, :, jat) = dcndL(:, :, jat) + sigma * self%directed_factor 
-            end if
+               sigma = spread(countd, 1, 3) * spread(rij, 2, 3)
 
+               dcndL(:, :, iat) = dcndL(:, :, iat) + sigma
+               if (iat /= jat) then
+                  dcndL(:, :, jat) = dcndL(:, :, jat) + sigma * self%directed_factor
+               end if
+
+            end do
          end do
       end do
-   end do
 
-end subroutine ncoord_d
+   end subroutine ncoord_d
 
 
 end module tblite_ncoord_type
