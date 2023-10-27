@@ -27,7 +27,6 @@ module test_hamiltonian
    use tblite_data_covrad, only : get_covalent_rad
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
-   !use tblite_ncoord_gfn, only : get_coordination_number
    use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
    use tblite_ncoord_type, only : get_coordination_number
    use tblite_xtb_gfn2

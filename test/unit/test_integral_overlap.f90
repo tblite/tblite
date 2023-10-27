@@ -951,13 +951,11 @@ subroutine test_overlap_diat_grad_ss(error)
    do i = 1, 3
       vec(i) = vec(i) + step
       r2 = sum(vec**2)
-      !call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sr)
       call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
       & 100.0_wp, vec_diat_trafo, ksig, kpi, kdel, sr, sr_scaled)
 
       vec(i) = vec(i) - 2*step
       r2 = sum(vec**2)
-      !call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sl)
       call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
       & 100.0_wp, vec_diat_trafo, ksig, kpi, kdel, sl, sl_scaled)
 
@@ -1107,13 +1105,11 @@ subroutine test_overlap_diat_grad_dd(error)
    do i = 1, 3
       vec(i) = vec(i) + step
       r2 = sum(vec**2)
-      !call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sr)
       call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
       & 100.0_wp, vec_diat_trafo, ksig, kpi, kdel, sr, sr_scaled)
       
       vec(i) = vec(i) - 2*step
       r2 = sum(vec**2)
-      !call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sl)
       call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
       & 100.0_wp, vec_diat_trafo, ksig, kpi, kdel, sl, sl_scaled)
 

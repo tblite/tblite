@@ -96,6 +96,8 @@ module tblite_cli
       integer, allocatable :: spin
       !> Parametrization of the xTB Hamiltonian to use
       character(len=:), allocatable :: method
+      !> Numerical accuracy for self-consistent iterations
+      real(wp) :: accuracy = 1.0_wp
       !> Create JSON dump
       logical :: json = .false.
       !> File for output of JSON dump
@@ -592,6 +594,12 @@ subroutine get_guess_arguments(config, list, start, error)
 
       case("--grad")
          config%grad = .true.
+
+      case("--acc")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%accuracy, error)
+         if (allocated(error)) exit
 
       case("--json")
          config%json = .true.

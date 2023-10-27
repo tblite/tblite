@@ -15,7 +15,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @dir tblite/ceh/ceh.f90
-!> Contains the implementation of the Charge Extended Hückel (CEH) method.
+!> Contains the specification of the Charge Extended Hückel (CEH) method.
 
 module tblite_ceh_ceh
    !> mctc-lib
@@ -24,7 +24,7 @@ module tblite_ceh_ceh
    !> Basis set
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type, only : cgto_type, new_basis, get_cutoff, basis_type
+   use tblite_basis_type, only : cgto_type, new_basis, basis_type
    !> Coordination number
    use tblite_ncoord, only : new_ncoord
    !> Calculation context
@@ -32,35 +32,17 @@ module tblite_ceh_ceh
    use tblite_output_format, only: format_string
    !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
-   use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
-   & dipole_cgto_diat_scal, maxl, msao
-   use tblite_integral_diat_trafo, only: relvec
    !> Wavefunction
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-   & get_alpha_beta_occupation
-   use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
-   & get_mulliken_atomic_multipoles
-   use tblite_scf_iterator, only: get_density, get_qat_from_qsh
-   !> Additional potentials (external field)
-   use tblite_scf, only: new_potential, potential_type
-   use tblite_external_field, only : electric_field
-   use tblite_container, only : container_type, container_cache
-   use tblite_scf_potential, only: add_pot_to_h1
-   !> Electronic solver
-   use tblite_lapack_solver, only: lapack_solver
-   use tblite_scf_solver, only : solver_type
-   !> BLAS
-   use tblite_blas, only: gemv
-   !> CEH specific
-   use tblite_ceh_calculator, only : ceh_calculator
-   use tblite_ceh_h0, only : ceh_hamiltonian
-   !> Miscelaneous
-   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction, only : new_wavefunction 
+   !> H0 specification
+   use tblite_xtb_spec, only : tb_h0spec
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_h0, only : new_hamiltonian
 
    implicit none
    private
 
-   public :: ceh_guess, new_ceh_calculator
+   public :: ceh_h0spec, new_ceh_calculator
 
    integer, parameter, private :: max_elem = 86
    integer, parameter, private :: max_shell = 3
@@ -203,8 +185,8 @@ module tblite_ceh_ceh
    &  2.54746694_wp,  2.83550170_wp,  1.88029428_wp,  2.26386287_wp,  2.46706218_wp,  2.09966650_wp],&
    & shape(slater_exponent))
 
-   !> Atomic orbital shell energy level # MM, August 00, 2023
-   real(wp), parameter :: ceh_level(max_shell, max_elem) = reshape([&
+   !> Atomic shell energy level # MM, August 00, 2023
+   real(wp), parameter :: p_ceh_selfenergy(max_shell, max_elem) = reshape([&
    & -0.50000000_wp,  0.00000000_wp,  0.00000000_wp, -0.57125723_wp,  0.00000000_wp,  0.00000000_wp, &
    & -0.39565609_wp, -0.16907309_wp,  0.00000000_wp, -0.46895051_wp, -0.34955238_wp,  0.00000000_wp, &
    & -0.59747672_wp, -0.37636672_wp,  0.00000000_wp, -0.61483866_wp, -0.39087888_wp,  0.00000000_wp, &
@@ -248,10 +230,10 @@ module tblite_ceh_ceh
    & -0.55257311_wp, -0.34898594_wp,  0.02606851_wp, -0.51728236_wp, -0.40709467_wp, -0.41799964_wp, &
    & -0.65355387_wp, -0.44221646_wp, -0.14897940_wp, -0.57437177_wp, -0.44267376_wp, -0.18531561_wp, &
    & -0.79336611_wp, -0.45416764_wp, -0.18618812_wp, -0.98227018_wp, -0.49955181_wp, -0.28755078_wp],&
-   & shape(ceh_level))
+   & shape(p_ceh_selfenergy))
 
    !> Dependence of orbital shell energy level on standard CN (shell-resolved) # MM, August 00, 2023
-   real(wp), parameter :: ceh_kcn(max_shell, max_elem) = reshape([&
+   real(wp), parameter :: p_ceh_kcn(max_shell, max_elem) = reshape([&
    & -0.01626957_wp,  0.00000000_wp,  0.00000000_wp, -0.14712486_wp,  0.00000000_wp,  0.00000000_wp, &
    &  0.00863841_wp,  0.00494496_wp,  0.00000000_wp, -0.08288884_wp,  0.00649581_wp,  0.00000000_wp, &
    &  0.01514747_wp, -0.00629044_wp,  0.00000000_wp, -0.00205353_wp, -0.04733032_wp,  0.00000000_wp, &
@@ -295,10 +277,10 @@ module tblite_ceh_ceh
    & -0.05856389_wp,  0.02497592_wp, -0.05393627_wp, -0.09750939_wp,  0.01204451_wp, -0.01448104_wp, &
    &  0.01891168_wp, -0.01620237_wp, -0.00996082_wp, -0.04354041_wp, -0.04464475_wp,  0.02445958_wp, &
    &  0.13451910_wp, -0.04984156_wp, -0.03343742_wp,  0.08695188_wp, -0.06402913_wp,  0.02033733_wp],&
-   & shape(ceh_kcn))
+   & shape(p_ceh_kcn))
 
    !> Interaction type- and atom-wise resolved scal. fact. for overlap mat. elements # MM, August 02, 2023
-   real(wp), parameter :: ceh_h0k(max_shell, max_elem) = reshape([&
+   real(wp), parameter :: p_ceh_h0k(max_shell, max_elem) = reshape([&
    &  2.28423009_wp,  0.00000000_wp,  0.00000000_wp,  1.58277987_wp,  0.00000000_wp,  0.00000000_wp, &
    &  2.98891162_wp,  2.17097413_wp,  0.00000000_wp,  2.34504409_wp,  3.28893897_wp,  0.00000000_wp, &
    &  2.07564539_wp,  2.25048626_wp,  0.00000000_wp,  1.82191778_wp,  1.93197992_wp,  0.00000000_wp, &
@@ -342,10 +324,10 @@ module tblite_ceh_ceh
    &  2.55949715_wp,  3.79876876_wp,  1.00000000_wp,  2.41361463_wp,  2.59977715_wp,  2.00000000_wp, &
    &  1.84332653_wp,  2.51356296_wp, 15.00000000_wp,  1.73599763_wp,  2.15552900_wp,  2.50000000_wp, &
    &  1.71327975_wp,  1.72568101_wp,  6.36853611_wp,  1.51399613_wp,  1.41998519_wp, 15.00000000_wp],&
-   & shape(ceh_h0k))
+   & shape(p_ceh_h0k))
 
    !> Dependence of orbital shell energy level on EN-weighted CN (atom-resolved) # MM, August 00, 2023
-   real(wp), parameter :: ceh_kcnen(max_elem) = [&
+   real(wp), parameter :: p_ceh_kcn_en(max_elem) = [&
    & -0.12768184_wp, -0.30481937_wp,  0.00302231_wp,  0.07200407_wp, -0.04294759_wp, -0.07955338_wp, &
    & -0.09493707_wp, -0.07198264_wp,  0.03080274_wp, -0.01999000_wp, -0.00232660_wp,  0.04746226_wp, &
    &  0.01262132_wp, -0.00849344_wp, -0.00867003_wp, -0.00730045_wp,  0.01104749_wp, -0.00040887_wp, &
@@ -367,167 +349,48 @@ module tblite_ceh_ceh
    !> Conversion constant
    real(wp), parameter   :: kt = 3.166808578545117e-06_wp
 
-   character(len=*), parameter :: real_format = "(es18.6)"
-   character(len=*), parameter :: &
-   &  label_charges = "CEH atomic charges", &
-   &  label_dipole = "CEH molecular dipole moment / a.u."
+   !> Specification of the CEH hamiltonian
+   type, public, extends(tb_h0spec) :: ceh_h0spec
+   contains
+      !> Generator for the self energy / atomic levels of the Hamiltonian
+      procedure :: get_selfenergy
+      !> Generator for the coordination number dependent shift of the self energy
+      procedure :: get_cnshift
+      !> Generator for the coordination number dependent shift of the self energy
+      procedure :: get_cnenshift
+      !> Generator for the enhancement factor to for scaling Hamiltonian elements
+      procedure :: get_hscale
+      !> Generator for the polynomial parameters for the distant dependent scaling
+      procedure :: get_shpoly
+      !> Generator for the reference occupation numbers of the atoms
+      procedure :: get_reference_occ
+      !> Generator for the diatomic frame scaling factors
+      procedure :: get_diat_scale
+   end type ceh_h0spec
+
+   interface ceh_h0spec
+      module procedure :: new_ceh_h0spec
+   end interface ceh_h0spec
 
 contains
 
-   !> Run the CEH calculation
-   subroutine ceh_guess(ctx, calc, mol, error, wfn,verbosity)
-      !> Calculation context
-      type(context_type), intent(inout) :: ctx
-      !> CEH calculator
-      type(ceh_calculator), intent(inout) :: calc
-      !> Molecular structure data
-      type(structure_type), intent(in)  :: mol
-      !> Error container
-      type(error_type), allocatable, intent(out) :: error
-      !> Wavefunction data
-      type(wavefunction_type), intent(inout) :: wfn
-      !> Verbosity level of output
-      integer, intent(in), optional :: verbosity
-      !> Molecular dipole moment
-      real(wp) :: dipole(3) = 0.0_wp
-      !> Integral container
-      type(integral_type) :: ints
-      !> Electronic solver
-      class(solver_type), allocatable :: solver
-      !> Potential type
-      type(potential_type) :: pot
-      !> Restart data for interaction containers
-      type(container_cache) :: icache
-      !> Timer
-      type(timer_type) :: timer
-      real(wp) :: ttime
-
-      logical :: grad = .false.
-
-      real(wp) :: elec_entropy
-      real(wp) :: nel = 0.0_wp
-      real(wp), allocatable :: tmp(:)
-
-      integer :: i, prlevel
-
-      call timer%push("wall time CEH")
-
-      if (present(verbosity)) then
-         prlevel = verbosity
-      else
-         prlevel = ctx%verbosity
-      end if
-
-      if (prlevel > 2) then
-         call header(ctx)
-      elseif (prlevel > 1) then
-         call ctx%message("CEH guess")
-      endif
-      !> Gradient logical as future starting point (not implemented yet)
-      !> Entry point could either be (i) modified wavefunction type (including derivatives),
-      !> (iii) additional wavefunction derivative type (see old commits) or (ii) optional 
-      !> dqdR variable in this routine
-      grad = .false.
-
-      !> Reference occupation for number of electrons and formal charges
-      call get_reference_occ(mol, calc%bas, calc%hamiltonian%refocc)
-      !> Define occupation
-      call get_occupation(mol, calc%bas, calc%hamiltonian, wfn%nocc, wfn%n0at, wfn%n0sh)
-      nel = sum(wfn%n0at) - mol%charge
-      if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
-         wfn%nuhf = mol%uhf
-      else
-         wfn%nuhf = mod(nint(nel), 2)
-      end if
-      call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
-
-      !> Initialize integrals
-      call new_integral(ints, calc%bas%nao)
-      ints%quadrupole = 0.0_wp
-      !> Get Hamiltonian and integrals
-      call get_hamiltonian(calc, mol, ints%overlap, ints%dipole, ints%hamiltonian)
-
-      !> Get initial potential
-      call new_potential(pot, mol, calc%bas, wfn%nspin)
-      !> Set potential to zero
-      call pot%reset
-      if (allocated(calc%interactions)) then
-         call calc%interactions%update(mol, icache)
-         call calc%interactions%get_potential(mol, icache, wfn, pot)
-      endif
-
-      !> Add effective Hamiltonian to wavefunction
-      call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
-
-      !> Solve the effective Hamiltonian
-      call ctx%new_solver(solver, calc%bas%nao)
-
-      !> Get the density matrix
-      call get_density(wfn, solver, ints, elec_entropy, error)
-      if (allocated(error)) then
-         call ctx%set_error(error)
-      end if
-
-      !> Get charges and dipole moment from density and integrals
-      call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
-      & wfn%qsh)
-      call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
-      call get_mulliken_atomic_multipoles(calc%bas, ints%dipole, wfn%density, &
-      & wfn%dpat)
-      allocate(tmp(3), source = 0.0_wp)
-      call gemv(mol%xyz, wfn%qat(:, 1), tmp)
-      dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
-
-      call timer%pop
-      ttime = timer%get("wall time CEH")
-
-      !> Printout of results
-      if (prlevel > 2) then
-         call ctx%message(label_charges)
-         call ctx%message("Atom index      Charge / a.u.")
-         do i = 1, mol%nat
-            call ctx%message(format_string(i, "(i7)") // &
-            & "   " // format_string(wfn%qat(i,1), real_format))
-         end do
-         call ctx%message(repeat("-", 60))
-         call ctx%message(label_dipole)
-         call ctx%message("     x           y           z")
-         call ctx%message(format_string(dipole(1), "(f12.5)") // &
-         & format_string(dipole(2), "(f12.5)") // &
-         & format_string(dipole(3), "(f12.5)"))
-         call ctx%message(repeat("-", 60))
-      endif
-      if (prlevel > 0) then
-         call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
-         call ctx%message("")
-      endif
-
-   end subroutine ceh_guess
 
    subroutine new_ceh_calculator(calc,mol)
       !> Instance of the CEH evaluator
-      type(ceh_calculator), intent(out) :: calc
+      type(xtb_calculator), intent(out) :: calc
       type(structure_type), intent(in)  :: mol
 
       call add_ceh_basis(calc, mol)
       call add_ncoord(calc, mol)
-
+      call add_ncoord_en(calc, mol)
+      call add_hamiltonian(calc, mol)
 
    end subroutine new_ceh_calculator
 
-   subroutine add_ncoord(calc, mol)
-      !> Instance of the xTB evaluator
-      type(ceh_calculator), intent(inout) :: calc
-      !> Molecular structure data
-      type(structure_type), intent(in) :: mol
-
-      call new_ncoord(calc%ncoordstd, mol, cn_type="ceh_std")
-      call new_ncoord(calc%ncoorden, mol, cn_type="ceh_en")
-   end subroutine add_ncoord
 
    subroutine add_ceh_basis(calc, mol)
       !> Instance of the CEH evaluator
-      type(ceh_calculator), intent(inout) :: calc
+      type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
 
@@ -565,18 +428,169 @@ contains
 
    end subroutine add_ceh_basis
 
-   subroutine get_reference_occ(mol, bas, refocc)
+
+   subroutine add_ncoord(calc, mol)
+      !> Instance of the CEH evaluator
+      type(xtb_calculator), intent(inout) :: calc
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+
+      call new_ncoord(calc%ncoord, mol, cn_type="ceh_std")
+   end subroutine add_ncoord
+
+
+   subroutine add_ncoord_en(calc, mol)
+      !> Instance of the CEH evaluator
+      type(xtb_calculator), intent(inout) :: calc
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+
+      call new_ncoord(calc%ncoord_en, mol, cn_type="ceh_en")
+   end subroutine add_ncoord_en
+
+
+   subroutine add_hamiltonian(calc, mol)
+      !> Instance of the CEH evaluator
+      type(xtb_calculator), intent(inout) :: calc
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+   
+      call new_hamiltonian(calc%h0, mol, calc%bas, new_ceh_h0spec(mol))
+
+   end subroutine add_hamiltonian
+
+
+   pure function new_ceh_h0spec(mol) result(self)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Instance of the Hamiltonian specification
+      type(ceh_h0spec) :: self
+   
+   end function new_ceh_h0spec
+
+
+   !> Generator for the enhancement factor to for scaling Hamiltonian elements
+   subroutine get_hscale(self, mol, bas, hscale)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Scaling parameters for the Hamiltonian elements
+      real(wp), intent(out) :: hscale(:, :, :, :)
+   
+      integer :: isp, jsp, izp, jzp, ish, jsh, il, jl
+      real(wp) :: km
+   
+      hscale(:, :, :, :) = 0.0_wp
+   
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do jsp = 1, mol%nid
+            jzp = mol%num(jsp)
+            do ish = 1, bas%nsh_id(isp)
+               il = bas%cgto(ish, isp)%ang
+               do jsh = 1, bas%nsh_id(jsp)
+                  jl = bas%cgto(jsh, jsp)%ang
+                  km = ( kll(il + 1) + kll(jl + 1) )
+                  hscale(jsh, ish, jsp, isp) = 0.5_wp * km
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine get_hscale
+
+
+   !> Generator for the self energy / atomic levels of the Hamiltonian
+   subroutine get_selfenergy(self, mol, bas, selfenergy)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Self energy / atomic levels
+      real(wp), intent(out) :: selfenergy(:, :)
+   
+      integer :: isp, izp, ish, iat
+   
+      selfenergy(:, :) = 0.0_wp
+   
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            iat = bas%ao2at(ish)
+            selfenergy(ish, isp) = p_ceh_selfenergy(ish, izp) 
+         end do
+      end do
+   end subroutine get_selfenergy
+   
+
+   !> Generator of the coordination number dependent shift of the self energy
+   subroutine get_cnshift(self, mol, bas, kcn)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Coordination number dependent shift
+      real(wp), intent(out) :: kcn(:, :)
+
+      integer :: isp, izp, ish
+   
+      kcn(:, :) = 0.0_wp
+   
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            kcn(ish, isp) = p_ceh_kcn(ish, izp)
+         end do
+      end do
+
+   end subroutine get_cnshift
+
+
+   !> Generator of the coordination number dependent shift of the self energy
+   subroutine get_cnenshift(self, mol, bas, kcn_en)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Coordination number dependent shift
+      real(wp), intent(out) :: kcn_en(:, :)
+        
+      integer :: isp, izp, ish
+   
+      kcn_en(:, :) = 0.0_wp
+   
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            kcn_en(ish, isp) = p_ceh_kcn_en(izp)
+         end do
+      end do
+
+   end subroutine get_cnenshift
+
+
+   subroutine get_reference_occ(self, mol, bas, refocc)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Basis set information
       type(basis_type), intent(in) :: bas
       !> Reference occupation numbers
-      real(wp), allocatable, intent(out) :: refocc(:, :)
+      real(wp), intent(out) :: refocc(:, :)
       logical, allocatable  :: valence(:,:)
 
       integer :: isp, izp, ish, il, mshell
       integer :: ang_idx(0:2)
-
 
       allocate(valence(3, mol%nid))
       do isp = 1, mol%nid
@@ -590,7 +604,6 @@ contains
       end do
 
       mshell = maxval(bas%nsh_id)
-      allocate(refocc(mshell, mol%nid))
       refocc(:, :) = 0.0_wp
       do isp = 1, mol%nid
          izp = mol%num(isp)
@@ -602,299 +615,62 @@ contains
             end if
          end do
       end do
+      
    end subroutine get_reference_occ
 
-   subroutine get_occupation(mol, bas, hamiltonian, nocc, n0at, n0sh)
+
+   !> Generator for the polynomial parameters for the distant dependent scaling (Not in CEH)
+   subroutine get_shpoly(self, mol, bas, shpoly)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Basis set information
       type(basis_type), intent(in) :: bas
-      !> Hamiltonian interaction data
-      type(ceh_hamiltonian), intent(in) :: hamiltonian
-      !> Occupation number
-      real(wp), intent(out) :: nocc
-      !> Reference occupation for each atom
-      real(wp), intent(out) :: n0at(:)
-      !> Reference occupation for each shell
-      real(wp), intent(out) :: n0sh(:)
+      !> Polynomial parameters for distant dependent scaleing
+      real(wp), intent(out) :: shpoly(:, :)
+   
+      integer :: isp, izp, ish
+   
+      shpoly(:, :) = 0.0_wp
 
-      integer :: iat, ish, izp, ii
+   end subroutine get_shpoly
 
-      nocc = -mol%charge
-      n0at(:) = 0.0_wp
-      n0sh(:) = 0.0_wp
-      do iat = 1, mol%nat
-         izp = mol%id(iat)
-         ii = bas%ish_at(iat)
-         do ish = 1, bas%nsh_id(izp)
-            nocc = nocc + hamiltonian%refocc(ish, izp)
-            n0at(iat) = n0at(iat) + hamiltonian%refocc(ish, izp)
-            n0sh(ii+ish) = n0sh(ii+ish) + hamiltonian%refocc(ish, izp)
+
+   !> Stub implementation of the diatomic frame scaling factor generator
+   subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Quadratic partial charge dependent shift
+      real(wp), intent(out) :: ksig(:, :)
+      !> Quadratic partial charge dependent shift
+      real(wp), intent(out) :: kpi(:, :)
+      !> Quadratic partial charge dependent shift
+      real(wp), intent(out) :: kdel(:, :)
+   
+      integer :: isp, izp, jsp, jzp
+
+      ksig(:, :) = 0.0_wp
+      kpi(:, :) = 0.0_wp
+      kdel(:, :) = 0.0_wp
+
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do jsp = 1, mol%nid
+            jzp = mol%num(jsp)
+            ksig(isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(1,izp) &
+            & + 1.0_wp / p_ceh_h0k(1,jzp) )
+            kpi (isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(2,izp) &
+            & + 1.0_wp / p_ceh_h0k(2,jzp) )
+            kdel(isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(3,izp) &
+            & + 1.0_wp / p_ceh_h0k(3,jzp) )
          end do
       end do
 
-   end subroutine get_occupation
-
-   subroutine get_hamiltonian(calc, mol, overlap, dipole, hamiltonian)
-      !> CEH Hamiltonian type
-      type(ceh_hamiltonian)               :: self
-      !> CEH calculator
-      type(ceh_calculator), intent(inout) :: calc
-      !> Molecular structure type
-      type(structure_type), intent(in)    :: mol
-      !> Overlap integral matrix
-      real(wp), allocatable, intent(out)  :: overlap(:,:)
-      !> Dipole moment integral matrix
-      real(wp), allocatable, intent(out)  :: dipole(:, :, :)
-      !> Full Hamiltonian matrix
-      real(wp), allocatable, intent(out)  :: hamiltonian(:,:)
-      !> Scaling factors for the diatomic frame for the three differnt bonding motifs
-      !> (sigma, pi, delta)
-      real(wp) :: ksig, kpi, kdel
-
-      real(wp), allocatable   :: cn(:), cn_en(:), & 
-      & overlap_diat(:,:)
-      real(wp), allocatable :: overlap_tmp(:), dipole_tmp(:, :), &
-      & overlap_scaled_tmp(:)
-      real(wp) :: cutoff, cutoff2, felem, r2, vec(3), vec_diat_trafo(3)
-      real(wp) :: dipole_tmp_tf(3)
-
-      integer                 :: ii, offset_iat, offset_jat, jzp, izp, nao
-      integer                 :: iat, ish, jsh, k, l, iao, jao, jat, kl
-
-      !> allocate CEH diagonal elements
-      allocate(self%hlevel(calc%bas%nsh), source=0.0_wp)
-
-      !> allocate full CEH Hamiltonian
-      allocate(hamiltonian(calc%bas%nao, calc%bas%nao), source=0.0_wp)
-
-      !> calculate coordination number (CN) and CN-weighted energy
-      if (allocated(calc%ncoordstd)) then
-         allocate(cn(mol%nat))
-         call calc%ncoordstd%get_cn(mol, cn)
-      end if
-      if (allocated(calc%ncoorden)) then
-         allocate(cn_en(mol%nat))
-         call calc%ncoorden%get_cn(mol, cn_en)
-      end if
-
-      !> define diagonal elements of CEH Hamiltonian
-      !> shell-resolved, not AO resolved
-      do iat = 1, mol%nat
-         ii = calc%bas%ish_at(iat)
-         do ish = 1, calc%bas%nsh_at(iat)
-            self%hlevel(ii+ish) = ceh_level(ish, mol%num(mol%id(iat))) + &
-            &             ceh_kcn(ish, mol%num(mol%id(iat))) * cn(iat) + &
-            &                ceh_kcnen(mol%num(mol%id(iat))) * cn_en(iat)
-         end do
-      end do
-
-      cutoff = get_cutoff(calc%bas)
-      cutoff2 = cutoff**2
-
-      !> Allocate matrices for overlap, scaled overlap and dipole moment integrals
-      allocate(overlap(calc%bas%nao, calc%bas%nao), &
-      & overlap_diat(calc%bas%nao, calc%bas%nao), &
-      & dipole(3, calc%bas%nao, calc%bas%nao), source = 0.0_wp)
-      !> Allocate temporary matrices for overlap, scaled overlap and dipole moment integrals
-      allocate(overlap_tmp(msao(calc%bas%maxl)**2), &
-      & overlap_scaled_tmp(msao(calc%bas%maxl)**2), & 
-      & dipole_tmp(3, msao(calc%bas%maxl)**2))
-
-      !> define effective CEH Hamiltonian
-      do iat = 1, mol%nat
-      izp = mol%id(iat)
-         offset_iat = calc%bas%ish_at(iat)
-         do ish = 1, calc%bas%nsh_at(iat)
-
-            !> loop over all AOs in atoms before current atom
-            !> -- AO loop over ish-AOs (-> iao) is done in the individual loops
-            !> -- to simplifiy overlap integral calculation
-            do jat = 1,iat-1
-               jzp = mol%id(jat)
-               offset_jat = calc%bas%ish_at(jat)
-               !> Calculate relative integral aufpoint vectors
-               vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat)
-               r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
-               if (r2 > cutoff2) cycle
-               call relvec(vec, sqrt(r2), vec_diat_trafo)
-
-               do jsh = 1, calc%bas%nsh_at(jat)
-                  felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(jat)), ish, jsh, &
-                  & self%hlevel(offset_iat + ish), self%hlevel(offset_jat + jsh))
-
-                  !> Determine factors for diatomic overlap scaling from atom parameters
-                  ksig = 2.0_wp / (1.0_wp / ceh_h0k(1,mol%num(mol%id(iat))) &
-                  & + 1.0_wp / ceh_h0k(1,mol%num(mol%id(jat))) )
-                  kpi = 2.0_wp / (1.0_wp / ceh_h0k(2,mol%num(mol%id(iat))) &
-                  & + 1.0_wp / ceh_h0k(2,mol%num(mol%id(jat))) )
-                  kdel = 2.0_wp / (1.0_wp / ceh_h0k(3,mol%num(mol%id(iat))) &
-                  & + 1.0_wp / ceh_h0k(3,mol%num(mol%id(jat))) )
-                  
-                  !> Integral call for different atom and different shell (-> with diatomic scaling)
-                  overlap_tmp = 0.0_wp
-                  overlap_scaled_tmp = 0.0_wp
-                  dipole_tmp = 0.0_wp
-                  call dipole_cgto_diat_scal(calc%bas%cgto(jsh,jzp), calc%bas%cgto(ish,izp), &
-                  & r2, vec, calc%bas%intcut, vec_diat_trafo, ksig, kpi, kdel, & 
-                  & overlap_tmp, overlap_scaled_tmp, dipole_tmp)
-
-                  nao = msao(calc%bas%cgto(jsh, jzp)%ang)
-                  do iao = 1, calc%bas%nao_sh(ish + offset_iat)
-                     !> AO iterator of i 
-                     k = calc%bas%iao_sh(ish + offset_iat) + iao
-                     do jao = 1, calc%bas%nao_sh(jsh + offset_jat)
-                        l = calc%bas%iao_sh(jsh + offset_jat) + jao
-                        kl = jao + nao*(iao-1)
-
-                        overlap_diat(k, l) = overlap_scaled_tmp(kl)
-                        overlap_diat(l, k) = overlap_scaled_tmp(kl)
-                        overlap(k, l) = overlap_tmp(kl)
-                        overlap(l, k) = overlap_tmp(kl)
-
-                        hamiltonian(k, l) = overlap_diat(k, l) * felem
-                        hamiltonian(l, k) = hamiltonian(k, l)
-
-                        !> Shift dipole operator from Ket function (center i) 
-                        !> to Bra function (center j) to save the redundant calculation 
-                        call shift_operator(vec, overlap_tmp(kl), &
-                           & dipole_tmp(:, kl), dipole_tmp_tf)
-                        !> Order of l and k is not relevant for the result 
-                        !> of the dipole moment but in this ordering it corresponds exactly to 
-                        !> the result by the 'call get_dipole_integrals'
-                        dipole(:, l, k) = dipole_tmp(:, kl)
-                        dipole(:, k, l) = dipole_tmp_tf(:)
-                     end do
-                  enddo
-               end do
-            end do
-
-            !> reset vectors to zero because we are only considering 1-center terms from now on
-            vec(:) = 0.0_wp 
-            r2 = 0.0_wp 
-
-            !> loop over all AOs in shells before current shell (same atom)
-            do jsh = 1, ish - 1
-               felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, jsh, &
-               & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + jsh))
-
-               !> Integral call for same atom and different shell
-               overlap_tmp = 0.0_wp
-               dipole_tmp = 0.0_wp
-               call dipole_cgto(calc%bas%cgto(jsh,izp), calc%bas%cgto(ish,izp), &
-               & r2, vec, calc%bas%intcut, overlap_tmp,  dipole_tmp)
-
-               nao = msao(calc%bas%cgto(jsh, izp)%ang)
-               do iao = 1, calc%bas%nao_sh(ish + offset_iat)
-                  !> AO iterator of i 
-                  k = calc%bas%iao_sh(ish + offset_iat) + iao
-                  do jao = 1, calc%bas%nao_sh(jsh + offset_iat)
-                     l = calc%bas%iao_sh(jsh + offset_iat) + jao
-                     kl = jao + nao*(iao-1)
-
-                     overlap_diat(k, l) = overlap_tmp(kl)
-                     overlap_diat(l, k) = overlap_tmp(kl)
-                     overlap(k, l) = overlap_tmp(kl)
-                     overlap(l, k) = overlap_tmp(kl)
-
-                     hamiltonian(k, l) = overlap_diat(k, l) * felem
-                     hamiltonian(l, k) = hamiltonian(k, l)
-
-                     dipole(:, k, l) = dipole_tmp(:, kl)
-                     dipole(:, l, k) = dipole_tmp(:, kl)
-                  end do
-               end do
-            end do
-            
-            !> Integral call for same atom and same shell
-            overlap_tmp = 0.0_wp
-            dipole_tmp = 0.0_wp
-            call dipole_cgto(calc%bas%cgto(ish,izp), calc%bas%cgto(ish,izp), &
-            & r2, vec, calc%bas%intcut, overlap_tmp, dipole_tmp)
-            
-            !> loop over all AOs before current AO (same atom and shell)
-            felem = ceh_h0_entry_od(mol%num(mol%id(iat)), mol%num(mol%id(iat)), ish, ish, &
-            & self%hlevel(offset_iat + ish), self%hlevel(offset_iat + ish))
-            nao = msao(calc%bas%cgto(ish, izp)%ang)
-            do iao = 1, calc%bas%nao_sh(ish + offset_iat)
-               !> AO iterator of i 
-               k = calc%bas%iao_sh(ish + offset_iat) + iao
-               do jao = 1, iao - 1
-                  l = calc%bas%iao_sh(ish + offset_iat) + jao
-                  kl = jao + nao*(iao-1)
-
-                  overlap_diat(k, l) = overlap_tmp(kl)
-                  overlap_diat(l, k) = overlap_tmp(kl)
-                  overlap(k, l) = overlap_tmp(kl)
-                  overlap(l, k) = overlap_tmp(kl)
-
-                  hamiltonian(k, l) = overlap_diat(k, l) * felem
-                  hamiltonian(l, k) = hamiltonian(k, l)
-
-                  dipole(:, k, l) = dipole_tmp(:, jao + nao*(iao-1))
-                  dipole(:, l, k) = dipole_tmp(:, jao + nao*(iao-1))
-               end do
-               !> diagonal term (AO(i) == AO(j))
-               kl = iao + nao*(iao-1)
-
-               overlap_diat(k, k) = overlap_tmp(kl)
-               overlap(k, k) = overlap_tmp(kl)
-               hamiltonian(k, k) = self%hlevel(offset_iat + ish)
-
-               dipole(:, k, k) = dipole_tmp(:, kl)
-            end do
-         enddo
-      enddo
-      if (k /= calc%bas%nao) then
-         error stop "ERROR: k /= calc%bas%nao"
-      end if
-
-      calc%hamiltonian = self
-
-   end subroutine get_hamiltonian
-
-   !> Shift dipole operator from Ket function (center i) to Bra function (center j),
-   !> the dipole operator on the Bra function can be assembled from the lower moments
-   !> on the Ket function and the displacement vector using horizontal shift rules.
-   pure subroutine shift_operator(vec, s, di, dj)
-      !> Displacement vector of center i and j
-      real(wp),intent(in) :: vec(:)
-      !> Overlap integral between basis functions
-      real(wp),intent(in) :: s
-      !> Dipole integral with operator on Ket function (center i)
-      real(wp),intent(in) :: di(:)
-      !> Dipole integral with operator on Bra function (center j)
-      real(wp),intent(out) :: dj(:)
-
-      ! Create dipole operator on Bra function from Ket function and shift contribution
-      ! due to monopol displacement
-      dj(1) = di(1) + vec(1)*s
-      dj(2) = di(2) + vec(2)*s
-      dj(3) = di(3) + vec(3)*s
-
-   end subroutine shift_operator
-
-   function ceh_h0_entry_od(ati,atj,ish,jsh, hleveli, hlevelj) result(level)
-      integer, intent(in) :: ish, ati, jsh, atj
-      real(wp), intent(in) :: hleveli, hlevelj
-      real(wp) :: level
-
-      integer :: ang_i, ang_j
-
-      ang_i = ang_shell(ish, ati)
-      ang_j = ang_shell(jsh, atj)
-      level = 0.25_wp * (hleveli + hlevelj) * &
-      & ( kll(ang_i + 1) + kll(ang_j + 1) )
-
-   end function ceh_h0_entry_od
-
-   subroutine header(ctx)
-      !> Calculation context
-      type(context_type), intent(inout) :: ctx
-      call ctx%message(repeat("-", 60))
-      call ctx%message('       C H A R G E    E X T E N D E D    H U C K E L (CEH) ')
-      call ctx%message('                       SG, MM, AH, TF, May 2023            ')
-      call ctx%message(repeat("-", 60))
-   end subroutine header
+   end subroutine get_diat_scale
 
 end module tblite_ceh_ceh

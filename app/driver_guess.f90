@@ -33,8 +33,9 @@ module tblite_driver_guess
    & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
-   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
-   use tblite_ceh_calculator, only : ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_ceh, only : new_ceh_calculator
+
    implicit none
    private
 
@@ -63,7 +64,7 @@ contains
       real(wp), allocatable :: gradient(:, :), sigma(:, :)
       type(context_type) :: ctx
       type(xtb_calculator) :: calc
-      type(ceh_calculator):: calc_ceh
+      type(xtb_calculator):: calc_ceh
       type(wavefunction_type) :: wfn, wfn_ceh
 
       ctx%terminal = context_terminal(config%color)
@@ -155,7 +156,7 @@ contains
       case("eeq")
          call eeq_guess(mol, calc, wfn)
       case("ceh")
-         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then
             call fatal(ctx, "CEH singlepoint calculation failed")
             do while(ctx%failed())
