@@ -80,7 +80,7 @@ contains
                ii = ish_at(iat)
                do ish = 1, nshell(izp)
                   selfenergy(ii+ish) = selfenergy(ii+ish) + h0%kcn(ish, izp) * cn(iat) + &
-                  &  h0%kcn(ish, izp) * cn_en(iat)
+                  &  h0%kcn_en(ish, izp) * cn_en(iat)
                end do
             end do
          end if
