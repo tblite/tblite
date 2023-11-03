@@ -1956,6 +1956,12 @@ int test_cpcm_solvation(){
         goto err;
     }
 
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethnaol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
     cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol");
     if (tblite_check_context(ctx)) {
         goto err;
@@ -2103,6 +2109,12 @@ int test_alpb_solvation(){
     if (tblite_check_context(ctx)) {
         goto err;
     }
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethnaol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
 
     cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
     if (tblite_check_context(ctx)) {
