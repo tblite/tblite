@@ -50,7 +50,7 @@ check_double(double actual, double expected, double tol, const char* msg)
     if (fabs(expected - actual) < tol) {
         return true;
     }
-    fprintf(stderr, "[Fatal] %s: expected %lf, got %lf\n", msg, expected, actual);
+    fprintf(stderr, "[Fatal] %s: expected %3.7f, got %3.7f\n", msg, expected, actual);
     return false;
 }
 
@@ -1956,12 +1956,6 @@ int test_cpcm_solvation(){
         goto err;
     }
 
-    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "7f0");
-    if (!tblite_check_context(ctx)) {
-        goto err;
-    }
-    show_context_error(ctx);
-
     cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol");
     if (tblite_check_context(ctx)) {
         goto err;
@@ -1996,8 +1990,8 @@ int test_cpcm_solvation(){
     if (tblite_check_context(ctx)) {
         goto err;
     }
-    
-    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "7.0");
+    double dbl = 7.0;
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, dbl);
     if (tblite_check_context(ctx)) {
         goto err;
     }
@@ -2110,12 +2104,6 @@ int test_alpb_solvation(){
         goto err;
     }
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "7f0");
-    if (!tblite_check_context(ctx)) {
-        goto err;
-    }
-    show_context_error(ctx);
-
     cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
     if (tblite_check_context(ctx)) {
         goto err;
@@ -2150,8 +2138,8 @@ int test_alpb_solvation(){
     if (tblite_check_context(ctx)) {
         goto err;
     }
-    
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "7.0");
+    double dbl = 7.0;
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, dbl);
     if (tblite_check_context(ctx)) {
         goto err;
     }

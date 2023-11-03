@@ -392,6 +392,28 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+def test_post_processing_api():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("bond-orders")
+    res = calc.singlepoint()
+    with raises(ValueError, match="Molecular dipole was not calculated. By default it is computed."):
+        res.get("dipole")
+
+    with raises(ValueError, match="Molecular quadrupole was not calculated. By default it is computed."):
+        res.get("quadrupole")
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("molecular-multipoles")
+    res = calc.singlepoint()
+    with raises(ValueError, match="Bond-orders were not calculated. By default they are computed."):
+        res.get("bond-orders")
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+
+    wbo_sp = calc.singlepoint().get("bond-orders")
+    assert wbo_sp.ndim == 3
 def test_solvation_models():
     numbers, positions = get_crcp2()
 
@@ -404,7 +426,7 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", "7.0")
+    calc.add("cpcm-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
 
@@ -419,7 +441,7 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("alpb-solvation", "7.0")
+    calc.add("alpb-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
 
@@ -442,6 +464,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
+    
 
 
 def test_result_setter():
