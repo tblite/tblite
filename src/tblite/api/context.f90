@@ -42,8 +42,10 @@ module tblite_api_context
 
    abstract interface
       !> Interface for callbacks used in custom logger
-      subroutine callback(msg, len, udata) bind(C)
-         import :: c_char, c_int, c_ptr
+      subroutine callback(verror, msg, len, udata) bind(C)
+         import :: c_char, c_int, c_ptr, vp_error
+         !> Error handle
+         type(c_ptr), value :: verror
          !> Message payload to be displayed
          character(len=1, kind=c_char), intent(in) :: msg(*)
          !> Length of the message
@@ -60,6 +62,8 @@ module tblite_api_context
       type(c_ptr) :: udata = c_null_ptr
       !> Custom callback function to display messages
       procedure(callback), pointer, nopass :: callback => null()
+      !> Error handle
+      type(vp_error), pointer :: verror => null()
    contains
       !> Entry point for context instance to log message
       procedure :: message
@@ -226,18 +230,28 @@ end function new_callback_logger
 
 
 !> Entry point for context type logger, transfers message from context to callback
-subroutine message(self, msg)
+subroutine message(self, msg, error)
    !> Instance of the custom logger with the actual logger callback function
    class(callback_logger), intent(inout) :: self
    !> Message payload from the calculation context
    character(len=*), intent(in) :: msg
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    character(len=1, kind=c_char) :: charptr(len(msg))
    integer(c_int) :: nchars
 
+   if (.not.associated(self%verror)) then
+      allocate(self%verror)
+   end if
+
    charptr = transfer(msg, charptr)
    nchars = len(msg)
-   call self%callback(charptr, nchars, self%udata)
+   call self%callback(c_loc(self%verror), charptr, nchars, self%udata)
+
+   if (allocated(self%verror%ptr)) then
+      call move_alloc(self%verror%ptr, error)
+   end if
 end subroutine message
 
 

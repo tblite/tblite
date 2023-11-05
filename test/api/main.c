@@ -501,6 +501,14 @@ unexpected:
     return 1;
 }
 
+int test_error_setter(void)
+{
+    printf("Start test: error set\n");
+    tblite_error error = tblite_new_error();
+    tblite_set_error(error, "some error message", NULL);
+    return tblite_check_error(error) ? 0 : 1;
+}
+
 int test_empty_result(void)
 {
     printf("Start test: empty result\n");
@@ -939,7 +947,7 @@ err:
     return 1;
 }
 
-void example_callback(char* msg, int len, void* udata)
+void example_callback(tblite_error error, char* msg, int len, void* udata)
 {
     printf("[callback] %.*s\n", len, msg);
 }
@@ -2212,6 +2220,7 @@ int main(void)
     stat += test_uninitialized_calculator();
     stat += test_uninitialized_table();
     stat += test_uninitialized_param();
+    stat += test_error_setter();
     stat += test_empty_result();
     stat += test_invalid_structure();
     stat += test_table_builder();
