@@ -53,9 +53,9 @@ tblite_new_spin_polarization(tblite_context ctx,
 #define tblite_new_cpcm_solvation(ctx, mol, calc, x)            \
                         _Generic((x),                           \
                                 char*                           \
-                                : tblite_new_cpcm_solvation_str,\
+                                : tblite_new_cpcm_solvation_solvent,\
                                 double                          \
-                                : tblite_new_cpcm_solvation_dbl \
+                                : tblite_new_cpcm_solvation_epsilon \
                                 ) (ctx, mol, calc, x)
 
 /// Create new CPCM implicit solvation container using internal parameters
@@ -66,7 +66,7 @@ tblite_new_spin_polarization(tblite_context ctx,
 /// @param eps: epsilon value for solvent
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_cpcm_solvation_dbl(tblite_context ctx,
+tblite_new_cpcm_solvation_epsilon(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           double eps);
@@ -79,7 +79,7 @@ tblite_new_cpcm_solvation_dbl(tblite_context ctx,
 /// @param solvent: Solvent to be modelled, can be given as name of solvent or epsilon value
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_cpcm_solvation_str(tblite_context ctx,
+tblite_new_cpcm_solvation_solvent(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           char* solvent);
@@ -87,9 +87,9 @@ tblite_new_cpcm_solvation_str(tblite_context ctx,
 #define tblite_new_alpb_solvation(ctx, mol, calc, x)            \
                         _Generic((x),                           \
                                 char*                           \
-                                : tblite_new_alpb_solvation_str,\
+                                : tblite_new_alpb_solvation_solvent,\
                                 double                          \
-                                : tblite_new_alpb_solvation_dbl) (ctx, mol, calc, x)
+                                : tblite_new_alpb_solvation_epsilon) (ctx, mol, calc, x)
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -99,7 +99,7 @@ tblite_new_cpcm_solvation_str(tblite_context ctx,
 /// @param solvent: Solvent to be modelled, can be given as name of solvent or epsilon value
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_alpb_solvation_str(tblite_context ctx,
+tblite_new_alpb_solvation_solvent(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           char* solvent);
@@ -112,7 +112,7 @@ tblite_new_alpb_solvation_str(tblite_context ctx,
 /// @param eps: epsilon value of solvent
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_alpb_solvation_dbl(tblite_context ctx,
+tblite_new_alpb_solvation_epsilon(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           double eps);

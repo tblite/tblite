@@ -416,10 +416,10 @@ def new_alpb_solvation(ctx, mol, calc, solvent):
     "Create new ALPB solvation model object"
     if isinstance(solvent, str):
         _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_alpb_solvation_str(ctx, mol, calc, _string)
+        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string)
     elif isinstance(solvent, float) or isinstance(solvent, int):
         _eps = float(solvent)
-        return lib.tblite_new_alpb_solvation_dbl(ctx, mol, calc, _eps)
+        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps)
     else:
         raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")
 
@@ -428,10 +428,10 @@ def new_cpcm_solvation(ctx, mol, calc, solvent):
     "Create new ALPB solvation model object"
     if isinstance(solvent, str):
         _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_cpcm_solvation_str(ctx, mol, calc, _string)
+        return lib.tblite_new_cpcm_solvation_solvent(ctx, mol, calc, _string)
     elif isinstance(solvent, float) or isinstance(solvent, int):
         _eps = float(solvent)
-        return lib.tblite_new_cpcm_solvation_dbl(ctx, mol, calc, _eps)
+        return lib.tblite_new_cpcm_solvation_epsilon(ctx, mol, calc, _eps)
     else:
         raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")  
 

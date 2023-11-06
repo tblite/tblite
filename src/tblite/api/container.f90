@@ -152,8 +152,8 @@ function new_spin_polarization_api(vctx, vmol, vcalc, wscale) result(vcont) &
    vcont = c_loc(cont)
 end function new_spin_polarization_api
 
-function new_cpcm_solvation_str_api(vctx, vmol, vcalc, solvstr) result(vcont) &
-   & bind(C, name=namespace//"new_cpcm_solvation_str")
+function new_cpcm_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont) &
+   & bind(C, name=namespace//"new_cpcm_solvation_solvent")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
    type(c_ptr), value :: vmol
@@ -196,8 +196,8 @@ function new_cpcm_solvation_str_api(vctx, vmol, vcalc, solvstr) result(vcont) &
 
 end function
 
-function new_cpcm_solvation_dbl_api(vctx, vmol, vcalc, eps) result(vcont) &
-   & bind(C, name=namespace//"new_cpcm_solvation_dbl")
+function new_cpcm_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
+   & bind(C, name=namespace//"new_cpcm_solvation_epsilon")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
    type(c_ptr), value :: vmol
@@ -229,8 +229,8 @@ function new_cpcm_solvation_dbl_api(vctx, vmol, vcalc, eps) result(vcont) &
 
 end function
 
-function new_alpb_solvation_str_api(vctx, vmol, vcalc, solvstr) result(vcont) &
-   & bind(C, name=namespace//"new_alpb_solvation_str")
+function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont) &
+   & bind(C, name=namespace//"new_alpb_solvation_solvent")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
    type(c_ptr), value :: vmol
@@ -272,8 +272,8 @@ function new_alpb_solvation_str_api(vctx, vmol, vcalc, solvstr) result(vcont) &
    
 end function
 
-function new_alpb_solvation_dbl_api(vctx, vmol, vcalc, eps) result(vcont) &
-   & bind(C, name=namespace//"new_alpb_solvation_dbl")
+function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
+   & bind(C, name=namespace//"new_alpb_solvation_epsilon")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
    type(c_ptr), value :: vmol
