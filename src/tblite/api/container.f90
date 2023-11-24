@@ -247,7 +247,7 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont
    type(error_type), allocatable :: error
    integer :: stat
    logical :: ok
-   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation"
+   if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation"
    vcont = c_null_ptr
 
    call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
@@ -289,7 +289,7 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
    integer :: stat
    logical :: ok
 
-   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation float input"
+   if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation float input"
    vcont = c_null_ptr
 
    call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)

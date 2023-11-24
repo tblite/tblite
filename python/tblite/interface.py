@@ -515,6 +515,8 @@ class Calculator(Structure):
         =================== =========================== ===================
          electric-field      Uniform electric field      Field vector (3,)
          spin-polarization   Spin polarization           Scaling factor
+         alpb-solvation      ALPB implicit solvation     Epsilon or solvent
+         cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
         =================== =========================== ===================
         """
 
