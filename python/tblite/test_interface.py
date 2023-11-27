@@ -392,6 +392,39 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+def test_solvation_models():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43248830035)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43287176929)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43680849760)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43674134364)
+
 
 def test_result_getter():
     """Check error handling in result container getter"""
@@ -409,6 +442,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
+    
 
 
 def test_result_setter():

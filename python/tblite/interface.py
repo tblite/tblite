@@ -443,6 +443,8 @@ class Calculator(Structure):
     _interaction = {
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
+        "alpb-solvation": library.new_alpb_solvation,
+        "cpcm-solvation":  library.new_cpcm_solvation,
     }
 
     def __init__(
@@ -513,6 +515,8 @@ class Calculator(Structure):
         =================== =========================== ===================
          electric-field      Uniform electric field      Field vector (3,)
          spin-polarization   Spin polarization           Scaling factor
+         alpb-solvation      ALPB implicit solvation     Epsilon or solvent
+         cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
         =================== =========================== ===================
         """
 
