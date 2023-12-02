@@ -30,7 +30,7 @@ module tblite_solvation_cds
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
-   use tblite_solvation_data, only : get_vdw_rad_cosmo
+   use tblite_solvation_data, only : get_vdw_rad_d3
    use tblite_solvation_type, only : solvation_type
    use mctc_io_convert, only : aatoau
    implicit none
@@ -102,6 +102,9 @@ module tblite_solvation_cds
       real(wp), allocatable :: hbond(:)
    end type cds_cache
 
+      !> Identifier for container
+      character(len=*), parameter :: label = "cds contribution to solvation"
+
 contains
 
 !> Create new CDS solvation model
@@ -115,22 +118,26 @@ subroutine new_cds(self, mol, input)
 
    real(wp), allocatable :: rad(:)
 
+   self%label = label
    if (allocated(input%rad)) then
       rad = input%rad
    else
-      rad = get_vdw_rad_cosmo(mol%num)
+      rad = get_vdw_rad_d3(mol%num)
    end if
 
    self%tension = input%tension
   
    if (allocated(input%hbond)) then
-      self%hbond = input%hbond
+      print *, 'printing hbond info'
+      print *, input%hbond, rad, input%probe
+      self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
+      print *, self%hbond
    end if
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
 
-!> Type constructor for CDS splvation
+!> Type constructor for CDS solvation
 function create_cds(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -225,6 +232,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    if (allocated(self%hbond)) then
       ptr%scratch(:) = ptr%hbond * ptr%surface * wfn%qat(:, 1)**2
       energies(:) = energies + ptr%scratch
+      print *, 'Ghbond: ', sum(ptr%scratch)
+      print *, 'sasa: ', ptr%surface
    end if
 end subroutine get_energy
 

@@ -66,6 +66,7 @@ subroutine new_solvation(solv, mol, input, error)
       !input%alpb%method = method
       !> Get parameters for alpb/gbsa -> descreening, scale, offset
       call get_alpb_param(input%alpb, mol)
+      print *, 'alpb: ', input%alpb%descreening, input%alpb%dielectric_const
       solv = alpb_solvation(mol, input%alpb)
       return
    end if
@@ -98,6 +99,8 @@ subroutine new_solvation_cds(solv, mol, input, error)
    !> enable cds later
    if (allocated(input%cds)) then
       call get_cds_param(input%cds, mol)
+      print *, 'tension: ', input%cds%tension
+      print *, 'hbond: ', input%cds%hbond
       solv = cds_solvation(mol, input%cds)
       return
     end if

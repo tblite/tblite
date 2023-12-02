@@ -28,12 +28,11 @@ module tblite_data_alpb
 
    public :: get_alpb_param
 
+   real(wp) :: born_scale = 1.47438678_wp
 
-   !> Get spin constant for species
-   !interface get_alpb_param
-   !   module procedure :: get_alpb_param
-   !end interface get_alpb_param
+   real(wp) :: born_offset = 0.00000000_wp
 
+   real(wp) :: dielectric_const = 80.20000000_wp
  
    real(wp) :: sx(1:94) = [0.18678116_wp, 1.99854836_wp, 0.50934487_wp, 0.30000000_wp, 0.93372749_wp, &
  0.73948749_wp, 0.77003311_wp, 0.30000000_wp, 0.62227524_wp, 1.22892076_wp, &
@@ -65,23 +64,21 @@ subroutine get_alpb_param(input, mol)
    type(alpb_input), intent(inout) :: input
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> iterator
-   integer :: i
 
    !> born scale for GFN2/water
-   input%born_scale = 1.47438678_wp
+   input%born_scale = born_scale
 
    !> born offset for GFN2/water 
-   input%born_offset = 0.00000000_wp
+   input%born_offset = born_offset
+
+   input%dielectric_const = dielectric_const
 
    if (.not. allocated(input%descreening)) then
       allocate(input%descreening(mol%nid))
    end if
 
    !> set descreening -> loop over nat and assign sx
-   do i = 1, mol%nid
-      input%descreening(i) = sx(mol%num(i))
-   end do
+   input%descreening = sx(mol%num)
 
    return
 

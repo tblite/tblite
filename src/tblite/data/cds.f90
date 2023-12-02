@@ -29,11 +29,7 @@ module tblite_data_cds
 
    public :: get_cds_param
 
-
-   !> Get spin constant for species
-   !interface get_cds_param
-   !   module procedure :: get_cds_param
-   !end interface get_cds_param
+   real(wp) :: probe = 1.13409020_wp * aatoau
 
   real(wp) :: tension(1:94) = 1.0e-5_wp * [ &
  -0.08533368_wp,   1.13711777_wp,  -5.83236188_wp, -17.01350889_wp,  -0.82891231_wp, &
@@ -76,7 +72,7 @@ module tblite_data_cds
   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp]
+  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp]**2
 
 
 contains
@@ -101,17 +97,13 @@ subroutine get_cds_param(input, mol)
    end if
 
    !> set probe radius for water GFN2 alpb
-   input%probe = 1.13409020_wp * aatoau
+   input%probe = probe
 
-   !> set tension -> loop over nat and assign tension
-   do i = 1, mol%nid
-      input%tension(i) = tension(mol%num(i))
-   end do
+   !> set tension 
+   input%tension = tension(mol%num)
 
-   !> set tension -> loop over nat and assign tension
-   do i = 1, mol%nid
-      input%hbond(i) = hbond(mol%num(i))
-   end do
+   !> set hbond
+   input%hbond = hbond(mol%num)
 
    return
 
