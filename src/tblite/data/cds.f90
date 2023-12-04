@@ -32,16 +32,8 @@ module tblite_data_cds
 
 
    type :: cds_parameter
-      real(wp) :: epsv = 0.0_wp
-      real(wp) :: smass = 0.0_wp
-      real(wp) :: rhos = 0.0_wp
-      real(wp) :: c1 = 0.0_wp
       real(wp) :: rprobe = 0.0_wp
-      real(wp) :: gshift = 0.0_wp
-      real(wp) :: soset = 0.0_wp
-      real(wp) :: alpha = 0.0_wp
       real(wp) :: gamscale(94) = 0.0_wp
-      real(wp) :: sx(94) = 0.0_wp
       real(wp) :: tmp(94) = 0.0_wp
    end type cds_parameter
 
