@@ -15,7 +15,9 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
+  'alpb.f90',
   'atomicrad.f90',
+  'cds.f90',
   'covrad.f90',
   'paulingen.f90',
   'spin.f90',
