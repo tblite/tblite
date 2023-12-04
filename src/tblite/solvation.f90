@@ -46,27 +46,23 @@ module tblite_solvation
 contains
 
 !> Create new solvation model from input data
-subroutine new_solvation(solv, mol, input, error)
+subroutine new_solvation(solv, mol, input, method, error)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input data
    type(solvation_input), intent(inout) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in) :: method
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   !> Method for parameter selection
-   character(len=:), allocatable :: method
 
-   !if (.not. present(method)) then
-      method = "gfn2"
-   !end if
 
    if (allocated(input%alpb)) then
-      !input%alpb%method = method
-      !> Get parameters for alpb/gbsa -> descreening, scale, offset
-      call get_alpb_param(input%alpb, mol)
-      print *, 'alpb: ', input%alpb%descreening, input%alpb%dielectric_const
+      input%alpb%method = method
+      call get_alpb_param(input%alpb, mol, error)
+      !print *, 'alpb: ', input%alpb%descreening, input%alpb%dielectric_const
       solv = alpb_solvation(mol, input%alpb)
       return
    end if
@@ -80,27 +76,24 @@ subroutine new_solvation(solv, mol, input, error)
 end subroutine new_solvation
 
 !> Create new solvation model from input data
-subroutine new_solvation_cds(solv, mol, input, error)
+subroutine new_solvation_cds(solv, mol, input, method, error)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input data
    type(solvation_input), intent(inout) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in) :: method
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   !> Method for parameter selection
-   character(len=:), allocatable :: method
 
-   !if (.not. present(method)) then
-      method = "gfn2"
-   !end if
 
-   !> enable cds later
    if (allocated(input%cds)) then
-      call get_cds_param(input%cds, mol)
-      print *, 'tension: ', input%cds%tension
-      print *, 'hbond: ', input%cds%hbond
+      input%cds%method = method
+      call get_cds_param(input%cds, mol, error)
+      !print *, 'tension: ', input%cds%tension
+      !print *, 'hbond: ', input%cds%hbond
       solv = cds_solvation(mol, input%cds)
       return
     end if

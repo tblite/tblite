@@ -128,10 +128,10 @@ subroutine new_cds(self, mol, input)
    self%tension = input%tension
   
    if (allocated(input%hbond)) then
-      print *, 'printing hbond info'
-      print *, input%hbond, rad, input%probe
+      !print *, 'printing hbond info'
+      !print *, input%hbond, rad, input%probe
       self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
-      print *, self%hbond
+      !print *, self%hbond
    end if
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
@@ -232,8 +232,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    if (allocated(self%hbond)) then
       ptr%scratch(:) = ptr%hbond * ptr%surface * wfn%qat(:, 1)**2
       energies(:) = energies + ptr%scratch
-      print *, 'Ghbond: ', sum(ptr%scratch)
-      print *, 'sasa: ', ptr%surface
+      !print *, 'Ghbond: ', sum(ptr%scratch)
+      !print *, 'sasa: ', ptr%surface
    end if
 end subroutine get_energy
 

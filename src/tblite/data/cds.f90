@@ -17,8 +17,9 @@
 !> @file tblite/data/alpb.f90
 !> Provides ALPB/GBSA cds parameters
 
-!> ALPB/GBSA parameters
+!> CDS parameters
 module tblite_data_cds
+   use mctc_env, only : error_type, fatal_error
    use mctc_env, only : wp
    use mctc_io_symbols, only : to_number
    use tblite_solvation_cds, only: cds_input
@@ -29,63 +30,190 @@ module tblite_data_cds
 
    public :: get_cds_param
 
-   real(wp) :: probe = 1.13409020_wp * aatoau
 
-  real(wp) :: tension(1:94) = 1.0e-5_wp * [ &
- -0.08533368_wp,   1.13711777_wp,  -5.83236188_wp, -17.01350889_wp,  -0.82891231_wp, &
- -0.51385188_wp,  -3.24932941_wp,   2.03601297_wp,   1.26697909_wp,   1.00726547_wp, &
- -3.05732760_wp,  -1.61595951_wp,  -0.10749537_wp,   1.73814581_wp,   1.01416364_wp, &
-  1.20810520_wp,  -0.06835879_wp,   0.43292409_wp,  -2.69545448_wp,  -9.68055177_wp, &
- -6.86171080_wp,  -2.32183024_wp,  -2.10041202_wp,  -4.15076452_wp,  -2.32406972_wp, &
-  9.24779587_wp,   4.48206277_wp,  -1.15972411_wp,  -0.21281688_wp,  -2.64500225_wp, &
- -2.36086956_wp,  -0.46303904_wp,  -0.88149455_wp,   0.23523157_wp,  -0.18620262_wp, &
-  0.35105321_wp,  -2.88851792_wp, -11.04377179_wp,  -7.95128133_wp,   3.90876499_wp, &
- -2.48432528_wp,  -3.66936332_wp,  -4.43332314_wp,  -2.94937418_wp,   0.00028790_wp, &
- -0.93137790_wp,  -0.79778296_wp,  -0.92747581_wp,  -2.70394304_wp,  -0.43878679_wp, &
- -0.70393148_wp,  -0.77480977_wp,  -0.76873446_wp,  -0.06431749_wp,  -3.15995511_wp, &
- -5.92642054_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,  -0.91732017_wp,  -0.76038638_wp,   4.55364802_wp,  -5.19397805_wp, &
- -0.97455175_wp,  -0.19095469_wp,   0.37263783_wp,   0.41221465_wp,  -1.77134941_wp, &
- -0.89456867_wp,   0.24690462_wp,   0.62621722_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp]
+   type :: cds_parameter
+      real(wp) :: epsv = 0.0_wp
+      real(wp) :: smass = 0.0_wp
+      real(wp) :: rhos = 0.0_wp
+      real(wp) :: c1 = 0.0_wp
+      real(wp) :: rprobe = 0.0_wp
+      real(wp) :: gshift = 0.0_wp
+      real(wp) :: soset = 0.0_wp
+      real(wp) :: alpha = 0.0_wp
+      real(wp) :: gamscale(94) = 0.0_wp
+      real(wp) :: sx(94) = 0.0_wp
+      real(wp) :: tmp(94) = 0.0_wp
+   end type cds_parameter
 
+   include 'cds/param_gbsa_acetone.fh'
+   include 'cds/param_gbsa_acetonitrile.fh'
+   include 'cds/param_gbsa_benzene.fh'
+   include 'cds/param_gbsa_ch2cl2.fh'
+   include 'cds/param_gbsa_chcl3.fh'
+   include 'cds/param_gbsa_cs2.fh'
+   include 'cds/param_gbsa_dmso.fh'
+   include 'cds/param_gbsa_ether.fh'
+   include 'cds/param_gbsa_h2o.fh'
+   include 'cds/param_gbsa_methanol.fh'
+   include 'cds/param_gbsa_thf.fh'
+   include 'cds/param_gbsa_toluene.fh'
+   include 'cds/param_gbsa_dmf.fh'
+   include 'cds/param_gbsa_nhexan.fh'
 
-  real(wp) :: hbond(1:94) = -kcaltoau * [&
-  8.09964704_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  2.23420044_wp,   1.80633279_wp,   2.22319193_wp,   3.56359195_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   3.62926820_wp, &
-  0.26212102_wp,   0.15334756_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   2.37162766_wp,   2.02275702_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   2.61716906_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp, &
-  0.00000000_wp,   0.00000000_wp,   0.00000000_wp,   0.00000000_wp]**2
-
+   include 'cds/param_alpb_acetone.fh'
+   include 'cds/param_alpb_acetonitrile.fh'
+   include 'cds/param_alpb_aniline.fh'
+   include 'cds/param_alpb_benzaldehyde.fh'
+   include 'cds/param_alpb_benzene.fh'
+   include 'cds/param_alpb_ch2cl2.fh'
+   include 'cds/param_alpb_chcl3.fh'
+   include 'cds/param_alpb_cs2.fh'
+   include 'cds/param_alpb_dioxane.fh'
+   include 'cds/param_alpb_dmf.fh'
+   include 'cds/param_alpb_dmso.fh'
+   include 'cds/param_alpb_ether.fh'
+   include 'cds/param_alpb_ethylacetate.fh'
+   include 'cds/param_alpb_furane.fh'
+   include 'cds/param_alpb_hexadecane.fh'
+   include 'cds/param_alpb_hexane.fh'
+   include 'cds/param_alpb_nitromethane.fh'
+   include 'cds/param_alpb_octanol.fh'
+   include 'cds/param_alpb_phenol.fh'
+   include 'cds/param_alpb_thf.fh'
+   include 'cds/param_alpb_toluene.fh'
+   include 'cds/param_alpb_water.fh'
+   include 'cds/param_alpb_woctanol.fh'
+   include 'cds/param_alpb_methanol.fh'
+   include 'cds/param_alpb_ethanol.fh'
 
 contains
 
 
 !> Get CDS parameters
-subroutine get_cds_param(input, mol)
+subroutine get_cds_param(input, mol, error)
    !> Input of cds
    type(cds_input), intent(inout) :: input
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> iterator
-   integer :: i
+   !> Internal parameter type
+   type(cds_parameter), allocatable :: param
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   select case(input%alpb)
+   case(.false.)
+      if (input%method == 'gfn2') then
+         select case(input%solvent)
+         case('acetone');      param = gfn2_acetone
+         case('acetonitrile'); param = gfn2_acetonitrile
+         case('benzene');      param = gfn2_benzene
+         case('ch2cl2','dichlormethane'); param = gfn2_ch2cl2
+         case('chcl3','chloroform');      param = gfn2_chcl3
+         case('cs2');          param = gfn2_cs2
+         case('dmso');         param = gfn2_dmso
+         case('ether');        param = gfn2_ether
+         case('h2o','water');  param = gfn2_h2o
+         case('methanol');     param = gfn2_methanol
+         case('thf');          param = gfn2_thf
+         case('toluene');      param = gfn2_toluene
+         case('dmf');          param = gfn2_dmf
+         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
+            param = gfn2_nhexan
+         end select
+      else
+         select case(input%solvent)
+         case('acetone');      param = gfn1_acetone
+         case('acetonitrile'); param = gfn1_acetonitrile
+         case('benzene');      param = gfn1_benzene
+         case('ch2cl2','dichlormethane'); param = gfn1_ch2cl2
+         case('chcl3','chloroform');      param = gfn1_chcl3
+         case('cs2');          param = gfn1_cs2
+         case('dmso');         param = gfn1_dmso
+         case('ether');        param = gfn1_ether
+         case('h2o','water');  param = gfn1_h2o
+         case('methanol');     param = gfn1_methanol
+         case('thf');          param = gfn1_thf
+         case('toluene');      param = gfn1_toluene
+         end select
+      end if
+   case(.true.)
+      if (input%method == 'gfn2') then
+         select case(input%solvent)
+         case('acetone');      param = gfn2_alpb_acetone
+         case('acetonitrile'); param = gfn2_alpb_acetonitrile
+         case('aniline');      param = gfn2_alpb_aniline
+         case('benzaldehyde');      param = gfn2_alpb_benzaldehyde
+         case('benzene');      param = gfn2_alpb_benzene
+         case('dioxane');      param = gfn2_alpb_dioxane
+         case('ethylacetate');      param = gfn2_alpb_ethylacetate
+         case('furane');      param = gfn2_alpb_furane
+         case('hexadecane');      param = gfn2_alpb_hexadecane
+         case('nitromethane');      param = gfn2_alpb_nitromethane
+         case('octanol');      param = gfn2_alpb_octanol
+         case('woctanol');      param = gfn2_alpb_woctanol
+         case('phenol');      param = gfn2_alpb_phenol 
+         case('ch2cl2','dichlormethane'); param = gfn2_alpb_ch2cl2
+         case('chcl3','chloroform');      param = gfn2_alpb_chcl3
+         case('cs2');          param = gfn2_alpb_cs2
+         case('dmso');         param = gfn2_alpb_dmso
+         case('ether');        param = gfn2_alpb_ether
+         case('h2o','water');  param = gfn2_alpb_water
+         case('methanol');     param = gfn2_alpb_methanol 
+         case('thf');          param = gfn2_alpb_thf
+         case('toluene');      param = gfn2_alpb_toluene
+         case('dmf');          param = gfn2_alpb_dmf
+         case('ethanol');      param = gfn2_alpb_ethanol
+         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
+            param = gfn2_alpb_hexane
+         end select
+      else
+         select case(input%solvent)
+         case('acetone');      param = gfn1_alpb_acetone
+         case('acetonitrile'); param = gfn1_alpb_acetonitrile
+         case('aniline');      param = gfn1_alpb_aniline
+         case('benzaldehyde');      param = gfn1_alpb_benzaldehyde
+         case('benzene');      param = gfn1_alpb_benzene
+         case('dioxane');      param = gfn1_alpb_dioxane
+         case('ethylacetate');      param = gfn1_alpb_ethylacetate
+         case('furane');      param = gfn1_alpb_furane
+         case('hexadecane');      param = gfn1_alpb_hexadecane
+         case('nitromethane');      param = gfn1_alpb_nitromethane
+         case('octanol');      param = gfn1_alpb_octanol
+         case('woctanol');      param = gfn1_alpb_woctanol
+         case('phenol');      param = gfn1_alpb_phenol 
+         case('ch2cl2','dichlormethane'); param = gfn1_alpb_ch2cl2
+         case('chcl3','chloroform');      param = gfn1_alpb_chcl3
+         case('cs2');          param = gfn1_alpb_cs2
+         case('dmso');         param = gfn1_alpb_dmso
+         case('ether');        param = gfn1_alpb_ether
+         case('h2o','water');  param = gfn1_alpb_water
+         case('methanol');     param = gfn1_alpb_methanol
+         case('ethanol');      param = gfn1_alpb_ethanol
+         case('thf');          param = gfn1_alpb_thf
+         case('toluene');      param = gfn1_alpb_toluene
+         case('dmf');          param = gfn1_alpb_dmf
+         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
+            param = gfn1_alpb_hexane
+         end select
+      end if
+   end select
+
+   if (.not.allocated(param)) then
+      call fatal_error(error, "Unknown solvent")
+   end if
+ 
+   call load_cds_param(input, mol, param)
+   return
+
+end subroutine get_cds_param
+
+subroutine load_cds_param(input, mol, param)
+   !> Input of cds
+   type(cds_input), intent(inout) :: input
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Internal Parameter type
+   type(cds_parameter), intent(in) :: param
 
 
    if (.not. allocated(input%tension)) then
@@ -96,17 +224,17 @@ subroutine get_cds_param(input, mol)
       allocate(input%hbond(mol%nid))
    end if
 
-   !> set probe radius for water GFN2 alpb
-   input%probe = probe
+   !> set probe radius
+   input%probe = param%rprobe * aatoau
 
-   !> set tension 
-   input%tension = tension(mol%num)
+   !> set tension parameter
+   input%tension = param%gamscale(mol%num) * 1.0e-5_wp 
 
-   !> set hbond
-   input%hbond = hbond(mol%num)
+   !> set hbond parameter
+   input%hbond =  -kcaltoau * param%tmp(mol%num)**2 
 
    return
 
-end subroutine get_cds_param
+end subroutine load_cds_param
 
 end module tblite_data_cds
