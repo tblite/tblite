@@ -195,7 +195,6 @@ subroutine get_cds_param(input, mol, error)
    end if
  
    call load_cds_param(input, mol, param)
-   return
 
 end subroutine get_cds_param
 
@@ -224,8 +223,11 @@ subroutine load_cds_param(input, mol, param)
 
    !> set hbond parameter
    input%hbond =  -kcaltoau * param%tmp(mol%num)**2 
-
-   return
+   
+   print *, 'CDS Print'
+   print *, param%rprobe
+   print *, param%gamscale(mol%num)
+   print *, param%tmp(mol%num)
 
 end subroutine load_cds_param
 

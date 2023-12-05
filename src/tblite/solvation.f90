@@ -42,7 +42,6 @@ module tblite_solvation
    public :: solvation_input, new_solvation, solvation_type
    public :: new_solvation_cds
 
-
 contains
 
 !> Create new solvation model from input data
@@ -58,11 +57,9 @@ subroutine new_solvation(solv, mol, input, method, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-
    if (allocated(input%alpb)) then
       input%alpb%method = method
       call get_alpb_param(input%alpb, mol, error)
-      !print *, 'alpb: ', input%alpb%descreening, input%alpb%dielectric_const
       solv = alpb_solvation(mol, input%alpb)
       return
    end if
@@ -88,17 +85,14 @@ subroutine new_solvation_cds(solv, mol, input, method, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-
    if (allocated(input%cds)) then
       input%cds%method = method
       call get_cds_param(input%cds, mol, error)
-      !print *, 'tension: ', input%cds%tension
-      !print *, 'hbond: ', input%cds%hbond
       solv = cds_solvation(mol, input%cds)
       return
     end if
 
-   call fatal_error(error, "Unknown cds solvation model")
+   call fatal_error(error, "Unknown cds model")
 end subroutine new_solvation_cds
 
 end module tblite_solvation

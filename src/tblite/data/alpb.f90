@@ -80,7 +80,6 @@ module tblite_data_alpb
 
 contains
 
-
 !> Get ALPB/GBSA parameters
 subroutine get_alpb_param(input, mol, error)
    !> Input of ALPB
@@ -221,6 +220,12 @@ subroutine load_alpb_param(input, mol, param)
    end if
 
    input%descreening = param%sx(mol%num)
+
+   print *, 'ALPB print'
+   print *, param%epsv
+   print *, param%c1
+   print *, param%soset
+   print *, param%sx(mol%num)
 
 end subroutine load_alpb_param
 

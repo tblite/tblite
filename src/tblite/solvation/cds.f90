@@ -43,7 +43,7 @@ module tblite_solvation_cds
       !> Probe radius of the solvent
       real(wp) :: probe = 1.00000_wp * aatoau
       !> Number of angular grid points for integration
-      integer :: nang = 110
+      integer :: nang = 230
       !> Van-der-Waals radii for each species
       real(wp), allocatable :: rad(:)
       !> Surface tension for each species
@@ -128,10 +128,7 @@ subroutine new_cds(self, mol, input)
    self%tension = input%tension
   
    if (allocated(input%hbond)) then
-      !print *, 'printing hbond info'
-      !print *, input%hbond, rad, input%probe
       self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
-      !print *, self%hbond
    end if
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
