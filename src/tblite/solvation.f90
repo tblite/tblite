@@ -45,22 +45,25 @@ module tblite_solvation
 contains
 
 !> Create new solvation model from input data
-subroutine new_solvation(solv, mol, input, method, error)
+subroutine new_solvation(solv, mol, input, error, method)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input data
-   type(solvation_input), intent(inout) :: input
-   !> Method for parameter selection
-   character(len=*), intent(in) :: method
+   type(solvation_input), intent(in) :: input
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=*), optional, intent(in) :: method
+   !> scratch input
+   type(alpb_input), allocatable :: scratch_input
 
    if (allocated(input%alpb)) then
-      input%alpb%method = method
-      call get_alpb_param(input%alpb, mol, error)
-      solv = alpb_solvation(mol, input%alpb)
+      scratch_input = input%alpb
+      scratch_input%method = method
+      call get_alpb_param(scratch_input, mol, error)
+      solv = alpb_solvation(mol, scratch_input)
       return
    end if
 
@@ -73,22 +76,25 @@ subroutine new_solvation(solv, mol, input, method, error)
 end subroutine new_solvation
 
 !> Create new solvation model from input data
-subroutine new_solvation_cds(solv, mol, input, method, error)
+subroutine new_solvation_cds(solv, mol, input, error, method)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input data
-   type(solvation_input), intent(inout) :: input
-   !> Method for parameter selection
-   character(len=*), intent(in) :: method
+   type(solvation_input), intent(in) :: input
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=*), optional, intent(in) :: method
+   !> scratch input
+   type(cds_input), allocatable :: scratch_input
 
    if (allocated(input%cds)) then
-      input%cds%method = method
-      call get_cds_param(input%cds, mol, error)
-      solv = cds_solvation(mol, input%cds)
+      scratch_input = input%cds
+      scratch_input%method = method
+      call get_cds_param(scratch_input, mol, error)
+      solv = cds_solvation(mol, scratch_input)
       return
     end if
 

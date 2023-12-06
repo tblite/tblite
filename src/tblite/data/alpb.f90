@@ -30,6 +30,7 @@ module tblite_data_alpb
 
    public :: get_alpb_param
 
+   logical, parameter :: debug = .false.
    type :: alpb_parameter
       real(wp) :: epsv = 0.0_wp
       real(wp) :: c1 = 0.0_wp
@@ -221,11 +222,11 @@ subroutine load_alpb_param(input, mol, param)
 
    input%descreening = param%sx(mol%num)
 
-   print *, 'ALPB print'
-   print *, param%epsv
-   print *, param%c1
-   print *, param%soset
-   print *, param%sx(mol%num)
+   !print *, 'ALPB print'
+   !print *, param%epsv
+   !print *, param%c1
+   !print *, param%soset
+   !print *, param%sx(mol%num)
 
 end subroutine load_alpb_param
 

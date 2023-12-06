@@ -30,6 +30,7 @@ module tblite_data_cds
 
    public :: get_cds_param
 
+   logical, parameter :: debug = .false.
 
    type :: cds_parameter
       real(wp) :: rprobe = 0.0_wp
@@ -224,10 +225,10 @@ subroutine load_cds_param(input, mol, param)
    !> set hbond parameter
    input%hbond =  -kcaltoau * param%tmp(mol%num)**2 
    
-   print *, 'CDS Print'
-   print *, param%rprobe
-   print *, param%gamscale(mol%num)
-   print *, param%tmp(mol%num)
+   !print *, 'CDS Print'
+   !print *, param%rprobe
+   !print *, param%gamscale(mol%num)
+   !print *, param%tmp(mol%num)
 
 end subroutine load_cds_param
 

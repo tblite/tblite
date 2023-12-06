@@ -61,7 +61,7 @@ contains
 
 
 subroutine run_main(config, error)
-   type(run_config), intent(inout) :: config
+   type(run_config), intent(in) :: config
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
@@ -215,7 +215,7 @@ subroutine run_main(config, error)
       block
          class(container_type), allocatable :: cont
          class(solvation_type), allocatable :: solv
-         call new_solvation(solv, mol, config%solvation, method, error)
+         call new_solvation(solv, mol, config%solvation, error, method)
          if (allocated(error)) return
          call move_alloc(solv, cont)
          call calc%push_back(cont)
@@ -224,7 +224,7 @@ subroutine run_main(config, error)
          block
             class(container_type), allocatable :: cont
             class(solvation_type), allocatable :: cds
-            call new_solvation_cds(cds, mol, config%solvation, method, error)
+            call new_solvation_cds(cds, mol, config%solvation, error, method)
             if (allocated(error)) return
             call move_alloc(cds, cont)
             call calc%push_back(cont)
