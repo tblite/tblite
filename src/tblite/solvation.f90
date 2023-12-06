@@ -59,7 +59,7 @@ subroutine new_solvation(solv, mol, input, error, method)
    !> scratch input
    type(alpb_input), allocatable :: scratch_input
 
-   if (allocated(input%alpb)) then
+   if (allocated(input%alpb).and.present(method)) then
       scratch_input = input%alpb
       scratch_input%method = method
       call get_alpb_param(scratch_input, mol, error)
@@ -90,7 +90,7 @@ subroutine new_solvation_cds(solv, mol, input, error, method)
    !> scratch input
    type(cds_input), allocatable :: scratch_input
 
-   if (allocated(input%cds)) then
+   if (allocated(input%cds).and.present(method)) then
       scratch_input = input%cds
       scratch_input%method = method
       call get_cds_param(scratch_input, mol, error)

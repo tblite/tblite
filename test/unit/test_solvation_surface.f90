@@ -465,7 +465,8 @@ subroutine test_e_sasa(error)
    if (allocated(error)) return
 
    call test_e(error, mol, cds_input(probe=0.3_wp, nang=110, rad=rad, tension=tension, &
-      & hbond=hbond), qat, -0.21782880741530361_wp)
+      & hbond=hbond), qat, -3.8959560416759451E-3_wp)
+   !>& hbond=hbond), qat, -0.21782880741530361_wp) 
 
 end subroutine test_e_sasa
 
