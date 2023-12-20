@@ -17,6 +17,7 @@
 
 from tblite.library import get_version
 
+
 def test_version():
     """Check if we can retrieve some version from the library"""
 

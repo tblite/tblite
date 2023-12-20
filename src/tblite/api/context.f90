@@ -42,7 +42,7 @@ module tblite_api_context
 
    abstract interface
       !> Interface for callbacks used in custom logger
-      subroutine callback(msg, len, udata)
+      subroutine callback(msg, len, udata) bind(C)
          import :: c_char, c_int, c_ptr
          !> Message payload to be displayed
          character(len=1, kind=c_char), intent(in) :: msg(*)

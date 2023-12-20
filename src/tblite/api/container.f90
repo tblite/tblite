@@ -20,9 +20,20 @@
 !> API export for managing interaction containers
 module tblite_api_container
    use, intrinsic :: iso_c_binding
+   use mctc_env, only : error_type, fatal_error, wp
+   use mctc_io, only : structure_type
    use tblite_api_version, only : namespace
+   use tblite_api_calculator, only : vp_calculator
+   use tblite_api_context, only : vp_context
+   use tblite_api_structure, only : vp_structure
+   use tblite_basis, only : basis_type
    use tblite_container, only : container_type
+   use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_spin, only : spin_polarization, new_spin_polarization
+   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
+      & solvent_data, get_solvent_data, solvation_type, new_solvation
+   use tblite_api_utils, only: c_f_character
    implicit none
    private
 
@@ -40,6 +51,49 @@ module tblite_api_container
 contains
 
 
+subroutine push_back_api(vctx, vcalc, vcont) &
+      & bind(C, name=namespace//"calculator_push_back")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), intent(inout) :: vcont
+   type(vp_container), pointer :: cont
+
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "calculator_push_back"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vcont)) then
+      call fatal_error(error, "Container object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcont, cont)
+
+   ! Hacky way to propagate spin channel information to calculator
+   select type(tcont => cont%ptr)
+   type is(spin_polarization)
+      calc%nspin = 2
+   end select
+
+   call calc%ptr%push_back(cont%ptr)
+
+   deallocate(cont)
+   vcont = c_null_ptr
+end subroutine push_back_api
+
+
 function new_electric_field_api(efield) result(vcont) &
       & bind(C, name=namespace//"new_electric_field")
    real(c_double), intent(in) :: efield(3)
@@ -50,6 +104,256 @@ function new_electric_field_api(efield) result(vcont) &
    cont%ptr = electric_field(efield)
    vcont = c_loc(cont)
 end function new_electric_field_api
+
+
+function new_spin_polarization_api(vctx, vmol, vcalc, wscale) result(vcont) &
+      & bind(C, name=namespace//"new_spin_polarization")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   real(c_double), value :: wscale
+
+   type(error_type), allocatable :: error
+   type(spin_polarization), allocatable :: spin
+   real(wp), allocatable :: wll(:, :, :)
+
+   if (debug) print '("[Info]", 1x, a)', "new_spin_polarization"
+   vcont = c_null_ptr
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   allocate(spin)
+   call get_spin_constants(wll, mol%ptr, calc%ptr%bas)
+   wll(:, :, :) = wscale * wll
+   call new_spin_polarization(spin, mol%ptr, wll, calc%ptr%bas%nsh_id)
+
+   allocate(cont)
+   call move_alloc(spin, cont%ptr)
+   vcont = c_loc(cont)
+end function new_spin_polarization_api
+
+function new_cpcm_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont) &
+   & bind(C, name=namespace//"new_cpcm_solvation_solvent")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   character(kind=c_char), intent(in) :: solvstr(*)
+   character(len=:), allocatable :: solvinp
+   type(solvation_input) :: solvmodel
+   type(solvent_data) :: solvent
+   class(solvation_type), allocatable :: solv
+   type(error_type), allocatable :: error
+   integer :: stat
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+
+   call c_f_character(solvstr, solvinp)
+
+   solvent = get_solvent_data(solvinp)
+   if (solvent%eps <= 0.0_wp) then
+      call fatal_error(error, "String value for epsilon was not found among database of solvents")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   solvmodel%cpcm = cpcm_input(solvent%eps)
+   call new_solvation(solv, mol%ptr, solvmodel, error)
+   if (allocated(error)) return
+   
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+   
+   vcont = c_loc(cont)
+
+end function
+
+function new_cpcm_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
+   & bind(C, name=namespace//"new_cpcm_solvation_epsilon")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   real(kind=c_double), value :: eps
+   type(solvation_input) :: solvmodel
+   class(solvation_type), allocatable :: solv
+   type(error_type), allocatable :: error
+   integer :: stat
+   logical :: ok
+   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+
+   solvmodel%cpcm = cpcm_input(eps)
+   call new_solvation(solv, mol%ptr, solvmodel, error)
+   if (allocated(error)) return
+   
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+   
+   vcont = c_loc(cont)
+
+end function
+
+function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont) &
+   & bind(C, name=namespace//"new_alpb_solvation_solvent")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   character(kind=c_char), intent(in) :: solvstr(*)
+   character(len=:), allocatable :: solvinp
+   type(solvation_input) :: solvmodel
+   type(solvent_data) :: solvent
+   class(solvation_type), allocatable :: solv
+   type(error_type), allocatable :: error
+   integer :: stat
+   logical :: ok
+   if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+
+   call c_f_character(solvstr, solvinp)
+
+   solvent = get_solvent_data(solvinp)
+   if (solvent%eps <= 0.0_wp) then
+      call fatal_error(error, "String value for epsilon was not found among database of solvents")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   solvmodel%alpb = alpb_input(solvent%eps)
+   call new_solvation(solv, mol%ptr, solvmodel, error)
+   if (allocated(error)) return
+
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+
+   vcont = c_loc(cont)
+   
+end function
+
+function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
+   & bind(C, name=namespace//"new_alpb_solvation_epsilon")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   real(c_double), value :: eps
+   type(solvation_input) :: solvmodel
+   class(solvation_type), allocatable :: solv
+   type(error_type), allocatable :: error
+   integer :: stat
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation float input"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+
+   solvmodel%alpb = alpb_input(eps)
+   call new_solvation(solv, mol%ptr, solvmodel, error)
+   if (allocated(error)) return
+
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+
+   vcont = c_loc(cont)
+   
+end function
+
+subroutine resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(error_type), allocatable :: error
+   logical :: ok
+   ok = .false.
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+   ok = .true.
+end subroutine
+
+subroutine get_spin_constants(wll, mol, bas)
+   real(wp), allocatable, intent(out) :: wll(:, :, :)
+   type(structure_type), intent(in) :: mol
+   type(basis_type), intent(in) :: bas
+
+   integer :: izp, ish, jsh, il, jl
+
+   allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
+
+   do izp = 1, mol%nid
+      do ish = 1, bas%nsh_id(izp)
+         il = bas%cgto(ish, izp)%ang
+         do jsh = 1, bas%nsh_id(izp)
+            jl = bas%cgto(jsh, izp)%ang
+            wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
+         end do
+      end do
+   end do
+end subroutine get_spin_constants
 
 
 subroutine delete_container_api(vcont) &

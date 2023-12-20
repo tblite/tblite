@@ -1,3 +1,4 @@
+
 ! This file is part of tblite.
 ! SPDX-Identifier: LGPL-3.0-or-later
 !
@@ -14,19 +15,19 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/toml.f90
-!> Provides reexports of the [TOML Fortran](https://toml-f.readthedocs.io) modules
+!> @file tblite/ceh/h0.f90
+!> Provides the Hamiltonian type for CEH.
 
-!> Proxy module for TOML library implementation
-module tblite_toml
-   use tomlf, only : toml_table, toml_array, toml_error, toml_dump, toml_parse, &
-      & toml_key, get_value, set_value, add_table, add_array, len
-   use tomlf_build, only : merge_table
-   use tomlf_type, only : toml_value
+module tblite_ceh_h0
+   use mctc_env, only : wp
    implicit none
    private
 
-   public :: toml_table, toml_array, toml_error, toml_dump, toml_parse, toml_key, &
-      & toml_value, len
-   public :: get_value, set_value, add_table, add_array, merge_table
-end module tblite_toml
+   type, public :: ceh_hamiltonian
+      !> Atomic level information
+      real(wp), allocatable :: hlevel(:)
+      !> Reference occupation
+      real(wp), allocatable :: refocc(:,:)
+   end type ceh_hamiltonian
+
+end module tblite_ceh_h0

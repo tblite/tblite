@@ -18,6 +18,7 @@ mctc-lib.tag = "v0.3.0"
 dftd4.git = "https://github.com/dftd4/dftd4"
 s-dftd3.git = "https://github.com/awvwgk/simple-dftd3"
 toml-f.git = "https://github.com/toml-f/toml-f"
+toml-f.tag = "v0.4.0"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"

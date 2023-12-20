@@ -34,12 +34,15 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment
+      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
+      & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
+   use tblite_ceh_calculator, only : ceh_calculator
    implicit none
    private
 
@@ -63,14 +66,14 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, stat, unit, nspin
-   logical :: exist
+   integer :: unpaired, charge, unit, nspin
    real(wp) :: energy, dpmom(3), qpmom(6)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    type(param_record) :: param
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
+   type(ceh_calculator):: calc_ceh
+   type(wavefunction_type) :: wfn, wfn_ceh
    type(results_type) :: results
 
    ctx%terminal = context_terminal(config%color)
@@ -119,6 +122,8 @@ subroutine run_main(config, error)
    if (config%grad) then
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
+   
+   if (allocated(error)) return
 
    if (allocated(config%param)) then
       call param%load(config%param, error)
@@ -145,15 +150,14 @@ subroutine run_main(config, error)
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
-   select case(config%guess)
-   case default
-      call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
-   case("sad")
-      call sad_guess(mol, calc, wfn)
-   case("eeq")
-      call eeq_guess(mol, calc, wfn)
-   end select
-   if (allocated(error)) return
+   if (config%guess == "ceh") then
+      call new_ceh_calculator(calc_ceh, mol)
+      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+      if (config%grad) then
+         call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
+         return
+      end if
+   end if
 
    if (allocated(config%efield)) then
       block
@@ -161,7 +165,36 @@ subroutine run_main(config, error)
          cont = electric_field(config%efield*vatoau)
          call calc%push_back(cont)
       end block
+         if (config%guess == "ceh") then
+            block
+            class(container_type), allocatable :: cont
+            cont = electric_field(config%efield*vatoau)
+            call calc_ceh%push_back(cont)
+            end block
+         end if
    end if
+
+   select case(config%guess)
+   case default
+      call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
+   case("sad")
+      call sad_guess(mol, calc, wfn)
+   case("eeq")
+      call eeq_guess(mol, calc, wfn)
+   case("ceh")
+      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+      if (ctx%failed()) then
+         call fatal(ctx, "CEH singlepoint calculation failed")
+         do while(ctx%failed())
+            call ctx%get_error(error)
+            write(error_unit, '("->", 1x, a)') error%message
+         end do
+         error stop
+      end if
+      wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
+      call shell_partition(mol, calc, wfn)
+   end select
+   if (allocated(error)) return
 
    if (config%spin_polarized) then
       block

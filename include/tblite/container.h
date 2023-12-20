@@ -23,6 +23,9 @@
 #pragma once
 
 #include "tblite/macros.h"
+#include "tblite/structure.h"
+#include "tblite/calculator.h"
+#include "tblite/context.h"
 
 /// Interaction container
 typedef struct _tblite_container* tblite_container;
@@ -33,6 +36,98 @@ typedef struct _tblite_container* tblite_container;
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_electric_field(double* efield);
+
+/// Create new spin polarization container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param wscale: Scaling factor for spin polarization (default: 1)
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_spin_polarization(tblite_context ctx,
+                             tblite_structure mol,
+                             tblite_calculator calc,
+                             double wscale);
+
+#define tblite_new_cpcm_solvation(ctx, mol, calc, x)            \
+                        _Generic((x),                           \
+                                char*                           \
+                                : tblite_new_cpcm_solvation_solvent,\
+                                double                          \
+                                : tblite_new_cpcm_solvation_epsilon \
+                                ) (ctx, mol, calc, x)
+
+/// Create new CPCM implicit solvation container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param eps: epsilon value for solvent
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_cpcm_solvation_epsilon(tblite_context ctx,
+                          tblite_structure mol,
+                          tblite_calculator calc,
+                          double eps);
+
+/// Create new CPCM implicit solvation container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param solvent: Solvent to be modelled, can be given as name of solvent or epsilon value
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_cpcm_solvation_solvent(tblite_context ctx,
+                          tblite_structure mol,
+                          tblite_calculator calc,
+                          char* solvent);
+
+#define tblite_new_alpb_solvation(ctx, mol, calc, x)            \
+                        _Generic((x),                           \
+                                char*                           \
+                                : tblite_new_alpb_solvation_solvent,\
+                                double                          \
+                                : tblite_new_alpb_solvation_epsilon) (ctx, mol, calc, x)
+
+/// Create new ALPB implicit solvation container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param solvent: Solvent to be modelled, can be given as name of solvent or epsilon value
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_alpb_solvation_solvent(tblite_context ctx,
+                          tblite_structure mol,
+                          tblite_calculator calc,
+                          char* solvent);
+
+/// Create new ALPB implicit solvation container using internal parameters
+///
+/// @param ctx: Context handle
+/// @param mol: Molecular structure data
+/// @param calc: Calculator instance
+/// @param eps: epsilon value of solvent
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_alpb_solvation_epsilon(tblite_context ctx,
+                          tblite_structure mol,
+                          tblite_calculator calc,
+                          double eps);
+
+/// Add container to calculator object.
+///
+/// Note: Ownership is transferred and container handle is destroyed after function call
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param cont: Interaction container
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_calculator_push_back(tblite_context ctx,
+                            tblite_calculator calc,
+                            tblite_container* cont);
 
 /// Delete container handle
 ///

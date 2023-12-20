@@ -19,6 +19,7 @@ if(WITH_API)
 endif()
 add_subdirectory("basis")
 add_subdirectory("blas")
+add_subdirectory("ceh")
 add_subdirectory("classical")
 add_subdirectory("container")
 add_subdirectory("context")
@@ -52,6 +53,7 @@ list(
   "${dir}/coulomb.f90"
   "${dir}/cutoff.f90"
   "${dir}/data.f90"
+  "${dir}/double_dictionary.f90"
   "${dir}/disp.f90"
   "${dir}/lapack.f90"
   "${dir}/ncoord.f90"

@@ -37,7 +37,7 @@ module tblite_scf_iterator
    implicit none
    private
 
-   public :: next_scf, get_mixer_dimension
+   public :: next_scf, get_mixer_dimension, get_density, get_qat_from_qsh
 
 contains
 
@@ -315,7 +315,8 @@ subroutine get_density(wfn, solver, ints, ts, error)
       wfn%focc(:, :) = 0.0_wp
       do spin = 1, 2
          call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, 1), &
-            & wfn%homo(spin), focc, e_fermi, stmp(spin))
+            & wfn%homo(spin), focc, e_fermi)
+         call get_electronic_entropy(focc, wfn%kt, stmp(spin))
          wfn%focc(:, 1) = wfn%focc(:, 1) + focc
       end do
       ts = sum(stmp)
@@ -328,12 +329,21 @@ subroutine get_density(wfn, solver, ints, ts, error)
          if (allocated(error)) return
 
          call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, spin), &
-            & wfn%homo(spin), wfn%focc(:, spin), e_fermi, stmp(spin))
+            & wfn%homo(spin), wfn%focc(:, spin), e_fermi)
+         call get_electronic_entropy(wfn%focc(:, spin), wfn%kt, stmp(spin))
          call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, spin), &
             & wfn%density(:, :, spin))
       end do
       ts = sum(stmp)
    end select
 end subroutine get_density
+
+subroutine get_electronic_entropy(occ, kt, s)
+   real(wp), intent(in) :: occ(:)
+   real(wp), intent(in) :: kt
+   real(wp), intent(out) :: s
+
+   s = sum(log(occ ** occ * (1 - occ) ** (1 - occ))) * kt
+end subroutine get_electronic_entropy
 
 end module tblite_scf_iterator

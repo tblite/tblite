@@ -23,6 +23,7 @@ subdir('classical')
 subdir('container')
 subdir('context')
 subdir('coulomb')
+subdir('ceh')
 subdir('data')
 subdir('disp')
 subdir('external')
@@ -49,6 +50,7 @@ srcs += files(
   'coulomb.f90',
   'cutoff.f90',
   'data.f90',
+  'double_dictionary.f90',
   'disp.f90',
   'lapack.f90',
   'ncoord.f90',

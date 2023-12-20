@@ -19,6 +19,7 @@ module tblite_driver
    use tblite_driver_fit, only : main
    use tblite_driver_param, only : main
    use tblite_driver_run, only : main
+   use tblite_driver_guess, only : main
    use tblite_driver_tagdiff, only : main
    implicit none
    public

@@ -111,6 +111,36 @@ def get_ala(conf):
     return (numbers, positions)
 
 
+def get_crcp2():
+    numbers = np.array([24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1])
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, -0.06044684528305],
+            [+0.00000000000000, +3.19613712523833, +2.30877824528580],
+            [+2.18828801115897, +3.32943780995850, +0.70249948585735],
+            [+1.33235791539260, +3.55640652898451, -1.83908673090077],
+            [-1.33235791539260, +3.55640652898451, -1.83908673090077],
+            [-2.18828801115897, +3.32943780995850, +0.70249948585735],
+            [+0.00000000000000, +3.10509505378016, +4.34935395653655],
+            [+4.13810718850644, +3.28428734944129, +1.31235006648465],
+            [+2.52190264478215, +3.60569548880831, -3.50208900904436],
+            [-2.52190264478215, +3.60569548880831, -3.50208900904436],
+            [-4.13810718850644, +3.28428734944129, +1.31235006648465],
+            [+2.18828801115897, -3.32943780995850, +0.70249948585735],
+            [+0.00000000000000, -3.19613712523833, +2.30877824528580],
+            [+1.33235791539260, -3.55640652898451, -1.83908673090077],
+            [+4.13810718850644, -3.28428734944129, +1.31235006648465],
+            [-2.18828801115897, -3.32943780995850, +0.70249948585735],
+            [+0.00000000000000, -3.10509505378016, +4.34935395653655],
+            [-1.33235791539260, -3.55640652898451, -1.83908673090077],
+            [+2.52190264478215, -3.60569548880831, -3.50208900904436],
+            [-4.13810718850644, -3.28428734944129, +1.31235006648465],
+            [-2.52190264478215, -3.60569548880831, -3.50208900904436],
+        ]
+    )
+    return (numbers, positions)
+
+
 def test_gfn1():
     """Basic test for GFN1-xTB method"""
     gradient = np.array(
@@ -201,9 +231,8 @@ def test_gfn2():
     angular_momenta = np.array(
         [
             *[0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
-            *[0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0]
+            *[0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
         ]
-
     )
     orbital_map = np.array(
         [
@@ -348,6 +377,55 @@ def test_ipea1_charge():
     assert res.get("energy") == approx(-3.5168511494225148, abs=thr)
 
 
+def test_spgfn1():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+
+    ls_energy = calc.singlepoint().get("energy")
+
+    calc.add("spin-polarization")
+    ls_energy_sp = calc.singlepoint().get("energy")
+    assert ls_energy_sp == approx(ls_energy)
+    assert ls_energy_sp == approx(-28.349613833732931)
+
+    calc.update(uhf=2)
+    hs_energy_sp = calc.singlepoint().get("energy")
+    assert hs_energy_sp == approx(-28.370520606196546)
+
+def test_solvation_models():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43248830035)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43287176929)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43680849760)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43674134364)
+
+
 def test_result_getter():
     """Check error handling in result container getter"""
 
@@ -364,6 +442,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
+    
 
 
 def test_result_setter():

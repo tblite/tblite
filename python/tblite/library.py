@@ -138,6 +138,8 @@ def new_structure(natoms, numbers, positions, charge, uhf, lattice, periodic):
 
 
 update_structure_geometry = error_check(lib.tblite_update_structure_geometry)
+update_structure_charge = error_check(lib.tblite_update_structure_charge)
+update_structure_uhf = error_check(lib.tblite_update_structure_uhf)
 
 
 def _delete_table(table):
@@ -397,3 +399,50 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
+
+def _delete_container(cont) -> None:
+    """Delete a tblite container object"""
+    ptr = ffi.new("tblite_container *")
+    ptr[0] = cont
+    lib.tblite_delete_container(ptr)
+
+
+def new_electric_field(ctx, mol, calc, efield):
+    """Create new tblite electric field object"""
+    return lib.tblite_new_electric_field(efield)
+
+@context_check
+def new_alpb_solvation(ctx, mol, calc, solvent):
+    "Create new ALPB solvation model object"
+    if isinstance(solvent, str):
+        _string = ffi.new("char[]", solvent.encode("ascii"))
+        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string)
+    elif isinstance(solvent, float) or isinstance(solvent, int):
+        _eps = float(solvent)
+        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps)
+    else:
+        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")
+
+@context_check
+def new_cpcm_solvation(ctx, mol, calc, solvent):
+    "Create new ALPB solvation model object"
+    if isinstance(solvent, str):
+        _string = ffi.new("char[]", solvent.encode("ascii"))
+        return lib.tblite_new_cpcm_solvation_solvent(ctx, mol, calc, _string)
+    elif isinstance(solvent, float) or isinstance(solvent, int):
+        _eps = float(solvent)
+        return lib.tblite_new_cpcm_solvation_epsilon(ctx, mol, calc, _eps)
+    else:
+        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")  
+
+@context_check
+def new_spin_polarization(ctx, mol, calc, wscale: float = 1.0):
+    """Create new tblite spin polarization object"""
+    return lib.tblite_new_spin_polarization(ctx, mol, calc, wscale)
+
+
+@context_check
+def calculator_push_back(ctx, calc, cont) -> None:
+    ptr = ffi.new("tblite_container *")
+    ptr[0] = cont
+    lib.tblite_calculator_push_back(ctx, calc, ptr)

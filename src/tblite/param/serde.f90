@@ -21,7 +21,7 @@
 !> Each record knows how to serialize and deserialize itself.
 module tblite_param_serde
    use mctc_env, only : error_type, fatal_error
-   use tblite_toml, only : toml_table, toml_error, toml_parse, toml_serializer
+   use tblite_toml, only : toml_table, toml_error, toml_parse, toml_dump
    implicit none
    private
 
@@ -153,14 +153,16 @@ subroutine dump_to_unit(self, unit, error)
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_table) :: table
-   type(toml_serializer) :: ser
+   type(toml_error), allocatable :: ser_error
 
    table = toml_table()
-   ser = toml_serializer(unit)
 
    call self%dump(table, error)
 
-   call table%accept(ser)
+   call toml_dump(table, unit, ser_error)
+   if (allocated(ser_error)) then
+      call fatal_error(error, ser_error%message)
+   end if
 
 end subroutine dump_to_unit
 

@@ -26,6 +26,7 @@ program tester
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
+   use test_ceh, only : collect_ceh
    use test_hamiltonian, only : collect_hamiltonian
    use test_halogen, only : collect_halogen
    use test_integral_multipole, only : collect_integral_multipole
@@ -41,6 +42,7 @@ program tester
    use test_tagged_io, only : collect_tagged_io
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
+   use test_double_dictionary, only : collect_double_dictionary
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
@@ -59,6 +61,7 @@ program tester
       new_testsuite("solvation-surface", collect_solvation_surface), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
       new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
+      new_testsuite("double-dictionary", collect_double_dictionary), &
       new_testsuite("slater-expansion", collect_slater_expansion), &
       new_testsuite("cgto-ortho", collect_cgto_ortho), &
       new_testsuite("integral-overlap", collect_integral_overlap), &
@@ -66,6 +69,7 @@ program tester
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
+      new_testsuite("ceh", collect_ceh), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
       new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
       new_testsuite("xtb-external", collect_xtb_external), &

@@ -20,6 +20,7 @@ set(
   "cgto-ortho"
   "coulomb-charge"
   "coulomb-multipole"
+  "double-dictionary"
   "fit"
   "gfn1-xtb"
   "gfn2-xtb"
@@ -38,6 +39,7 @@ set(
   "tagged-io"
   "xtb-param"
   "xtb-external"
+  "ceh"
 )
 set(
   test-srcs

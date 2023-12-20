@@ -18,11 +18,9 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/exp.f90"
-  "${dir}/gfn.f90"
-  "${dir}/ceh_std.f90"
-  "${dir}/ceh_en.f90"
-  "${dir}/type.f90"
+  "${dir}/ceh.f90"
+  "${dir}/h0.f90"
+  "${dir}/calculator.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
