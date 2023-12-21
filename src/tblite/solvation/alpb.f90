@@ -73,6 +73,8 @@ module tblite_solvation_alpb
       character(len=:), allocatable :: method
       !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
+      !> xTB like solvation with empirical parameters
+      logical :: xtb = .false.
    end type alpb_input
 
 

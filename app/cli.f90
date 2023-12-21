@@ -351,7 +351,7 @@ subroutine get_run_arguments(config, list, start, error)
 
       case("--alpb", "--gbsa")
          if (allocated(config%solvation)) then
-            call fatal_error(error, "Cannot use ALPB/GBSA if CPCM is enabled")
+            call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
          alpb = arg == "--alpb"
@@ -368,7 +368,28 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          if (allocated(error)) exit
          allocate(config%solvation)
-         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb, solvent=solvent%solvent)
+         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb)
+
+      case("--alpb-xtb", "--gbsa-xtb")
+         if (allocated(config%solvation)) then
+            call fatal_error(error, "Cannot use multiple solvation models")
+            exit
+         end if
+         alpb = arg == "--alpb"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for xTB ALPB/GBSA")
+            exit
+         end if
+
+         solvent = get_solvent_data(arg)
+         if (solvent%eps <= 0.0_wp) then
+            call fatal_error(error, "Solvent not found! Solvent name required for xTB solvation")
+         end if
+         if (allocated(error)) exit
+         allocate(config%solvation)
+         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb, solvent=solvent%solvent, xtb=.true.)
          config%solvation%alpb%solvent = solvent%solvent
          config%solvation%cds = cds_input(solvent=solvent%solvent)
          config%solvation%cds%solvent = solvent%solvent

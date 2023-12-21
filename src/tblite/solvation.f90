@@ -59,12 +59,23 @@ subroutine new_solvation(solv, mol, input, error, method)
    !> scratch input
    type(alpb_input), allocatable :: scratch_input
 
-   if (allocated(input%alpb).and.present(method)) then
-      scratch_input = input%alpb
-      scratch_input%method = method
-      call get_alpb_param(scratch_input, mol, error)
-      solv = alpb_solvation(mol, scratch_input)
-      return
+   if (allocated(input%alpb)) then
+      !> xTB like ALPB/GBSA with empirical parameters 
+      if (input%alpb%xtb) then
+         if ( .not. present(method)) then
+            call fatal_error(error, "Unkown method for solvation model parameter selection")
+            return
+         end if
+         scratch_input = input%alpb
+         scratch_input%method = method
+         call get_alpb_param(scratch_input, mol, error)
+         solv = alpb_solvation(mol, scratch_input)
+         return
+      !> ALPB/GBSA without empirical parameters
+      else
+         solv = alpb_solvation(mol, input%alpb)
+         return
+      end if
    end if
 
    if (allocated(input%cpcm)) then
