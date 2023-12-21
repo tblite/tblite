@@ -2138,7 +2138,7 @@ int test_alpb_solvation(){
         goto err;
     }
     
-    if (!check(energy, -28.43915941198, thr, "alpb energy mismatch")){
+    if (!check(energy, -28.43680849760, thr, "alpb energy mismatch")){
         goto err;
     }
 
@@ -2173,7 +2173,7 @@ int test_alpb_solvation(){
         goto err;
     }
     
-    if (!check(energy, -28.43870191319, thr, "alpb energy mismatch")){
+    if (!check(energy, -28.43674134364, thr, "alpb energy mismatch")){
         goto err;
     }    
 

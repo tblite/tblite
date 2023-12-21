@@ -23,6 +23,7 @@ module tblite_data_alpb
    use mctc_env, only : wp
    use mctc_io_symbols, only : to_number
    use tblite_solvation_alpb, only: alpb_input
+   use tblite_solvation_data, only : get_vdw_rad_d3
    use mctc_io, only : structure_type
    use mctc_io_convert, only : aatoau
    implicit none
@@ -221,6 +222,8 @@ subroutine load_alpb_param(input, mol, param)
    end if
 
    input%descreening = param%sx(mol%num)
+
+   input%rvdw = get_vdw_rad_d3(mol%num)
 
    !print *, 'ALPB print'
    !print *, param%epsv

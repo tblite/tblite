@@ -30,7 +30,7 @@ module tblite_solvation_cds
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
-   use tblite_solvation_data, only : get_vdw_rad_d3
+   use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
    use mctc_io_convert, only : aatoau
    implicit none
@@ -122,7 +122,7 @@ subroutine new_cds(self, mol, input)
    if (allocated(input%rad)) then
       rad = input%rad
    else
-      rad = get_vdw_rad_d3(mol%num)
+      rad = get_vdw_rad_cosmo(mol%num)
    end if
 
    self%tension = input%tension

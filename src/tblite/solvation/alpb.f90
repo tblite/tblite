@@ -32,7 +32,7 @@ module tblite_solvation_alpb
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_solvation_born, only : born_integrator, new_born_integrator
-   use tblite_solvation_data, only : get_vdw_rad_d3
+   use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
    implicit none
    private
@@ -152,7 +152,7 @@ subroutine new_alpb(self, mol, input, error)
    if (allocated(input%rvdw)) then
       rvdw = input%rvdw
    else
-      rvdw = get_vdw_rad_d3(mol%num)
+      rvdw = get_vdw_rad_cosmo(mol%num)
    end if
 
    call new_born_integrator(self%gbobc, mol, rvdw, descreening=input%descreening, &

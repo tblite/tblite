@@ -23,6 +23,7 @@ module tblite_data_cds
    use mctc_env, only : wp
    use mctc_io_symbols, only : to_number
    use tblite_solvation_cds, only: cds_input
+   use tblite_solvation_data, only : get_vdw_rad_d3
    use mctc_io, only : structure_type
    use mctc_io_convert, only : aatoau, kcaltoau
    implicit none
@@ -224,6 +225,8 @@ subroutine load_cds_param(input, mol, param)
 
    !> set hbond parameter
    input%hbond =  -kcaltoau * param%tmp(mol%num)**2 
+
+   input%rad = get_vdw_rad_d3(mol%num)
    
    !print *, 'CDS Print'
    !print *, param%rprobe

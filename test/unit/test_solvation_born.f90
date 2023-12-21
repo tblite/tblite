@@ -388,8 +388,8 @@ subroutine test_e_p16(error)
 
    call get_structure(mol, "MB16-43", "04")
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%p16), qat, &
-      & -1.7440943989434771E-2_wp)
-      !>& -7.2620663020537416E-3_wp)
+      & -7.2620663020537416E-3_wp) !> cosmo radii
+      !>& -1.7440943989434771E-2_wp) 
 
 end subroutine test_e_p16
 
@@ -411,8 +411,8 @@ subroutine test_e_still(error)
 
    call get_structure(mol, "MB16-43", "05")
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%still), qat, &
-      & -1.3800839501045848E-2_wp)
-      !>& -5.7758191311385130E-3_wp) cosmo radii
+      & -5.7758191311385130E-3_wp) !>cosmo radii
+      !>& -1.3800839501045848E-2_wp)
 
 end subroutine test_e_still
 
@@ -448,13 +448,13 @@ subroutine test_e_charged(error)
 
    call get_structure(mol, "UPU23", "0a")
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%p16, alpb=.true.), qat, &
-      &  -0.16095444035091083_wp)
-   !>& -6.2968900200158134E-2_wp) cosmo radii
+      & -6.2968900200158134E-2_wp) !> cosmo radii
+   !>&  -0.16095444035091083_wp)
    if (allocated(error)) return
 
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%p16, alpb=.false.), qat, &
-      &  -0.16177752986298113_wp) 
-   !>& -6.3099611865806121E-2_wp) cosmo radii
+      & -6.3099611865806121E-2_wp) !> cosmo radii
+   !>&  -0.16177752986298113_wp) 
 
 end subroutine test_e_charged
 
