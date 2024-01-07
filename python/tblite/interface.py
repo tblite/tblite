@@ -20,8 +20,9 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
+from typing import Any, Optional
+
 import numpy as np
-from typing import Optional, Any
 
 from . import library
 
@@ -444,7 +445,7 @@ class Calculator(Structure):
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
         "alpb-solvation": library.new_alpb_solvation,
-        "cpcm-solvation":  library.new_cpcm_solvation,
+        "cpcm-solvation": library.new_cpcm_solvation,
     }
 
     def __init__(

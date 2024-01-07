@@ -24,13 +24,12 @@ Tests for the ASE Calculator
 
 import numpy as np
 import pytest
-from pytest import approx, raises
+from pytest import approx
 
 try:
     import ase
-    from tblite.ase import TBLite
     from ase.atoms import Atoms
-    from ase.calculators.calculator import CalculationFailed, InputError
+    from tblite.ase import TBLite
 except ModuleNotFoundError:
     ase = None
 
@@ -84,7 +83,7 @@ def test_gfn2_xtb_0d():
         ]
     )
 
-    calc = TBLite(method="GFN2-xTB", atoms=atoms)
+    TBLite(method="GFN2-xTB", atoms=atoms)
 
     assert approx(atoms.get_potential_energy(), abs=thr) == -592.6794366990786
     assert approx(atoms.get_forces(), abs=thr) == forces
