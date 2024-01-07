@@ -16,4 +16,4 @@
 """Python API of the tblite project"""
 
 # make sure we have a CFFI available
-import cffi
+import cffi  # noqa

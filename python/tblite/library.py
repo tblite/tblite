@@ -20,8 +20,9 @@ This module mainly acts as a guard for importing the libtblite extension and
 also provides some FFI based wappers for memory handling.
 """
 
-import sys
 import functools
+import sys
+
 import numpy as np
 
 try:
@@ -400,6 +401,7 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
 
+
 def _delete_container(cont) -> None:
     """Delete a tblite container object"""
     ptr = ffi.new("tblite_container *")
@@ -411,6 +413,7 @@ def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
 
+
 @context_check
 def new_alpb_solvation(ctx, mol, calc, solvent):
     "Create new ALPB solvation model object"
@@ -421,7 +424,10 @@ def new_alpb_solvation(ctx, mol, calc, solvent):
         _eps = float(solvent)
         return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps)
     else:
-        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")
+        raise TypeError(
+            "Enter desired solvent as string, or enter epsilon value as float or intger."
+        )
+
 
 @context_check
 def new_cpcm_solvation(ctx, mol, calc, solvent):
@@ -433,7 +439,10 @@ def new_cpcm_solvation(ctx, mol, calc, solvent):
         _eps = float(solvent)
         return lib.tblite_new_cpcm_solvation_epsilon(ctx, mol, calc, _eps)
     else:
-        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")  
+        raise TypeError(
+            "Enter desired solvent as string, or enter epsilon value as float or intger."
+        )
+
 
 @context_check
 def new_spin_polarization(ctx, mol, calc, wscale: float = 1.0):

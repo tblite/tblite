@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-from tblite.interface import Structure, Calculator, Result
-from pytest import approx, raises
 import numpy as np
+from pytest import approx, raises
+from tblite.interface import Calculator, Result
 
 thr = 1.0e-9
 
@@ -392,6 +392,7 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+
 def test_solvation_models():
     numbers, positions = get_crcp2()
 
@@ -442,7 +443,6 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
 
 
 def test_result_setter():
