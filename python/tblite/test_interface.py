@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+from logging import Logger
+
 import numpy as np
 from pytest import approx, raises
 from tblite.interface import Calculator, Result
@@ -306,6 +308,7 @@ def test_ipea1():
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-38.40436019312474, abs=thr)
+    assert res.get("energy") == res["energy"]
 
     numbers, positions = get_ala("xag")
     calc.update(positions)
@@ -453,6 +456,9 @@ def test_result_setter():
     with raises(ValueError, match="Attribute 'unknown' cannot be set"):
         res.set("unknown", 1.0)
 
+    with raises(ValueError, match="Attribute 'unknown' cannot be set"):
+        res["unknown"] = 1.0
+
 
 def test_unknown_method():
     """Check handling of non-existing methods"""
@@ -470,3 +476,15 @@ def test_unknown_attribute():
 
     with raises(ValueError, match="Attribute 'unknown' is not supported"):
         calc.set("unknown", 1.0)
+
+
+def test_gfn1_logging():
+    """Basic test for GFN1-xTB method"""
+    numbers, positions = get_ala("xab")
+
+    logger = Logger("test")
+
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=logger.info)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-34.980794815805446, abs=thr)
