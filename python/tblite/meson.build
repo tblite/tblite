@@ -72,6 +72,7 @@ if install
     files(
       '__init__.py',
       'ase.py',
+      'exceptions.py',
       'interface.py',
       'library.py',
       'test_ase.py',
