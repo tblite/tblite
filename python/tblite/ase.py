@@ -37,7 +37,7 @@ from .interface import Calculator
 
 
 class TBLite(ase.calculators.calculator.Calculator):
-    """
+    r"""
     ASE calculator for using xTB Hamiltonians from the tblite library.
     Supported properties by this calculator are:
 
