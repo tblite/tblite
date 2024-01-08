@@ -86,7 +86,7 @@ def logger_callback(error, message, nchar, data):
         callback = ffi.from_handle(data)
         callback(ffi.unpack(message, nchar).decode())
     except Exception as e:
-        error_message = ffi.new("char[]", str(e))
+        error_message = ffi.new("char[]", str(e).encode())
         lib.tblite_set_error(
             error,
             error_message,
