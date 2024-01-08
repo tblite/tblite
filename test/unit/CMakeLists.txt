@@ -39,6 +39,7 @@ set(
   "tagged-io"
   "xtb-param"
   "xtb-external"
+  "ceh"
 )
 set(
   test-srcs

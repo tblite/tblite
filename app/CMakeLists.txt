@@ -23,6 +23,7 @@ add_executable(
   "driver_fit.f90"
   "driver_param.f90"
   "driver_run.f90"
+  "driver_guess.f90"
   "driver_tagdiff.f90"
   "features.F90"
   "main.f90"

@@ -14,15 +14,20 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
-list(
-  APPEND srcs
-  "${dir}/exp.f90"
-  "${dir}/gfn.f90"
-  "${dir}/ceh_std.f90"
-  "${dir}/ceh_en.f90"
-  "${dir}/type.f90"
-)
+class TBLiteRuntimeError(RuntimeError):
+    """Raised when an error occurs during TBLite runtime."""
 
-set(srcs "${srcs}" PARENT_SCOPE)
+    pass
+
+
+class TBLiteTypeError(TypeError):
+    """Raised when an error occurs during TBLite input processing."""
+
+    pass
+
+
+class TBLiteValueError(ValueError):
+    """Raised when an error occurs during TBLite input processing."""
+
+    pass
