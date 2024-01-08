@@ -252,6 +252,12 @@ subroutine dump_to_toml(self, table, error)
       call self%post_proc%dump(child, error)
       if (allocated(error)) return
    end if
+   
+   if (allocated(self%exchange)) then
+      call add_table(table, k_exchange, child)
+      call self%exchange%dump(child, error)
+      if (allocated(error)) return
+   end if
 
    call add_table(table, k_element, child)
    call records_to_table(self%record, child, error)

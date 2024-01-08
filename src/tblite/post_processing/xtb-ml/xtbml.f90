@@ -1,4 +1,4 @@
-module tblite_xtbml_features
+module tblite_post_processing_xtbml_features
     use mctc_env, only : wp
     use tblite_xtbml_convolution, only : xtbml_convolution_type
     use tblite_xtbml_geometry_based, only : xtbml_geometry_features_type
@@ -237,4 +237,4 @@ subroutine print_timer(self, prlevel, ctx)
     end if
 end subroutine
     
-end module tblite_xtbml_features
+end module tblite_post_processing_xtbml_features

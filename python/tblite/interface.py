@@ -298,7 +298,6 @@ class Result:
 
         if attribute not in self._getter:
             raise ValueError(f"Attribute '{attribute}' is not available in this result")
-
         return self._getter[attribute](self._res)
 
     def set(self, attribute: str, value):
@@ -448,6 +447,14 @@ class Calculator(Structure):
     _interaction = {
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
+        "alpb-solvation": library.new_alpb_solvation,
+        "cpcm-solvation":  library.new_cpcm_solvation,
+    }
+    _post_processing = {
+        "bond-orders" : "bond-orders",
+        "molecular-multipoles" : "molmom",
+        "xtbml" : "xtbml",
+        "xtbml_xyz" : "xtbml_xyz"
     }
 
     def __init__(

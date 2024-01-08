@@ -61,15 +61,15 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
   type(d3_dispersion), allocatable :: d3
   type(d4_dispersion), allocatable :: d4
   class(container_type), allocatable :: cont
-  real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:)
+  real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:), eelec(:)
+  real(wp), allocatable :: e_disp_selfc(:), e_disp_const(:)
   integer :: i
   self%label = label
   
   allocate(e_ao(calc%bas%nao), source=0.0_wp)
-  allocate(tmp_energy(mol%nat), tot_energy(mol%nat),source=0.0_wp)
+  allocate(tmp_energy(mol%nat), tot_energy(mol%nat), eelec(mol%nat), source=0.0_wp)
   call get_electronic_energy(integrals%hamiltonian, wfn%density, e_ao)
-  call reduce(tmp_energy, e_ao, calc%bas%ao2at)
-  call self%dict%add_entry("E_EHT", tmp_energy)
+  call reduce(eelec, e_ao, calc%bas%ao2at)
   tot_energy = tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%repulsion)) then
@@ -103,9 +103,12 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
         call cont%aes2%get_energy_aes_xtb(mol, cache, wfn, tmp_energy)
         call self%dict%add_entry("E_AES", tmp_energy) 
     end if
+    tmp_energy = 0.0_wp
+    call cont%get_energy(mol, cache, wfn, tmp_energy)
+    call self%dict%add_entry("E_coulomb", tmp_energy) 
+    eelec = eelec + tmp_energy
     end associate
   end if
-  tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%halogen)) then 
     cache = cache_list(3)
@@ -122,9 +125,13 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     associate(cont => calc%dispersion)
     select type(cont)
     type is (d3_dispersion)
-        allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
+        allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), e_disp_selfc(mol%nat), e_disp_const(mol%nat), source=0.0_wp)
         call cont%update(mol, cache)
-        call cont%get_engrad(mol, cache, e_disp_tot)
+        call cont%get_engrad(mol, cache, e_disp_const)
+        call cont%get_energy(mol, cache, wfn, e_disp_selfc)
+        eelec = eelec + e_disp_selfc
+        tmp_energy = tmp_energy + e_disp_const
+        e_disp_tot = e_disp_const + e_disp_selfc
         
         allocate(d3)
         call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
@@ -132,12 +139,14 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
         call d3%get_engrad(mol, cache, e_disp_ATM)
         call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
         call self%dict%add_entry("E_disp3", e_disp_ATM)
-        tmp_energy = e_disp_tot
     type is (d4_dispersion)
-        allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
+        allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), e_disp_selfc(mol%nat), e_disp_const(mol%nat), source=0.0_wp)
         call cont%update(mol, cache)
-        call cont%get_engrad(mol, cache, e_disp_tot)
-        call cont%get_energy(mol, cache, wfn, e_disp_tot)
+        call cont%get_energy(mol, cache, wfn, e_disp_selfc)
+        call cont%get_engrad(mol, cache, e_disp_const)
+        eelec = eelec + e_disp_selfc
+        tmp_energy = tmp_energy + e_disp_const
+        e_disp_tot = e_disp_const + e_disp_selfc
             
         allocate(d4)
         call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
@@ -145,7 +154,6 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
         call d4%get_engrad(mol, cache, e_disp_ATM)
         call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
         call self%dict%add_entry("E_disp3", e_disp_ATM)
-        tmp_energy = e_disp_tot
     end select
     end associate
   end if
@@ -156,11 +164,12 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     associate(cont => calc%dispersion)
         call cont%update(mol, cache)
         call cont%get_engrad(mol, cache, tmp_energy)
-        call cont%get_energy(mol, cache, wfn, tmp_energy)
+        call cont%get_energy(mol, cache, wfn, eelec)
         call self%dict%add_entry(cont%info(0, ""), tmp_energy)
     end associate
   end if
-  tot_energy = tot_energy + tmp_energy
+  call self%dict%add_entry("E_EHT", eelec)
+  tot_energy = tot_energy + tmp_energy + eelec
   call self%dict%add_entry("E_tot", tot_energy)
   call self%dict%add_entry("w_tot", tot_energy/sum(tot_energy))
 

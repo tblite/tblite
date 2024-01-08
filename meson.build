@@ -45,6 +45,7 @@ tblite_lib = library(
   dependencies: lib_deps,
   include_directories: inc_dirs,
   install: install,
+  link_language: 'fortran',
 )
 
 # Export dependency for other projects and test suite

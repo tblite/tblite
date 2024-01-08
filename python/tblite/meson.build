@@ -65,6 +65,7 @@ tblite_pyext = python.extension_module(
   dependencies: [tblite_dep, python_dep],
   install: install,
   subdir: 'tblite',
+  link_language: 'c',
 )
 
 if install

@@ -322,6 +322,7 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel
       convolution, self%delta_dipm_xyz, self%delta_qm_xyz)
 
    call comp_norm_3(mol%nat, n, self%delta_dipm_xyz, self%delta_qm_xyz, self%delta_dipm, self%delta_qm)
+   call mol_set_nuclear_charge(mol%nat, mol%num, mol%id, z)
    call get_delta_mm_Z(mol%nat, n, z, wfn%dpat, wfn%qpat, mol%id, mol%xyz, convolution, self%delta_dipm_Z_xyz, &
       self%delta_qm_Z_xyz)
    call sum_up_mulliken(mol%nat, calc%bas%nsh, calc%bas%sh2at, calc%bas%sh2at, self%mulliken_shell, mull_charge_atomic)

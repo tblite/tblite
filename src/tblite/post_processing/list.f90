@@ -1,25 +1,27 @@
 module tblite_post_processing_list
-    use mctc_env, only : wp, error_type, fatal_error
-    use tblite_xtbml_features, only : xtbml_type, new_xtbml_features
-    use tblite_param_xtbml_features, only : xtbml_features_record
-    use tblite_post_processing_type, only : post_processing_type
-    use tblite_param_post_processing, only : post_processing_param_list
-    use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
-    use tblite_param, only : param_record
-    use tblite_param_serde, only : serde_record
-    use tblite_wavefunction_type, only : wavefunction_type
-    use tblite_context, only : context_type
-    use tblite_container, only : container_list
-    use tblite_timer, only : timer_type, format_time
-    use tblite_xtb_calculator, only : xtb_calculator
-    use tblite_container_cache, only : container_cache
-    use tblite_double_dictionary, only : double_dictionary_type
-    use mctc_io, only : structure_type
-    use tblite_integral_type, only : integral_type
-    use tblite_results, only : results_type
-    use tblite_wiberg_bond_orders, only : new_wbo, wiberg_bond_orders
-    implicit none
-    private
+   use mctc_env, only : wp, error_type, fatal_error
+   use tblite_post_processing_type, only : post_processing_type
+   use tblite_param_post_processing, only : post_processing_param_list
+   use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
+   use tblite_param, only : param_record
+   use tblite_param_serde, only : serde_record
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_context, only : context_type
+   use tblite_container, only : container_list
+   use tblite_timer, only : timer_type, format_time
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_container_cache, only : container_cache
+   use tblite_double_dictionary, only : double_dictionary_type
+   use mctc_io, only : structure_type
+   use tblite_integral_type, only : integral_type
+   use tblite_results, only : results_type
+   use tblite_post_processing_bond_orders, only : new_wbo, wiberg_bond_orders
+   use tblite_post_processing_molecular_moments, only : new_molecular_moments, molecular_moments
+   use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_post_processing_xtbml_features, only : xtbml_type, new_xtbml_features
+   implicit none
+   private
 
     public :: new_post_processing, post_processing_type
 
