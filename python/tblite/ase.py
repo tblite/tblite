@@ -263,10 +263,10 @@ class TBLite(ase.calculators.calculator.Calculator):
             if self.parameters.spin_polarization is not None:
                 calc.add("spin-polarization", self.parameters.spin_polarization)
 
-        except RuntimeError:
+        except RuntimeError as e:
             raise ase.calculators.calculator.InputError(
                 "Cannot construct calculator for TBLite"
-            )
+            ) from e
 
         return calc
 
@@ -314,10 +314,10 @@ class TBLite(ase.calculators.calculator.Calculator):
 
         try:
             self._res = self._xtb.singlepoint(self._res)
-        except RuntimeError:
+        except RuntimeError as e:
             raise ase.calculators.calculator.CalculationFailed(
                 "TBLite could not evaluate input"
-            )
+            ) from e
 
         # These properties are garanteed to exist for all implemented calculators
         self.results["energy"] = self._res.get("energy") * Hartree
