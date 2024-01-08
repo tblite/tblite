@@ -31,6 +31,7 @@
 
 #include "tblite/macros.h"
 #include "tblite/error.h"
+#include "tblite/double_dictionary.h"
 
 /// Container to for storing and handling calculation results
 typedef struct _tblite_result* tblite_result;
@@ -224,48 +225,11 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
                                      tblite_result res,
                                      double* hmat);
 
-/// Retrieve xtbml features from result container
+/// Retrieve Hamiltonian matrix from result container
 ///
 /// @param error: Handle for error messages
 /// @param res: Result container
-/// @param ml_features: xtbml features, shape [nat][nfeatures]
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_result_ml_features(tblite_error error,
-                        tblite_result res,
-                        double* ml_features);
-
-/// Retrieve xtbml weights from result container
-///
-/// @param error: Handle for error messages
-/// @param res: Result container
-/// @param w_xtbml: partitioning weights based on GFN2 energy, shape [nat]
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_result_xtbml_weights(tblite_error error,
-                                tblite_result res,
-                                double* w_xtbml);
-
-
-/// Retrieve number xtbml features per atom from result container
-///
-/// @param error: Handle for error messages
-/// @param res: Result container
-/// @param n_features: number of xtbml features per atom
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_result_ml_n_features(tblite_error error,
-                                   tblite_result res,
-                                   int* n_features);
-
-
-/// Retrieve xtbml feature labels from result container
-///
-/// @param error: Handle for error messages
-/// @param res: Result container
-/// @param message: feature label of index index
-/// @param buffersize: buffersize
-/// @param index: index of feature label in fortran string array
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_get_result_ml_labels(tblite_error error,
-                               tblite_result res,
-                               char* message,
-                               const int* buffersize/* buffersize */,
-                               const int* index/*index of label array*/);
+/// @param dict: Pointer to dictionary object
+TBLITE_API_ENTRY tblite_double_dictionary TBLITE_API_CALL
+tblite_get_post_processing_dict(tblite_error error,
+                                tblite_result res);

@@ -35,14 +35,15 @@ module tblite_param
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
-   use tblite_param_post_processing, only :  post_processing_param_list
+   use tblite_param_post_processing, only :  post_processing_param_list, molecular_multipole_record
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none
    private
 
    public :: param_record, param_mask, count
    public :: charge_record, dispersion_record, element_record, halogen_record, &
-      & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record
+      & hamiltonian_record, multipole_record, repulsion_record, thirdorder_record, &
+      & post_processing_param_list, molecular_multipole_record
 
 
    character(len=*), parameter :: k_dispersion = "dispersion", k_repulsion = "repulsion", &
@@ -80,7 +81,7 @@ module tblite_param
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
       !> Abstract post processing class 
-      class(post_processing_param_list), allocatable :: post_proc
+      type(post_processing_param_list), allocatable :: post_proc
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array
@@ -250,12 +251,6 @@ subroutine dump_to_toml(self, table, error)
    if (allocated(self%post_proc)) then
       call add_table(table, k_post_proc, child)
       call self%post_proc%dump(child, error)
-      if (allocated(error)) return
-   end if
-   
-   if (allocated(self%exchange)) then
-      call add_table(table, k_exchange, child)
-      call self%exchange%dump(child, error)
       if (allocated(error)) return
    end if
 

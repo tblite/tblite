@@ -15,5 +15,6 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
+  'molmom.f90',
   'xtbml.f90',
 )

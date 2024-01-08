@@ -25,6 +25,7 @@ module tblite_api_result
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_api_double_dictionary, only : vp_double_dictionary
    implicit none
    private
 
@@ -36,9 +37,7 @@ module tblite_api_result
       & get_result_orbital_occupations_api, get_result_orbital_coefficients_api, &
       & get_result_energies_api, get_result_density_matrix_api, &
       & get_result_overlap_matrix_api, get_result_hamiltonian_matrix_api, &
-      & get_result_bond_orders_api, get_result_ml_features_api, get_result_ml_labels_api,&
-      & get_result_ml_n_features_api
-
+      & get_result_bond_orders_api, get_post_processing_dict_api
 
 
    !> Void pointer holding results of a calculation
@@ -49,10 +48,6 @@ module tblite_api_result
       real(wp), allocatable :: gradient(:, :)
       !> Virial
       real(wp), allocatable :: sigma(:, :)
-      !> Dipole moment
-      real(wp), allocatable :: dipole(:)
-      !> Quadrupole moment
-      real(wp), allocatable :: quadrupole(:)
       !> Wavefunction
       type(wavefunction_type), allocatable :: wfn
       !> Additional results
@@ -312,6 +307,7 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
+   real(wp), allocatable :: dipm(:)
    real(c_double), intent(out) :: dipole(*)
    logical :: ok
 
@@ -319,13 +315,19 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
+   
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
+   call res%results%dict%get_entry("molecular-dipole", dipm)
 
-   if (.not.allocated(res%dipole)) then
+   if (.not.allocated(dipm)) then
       call fatal_error(error%ptr, "Result does not contain dipole moment")
       return
    end if
 
-   dipole(:size(res%dipole)) = res%dipole
+   dipole(:size(dipm)) = dipm
 end subroutine get_result_dipole_api
 
 
@@ -335,6 +337,7 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
+   real(wp), allocatable :: qp(:)
    real(c_double), intent(out) :: quadrupole(*)
    logical :: ok
 
@@ -343,12 +346,19 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
 
-   if (.not.allocated(res%quadrupole)) then
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
+
+   call res%results%dict%get_entry("molecular-quadrupole", qp)
+
+   if (.not.allocated(qp)) then
       call fatal_error(error%ptr, "Result does not contain quadrupole moment")
       return
    end if
 
-   quadrupole(:size(res%quadrupole)) = res%quadrupole
+   quadrupole(:size(qp)) = qp
 end subroutine get_result_quadrupole_api
 
 
@@ -509,6 +519,7 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: mbo(*)
+   real(kind=wp), allocatable :: mbo_f(:, :, :)
    logical :: ok
    real(wp), allocatable :: wbo(:, :, :)
 
@@ -522,113 +533,41 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
       return
    end if
 
-   if (.not.allocated(res%results%bond_orders)) then
-      call fatal_error(error%ptr, "Result does not contain bond orders")
+   call res%results%dict%get_entry("bond-orders", mbo_f)
+
+   if (.not.allocated(mbo_f)) then
+      call fatal_error(error%ptr, "Could not find bond orders in results dictionary")
       return
-   end if
+   end if 
 
-   call res%results%dict%get_entry("wbo", wbo)
-
-   mbo(:size(wbo)) = &
-      & reshape(wbo, [size(wbo)])
+   mbo(:size(mbo_f)) = &
+      & reshape(mbo_f, [size(mbo_f)])
 end subroutine get_result_bond_orders_api
 
-subroutine get_result_ml_features_api(verror, vres, ml_features) &
-      & bind(C, name=namespace//"get_result_ml_features")
-   type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   type(c_ptr), value :: vres
-   type(vp_result), pointer :: res
-   real(c_double), intent(out) :: ml_features(*)
-   logical :: ok
+function get_post_processing_dict_api(verror, vres) result(vdict) &
+   & bind(C, name=namespace//"get_post_processing_dict")
+type(c_ptr), value :: verror
+type(vp_error), pointer :: error
+type(c_ptr), value :: vres
+type(vp_result), pointer :: res
+type(c_ptr) :: vdict
+logical :: ok
+type(vp_double_dictionary), pointer :: dict
 
-   if (debug) print '("[Info]", 1x, a)', "get_result_xtbml"
+if (debug) print '("[Info]", 1x, a)', "get_result_dict"
+vdict = c_null_ptr
+call get_result(verror, vres, error, res, ok)
+if (.not.ok) return
 
-   call get_result(verror, vres, error, res, ok)
-   if (.not.ok) return
+if (.not.allocated(res%results)) then
+   call fatal_error(error%ptr, "Result does not contain post processing dictionary.")
+   return
+end if
+allocate(dict)
+dict%ptr = res%results%dict
 
-   if (.not.allocated(res%results)) then
-      call fatal_error(error%ptr, "Result does not contain result container")
-      return
-   end if
-
-   if (.not.allocated(res%results%post_proc_values)) then
-      call fatal_error(error%ptr, "Result does not contain xtbml features")
-      return
-   end if
-
-   ml_features(:size(res%results%post_proc_values)) = &
-      & reshape(res%results%post_proc_values, [size(res%results%post_proc_values)])
-
-end subroutine get_result_ml_features_api
-
-subroutine get_result_ml_n_features_api(verror, vres, n_features) &
-      & bind(C, name=namespace//"get_result_ml_n_features")
-   type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   type(c_ptr), value :: vres
-   type(vp_result), pointer :: res
-   integer(c_int), intent(out) :: n_features
-   logical :: ok
-
-   if (debug) print '("[Info]", 1x, a)', "get_result_ml_n_features"
-
-   call get_result(verror, vres, error, res, ok)
-   if (.not.ok) return
-
-   if (.not.allocated(res%results)) then
-      call fatal_error(error%ptr, "Result does not contain result container")
-      return
-   end if
-
-   if (.not.allocated(res%results%post_proc_labels)) then
-      call fatal_error(error%ptr, "Result does not contain ml features")
-      return
-   end if
-
-   n_features = res%results%n_post_proc_labels
-
-end subroutine get_result_ml_n_features_api
-
-
-subroutine get_result_ml_labels_api(verror, vres, charptr, buffersize, index) &
-      & bind(C, name=namespace//"get_result_ml_labels")
-   use tblite_api_utils, only : f_c_character
-   type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   type(c_ptr), value :: vres
-   type(vp_result), pointer :: res
-   character(kind=c_char), intent(out) :: charptr(*)
-   integer(c_int), intent(in), optional :: buffersize
-   integer(c_int), intent(in) :: index
-   logical :: ok
-   integer :: max_length
-
-   if (debug) print '("[Info]", 1x, a)', "get_result_ml_labels"
-
-   call get_result(verror, vres, error, res, ok)
-   if (.not.ok) return
-
-   if (.not.allocated(res%results)) then
-      call fatal_error(error%ptr, "Result does not contain result container")
-      return
-   end if
-
-   if (.not.allocated(res%results%post_proc_labels)) then
-      call fatal_error(error%ptr, "Result does not contain ml feature labels")
-      return
-   end if
-
-   if (present(buffersize)) then
-      max_length = buffersize
-   else
-      max_length = huge(max_length) - 2
-   end if
-
-   call f_c_character(res%results%post_proc_labels(index), charptr, max_length)
-
-end subroutine get_result_ml_labels_api
-
+vdict = c_loc(dict)
+end function get_post_processing_dict_api
 
 subroutine get_result(verror, vres, error, res, ok)
    type(c_ptr), intent(in) :: verror

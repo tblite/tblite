@@ -74,6 +74,8 @@ module tblite_double_dictionary
       generic, public :: remove_entry => remove_entry_label, remove_entry_index
       procedure :: remove_entry_label
       procedure :: remove_entry_index
+      generic, public :: get_index => return_label_index
+      procedure :: return_label_index
    end type double_dictionary_type
 
 
@@ -443,9 +445,8 @@ end subroutine
 function return_label_index(self, label) result(it)
    class(double_dictionary_type), intent(in) :: self
    character(len=*), intent(in) :: label
-
    integer :: it
-
+   it = 0
    if (self%n <= 0) return
    it = find(self%record(:self%n), label)
    if (it == 0) return
@@ -482,7 +483,7 @@ pure subroutine resize(var, n)
 
    type(double_record), allocatable :: tmp(:)
    integer :: this_size, new_size
-   integer, parameter :: initial_size = 0
+   integer, parameter :: initial_size = 20
 
    if (allocated(var)) then
       this_size = size(var, 1)
@@ -494,7 +495,7 @@ pure subroutine resize(var, n)
    if (present(n)) then
       new_size = n
    else
-      new_size = this_size + 1
+      new_size = this_size + this_size/2 + 1
    end if
 
    allocate(var(new_size))

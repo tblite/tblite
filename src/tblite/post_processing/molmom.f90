@@ -14,13 +14,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/post_processing/wbo.f90
-!> Implements the calculation of Wiberg-Mayer bond orders as post processing method.
-module tblite_post_processing_bond_orders
+!> @file tblite/post_processing/molmom.f90
+!> Implements the calculation of molecular moments as post processing methods.
+module tblite_post_processing_molecular_moments
    use mctc_env, only : wp
    use tblite_post_processing_type, only : post_processing_type
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_results, only : results_type
@@ -32,28 +31,38 @@ module tblite_post_processing_bond_orders
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_timer, only : timer_type, format_time
    use tblite_output_format, only : format_string
+   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, get_molecular_quadrupole_moment
+   use tblite_param_molecular_moments, only : molecular_multipole_record
    implicit none
    private
 
-   public :: new_wbo, wiberg_bond_orders
+   public :: molecular_moments, new_molecular_moments
 
-   type, extends(post_processing_type) :: wiberg_bond_orders
+   type, extends(post_processing_type) :: molecular_moments
+      logical :: comp_dipm = .true. , comp_qm = .true.
    contains
       procedure :: compute
       procedure :: print_timer
    end type
 
-   character(len=24), parameter :: label = "Mayer-Wiberg bond orders"
+   character(len=27), parameter :: label = "Molecular Multipole Moments"
    type(timer_type) :: timer
+
 contains
 
-subroutine new_wbo(new_wbo_type)
-   type(wiberg_bond_orders), intent(inout) :: new_wbo_type
-   new_wbo_type%label = label
+subroutine new_molecular_moments(new_molmom_type, param)
+   type(molecular_moments), intent(inout) :: new_molmom_type
+   type(molecular_multipole_record), intent(in) :: param
+   
+   new_molmom_type%label = label
+
+   new_molmom_type%comp_dipm = param%moldipm
+   new_molmom_type%comp_qm = param%molqp
+
 end subroutine
 
 subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
-   class(wiberg_bond_orders),intent(inout) :: self
+   class(molecular_moments),intent(inout) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
@@ -66,61 +75,37 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(context_type), intent(inout) :: ctx
    type(container_cache), intent(inout) :: cache_list(:)
    type(double_dictionary_type), intent(inout) :: dict
-   real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
-   real(kind=wp), allocatable :: focc_(:, :)
-   integer :: prlevel, nspin, i, j
-   real(kind=wp) :: nel_
-   real(wp), allocatable :: pmat(:, :, :)
+   integer :: prlevel
+   real(wp) :: dipm(3), qp(6)
 
    call timer%push("total")
-   nspin = size(wfn%density, dim=3)
-
-   if ((nspin == 1) .and. (wfn%nel(1) /= wfn%nel(2))) then
-      allocate(wbo(mol%nat, mol%nat, 2), source=0.0_wp)
-      allocate(focc_(calc%bas%nao, 2), source=0.0_wp)
-      allocate(pmat(calc%bas%nao, calc%bas%nao, 2))
-      do j = 1,2
-         nel_ = wfn%nel(j)
-         do i = 1, size(wfn%focc)
-            if (nel_ > 1.0_wp) then
-               focc_(i,j) = 1.0_wp
-               nel_ = nel_ - 1.0_wp
-            else
-               focc_(i,j) = nel_
-               exit
-            end if
-         end do
-      end do
-      do j = 1, 2
-         call get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
-      end do
-      call get_mayer_bond_orders_uhf(calc%bas, integrals%overlap, pmat, wbo)
-      wbo_2d = 2*wbo(:, :, 1)
-      call dict%add_entry("bond-orders", wbo_2d)
-   else
-      allocate(wbo(mol%nat, mol%nat, nspin), source=0.0_wp)
-      call get_mayer_bond_orders(calc%bas, integrals%overlap, wfn%density, wbo)
-      if (size(wbo, dim = 3) == 1) then 
-         wbo_2d = wbo(:, : , 1)
-         call dict%add_entry("bond-orders", wbo_2d)
-      else
-         call dict%add_entry("bond-orders", wbo(:, :, :))
-      end if
+   if (self%comp_dipm) then
+      call timer%push("dipole")
+      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dipm)
+      call dict%add_entry("molecular-dipole", dipm)
+      call timer%pop()
    end if
-
-   
+   if (self%comp_qm) then
+      call timer%push("quadrupole")
+      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), wfn%qpat(:, :, 1), qp)
+      call dict%add_entry("molecular-quadrupole", qp)
+      call timer%pop()
+   end if
    call timer%pop()
 end subroutine
 
 subroutine print_timer(self, prlevel, ctx)
    !> Instance of the interaction container
-   class(wiberg_bond_orders), intent(in) :: self
+   class(molecular_moments), intent(in) :: self
    integer :: prlevel
    type(context_type) :: ctx
    real(wp) :: ttime, stime
    integer :: it
    character(len=*), parameter :: labels(*) = [character(len=20):: &
-      & ]
+      "dipole", "quadrupole"  ]
+
+
+
    if (prlevel > 2) then
       call ctx%message(label//" timing details:")
       ttime = timer%get("total")

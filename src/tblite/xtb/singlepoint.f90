@@ -38,7 +38,7 @@ module tblite_xtb_singlepoint
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation, get_mayer_bond_orders, &
+      & get_alpha_beta_occupation, &
       & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
@@ -69,7 +69,7 @@ contains
 
 !> Entry point for performing single point calculation using the xTB calculator
 subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
-      & verbosity, results)
+      & verbosity, results, post_process)
    !> Calculation context
    type(context_type), intent(inout) :: ctx
    !> Molecular structure data
@@ -90,7 +90,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    !> Container for storing additional results
    type(results_type), intent(out), optional :: results
-   !type(post_processing_list), intent(inout), optional :: post_process
+   type(post_processing_list), intent(inout), optional :: post_process
    
    logical :: grad, converged, econverged, pconverged
    integer :: prlevel
@@ -314,7 +314,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end do
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
-      !print '(3es20.13)', sigma
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
          & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
       call magnet_to_updown(wfn%density)
@@ -327,24 +326,22 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call timer%pop
    end if
-   !if (present(post_process)) then
-      !call timer%push("post processing")
-      !call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
-      !call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
-      !if (prlevel > 1) then 
-         !call post_process%print_csv(mol)
-      !end if
-      !call ctx%message(post_process%info(prlevel, " | "))
-      !call post_process%print_timer(prlevel, ctx)
-      !deallocate(cache_list)
-      !call timer%pop()
-   !end if
+   if (present(post_process)) then
+      call timer%push("post processing")
+      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
+      call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
+      call post_process%print_csv(mol)
+      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
+      call post_process%print_timer(prlevel, ctx)
+      deallocate(cache_list)
+      call timer%pop()
+   end if
    if (present(results)) then
-      allocate(results%bond_orders(mol%nat, mol%nat, wfn%nspin))
-      call get_mayer_bond_orders(calc%bas, ints%overlap, wfn%density, results%bond_orders)
-      !if (present(post_process)) then 
-      !   call post_process%pack_res(mol, results)
-      !end if
+      if (allocated(results%dict)) deallocate(results%dict)
+      allocate(results%dict)
+      if (present(post_process)) then 
+         call post_process%pack_res(mol, results)
+      end if
    end if
 
    if (calc%save_integrals .and. present(results)) then

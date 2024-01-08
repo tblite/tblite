@@ -33,15 +33,8 @@ module tblite_results
       real(wp), allocatable :: overlap(:, :)
       !> (Core) Hamiltonian integrals
       real(wp), allocatable :: hamiltonian(:, :)
-      !> Wiberg/Mayer bond orders
-      real(wp), allocatable :: bond_orders(:, :, :)
-      !> post processing values (nat, n_post_proc_labels)
-      real(wp), allocatable :: post_proc_values(:, :)
-      !> number of ml features
-      integer :: n_post_proc_labels = 0
-      !> labels of the ml features
-      character(len=30),allocatable :: post_proc_labels(:)
       type(double_dictionary_type), allocatable :: dict
    end type results_type
+
 
 end module tblite_results

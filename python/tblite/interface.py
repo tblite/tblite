@@ -246,6 +246,7 @@ class Result:
         "ml labels": library.get_ml_labels,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
+        "post-processing-dict": library.get_post_processing_dict,
     }
     _setter = {}
 
@@ -475,6 +476,10 @@ class Calculator(Structure):
         "xtbml" : "xtbml",
         "xtbml_xyz" : "xtbml_xyz"
     }
+    _post_processing = {
+        "bond-orders" : "bond-orders",
+        "molecular-multipoles" : "molmom",
+    }
 
     def __init__(
         self,
@@ -553,12 +558,19 @@ class Calculator(Structure):
         =================== =========================== ===================
         """
 
-        if interaction not in self._interaction:
-            raise TBLiteValueError(
-                f"Interaction '{interaction}' is not supported in this calculator"
+        if interaction in self._interaction:
+            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
+            library.calculator_push_back(self._ctx, self._calc, cont)
+        elif interaction in self._post_processing:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        elif ".toml" in interaction:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        else:
+            raise ValueError(
+                f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-        cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
-        library.calculator_push_back(self._ctx, self._calc, cont)
+        
+        
 
     def get(self, attribute: str) -> Any:
         """
@@ -612,12 +624,7 @@ class Calculator(Structure):
         """
 
         _res = Result(res) if copy or res is None else res
-        
-        if hasattr(self, '_post_proc'):
-            print("Here")
-            library.get_singlepoint_w_post(self._ctx, self._mol, self._calc, _res._res, self._post_proc)
-        else:
-            library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
         
         return _res
 

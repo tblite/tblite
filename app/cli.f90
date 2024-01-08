@@ -388,7 +388,7 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1 
          call list%get(iarg, config%post_processing)
          if (.not.allocated(config%post_processing)) then
-            call fatal_error(error, "Missing argument for ml_features")
+            call fatal_error(error, "Missing argument for post processing")
             exit
          end if
       case("--acc")

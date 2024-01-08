@@ -29,7 +29,7 @@ module tblite_wavefunction_mulliken
 
    public :: get_mulliken_shell_charges, get_mulliken_atomic_multipoles
    public :: get_molecular_dipole_moment, get_molecular_quadrupole_moment
-   public :: get_mayer_bond_orders, get_mulliken_shell_multipoles
+   public :: get_mayer_bond_orders, get_mayer_bond_orders_uhf, get_mulliken_shell_multipoles
 
 contains
 
@@ -193,6 +193,42 @@ subroutine get_mayer_bond_orders(bas, smat, pmat, mbo)
 
    call updown_to_magnet(mbo)
 end subroutine get_mayer_bond_orders
+
+!> Evaluate Wiberg/Mayer bond orders
+subroutine get_mayer_bond_orders_uhf(bas, smat, pmat, mbo)
+   !> Basis set information
+   type(basis_type), intent(in) :: bas
+   !> Overlap matrix
+   real(wp), intent(in) :: smat(:, :)
+   !> Density matrix
+   real(wp), intent(in) :: pmat(:, :, :)
+   !> Wiberg/Mayer bond orders
+   real(wp), intent(out) :: mbo(:, :, :)
+
+   integer :: iao, jao, iat, jat, spin
+   real(wp) :: pao
+   real(wp), allocatable :: psmat(:, :)
+
+   allocate(psmat(bas%nao, bas%nao))
+
+   mbo(:, :, :) = 0.0_wp
+   do spin = 1, size(pmat, 3)
+      call gemm(pmat(:, :, spin), smat, psmat)
+      !$omp parallel do default(none) collapse(2) &
+      !$omp shared(bas, psmat, mbo, spin) private(iao, jao, iat, jat, pao)
+      do iao = 1, bas%nao
+         do jao = 1, bas%nao
+            iat = bas%ao2at(iao)
+            jat = bas%ao2at(jao)
+            pao = merge(psmat(iao, jao) * psmat(jao, iao), 0.0_wp, iat /= jat)
+            !$omp atomic
+            mbo(jat, iat, 1) = mbo(jat, iat, 1) + pao
+         end do
+      end do
+   end do
+
+   call updown_to_magnet(mbo)
+end subroutine get_mayer_bond_orders_uhf
 
 
 end module tblite_wavefunction_mulliken
