@@ -98,9 +98,13 @@ subroutine message(self, msg)
    class(context_type), intent(inout) :: self
    !> Message to write
    character(len=*), intent(in) :: msg
+   type(error_type), allocatable :: error
 
    if (allocated(self%io)) then
-      call self%io%message(msg)
+      call self%io%message(msg, error)
+      if (allocated(error)) then
+         call self%set_error(error)
+      end if
    else
       write(self%unit, '(a)') msg
    end if

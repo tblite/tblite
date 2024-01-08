@@ -37,11 +37,11 @@
 typedef struct _tblite_context* tblite_context;
 
 /// Define callback function for use in custom logger
-typedef void (*tblite_logger_callback)(char*, int, void*);
+typedef void (*tblite_logger_callback)(tblite_error, char*, int, void*);
 
 #ifdef TBLITE_CFFI
 extern "Python" void TBLITE_API_CALL
-logger_callback(char* msg, int len, void* user_data);
+logger_callback(tblite_error error, char* msg, int len, void* user_data);
 #endif
 
 /// Create new calculation environment object
