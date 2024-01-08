@@ -19,4 +19,5 @@ srcs += files(
   'covrad.f90',
   'paulingen.f90',
   'spin.f90',
+  'covrad_ceh.f90',
 )

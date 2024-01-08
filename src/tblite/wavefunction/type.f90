@@ -103,7 +103,6 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt)
    self%qpat(:, :, :) = 0.0_wp
 end subroutine new_wavefunction
 
-
 subroutine get_density_matrix(focc, coeff, pmat)
    real(wp), intent(in) :: focc(:)
    real(wp), contiguous, intent(in) :: coeff(:, :)

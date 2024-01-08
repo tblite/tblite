@@ -38,6 +38,7 @@ module tblite_scf_iterator
    private
 
    public :: next_scf, get_mixer_dimension, get_electronic_energy, reduce
+   public :: get_density, get_qat_from_qsh
 
 contains
 

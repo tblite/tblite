@@ -20,10 +20,13 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
+from typing import Any, Optional
+
 import numpy as np
 from typing import Any, Optional
 
 from . import library
+from .exceptions import TBLiteValueError
 
 
 class Structure:
@@ -52,7 +55,7 @@ class Structure:
 
     Raises
     ------
-    ValueError
+    TBLiteValueError
         on invalid input, like incorrect shape / type of the passed arrays
     """
 
@@ -74,14 +77,14 @@ class Structure:
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
         if positions.size % 3 != 0:
-            raise ValueError("Expected tripels of cartesian coordinates")
+            raise TBLiteValueError("Expected tripels of cartesian coordinates")
 
         if 3 * numbers.size != positions.size:
-            raise ValueError("Dimension missmatch between numbers and positions")
+            raise TBLiteValueError("Dimension missmatch between numbers and positions")
 
         self._natoms = len(numbers)
         _numbers = np.ascontiguousarray(numbers, dtype="i4")
@@ -92,14 +95,14 @@ class Structure:
 
         if lattice is not None:
             if lattice.size != 9:
-                raise ValueError("Invalid lattice provided")
+                raise TBLiteValueError("Invalid lattice provided")
             _lattice = np.ascontiguousarray(lattice, dtype="float")
         else:
             _lattice = None
 
         if periodic is not None:
             if periodic.size != 3:
-                raise ValueError("Invalid periodicity provided")
+                raise TBLiteValueError("Invalid periodicity provided")
             _periodic = np.ascontiguousarray(periodic, dtype="bool")
         else:
             _periodic = None
@@ -135,7 +138,7 @@ class Structure:
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
         if charge is not None:
@@ -150,12 +153,12 @@ class Structure:
             return
 
         if 3 * len(self) != positions.size:
-            raise ValueError("Dimension missmatch for positions")
+            raise TBLiteValueError("Dimension missmatch for positions")
         _positions = np.ascontiguousarray(positions, dtype="float")
 
         if lattice is not None:
             if lattice.size != 9:
-                raise ValueError("Invalid lattice provided")
+                raise TBLiteValueError("Invalid lattice provided")
             _lattice = np.ascontiguousarray(lattice, dtype="float")
         else:
             _lattice = None
@@ -215,10 +218,10 @@ class Result:
 
     Raises
     ------
-    ValueError
+    TBliteValueError
         on invalid input, like incorrect shape / type of the passed arrays
 
-    RuntimeError
+    TBLiteRuntimeError
         if a requested quantity is not available in the container
     """
 
@@ -241,6 +244,8 @@ class Result:
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
         "ml features": library.get_ml_features,
         "ml labels": library.get_ml_labels,
+        "natoms": library.get_number_of_atoms,
+        "norbitals": library.get_number_of_orbitals,
     }
     _setter = {}
 
@@ -266,7 +271,8 @@ class Result:
          energies               nat         Hartree
          gradient               nat, 3      Hartree/Bohr
          virial                 3, 3        Hartree
-         charges                n           e
+         charges                nat         e
+         bond-orders            nat, nat    e
          dipole                 3           e·Bohr
          quadrupole             6           e·Bohr²
          orbital-energies       norb        Hartree
@@ -278,6 +284,8 @@ class Result:
          ml features            nfeat, nat  /
          xtbml weights          nat         unitless
          ml labels              nfeat       string
+         natoms                 scalar      unitless
+         norbitals              scalar      unitless
         ====================== =========== ==============
 
         Notes
@@ -289,15 +297,18 @@ class Result:
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
 
-        RuntimeError
+        TBLiteRuntimeError
             if a requested quantity is not available in the container
         """
 
         if attribute not in self._getter:
-            raise ValueError(f"Attribute '{attribute}' is not available in this result")
+            raise TBLiteValueError(
+                f"Attribute '{attribute}' is not available in this result"
+            )
+
         return self._getter[attribute](self._res)
 
     def set(self, attribute: str, value):
@@ -307,17 +318,25 @@ class Result:
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
 
-        RuntimeError
+        TBLiteRuntimeError
             if a requested quantity cannot be set in the container
         """
 
         if attribute not in self._setter:
-            raise ValueError(f"Attribute '{attribute}' cannot be set in this result")
+            raise TBLiteValueError(
+                f"Attribute '{attribute}' cannot be set in this result"
+            )
 
         self._setter[attribute](self._res, value)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.get(key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.set(key, value)
 
     def dict(self) -> dict:
         """
@@ -419,7 +438,7 @@ class Calculator(Structure):
 
     Raises
     ------
-    ValueError
+    TBLiteValueError
         on invalid input, like incorrect shape / type of the passed arrays
     """
 
@@ -466,20 +485,23 @@ class Calculator(Structure):
         uhf: Optional[int] = None,
         lattice: Optional[np.ndarray] = None,
         periodic: Optional[np.ndarray] = None,
+        **context_kwargs,
     ):
         """
         Construct new calculator object for a given structure.
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
         Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
-        self._ctx = library.new_context()
+        self._ctx = library.new_context(**context_kwargs)
         if method not in self._loader:
-            raise ValueError(f"Method '{method}' is not available for this calculator")
+            raise TBLiteValueError(
+                f"Method '{method}' is not available for this calculator"
+            )
         self._calc = self._loader[method](self._ctx, self._mol)
 
     def set(self, attribute: str, value) -> None:
@@ -507,12 +529,12 @@ class Calculator(Structure):
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
 
         if attribute not in self._setter:
-            raise ValueError(
+            raise TBLiteValueError(
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         self._setter[attribute](self._ctx, self._calc, value)
@@ -526,11 +548,13 @@ class Calculator(Structure):
         =================== =========================== ===================
          electric-field      Uniform electric field      Field vector (3,)
          spin-polarization   Spin polarization           Scaling factor
+         alpb-solvation      ALPB implicit solvation     Epsilon or solvent
+         cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
         =================== =========================== ===================
         """
 
         if interaction not in self._interaction:
-            raise ValueError(
+            raise TBLiteValueError(
                 f"Interaction '{interaction}' is not supported in this calculator"
             )
         cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
@@ -550,12 +574,12 @@ class Calculator(Structure):
 
         Raises
         ------
-        ValueError
+        TBLiteValueError
             on invalid attributes
         """
 
         if attribute not in self._getter:
-            raise ValueError(
+            raise TBLiteValueError(
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         return self._getter[attribute](self._ctx, self._calc)
@@ -583,7 +607,7 @@ class Calculator(Structure):
 
         Raises
         ------
-        RuntimeError
+        TBLiteRuntimeError
             in case the calculation fails
         """
 

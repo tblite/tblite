@@ -30,7 +30,7 @@ module tblite_output_ascii
    private
 
    public :: ascii_levels, ascii_dipole_moments, ascii_quadrupole_moments
-   public :: json_results, tagged_result
+   public :: json_results, tagged_result, ascii_atomic_charges
 
 contains
 
@@ -113,20 +113,42 @@ subroutine ascii_dipole_moments(unit, verbosity, mol, dpat, dpmom)
    integer :: iat, isp
 
    write(unit, '(a,":")') "Atomic dipole moments (in atomic units)"
-   write(unit, '(51("-"))')
-   write(unit, '(a6, 1x, a4, 5x, *(1x, a10))') &
+   write(unit, '(57("-"))')
+   write(unit, '(a6, 1x, a4, 5x, *(1x, a12))') &
       & "#", "Z", "x", "y", "z"
-   write(unit, '(51("-"))')
+   write(unit, '(57("-"))')
    do iat = 1, mol%nat
       isp = mol%id(iat)
-      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f10.4))') &
+      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f12.6))') &
          & iat, mol%num(isp), mol%sym(isp), dpat(:, iat)
    end do
-   write(unit, '(51("-"))')
-   write(unit, '(1x, a15, *(1x, f10.4))') "total", dpmom
-   write(unit, '(51("-"))')
+   write(unit, '(57("-"))')
+   write(unit, '(1x, a15, *(1x, f12.6))') "total", dpmom
+   write(unit, '(57("-"))')
    write(unit, '(a)')
 end subroutine ascii_dipole_moments
+
+subroutine ascii_atomic_charges(unit, verbosity, mol, qat)
+   integer, intent(in) :: unit
+   integer, intent(in) :: verbosity
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: qat(:)
+
+   integer :: iat, isp
+
+   write(unit, '(a,":")') "Atomic charges (in atomic units)"
+   write(unit, '(57("-"))')
+   write(unit, '(a6, 1x, a4, 7x, *(1x, a10))') &
+      & "#", "Z", "q"
+   write(unit, '(57("-"))')
+   do iat = 1, mol%nat
+      isp = mol%id(iat)
+      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f12.6))') &
+         & iat, mol%num(isp), mol%sym(isp), qat(iat)
+   end do
+   write(unit, '(57("-"))')
+   write(unit, '(a)')
+end subroutine ascii_atomic_charges
 
 subroutine ascii_quadrupole_moments(unit, verbosity, mol, qpat, qpmom)
    integer, intent(in) :: unit

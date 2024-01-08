@@ -26,7 +26,8 @@ subroutine collect_double_dictionary(testsuite)
       new_unittest("access entries with invalid label or index", test_invalid_label_index), &
       new_unittest("access valid entries with wrong size of array as return", test_invalid_array_size), &
       new_unittest("compare index and label lookup", test_equivalence_index_label_lookup), &
-      new_unittest("initialize labels", test_initialize_labels) &
+      new_unittest("initialize labels", test_initialize_labels), &
+      new_unittest("update entries", test_update_entries_label) &
       ]
 end subroutine collect_double_dictionary
 
@@ -365,7 +366,6 @@ subroutine test_assigment_operator(error)
    type(error_type), allocatable, intent(out) :: error
    type(double_dictionary_type) :: dict1, dict2
    call fill_test_dict(dict1)
-
    dict2 = dict1
 
    call check(error, dict1%n , dict2%n)
@@ -380,7 +380,7 @@ end subroutine
 
 subroutine test_addition_operator(error)
    type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict1, dict2, dict3
+   type(double_dictionary_type) :: dict1, dict2, dict3, dict4 
    character(len=:), allocatable :: label1, label2
    real(wp), allocatable :: array(:), array1(:), array2(:)
    call fill_test_dict(dict1)
@@ -407,6 +407,75 @@ subroutine test_addition_operator(error)
    call dict3%get_entry("dict3", array1)
    call dict2%get_entry(2, array2)
    call check(error, (sum(array1) == sum(array2)))
+   
+   dict3 = dict4 + dict1
+
+   call check(error, (dict3%get_n_entries() == dict1%get_n_entries()))
+
+   call dict4%concatenate(dict1)
+
+   call check(error, (dict4%get_n_entries() == dict1%get_n_entries()))
+   call dict4%get_entry(1, array1)
+   call dict1%get_entry(1, array2)
+   call check(error, (sum(array1) == sum(array2)))
+end subroutine
+
+
+
+subroutine test_update_entries_label(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict1, dict2, dict3 
+   character(len=:), allocatable :: label1, label2
+   real(wp), allocatable :: array(:), array1(:), array2(:, :), array3(:, :, :)
+   call fill_test_dict(dict1)
+   allocate(array(1), source= 0.0_wp)
+   call dict1%update("test1", array)
+   call dict1%get_entry("test1", array1)
+
+   call check(error, (sum(array) == sum(array1)))
+
+   call dict1%update("test2", array)
+   call dict1%get_entry("test2", array1)
+
+   call check(error, (sum(array) == sum(array1)))
+
+   call dict1%update("test3", array)
+   call dict1%get_entry("test3", array1)
+
+   call check(error, (sum(array) == sum(array1)))
+
+   allocate(array2(2, 2), source= 0.0_wp)
+
+   call fill_test_dict(dict2)
+
+   call dict2%update("test1", array2)
+   call dict2%update("test2", array2)
+   call dict2%update("test3", array2)
+
+   deallocate(array2)
+
+   call dict2%get_entry("test1", array2)
+   call check(error, (size(array2, dim=1) == 2))
+   call dict2%get_entry("test2", array2)
+   call check(error, (size(array2, dim=1) == 2))
+   call dict2%get_entry("test3", array2)
+   call check(error, (size(array2, dim=1) == 2))
+
+   allocate(array3(3, 2, 1), source= 1.0_wp)
+   call fill_test_dict(dict3)
+
+   call dict3%update("test1", array3)
+   call dict3%update("test2", array3)
+   call dict3%update("test3", array3)
+
+   deallocate(array2)
+
+   call dict3%get_entry("test1", array3)
+   call check(error, (size(array3, dim=1) == 3))
+   call dict3%get_entry("test2", array3)
+   call check(error, (size(array3, dim=1) == 3))
+   call dict3%get_entry("test3", array2)
+   call check(error, (size(array3, dim=1) == 3))
 
 end subroutine
 

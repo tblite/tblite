@@ -1,3 +1,4 @@
+
 ! This file is part of tblite.
 ! SPDX-Identifier: LGPL-3.0-or-later
 !
@@ -14,13 +15,19 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Driver entry points for the different commands
-module tblite_driver
-   use tblite_driver_fit, only : main
-   use tblite_driver_param, only : main
-   use tblite_driver_run, only : main
-   use tblite_driver_guess, only : main
-   use tblite_driver_tagdiff, only : main
+!> @file tblite/ceh/h0.f90
+!> Provides the Hamiltonian type for CEH.
+
+module tblite_ceh_h0
+   use mctc_env, only : wp
    implicit none
-   public
-end module tblite_driver
+   private
+
+   type, public :: ceh_hamiltonian
+      !> Atomic level information
+      real(wp), allocatable :: hlevel(:)
+      !> Reference occupation
+      real(wp), allocatable :: refocc(:,:)
+   end type ceh_hamiltonian
+
+end module tblite_ceh_h0
