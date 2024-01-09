@@ -14,9 +14,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-from tblite.interface import Structure, Calculator, Result
-from pytest import approx, raises
+from logging import Logger
+
 import numpy as np
+from pytest import approx, raises
+from tblite.exceptions import TBLiteRuntimeError
+from tblite.interface import Calculator, Result
 
 thr = 1.0e-9
 
@@ -306,6 +309,7 @@ def test_ipea1():
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-38.40436019312474, abs=thr)
+    assert res.get("energy") == res["energy"]
 
     numbers, positions = get_ala("xag")
     calc.update(positions)
@@ -393,6 +397,40 @@ def test_spgfn1():
     assert hs_energy_sp == approx(-28.370520606196546)
 
 
+def test_solvation_models():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43248830035)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("cpcm-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43287176929)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43680849760)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43674134364)
+
+
 def test_result_getter():
     """Check error handling in result container getter"""
 
@@ -419,6 +457,9 @@ def test_result_setter():
     with raises(ValueError, match="Attribute 'unknown' cannot be set"):
         res.set("unknown", 1.0)
 
+    with raises(ValueError, match="Attribute 'unknown' cannot be set"):
+        res["unknown"] = 1.0
+
 
 def test_unknown_method():
     """Check handling of non-existing methods"""
@@ -436,3 +477,22 @@ def test_unknown_attribute():
 
     with raises(ValueError, match="Attribute 'unknown' is not supported"):
         calc.set("unknown", 1.0)
+
+
+def test_gfn1_logging():
+    """Basic test for GFN1-xTB method"""
+    numbers, positions = get_ala("xab")
+
+    logger = Logger("test")
+
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=logger.info)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-34.980794815805446, abs=thr)
+
+    def broken_logger(message: str) -> None:
+        raise NotImplementedError("This logger is broken")
+
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
+    with raises(TBLiteRuntimeError):
+        calc.singlepoint()

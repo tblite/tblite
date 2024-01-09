@@ -13,7 +13,21 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
-"""Python API of the tblite project"""
 
-# make sure we have a CFFI available
-import cffi  # noqa
+
+class TBLiteRuntimeError(RuntimeError):
+    """Raised when an error occurs during TBLite runtime."""
+
+    pass
+
+
+class TBLiteTypeError(TypeError):
+    """Raised when an error occurs during TBLite input processing."""
+
+    pass
+
+
+class TBLiteValueError(ValueError):
+    """Raised when an error occurs during TBLite input processing."""
+
+    pass

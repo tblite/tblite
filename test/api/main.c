@@ -50,7 +50,7 @@ check_double(double actual, double expected, double tol, const char* msg)
     if (fabs(expected - actual) < tol) {
         return true;
     }
-    fprintf(stderr, "[Fatal] %s: expected %lf, got %lf\n", msg, expected, actual);
+    fprintf(stderr, "[Fatal] %s: expected %3.7f, got %3.7f\n", msg, expected, actual);
     return false;
 }
 
@@ -501,6 +501,14 @@ unexpected:
     return 1;
 }
 
+int test_error_setter(void)
+{
+    printf("Start test: error set\n");
+    tblite_error error = tblite_new_error();
+    tblite_set_error(error, "some error message", NULL);
+    return tblite_check_error(error) ? 0 : 1;
+}
+
 int test_empty_result(void)
 {
     printf("Start test: empty result\n");
@@ -939,7 +947,7 @@ err:
     return 1;
 }
 
-void example_callback(char* msg, int len, void* udata)
+void example_callback(tblite_error error, char* msg, int len, void* udata)
 {
     printf("[callback] %.*s\n", len, msg);
 }
@@ -1893,6 +1901,314 @@ err:
     return 1;
 }
 
+int test_cpcm_solvation(){
+     printf("Start test: CPCM Solvation models\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+
+    const double thr = 5.0e-7;
+    int natoms = 21;
+    int num[21] = { 24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1 };
+    double xyz[3 * 21] = {
+        +0.00000000000000, +0.00000000000000, -0.06044684528305,
+        +0.00000000000000, +3.19613712523833, +2.30877824528580,
+        +2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +0.00000000000000, +3.10509505378016, +4.34935395653655,
+        +4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.19613712523833, +2.30877824528580,
+        +1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.10509505378016, +4.34935395653655,
+        -1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +2.52190264478215, -3.60569548880831, -3.50208900904436,
+        -4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.52190264478215, -3.60569548880831, -3.50208900904436,
+    };
+    double energy;
+    error = tblite_new_error();
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethnaol");
+    if (cont) {
+        goto err;
+    }
+
+    ctx = tblite_new_context();
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethnaol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol");
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    res = tblite_new_result();
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    } 
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error)) {
+        goto err;
+    }
+    
+    if (!check(energy, -28.43248830035, thr, "CPCM energy mismatch Ethanol")){
+        goto err;
+    }
+
+    tblite_delete(res);
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+    double dbl = 7.0;
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, dbl);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    res = tblite_new_result();
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    } 
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error)) {
+        goto err;
+    }
+    
+    if (!check(energy, -28.43287176929, thr, "CPCM energy mismatch, 7.0")){
+        goto err;
+    }    
+
+    return 0;
+    
+    err:
+    if (tblite_check_error(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check_context(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
+int test_alpb_solvation(){
+     printf("Start test: ALPB Solvation models\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+
+    const double thr = 5.0e-7;
+    int natoms = 21;
+    int num[21] = { 24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1 };
+    double xyz[3 * 21] = {
+        +0.00000000000000, +0.00000000000000, -0.06044684528305,
+        +0.00000000000000, +3.19613712523833, +2.30877824528580,
+        +2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +0.00000000000000, +3.10509505378016, +4.34935395653655,
+        +4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.19613712523833, +2.30877824528580,
+        +1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.10509505378016, +4.34935395653655,
+        -1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +2.52190264478215, -3.60569548880831, -3.50208900904436,
+        -4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.52190264478215, -3.60569548880831, -3.50208900904436,
+    };
+    double energy;
+    error = tblite_new_error();
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethnaol");
+    if (cont) {
+        goto err;
+    }
+
+    ctx = tblite_new_context();
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethnaol");
+    if (!tblite_check_context(ctx)) {
+        goto err;
+    }
+    show_context_error(ctx);
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol");
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    res = tblite_new_result();
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    } 
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error)) {
+        goto err;
+    }
+    
+    if (!check(energy, -28.43680849760, thr, "alpb energy mismatch")){
+        goto err;
+    }
+
+    tblite_delete(res);
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+    double dbl = 7.0;
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, dbl);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    }
+
+    res = tblite_new_result();
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx)) {
+        goto err;
+    } 
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error)) {
+        goto err;
+    }
+    
+    if (!check(energy, -28.43674134364, thr, "alpb energy mismatch")){
+        goto err;
+    }    
+
+    return 0;
+    
+    err:
+    if (tblite_check_error(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check_context(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
 int main(void)
 {
     int stat = 0;
@@ -1904,6 +2220,7 @@ int main(void)
     stat += test_uninitialized_calculator();
     stat += test_uninitialized_table();
     stat += test_uninitialized_param();
+    stat += test_error_setter();
     stat += test_empty_result();
     stat += test_invalid_structure();
     stat += test_table_builder();
@@ -1915,6 +2232,8 @@ int main(void)
     stat += test_spgfn1();
     stat += test_calc_restart();
     stat += test_callback();
+    stat += test_cpcm_solvation();
+    stat += test_alpb_solvation(); 
 
     return stat;
 }
