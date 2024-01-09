@@ -46,7 +46,6 @@ module tblite_ncoord_erf_en
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
-
 contains
 
 
@@ -91,64 +90,48 @@ contains
 
    !> Error counting function for coordination number contributions.
    elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(erf_en_ncoord_type), intent(in) :: self
-
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, diff_en, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
       diff_en = self%en(jzp) - self%en(izp)
-
+      ! error function based counting function with EN 
       count = 0.5_wp * diff_en * (1.0_wp + erf(-kcn*(r-rc)/rc))
 
    end function ncoord_count
 
-
    !> Derivative of the error counting function w.r.t. the distance.
    elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(erf_en_ncoord_type), intent(in) :: self
-
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, diff_en, exponent, expterm, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
       diff_en = self%en(jzp) - self%en(izp)
-
+      ! error function based counting function with EN derivative
       exponent = kcn*(r-rc)/rc
-
       expterm = exp(-exponent**2)
-
       count = - diff_en * (kcn*expterm)/(rc*sqrt(pi))
 
    end function ncoord_dcount
-
 
 end module tblite_ncoord_erf_en

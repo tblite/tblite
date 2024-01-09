@@ -22,10 +22,8 @@
 module tblite_ncoord_exp
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   !use tblite_cutoff, only : get_lattice_points
    use tblite_data_covrad, only : get_covalent_rad
    use tblite_ncoord_type, only : ncoord_type
-   !use dftd3_ncoord, only : get_coordination_number
    implicit none
    private
 
@@ -33,10 +31,8 @@ module tblite_ncoord_exp
 
    !> Coordination number evaluator
    type, public, extends(ncoord_type) :: exp_ncoord_type
-      !real(wp) :: cutoff
       real(wp), allocatable :: rcov(:)
    contains
-      !procedure :: get_cn
       !> Evaluates the exponential counting function
       procedure :: ncoord_count
       !> Evaluates the derivative of the exponential counting function
@@ -81,26 +77,21 @@ contains
 
    !> Exponential counting function for coordination number contributions.
    elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(exp_ncoord_type), intent(in) :: self
-
       !> Molecular structure data (not used in exp)
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
+      ! exponential function based counting function
       count =1.0_wp/(1.0_wp+exp(-kcn*(rc/r-1.0_wp)))
 
    end function ncoord_count
@@ -108,28 +99,22 @@ contains
 
    !> Derivative of the exponential counting function w.r.t. the distance.
    elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(exp_ncoord_type), intent(in) :: self
-
       !> Molecular structure data (not used in gfn)
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, expterm, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
+      ! exponential function based counting function derivative
       expterm = exp(-kcn*(rc/r-1._wp))
-
       count = (-kcn*rc*expterm)/(r**2*((expterm+1._wp)**2))
 
    end function ncoord_dcount

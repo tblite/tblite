@@ -18,23 +18,16 @@
 !> Contains the specification of the Charge Extended Hückel (CEH) method.
 
 module tblite_ceh_ceh
-   !> mctc-lib
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
-   !> Basis set
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type, new_basis, basis_type
-   !> Coordination number
    use tblite_ncoord, only : new_ncoord
-   !> Calculation context
    use tblite_context, only : context_type
    use tblite_output_format, only: format_string
-   !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
-   !> Wavefunction
    use tblite_wavefunction, only : new_wavefunction
-   !> H0 specification
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian

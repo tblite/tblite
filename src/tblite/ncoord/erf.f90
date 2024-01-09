@@ -74,64 +74,48 @@ contains
 
    end subroutine new_erf_ncoord
 
-
    !> Error counting function for coordination number contributions.
    elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(erf_ncoord_type), intent(in) :: self
-
       !> Molecular structure data (not used in std)
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
+      ! error function based counting function
       count = 0.5_wp * (1.0_wp + erf(-kcn*(r-rc)/rc))
 
    end function ncoord_count
 
-
    !> Derivative of the error counting function w.r.t. the distance.
    elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
-
       !> Coordination number container
       class(erf_ncoord_type), intent(in) :: self
-
       !> Molecular structure data (not used in std)
       type(structure_type), intent(in) :: mol
-
       !> Atom i index
       integer, intent(in)  :: izp
-
       !> Atom j index
       integer, intent(in)  :: jzp
-
       !> Current distance.
       real(wp), intent(in) :: r
 
       real(wp) :: rc, exponent, expterm, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-
+      ! error function based counting function with EN derivative
       exponent = kcn*(r-rc)/rc
-
       expterm = exp(-exponent**2)
-
       count = -(kcn*expterm)/(rc*sqrt(pi))
 
-
    end function ncoord_dcount
-
 
 end module tblite_ncoord_erf

@@ -24,7 +24,6 @@ module tblite_ceh_h0
    use tblite_basis_type, only:  basis_type
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_h0, only : tb_hamiltonian
-   ! Integrals
    use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
    & dipole_cgto_diat_scal, maxl, msao
    use tblite_integral_diat_trafo, only: relvec

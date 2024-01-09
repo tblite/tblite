@@ -15,9 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/data/paulingen.f90
-!> Provides electronegativities for all elements
+!> Provides electronegativities for all elements used in the CEH model
 
-!> Pauling electronegativities
+!> Pauling electronegativities for the CEH model
 module tblite_data_paulingen_ceh
    use mctc_env, only : wp
    use mctc_io_symbols, only : to_number

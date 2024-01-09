@@ -109,7 +109,6 @@ contains
       call get_coordination_number(self, mol, lattr, self%cutoff, cn, dcndr, dcndL)
    end subroutine get_cn
 
-
    !> Geometric fractional coordination number, supports exponential and error counting functions.
    subroutine get_coordination_number(self, mol, trans, cutoff, cn, dcndr, dcndL)
 
@@ -142,21 +141,15 @@ contains
 
    end subroutine get_coordination_number
 
-
    subroutine ncoord(self, mol, trans, cutoff, cn)
-
       !> Coordination number container
       class(ncoord_type), intent(in) :: self
-
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
       !> Lattice points
       real(wp), intent(in) :: trans(:, :)
-
       !> Real space cutoff
       real(wp), intent(in) :: cutoff
-
       !> Error function coordination number.
       real(wp), intent(out) :: cn(:)
 
@@ -193,27 +186,19 @@ contains
 
    end subroutine ncoord
 
-
    subroutine ncoord_d(self, mol, trans, cutoff, cn, dcndr, dcndL)
-
       !> Coordination number container
       class(ncoord_type), intent(in) :: self
-
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
       !> Lattice points
       real(wp), intent(in) :: trans(:, :)
-
       !> Real space cutoff
       real(wp), intent(in) :: cutoff
-
       !> Error function coordination number.
       real(wp), intent(out) :: cn(:)
-
       !> Derivative of the CN with respect to the Cartesian coordinates.
       real(wp), intent(out) :: dcndr(:, :, :)
-
       !> Derivative of the CN with respect to strain deformations.
       real(wp), intent(out) :: dcndL(:, :, :)
 

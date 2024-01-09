@@ -396,25 +396,25 @@ pure subroutine overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
 
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
 
-   !> ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
-   !> Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
-   !> scale the elements with the corresponding factor,
-   !> transform them back and add them to the scaled overlap matrix
+   ! ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
+   ! Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
+   ! scale the elements with the corresponding factor,
+   ! transform them back and add them to the scaled overlap matrix
    block_overlap = 0.0_wp
-   !> 1. Fill the 9x9 submatrix (initialized with 0's)
-   !> with the correct overlap matrix elements
+   ! 1. Fill the 9x9 submatrix (initialized with 0's)
+   ! with the correct overlap matrix elements
    block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
      & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
-   !> 2. Set up transformation matrix, transform the submatrix,
-   !> scale the elements with the corresponding factor, transform back 
-   !> according to: trans_block_s = O^T * S * O
+   ! 2. Set up transformation matrix, transform the submatrix,
+   ! scale the elements with the corresponding factor, transform back 
+   ! according to: trans_block_s = O^T * S * O
    call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
-   !> 3. Fill the overlap_scaled matrix with the back-transformed submatrix
+   ! 3. Fill the overlap_scaled matrix with the back-transformed submatrix
    overlap_scaled(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
      & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
      & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
-   !> ----------------------------------------------------------------
+   ! ----------------------------------------------------------------
 
 end subroutine overlap_cgto_diat_scal
 

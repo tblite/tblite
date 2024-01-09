@@ -79,72 +79,55 @@ subroutine new_gfn_ncoord(self, mol, cutoff, rcov)
 
 end subroutine new_gfn_ncoord
 
-
 !> Double-exponential counting function for coordination number contributions.
 elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
-
    !> Coordination number container
    class(gfn_ncoord_type), intent(in) :: self
-
    !> Molecular structure data (not used in gfn)
    type(structure_type), intent(in) :: mol
-
    !> Atom i index
    integer, intent(in)  :: izp
-
    !> Atom j index
    integer, intent(in)  :: jzp
-
    !> Current distance.
    real(wp), intent(in) :: r
 
    real(wp) :: rc, count
 
    rc = self%rcov(izp) + self%rcov(jzp)
-
+   ! double exponential function based counting function
    count = gfn_count(ka, r, rc) * gfn_count(kb, r, rc + r_shift)
 
 end function ncoord_count
 
-
 !> Derivative of the double-exponential counting function w.r.t. the distance.
 elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
-
    !> Coordination number container
    class(gfn_ncoord_type), intent(in) :: self
-
    !> Molecular structure data (not used in gfn)
    type(structure_type), intent(in) :: mol
-
    !> Atom i index
    integer, intent(in)  :: izp
-
    !> Atom j index
    integer, intent(in)  :: jzp
-
    !> Current distance.
    real(wp), intent(in) :: r
 
    real(wp) :: rc, count
    
    rc = self%rcov(izp) + self%rcov(jzp)
-
+   ! double exponential function based counting function derivative
    count = (gfn_dcount(ka, r, rc) * gfn_count(kb, r, rc + r_shift) &
                & + gfn_count(ka, r, rc) * gfn_dcount(kb, r, rc + r_shift))
 
-
 end function ncoord_dcount
-
 
 !> Mono-exponential counting function for coordination number contributions.
 elemental function gfn_count(k, r, r0) result(count)
-
    !> Steepness of the counting function.
    real(wp), intent(in) :: k
-
    !> Current distance.
    real(wp), intent(in) :: r
-
    !> Cutoff radius.
    real(wp), intent(in) :: r0
 
@@ -157,13 +140,10 @@ end function gfn_count
 
 !> Derivative of the mono-exponential counting function w.r.t. the distance.
 elemental function gfn_dcount(k, r, r0) result(count)
-
    !> Steepness of the counting function.
    real(wp), intent(in) :: k
-
    !> Current distance.
    real(wp), intent(in) :: r
-
    !> Cutoff radius.
    real(wp), intent(in) :: r0
 
@@ -171,11 +151,8 @@ elemental function gfn_dcount(k, r, r0) result(count)
    real(wp) :: expterm
 
    expterm = exp(-k*(r0/r-1._wp))
-
    count = (-k*r0*expterm)/(r**2*((expterm+1._wp)**2))
 
 end function gfn_dcount
-
-
 
 end module tblite_ncoord_gfn

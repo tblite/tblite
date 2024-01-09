@@ -20,39 +20,27 @@
 
 !> Implementation of the single point calculation for the CEH model
 module tblite_ceh_singlepoint
-   !> mctc-lib
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
-   !> Adjacency list
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_cutoff, only : get_lattice_points
-   !> Basis set
    use tblite_basis_type, only : get_cutoff
-   !> Calculation context
    use tblite_context, only : context_type
    use tblite_output_format, only: format_string
-   !> Integrals
    use tblite_integral_type, only : integral_type, new_integral
-   !> Wavefunction
    use tblite_wavefunction, only : wavefunction_type, &
    & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
-   !> Additional potentials (external field)
-   use tblite_scf, only: new_potential, potential_type
+   use tblite_scf, only: new_potential, potential_type ! Potential for external field
    use tblite_container, only : container_cache
    use tblite_scf_potential, only: add_pot_to_h1
-   !> Electronic solver
    use tblite_scf_solver, only : solver_type
-   !> BLAS
    use tblite_blas, only : gemv
-   !> CEH specific
    use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
-   !> H0 specification
-   use tblite_xtb_spec, only : tb_h0spec
+   use tblite_xtb_spec, only : tb_h0spec 
    use tblite_xtb_calculator, only : xtb_calculator
-   !> Miscelaneous
    use tblite_timer, only : timer_type, format_time
    implicit none
    private
@@ -89,7 +77,7 @@ contains
       integer, intent(in), optional :: verbosity
 
       !> Molecular dipole moment
-      real(wp) :: dipole(3) = 0.0_wp
+      real(wp) :: dipole(3)
       !> Integral container
       type(integral_type) :: ints
       !> Electronic solver
@@ -104,10 +92,10 @@ contains
       type(timer_type) :: timer
       real(wp) :: ttime
 
-      logical :: grad = .false.
+      logical :: grad
 
       real(wp) :: elec_entropy
-      real(wp) :: nel = 0.0_wp, cutoff
+      real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
 
       integer :: i, prlevel
@@ -125,9 +113,7 @@ contains
          prlevel = ctx%verbosity
       end if
 
-      if (prlevel > 2) then
-         call header(ctx)
-      elseif (prlevel > 1) then
+      if (prlevel > 1) then
          call ctx%message("CEH guess")
       endif
       !> Gradient logical as future starting point (not implemented yet)
@@ -216,36 +202,6 @@ contains
       call timer%pop
       ttime = timer%get("wall time CEH")
 
-      !> Printout of results
-      if (prlevel > 2) then
-         call ctx%message(label_charges)
-         call ctx%message("Atom index      Charge / a.u.")
-         do i = 1, mol%nat
-            call ctx%message(format_string(i, "(i7)") // &
-            & "   " // format_string(wfn%qat(i,1), real_format))
-         end do
-         call ctx%message(repeat("-", 60))
-         call ctx%message(label_dipole)
-         call ctx%message("     x           y           z")
-         call ctx%message(format_string(dipole(1), "(f12.5)") // &
-         & format_string(dipole(2), "(f12.5)") // &
-         & format_string(dipole(3), "(f12.5)"))
-         call ctx%message(repeat("-", 60))
-      endif
-      if (prlevel > 0) then
-         call ctx%message(" - CEH single point"//repeat(" ", 4)//format_time(ttime))
-         call ctx%message("")
-      endif
-
    end subroutine ceh_guess
-
-   subroutine header(ctx)
-      !> Calculation context
-      type(context_type), intent(inout) :: ctx
-      call ctx%message(repeat("-", 60))
-      call ctx%message('       C H A R G E    E X T E N D E D    H U C K E L (CEH) ')
-      call ctx%message('                       SG, MM, AH, TF, May 2023            ')
-      call ctx%message(repeat("-", 60))
-   end subroutine header
 
 end module tblite_ceh_singlepoint
