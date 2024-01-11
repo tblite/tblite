@@ -391,6 +391,7 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Missing argument for post processing")
             exit
          end if
+
       case("--acc")
          iarg = iarg + 1
          call list%get(iarg, arg)
