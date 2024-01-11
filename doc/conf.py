@@ -14,12 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-import os, sys, subprocess
+import os
+import subprocess
+import sys
 
 _dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(_dir, "..", "python"))
 import tblite
-
 
 project = "tblite"
 author = "Sebastian Ehlert"

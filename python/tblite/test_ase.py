@@ -24,13 +24,12 @@ Tests for the ASE Calculator
 
 import numpy as np
 import pytest
-from pytest import approx, raises
+from pytest import approx
 
 try:
     import ase
-    from tblite.ase import TBLite
     from ase.atoms import Atoms
-    from ase.calculators.calculator import CalculationFailed, InputError
+    from tblite.ase import TBLite
 except ModuleNotFoundError:
     ase = None
 
@@ -84,7 +83,7 @@ def test_gfn2_xtb_0d():
         ]
     )
 
-    calc = TBLite(method="GFN2-xTB", atoms=atoms)
+    TBLite(method="GFN2-xTB", atoms=atoms)
 
     assert approx(atoms.get_potential_energy(), abs=thr) == -592.6794366990786
     assert approx(atoms.get_forces(), abs=thr) == forces
@@ -204,3 +203,46 @@ def test_gfn1_xtb_3d():
     assert approx(atoms.get_potential_energy(), abs=thr) == -1257.0801067985549
     assert approx(atoms.get_forces(), abs=thr) == forces
     assert approx(atoms.get_stress(), abs=thr) == stress
+
+
+def test_spgfn1_xtb():
+    thr = 5.0e-6
+
+    atoms = Atoms(
+        symbols="CrC5H5C3HCHCH3",
+        positions=ase.units.Bohr
+        * np.array(
+            [
+                [+0.00000000000000, +0.00000000000000, -0.06044684528305],
+                [+0.00000000000000, +3.19613712523833, +2.30877824528580],
+                [+2.18828801115897, +3.32943780995850, +0.70249948585735],
+                [+1.33235791539260, +3.55640652898451, -1.83908673090077],
+                [-1.33235791539260, +3.55640652898451, -1.83908673090077],
+                [-2.18828801115897, +3.32943780995850, +0.70249948585735],
+                [+0.00000000000000, +3.10509505378016, +4.34935395653655],
+                [+4.13810718850644, +3.28428734944129, +1.31235006648465],
+                [+2.52190264478215, +3.60569548880831, -3.50208900904436],
+                [-2.52190264478215, +3.60569548880831, -3.50208900904436],
+                [-4.13810718850644, +3.28428734944129, +1.31235006648465],
+                [+2.18828801115897, -3.32943780995850, +0.70249948585735],
+                [+0.00000000000000, -3.19613712523833, +2.30877824528580],
+                [+1.33235791539260, -3.55640652898451, -1.83908673090077],
+                [+4.13810718850644, -3.28428734944129, +1.31235006648465],
+                [-2.18828801115897, -3.32943780995850, +0.70249948585735],
+                [+0.00000000000000, -3.10509505378016, +4.34935395653655],
+                [-1.33235791539260, -3.55640652898451, -1.83908673090077],
+                [+2.52190264478215, -3.60569548880831, -3.50208900904436],
+                [-4.13810718850644, -3.28428734944129, +1.31235006648465],
+                [-2.52190264478215, -3.60569548880831, -3.50208900904436],
+            ]
+        ),
+    )
+
+    atoms.calc = TBLite(method="GFN1-xTB")
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
+
+    atoms.calc.set(spin_polarization=1.0)
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
+
+    atoms.calc.set(spin=2)
+    assert approx(atoms.get_potential_energy(), abs=thr) == -772.0011879234406

@@ -52,7 +52,7 @@ check_double(double actual, double expected, double tol, const char* msg)
     if (fabs(expected - actual) < tol) {
         return true;
     }
-    fprintf(stderr, "[Fatal] %s: expected %lf, got %lf\n", msg, expected, actual);
+    fprintf(stderr, "[Fatal] %s: expected %3.7f, got %3.7f\n", msg, expected, actual);
     return false;
 }
 
@@ -612,6 +612,14 @@ unexpected:
     return 1;
 }
 
+int test_error_setter(void)
+{
+    printf("Start test: error set\n");
+    tblite_error error = tblite_new_error();
+    tblite_set_error(error, "some error message", NULL);
+    return tblite_check_error(error) ? 0 : 1;
+}
+
 int test_empty_result(void)
 {
     printf("Start test: empty result\n");
@@ -1050,7 +1058,7 @@ err:
     return 1;
 }
 
-void example_callback(char* msg, int len, void* udata)
+void example_callback(tblite_error error, char* msg, int len, void* udata)
 {
     printf("[callback] %.*s\n", len, msg);
 }

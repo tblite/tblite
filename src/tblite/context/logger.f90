@@ -19,6 +19,7 @@
 
 !> Logger to display strings
 module tblite_context_logger
+   use mctc_env, only : error_type
    implicit none
    private
 
@@ -33,12 +34,14 @@ module tblite_context_logger
 
    abstract interface
       !> Entry point for displaying a string in the logger
-      subroutine message(self, msg)
-         import :: context_logger
+      subroutine message(self, msg, error)
+         import :: context_logger, error_type
          !> Instance of the logger
          class(context_logger), intent(inout) :: self
          !> String to display
          character(len=*), intent(in) :: msg
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
       end subroutine message
    end interface
 
