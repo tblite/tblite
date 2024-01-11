@@ -268,7 +268,7 @@ class TBLite(ase.calculators.calculator.Calculator):
                 calc.add("spin-polarization", self.parameters.spin_polarization)
 
         except RuntimeError as e:
-            raise ase.calculators.calculator.InputError(str(e))
+            raise ase.calculators.calculator.InputError(str(e)) from e
 
         return calc
 
