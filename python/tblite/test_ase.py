@@ -210,7 +210,8 @@ def test_spgfn1_xtb():
 
     atoms = Atoms(
         symbols="CrC5H5C3HCHCH3",
-        positions=ase.units.Bohr * np.array(
+        positions=ase.units.Bohr
+        * np.array(
             [
                 [+0.00000000000000, +0.00000000000000, -0.06044684528305],
                 [+0.00000000000000, +3.19613712523833, +2.30877824528580],

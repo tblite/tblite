@@ -240,8 +240,16 @@ class TBLite(ase.calculators.calculator.Calculator):
         try:
             _cell = self.atoms.cell
             _periodic = self.atoms.pbc
-            _charge = self.atoms.get_initial_charges().sum() if self.parameters.charge is None else self.parameters.charge
-            _uhf = int(self.atoms.get_initial_magnetic_moments().sum().round()) if self.parameters.spin is None else self.parameters.spin
+            _charge = (
+                self.atoms.get_initial_charges().sum()
+                if self.parameters.charge is None
+                else self.parameters.charge
+            )
+            _uhf = (
+                int(self.atoms.get_initial_magnetic_moments().sum().round())
+                if self.parameters.spin is None
+                else self.parameters.spin
+            )
 
             calc = Calculator(
                 self.parameters.method,
