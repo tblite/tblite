@@ -186,7 +186,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       wfn%nuhf = mol%uhf
    else
       if (mol%uhf /= 0) then
-         call fatal_error(error, "Total number of electrons ("//format_string(nel, "(i0)")//") and "//&
+         call fatal_error(error, "Total number of electrons ("//format_string(nint(nel), "(i0)")//") and "//&
             & "number unpaired electrons ("//format_string(mol%uhf, "(i0)")//") is not compatible")
          call ctx%set_error(error)
          ! do not return here
