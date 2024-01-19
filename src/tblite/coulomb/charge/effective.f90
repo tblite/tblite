@@ -541,13 +541,13 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    dadr(:, :, :) = 0.0_wp
    dadL(:, :, :) = 0.0_wp
 
+   itrace = atrace
+   didr = dadr
+   didL = dadL
    !$omp parallel default(none) &
    !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset, gexp) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp, arg) &
    !$omp private(itrace, didr, didL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -625,13 +625,13 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
+   itrace = atrace
+   didr = dadr
+   didL = dadL
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
    !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp, &
    !$omp& rcut) private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS, &
    !$omp& dGr, dSr, dGd, dSd, itrace, didr, didL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
