@@ -582,7 +582,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    dadr(:, :, :) = dadr + didr
    dadL(:, :, :) = dadL + didL
    !$omp end critical (get_damat_0d_)
-   deallocate(didL,didr,itrace)
+   deallocate(didL, didr, itrace)
    !$omp end parallel
 
 end subroutine get_damat_0d
