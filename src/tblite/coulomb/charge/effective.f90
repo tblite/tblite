@@ -691,7 +691,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    dadr(:, :, :) = dadr + didr
    dadL(:, :, :) = dadL + didL
    !$omp end critical (get_damat_3d_)
-   deallocate(didL,didr,itrace) 
+   deallocate(didL, didr, itrace) 
    !$omp end parallel
 
 end subroutine get_damat_3d
