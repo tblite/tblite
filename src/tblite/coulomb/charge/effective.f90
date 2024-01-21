@@ -548,9 +548,6 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    allocate(itrace, source=atrace)
    allocate(didr, source=dadr)
    allocate(didL, source=dadL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -636,9 +633,6 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    allocate(itrace, source=atrace)
    allocate(didr, source=dadr)
    allocate(didL, source=dadL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
