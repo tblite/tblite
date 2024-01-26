@@ -100,9 +100,9 @@ contains
 
       integer :: i, prlevel
 
-      !> coordination number related arrays
+      ! coordination number related arrays
       real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
-      !> self energy related arrays
+      ! self energy related arrays
       real(wp), allocatable :: selfenergy(:), dsedcn(:), dsedcn_en(:), lattr(:, :)
 
       call timer%push("wall time CEH")
@@ -116,13 +116,13 @@ contains
       if (prlevel > 1) then
          call ctx%message("CEH guess")
       endif
-      !> Gradient logical as future starting point (not implemented yet)
-      !> Entry point could either be (i) modified wavefunction type (including derivatives),
-      !> (iii) additional wavefunction derivative type (see old commits) or (ii) optional
-      !> dqdR variable in this routine
+      ! Gradient logical as future starting point (not implemented yet)
+      ! Entry point could either be (i) modified wavefunction type (including derivatives),
+      ! (iii) additional wavefunction derivative type (see old commits) or (ii) optional
+      ! dqdR variable in this routine
       grad = .false.
 
-      !> Define occupation
+      ! Define occupation
       call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
       nel = sum(wfn%n0at) - mol%charge
       if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
@@ -162,34 +162,34 @@ contains
          call ctx%message("")
       end if
 
-      !> Get Hamiltonian and integrals
+      ! Get Hamiltonian and integrals
       call new_integral(ints, calc%bas%nao)
       ints%quadrupole = 0.0_wp
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
 
-      !> Get initial potential
+      ! Get initial potential
       call new_potential(pot, mol, calc%bas, wfn%nspin)
-      !> Set potential to zero
+      ! Set potential to zero
       call pot%reset
       if (allocated(calc%interactions)) then
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
       endif
 
-      !> Add effective Hamiltonian to wavefunction
+      ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
-      !> Solve the effective Hamiltonian
+      ! Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
 
-      !> Get the density matrix
+      ! Get the density matrix
       call get_density(wfn, solver, ints, elec_entropy, error)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
 
-      !> Get charges and dipole moment from density and integrals
+      ! Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
       & wfn%qsh)
       call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)

@@ -137,7 +137,7 @@ module tblite_cli_help
       ""//nl//&
       help_text_response
 
-   !> Help text for run command
+   !> Help text for guess command
    character(len=*), parameter :: help_text_guess = &
       "Usage: "//prog_name//" [guess] [options] <input>"//nl//&
       ""//nl//&
@@ -149,20 +149,20 @@ module tblite_cli_help
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
-      "  -c, --charge <real>     Set charge to molecule, overwrites .CHRG file"//nl//&
-      "      --spin <int>        Set number of unpaired electrons, overwrites .UHF file"//nl//&
-      "      --method <name>     Guess for the initial populations, possible options:"//nl//&
-      "                          sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
-      "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
-      "      --solver <name>     Electronic solver for SCF, possible options:"//nl//&
-      "                          gvd (default), and gvr"//nl//&
+      "  -c, --charge <real>      Set charge to molecule, overwrites .CHRG file"//nl//&
+      "      --spin <int>         Set number of unpaired electrons, overwrites .UHF file"//nl//&
+      "      --method <name>      Guess for the initial populations, possible options:"//nl//&
+      "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --etemp-guess <real> Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
+      "                           gvd (default), and gvr"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
-      "                          Homogeneous electric field in V/Å."//nl//&
-      "      --grad              Evaluate analytic gradient of charges."//nl//&
+      "                           Homogeneous electric field in V/Å."//nl//&
+      "      --grad               Evaluate analytic gradient of charges."//nl//&
       ! "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
-      "  -i, --input <format>    Hint for the format of the input file"//nl//&
-      "  -v, --verbose           Increase verbosity of printout"//nl//&
-      "  -s, --silent            Reduce verbosity of printout"//nl//&
+      "  -i, --input <format>     Hint for the format of the input file"//nl//&
+      "  -v, --verbose            Increase verbosity of printout"//nl//&
+      "  -s, --silent             Reduce verbosity of printout"//nl//&
       help_text_general//nl//&
       ""//nl//&
       help_text_response

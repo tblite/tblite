@@ -423,7 +423,7 @@ subroutine get_run_arguments(config, list, start, error)
          call get_argument_as_real(arg, config%etemp, error)
          if (allocated(error)) exit
 
-      case("--etemp_guess")
+      case("--etemp-guess")
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp_guess, error)
@@ -587,7 +587,7 @@ subroutine get_guess_arguments(config, list, start, error)
             config%solver = lapack_algorithm%gvr
          end select
 
-      case("--etemp_guess")
+      case("--etemp-guess")
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp_guess, error)

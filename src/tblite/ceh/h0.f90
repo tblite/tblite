@@ -61,28 +61,27 @@ contains
             selfenergy(ii+ish) = h0%selfenergy(ish, izp)
          end do
       end do
-      if (present(cn) .and. present(cn_en)) then
-         if (present(dsedcn) .and. present(dsedcn_en)) then
-            do iat = 1, size(id)
-               izp = id(iat)
-               ii = ish_at(iat)
-               do ish = 1, nshell(izp)
-                  selfenergy(ii+ish) = selfenergy(ii+ish) + h0%kcn(ish, izp) * cn(iat) + &
-                  &  h0%kcn_en(ish, izp) * cn_en(iat)
-                  dsedcn(ii+ish) = h0%kcn(ish, izp)
-                  dsedcn_en(ii+ish) = h0%kcn_en(ish, izp)
-               end do
+      if (.not.present(cn) .or. .not.present(cn_en)) return
+      if (present(dsedcn) .and. present(dsedcn_en)) then
+         do iat = 1, size(id)
+            izp = id(iat)
+            ii = ish_at(iat)
+            do ish = 1, nshell(izp)
+               selfenergy(ii+ish) = selfenergy(ii+ish) + h0%kcn(ish, izp) * cn(iat) + &
+               &  h0%kcn_en(ish, izp) * cn_en(iat)
+               dsedcn(ii+ish) = h0%kcn(ish, izp)
+               dsedcn_en(ii+ish) = h0%kcn_en(ish, izp)
             end do
-         else
-            do iat = 1, size(id)
-               izp = id(iat)
-               ii = ish_at(iat)
-               do ish = 1, nshell(izp)
-                  selfenergy(ii+ish) = selfenergy(ii+ish) + h0%kcn(ish, izp) * cn(iat) + &
-                  &  h0%kcn_en(ish, izp) * cn_en(iat)
-               end do
+         end do
+      else
+         do iat = 1, size(id)
+            izp = id(iat)
+            ii = ish_at(iat)
+            do ish = 1, nshell(izp)
+               selfenergy(ii+ish) = selfenergy(ii+ish) + h0%kcn(ish, izp) * cn(iat) + &
+               &  h0%kcn_en(ish, izp) * cn_en(iat)
             end do
-         end if
+         end do
       end if
 
    end subroutine get_scaled_selfenergy
@@ -122,7 +121,7 @@ contains
       overlap_diat(:, :) = 0.0_wp
       hamiltonian(:, :) = 0.0_wp
 
-      !> Allocate temporary matrices for overlap, diatomic frame scaled overlap and dipole moment integrals
+      ! Allocate temporary matrices for overlap, diatomic frame scaled overlap and dipole moment integrals
       allocate(stmp(msao(bas%maxl)**2), stmp_diat(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2))
 
       !$omp parallel do schedule(runtime) default(none) &
@@ -158,8 +157,8 @@ contains
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
-                        !> Shift dipole operator from Ket function (center i)
-                        !> to Bra function (center j) to save the redundant calculation
+                        ! Shift dipole operator from Ket function (center i)
+                        ! to Bra function (center j) to save the redundant calculation
                         call shift_operator(vec, stmp(ij), dtmpi(:, ij), dtmpj)
 
                         !$omp atomic
@@ -246,7 +245,7 @@ contains
                   end do
                end do
             end do
-            !> diagonal term (AO(i) == AO(j))
+            ! diagonal term (AO(i) == AO(j))
             do iao = 1, msao(bas%cgto(ish, izp)%ang)
                hamiltonian(ii+iao, ii+iao) = selfenergy(is + ish)
             enddo

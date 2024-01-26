@@ -17,8 +17,8 @@
 !> @file tblite/ncoord/exp.f90
 !> Provides a coordination number implementation with exponential counting function
 
-!> Coordination number implementation using an exponential counting function
-!> Same as in dftd3 reimplemented
+!> Coordination number implementation using an exponential counting function, 
+!> same as in dftd3.
 module tblite_ncoord_exp
    use mctc_env, only : wp
    use mctc_io, only : structure_type
