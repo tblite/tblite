@@ -29,6 +29,7 @@ set(
   "integral-overlap"
   "integral-multipole"
   "ipea1-xtb"
+  "post-processing"
   "ncoord-gfn"
   "repulsion"
   "slater-expansion"
