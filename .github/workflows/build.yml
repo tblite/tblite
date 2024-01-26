@@ -17,6 +17,7 @@ env:
     numpy
     ase
     matplotlib==3.4.2
+    qcelemental
   MACOS_BASEKIT_URL: >-
     https://registrationcenter-download.intel.com/akdlm/irc_nas/17969/m_BaseKit_p_2021.3.0.3043.dmg
   MACOS_HPCKIT_URL: >-

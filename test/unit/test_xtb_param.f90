@@ -24,6 +24,7 @@ module test_xtb_param
    use tblite_param, only : param_record, charge_record, dispersion_record, element_record, &
       & halogen_record, hamiltonian_record, multipole_record, repulsion_record, &
       & thirdorder_record, param_mask, count
+   use tblite_param_molecular_moments, only:  molecular_multipole_record
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
@@ -61,6 +62,7 @@ subroutine collect_xtb_param(testsuite)
       new_unittest("multipole-empty", test_multipole_empty, should_fail=.true.), &
       new_unittest("repulsion-empty", test_repulsion_empty, should_fail=.true.), &
       new_unittest("thirdorder-empty", test_thirdorder_empty), &
+      new_unittest("mol-multipole-empty", test_mol_multipole_empty), &
       new_unittest("mask-a", test_mask_gfn2), &
       new_unittest("mask-b", test_mask_gfn1), &
       new_unittest("gfn2-xtb-a", test_gfn2_mb02), &
@@ -182,6 +184,16 @@ subroutine test_element_empty(error)
    call param%load(table, error)
 end subroutine test_element_empty
 
+subroutine test_mol_multipole_empty(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(toml_table) :: table
+   type(molecular_multipole_record) :: param
+
+   table = toml_table()
+   call param%load(table, error)
+end subroutine test_mol_multipole_empty
 
 subroutine test_charge_empty(error)
    !> Error handling

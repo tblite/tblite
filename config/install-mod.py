@@ -16,9 +16,9 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 from os import environ, listdir, makedirs
-from os.path import join, isdir, exists
-from sys import argv
+from os.path import exists, isdir, join
 from shutil import copy
+from sys import argv
 
 build_dir = environ["MESON_BUILD_ROOT"]
 if "MESON_INSTALL_DESTDIR_PREFIX" in environ:

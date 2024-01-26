@@ -30,6 +30,7 @@ set(
   "integral-multipole"
   "ipea1-xtb"
   "ncoord"
+  "post-processing"
   "repulsion"
   "slater-expansion"
   "spin"

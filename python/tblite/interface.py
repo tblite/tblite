@@ -241,6 +241,7 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "post-processing-dict": library.get_post_processing_dict,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
     }
@@ -463,6 +464,10 @@ class Calculator(Structure):
         "alpb-solvation": library.new_alpb_solvation,
         "cpcm-solvation": library.new_cpcm_solvation,
     }
+    _post_processing = {
+        "bond-orders" : "bond-orders",
+        "molecular-multipoles" : "molmom",
+    }
 
     def __init__(
         self,
@@ -540,12 +545,19 @@ class Calculator(Structure):
         =================== =========================== ===================
         """
 
-        if interaction not in self._interaction:
+        if interaction in self._interaction:
+            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
+            library.calculator_push_back(self._ctx, self._calc, cont)
+        elif interaction in self._post_processing:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        elif ".toml" in interaction:
+            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+        else:
             raise TBLiteValueError(
-                f"Interaction '{interaction}' is not supported in this calculator"
+                f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-        cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
-        library.calculator_push_back(self._ctx, self._calc, cont)
+        
+        
 
     def get(self, attribute: str) -> Any:
         """
@@ -587,8 +599,8 @@ class Calculator(Structure):
         """
 
         _res = Result(res) if copy or res is None else res
-
         library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
+        
         return _res
 
 
