@@ -22,7 +22,7 @@ module tblite_ncoord_erf
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use tblite_data_covrad_ceh, only : get_covalent_cehrad
+   use tblite_data_covrad, only : get_covalent_rad
    use tblite_ncoord_type, only : ncoord_type
    implicit none
    private
@@ -39,8 +39,8 @@ module tblite_ncoord_erf
       procedure :: ncoord_dcount
    end type erf_ncoord_type
 
-   !> Steepness of counting function
-   real(wp), parameter :: kcn = 3.09_wp
+   !> Steepness of counting function # TF Jan 10, 2024
+   real(wp), parameter :: kcn = 2.60_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
@@ -67,7 +67,7 @@ contains
       if (present(rcov)) then
          self%rcov(:) = rcov
       else
-         self%rcov(:) = get_covalent_cehrad(mol%num)
+         self%rcov(:) = get_covalent_rad(mol%num)
       end if
 
       self%directed_factor = 1.0_wp

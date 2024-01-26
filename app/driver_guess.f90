@@ -116,13 +116,13 @@ contains
 
       nspin = 1
       call new_gfn2_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp_guess * kt)
 
       method = "ceh"
       if (allocated(config%method)) method = config%method
       if (method == "ceh") then
          call new_ceh_calculator(calc_ceh, mol)
-         call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+         call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       end if
 
       if (allocated(config%efield) .and. config%method == "ceh") then
@@ -215,7 +215,7 @@ contains
       & message)
    end subroutine fatal
 
-!> Extract dirname from path
+   !> Extract dirname from path
    function dirname(filename)
       character(len=*), intent(in) :: filename
       character(len=:), allocatable :: dirname
@@ -225,7 +225,7 @@ contains
    end function dirname
 
 
-!> Construct path by joining strings with os file separator
+   !> Construct path by joining strings with os file separator
    function join(a1, a2) result(path)
       use mctc_env_system, only : is_windows
       character(len=*), intent(in) :: a1, a2
@@ -242,7 +242,7 @@ contains
    end function join
 
 
-!> test if pathname already exists
+   !> test if pathname already exists
    function exists(filename)
       character(len=*), intent(in) :: filename
       logical :: exists
