@@ -18,6 +18,7 @@ srcs += files(
   'calculator.f90',
   'container.f90',
   'context.f90',
+  'double_dictionary.f90',
   'error.f90',
   'param.f90',
   'result.f90',

@@ -34,8 +34,7 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
-      & shell_partition
+      & sad_guess, eeq_guess, shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -43,6 +42,7 @@ module tblite_driver_run
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_ceh_singlepoint, only : ceh_guess
    use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
 
    implicit none
    private
@@ -57,6 +57,7 @@ module tblite_driver_run
    real(wp), parameter :: jtoau = 1.0_wp / (codata%me*codata%c**2*codata%alpha**2)
    !> Convert V/Å = J/(C·Å) to atomic units
    real(wp), parameter :: vatoau = jtoau / (ctoau * aatoau)
+   character(len=:), allocatable :: wbo_label, molmom_label
 
 contains
 
@@ -68,7 +69,9 @@ subroutine run_main(config, error)
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, unit, nspin
-   real(wp) :: energy, dpmom(3), qpmom(6)
+   logical :: exist
+   real(wp) :: energy
+   real(wp), allocatable :: dpmom(:), qpmom(:)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    type(param_record) :: param
    type(context_type) :: ctx
@@ -76,6 +79,7 @@ subroutine run_main(config, error)
    type(xtb_calculator) :: calc_ceh
    type(wavefunction_type) :: wfn, wfn_ceh
    type(results_type) :: results
+   class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
@@ -197,6 +201,14 @@ subroutine run_main(config, error)
    end select
    if (allocated(error)) return
 
+   if (allocated(config%efield)) then
+      block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc%push_back(cont)
+      end block
+   end if
+
    if (config%spin_polarized) then
       block
          class(container_type), allocatable :: cont
@@ -221,13 +233,30 @@ subroutine run_main(config, error)
       end block
    end if
 
+   wbo_label = "bond-orders"
+   allocate(post_proc)
+   call add_post_processing(post_proc, wbo_label, error)
+
+   if (config%verbosity > 2) then
+      molmom_label = "molmom"
+      call add_post_processing(post_proc, molmom_label, error)
+   end if
+
+   if (allocated(config%post_processing)) then
+      call add_post_processing(post_proc, config%post_processing, error)
+   end if
+
+   if (allocated(param%post_proc)) then
+      call add_post_processing(post_proc, param%post_proc)
+   end if
+
    if (config%verbosity > 0) then
       call ctx%message(calc%info(config%verbosity, " | "))
       call ctx%message("")
    end if
 
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
-      & config%verbosity, results)
+      & config%verbosity, results, post_proc)
    if (ctx%failed()) then
       call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
@@ -239,13 +268,14 @@ subroutine run_main(config, error)
 
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
-
-      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
-      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
-         & wfn%qpat(:, :, 1), qpmom)
+      call post_proc%dict%get_entry("molecular-dipole", dpmom)
+      call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
+      
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
+
+   deallocate(post_proc)
 
    if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)
