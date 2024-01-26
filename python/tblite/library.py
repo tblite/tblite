@@ -31,7 +31,7 @@ try:
 except ImportError:
     raise ImportError("tblite C extension unimportable, cannot use C-API")
 
-from .exceptions import TBLiteRuntimeError, TBLiteTypeError
+from .exceptions import TBLiteRuntimeError, TBLiteTypeError, TBLiteValueError
 
 
 def get_version() -> tuple:
