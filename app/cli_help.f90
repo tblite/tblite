@@ -107,37 +107,38 @@ module tblite_cli_help
       ""//nl//&
       "Options"//nl//&
       ""//nl//&
-      "  -c, --charge <real>     Set charge to molecule, overwrites .CHRG file"//nl//&
-      "      --spin <int>        Set number of unpaired electrons, overwrites .UHF file"//nl//&
-      "      --method <name>     Parametrization of the xTB Hamiltonian to use"//nl//&
-      "                          Available methods: gfn1, gfn2, ipea1 (Default: gfn2)"//nl//&
-      "      --param <file>      Parametrization file to use for calculation"//nl//&
-      "      --etemp <real>      Electronic temperature for calculation (Default: 300K)"//nl//&
-      "      --guess <name>      Guess for the initial populations, possible options:"//nl//&
-      "                          sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
-      "      --iterations <int>  Maximum number of SCF iterations (Default: 250)"//nl//&
-      "      --solver <name>     Electronic solver for SCF, possible options:"//nl//&
-      "                          gvd (default), and gvr"//nl//&
+      "  -c, --charge <real>      Set charge to molecule, overwrites .CHRG file"//nl//&
+      "      --spin <int>         Set number of unpaired electrons, overwrites .UHF file"//nl//&
+      "      --method <name>      Parametrization of the xTB Hamiltonian to use"//nl//&
+      "                           Available methods: gfn1, gfn2, ipea1 (Default: gfn2)"//nl//&
+      "      --param <file>       Parametrization file to use for calculation"//nl//&
+      "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
+      "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
+      "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
+      "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
+      "                           gvd (default), and gvr"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
-      "                          Homogeneous electric field in V/Å."//nl//&
-      "--alpb <real>             Use analytical linearized Poisson-Boltzmann solvation."//nl//&
-      "                          Solvent is specified by dielectric constant."//nl//&
-      "--gbsa <real>             Use generalized Born solvation model."//nl//&
-      "                          Solvent is specified by dielectric constant."//nl//&
-      "--cpcm <real>             Use polarizable continuum solvation model."//nl//&
-      "                          Solvent is specified by dielectric constant."//nl//&
-      "      --spin-polarized    Use spin-polarized xTB Hamiltonian"//nl//&
-      "--post-processing <file>  Add post processing methods to the calculation"//nl//&
-      "                          by using a toml file as input."//nl//&
-      "--post-processing <name>  Add post processing methods to the calculation,"//nl//&
-      "                          Mayer-Wiberg bond orders are computed by default."//nl//&
-      "                          Options: molmom (molecular multipole moments)"//nl//& 
-      "      --grad [file]       Evaluate molecular gradient and virial"//nl//&
-      "                          Results are stored in file (default: tblite.txt)"//nl//&
-      "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
-      "  -i, --input <format>    Hint for the format of the input file"//nl//&
-      "  -v, --verbose           Increase verbosity of printout"//nl//&
-      "  -s, --silent            Reduce verbosity of printout"//nl//&
+      "                           Homogeneous electric field in V/Å."//nl//&
+      "--alpb <real>              Use analytical linearized Poisson-Boltzmann solvation."//nl//&
+      "                           Solvent is specified by dielectric constant."//nl//&
+      "--gbsa <real>              Use generalized Born solvation model."//nl//&
+      "                           Solvent is specified by dielectric constant."//nl//&
+      "--cpcm <real>              Use polarizable continuum solvation model."//nl//&
+      "                           Solvent is specified by dielectric constant."//nl//&
+      "      --spin-polarized     Use spin-polarized xTB Hamiltonian"//nl//&
+      "--post-processing <file>   Add post processing methods to the calculation"//nl//&
+      "                           by using a toml file as input."//nl//&
+      "--post-processing <name>   Add post processing methods to the calculation,"//nl//&
+      "                           Mayer-Wiberg bond orders are computed by default."//nl//&
+      "                           Options: molmom (molecular multipole moments)"//nl//& 
+      "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
+      "                           Results are stored in file (default: tblite.txt)"//nl//&
+      "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
+      "  -i, --input <format>     Hint for the format of the input file"//nl//&
+      "  -v, --verbose            Increase verbosity of printout"//nl//&
+      "  -s, --silent             Reduce verbosity of printout"//nl//&
       help_text_general//nl//&
       ""//nl//&
       help_text_response
@@ -158,7 +159,7 @@ module tblite_cli_help
       "      --spin <int>         Set number of unpaired electrons, overwrites .UHF file"//nl//&
       "      --method <name>      Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
-      "      --etemp-guess <real> Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
       "                           gvd (default), and gvr"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
