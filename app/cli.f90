@@ -25,7 +25,7 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, solvent_data, get_solvent_data
+      & cds_input, shift_input, solvent_data, get_solvent_data
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -393,6 +393,8 @@ subroutine get_run_arguments(config, list, start, error)
          config%solvation%alpb%solvent = solvent%solvent
          config%solvation%cds = cds_input(solvent=solvent%solvent)
          config%solvation%cds%solvent = solvent%solvent
+         config%solvation%shift = shift_input(solvent=solvent%solvent)
+         config%solvation%shift%solvent = solvent%solvent
 
       case("--param")
          if (allocated(config%param)) then

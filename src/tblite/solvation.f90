@@ -27,20 +27,24 @@ module tblite_solvation
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input
    use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
+   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
    use tblite_data_alpb, only: get_alpb_param
    use tblite_data_cds, only: get_cds_param
+   use tblite_data_shift, only: get_shift_param
    implicit none
    private
 
    public :: alpb_solvation, new_alpb, alpb_input
    public :: cpcm_solvation, new_cpcm, cpcm_input
    public :: cds_solvation, new_cds, cds_input
+   public :: shift_solvation, new_shift, shift_input
    public :: solvent_data, get_solvent_data
    public :: solvation_input, new_solvation, solvation_type
    public :: new_solvation_cds
+   public :: new_solvation_shift
 
 contains
 
@@ -63,7 +67,7 @@ subroutine new_solvation(solv, mol, input, error, method)
       !> xTB like ALPB/GBSA with empirical parameters 
       if (input%alpb%xtb) then
          if ( .not. present(method)) then
-            call fatal_error(error, "Unkown method for solvation model parameter selection")
+            call fatal_error(error, "Unkown method for ALPB/GBSA parameter selection")
             return
          end if
          scratch_input = input%alpb
@@ -86,7 +90,7 @@ subroutine new_solvation(solv, mol, input, error, method)
    call fatal_error(error, "Unknown solvation model")
 end subroutine new_solvation
 
-!> Create new solvation model from input data
+!> Create new cds solvation model from input data
 subroutine new_solvation_cds(solv, mol, input, error, method)
    !> Instance of the solvation model
    class(solvation_type), allocatable, intent(out) :: solv
@@ -111,5 +115,29 @@ subroutine new_solvation_cds(solv, mol, input, error, method)
 
    call fatal_error(error, "Unknown cds model")
 end subroutine new_solvation_cds
+
+!> Create new solvation shift from input data
+subroutine new_solvation_shift(solv, input, error, method)
+   !> Instance of the solvation model
+   class(solvation_type), allocatable, intent(out) :: solv
+   !> Input data
+   type(solvation_input), intent(in) :: input
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=*), optional, intent(in) :: method
+   !> scratch input
+   type(shift_input), allocatable :: scratch_input
+
+   if (allocated(input%shift).and.present(method)) then
+      scratch_input = input%shift
+      scratch_input%method = method
+      call get_shift_param(scratch_input, error)
+      solv = shift_solvation(scratch_input)
+      return
+    end if
+
+   call fatal_error(error, "Unknown solvation shift")
+end subroutine new_solvation_shift
 
 end module tblite_solvation

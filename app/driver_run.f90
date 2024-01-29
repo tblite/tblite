@@ -32,7 +32,7 @@ module tblite_driver_run
    use tblite_param, only : param_record
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : new_solvation, new_solvation_cds, solvation_type
+   use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
       & shell_partition
@@ -227,6 +227,16 @@ subroutine run_main(config, error)
             call new_solvation_cds(cds, mol, config%solvation, error, method)
             if (allocated(error)) return
             call move_alloc(cds, cont)
+            call calc%push_back(cont)
+         end block
+      end if
+      if (allocated(config%solvation%shift)) then
+         block
+            class(container_type), allocatable :: cont
+            class(solvation_type), allocatable :: shift
+            call new_solvation_shift(shift, config%solvation, error, method)
+            if (allocated(error)) return
+            call move_alloc(shift, cont)
             call calc%push_back(cont)
          end block
       end if

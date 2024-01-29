@@ -70,7 +70,7 @@ module tblite_solvation_cds
       !> Update cache from container
       procedure :: update
       !> Return dependency on density
-      procedure :: variable_info
+      !>procedure :: variable_info
       !> Get solvation energy and gradient
       procedure :: get_engrad
       !> Get solvation energy
