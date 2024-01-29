@@ -29,7 +29,7 @@ module tblite_solvation_shift
  
     public :: shift_solvation, new_shift, shift_input
 
-    type, public :: shift_input
+    type :: shift_input
         !> reference state
         integer :: state = 1
         !> solvent specific free energy shift
@@ -70,7 +70,7 @@ module tblite_solvation_shift
     real(wp), parameter :: idealGasMolVolume = 24.79_wp
     real(wp), parameter :: ambientTemperature = 298.15_wp ! * Boltzman
 
-    type, public, extends(solvation_type) :: shift_solvation
+    type, extends(solvation_type) :: shift_solvation
        !> total shift
        real(wp) :: total_shift 
        contains   
