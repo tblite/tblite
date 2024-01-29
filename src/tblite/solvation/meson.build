@@ -22,6 +22,7 @@ srcs += files(
   'cpcm_dd.f90',
   'data.f90',
   'input.f90',
+  'shift.f90',
   'surface.f90',
   'type.f90',
 )

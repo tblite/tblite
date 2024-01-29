@@ -21,6 +21,7 @@ list(
   "${dir}/atomicrad.f90"
   "${dir}/covrad.f90"
   "${dir}/paulingen.f90"
+  "${dir}/shift.f90"
   "${dir}/spin.f90"
   "${dir}/covrad_ceh.f90"
   "${dir}/alpb.f90"
