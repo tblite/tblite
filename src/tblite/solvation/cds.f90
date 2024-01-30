@@ -32,6 +32,7 @@ module tblite_solvation_cds
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
+   use mctc_io_convert, only : aatoau
    implicit none
    private
 
@@ -40,15 +41,21 @@ module tblite_solvation_cds
    !> Input for CDS model
    type :: cds_input
       !> Probe radius of the solvent
-      real(wp) :: probe
+      real(wp) :: probe = 1.00000_wp * aatoau
       !> Number of angular grid points for integration
-      integer :: nang
+      integer :: nang = 230
       !> Van-der-Waals radii for each species
       real(wp), allocatable :: rad(:)
       !> Surface tension for each species
       real(wp), allocatable :: tension(:)
       !> Hydrogen bonding strength for each species
       real(wp), allocatable :: hbond(:)
+      !> Linearized Poisson-Boltzmann model for parameter selection
+      logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
    end type cds_input
 
    !> Definition of the CDS model
@@ -95,6 +102,9 @@ module tblite_solvation_cds
       real(wp), allocatable :: hbond(:)
    end type cds_cache
 
+      !> Identifier for container
+      character(len=*), parameter :: label = "cds contribution to solvation"
+
 contains
 
 !> Create new CDS solvation model
@@ -108,6 +118,7 @@ subroutine new_cds(self, mol, input)
 
    real(wp), allocatable :: rad(:)
 
+   self%label = label
    if (allocated(input%rad)) then
       rad = input%rad
    else
@@ -115,15 +126,15 @@ subroutine new_cds(self, mol, input)
    end if
 
    self%tension = input%tension
-
+  
    if (allocated(input%hbond)) then
-      self%hbond = input%hbond
+      self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
    end if
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
 
-!> Type constructor for CDS splvation
+!> Type constructor for CDS solvation
 function create_cds(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol

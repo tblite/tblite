@@ -69,6 +69,12 @@ module tblite_solvation_alpb
       integer :: kernel = born_kernel%p16
       !> Use analytical linearized Poisson-Boltzmann model
       logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
+      !> xTB like solvation with empirical parameters
+      logical :: xtb = .false.
    end type alpb_input
 
 
@@ -115,7 +121,7 @@ module tblite_solvation_alpb
 
 
    !> Identifier for container
-   character(len=*), parameter :: label = "reaction field model"
+   character(len=*), parameter :: label = "alpb/gbsa reaction field model"
 
    real(wp), parameter :: zetaP16 = 1.028_wp
    real(wp), parameter :: zetaP16o16 = zetaP16 / 16.0_wp
@@ -154,7 +160,7 @@ subroutine new_alpb(self, mol, input, error)
 end subroutine new_alpb
 
 
-!> Type constructor for ALPB splvation
+!> Type constructor for ALPB solvation
 function create_alpb(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
