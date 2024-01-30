@@ -114,7 +114,7 @@ subroutine get_cds_param(input, mol, error)
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_nhexan
          end select
-      else
+      else if (input%method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_acetone
          case('acetonitrile'); param = gfn1_acetonitrile
@@ -160,7 +160,7 @@ subroutine get_cds_param(input, mol, error)
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_alpb_hexane
          end select
-      else
+      else if (input%method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_alpb_acetone
          case('acetonitrile'); param = gfn1_alpb_acetonitrile
@@ -228,11 +228,6 @@ subroutine load_cds_param(input, mol, param)
 
    input%rad = get_vdw_rad_d3(mol%num)
    
-   !print *, 'CDS Print'
-   !print *, param%rprobe
-   !print *, param%gamscale(mol%num)
-   !print *, param%tmp(mol%num)
-
 end subroutine load_cds_param
 
 end module tblite_data_cds

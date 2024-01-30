@@ -229,8 +229,6 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    if (allocated(self%hbond)) then
       ptr%scratch(:) = ptr%hbond * ptr%surface * wfn%qat(:, 1)**2
       energies(:) = energies + ptr%scratch
-      !print *, 'Ghbond: ', sum(ptr%scratch)
-      !print *, 'sasa: ', ptr%surface
    end if
 end subroutine get_energy
 

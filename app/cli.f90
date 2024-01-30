@@ -375,7 +375,7 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
-         alpb = arg == "--alpb"
+         alpb = arg == "--alpb-xtb"
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then

@@ -113,7 +113,7 @@ subroutine get_alpb_param(input, mol, error)
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_nhexan
          end select
-      else
+      else if (input%method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_acetone
          case('acetonitrile'); param = gfn1_acetonitrile
@@ -159,7 +159,7 @@ subroutine get_alpb_param(input, mol, error)
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_alpb_hexane
          end select
-      else
+      else if (input%method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_alpb_acetone
          case('acetonitrile'); param = gfn1_alpb_acetonitrile
@@ -192,7 +192,7 @@ subroutine get_alpb_param(input, mol, error)
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent")
+      call fatal_error(error, "Unknown solvent, can set up xTB ALPB/GBSA")
    end if
  
    call load_alpb_param(input, mol, param)
@@ -224,12 +224,6 @@ subroutine load_alpb_param(input, mol, param)
    input%descreening = param%sx(mol%num)
 
    input%rvdw = get_vdw_rad_d3(mol%num)
-
-   !print *, 'ALPB print'
-   !print *, param%epsv
-   !print *, param%c1
-   !print *, param%soset
-   !print *, param%sx(mol%num)
 
 end subroutine load_alpb_param
 
