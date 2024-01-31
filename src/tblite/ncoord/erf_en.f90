@@ -14,48 +14,52 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ncoord/exp.f90
-!> Provides a coordination number implementation with exponential counting function
+!> @file tblite/ncoord/erf_en.f90
+!> Provides an implementation for the electronegativity-weighted CN as used in the CEH method
 
-!> Coordination number implementation using an exponential counting function, 
-!> same as in dftd3.
-module tblite_ncoord_exp
+!> Coordination number implementation with single error function and EN-weighting for the CEH method.
+module tblite_ncoord_erf_en
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_constants, only : pi
    use tblite_data_covrad, only : get_covalent_rad
+   use tblite_data_paulingen, only : get_pauling_en
    use tblite_ncoord_type, only : ncoord_type
    implicit none
    private
 
-   public :: new_exp_ncoord
+   public :: new_erf_en_ncoord
 
    !> Coordination number evaluator
-   type, public, extends(ncoord_type) :: exp_ncoord_type
+   type, public, extends(ncoord_type) :: erf_en_ncoord_type
       real(wp), allocatable :: rcov(:)
+      real(wp), allocatable :: en(:)
    contains
-      !> Evaluates the exponential counting function
+      !> Evaluates the EN-weighted error counting function
       procedure :: ncoord_count
-      !> Evaluates the derivative of the exponential counting function
+      !> Evaluates the derivative of the EN-weighted error counting function
       procedure :: ncoord_dcount
-   end type exp_ncoord_type
+   end type erf_en_ncoord_type
 
-   !> Steepness of counting function
-   real(wp), parameter :: kcn = 16.0_wp
+   !> Steepness of counting function # TF Jan 10, 2024
+   real(wp), parameter :: kcn = 2.60_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
 contains
 
 
-   subroutine new_exp_ncoord(self, mol, cutoff, rcov)
+   subroutine new_erf_en_ncoord(self, mol, cutoff, rcov, en)
       !> Coordination number container
-      type(exp_ncoord_type), intent(out) :: self
+      type(erf_en_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Real space cutoff
       real(wp), intent(in), optional :: cutoff
       !> Covalent radii
       real(wp), intent(in), optional :: rcov(:)
+      !> Electronegativity
+      real(wp), intent(in), optional :: en(:)
 
       if (present(cutoff)) then
          self%cutoff = cutoff
@@ -63,23 +67,36 @@ contains
          self%cutoff = default_cutoff
       end if
 
+      ! Default are always the Pyykko radii 
+      ! but in the CEH use case they will be overwritten
       allocate(self%rcov(mol%nid))
       if (present(rcov)) then
          self%rcov(:) = rcov
-      else
+      else   
          self%rcov(:) = get_covalent_rad(mol%num)
       end if
 
-      self%directed_factor = 1.0_wp
+      ! Default are always the Pauling EN 
+      ! but in the CEH use case they will be overwritten
+      allocate(self%en(mol%nid))
+      if (present(en)) then
+         self%en(:) = en
+      else
+         self%en(:) = get_pauling_en(mol%num)
+      end if
 
-   end subroutine new_exp_ncoord
-   
+      !> CN is directed due to the EN contribution
+      !> i.e. contribution added to higher EN and removed from lower EN partner
+      self%directed_factor = -1.0_wp
 
-   !> Exponential counting function for coordination number contributions.
+   end subroutine new_erf_en_ncoord
+
+
+   !> Error counting function for coordination number contributions.
    elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
       !> Coordination number container
-      class(exp_ncoord_type), intent(in) :: self
-      !> Molecular structure data (not used in exp)
+      class(erf_en_ncoord_type), intent(in) :: self
+      !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Atom i index
       integer, intent(in)  :: izp
@@ -88,20 +105,20 @@ contains
       !> Current distance.
       real(wp), intent(in) :: r
 
-      real(wp) :: rc, count
+      real(wp) :: rc, diff_en, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-      ! exponential function based counting function
-      count =1.0_wp/(1.0_wp+exp(-kcn*(rc/r-1.0_wp)))
+      diff_en = self%en(jzp) - self%en(izp)
+      ! error function based counting function with EN 
+      count = 0.5_wp * diff_en * (1.0_wp + erf(-kcn*(r-rc)/rc))
 
    end function ncoord_count
 
-
-   !> Derivative of the exponential counting function w.r.t. the distance.
+   !> Derivative of the error counting function w.r.t. the distance.
    elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
       !> Coordination number container
-      class(exp_ncoord_type), intent(in) :: self
-      !> Molecular structure data (not used in gfn)
+      class(erf_en_ncoord_type), intent(in) :: self
+      !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Atom i index
       integer, intent(in)  :: izp
@@ -110,14 +127,15 @@ contains
       !> Current distance.
       real(wp), intent(in) :: r
 
-      real(wp) :: rc, expterm, count
+      real(wp) :: rc, diff_en, exponent, expterm, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-      ! exponential function based counting function derivative
-      expterm = exp(-kcn*(rc/r-1._wp))
-      count = (-kcn*rc*expterm)/(r**2*((expterm+1._wp)**2))
+      diff_en = self%en(jzp) - self%en(izp)
+      ! error function based counting function with EN derivative
+      exponent = kcn*(r-rc)/rc
+      expterm = exp(-exponent**2)
+      count = - diff_en * (kcn*expterm)/(rc*sqrt(pi))
 
    end function ncoord_dcount
 
-
-end module tblite_ncoord_exp
+end module tblite_ncoord_erf_en

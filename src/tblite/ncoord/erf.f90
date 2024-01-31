@@ -14,42 +14,42 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/ncoord/exp.f90
-!> Provides a coordination number implementation with exponential counting function
+!> @file tblite/ncoord/erf.f90
+!> Provides a (standard) coordination number implementation for the CEH method
 
-!> Coordination number implementation using an exponential counting function, 
-!> same as in dftd3.
-module tblite_ncoord_exp
+!> Coordination number implementation with single error function for the CEH and GP3-xTB methods.
+module tblite_ncoord_erf
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_constants, only : pi
    use tblite_data_covrad, only : get_covalent_rad
    use tblite_ncoord_type, only : ncoord_type
    implicit none
    private
 
-   public :: new_exp_ncoord
+   public :: new_erf_ncoord
 
    !> Coordination number evaluator
-   type, public, extends(ncoord_type) :: exp_ncoord_type
+   type, public, extends(ncoord_type) :: erf_ncoord_type
       real(wp), allocatable :: rcov(:)
    contains
-      !> Evaluates the exponential counting function
+      !> Evaluates the error counting function
       procedure :: ncoord_count
-      !> Evaluates the derivative of the exponential counting function
+      !> Evaluates the derivative of the error counting function
       procedure :: ncoord_dcount
-   end type exp_ncoord_type
+   end type erf_ncoord_type
 
-   !> Steepness of counting function
-   real(wp), parameter :: kcn = 16.0_wp
+   !> Steepness of counting function # TF Jan 10, 2024
+   real(wp), parameter :: kcn = 2.60_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
 contains
 
 
-   subroutine new_exp_ncoord(self, mol, cutoff, rcov)
+   subroutine new_erf_ncoord(self, mol, cutoff, rcov)
       !> Coordination number container
-      type(exp_ncoord_type), intent(out) :: self
+      type(erf_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Real space cutoff
@@ -72,14 +72,13 @@ contains
 
       self%directed_factor = 1.0_wp
 
-   end subroutine new_exp_ncoord
-   
+   end subroutine new_erf_ncoord
 
-   !> Exponential counting function for coordination number contributions.
+   !> Error counting function for coordination number contributions.
    elemental function ncoord_count(self, mol, izp, jzp, r) result(count)
       !> Coordination number container
-      class(exp_ncoord_type), intent(in) :: self
-      !> Molecular structure data (not used in exp)
+      class(erf_ncoord_type), intent(in) :: self
+      !> Molecular structure data (not used in std)
       type(structure_type), intent(in) :: mol
       !> Atom i index
       integer, intent(in)  :: izp
@@ -91,17 +90,16 @@ contains
       real(wp) :: rc, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-      ! exponential function based counting function
-      count =1.0_wp/(1.0_wp+exp(-kcn*(rc/r-1.0_wp)))
+      ! error function based counting function
+      count = 0.5_wp * (1.0_wp + erf(-kcn*(r-rc)/rc))
 
    end function ncoord_count
 
-
-   !> Derivative of the exponential counting function w.r.t. the distance.
+   !> Derivative of the error counting function w.r.t. the distance.
    elemental function ncoord_dcount(self, mol, izp, jzp, r) result(count)
       !> Coordination number container
-      class(exp_ncoord_type), intent(in) :: self
-      !> Molecular structure data (not used in gfn)
+      class(erf_ncoord_type), intent(in) :: self
+      !> Molecular structure data (not used in std)
       type(structure_type), intent(in) :: mol
       !> Atom i index
       integer, intent(in)  :: izp
@@ -110,14 +108,14 @@ contains
       !> Current distance.
       real(wp), intent(in) :: r
 
-      real(wp) :: rc, expterm, count
+      real(wp) :: rc, exponent, expterm, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-      ! exponential function based counting function derivative
-      expterm = exp(-kcn*(rc/r-1._wp))
-      count = (-kcn*rc*expterm)/(r**2*((expterm+1._wp)**2))
+      ! error function based counting function with EN derivative
+      exponent = kcn*(r-rc)/rc
+      expterm = exp(-exponent**2)
+      count = -(kcn*expterm)/(rc*sqrt(pi))
 
    end function ncoord_dcount
 
-
-end module tblite_ncoord_exp
+end module tblite_ncoord_erf

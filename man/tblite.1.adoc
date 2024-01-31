@@ -26,6 +26,9 @@ Main driver for tight-binding framework.
      Evaluate tight-binding method on the provided input structure.
      If no command is specified run is selected by default.
 
+*tblite-guess*(1)::
+     Evaluate a guess charge model on the provided input structure.
+
 *tblite-tagdiff*(1)::
      Auxilary tool to compute differences between data outputs.
 

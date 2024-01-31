@@ -40,9 +40,10 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
-   use tblite_ceh_calculator, only : ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_ceh, only : new_ceh_calculator
    use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
+
    implicit none
    private
 
@@ -75,7 +76,7 @@ subroutine run_main(config, error)
    type(param_record) :: param
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
-   type(ceh_calculator):: calc_ceh
+   type(xtb_calculator) :: calc_ceh
    type(wavefunction_type) :: wfn, wfn_ceh
    type(results_type) :: results
    class(post_processing_list), allocatable :: post_proc
@@ -156,7 +157,7 @@ subroutine run_main(config, error)
 
    if (config%guess == "ceh") then
       call new_ceh_calculator(calc_ceh, mol)
-      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       if (config%grad) then
          call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
          return
@@ -186,7 +187,7 @@ subroutine run_main(config, error)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
    case("ceh")
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
       if (ctx%failed()) then
          call fatal(ctx, "CEH singlepoint calculation failed")
          do while(ctx%failed())

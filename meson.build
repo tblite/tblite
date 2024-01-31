@@ -103,6 +103,7 @@ if install
       'man/tblite.1.adoc',
       'man/tblite-fit.1.adoc',
       'man/tblite-run.1.adoc',
+      'man/tblite-guess.1.adoc',
       'man/tblite-param.1.adoc',
       'man/tblite-tagdiff.1.adoc',
       'man/tblite-tag.5.adoc',

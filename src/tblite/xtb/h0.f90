@@ -38,6 +38,8 @@ module tblite_xtb_h0
       real(wp), allocatable :: selfenergy(:, :)
       !> Coordination number dependence of the atomic levels
       real(wp), allocatable :: kcn(:, :)
+      !> Electronegativity scaled coordination number dependence of the atomic levels
+      real(wp), allocatable :: kcn_en(:, :)
       !> Charge dependence of the atomic levels
       real(wp), allocatable :: kq1(:, :)
       !> Charge dependence of the atomic levels
@@ -50,6 +52,12 @@ module tblite_xtb_h0
       real(wp), allocatable :: rad(:)
       !> Reference occupation numbers
       real(wp), allocatable :: refocc(:, :)
+      !> Diatomic frame scaling of sigma bonding contribution
+      real(wp), allocatable :: ksig(:, :)
+      !> Diatomic frame scaling of pi bonding contribution
+      real(wp), allocatable :: kpi(:, :)
+      !> Diatomic frame scaling of delta bonding contribution
+      real(wp), allocatable :: kdel(:, :)
    end type tb_hamiltonian
 
 
@@ -66,10 +74,12 @@ subroutine new_hamiltonian(self, mol, bas, spec)
    integer :: mshell
 
    mshell = maxval(bas%nsh_id)
-   allocate(self%selfenergy(mshell, mol%nid), self%kcn(mshell, mol%nid), &
+   allocate(self%selfenergy(mshell, mol%nid), &
+      & self%kcn(mshell, mol%nid), self%kcn_en(mshell, mol%nid), & 
       & self%kq1(mshell, mol%nid), self%kq2(mshell, mol%nid))
    call spec%get_selfenergy(mol, bas, self%selfenergy)
    call spec%get_cnshift(mol, bas, self%kcn)
+   call spec%get_cnenshift(mol, bas, self%kcn_en)
    call spec%get_q1shift(mol, bas, self%kq1)
    call spec%get_q2shift(mol, bas, self%kq2)
 
@@ -82,6 +92,11 @@ subroutine new_hamiltonian(self, mol, bas, spec)
 
    allocate(self%refocc(mshell, mol%nid))
    call spec%get_reference_occ(mol, bas, self%refocc)
+
+   allocate(self%ksig(mol%nid, mol%nid), self%kpi(mol%nid, mol%nid), &
+      & self%kdel(mol%nid, mol%nid))
+   call spec%get_diat_scale(mol, bas, self%ksig, self%kpi, self%kdel)
+
 end subroutine new_hamiltonian
 
 
@@ -315,7 +330,6 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
 
          end do
       end do
-
    end do
 
 end subroutine get_hamiltonian

@@ -43,7 +43,7 @@ tests = [
   'integral-overlap',
   'integral-multipole',
   'ipea1-xtb',
-  'ncoord-gfn',
+  'ncoord',
   'post-processing',
   'repulsion',
   'slater-expansion',
