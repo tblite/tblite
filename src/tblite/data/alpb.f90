@@ -93,8 +93,8 @@ subroutine get_alpb_param(input, mol, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   select case(input%kernel)
-   case(1)
+   select case(input%alpb)
+   case(.false.)
       if (input%method == 'gfn2') then
          select case(input%solvent)
          case('acetone');      param = gfn2_acetone
@@ -129,7 +129,7 @@ subroutine get_alpb_param(input, mol, error)
          case('toluene');      param = gfn1_toluene
          end select
       end if
-   case(2)
+   case(.true.)
       if (input%method == 'gfn2') then
          select case(input%solvent)
          case('acetone');      param = gfn2_alpb_acetone
@@ -192,7 +192,7 @@ subroutine get_alpb_param(input, mol, error)
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent, can set up xTB ALPB/GBSA")
+      call fatal_error(error, "Unknown solvent, cannot set up xTB ALPB/GBSA")
    end if
  
    call load_alpb_param(input, mol, param)

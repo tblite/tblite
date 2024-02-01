@@ -243,6 +243,7 @@ subroutine get_run_arguments(config, list, start, error)
    logical :: getopts
    character(len=:), allocatable :: arg
    logical :: alpb
+   integer :: kernel
    type(solvent_data) :: solvent
 
    iarg = start
@@ -375,7 +376,13 @@ subroutine get_run_arguments(config, list, start, error)
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
-         alpb = arg == "--alpb-xtb"
+         if (arg == "--alpb-xtb") then
+            alpb = .true.
+            kernel = 2
+         else 
+            alpb = .false.
+            kernel = 1
+         end if
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
@@ -389,11 +396,11 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          if (allocated(error)) exit
          allocate(config%solvation)
-         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb, solvent=solvent%solvent, xtb=.true.)
+         config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, alpb=alpb, solvent=solvent%solvent, xtb=.true.)
          config%solvation%alpb%solvent = solvent%solvent
-         config%solvation%cds = cds_input(solvent=solvent%solvent)
+         config%solvation%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
          config%solvation%cds%solvent = solvent%solvent
-         config%solvation%shift = shift_input(solvent=solvent%solvent)
+         config%solvation%shift = shift_input(alpb=alpb, solvent=solvent%solvent)
          config%solvation%shift%solvent = solvent%solvent
 
       case("--param")

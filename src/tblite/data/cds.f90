@@ -193,7 +193,7 @@ subroutine get_cds_param(input, mol, error)
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent")
+      call fatal_error(error, "Unknown solvent, cannot set up xTB ALPB/GBSA")
    end if
  
    call load_cds_param(input, mol, param)
