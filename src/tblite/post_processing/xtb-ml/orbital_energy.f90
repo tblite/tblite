@@ -178,11 +178,12 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel
   
   associate( dict => self%dict_ext)
   do i = 1, n
-    a_label = adjustl(format_string(convolution%a(i), '(f12.2)')) 
-    call dict%add_entry("delta_gap"//"_"//a_label, self%delta_egap(:, i))
-    call dict%add_entry("delta_chem_pot"//"_"//a_label, self%delta_chempot(:, i))
-    call dict%add_entry("delta_HOAO"//"_"//a_label, self%delta_ehoao(:, i)) 
-    call dict%add_entry("delta_LUAO"//"_"//a_label, self%delta_eluao(:, i))
+    a_label = "_"//trim(adjustl(format_string(convolution%a(i), '(f12.2)')) )
+    if (a_label .eq. "_1.00") a_label = ""
+    call dict%add_entry("delta_gap"//a_label, self%delta_egap(:, i))
+    call dict%add_entry("delta_chem_pot"//a_label, self%delta_chempot(:, i))
+    call dict%add_entry("delta_HOAO"//a_label, self%delta_ehoao(:, i)) 
+    call dict%add_entry("delta_LUAO"//a_label, self%delta_eluao(:, i))
   end do
   end associate
 end subroutine

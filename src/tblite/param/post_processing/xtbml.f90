@@ -114,7 +114,7 @@ subroutine load_from_toml(self, table, error)
    type(toml_table), pointer :: child
    integer :: stat, i, stat2
    character(len=:), allocatable :: method
-
+   
    call get_value(table, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")

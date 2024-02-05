@@ -37,6 +37,8 @@ subroutine setup(self)
     allocate(self%dict)
     if (allocated(self%dict_ext)) deallocate(self%dict_ext)
     allocate(self%dict_ext)
+    if (allocated(self%cn_atom)) deallocate(self%cn_atom)
+    if (allocated(self%delta_cn)) deallocate(self%delta_cn)
 end subroutine
 
 subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel, ctx)
@@ -59,6 +61,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     type(exp_ncoord_type) :: ncoord_exp
 
     self%n_features = self%n_features + features
+    
     allocate(self%cn_atom(mol%nat))
     
     call new_exp_ncoord(ncoord_exp, mol)
@@ -90,12 +93,13 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel
     integer :: j
    
     allocate(self%delta_cn(mol%nat, convolution%n_a))
-    convolution%cn = self%cn_atom 
+    !convolution%cn = self%cn_atom 
     call get_delta_cn(mol%nat, self%cn_atom, mol%id, mol%xyz, self%delta_cn, convolution)
     self%n_features = self%n_features + ext_features
     
     do j = 1, convolution%n_a
-        tmp_label = "delta_CN"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)'))
+        tmp_label = trim("delta_CN"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')))
+        if (tmp_label .eq. "delta_CN_1.00") tmp_label = "delta_CN"
         call self%dict_ext%add_entry(tmp_label, self%delta_cn(:, j))
     end do 
 end subroutine

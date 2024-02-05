@@ -1,7 +1,7 @@
 module tblite_xtbml_convolution
     use mctc_env, only : wp
    use mctc_io, only : structure_type
-   
+   use tblite_ncoord_xtbml, only : xtbml_ncoord_type, new_xtbml_ncoord
   
     implicit none
     private
@@ -10,7 +10,7 @@ module tblite_xtbml_convolution
     type :: xtbml_convolution_type
         real(wp), allocatable :: rcov(:)
         real(wp), allocatable :: a(:)
-        real(wp), allocatable :: cn(:)
+        real(wp), allocatable :: cn(:, :)
         integer :: n_a
         real(wp), allocatable :: kernel(:, :, :)
         character(len=:), allocatable :: label
@@ -38,19 +38,22 @@ module tblite_xtbml_convolution
  
         call self%get_rcov(mol)
         call self%populate_kernel(mol%nat, mol%id, mol%xyz)
-        if (.not.allocated(self%cn)) call self%compute_cn(mol)
+        call self%compute_cn(mol)
         
     end subroutine
 
     subroutine compute_cn(self, mol)
-        use tblite_ncoord_exp, only : exp_ncoord_type, new_exp_ncoord
+        
         class(xtbml_convolution_type) :: self
         type(structure_type) :: mol
-        type(exp_ncoord_type) :: ncoord_exp
-
-        call new_exp_ncoord(ncoord_exp, mol)
-        allocate(self%cn(mol%nat))
-        call ncoord_exp%get_cn(mol, self%cn) 
+        type(xtbml_ncoord_type) :: ncoord_xtbml
+        integer :: i, n_a
+        n_a = size(self%a)
+        allocate(self%cn(mol%nat, n_a), source=0.0_wp)
+        do i = 1, n_a
+            call new_xtbml_ncoord(ncoord_xtbml, mol, a=self%a(i))
+            call ncoord_xtbml%get_cn(mol, self%cn(:, i))
+        end do 
     end subroutine
 
     subroutine get_rcov(self,mol)

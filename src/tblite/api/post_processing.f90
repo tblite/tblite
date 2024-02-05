@@ -30,11 +30,9 @@ contains
         class(post_processing_type), allocatable :: pproc 
         if (debug) print '("[Info]", 1x, a)', "new_post_processing"
         call c_f_character(charptr, config_str)
-        write(*,*) config_str
         allocate(post_proc) 
         call new_post_processing(pproc, config_str, error)
         call post_proc%ptr%push(pproc)
-        write(*,*) size(post_proc%ptr%list)
         vpost_proc = c_loc(post_proc)
 
     end function

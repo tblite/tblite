@@ -68,7 +68,6 @@ subroutine pack_res(self, mol, res)
    real(wp), allocatable :: tmp_array(:)
    character(len=:), allocatable :: tmp_label
 
-   !allocate(res%dict)
    res%dict = self%dict
 end subroutine
 
@@ -140,6 +139,15 @@ subroutine add_post_processing_param(self, param)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
+      type is (xtbml_features_record)
+            block
+               type(xtbml_type), allocatable :: tmp
+               class(post_processing_type), allocatable :: proc
+               allocate(tmp)
+               call new_xtbml_features(tmp, par)
+               call move_alloc(tmp, proc)
+               call self%push(proc)
+            end block   
       end select
    end do
 end subroutine

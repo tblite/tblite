@@ -34,11 +34,11 @@ module tblite_post_processing_xtbml_features
         procedure :: info
         procedure :: print_timer
     end type
-    character(len=*), parameter :: label = "xtbml features"
+    character(len=*), parameter :: label = "  xtbml features:"
     type(timer_type) :: timer
 contains
 
-subroutine new_xtbml_features(param, new_xtbml_model)
+subroutine new_xtbml_features(new_xtbml_model, param)
     type(xtbml_features_record) :: param 
     type(xtbml_type), intent(inout) :: new_xtbml_model
         
@@ -55,14 +55,17 @@ subroutine new_xtbml_features(param, new_xtbml_model)
             call new_xtbml_model%dens%setup()
             new_xtbml_model%dens%return_xyz = param%xtbml_tensor
         end if
+
         if (param%xtbml_orbital_energy) then 
             allocate(new_xtbml_model%orb)
             call new_xtbml_model%orb%setup()
         end if
+
         if (param%xtbml_energy) then 
             allocate(new_xtbml_model%energy)
             call new_xtbml_model%energy%setup()
         end if
+
         if (param%xtbml_convolution) then
             allocate(new_xtbml_model%conv)
             new_xtbml_model%conv%a = param%xtbml_a
@@ -136,7 +139,8 @@ subroutine new_xtbml_features(param, new_xtbml_model)
 
             if (allocated(self%geom)) then
                 call timer%push("geometry convolution")
-                self%conv%cn = self%geom%cn_atom
+                !self%conv%cn = self%geom%cn_atom
+                
                 call self%conv%compute_kernel(mol)
                 associate(category => self%geom)
                     call category%compute_extended(mol, wfn, integrals, calc, cache_list, prlevel, ctx, self%conv)
@@ -145,7 +149,7 @@ subroutine new_xtbml_features(param, new_xtbml_model)
                 end associate
                 call timer%pop()
             else
-                call self%conv%compute_kernel(mol) 
+                call self%conv%compute_kernel(mol)
             end if
     
             if (allocated(self%dens)) then

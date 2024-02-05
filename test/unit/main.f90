@@ -44,6 +44,7 @@ program tester
    use test_xtb_param, only : collect_xtb_param
    use test_double_dictionary, only : collect_double_dictionary
    use tblite_test_post_processing, only : collect_post_processing
+   use tblite_test_xtbml, only : collect_xtbml
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
@@ -76,7 +77,8 @@ program tester
       new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
       new_testsuite("xtb-external", collect_xtb_external), &
       new_testsuite("spin", collect_spin), &
-      new_testsuite("xtb-param", collect_xtb_param) &
+      new_testsuite("xtb-param", collect_xtb_param), &
+      new_testsuite("xtbml", collect_xtbml) &
       ]
 
    call get_argument(1, suite_name)

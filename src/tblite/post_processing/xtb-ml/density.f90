@@ -99,13 +99,13 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
    call self%allocate(calc%bas%nsh, mol%nat)
    call mulliken_shellwise(calc%bas%nao, calc%bas%nsh, calc%bas%ao2sh, wfn%density(:, :, wfn%nspin), &
       integrals%overlap, self%mulliken_shell)
-
+   z = 0.0_wp
    call mol_set_nuclear_charge(mol%nat, mol%num, mol%id, z)
-
+   self%partial_charge_atom  = 0.0_wp
    do mu=1, calc%bas%nsh
       self%partial_charge_atom(calc%bas%sh2at(mu))=self%partial_charge_atom(calc%bas%sh2at(mu))+self%mulliken_shell(mu)
    enddo
-   self%partial_charge_atom=-self%partial_charge_atom+z
+   self%partial_charge_atom = -self%partial_charge_atom+z
    
    !multipole moments shellwise and then atomwise
    call get_mulliken_shell_multipoles(calc%bas, integrals%dipole, wfn%density, &
@@ -188,7 +188,7 @@ subroutine mol_set_nuclear_charge(nat, at, id, z)
    integer :: i
    do i = 1, nat
       z(i) = real(at(id(i)), wp) - real(ncore(at(id(i))))
-      if (at(i) > 57 .and. at(i) < 72) z(i) = 3.0_wp
+      if (at(id(i)) > 57 .and. at(id(i)) < 72) z(i) = 3.0_wp
    end do
 contains
 
@@ -333,73 +333,74 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, prlevel
    call comp_norm_3(mol%nat, n, self%delta_dipm_Z_xyz, self%delta_qm_Z_xyz, self%delta_dipm_Z, self%delta_qm_Z)
    associate( dict => self%dict_ext)
    do j = 1, n
-      a_label = adjustl(format_string(convolution%a(j), '(f12.2)')) 
-      tmp_label = "delta_q_A"//'_'//a_label
+      a_label = "_"//trim(adjustl(format_string(convolution%a(j), '(f12.2)')))
+      if (a_label .eq. "_1.00") a_label = ""
+      tmp_label = "delta_q_A"//a_label
       call dict%add_entry(tmp_label, self%delta_partial_charge(:, j))
 
-      tmp_label = "delta_dipm_A"//'_'//a_label
+      tmp_label = "delta_dipm_A"//a_label
       call dict%add_entry(tmp_label, self%delta_dipm(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_A_x", "delta_dipm_A_y", "delta_dipm_A_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_xyz(i, :, j))
          end do
       end if
       
-      tmp_label = "delta_qm_A"//'_'//a_label
+      tmp_label = "delta_qm_A"//a_label
       call dict%add_entry(tmp_label, self%delta_qm(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_A_xx", "delta_qm_A_xy", "delta_qm_A_yy", "delta_qm_A_xz", "delta_qm_A_yz", "delta_qm_A_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_qm_xyz(i, :, j))
          end do
       end if
 
-      tmp_label = "delta_dipm_e"//'_'//a_label
+      tmp_label = "delta_dipm_e"//a_label
       call dict%add_entry(tmp_label, self%delta_dipm_e(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_e_x", "delta_dipm_e_y", "delta_dipm_e_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_e_xyz(i, :, j))
          end do
       end if
 
-      tmp_label = "delta_qm_e"//'_'//a_label
+      tmp_label = "delta_qm_e"//a_label
       call dict%add_entry(tmp_label, self%delta_qm_e(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_e_xx", "delta_qm_e_xy", "delta_qm_e_yy", "delta_qm_e_xz", "delta_qm_e_yz", "delta_qm_e_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_qm_e_xyz(i, :, j))
          end do
       end if
-      tmp_label = "delta_dipm_Z"//'_'//a_label
+      tmp_label = "delta_dipm_Z"//a_label
       call dict%add_entry(tmp_label, self%delta_dipm_Z(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_dipm_Z_x", "delta_dipm_Z_y", "delta_dipm_Z_z"]
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_dipm_Z_xyz(i, :, j))
          end do
       end if
-      tmp_label = "delta_qm_Z"//'_'//a_label
+      tmp_label = "delta_qm_Z"//a_label
       call dict%add_entry(tmp_label, self%delta_qm_Z(:, j))
       if (self%return_xyz) then
          tmp_labels = [ character(len=20) :: &
          &"delta_qm_Z_xx", "delta_qm_Z_xy", "delta_qm_Z_yy", "delta_qm_Z_xz", "delta_qm_Z_yz", "delta_qm_Z_zz"]
 
          do i = 1, size(tmp_labels)
-            tmp_label = trim(tmp_labels(i))//'_'//a_label
+            tmp_label = trim(tmp_labels(i))//a_label
             call dict%add_entry(tmp_label, self%delta_qm_Z_xyz(i, :, j))
          end do
       end if
@@ -484,7 +485,7 @@ subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, conv, delta_partia
       do a = 1, nat
          do b = 1, nat
             !$omp atomic
-            delta_partial(a, k) = delta_partial(a, k) + atom_partial(b) / (conv%kernel(a, b, k) * (conv%cn(b)+1))
+            delta_partial(a, k) = delta_partial(a, k) + atom_partial(b) / (conv%kernel(a, b, k) * (conv%cn(b, k)+1))
                
          enddo
       enddo
@@ -543,34 +544,33 @@ subroutine get_delta_mm(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delta_
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-
+            
             result = conv%kernel(a, b, k)
-
             r_ab = xyz(:, a) - xyz(:, b)
             
-            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (dipm(:, b) - r_ab(:) * q(b)) / (result * (conv%cn(b) + 1))
+            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (dipm(:, b) - r_ab(:) * q(b)) / (result * (conv%cn(b, k) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
             !$omp atomic
-            delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) + r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
+            delta_qp(1, a, k) = delta_qp(1, a, k) +&
+               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) + r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) + r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) + r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) + r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) + r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) + r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) + r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) + r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) + r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) + r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) + r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             
             qp_part(:, a, k) = qp_part(:, a, k) + &
-               qp(:, b)/(result*(conv%cn(b) + 1))
+               qp(:, b)/(result*(conv%cn(b, k) + 1))
          end do
       end do
    end do
@@ -646,26 +646,26 @@ subroutine get_delta_mm_Z(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delt
          do b = 1, nat
             result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
-            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
+            delta_dipm(:, a, k) = delta_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(conv%cn(b, k) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
             !$omp atomic
             delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !qp_part(:,a) = qp_part(:,a) + qp(:,b) / (result*(cn(b)+1))
          end do
          !delta_dipm(:,a) = dipm(:,a) + delta_dipm(:,a)
@@ -698,27 +698,27 @@ subroutine get_delta_mm_p(nat, n_a, q, dipm, qp, at, xyz, conv, delta_dipm, delt
             r_ab = xyz(:, a) - xyz(:, b)
 
             delta_dipm(:, a, k) = delta_dipm(:, a, k) + &
-               (dipm(:, b) + r_ab(:)*q(b))/(result*(conv%cn(b) + 1))
+               (dipm(:, b) + r_ab(:)*q(b))/(result*(conv%cn(b, k) + 1))
             !sorting of qp xx,xy,yy,xz,yz,zz
 
             delta_qp(1, a, k) = delta_qp(1, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) - r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(1, b) + r_ab(1)*dipm(1, b)) - r_ab(1)*r_ab(1)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(2, a, k) = delta_qp(2, a, k) + &
-               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) - r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(1)*dipm(2, b) + r_ab(2)*dipm(1, b)) - r_ab(1)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(3, a, k) = delta_qp(3, a, k) + &
-               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) - r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(2)*dipm(2, b) + r_ab(2)*dipm(2, b)) - r_ab(2)*r_ab(2)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(4, a, k) = delta_qp(4, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) - r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(1, b) + r_ab(1)*dipm(3, b)) - r_ab(1)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(5, a, k) = delta_qp(5, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) - r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(2, b) + r_ab(2)*dipm(3, b)) - r_ab(2)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
             !$omp atomic
             delta_qp(6, a, k) = delta_qp(6, a, k) + &
-               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) - r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b) + 1))
-            qp_part(:, a, k) = qp_part(:, a, k) + qp(:, b)/(result*(conv%cn(b) + 1))
+               (1.5_wp*(-1*(r_ab(3)*dipm(3, b) + r_ab(3)*dipm(3, b)) - r_ab(3)*r_ab(3)*q(b)))/(result*(conv%cn(b, k) + 1))
+            qp_part(:, a, k) = qp_part(:, a, k) + qp(:, b)/(result*(conv%cn(b, k) + 1))
          end do
          !delta_dipm(:,a) = dipm(:,a) + delta_dipm(:,a)
          !delta_qp(:,a) = qp(:,a) + delta_qp(:,a)
