@@ -38,11 +38,13 @@ module tblite_xtb_singlepoint
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
-      & get_alpha_beta_occupation, get_mayer_bond_orders, &
+      & get_alpha_beta_occupation, &
       & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
+   use tblite_post_processing_type, only : collect_containers_caches
+   use tblite_post_processing_list, only : post_processing_list
    implicit none
    private
 
@@ -67,7 +69,7 @@ contains
 
 !> Entry point for performing single point calculation using the xTB calculator
 subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
-      & verbosity, results)
+      & verbosity, results, post_process)
    !> Calculation context
    type(context_type), intent(inout) :: ctx
    !> Molecular structure data
@@ -88,7 +90,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    !> Container for storing additional results
    type(results_type), intent(out), optional :: results
-
+   type(post_processing_list), intent(inout), optional :: post_process
+   
    logical :: grad, converged, econverged, pconverged
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, elast, nel
@@ -98,14 +101,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(integral_type) :: ints
    real(wp), allocatable :: tmp(:)
    type(potential_type) :: pot
-   type(container_cache) :: ccache, dcache, icache, hcache, rcache
+   type(container_cache), allocatable :: ccache, dcache, icache, hcache, rcache
    class(mixer_type), allocatable :: mixer
    type(timer_type) :: timer
    type(error_type), allocatable :: error
-
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
+   type(container_cache), allocatable :: cache_list(:)
+   
    integer :: iscf, spin
 
    call timer%push("total")
@@ -133,8 +137,24 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       sigma(:, :) = 0.0_wp
    end if
 
+   call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
+   nel = sum(wfn%n0at) - mol%charge
+   if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
+      wfn%nuhf = mol%uhf
+   else
+      if (mol%uhf /= 0) then
+         call fatal_error(error, "Total number of electrons ("//format_string(nint(nel), "(i0)")//") and "//&
+            & "number unpaired electrons ("//format_string(mol%uhf, "(i0)")//") is not compatible")
+         call ctx%set_error(error)
+         return
+      end if
+      wfn%nuhf = mod(nint(nel), 2)
+   end if
+   call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
+
    if (allocated(calc%halogen)) then
       call timer%push("halogen")
+      allocate(hcache)
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
       if (prlevel > 1) &
@@ -145,6 +165,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%repulsion)) then
       call timer%push("repulsion")
+      allocate(rcache)
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
       if (prlevel > 1) &
@@ -155,6 +176,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%dispersion)) then
       call timer%push("dispersion")
+      allocate(dcache)
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
       if (prlevel > 1) &
@@ -165,6 +187,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    if (allocated(calc%interactions)) then
       call timer%push("interactions")
+      allocate(icache)
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
       if (prlevel > 1) &
@@ -175,19 +198,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
    if (allocated(calc%coulomb)) then
+      allocate(ccache)
       call timer%push("coulomb")
       call calc%coulomb%update(mol, ccache)
       call timer%pop
    end if
-
-   call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
-   nel = sum(wfn%n0at) - mol%charge
-   if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
-      wfn%nuhf = mol%uhf
-   else
-      wfn%nuhf = mod(nint(nel), 2)
-   end if
-   call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
    if (prlevel > 1) &
       call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
@@ -303,7 +318,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end do
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
-      !print '(3es20.13)', sigma
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
          & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
       call magnet_to_updown(wfn%density)
@@ -316,10 +330,22 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call timer%pop
    end if
-
+   if (present(post_process)) then
+      call timer%push("post processing")
+      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
+      call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
+      call post_process%print_csv(mol)
+      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
+      call post_process%print_timer(prlevel, ctx)
+      deallocate(cache_list)
+      call timer%pop()
+   end if
    if (present(results)) then
-      allocate(results%bond_orders(mol%nat, mol%nat, wfn%nspin))
-      call get_mayer_bond_orders(calc%bas, ints%overlap, wfn%density, results%bond_orders)
+      if (allocated(results%dict)) deallocate(results%dict)
+      allocate(results%dict)
+      if (present(post_process)) then 
+         call post_process%pack_res(mol, results)
+      end if
    end if
 
    if (calc%save_integrals .and. present(results)) then
@@ -331,7 +357,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       integer :: it
       real(wp) :: ttime, stime
       character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "scc"]
+         & "repulsion", "halogen", "dispersion", "coulomb", "hamiltonian", "post processing", "scc"]
       if (prlevel > 0) then
          ttime = timer%get("total")
          call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))

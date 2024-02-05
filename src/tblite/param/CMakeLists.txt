@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+add_subdirectory("post_processing")
+
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
@@ -25,6 +27,7 @@ list(
   "${dir}/hamiltonian.f90"
   "${dir}/mask.f90"
   "${dir}/multipole.f90"
+  "${dir}/post_processing.f90"
   "${dir}/repulsion.f90"
   "${dir}/serde.f90"
   "${dir}/thirdorder.f90"

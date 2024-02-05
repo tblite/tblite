@@ -33,8 +33,9 @@ module tblite_driver_guess
    & shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
-   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
-   use tblite_ceh_calculator, only : ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_ceh, only : new_ceh_calculator
+
    implicit none
    private
 
@@ -63,7 +64,7 @@ contains
       real(wp), allocatable :: gradient(:, :), sigma(:, :)
       type(context_type) :: ctx
       type(xtb_calculator) :: calc
-      type(ceh_calculator):: calc_ceh
+      type(xtb_calculator):: calc_ceh
       type(wavefunction_type) :: wfn, wfn_ceh
 
       ctx%terminal = context_terminal(config%color)
@@ -115,13 +116,13 @@ contains
 
       nspin = 1
       call new_gfn2_calculator(calc, mol)
-      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp_guess * kt)
 
       method = "ceh"
       if (allocated(config%method)) method = config%method
       if (method == "ceh") then
          call new_ceh_calculator(calc_ceh, mol)
-         call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
+         call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       end if
 
       if (allocated(config%efield) .and. config%method == "ceh") then
@@ -155,7 +156,7 @@ contains
       case("eeq")
          call eeq_guess(mol, calc, wfn)
       case("ceh")
-         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+         call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then
             call fatal(ctx, "CEH singlepoint calculation failed")
             do while(ctx%failed())
@@ -214,7 +215,7 @@ contains
       & message)
    end subroutine fatal
 
-!> Extract dirname from path
+   !> Extract dirname from path
    function dirname(filename)
       character(len=*), intent(in) :: filename
       character(len=:), allocatable :: dirname
@@ -224,7 +225,7 @@ contains
    end function dirname
 
 
-!> Construct path by joining strings with os file separator
+   !> Construct path by joining strings with os file separator
    function join(a1, a2) result(path)
       use mctc_env_system, only : is_windows
       character(len=*), intent(in) :: a1, a2
@@ -241,7 +242,7 @@ contains
    end function join
 
 
-!> test if pathname already exists
+   !> test if pathname already exists
    function exists(filename)
       character(len=*), intent(in) :: filename
       logical :: exists

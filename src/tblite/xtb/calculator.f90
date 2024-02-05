@@ -62,6 +62,8 @@ module tblite_xtb_calculator
       type(tb_hamiltonian) :: h0
       !> Coordination number for modifying the self-energies
       class(ncoord_type), allocatable :: ncoord
+      !> Electronegativity-weighted coordination number for modifying the self-energies
+      class(ncoord_type), allocatable :: ncoord_en
       !> Repulsion energy interactions
       type(tb_repulsion), allocatable :: repulsion
       !> Collection of all Coulombic interactions

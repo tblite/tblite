@@ -90,6 +90,7 @@ module tblite_double_dictionary
       procedure :: load_from_toml
       procedure :: load_from_file
       procedure :: load_from_unit
+
    end type double_dictionary_type
 
 
@@ -679,6 +680,7 @@ end subroutine
 function return_label_index(self, label) result(it)
    class(double_dictionary_type), intent(in) :: self
    character(len=*), intent(in) :: label
+
    
    integer :: it
    it = 0

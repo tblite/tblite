@@ -210,3 +210,21 @@ tblite_get_singlepoint(tblite_context ctx,
                        tblite_structure mol,
                        tblite_calculator calc,
                        tblite_result res);
+
+/// Push Back new conatiner to post processing construct
+///
+/// @param post_proc: Post Processing instance 
+/// @param charptr: String of the post processing desired
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_push_back_post_processing_str(tblite_context ctx,
+                                     tblite_calculator calc, 
+                                     char* charptr);
+
+/// Push Back new conatiner to post processing construct
+///
+/// @param post_proc: Post Processing instance 
+/// @param param: Param instance containing post processing information
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_push_back_post_processing_param(tblite_context ctx,
+                                       tblite_calculator calc,
+                                       tblite_param param);

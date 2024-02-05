@@ -55,3 +55,9 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_error(tblite_error /* error */,
                  char* /* buffer */,
                  const int* /* buffersize */);
+
+/// Set error message to error handle
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_error(tblite_error /* error */,
+                 char* /* buffer */,
+                 const int* /* buffersize */);

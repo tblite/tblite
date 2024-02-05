@@ -66,12 +66,16 @@ module tblite_cli
       character(len=:), allocatable :: json_output
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
+      !> Input for ml feature generation
+      character(len=:), allocatable :: post_processing
       !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
       !> Maximum number of iterations for SCF
       integer, allocatable :: max_iter
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp
+      !> Electronic temperature for the guess (currently only CEH)
+      real(wp) :: etemp_guess = 5000.0_wp
       !> Electric field
       real(wp), allocatable :: efield(:)
       !> Spin polarization
@@ -96,12 +100,14 @@ module tblite_cli
       integer, allocatable :: spin
       !> Parametrization of the xTB Hamiltonian to use
       character(len=:), allocatable :: method
+      !> Numerical accuracy for self-consistent iterations
+      real(wp) :: accuracy = 1.0_wp
       !> Create JSON dump
       logical :: json = .false.
       !> File for output of JSON dump
       character(len=:), allocatable :: json_output
-      !> Electronic temperature
-      real(wp) :: etemp = 300.0_wp
+      !> Electronic temperature for the guess (currently only CEH)
+      real(wp) :: etemp_guess = 5000.0_wp
       !> Electric field
       real(wp), allocatable :: efield(:)
       !> Algorithm for electronic solver
@@ -382,6 +388,14 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end if
 
+      case("--post-processing")
+         iarg = iarg + 1 
+         call list%get(iarg, config%post_processing)
+         if (.not.allocated(config%post_processing)) then
+            call fatal_error(error, "Missing argument for post processing")
+            exit
+         end if
+
       case("--acc")
          iarg = iarg + 1
          call list%get(iarg, arg)
@@ -417,6 +431,12 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp, error)
+         if (allocated(error)) exit
+
+      case("--etemp-guess")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%etemp_guess, error)
          if (allocated(error)) exit
 
       case("--efield")
@@ -577,10 +597,10 @@ subroutine get_guess_arguments(config, list, start, error)
             config%solver = lapack_algorithm%gvr
          end select
 
-      case("--etemp")
+      case("--etemp-guess")
          iarg = iarg + 1
          call list%get(iarg, arg)
-         call get_argument_as_real(arg, config%etemp, error)
+         call get_argument_as_real(arg, config%etemp_guess, error)
          if (allocated(error)) exit
 
       case("--efield")
@@ -592,6 +612,12 @@ subroutine get_guess_arguments(config, list, start, error)
 
       case("--grad")
          config%grad = .true.
+
+      case("--acc")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%accuracy, error)
+         if (allocated(error)) exit
 
       case("--json")
          config%json = .true.
