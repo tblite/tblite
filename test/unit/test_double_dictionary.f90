@@ -67,7 +67,7 @@ subroutine test_removal_index(error)
    call check(error, dict%get_n_entries(), 1)
    if (allocated(error)) return
    call dict%get_entry("test3", array3)
-   call check(error, sum(ini_dict%record(2)%array3 - array3), 0.0_wp) 
+   call check(error, sum(ini_dict%record(3)%array3 - array3), 0.0_wp) 
    if (allocated(error)) return
 end subroutine
 

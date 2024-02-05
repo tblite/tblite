@@ -22,7 +22,8 @@
 module tblite_double_dictionary
    use mctc_env_accuracy, only : wp, i8
    use mctc_env, only : error_type, fatal_error
-   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error, toml_dump, add_array,  get_value, toml_parse
+   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
+   use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
    implicit none
    private
 
