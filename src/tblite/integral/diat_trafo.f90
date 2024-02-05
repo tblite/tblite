@@ -27,6 +27,12 @@ module tblite_integral_diat_trafo
 
 contains
 
+   !> Transformation to the diatomic frame and back: 
+   !> 1. set up the transformation matrix, 
+   !> 2. transform to the diatomic frame
+   !> 3. scale in the diatomic frame (bonding type specific)
+   !> 4. transform back 
+   !> The transformation can be applied to both the overlap and each dimension of its derivative
    pure subroutine diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel, maxl)
       !> Transformation vector for the diatomic frame
       real(wp),intent(inout)    :: block_overlap(9,9)
@@ -37,9 +43,7 @@ contains
       real(wp), allocatable :: eff_tra_mat(:,:), eff_block_overlap(:,:), tmp(:,:), &
       & transformed_s(:,:)
 
-
-      !> 1. Calculate the transformation matrix
-
+      ! 1. Calculate the transformation matrix
       call harmtr(maxl, vec_diat_trafo, trafomat)
       select case (maxl)
       case (0)
@@ -59,7 +63,7 @@ contains
          eff_block_overlap(1:9,1:9) = block_overlap(1:9,1:9)
       end select
 
-      !> 2. Transform the submatrix
+      ! 2. Transform the submatrix
       ! trans_block_s = matmul(matmul(transpose(trafomat), block_overlap),trafomat)
       ! trans_block_s = O^T * S * O
       if (maxl > 0) then
@@ -69,9 +73,9 @@ contains
          transformed_s(1,1) = eff_block_overlap(1,1)
       endif
 
-      !> 3.1. Scale elements in diatomic frame
-      !> 3.2. Scale elements with equivalent bonding situation in the
-      !>      diatomic frame.
+      ! 3.1. Scale elements in diatomic frame
+      ! 3.2. Scale elements with equivalent bonding situation in the
+      !      diatomic frame.
       transformed_s(1,1) = transformed_s(1,1)*ksig ! Sigma bond s   <-> s
       if (maxl > 0) then
          transformed_s(1,3) = transformed_s(1,3)*ksig ! Sigma bond s   <-> pz
@@ -96,7 +100,7 @@ contains
          endif
       endif
 
-      !> 4. Transform back to original frame
+      ! 4. Transform back to original frame
       ! block_overlap = matmul(matmul(trafomat, trans_block_s),transpose(trafomat))
       ! block_overlap = O * S * O^T
       if (maxl > 0) then
@@ -117,7 +121,6 @@ contains
    end subroutine diat_trafo
 
    subroutine relvec(vec, rkl, veckl)
-
       !> Original vector between atoms A and B
       real(wp), intent(in)             :: vec(3)
       !> Distance between the two atoms
@@ -126,7 +129,6 @@ contains
       real(wp), intent(out)            :: veckl(3)
 
       real(wp), parameter              :: eps = 4.0e-08_wp
-
       real(wp)                         :: sq
 
       veckl(1:3) = vec(1:3) / rkl
@@ -164,9 +166,9 @@ contains
    logical pure function eff_equality(num1, num2)
       !> Numbers to compare
       real(wp), intent(in) :: num1, num2
-      !> Logical deciding if numbers are (almost) equal or not
+      
+      ! Logical deciding if numbers are (almost) equal or not
       eff_equality = (abs( num1 - num2 ) .le. 1.0e-12_wp)
-
    end function eff_equality
 
    pure subroutine harmtr(maxl,veckl,trafomat)
@@ -273,4 +275,5 @@ contains
       trafomat(9,9) = COST*COS2P
 
    end subroutine harmtr
+
 end module tblite_integral_diat_trafo

@@ -17,7 +17,7 @@
 srcs += files(
   'exp.f90',
   'gfn.f90',
-  'ceh_std.f90',
-  'ceh_en.f90',
+  'erf.f90',
+  'erf_en.f90',
   'type.f90',
 )

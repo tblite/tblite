@@ -32,6 +32,7 @@
 #include "tblite/error.h"
 #include "tblite/container.h"
 #include "tblite/context.h"
+#include "tblite/double_dictionary.h"
 #include "tblite/structure.h"
 #include "tblite/calculator.h"
 #include "tblite/result.h"
@@ -47,6 +48,7 @@
                    tblite_container: tblite_delete_container, \
                      tblite_context: tblite_delete_context, \
                    tblite_structure: tblite_delete_structure, \
+                   tblite_double_dictionary: tblite_delete_double_dictionary,\
                   tblite_calculator: tblite_delete_calculator, \
                       tblite_result: tblite_delete_result, \
                        tblite_table: tblite_delete_table, \

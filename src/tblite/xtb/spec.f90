@@ -37,6 +37,8 @@ module tblite_xtb_spec
       procedure(get_selfenergy), deferred :: get_selfenergy
       !> Generator for the coordination number dependent shift of the self energy
       procedure :: get_cnshift
+      !> Generator for the electronegativity scaled coordination number dependent shift of the self energy
+      procedure :: get_cnenshift
       !> Generator for the linear partial charge dependent shift of the self energy
       procedure :: get_q1shift
       !> Generator for the quadratic partial charge dependent shift of the self energy
@@ -49,6 +51,8 @@ module tblite_xtb_spec
       procedure(get_shpoly), deferred :: get_shpoly
       !> Generator for the reference occupation numbers of the atoms
       procedure(get_reference_occ), deferred :: get_reference_occ
+      !> Generator for the diatomic frame scaling factors
+      procedure :: get_diat_scale
    end type tb_h0spec
 
    abstract interface
@@ -123,6 +127,21 @@ subroutine get_cnshift(self, mol, bas, kcn)
 end subroutine get_cnshift
 
 
+!> Stub implementation of the electronegativity scaled coordination number dependent shift generator
+subroutine get_cnenshift(self, mol, bas, kcn_en)
+   !> Instance of the Hamiltonian specification
+   class(tb_h0spec), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Basis set information
+   type(basis_type), intent(in) :: bas
+   !> Coordination number dependent shift
+   real(wp), intent(out) :: kcn_en(:, :)
+
+   kcn_en(:, :) = 0.0_wp
+end subroutine get_cnenshift
+
+
 !> Stub implementation of the linear partial charge dependent shift generator
 subroutine get_q1shift(self, mol, bas, kq1)
    !> Instance of the Hamiltonian specification
@@ -166,6 +185,27 @@ subroutine get_rad(self, mol, bas, rad)
 
    rad(:) = get_atomic_rad(mol%num)
 end subroutine get_rad
+
+
+!> Stub implementation of the diatomic frame scaling factor generator
+subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel)
+   !> Instance of the Hamiltonian specification
+   class(tb_h0spec), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Basis set information
+   type(basis_type), intent(in) :: bas
+   !> Diatomic frame scaling of sigma bonding contribution
+   real(wp), intent(out) :: ksig(:, :)
+   !> Diatomic frame scaling of pi bonding contribution
+   real(wp), intent(out) :: kpi(:, :)
+   !> Diatomic frame scaling of delta bonding contribution
+   real(wp), intent(out) :: kdel(:, :)
+
+   ksig(:, :) = 0.0_wp
+   kpi(:, :) = 0.0_wp
+   kdel(:, :) = 0.0_wp
+end subroutine get_diat_scale
 
 
 end module tblite_xtb_spec

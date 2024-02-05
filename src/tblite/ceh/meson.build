@@ -17,5 +17,5 @@
 srcs += files(
   'ceh.f90',
   'h0.f90',
-  'calculator.f90',
+  'singlepoint.f90',
 )

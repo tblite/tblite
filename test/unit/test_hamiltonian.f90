@@ -27,7 +27,8 @@ module test_hamiltonian
    use tblite_data_covrad, only : get_covalent_rad
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
-   use tblite_ncoord_gfn, only : get_coordination_number
+   use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
+   use tblite_ncoord_type, only : get_coordination_number
    use tblite_xtb_gfn2
    use tblite_xtb_h0
    implicit none
@@ -116,6 +117,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    type(basis_type) :: bas
    type(tb_hamiltonian) :: h0
+   type(gfn_ncoord_type) :: gfn_ncoord
    type(adjacency_list) :: list
    real(wp), parameter :: cn_cutoff = 30.0_wp
    real(wp), allocatable :: lattr(:, :), cn(:), rcov(:)
@@ -133,8 +135,9 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    allocate(cn(mol%nat), rcov(mol%nid))
    rcov(:) = get_covalent_rad(mol%num)
+   call new_gfn_ncoord(gfn_ncoord, mol, cn_cutoff, rcov)
    call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
-   call get_coordination_number(mol, lattr, cn_cutoff, rcov, cn)
+   call get_coordination_number(gfn_ncoord, mol, lattr, cn_cutoff, cn)
 
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
