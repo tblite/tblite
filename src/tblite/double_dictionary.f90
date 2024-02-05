@@ -146,7 +146,11 @@ function equal_dict(lhs, rhs) result(equal)
    end if
 
    do i = 1, lhs%get_n_entries()
-      if (not(lhs%record(i) == rhs%record(i))) return
+      if (lhs%record(i) == rhs%record(i)) then
+         cycle
+      else 
+         return
+      end if
    end do
 
    equal = .true.
