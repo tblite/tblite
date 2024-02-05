@@ -22,7 +22,7 @@
 module tblite_double_dictionary
    use mctc_env_accuracy, only : wp, i8
    use mctc_env, only : error_type, fatal_error
-   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error, toml_dump, add_array
+   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error, toml_dump, add_array,  get_value, toml_parse
    implicit none
    private
 
@@ -86,6 +86,10 @@ module tblite_double_dictionary
       generic, public :: dump => dump_to_file, dump_to_toml, dump_to_unit
       generic, public :: operator(==) => equal_dict
       procedure :: equal_dict
+      generic, public :: load => load_from_file, load_from_unit, load_from_toml
+      procedure :: load_from_toml
+      procedure :: load_from_file
+      procedure :: load_from_unit
    end type double_dictionary_type
 
 
@@ -119,8 +123,8 @@ function equal_record(lhs, rhs) result(equal)
       end if 
    endif
 
-   if (allocated(lhs%array2) .and. allocated(rhs%array2)) then
-      if (all(lhs%array1 == rhs%array1)) then
+   if (allocated(lhs%array3) .and. allocated(rhs%array3)) then
+      if (all(lhs%array3 == rhs%array3)) then
          equal = .true.
          return
       else
@@ -148,6 +152,85 @@ function equal_dict(lhs, rhs) result(equal)
    equal = .true.
 end function
 
+!> Read double dictionary data from file
+subroutine load_from_file(self, file, error)
+   !> Instance of the parametrization data
+   class(double_dictionary_type), intent(inout) :: self
+   !> File name
+   character(len=*), intent(in) :: file
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: unit
+   logical :: exist
+
+   inquire(file=file, exist=exist)
+   if (.not.exist) then
+     call fatal_error(error, "Could not find toml file '"//file//"'")
+     return
+   end if
+
+   open(file=file, newunit=unit)
+   call self%load(unit, error)
+   close(unit)
+end subroutine load_from_file
+
+
+!> Read double_dictionary data from file
+subroutine load_from_unit(self, unit, error)
+   !> Instance of the double dictionary data
+   class(double_dictionary_type), intent(inout) :: self
+   !> File name
+   integer, intent(in) :: unit
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(toml_error), allocatable :: parse_error
+   type(toml_table), allocatable :: table
+
+   call toml_parse(table, unit, parse_error)
+
+   if (allocated(parse_error)) then
+      allocate(error)
+      call move_alloc(parse_error%message, error%message)
+      return
+   end if
+
+   call self%load(table, error)
+   if (allocated(error)) return
+
+end subroutine load_from_unit
+
+subroutine load_from_toml(self, table, error)
+   use tblite_toml, only : len
+   !iterate over entries and dump to toml
+   class(double_dictionary_type) :: self
+   !> toml table to add entries to
+   type(toml_table), intent(inout) :: table
+   type(toml_key), allocatable :: list_keys(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   
+   type(toml_array), pointer :: array
+   real(kind=wp), allocatable :: array1(:)
+
+   integer :: i, stat
+
+   call table%get_keys(list_keys)
+
+   do i = 1, size(list_keys)
+      call get_value(table, list_keys(i), array, stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read entry for array")
+         return
+      end if
+      if (allocated(array1)) deallocate(array1)
+      allocate(array1(len(array)))
+      call get_value(array, array1)
+      call self%add_entry(list_keys(i)%key, array1)
+   end do
+end subroutine
+
 subroutine dump_to_toml(self, table, error)
    !iterate over entries and dump to toml
    class(double_dictionary_type) :: self
@@ -155,33 +238,33 @@ subroutine dump_to_toml(self, table, error)
    type(toml_table), intent(inout) :: table
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   
    type(toml_array), pointer :: array
    real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
 
-   integer :: i
+   integer :: i, stat
    
    do i = 1, self%get_n_entries()
       call add_array(table, self%record(i)%label, array)
 
       call self%get_entry(i, array1)
       if (allocated(array1)) then 
-         call set_value(array, array1)
-         cycle
+         call set_value(array, array1, stat=stat)
       end if
 
       call self%get_entry(i, array2)
       if (allocated(array2)) then
          array1 = reshape(array2, [size(array2, 1)*size(array2, 2)])
-         call set_value(array, array1)
-         cycle
+         call set_value(array, array1, stat=stat)
       end if
 
       call self%get_entry(i, array3)
       if (allocated(array3)) then
          array1 = reshape(array3, [size(array3, 1)*size(array3, 2)*size(array3, 3)])
-         call set_value(array, array1)
-         cycle
+         call set_value(array, array1, stat=stat)
+      end if
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot add array to toml table")
+         return
       end if
    end do
 
@@ -205,7 +288,7 @@ subroutine dump_to_file(self, file, error)
 end subroutine dump_to_file
 
 
-!> Write parametrization data to file
+!> Write double dictionary data to file
 subroutine dump_to_unit(self, unit, error)
    !> Instance of the parametrization data
    class(double_dictionary_type), intent(in) :: self
