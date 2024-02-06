@@ -31,7 +31,7 @@ subroutine collect_double_dictionary(testsuite)
       new_unittest("read in toml-structured file", test_read_in_toml), &
       new_unittest("write toml-structured output and read in again", test_write_read_toml), &
       new_unittest("check equal operator", test_equal_operator), &
-      new_unittest("check equal operator for two different dicts", test_equal_operator_different_dict, should_fail=.true.) &
+      new_unittest("check equal operator for two different dicts", test_equal_operator_different_dict) &
       ]
 end subroutine collect_double_dictionary
 
@@ -425,8 +425,8 @@ subroutine fill_test_dict_1d_array(dict)
    type(double_dictionary_type), intent(inout) :: dict
    real(wp), allocatable :: array1(:), array2(:), array3(:)
    allocate(array1(4), source = 1.0_wp)
-   allocate(array2(6), source = 2.0_wp)
-   allocate(array3(9), source = 0.0_wp)
+   allocate(array2(6*4), source = 2.0_wp)
+   allocate(array3(9*6*4), source = 0.0_wp)
 
    call dict%add_entry("test1", array1)
 
@@ -560,13 +560,23 @@ subroutine test_write_read_toml(error)
    type(double_dictionary_type) :: dict, dict1
    integer :: io = 42
 
-   call fill_test_dict_1d_array(dict)
+   call fill_test_dict(dict)
    open(newunit=io, status="scratch")
    call dict%dump(io, error)
    rewind io
+   dict = double_dictionary_type()
+   call fill_test_dict_1d_array(dict)
    call dict1%load(io, error)
    close(io)
    call check(error, (dict == dict1)) 
+
+   call dict%dump("test.toml", error)
+   
+   dict1 = double_dictionary_type()
+   call dict1%load("test.toml", error)
+   call delete_file("test.toml")
+
+   call check(error, (dict == dict1))
 
 end subroutine
 
@@ -601,26 +611,55 @@ end subroutine
 
 subroutine test_equal_operator_different_dict(error)
    type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict, dict1, dict2
+   type(double_dictionary_type) :: dict, dict1, dict2, dict3
    real(wp), allocatable :: array1(:)
+   logical :: che
    allocate(array1(4), source = 1.0_wp)
    call fill_test_dict(dict)
    call fill_test_dict_1d_array(dict1)
-
-   call check(error, (dict == dict1))
+   che = (not(dict == dict1))
+   call check(error, (che))
 
    call fill_test_dict_other_entries(dict2)
+   che = (not(dict == dict2))
+   call check(error, che)
 
-   call check(error, (dict == dict2))
+   call dict2%remove_entry("test1")
+   call dict%remove_entry("test1")
 
-   call dict2%remove_entry("test3")
+   che = (not(dict == dict2))
+   call check(error, che)
 
-   call check(error, (dict == dict2))
+   call dict2%remove_entry("test2")
+   call dict%remove_entry("test2")
 
-   call dict2%add_entry("test_", array1)
+   che = (not(dict == dict2))
+   call check(error, che)
 
-   call check(error, (dict == dict2))
+   dict = double_dictionary_type()
+   call fill_test_dict(dict)
+   
+   call fill_test_dict(dict3)
+
+   call dict3%remove_entry("test1")
+   che = (not(dict == dict3))
+   call check(error, che)
+
+   call dict3%add_entry("test_", array1)
+   che = (not(dict == dict3))
+   call check(error, che)
 
 end subroutine
+
+subroutine delete_file(file)
+   character(len=*), intent(in) :: file
+   integer :: unit
+   logical :: exist
+   inquire(file=file, exist=exist)
+   if (exist) then
+      open(newunit=unit, file=file)
+      close(unit, status="delete")
+   end if
+end subroutine delete_file
 
 end module test_double_dictionary
