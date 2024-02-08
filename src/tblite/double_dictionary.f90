@@ -36,9 +36,7 @@ module tblite_double_dictionary
       real(wp), allocatable :: array3(:, :, :)
    contains
       generic :: assignment(=) => copy_record
-      generic :: operator(==) => equal_record
       procedure :: copy_record
-      procedure :: equal_record
    end type double_record
 
    type :: double_dictionary_type
@@ -81,241 +79,11 @@ module tblite_double_dictionary
       procedure :: remove_entry_index
       generic, public :: get_index => return_label_index
       procedure :: return_label_index
-      procedure :: dump_to_toml
-      procedure :: dump_to_file
-      procedure :: dump_to_unit
-      generic, public :: dump => dump_to_file, dump_to_toml, dump_to_unit
-      generic, public :: operator(==) => equal_dict
-      procedure :: equal_dict
-      generic, public :: load => load_from_file, load_from_unit, load_from_toml
-      procedure :: load_from_toml
-      procedure :: load_from_file
-      procedure :: load_from_unit
 
    end type double_dictionary_type
 
 
 contains
-
-function equal_record(lhs, rhs) result(equal)
-   class(double_record), intent(in) :: lhs, rhs
-   integer :: i
-   logical :: equal
-   equal = .false.
-
-   if (lhs%label /= rhs%label) then
-      return
-   end if
-
-   if (allocated(lhs%array1) .and. allocated(rhs%array1)) then
-      if (all(lhs%array1 == rhs%array1)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
-      
-   if (allocated(lhs%array2) .and. allocated(rhs%array2)) then
-      if (all(lhs%array2 == rhs%array2)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
-
-   if (allocated(lhs%array3) .and. allocated(rhs%array3)) then
-      if (all(lhs%array3 == rhs%array3)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
-
-end function
-
-
-function equal_dict(lhs, rhs) result(equal)
-   class(double_dictionary_type), intent(in) :: lhs, rhs
-   integer :: i
-   logical :: equal
-   equal = .false.
-
-   if (lhs%get_n_entries() /= rhs%get_n_entries()) then
-      return
-   end if
-
-   do i = 1, lhs%get_n_entries()
-      if (lhs%record(i) == rhs%record(i)) then
-         cycle
-      else 
-         return
-      end if
-   end do
-
-   equal = .true.
-end function
-
-!> Read double dictionary data from file
-subroutine load_from_file(self, file, error)
-   !> Instance of the parametrization data
-   class(double_dictionary_type), intent(inout) :: self
-   !> File name
-   character(len=*), intent(in) :: file
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   integer :: unit
-   logical :: exist
-
-   inquire(file=file, exist=exist)
-   if (.not.exist) then
-     call fatal_error(error, "Could not find toml file '"//file//"'")
-     return
-   end if
-
-   open(file=file, newunit=unit)
-   call self%load(unit, error)
-   close(unit)
-end subroutine load_from_file
-
-
-!> Read double_dictionary data from file
-subroutine load_from_unit(self, unit, error)
-   !> Instance of the double dictionary data
-   class(double_dictionary_type), intent(inout) :: self
-   !> File name
-   integer, intent(in) :: unit
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(toml_error), allocatable :: parse_error
-   type(toml_table), allocatable :: table
-
-   call toml_parse(table, unit, parse_error)
-
-   if (allocated(parse_error)) then
-      allocate(error)
-      call move_alloc(parse_error%message, error%message)
-      return
-   end if
-
-   call self%load(table, error)
-   if (allocated(error)) return
-
-end subroutine load_from_unit
-
-subroutine load_from_toml(self, table, error)
-   use tblite_toml, only : len
-   !iterate over entries and dump to toml
-   class(double_dictionary_type) :: self
-   !> toml table to add entries to
-   type(toml_table), intent(inout) :: table
-   type(toml_key), allocatable :: list_keys(:)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-   
-   type(toml_array), pointer :: array
-   real(kind=wp), allocatable :: array1(:)
-
-   integer :: i, stat
-
-   call table%get_keys(list_keys)
-
-   do i = 1, size(list_keys)
-      call get_value(table, list_keys(i), array, stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for array")
-         return
-      end if
-      if (allocated(array1)) deallocate(array1)
-      allocate(array1(len(array)))
-      call get_value(array, array1)
-      call self%add_entry(list_keys(i)%key, array1)
-   end do
-end subroutine
-
-subroutine dump_to_toml(self, table, error)
-   !iterate over entries and dump to toml
-   class(double_dictionary_type) :: self
-   !> toml table to add entries to
-   type(toml_table), intent(inout) :: table
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-   type(toml_array), pointer :: array
-   real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
-
-   integer :: i, stat
-   
-   do i = 1, self%get_n_entries()
-      call add_array(table, self%record(i)%label, array)
-
-      call self%get_entry(i, array1)
-      if (allocated(array1)) then 
-         call set_value(array, array1, stat=stat)
-      end if
-
-      call self%get_entry(i, array2)
-      if (allocated(array2)) then
-         array1 = reshape(array2, [size(array2, 1)*size(array2, 2)])
-         call set_value(array, array1, stat=stat)
-      end if
-
-      call self%get_entry(i, array3)
-      if (allocated(array3)) then
-         array1 = reshape(array3, [size(array3, 1)*size(array3, 2)*size(array3, 3)])
-         call set_value(array, array1, stat=stat)
-      end if
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot add array to toml table")
-         return
-      end if
-   end do
-
-end subroutine
-
-subroutine dump_to_file(self, file, error)
-   !> Instance of the parametrization data
-   class(double_dictionary_type), intent(in) :: self
-   !> File name
-   character(len=*), intent(in) :: file
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   integer :: unit
-
-   open(file=file, newunit=unit)
-   call self%dump(unit, error)
-   close(unit)
-   if (allocated(error)) return
-
-end subroutine dump_to_file
-
-
-!> Write double dictionary data to file
-subroutine dump_to_unit(self, unit, error)
-   !> Instance of the parametrization data
-   class(double_dictionary_type), intent(in) :: self
-   !> Formatted unit
-   integer, intent(in) :: unit
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(toml_table) :: table
-   type(toml_error), allocatable :: ser_error
-
-   table = toml_table()
-
-   call self%dump(table, error)
-
-   call toml_dump(table, unit, ser_error)
-   if (allocated(ser_error)) then
-      call fatal_error(error, ser_error%message)
-   end if
-
-end subroutine dump_to_unit
 
 subroutine remove_entry_index(self, index)
    class(double_dictionary_type) :: self
@@ -681,8 +449,6 @@ end subroutine
 function return_label_index(self, label) result(it)
    class(double_dictionary_type), intent(in) :: self
    character(len=*), intent(in) :: label
-
-   
    integer :: it
    it = 0
    if (self%n <= 0) return
