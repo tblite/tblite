@@ -94,7 +94,6 @@ module tblite_double_dictionary
 
    end type double_dictionary_type
 
-
 contains
 
 function equal_record(lhs, rhs) result(equal)
@@ -323,16 +322,16 @@ subroutine remove_entry_index(self, index)
    type(double_dictionary_type) :: tmp
 
    if (index > self%n) return
+   tmp = self
    old_n = self%n
    self%n = self%n - 1
-
-   tmp = self
+   
    deallocate(self%record)
    allocate(self%record(self%n))
    it = 1
    do i = 1, old_n
       if (i == index) cycle
-      self%record(it) = tmp%record(it)
+      self%record(it) = tmp%record(i)
       it = it + 1
    end do
  

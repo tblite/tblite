@@ -38,13 +38,13 @@ end subroutine collect_double_dictionary
 subroutine test_removal_index(error)
    type(error_type), allocatable, intent(out) :: error
    character(len=:), allocatable :: label1, label2
-   real(wp), allocatable :: array1(:), array2(:, :)
+   real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
 
    type(double_dictionary_type) :: dict, ini_dict
 
    call fill_test_dict(dict)
    ini_dict = dict
-   call dict%remove_entry(3)
+   call dict%remove_entry(2)
    call check(error, dict%get_n_entries(), 2)
    if (allocated(error)) return
    call dict%remove_entry(3)
@@ -54,20 +54,20 @@ subroutine test_removal_index(error)
    call dict%get_label(2,label2)
    call check(error, (label1 == "test1"))
    if (allocated(error)) return
-   call check(error, (label2 == "test2"))
+   call check(error, (label2 == "test3"))
    if (allocated(error)) return
    call dict%get_entry("test1", array1)
-   call dict%get_entry("test2", array2)
+   call dict%get_entry("test3", array3)
 
    call check(error, sum(ini_dict%record(1)%array1 - array1), 0.0_wp)
    if (allocated(error)) return
-   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp)
+   call check(error, sum(ini_dict%record(3)%array3 - array3), 0.0_wp)
    if (allocated(error)) return
    call dict%remove_entry(1)
    call check(error, dict%get_n_entries(), 1)
    if (allocated(error)) return
-   call dict%get_entry("test2", array2)
-   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp) 
+   call dict%get_entry("test3", array3)
+   call check(error, sum(ini_dict%record(3)%array3 - array3), 0.0_wp) 
    if (allocated(error)) return
 end subroutine
 
