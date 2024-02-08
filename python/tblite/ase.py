@@ -49,12 +49,12 @@ class TBLite(ase.calculators.calculator.Calculator):
 
     Supported keywords are
 
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
      Keyword                  Default           Description
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
      method                   "GFN2-xTB"        Underlying method for energy and forces
      charge                   None              Total charge of the system
-     spin                     None              Number of unpaired electrons
+     multiplicity             None              Total multiplicity of the system
      accuracy                 1.0               Numerical accuracy of the calculation
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
@@ -64,7 +64,7 @@ class TBLite(ase.calculators.calculator.Calculator):
      spin_polarization        None              Spin polarization (scaling factor)
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
 
     Example
     -------
@@ -114,7 +114,7 @@ class TBLite(ase.calculators.calculator.Calculator):
     default_parameters = {
         "method": "GFN2-xTB",
         "charge": None,
-        "spin": None,
+        "multiplicity": None,
         "accuracy": 1.0,
         "guess": "sad",
         "max_iterations": 250,
@@ -206,6 +206,22 @@ class TBLite(ase.calculators.calculator.Calculator):
             self._xtb = None
             self._res = None
 
+    @property
+    def _charge(self) -> int:
+        return (
+            self.atoms.get_initial_charges().sum()
+            if self.parameters.charge is None
+            else self.parameters.charge
+        )
+
+    @property
+    def _uhf(self) -> int:
+        return (
+            int(self.atoms.get_initial_magnetic_moments().sum().round())
+            if self.parameters.multiplicity is None
+            else self.parameters.multiplicity - 1
+        )
+
     def _check_api_calculator(self, system_changes: List[str]) -> None:
         """Check state of API calculator and reset if necessary"""
 
@@ -240,16 +256,8 @@ class TBLite(ase.calculators.calculator.Calculator):
         try:
             _cell = self.atoms.cell
             _periodic = self.atoms.pbc
-            _charge = (
-                self.atoms.get_initial_charges().sum()
-                if self.parameters.charge is None
-                else self.parameters.charge
-            )
-            _uhf = (
-                int(self.atoms.get_initial_magnetic_moments().sum().round())
-                if self.parameters.spin is None
-                else self.parameters.spin
-            )
+            _charge = self._charge
+            _uhf = self._uhf
 
             calc = Calculator(
                 self.parameters.method,
