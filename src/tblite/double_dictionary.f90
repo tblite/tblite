@@ -94,8 +94,6 @@ module tblite_double_dictionary
 
    end type double_dictionary_type
 
-   end type double_dictionary_type
-
 contains
 
 function equal_record(lhs, rhs) result(equal)
