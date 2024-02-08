@@ -566,13 +566,26 @@ subroutine test_write_read_toml(error)
    rewind io
    dict = double_dictionary_type(record=null())
    call fill_test_dict_1d_array(dict)
+   call dict1%load(2, error)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Non-existent unit was opened"
+      return
+   end if
+   deallocate(error)
    call dict1%load(io, error)
    close(io)
    call check(error, (dict == dict1)) 
 
    call dict%dump("test.toml", error)
-   
    dict1 = double_dictionary_type(record=null())
+   call dict1%load("test.tom", error)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Non-existent file was opened"
+      return
+   end if
+   deallocate(error)
    call dict1%load("test.toml", error)
    call delete_file("test.toml")
 
@@ -596,6 +609,23 @@ subroutine test_read_in_toml(error)
    close(io)
    
    call check(error, (dict%get_n_entries() == 2))
+
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+      "levels = [ -1.3970922000000002E+01, -1.0063292000000001E+01 ]", &
+      "slater = [ 2.0964320000000001E+00, 1.8000000000000000E+00 ", &
+      ""
+   rewind io
+
+   call dict%load(io, error)
+   close(io)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Faulty toml unit was parsed"
+      return
+   end if
+   deallocate(error)
+   
 end subroutine
 
 subroutine test_equal_operator(error)
