@@ -523,5 +523,4 @@ subroutine test_update_entries_label(error)
    if (allocated(error)) return
 end subroutine
 
-
 end module test_double_dictionary
