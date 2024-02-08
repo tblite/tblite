@@ -617,23 +617,23 @@ subroutine test_equal_operator_different_dict(error)
    allocate(array1(4), source = 1.0_wp)
    call fill_test_dict(dict)
    call fill_test_dict_1d_array(dict1)
-   che = (not_(dict == dict1))
+   che = (.not.(dict == dict1))
    call check(error, (che))
 
    call fill_test_dict_other_entries(dict2)
-   che = (not_(dict == dict2))
+   che = (.not.(dict == dict2))
    call check(error, che)
 
    call dict2%remove_entry("test1")
    call dict%remove_entry("test1")
 
-   che = (not_(dict == dict2))
+   che = (.not.(dict == dict2))
    call check(error, che)
 
    call dict2%remove_entry("test2")
    call dict%remove_entry("test2")
 
-   che = (not_(dict == dict2))
+   che = (.not.(dict == dict2))
    call check(error, che)
 
    dict = double_dictionary_type(record=null())
@@ -642,25 +642,15 @@ subroutine test_equal_operator_different_dict(error)
    call fill_test_dict(dict3)
 
    call dict3%remove_entry("test1")
-   che = (not_(dict == dict3))
+   che = (.not.(dict == dict3))
    call check(error, che)
 
    call dict3%add_entry("test_", array1)
-   che = (not_(dict == dict3))
+   che = (.not.(dict == dict3))
    call check(error, che)
 
 end subroutine
 
-function not_(arg) result(inv)
-   logical, intent(in) :: arg
-   logical :: inv
-
-   if (arg) then
-      inv = .false.
-   else
-      inv = .true.
-   end if
-end function
 
 subroutine delete_file(file)
    character(len=*), intent(in) :: file
