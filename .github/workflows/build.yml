@@ -16,6 +16,7 @@ env:
     cffi
     numpy
     ase
+    pyberny
     matplotlib==3.4.2
     qcelemental
   MACOS_BASEKIT_URL: >-

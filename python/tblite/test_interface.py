@@ -26,9 +26,7 @@ thr = 1.0e-9
 
 def get_ala(conf):
     """Retrieve a conformer of a small peptide"""
-    numbers = np.array(
-        [7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1]
-    )
+    numbers = np.array([7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1])
 
     positions = {
         "xab": np.array(
@@ -396,21 +394,31 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+
 def test_post_processing_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("bond-orders")
     res = calc.singlepoint()
-    with raises(ValueError, match="Molecular dipole was not calculated. By default it is computed."):
+    with raises(
+        ValueError,
+        match="Molecular dipole was not calculated. By default it is computed.",
+    ):
         res.get("dipole")
 
-    with raises(ValueError, match="Molecular quadrupole was not calculated. By default it is computed."):
+    with raises(
+        ValueError,
+        match="Molecular quadrupole was not calculated. By default it is computed.",
+    ):
         res.get("quadrupole")
 
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("molecular-multipoles")
     res = calc.singlepoint()
-    with raises(ValueError, match="Bond-orders were not calculated. By default they are computed."):
+    with raises(
+        ValueError,
+        match="Bond-orders were not calculated. By default they are computed.",
+    ):
         res.get("bond-orders")
 
     calc = Calculator("GFN1-xTB", numbers, positions)
@@ -418,6 +426,7 @@ def test_post_processing_api():
 
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
+
 
 def test_solvation_models():
     numbers, positions = get_crcp2()
@@ -469,7 +478,6 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
 
 
 def test_result_setter():

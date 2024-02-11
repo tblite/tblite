@@ -64,7 +64,11 @@ from io import StringIO
 from typing import Any, Dict, Union
 
 import numpy as np
-import qcelemental as qcel
+
+try:
+    import qcelemental as qcel
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("This submodule requires qcelemental installed") from e
 
 from .exceptions import TBLiteRuntimeError, TBLiteTypeError, TBLiteValueError
 from .interface import Calculator

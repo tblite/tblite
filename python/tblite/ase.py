@@ -23,8 +23,8 @@ For details on building the Python API checkout the :ref:`installation guide <py
 
 try:
     import ase
-except ModuleNotFoundError:
-    raise ModuleNotFoundError("This submodule requires ASE installed")
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("This submodule requires ASE installed") from e
 
 
 from typing import List, Optional
@@ -261,17 +261,13 @@ class TBLite(ase.calculators.calculator.Calculator):
                 _periodic,
             )
             calc.set("accuracy", self.parameters.accuracy)
-            calc.set(
-                "temperature", self.parameters.electronic_temperature * kB / Hartree
-            )
+            calc.set("temperature", self.parameters.electronic_temperature * kB / Hartree)
             calc.set("max-iter", self.parameters.max_iterations)
             calc.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
             calc.set("mixer-damping", self.parameters.mixer_damping)
             calc.set("verbosity", self.parameters.verbosity)
             if self.parameters.electric_field is not None:
-                calc.add(
-                    "electric-field", self.parameters.electric_field * Bohr / Hartree
-                )
+                calc.add("electric-field", self.parameters.electric_field * Bohr / Hartree)
             if self.parameters.spin_polarization is not None:
                 calc.add("spin-polarization", self.parameters.spin_polarization)
 

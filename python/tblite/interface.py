@@ -300,9 +300,7 @@ class Result:
         """
 
         if attribute not in self._getter:
-            raise TBLiteValueError(
-                f"Attribute '{attribute}' is not available in this result"
-            )
+            raise TBLiteValueError(f"Attribute '{attribute}' is not available in this result")
 
         return self._getter[attribute](self._res)
 
@@ -321,9 +319,7 @@ class Result:
         """
 
         if attribute not in self._setter:
-            raise TBLiteValueError(
-                f"Attribute '{attribute}' cannot be set in this result"
-            )
+            raise TBLiteValueError(f"Attribute '{attribute}' cannot be set in this result")
 
         self._setter[attribute](self._res, value)
 
@@ -465,8 +461,8 @@ class Calculator(Structure):
         "cpcm-solvation": library.new_cpcm_solvation,
     }
     _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
+        "bond-orders": "bond-orders",
+        "molecular-multipoles": "molmom",
     }
 
     def __init__(
@@ -492,10 +488,22 @@ class Calculator(Structure):
 
         self._ctx = library.new_context(**context_kwargs)
         if method not in self._loader:
-            raise TBLiteValueError(
-                f"Method '{method}' is not available for this calculator"
-            )
+            raise TBLiteValueError(f"Method '{method}' is not available for this calculator")
         self._calc = self._loader[method](self._ctx, self._mol)
+
+    @classmethod
+    def check_parameters(
+        cls, parameters: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        keywords = {key: value for key, value in parameters.items() if key in cls._setter}
+        interaction = {
+            key: value for key, value in parameters.items() if key in cls._interaction
+        }
+        unknown_keywords = set(parameters) - set(keywords) - set(interaction)
+        if unknown_keywords:
+            raise TBLiteValueError(f"Unknown keywords: {', '.join(unknown_keywords)}.")
+
+        return keywords, interaction
 
     def set(self, attribute: str, value) -> None:
         """
@@ -549,15 +557,17 @@ class Calculator(Structure):
             cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
             library.calculator_push_back(self._ctx, self._calc, cont)
         elif interaction in self._post_processing:
-            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+            library.post_processing_push_back(
+                self._ctx, self._calc, self._post_processing[interaction]
+            )
         elif ".toml" in interaction:
-            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+            library.post_processing_push_back(
+                self._ctx, self._calc, self._post_processing[interaction]
+            )
         else:
             raise TBLiteValueError(
                 f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-        
-        
 
     def get(self, attribute: str) -> Any:
         """
@@ -600,17 +610,13 @@ class Calculator(Structure):
 
         _res = Result(res) if copy or res is None else res
         library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
-        
+
         return _res
 
 
 def _cast(ctype, array):
     """Cast a numpy array to an FFI pointer"""
-    return (
-        library.ffi.NULL
-        if array is None
-        else library.ffi.cast(ctype, array.ctypes.data)
-    )
+    return library.ffi.NULL if array is None else library.ffi.cast(ctype, array.ctypes.data)
 
 
 def _ref(ctype, value):
