@@ -20,7 +20,7 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -492,9 +492,9 @@ class Calculator(Structure):
         self._calc = self._loader[method](self._ctx, self._mol)
 
     @classmethod
-    def check_parameters(
-        cls, parameters: dict[str, Any]
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
+    def split_parameters(
+        cls, parameters: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         keywords = {key: value for key, value in parameters.items() if key in cls._setter}
         interaction = {
             key: value for key, value in parameters.items() if key in cls._interaction

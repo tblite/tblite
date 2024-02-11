@@ -14,7 +14,7 @@ from .interface import Calculator, Result
 from .utils import to_number
 
 BernyYield = Optional[Tuple[float, np.ndarray]]
-BernySend = Tuple[Sequence[tuple[str, Sequence[float]]], Optional[Sequence[float]]]
+BernySend = Tuple[Sequence[Tuple[str, Sequence[float]]], Optional[Sequence[float]]]
 Callback = Callable[
     [np.ndarray, np.ndarray, Optional[np.ndarray], float, np.ndarray, Result], None
 ]
@@ -44,14 +44,12 @@ def Solver(
         **context_options,
     )
 
-    options, interactions = calc.check_parameters(parameters)
+    options, interactions = calc.split_parameters(parameters)
     for option, value in options.items():
         calc.set(option, value)
     for interaction, value in interactions.items():
         calc.add(interaction, *value)
 
-    if callback is not None:
-        callback(numbers, positions, lattice, None, None, None)
     res = None
     while True:
         positions = np.asarray([coord for _, coord in atoms]) * berny.coords.angstrom
