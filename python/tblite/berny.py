@@ -67,9 +67,9 @@ def Solver(
     charge: Optional[float] = None,
     uhf: Optional[int] = None,
     *,
-    callback: Callback = None,
-    parameters: Dict[str, Any] = {},
-    context_options: Dict[str, Any] = {},
+    callback: Optional[Callback] = None,
+    parameters: Optional[Dict[str, Any]] = None,
+    context_options: Optional[Dict[str, Any]] = None,
 ) -> Generator[BernyYield, BernySend, None]:
     """
     Wraps a tblite calculator to make it a generator for use in optimizer.
@@ -108,6 +108,10 @@ def Solver(
     >>> energy
     array(-5.07022229)
     """
+    if parameters is None:
+        parameters = {}
+    if context_options is None:
+        context_options = {}
     atoms, lattice = yield
     numbers = np.asarray([to_number(sp) for sp, _ in atoms])
     positions = np.asarray([coord for _, coord in atoms]) * berny.angstrom
