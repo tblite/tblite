@@ -51,14 +51,14 @@ Parallelisation using the python API
 When using ``tblite``'s python API, the parallelization behavior is also controlled via the aforementioned environment variables.
 These variables can be set in the terminal before launching the python code containing the ``tblite`` calculations.
 Another possibility is to set the varaibles from within the python code.
-This can be achieved by the ``os.environ`` object, for details consider their `documentation <https://docs.python.org/3/library/os.html#os.environ>` for details.
+This can be achieved by the ``os.environ`` object, for details consider their `documentation <https://docs.python.org/3/library/os.html#os.environ>`__ for details.
 
 To set up OpenMP in a manner analogous to the above:
 
 .. code:: python
    import os
    os.environ['OMP_STACKSIZE'] = '3G'
-   os.environ['OMP_NUM_THREADS'] = '<ncores>,1'
+   os.environ['OMP_NUM_THREADS'] = f'{len(psutil.Process().cpu_affinity())},1'
    os.environ['OMP_MAX_ACTIVE_LEVELS'] = '1'
 
 The maximum stack size can also set from within python.
