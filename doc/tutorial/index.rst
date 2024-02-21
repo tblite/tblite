@@ -11,3 +11,4 @@ This section contains tutorials with step by step instructions for using *tblite
 
    singlepoint
    fitting
+   parallel
