@@ -351,6 +351,10 @@ def _get_ao_matrix(getter, is_spin_dependent: bool):
         _mat = np.zeros((_nspin, _norb, _norb))
         error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
 
+        # Transpose actual matrix from col-major to row-major
+        # -> important for orbital coefficients
+        _mat = np.swapaxes(_mat, 1, 2)
+
         if _nspin == 1:
             return np.squeeze(_mat, axis=0)
         return _mat
@@ -437,7 +441,7 @@ def get_post_processing_dict(res):
         _dict_py[label] = _array
         print(_dict_py)
     return _dict_py
-        
+
 def get_calculator_angular_momenta(ctx, calc):
     """Retrieve angular momenta of shells"""
     _nsh = ffi.new("int *")
