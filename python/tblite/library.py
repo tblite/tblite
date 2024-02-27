@@ -226,6 +226,13 @@ def get_number_of_orbitals(res) -> int:
     return _norb[0]
 
 
+def get_number_of_spins(res) -> int:
+    """Retrieve number of spins from result container"""
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    return _nspin[0]
+
+
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
     _energy = np.array(0.0)
@@ -307,41 +314,54 @@ def get_quadrupole(res):
 def get_orbital_energies(res):
     """Retrieve orbital energies from result container"""
     _norb = get_number_of_orbitals(res)
-    _emo = np.zeros((_norb,))
+    _nspin = get_number_of_spins(res)
+    _emo = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_energies)(
         res, ffi.cast("double*", _emo.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_emo, axis=0)
     return _emo
 
 
 def get_orbital_occupations(res):
     """Retrieve orbital occupations from result container"""
     _norb = get_number_of_orbitals(res)
-    _occ = np.zeros((_norb,))
+    _nspin = get_number_of_spins(res)
+    _occ = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_occupations)(
         res, ffi.cast("double*", _occ.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_occ, axis=0)
     return _occ
 
 
-def _get_ao_matrix(getter):
+def _get_ao_matrix(getter, is_spin_dependent: bool):
     """Correctly set allocation for matrix objects before querying the getter"""
 
     @functools.wraps(getter)
     def with_allocation(res):
         """Get a matrix property from the results object"""
         _norb = get_number_of_orbitals(res)
-        _mat = np.zeros((_norb, _norb))
+        _nspin = get_number_of_spins(res) if is_spin_dependent else 1
+
+        # (_norb, _norb, _nspin) in col-major -> (_nspin, _norb, _norb) in row-major
+        # this will allow us to extract alpha- and beta matrices as mat[0] and mat[1]
+        _mat = np.zeros((_nspin, _norb, _norb))
         error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+
+        if _nspin == 1:
+            return np.squeeze(_mat, axis=0)
         return _mat
 
     return with_allocation
 
 
-get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients)
-get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
-get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
-get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
+get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients, True)
+get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
+get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
 
 
 def _delete_calculator(calc) -> None:

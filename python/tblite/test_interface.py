@@ -396,6 +396,26 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+def test_spin_densities():
+    numbers = np.array([1, 8])
+    positions = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+    )
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+    calc.set("save-integrals", 1)
+
+    res = calc.singlepoint()
+
+    s = res.get("overlap-matrix")
+    pa, pb = res.get("density-matrix")
+
+    assert np.sum(pa * s) == approx(4.0)
+    assert np.sum(pb * s) == approx(3.0)
+
 def test_post_processing_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)
@@ -469,7 +489,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
+
 
 
 def test_result_setter():
