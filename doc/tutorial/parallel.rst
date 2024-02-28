@@ -68,6 +68,7 @@ To set up OpenMP in a manner analogous to the above:
 .. code:: python
 
    import os
+   import psutil
    os.environ['OMP_STACKSIZE'] = '3G'
    os.environ['OMP_NUM_THREADS'] = f'{len(psutil.Process().cpu_affinity())},1'
    os.environ['OMP_MAX_ACTIVE_LEVELS'] = '1'
