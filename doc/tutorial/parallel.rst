@@ -4,7 +4,7 @@ Running ``tblite`` in parallel
 The ``tblite`` program uses shared memory OpenMP parallelization.
 To calculate larger systems, an appropriate OMP stacksize must be provided. Choose a reasonably large number with
 
-.. code:: text
+.. code:: sh
   
    export OMP_STACKSIZE=4G
   
@@ -16,13 +16,13 @@ To calculate larger systems, an appropriate OMP stacksize must be provided. Choo
 To distribute the number of threads reasonably within the OpenMP section,
 it is recommended to use
 
-.. code:: bash
+.. code:: sh
   
    export OMP_NUM_THREADS=<ncores>,1
 
 You might want to deactivate nested OMP constructs by
 
-.. code:: bash
+.. code:: sh
 
    export OMP_MAX_ACTIVE_LEVELS=1
 
@@ -38,20 +38,20 @@ For Intel's Math Kernel Library, the environment variable is ``MKL_NUM_THREADS``
 For the OpenBLAS backend, use ``OPENBLAS_NUM_THREADS`` instead.
 It is then exported for the current session as follows:
 
-.. code:: bash
+.. code:: sh
   
    export MKL_NUM_THREADS=<ncores>
 
 or respectively:
 
-.. code:: bash
+.. code:: sh
   
    export OPENBLAS_NUM_THREADS=<ncores>
 
 When computing large systems, the limit of memory allocated for variables saved on the stack should be adjusted, as exceeding this limit can lead to segmentation faults.
 This adjustment can be made on UNIX systems (Linux and macOS) using the ``ulimit`` command, as follows:
 
-.. code:: bash
+.. code:: sh
 
    ulimit -s unlimited
 
