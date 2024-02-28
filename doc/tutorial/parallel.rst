@@ -4,8 +4,9 @@ Running ``tblite`` in parallel
 The ``tblite`` program uses shared memory OpenMP parallelization.
 To calculate larger systems, an appropriate OMP stacksize must be provided. Choose a reasonably large number with
 
-.. code:: bash
-  > export OMP_STACKSIZE=4G
+.. code:: text
+  
+   export OMP_STACKSIZE=4G
   
 .. note::
 
@@ -16,11 +17,15 @@ To distribute the number of threads reasonably within the OpenMP section,
 it is recommended to use
 
 .. code:: bash
-  > export OMP_NUM_THREADS=<ncores>,1
+  
+   export OMP_NUM_THREADS=<ncores>,1
+
 You might want to deactivate nested OMP constructs by
 
 .. code:: bash
-  > export OMP_MAX_ACTIVE_LEVELS=1
+
+   export OMP_MAX_ACTIVE_LEVELS=1
+
 .. tip::
 
    Most OpenMP regions allow customization of the scheduling by setting the ``OMP_SCHEDULE`` environment variable.
@@ -34,17 +39,22 @@ For the OpenBLAS backend, use ``OPENBLAS_NUM_THREADS`` instead.
 It is then exported for the current session as follows:
 
 .. code:: bash
-  > export MKL_NUM_THREADS=<ncores>
+  
+   export MKL_NUM_THREADS=<ncores>
+
 or respectively:
 
 .. code:: bash
-  > export OPENBLAS_NUM_THREADS=<ncores>
+  
+   export OPENBLAS_NUM_THREADS=<ncores>
 
 When computing large systems, the limit of memory allocated for variables saved on the stack should be adjusted, as exceeding this limit can lead to segmentation faults.
 This adjustment can be made on UNIX systems (Linux and macOS) using the ``ulimit`` command, as follows:
 
 .. code:: bash
-  > ulimit -s unlimited
+
+   ulimit -s unlimited
+
 Parallelisation using the python API
 -------------------------------------
 
@@ -56,16 +66,18 @@ This can be achieved by the ``os.environ`` object, for details consider their `d
 To set up OpenMP in a manner analogous to the above:
 
 .. code:: python
+
    import os
    os.environ['OMP_STACKSIZE'] = '3G'
    os.environ['OMP_NUM_THREADS'] = f'{len(psutil.Process().cpu_affinity())},1'
    os.environ['OMP_MAX_ACTIVE_LEVELS'] = '1'
 
 The maximum stack size can also set from within python.
-We tested this using the `resource <https://docs.python.org/3/library/resource.html#resource-limits>` module.
+We tested this using the `resource <https://docs.python.org/3/library/resource.html#resource-limits>`__ module.
 
 To set the stack size to unlimited, the following code snippet can be used:
 
 .. code:: python
+
    import resource
    resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
