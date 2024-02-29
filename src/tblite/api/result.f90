@@ -132,7 +132,7 @@ subroutine get_result_number_of_atoms_api(verror, vres, natoms) &
       return
    end if
 
-   natoms = size(res%wfn%qat)
+   natoms = size(res%wfn%qat, 1)
 end subroutine get_result_number_of_atoms_api
 
 
@@ -178,7 +178,7 @@ subroutine get_result_number_of_shells_api(verror, vres, nshells) &
       return
    end if
 
-   nshells = size(res%wfn%qsh)
+   nshells = size(res%wfn%qsh, 1)
 end subroutine get_result_number_of_shells_api
 
 
@@ -201,7 +201,7 @@ subroutine get_result_number_of_orbitals_api(verror, vres, norb) &
       return
    end if
 
-   norb = size(res%wfn%emo) / res%wfn%nspin
+   norb = size(res%wfn%emo, 1)
 end subroutine get_result_number_of_orbitals_api
 
 
@@ -321,7 +321,7 @@ subroutine get_result_charges_api(verror, vres, charges) &
       return
    end if
 
-   charges(:size(res%wfn%qat)) = reshape(res%wfn%qat(:, :), [size(res%wfn%qat)])
+   charges(:size(res%wfn%qat, 1)) = res%wfn%qat(:, 1)
 end subroutine get_result_charges_api
 
 
@@ -405,7 +405,7 @@ subroutine get_result_orbital_energies_api(verror, vres, emo) &
       return
    end if
 
-   emo(:size(res%wfn%emo)) = reshape(res%wfn%emo(:, :), [size(res%wfn%emo)])
+   emo(:size(res%wfn%emo)) = reshape(res%wfn%emo, [size(res%wfn%emo)])
 end subroutine get_result_orbital_energies_api
 
 
@@ -428,7 +428,7 @@ subroutine get_result_orbital_occupations_api(verror, vres, occ) &
       return
    end if
 
-   occ(:size(res%wfn%focc)) = reshape(res%wfn%focc(:, :), [size(res%wfn%focc)])
+   occ(:size(res%wfn%focc)) = reshape(res%wfn%focc, [size(res%wfn%focc)])
 end subroutine get_result_orbital_occupations_api
 
 
@@ -451,7 +451,7 @@ subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
       return
    end if
 
-   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff(:, :, :), [size(res%wfn%coeff)])
+   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff, [size(res%wfn%coeff)])
 end subroutine get_result_orbital_coefficients_api
 
 
@@ -474,7 +474,7 @@ subroutine get_result_density_matrix_api(verror, vres, pmat) &
       return
    end if
 
-   pmat(:size(res%wfn%density)) = reshape(res%wfn%density(:, :, :), [size(res%wfn%density)])
+   pmat(:size(res%wfn%density)) = reshape(res%wfn%density, [size(res%wfn%density)])
 end subroutine get_result_density_matrix_api
 
 
