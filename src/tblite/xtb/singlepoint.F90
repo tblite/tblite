@@ -378,6 +378,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%set_error(error)
    end if
 
+#if defined W_MKL 
+   call mkl_free_buffers()
+#endif
 end subroutine xtb_singlepoint
 
 end module tblite_xtb_singlepoint
