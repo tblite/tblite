@@ -147,11 +147,7 @@ function equal_dict(lhs, rhs) result(equal)
    end if
 
    do i = 1, lhs%get_n_entries()
-      if (lhs%record(i) == rhs%record(i)) then
-         cycle
-      else 
-         return
-      end if
+      if (.not.(lhs%record(i) == rhs%record(i))) return
    end do
 
    equal = .true.
@@ -246,33 +242,41 @@ subroutine dump_to_toml(self, table, error)
    type(toml_array), pointer :: array
    real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
 
-   integer :: i, stat
-   
+   integer :: i, stat, j
    do i = 1, self%get_n_entries()
       call add_array(table, self%record(i)%label, array)
 
+      if (allocated(array1)) deallocate(array1)
       call self%get_entry(i, array1)
-      if (allocated(array1)) then 
-         call set_value(array, array1, stat=stat)
+      if (allocated(array1)) then
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         cycle
       end if
 
       call self%get_entry(i, array2)
       if (allocated(array2)) then
          array1 = reshape(array2, [size(array2, 1)*size(array2, 2)])
-         call set_value(array, array1, stat=stat)
+         deallocate(array2)
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         cycle
       end if
 
       call self%get_entry(i, array3)
       if (allocated(array3)) then
          array1 = reshape(array3, [size(array3, 1)*size(array3, 2)*size(array3, 3)])
-         call set_value(array, array1, stat=stat)
-      end if
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot add array to toml table")
-         return
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         deallocate(array3)
+         cycle
       end if
    end do
 
+   deallocate(array1)
 end subroutine
 
 subroutine dump_to_file(self, file, error)
@@ -583,7 +587,7 @@ subroutine push(self, label, it)
 
       self%n = self%n + 1
       it = self%n
-      self%record(it) = double_record(label)
+      self%record(it) = double_record(label=label)
    end if
 end subroutine push
 
