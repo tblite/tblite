@@ -27,7 +27,11 @@ subroutine collect_double_dictionary(testsuite)
       new_unittest("access valid entries with wrong size of array as return", test_invalid_array_size), &
       new_unittest("compare index and label lookup", test_equivalence_index_label_lookup), &
       new_unittest("initialize labels", test_initialize_labels), &
-      new_unittest("update entries", test_update_entries_label) &
+      new_unittest("update entries", test_update_entries_label), &
+      new_unittest("read in toml-structured file", test_read_in_toml), &
+      new_unittest("write toml-structured output and read in again", test_write_read_toml), &
+      new_unittest("check equal operator", test_equal_operator), &
+      new_unittest("check equal operator for two different dicts", test_equal_operator_different_dict) &
       ]
 end subroutine collect_double_dictionary
 
@@ -403,6 +407,34 @@ subroutine fill_test_dict(dict)
    call dict%add_entry("test3", array3)
 end subroutine
 
+subroutine fill_test_dict_other_entries(dict)
+   type(double_dictionary_type), intent(inout) :: dict
+   real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+   allocate(array1(4), source = 0.0_wp)
+   allocate(array2(4, 6), source = 1.0_wp)
+   allocate(array3(4, 6, 9), source = 42.0_wp)
+
+   call dict%add_entry("test1", array1)
+
+   call dict%add_entry("test2", array2)
+
+   call dict%add_entry("test3", array3)
+end subroutine
+
+subroutine fill_test_dict_1d_array(dict)
+   type(double_dictionary_type), intent(inout) :: dict
+   real(wp), allocatable :: array1(:), array2(:), array3(:)
+   allocate(array1(4), source = 1.0_wp)
+   allocate(array2(6*4), source = 2.0_wp)
+   allocate(array3(9*6*4), source = 0.0_wp)
+
+   call dict%add_entry("test1", array1)
+
+   call dict%add_entry("test2", array2)
+
+   call dict%add_entry("test3", array3)
+end subroutine
+
 subroutine test_assigment_operator(error)
    type(error_type), allocatable, intent(out) :: error
    type(double_dictionary_type) :: dict1, dict2
@@ -522,5 +554,143 @@ subroutine test_update_entries_label(error)
    call check(error, (size(array3, dim=1) == 3))
    if (allocated(error)) return
 end subroutine
+
+subroutine test_write_read_toml(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict, dict1
+   integer :: io = 42
+
+   call fill_test_dict(dict)
+   open(newunit=io, status="scratch")
+   call dict%dump(io, error)
+   rewind io
+   dict = double_dictionary_type(record=null())
+   call fill_test_dict_1d_array(dict)
+   call dict1%load(2, error)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Non-existent unit was opened"
+      return
+   end if
+   deallocate(error)
+   call dict1%load(io, error)
+   close(io)
+   call check(error, (dict == dict1)) 
+
+   call dict%dump("test.toml", error)
+   dict1 = double_dictionary_type(record=null())
+   call dict1%load("test.tom", error)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Non-existent file was opened"
+      return
+   end if
+   deallocate(error)
+   call dict1%load("test.toml", error)
+   call delete_file("test.toml")
+
+   call check(error, (dict == dict1))
+
+end subroutine
+
+subroutine test_read_in_toml(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict
+   integer :: io
+
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+      "levels = [ -1.3970922000000002E+01, -1.0063292000000001E+01 ]", &
+      "slater = [ 2.0964320000000001E+00, 1.8000000000000000E+00 ]", &
+      ""
+   rewind io
+
+   call dict%load(io, error)
+   close(io)
+   
+   call check(error, (dict%get_n_entries() == 2))
+
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+      "levels = [ -1.3970922000000002E+01, -1.0063292000000001E+01 ]", &
+      "slater = [ 2.0964320000000001E+00, 1.8000000000000000E+00 ", &
+      ""
+   rewind io
+
+   call dict%load(io, error)
+   close(io)
+   if (.not.(allocated(error))) then 
+      allocate(error)
+      error%message = "Faulty toml unit was parsed"
+      return
+   end if
+   deallocate(error)
+   
+end subroutine
+
+subroutine test_equal_operator(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict, dict_
+
+   call fill_test_dict(dict)
+   call fill_test_dict(dict_)
+
+   call check(error, (dict == dict_))
+
+end subroutine
+
+subroutine test_equal_operator_different_dict(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict, dict1, dict2, dict3
+   real(wp), allocatable :: array1(:)
+   logical :: che
+   allocate(array1(4), source = 1.0_wp)
+   call fill_test_dict(dict)
+   call fill_test_dict_1d_array(dict1)
+   che = (.not.(dict == dict1))
+   call check(error, (che))
+
+   call fill_test_dict_other_entries(dict2)
+   che = (.not.(dict == dict2))
+   call check(error, che)
+
+   call dict2%remove_entry("test1")
+   call dict%remove_entry("test1")
+
+   che = (.not.(dict == dict2))
+   call check(error, che)
+
+   call dict2%remove_entry("test2")
+   call dict%remove_entry("test2")
+
+   che = (.not.(dict == dict2))
+   call check(error, che)
+
+   dict = double_dictionary_type(record=null())
+   call fill_test_dict(dict)
+   
+   call fill_test_dict(dict3)
+
+   call dict3%remove_entry("test1")
+   che = (.not.(dict == dict3))
+   call check(error, che)
+
+   call dict3%add_entry("test_", array1)
+   che = (.not.(dict == dict3))
+   call check(error, che)
+
+end subroutine
+
+
+subroutine delete_file(file)
+   character(len=*), intent(in) :: file
+   integer :: unit
+   logical :: exist
+   inquire(file=file, exist=exist)
+   if (exist) then
+      open(newunit=unit, file=file)
+      close(unit, status="delete")
+   end if
+end subroutine delete_file
 
 end module test_double_dictionary
