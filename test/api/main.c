@@ -317,6 +317,12 @@ int test_uninitialized_result(void)
 
     show_error(error);
 
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (!tblite_check_error(error))
+        goto unexpected;
+
+    show_error(error);
+
     tblite_get_result_energy(error, res, &energy);
     if (!tblite_check_error(error))
         goto unexpected;
@@ -635,6 +641,13 @@ int test_empty_result(void)
 
     error = tblite_new_error();
     res = tblite_new_result();
+
+    int nspin;
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (!tblite_check_error(error))
+        goto unexpected;
+
+    show_error(error);
 
     double energy;
     tblite_get_result_energy(error, res, &energy);
