@@ -153,7 +153,9 @@ subroutine delete_solver(self, solver)
    if (allocated(self%solver)) then
       call self%solver%delete(solver)
    end if
-
+#if defined W_MKL 
+   call mkl_free_buffers()
+#endif
    if (allocated(solver)) deallocate(solver)
 end subroutine delete_solver
 

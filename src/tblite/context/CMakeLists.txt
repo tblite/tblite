@@ -21,7 +21,7 @@ list(
   "${dir}/logger.f90"
   "${dir}/solver.f90"
   "${dir}/terminal.f90"
-  "${dir}/type.f90"
+  "${dir}/type.F90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

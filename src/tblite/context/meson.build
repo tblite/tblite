@@ -18,5 +18,5 @@ srcs += files(
   'logger.f90',
   'solver.f90',
   'terminal.f90',
-  'type.f90',
+  'type.F90',
 )
