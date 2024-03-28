@@ -85,6 +85,16 @@ tblite_get_result_number_of_orbitals(tblite_error error,
                                      tblite_result res,
                                      int* nao);
 
+/// Retrieve number of spins from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param nspin: Number of spins
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_spins(tblite_error error,
+                                  tblite_result res,
+                                  int* nspin);
+
 /// Retrieve energy from result container
 ///
 /// @param error: Handle for error messages

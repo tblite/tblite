@@ -396,6 +396,66 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
+def test_spgfn1_densities():
+    numbers = np.array([1, 8])
+    positions = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+    )
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+    calc.set("save-integrals", 1)
+
+    res = calc.singlepoint()
+
+    s = res.get("overlap-matrix")
+    pa, pb = res.get("density-matrix")
+
+    assert np.sum(pa * s) == approx(4.0)
+    assert np.sum(pb * s) == approx(3.0)
+
+def test_spgfn1_orbital_energies():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+
+    orben = calc.singlepoint().get("orbital-energies")
+
+    calc.add("spin-polarization")
+    orben_a, orben_b = calc.singlepoint().get("orbital-energies")
+    assert orben_a == approx(orben)
+    assert orben_b == approx(orben)
+
+def test_spgfn1_orbital_occupations():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+
+    occs = calc.singlepoint().get("orbital-occupations")
+
+    calc.add("spin-polarization")
+    occs_a, occs_b = calc.singlepoint().get("orbital-occupations")
+    assert occs_a == approx(0.5 * occs, abs=thr)
+    assert occs_b == approx(0.5 * occs, abs=thr)
+
+def test_spgfn1_orbital_occupations_and_coefficients():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+
+    res = calc.singlepoint()
+
+    occs_a, occs_b = res.get("orbital-occupations")
+    ca, cb = res.get("orbital-coefficients")
+
+    pa, pb = res.get("density-matrix")
+
+    pa_reconstruct = np.einsum("k,ik,jk->ij", occs_a, ca, ca)
+    pb_reconstruct = np.einsum("k,ik,jk->ij", occs_b, cb, cb)
+
+    assert pa_reconstruct == approx(pa, abs=thr)
+    assert pb_reconstruct == approx(pb, abs=thr)
+
 def test_post_processing_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)
@@ -469,7 +529,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
+
 
 
 def test_result_setter():
