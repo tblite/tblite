@@ -229,9 +229,7 @@ def get_number_of_orbitals(res) -> int:
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
     _energy = np.array(0.0)
-    error_check(lib.tblite_get_result_energy)(
-        res, ffi.cast("double*", _energy.ctypes.data)
-    )
+    error_check(lib.tblite_get_result_energy)(res, ffi.cast("double*", _energy.ctypes.data))
     return _energy
 
 
@@ -256,39 +254,33 @@ def get_gradient(res):
 def get_virial(res):
     """Retrieve virial from result container"""
     _virial = np.zeros((3, 3))
-    error_check(lib.tblite_get_result_virial)(
-        res, ffi.cast("double*", _virial.ctypes.data)
-    )
+    error_check(lib.tblite_get_result_virial)(res, ffi.cast("double*", _virial.ctypes.data))
     return _virial
 
 
 def get_charges(res):
     """Retrieve atomic charges from result container"""
     _charges = np.zeros((get_number_of_atoms(res),))
-    error_check(lib.tblite_get_result_charges)(
-        res, ffi.cast("double*", _charges.ctypes.data)
-    )
+    error_check(lib.tblite_get_result_charges)(res, ffi.cast("double*", _charges.ctypes.data))
     return _charges
 
 
 def get_bond_orders(res):
     """Retrieve Wiberg / Mayer bond orders from result container"""
     _dict = get_post_processing_dict(res=res)
-    if not("bond-orders" in _dict.keys()):
+    if "bond-orders" not in _dict.keys():
         raise TBLiteValueError(
-                f"Bond-orders were not calculated. By default they are computed."
-            )
-    _bond_orders = _dict['bond-orders']
+            "Bond-orders were not calculated. By default they are computed."
+        )
+    _bond_orders = _dict["bond-orders"]
     return _bond_orders
 
 
 def get_dipole(res):
     """Retrieve dipole moment from post processing dictionary"""
     _dict = get_post_processing_dict(res=res)
-    if not("molecular-dipole" in _dict.keys()):
-        raise ValueError(
-                f"Molecular dipole was not calculated. By default it is computed."
-            )
+    if "molecular-dipole" not in _dict.keys():
+        raise ValueError("Molecular dipole was not calculated. By default it is computed.")
     _dipole = _dict["molecular-dipole"]
     return _dipole
 
@@ -296,10 +288,8 @@ def get_dipole(res):
 def get_quadrupole(res):
     """Retrieve quadrupole moment from post processing dictionary"""
     _dict = get_post_processing_dict(res=res)
-    if not("molecular-quadrupole" in _dict.keys()):
-        raise ValueError(
-                f"Molecular quadrupole was not calculated. By default it is computed."
-            )
+    if "molecular-quadrupole" not in _dict.keys():
+        raise ValueError("Molecular quadrupole was not calculated. By default it is computed.")
     _quadrupole = _dict["molecular-quadrupole"]
     return _quadrupole
 
@@ -374,6 +364,7 @@ def new_xtb_calculator(ctx, mol, param):
     """Create new tblite calculator from parametrization records"""
     return ffi.gc(lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator)
 
+
 def get_calculator_shell_map(ctx, calc):
     """Retrieve index mapping from shells to atomic centers"""
     _nsh = ffi.new("int *")
@@ -384,40 +375,47 @@ def get_calculator_shell_map(ctx, calc):
     )
     return _map
 
+
 def _delete_double_dictionary(calc) -> None:
     """Delete a tblite double dictionary object"""
     ptr = ffi.new("tblite_double_dictionary *")
     ptr[0] = calc
     lib.tblite_delete_double_dictionary(ptr)
 
+
 def get_post_processing_dict(res):
     """Retrieve the dictionary containing all post processing results"""
-    _dict = ffi.gc(error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary)
+    _dict = ffi.gc(
+        error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary
+    )
     _nentries = error_check(lib.tblite_get_n_entries_dict)(_dict)
     print(_nentries)
     _dict_py = dict()
-    for i in range(1,_nentries+1):
+    for i in range(1, _nentries + 1):
         _index = ffi.new("const int*", i)
 
         _dim1 = ffi.new("int*")
         _dim2 = ffi.new("int*")
         _dim3 = ffi.new("int*")
-        error_check(lib.tblite_get_array_size_index)(_dict, _index,  _dim1, _dim2, _dim3)
-        if (_dim3[0] == 0):
-            if (_dim2[0] == 0):
+        error_check(lib.tblite_get_array_size_index)(_dict, _index, _dim1, _dim2, _dim3)
+        if _dim3[0] == 0:
+            if _dim2[0] == 0:
                 _array = np.zeros((_dim1[0],))
             else:
                 _array = np.zeros((_dim1[0], _dim2[0]))
         else:
             _array = np.zeros((_dim1[0], _dim2[0], _dim3[0]))
-        error_check(lib.tblite_get_array_entry_index)(_dict, _index, ffi.cast("double*", _array.ctypes.data))
+        error_check(lib.tblite_get_array_entry_index)(
+            _dict, _index, ffi.cast("double*", _array.ctypes.data)
+        )
         _message = ffi.new("char[]", 512)
         error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
         print(_dict_py)
     return _dict_py
-        
+
+
 def get_calculator_angular_momenta(ctx, calc):
     """Retrieve angular momenta of shells"""
     _nsh = ffi.new("int *")
@@ -447,10 +445,12 @@ set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
+
 @context_check
 def post_processing_push_back(ctx, calc, str):
     _string = ffi.new("char[]", str.encode("ascii"))
     lib.tblite_push_back_post_processing_str(ctx, calc, _string)
+
 
 @context_check
 def set_calculator_verbosity(ctx, calc, verbosity: int):
@@ -459,6 +459,7 @@ def set_calculator_verbosity(ctx, calc, verbosity: int):
 
 
 get_singlepoint = context_check(lib.tblite_get_singlepoint)
+
 
 def _delete_container(cont) -> None:
     """Delete a tblite container object"""

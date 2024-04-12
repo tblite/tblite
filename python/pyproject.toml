@@ -28,6 +28,8 @@ dependencies = [
    "numpy",
 ]
 optional-dependencies.ase = ["ase"]
+optional-dependencies.berny = ["pyberny"]
+optional-dependencies.qcschema = ["qcelemental"]
 optional-dependencies.test = [
   "pytest",
   "pytest-cov",
