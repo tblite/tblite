@@ -1,0 +1,4 @@
+[wrap-git]
+directory = tc-purification
+url = git@git.rwth-aachen.de:bannwarthlab/tc-purification.git
+revision = HEAD

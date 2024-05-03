@@ -34,6 +34,7 @@ module tblite_scf_iterator
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type, add_pot_to_h1
    use tblite_scf_solver, only : solver_type
+   use tblite_purification_solver, only : purification_solver 
    implicit none
    private
 
@@ -305,7 +306,10 @@ subroutine get_density(wfn, solver, ints, ts, error)
    real(wp) :: e_fermi, stmp(2)
    real(wp), allocatable :: focc(:)
    integer :: spin
-
+   select type(solver)
+   type is (purification_solver)
+      call solver%purify_dp(wfn%coeff(:, : ,1), ints%overlap, wfn%density(:, :, 1), sum(wfn%nel), error)
+   class default
    select case(wfn%nspin)
    case default
       call solver%solve(wfn%coeff(:, :, 1), ints%overlap, wfn%emo(:, 1), error)
@@ -320,7 +324,6 @@ subroutine get_density(wfn, solver, ints, ts, error)
          wfn%focc(:, 1) = wfn%focc(:, 1) + focc
       end do
       ts = sum(stmp)
-
       call get_density_matrix(wfn%focc(:, 1), wfn%coeff(:, :, 1), wfn%density(:, :, 1))
    case(2)
       wfn%coeff = 2*wfn%coeff
@@ -335,6 +338,7 @@ subroutine get_density(wfn, solver, ints, ts, error)
             & wfn%density(:, :, spin))
       end do
       ts = sum(stmp)
+   end select
    end select
 end subroutine get_density
 
