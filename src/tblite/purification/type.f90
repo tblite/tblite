@@ -35,7 +35,7 @@ subroutine new(self, solver, ndim)
    type(purification_solver), allocatable :: tmp
 
    allocate(tmp)
-   call new_purification(tmp, self%type, self%runmode, self%precision)
+   call new_purification(tmp, self%type, self%runmode, self%precision, ndim)
    call move_alloc(tmp, solver)
    
    

@@ -308,7 +308,23 @@ subroutine get_density(wfn, solver, ints, ts, error)
    integer :: spin
    select type(solver)
    type is (purification_solver)
-      call solver%purify_dp(wfn%coeff(:, : ,1), ints%overlap, wfn%density(:, :, 1), sum(wfn%nel), error)
+      if (solver%got_transform()) then
+         call solver%purify_dp(wfn%coeff(:, : ,1), ints%overlap, wfn%density(:, :, 1), sum(wfn%nel), error)
+      else
+         call solver%solve(wfn%coeff(:, :, 1), ints%overlap, wfn%emo(:, 1), error)
+         if (allocated(error)) return
+
+         allocate(focc(size(wfn%focc, 1)))
+         wfn%focc(:, :) = 0.0_wp
+         do spin = 1, 2
+            call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, 1), &
+               & wfn%homo(spin), focc, e_fermi)
+            call get_electronic_entropy(focc, wfn%kt, stmp(spin))
+            wfn%focc(:, 1) = wfn%focc(:, 1) + focc
+         end do
+         ts = sum(stmp)
+         call get_density_matrix(wfn%focc(:, 1), wfn%coeff(:, :, 1), wfn%density(:, :, 1))
+      end if
    class default
    select case(wfn%nspin)
    case default
