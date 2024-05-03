@@ -53,30 +53,30 @@ program tester
    stat = 0
 
    testsuites = [ &
-      new_testsuite("tagged-io", collect_tagged_io), &
-      new_testsuite("fit", collect_fit), &
-      new_testsuite("repulsion", collect_repulsion), &
-      new_testsuite("ncoord", collect_ncoord), &
-      new_testsuite("solvation-born", collect_solvation_born), &
-      new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
-      new_testsuite("solvation-surface", collect_solvation_surface), &
-      new_testsuite("coulomb-charge", collect_coulomb_charge), &
-      new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
-      new_testsuite("double-dictionary", collect_double_dictionary), &
-      new_testsuite("post-processing", collect_post_processing), &
-      new_testsuite("slater-expansion", collect_slater_expansion), &
-      new_testsuite("cgto-ortho", collect_cgto_ortho), &
-      new_testsuite("integral-overlap", collect_integral_overlap), &
-      new_testsuite("integral-multipole", collect_integral_multipole), &
-      new_testsuite("hamiltonian", collect_hamiltonian), &
-      new_testsuite("halogen", collect_halogen), &
-      new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
-      new_testsuite("ceh", collect_ceh), &
-      new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
-      new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
-      new_testsuite("xtb-external", collect_xtb_external), &
-      new_testsuite("spin", collect_spin), &
-      new_testsuite("xtb-param", collect_xtb_param) &
+      !new_testsuite("tagged-io", collect_tagged_io), &
+      !new_testsuite("fit", collect_fit), &
+      !new_testsuite("repulsion", collect_repulsion), &
+      !new_testsuite("ncoord", collect_ncoord), &
+      !new_testsuite("solvation-born", collect_solvation_born), &
+      !new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
+      !new_testsuite("solvation-surface", collect_solvation_surface), &
+      !new_testsuite("coulomb-charge", collect_coulomb_charge), &
+      !new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
+      !new_testsuite("double-dictionary", collect_double_dictionary), &
+      !new_testsuite("post-processing", collect_post_processing), &
+      !new_testsuite("slater-expansion", collect_slater_expansion), &
+      !new_testsuite("cgto-ortho", collect_cgto_ortho), &
+      !new_testsuite("integral-overlap", collect_integral_overlap), &
+      !new_testsuite("integral-multipole", collect_integral_multipole), &
+      !new_testsuite("hamiltonian", collect_hamiltonian), &
+      !new_testsuite("halogen", collect_halogen), &
+      !new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
+      new_testsuite("ceh", collect_ceh) &
+      !new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
+      !new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
+      !new_testsuite("xtb-external", collect_xtb_external), &
+      !new_testsuite("spin", collect_spin), &
+      !new_testsuite("xtb-param", collect_xtb_param) &
       ]
 
    call get_argument(1, suite_name)

@@ -22,6 +22,9 @@ module tblite_ceh_ceh
    use mctc_io, only: structure_type
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
+      & arithmetic_average, coulomb_kernel
+   use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_basis_type, only : cgto_type, new_basis, basis_type
    use tblite_ncoord, only : new_ncoord
    use tblite_context, only : context_type
@@ -35,7 +38,7 @@ module tblite_ceh_ceh
    implicit none
    private
 
-   public :: ceh_h0spec, new_ceh_calculator
+   public :: ceh_h0spec, new_ceh_calculator, get_effective_qat
 
    integer, parameter, private :: max_elem = 86
    integer, parameter, private :: max_shell = 3
@@ -366,6 +369,99 @@ module tblite_ceh_ceh
    &  2.12226184_wp,  2.22924766_wp,  2.50000000_wp,  1.69051709_wp,  2.45637163_wp,  3.00000000_wp],&
    & shape(p_ceh_h0k))
 
+   real(wp), parameter :: p_ceh_en_to_q
+   real(wp), parameter :: p_ceh_total_to_q
+
+   real(wp), parameter :: gexp = 2.0_wp
+
+   real(wp), parameter :: p_ceh_hubbard(max_elem) = [&
+      & 0.405771_wp, 0.642029_wp, 0.245006_wp, 0.684789_wp, 0.513556_wp, &
+      & 0.538015_wp, 0.461493_wp, 0.451896_wp, 0.531518_wp, 0.850000_wp, &
+      & 0.271056_wp, 0.344822_wp, 0.364801_wp, 0.720000_wp, 0.297739_wp, &
+      & 0.339971_wp, 0.248514_wp, 0.502376_wp, 0.247602_wp, 0.320378_wp, &
+      & 0.472633_wp, 0.513586_wp, 0.589187_wp, 0.396299_wp, 0.346651_wp, &
+      & 0.271594_wp, 0.477760_wp, 0.344970_wp, 0.202969_wp, 0.564152_wp, &
+      & 0.432236_wp, 0.802051_wp, 0.571748_wp, 0.235052_wp, 0.261253_wp, &
+      & 0.424373_wp, 0.210481_wp, 0.340000_wp, 0.711958_wp, 0.461440_wp, &
+      & 0.952957_wp, 0.586134_wp, 0.368054_wp, 0.711205_wp, 0.509183_wp, &
+      & 0.273310_wp, 0.263740_wp, 0.392012_wp, 0.461812_wp, 0.900000_wp, &
+      & 0.942294_wp, 0.750000_wp, 0.383124_wp, 0.424164_wp, 0.236569_wp, &
+      & 0.245937_wp, 0.597716_wp, 0.662889_wp, 0.660710_wp, 0.658531_wp, &
+      & 0.656352_wp, 0.654173_wp, 0.651994_wp, 0.649815_wp, 0.647635_wp, &
+      & 0.645456_wp, 0.643277_wp, 0.641098_wp, 0.638919_wp, 0.636740_wp, &
+      & 0.634561_wp, 0.662597_wp, 0.449812_wp, 0.685426_wp, 0.224623_wp, &
+      & 0.364388_wp, 0.548507_wp, 0.353574_wp, 0.438997_wp, 0.457611_wp, &
+      & 0.418841_wp, 0.168152_wp, 0.900000_wp, 1.023267_wp, 0.288848_wp, &
+      & 0.303400_wp]
+
+   real(wp), parameter :: p_ceh_hubbard_shell(0:2, max_elem) = 1.0_wp + reshape([&
+      & 0.0_wp, 0.0000000_wp, 0.0000000_wp, 0.0_wp, 0.0000000_wp, 0.0000000_wp, &
+      & 0.0_wp, 0.1972612_wp, 0.0000000_wp, 0.0_wp, 0.9658467_wp, 0.0000000_wp, &
+      & 0.0_wp, 0.3994080_wp, 0.0000000_wp, 0.0_wp, 0.1056358_wp, 0.0000000_wp, &
+      & 0.0_wp, 0.1164892_wp, 0.0000000_wp, 0.0_wp, 0.1497020_wp, 0.0000000_wp, &
+      & 0.0_wp, 0.1677376_wp, 0.0000000_wp, 0.0_wp, 0.1190576_wp,-0.3200000_wp, &
+      & 0.0_wp, 0.1018894_wp, 0.0000000_wp, 0.0_wp, 1.4000000_wp,-0.0500000_wp, &
+      & 0.0_wp,-0.0603699_wp, 0.2000000_wp, 0.0_wp,-0.5580042_wp,-0.2300000_wp, &
+      & 0.0_wp,-0.1558060_wp,-0.3500000_wp, 0.0_wp,-0.1085866_wp,-0.2500000_wp, &
+      & 0.0_wp, 0.4989400_wp, 0.5000000_wp, 0.0_wp,-0.0461133_wp,-0.0100000_wp, &
+      & 0.0_wp, 0.3483655_wp, 0.0000000_wp, 0.0_wp, 1.5000000_wp,-0.2500000_wp, &
+      & 0.0_wp,-0.0800000_wp,-0.2046716_wp, 0.0_wp,-0.3800000_wp,-0.4921114_wp, &
+      & 0.0_wp,-0.4500000_wp,-0.0379088_wp, 0.0_wp,-0.4700000_wp, 0.7405872_wp, &
+      & 0.0_wp,-0.6000000_wp, 0.0545811_wp, 0.0_wp,-0.6500000_wp, 0.4046615_wp, &
+      & 0.0_wp,-0.6500000_wp,-0.2418493_wp, 0.0_wp,-0.6000000_wp,-0.0611188_wp, &
+      & 0.0_wp, 0.0700000_wp, 1.3333066_wp, 0.0_wp, 0.0684343_wp, 0.0000000_wp, &
+      & 0.0_wp,-0.5416555_wp,-0.3000000_wp, 0.0_wp,-0.3809089_wp,-0.1500000_wp, &
+      & 0.0_wp,-0.4104743_wp,-0.5000000_wp, 0.0_wp, 0.1192113_wp,-0.2500000_wp, &
+      & 0.0_wp, 0.5203002_wp, 0.4000000_wp, 0.0_wp,-0.2503223_wp,-0.0700000_wp, &
+      & 0.0_wp, 0.9386493_wp, 0.0000000_wp, 0.0_wp, 1.5000000_wp,-0.2500000_wp, &
+      & 0.0_wp,-0.4500000_wp,-0.3349288_wp, 0.0_wp,-0.1100000_wp,-0.4422630_wp, &
+      & 0.0_wp,-0.0500000_wp,-0.3562950_wp, 0.0_wp,-0.3000000_wp,-0.4301371_wp, &
+      & 0.0_wp,-0.6000000_wp, 0.3956819_wp, 0.0_wp,-0.6500000_wp,-0.3052305_wp, &
+      & 0.0_wp,-0.6500000_wp,-0.1881774_wp, 0.0_wp,-0.6000000_wp, 0.0931707_wp, &
+      & 0.0_wp,-0.0300000_wp, 0.8024848_wp, 0.0_wp, 0.2388669_wp, 0.0000000_wp, &
+      & 0.0_wp,-0.5867460_wp,-0.2800000_wp, 0.0_wp,-0.5090746_wp,-0.0600000_wp, &
+      & 0.0_wp,-0.6278501_wp,-0.5500000_wp, 0.0_wp,-0.1555334_wp, 0.0600000_wp, &
+      & 0.0_wp,-0.0338735_wp, 0.3000000_wp, 0.0_wp,-0.2302667_wp,-0.2300000_wp, &
+      & 0.0_wp, 0.2494305_wp, 0.0000000_wp, 0.0_wp, 2.2247532_wp,-0.2300000_wp, &
+      & 0.0_wp,-0.3000000_wp,-0.4699666_wp, 0.0_wp,-0.3000000_wp,-0.5539659_wp, &
+      & 0.0_wp,-0.2769230_wp,-0.5462784_wp, 0.0_wp,-0.2538460_wp,-0.5385909_wp, &
+      & 0.0_wp,-0.2307691_wp,-0.5309034_wp, 0.0_wp,-0.2076921_wp,-0.5232158_wp, &
+      & 0.0_wp,-0.1846151_wp,-0.5155283_wp, 0.0_wp,-0.1615381_wp,-0.5078408_wp, &
+      & 0.0_wp,-0.1384612_wp,-0.5001533_wp, 0.0_wp,-0.1153842_wp,-0.4924658_wp, &
+      & 0.0_wp,-0.0923072_wp,-0.4847782_wp, 0.0_wp,-0.0692302_wp,-0.4770907_wp, &
+      & 0.0_wp,-0.0461533_wp,-0.4694032_wp, 0.0_wp,-0.0230763_wp,-0.4617157_wp, &
+      & 0.0_wp, 0.0000007_wp,-0.4540282_wp, 0.0_wp, 0.1000000_wp,-0.4486165_wp, &
+      & 0.0_wp, 0.0500000_wp,-0.3394380_wp, 0.0_wp, 0.3700000_wp,-0.3419199_wp, &
+      & 0.0_wp,-0.6000000_wp, 0.6586864_wp, 0.0_wp,-0.6500000_wp, 0.1350223_wp, &
+      & 0.0_wp,-0.6500000_wp,-0.0977957_wp, 0.0_wp,-0.6000000_wp,-0.0203212_wp, &
+      & 0.0_wp,-0.6000000_wp, 0.0614126_wp, 0.0_wp,-0.5375121_wp, 0.0000000_wp, &
+      & 0.0_wp,-0.7133401_wp, 0.0000000_wp, 0.0_wp, 0.7838251_wp, 0.0000000_wp, &
+      & 0.0_wp,-0.6000000_wp, 0.0000000_wp, 0.0_wp,-0.8109155_wp, 0.0000000_wp, &
+      & 0.0_wp,-0.2532073_wp, 0.2500000_wp, 0.0_wp,-0.0302388_wp,-0.2300000_wp],&
+      & shape(p_ceh_hubbard_shell))
+
+   real(wp), parameter :: p_ceh_hubbard_shell_derivs(0:4) = [1.0_wp, 0.5_wp, spread(0.25_wp, 1, 3)]
+
+   real(wp), parameter :: p_ceh_hubbard_derivs(max_elem) = 0.1_wp * [&
+      & 0.800000_wp, 2.000000_wp, 1.303821_wp, 0.574239_wp, 0.946104_wp, &
+      & 1.500000_wp,-0.639780_wp,-0.517134_wp, 1.426212_wp, 0.500000_wp, &
+      & 1.798727_wp, 2.349164_wp, 1.400000_wp, 1.936289_wp, 0.711291_wp, &
+      &-0.501722_wp, 1.495483_wp,-0.315455_wp, 2.033085_wp, 2.006898_wp, &
+      & 0.500000_wp, 1.767268_wp, 0.900000_wp, 0.300000_wp, 0.600000_wp, &
+      &-0.500000_wp, 0.300000_wp,-0.200000_wp, 0.500000_wp, 2.312896_wp, &
+      & 2.334269_wp,-0.064775_wp, 1.106041_wp, 0.913725_wp, 1.300000_wp, &
+      & 0.239815_wp, 2.916203_wp, 1.800000_wp, 0.100000_wp, 0.700000_wp, &
+      & 0.500000_wp, 0.919928_wp, 0.600000_wp,-0.500000_wp, 0.300000_wp, &
+      & 0.800000_wp, 0.200000_wp, 2.073217_wp, 1.900000_wp,-0.178396_wp, &
+      & 1.100000_wp, 0.953683_wp, 1.200000_wp,-0.118925_wp, 2.404185_wp, &
+      & 2.069097_wp, 0.012793_wp,-0.100000_wp,-0.100002_wp,-0.100004_wp, &
+      &-0.100006_wp,-0.100008_wp,-0.100010_wp,-0.100012_wp,-0.100013_wp, &
+      &-0.100015_wp,-0.100017_wp,-0.100019_wp,-0.100021_wp,-0.100023_wp, &
+      &-0.100025_wp,-0.100000_wp, 0.200000_wp,-0.200000_wp, 0.800000_wp, &
+      & 0.800000_wp,-0.100000_wp, 0.600000_wp, 0.850000_wp,-0.116312_wp, &
+      &-0.533933_wp, 0.200000_wp,-0.337508_wp, 1.877978_wp, 1.846485_wp, &
+      & 0.097834_wp]
+
    !> Empirical atomic radii for calculation of the coordination number # MM/TF, Jan 10, 2024
    real(wp), parameter :: ceh_cov_radii(max_elem) = reshape([&
    &  0.70454446_wp,  1.12942839_wp,  1.75906344_wp,  1.61279399_wp,  1.53352314_wp,  1.34821062_wp, &
@@ -447,6 +543,7 @@ contains
       call add_ncoord(calc, mol)
       call add_ncoord_en(calc, mol)
       call add_hamiltonian(calc, mol)
+      call add_coulomb(calc, mol)
 
    end subroutine new_ceh_calculator
 
@@ -524,6 +621,28 @@ contains
 
    end subroutine add_hamiltonian
 
+   subroutine add_coulomb(calc, mol)
+      !> Instance of the xTB evaluator
+      type(xtb_calculator), intent(inout) :: calc
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+   
+      real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
+      type(effective_coulomb), allocatable :: es2
+
+      allocate(calc%coulomb)
+      allocate(es2)
+      call get_shell_hardness(mol, calc%bas, hardness)
+      call new_effective_coulomb(es2, mol, gexp, hardness, arithmetic_average) 
+            ! calc%bas%nsh_id)
+      call move_alloc(es2, calc%coulomb%es2)
+   
+      allocate(calc%coulomb%es3)
+      call get_hubbard_derivs(mol, calc%bas, hubbard_derivs)
+      call new_onsite_thirdorder(calc%coulomb%es3, mol, hubbard_derivs)
+            ! calc%bas%nsh_id)
+   
+   end subroutine add_coulomb
 
    pure function new_ceh_h0spec(mol) result(self)
       !> Molecular structure data
@@ -642,6 +761,29 @@ contains
 
    end subroutine get_cnenshift
 
+   !> Generator for the coordination number to effective charge conversion
+   subroutine get_cncharge(self, en_to_q, total_to_q)
+      !> Instance of the Hamiltonian specification
+      class(ceh_h0spec), intent(in) :: self
+      !> Conversion factor of the coordination number to an effective charge
+      real(wp), intent(out) :: en_to_q
+      !> Conversion factor of the molecular charge to an effective charge
+      real(wp), intent(out) :: total_to_q
+
+      en_to_q = p_ceh_en_to_q
+
+      total_to_q = p_ceh_total_to_q
+
+      kcn_en(:, :) = 0.0_wp
+
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            kcn_en(ish, isp) = p_ceh_kcn_en(ish, izp)
+         end do
+      end do
+
+   end subroutine get_cnenshift
 
    subroutine get_reference_occ(self, mol, bas, refocc)
       !> Instance of the Hamiltonian specification
@@ -737,5 +879,81 @@ contains
       end do
 
    end subroutine get_diat_scale
+
+
+   subroutine get_shell_hardness(mol, bas, hardness)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Shell resolved hardness parameters
+      real(wp), allocatable, intent(out) :: hardness(:, :)
+
+      integer :: isp, izp, ish, il
+
+      allocate(hardness(maxval(bas%nsh_id), mol%nid))
+      hardness(:, :) = 0.0_wp
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            il = bas%cgto(ish, isp)%ang
+            hardness(ish, isp) = p_ceh_hubbard(izp) * p_ceh_hubbard_shell(il, izp)
+         end do
+      end do
+   end subroutine get_shell_hardness
+
+
+   subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Shell resolved Hubbard derivatives
+      real(wp), allocatable, intent(out) :: hubbard_derivs(:, :)
+
+      integer :: isp, izp, ish, il
+
+      allocate(hubbard_derivs(maxval(bas%nsh_id), mol%nid))
+      hubbard_derivs(:, :) = 0.0_wp
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, bas%nsh_id(isp)
+            il = bas%cgto(ish, isp)%ang
+            hubbard_derivs(ish, isp) = p_ceh_hubbard_derivs(izp) * p_ceh_hubbard_shell_derivs(il)
+         end do
+      end do
+   end subroutine get_hubbard_derivs
+
+
+   !> Build effective charges from the electronegativity-weighted CN
+   subroutine get_effective_qat(mol, bas, cn_en, qat, qsh)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information
+      type(basis_type), intent(in) :: bas
+      !> Electronegativity weighted CN, shape: [nat]
+      real(wp), intent(in) :: cn_en(:)
+      !> Effective atomic charges, shape: [nat, spin]
+      real(wp), intent(out) :: qat(:, :)
+      !> Effective shell charges, shape: [nsh, spin]
+      real(wp), intent(out) :: qat(:, :)
+
+      integer :: ish, ispin
+
+      qat(:, :) = 0.0_wp
+
+      do ispin = 1, size(qat, 2)
+         do iat = 1, size(qat, 1)
+            izp = mol%id(iat)
+            qat(iat, ispin) = p_ceh_en_to_q(izp) * cn_en(iat) &
+            & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+            do ish = 1, bas%nsh_at(izp)
+
+
+         end do
+      end do
+   
+   end subroutine get_effective_qat
+
 
 end module tblite_ceh_ceh

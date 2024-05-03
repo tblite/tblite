@@ -24,7 +24,7 @@ module tblite_ceh_singlepoint
    use mctc_io, only: structure_type
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_cutoff, only : get_lattice_points
-   use tblite_basis_type, only : get_cutoff
+   use tblite_basis_type, only : basis_type, get_cutoff
    use tblite_context, only : context_type
    use tblite_output_format, only: format_string
    use tblite_integral_type, only : integral_type, new_integral
@@ -39,6 +39,7 @@ module tblite_ceh_singlepoint
    use tblite_scf_solver, only : solver_type
    use tblite_blas, only : gemv
    use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
+   use tblite_ceh_ceh, only : get_effective_qat
    use tblite_xtb_spec, only : tb_h0spec 
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_timer, only : timer_type, format_time
@@ -86,8 +87,8 @@ contains
       type(adjacency_list) :: list
       !> Potential type
       type(potential_type) :: pot
-      !> Restart data for interaction containers
-      type(container_cache) :: icache
+      !> Restart data for interaction containers and coulomb 
+      type(container_cache) :: icache, ccache
       !> Timer
       type(timer_type) :: timer
       real(wp) :: ttime
@@ -168,14 +169,29 @@ contains
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
 
-      ! Get initial potential
+      ! Get initial potential for external fields and Coulomb
       call new_potential(pot, mol, calc%bas, wfn%nspin)
       ! Set potential to zero
       call pot%reset
+      ! Add potential due to external field
       if (allocated(calc%interactions)) then
+         call timer%push("interactions")
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
+         call timer%pop
       endif
+      ! Add potential due to Coulomb
+      if (allocated(calc%coulomb)) then
+         call timer%push("coulomb")
+         ! Use the electronegativity-weighted CN as a 0th order
+         ! guess for the charges
+         call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
+         call get_qsh_from_qat(mol, calc%bas, wfn%qat, wfn%qsh)
+
+         call calc%coulomb%update(mol, ccache)
+         call calc%coulomb%get_potential(mol, ccache, wfn, pot)
+         call timer%pop
+      end if
 
       ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
@@ -203,5 +219,29 @@ contains
       ttime = timer%get("wall time CEH")
 
    end subroutine ceh_guess
+
+
+
+   subroutine get_qsh_from_qat(bas, qat, qsh)
+      !> Molecular structure data
+      type(structure_type), intent(in) :: mol
+      !> Basis set information   
+      type(basis_type), intent(in) :: bas
+      !> Atomic charges, shape: [nat, spin]
+      real(wp), intent(in) :: qat(:, :)
+      !> Shell charges, shape: [nsh, spin]
+      real(wp), intent(out) :: qsh(:, :)
+      
+      integer :: ish, ispin
+
+      !$omp parallel do schedule(runtime) collapse(2) default(none) &
+      !$omp reduction(+:qat) shared(bas, qsh) private(ish)
+      do ispin = 1, size(qsh, 2)
+         do ish = 1, size(qsh, 1)
+            qat(bas%sh2at(ish), ispin) = qat(bas%sh2at(ish), ispin) + qsh(ish, ispin)
+         end do
+      end do
+   end subroutine get_qat_from_qsh
+
 
 end module tblite_ceh_singlepoint
