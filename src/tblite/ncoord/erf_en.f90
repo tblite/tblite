@@ -41,8 +41,8 @@ module tblite_ncoord_erf_en
       procedure :: ncoord_dcount
    end type erf_en_ncoord_type
 
-   !> Steepness of counting function # TF Jan 10, 2024
-   real(wp), parameter :: kcn = 2.60_wp
+   !> Steepness of counting function 
+   real(wp), parameter :: kcn = 2.65_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 

@@ -55,7 +55,7 @@ module tblite_ceh_singlepoint
    character(len=25), parameter :: &
       label_cutoff = "integral cutoff", &
       label_charges = "CEH atomic charges", &
-      label_dipole = "CEH molecular dipole moment / a.u."
+      label_dipole = "CEH mol. dip. mom. / a.u."
 
 contains
 
@@ -186,7 +186,7 @@ contains
          ! Use the electronegativity-weighted CN as a 0th order
          ! guess for the charges
          call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
-         call get_qsh_from_qat(mol, calc%bas, wfn%qat, wfn%qsh)
+         call get_qsh_from_qat(calc%bas, wfn%qat, wfn%qsh)
 
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)
@@ -223,8 +223,6 @@ contains
 
 
    subroutine get_qsh_from_qat(bas, qat, qsh)
-      !> Molecular structure data
-      type(structure_type), intent(in) :: mol
       !> Basis set information   
       type(basis_type), intent(in) :: bas
       !> Atomic charges, shape: [nat, spin]
@@ -234,14 +232,13 @@ contains
       
       integer :: ish, ispin
 
-      !$omp parallel do schedule(runtime) collapse(2) default(none) &
-      !$omp reduction(+:qat) shared(bas, qsh) private(ish)
       do ispin = 1, size(qsh, 2)
          do ish = 1, size(qsh, 1)
-            qat(bas%sh2at(ish), ispin) = qat(bas%sh2at(ish), ispin) + qsh(ish, ispin)
+            qsh(ish, ispin) = qat(bas%sh2at(ish), ispin) / dble(bas%nsh_at(bas%sh2at(ish)))
          end do
       end do
-   end subroutine get_qat_from_qsh
+
+   end subroutine get_qsh_from_qat
 
 
 end module tblite_ceh_singlepoint
