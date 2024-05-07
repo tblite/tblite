@@ -52,16 +52,18 @@ module tblite_purification_solver
       integer(c_size_t) :: type = purification_type%tc2
       integer(c_size_t) :: runmode = purification_runmode%default
       real(c_double) :: thresh = 1.0e-05
+      type(c_ptr) :: solver_ptr
       integer(c_size_t) :: maxiter = 200
       integer :: iscf = 0
       type(sygvd_solver), allocatable :: lapack_solv
-      real(c_double), allocatable :: X(:, :)
       type(timer_type) :: timer
+      logical :: trans = .false.
    contains
       procedure :: solve_sp
       procedure :: solve_dp
       procedure :: purify_dp
       procedure :: got_transform
+      procedure :: delete
    end type
 
    interface
@@ -95,6 +97,29 @@ module tblite_purification_solver
          type(c_ptr), value :: Dens
          integer(c_size_t), value, intent(in) :: type, run, prec
       end subroutine
+      type(c_ptr) function PurifyFockSetup( nmo, threshPP, maxit, type, run, prec, prlevel) bind(C, name="PurifyFockSetup")
+         use iso_c_binding
+         integer(c_size_t), value, intent(in) :: nmo
+         real(c_double), value, intent(in) :: threshPP
+         integer(c_size_t), value, intent(in) :: maxit, prlevel
+         integer(c_size_t), value, intent(in) :: type, run, prec
+      end function
+      subroutine SetTransformationMatrix(ptr, X) bind(C, name="SetTransformationMatrix")
+         use iso_c_binding
+         type(c_ptr), value :: ptr
+         real(c_double),  intent(in) :: X(*)
+      end subroutine
+      subroutine GetDensityAO(ptr, Fock, Dens, elnum) bind(C, name="GetDensityAO")
+         use iso_c_binding
+         type(c_ptr), value :: ptr
+         real(c_double) :: Fock(*)
+         real(c_double) :: Dens(*)
+         real(c_double), value :: elnum
+      end subroutine
+      subroutine DeletePointer(ptr) bind(C, name="DeletePointer")
+         use iso_c_binding
+         type(c_ptr), value :: ptr
+      end subroutine
    end interface
 
    contains
@@ -102,8 +127,7 @@ module tblite_purification_solver
    function got_transform(self) result(trans)
       class(purification_solver) :: self
       logical :: trans
-      trans = .false.
-      if (allocated(self%X)) trans = .true.
+      trans = self%trans;
    end function
 
    subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
@@ -113,10 +137,11 @@ module tblite_purification_solver
       integer(c_size_t), optional :: maxiter
       real(c_double), optional :: thresh
       type(sygvd_solver), allocatable :: tmp
-      
+      call self%timer%push("Setup LAPACK")
       allocate(self%lapack_solv)
       call new_sygvd(self%lapack_solv, ndim)
-      
+      call self%timer%pop()
+      call self%timer%push("Setup TC")
       self%type = type_
       self%precision = prec_
       self%runmode = run_
@@ -124,6 +149,8 @@ module tblite_purification_solver
       if (present(maxiter)) self%maxiter = maxiter
       if (present(thresh)) self%thresh = thresh
 
+      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(1, kind=c_size_t))
+      call self%timer%pop()
    end subroutine
 
 
@@ -142,12 +169,17 @@ module tblite_purification_solver
       real(dp), contiguous, intent(inout) :: hmat(:, :)
       real(dp), contiguous, intent(in) :: smat(:, :)
       real(dp), contiguous, intent(inout) :: eval(:)
+      real(c_double), allocatable, target :: tmp(:, :)
+      real(c_double), contiguous, pointer :: Xptr(:, :)
+      type(c_ptr) :: X
       type(error_type), allocatable, intent(out) :: error
       call self%timer%push("Diagonalize")
       call self%lapack_solv%solve(hmat, smat, eval, error)
-      allocate(self%X(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_dp)
-      self%X = hmat
+      allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)))
+      tmp = hmat
+      call SetTransformationMatrix(self%solver_ptr, tmp)
       call self%timer%pop()
+      self%trans = .true.
    end subroutine solve_dp
 
    subroutine purify_dp(self, hmat, smat, dens, nel, error)
@@ -155,46 +187,18 @@ module tblite_purification_solver
         real(c_double), contiguous, target, intent(inout)  :: hmat(:, :)
         real(c_double), contiguous, target, intent(in) :: smat(:, :)
         real(c_double), contiguous, target, intent(inout) :: dens(:, :)
-        real(c_double), allocatable :: tmp(:,:)
-        real(c_double), contiguous, pointer  :: Fptr(:, :)
-        real(c_double), contiguous, pointer :: Sptr(:, :)
-        real(c_double), contiguous, pointer :: Dptr(:, :)
-        integer(c_size_t) :: nmo
         real(c_double) :: nel
         type(error_type), allocatable, intent(out) :: error
-        real(c_double) :: cpot, hmax, hmin 
-        type(c_ptr) :: F, S, D
-         call self%timer%push("TransformF")
-         allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)))
-         call gemm(hmat, self%X, tmp)
-         call gemm(self%X, tmp, hmat, transa='t')
-         call self%timer%pop()
-         Fptr => hmat
-         Sptr => smat
-         Dptr => dens
 
-         F = c_loc(Fptr)
-         S = c_loc(Sptr)
-         D = c_loc(Dptr)
-
-         nmo = size(smat,dim=1)
-         call self%timer%push("Guess")
-         call GetBoundsGershgorin(nmo, F, cpot, hmax, hmin)
-         call GetDensityGuess(nmo,cpot, hmax, hmin, nel/2, F, D)
-         call self%timer%pop()
          self%iscf = self%iscf +1
          call self%timer%push("Purification") 
-         call PurifyDensity(nmo, nel/2, self%thresh, self%maxiter, D, self%type, self%runmode, self%precision)
-         call self%timer%pop()
-         call self%timer%push("TransformD")
-         call gemm(dens, self%X, tmp, alpha=1.0_dp, beta=0.0_dp, transb='t')
-         call gemm(self%X, tmp, dens, alpha=2.0_dp)
+         call GetDensityAO(self%solver_ptr, hmat, dens, nel/2)
          call self%timer%pop()
          block
          integer :: it
          real(wp) :: stime
          character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "TransformF", "Guess", "Purification", "TransformD", "Diagonalize"]
+         & "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize"]
          do it = 1, size(label)
             stime = self%timer%get(label(it))
             if (stime <= epsilon(0.0_wp)) cycle
@@ -203,5 +207,12 @@ module tblite_purification_solver
 
          end block
     end subroutine purify_dp
+
+    subroutine delete(self)
+      class(purification_solver) :: self
+      
+      call DeletePointer(self%solver_ptr)
+      
+    end subroutine
 
 end module

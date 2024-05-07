@@ -29,6 +29,7 @@ module tblite_scf_solver
       generic :: solve => solve_sp, solve_dp
       procedure(solve_sp), deferred :: solve_sp
       procedure(solve_dp), deferred :: solve_dp
+      procedure :: delete
    end type solver_type
 
    abstract interface
@@ -49,6 +50,13 @@ module tblite_scf_solver
          type(error_type), allocatable, intent(out) :: error
       end subroutine solve_dp
    end interface
+
+contains
+
+subroutine delete(self)
+   class(solver_type) :: self
+end subroutine
+
 
 
 end module tblite_scf_solver

@@ -47,7 +47,7 @@ subroutine delete(self, solver)
    class(purification_solver_context), intent(inout) :: self
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
-
+   call solver%delete()
    if (allocated(solver)) deallocate(solver)
 end subroutine delete
     
