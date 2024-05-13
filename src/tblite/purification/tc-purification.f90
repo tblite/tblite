@@ -149,7 +149,7 @@ module tblite_purification_solver
       if (present(maxiter)) self%maxiter = maxiter
       if (present(thresh)) self%thresh = thresh
 
-      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(1, kind=c_size_t))
+      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(2, kind=c_size_t))
       call self%timer%pop()
    end subroutine
 
@@ -170,8 +170,6 @@ module tblite_purification_solver
       real(dp), contiguous, intent(in) :: smat(:, :)
       real(dp), contiguous, intent(inout) :: eval(:)
       real(c_double), allocatable, target :: tmp(:, :)
-      real(c_double), contiguous, pointer :: Xptr(:, :)
-      type(c_ptr) :: X
       type(error_type), allocatable, intent(out) :: error
       call self%timer%push("Diagonalize")
       call self%lapack_solv%solve(hmat, smat, eval, error)
