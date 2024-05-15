@@ -303,9 +303,10 @@ subroutine get_density(wfn, solver, ints, ts, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp) :: e_fermi, stmp(2)
+   real(wp) :: e_fermi = 0.0_wp, stmp(2)
    real(wp), allocatable :: focc(:)
    integer :: spin
+   ts = 0.0_wp
    select type(solver)
    type is (purification_solver)
       if (solver%got_transform()) then

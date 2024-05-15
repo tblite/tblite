@@ -51,7 +51,7 @@ module tblite_purification_solver
       integer(c_size_t) :: precision = purification_precision%mixed
       integer(c_size_t) :: type = purification_type%tc2
       integer(c_size_t) :: runmode = purification_runmode%default
-      real(c_double) :: thresh = 1.0e-05
+      real(c_double) :: thresh = 1.0e-07
       type(c_ptr) :: solver_ptr
       integer(c_size_t) :: maxiter = 200
       integer :: iscf = 0
@@ -136,7 +136,7 @@ module tblite_purification_solver
       integer :: ndim
       integer(c_size_t), optional :: maxiter
       real(c_double), optional :: thresh
-      type(sygvd_solver), allocatable :: tmp
+      
       call self%timer%push("Setup LAPACK")
       allocate(self%lapack_solv)
       call new_sygvd(self%lapack_solv, ndim)
@@ -173,7 +173,7 @@ module tblite_purification_solver
       type(error_type), allocatable, intent(out) :: error
       call self%timer%push("Diagonalize")
       call self%lapack_solv%solve(hmat, smat, eval, error)
-      allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)))
+      allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
       tmp = hmat
       call SetTransformationMatrix(self%solver_ptr, tmp)
       call self%timer%pop()
@@ -208,9 +208,9 @@ module tblite_purification_solver
 
     subroutine delete(self)
       class(purification_solver) :: self
-      
+      deallocate(self%lapack_solv)
       call DeletePointer(self%solver_ptr)
-      
+      self%solver_ptr = c_null_ptr
     end subroutine
 
 end module
