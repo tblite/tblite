@@ -108,7 +108,7 @@ module tblite_ceh_ceh
 
    !> Number of primitive gaussians per shell 
    integer, parameter :: number_of_primitives(max_shell, max_elem) = reshape([&
-   & 6, 0, 0, 0,  6, 0, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0, & ! 1-5
+   & 6, 0, 0, 0,  6, 0, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0, &  ! 1-5
    & 6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0, &  ! 6-10
    & 6, 6, 0, 0,  6, 6, 6, 0,  6, 6, 6, 0,  6, 6, 6, 0,  6, 6, 6, 0, &  ! 11-15
    & 6, 6, 6, 0,  6, 6, 6, 0,  6, 6, 6, 0,  6, 6, 0, 0,  6, 6, 6, 0, &  ! 16-20
@@ -616,7 +616,7 @@ module tblite_ceh_ceh
 
    !> Interaction type- and atom-wise resolved scal. fact. 
    !> for overlap mat. elements of sigma, pi, and delta type
-   real(wp), parameter :: p_ceh_h0k(max_elem, 3) = reshape([&
+   real(wp), parameter :: p_ceh_h0k(3, max_elem) = reshape([&
    &  2.3389142067_wp,  0.0000000000_wp,  3.0000000000_wp, & ! 1
    &  2.6975918527_wp,  0.0000000000_wp,  3.0000000000_wp, & ! 2
    &  3.8887277659_wp,  4.5575413026_wp,  3.0000000000_wp, & ! 3
@@ -720,7 +720,6 @@ module tblite_ceh_ceh
    &  2.6515509793_wp,  2.8220532571_wp,  3.0000000000_wp, & ! 101
    &  2.8812469543_wp,  3.3390407083_wp,  3.0000000000_wp, & ! 102
    &  3.1674147334_wp,  3.9283698534_wp,  3.0000000000_wp],& ! 103
-   
    & shape(p_ceh_h0k))
 
    !> Scaling factor for total charge in the estimate of atomic charges
@@ -821,7 +820,7 @@ module tblite_ceh_ceh
    &  0.1320000581_wp,  0.1657697711_wp,  0.2030302877_wp]                     ! 101-103
 
    !> Empirical atomic radii for calculation of the coordination number
-   real(wp), parameter :: ceh_cov_radii(max_elem) = [&
+   real(wp), parameter :: ceh_cov_radii(max_elem) = 0.5 * [&
    &  2.4040551903_wp,  1.8947380542_wp,  3.4227634078_wp,  3.5225408137_wp, & ! 1-4
    &  3.6150631704_wp,  2.8649682108_wp,  2.4695867541_wp,  2.3533691180_wp, & ! 5-8
    &  2.4992147462_wp,  3.3442607441_wp,  4.4665909451_wp,  4.3877250907_wp, & ! 9-12
@@ -933,7 +932,7 @@ contains
 
       integer :: isp, izp, ish, stat, ng, il
       integer, allocatable :: nsh_id(:)
-      integer :: ang_idx(0:2), ortho(max_shell)
+      integer :: ang_idx(0:3), ortho(max_shell)
       type(cgto_type), allocatable :: cgto(:, :)
 
       nsh_id = nshell(mol%num)
@@ -949,15 +948,10 @@ contains
                ortho(ish) = ang_idx(il)
             else
                ang_idx(il) = ish
-            end if
+               end if
+               write(*,*) "slater exponent", slater_exponent(ish, izp)
             call slater_to_gauss(ng, principal_quantum_number(ish, izp), il, &
             & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
-         end do
-
-         do ish = 1, nsh_id(isp)
-            if (ortho(ish) > 0) then
-               call orthogonalize(cgto(ortho(ish), isp), cgto(ish, isp))
-            end if
          end do
       end do
 
@@ -1151,9 +1145,9 @@ contains
       logical, allocatable  :: valence(:,:)
 
       integer :: isp, izp, ish, il, mshell
-      integer :: ang_idx(0:2)
+      integer :: ang_idx(0:3)
 
-      allocate(valence(3, mol%nid))
+      allocate(valence(4, mol%nid))
       do isp = 1, mol%nid
          ang_idx = 0
          izp = mol%num(isp)
@@ -1223,12 +1217,10 @@ contains
          izp = mol%num(isp)
          do jsp = 1, mol%nid
             jzp = mol%num(jsp)
-            ksig(isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(1,izp) &
-            & + 1.0_wp / p_ceh_h0k(1,jzp) )
-            kpi (isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(2,izp) &
-            & + 1.0_wp / p_ceh_h0k(2,jzp) )
-            kdel(isp, jsp) = 2.0_wp / (1.0_wp / p_ceh_h0k(3,izp) &
-            & + 1.0_wp / p_ceh_h0k(3,jzp) )
+            ! Geometric mean
+            ksig(isp, jsp) = (p_ceh_h0k(1,izp) * p_ceh_h0k(1,jzp))**0.5_wp 
+            kpi (isp, jsp) = (p_ceh_h0k(2,izp) * p_ceh_h0k(2,jzp))**0.5_wp 
+            kdel(isp, jsp) = (p_ceh_h0k(3,izp) * p_ceh_h0k(3,jzp))**0.5_wp 
          end do
       end do
 
@@ -1285,17 +1277,17 @@ contains
       !> Effective atomic charges, shape: [nat, spin]
       real(wp), intent(out) :: qat(:, :)
 
-      integer :: iat, izp, ispin
+      integer :: iat, isp, izp, ispin
 
       qat(:, :) = 0.0_wp
 
       do ispin = 1, size(qat, 2)
          do iat = 1, size(qat, 1)
-            izp = mol%id(iat)
+            isp = mol%id(iat)
+            izp = mol%num(isp)
 
             qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
             & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
-
          end do
       end do
    

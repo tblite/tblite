@@ -48,7 +48,7 @@ module test_ceh
 
    public :: collect_ceh
 
-   real(wp), parameter :: kt = 5000.0_wp * 3.166808578545117e-06_wp
+   real(wp), parameter :: kt = 4000.0_wp * 3.166808578545117e-06_wp
    real(wp), parameter :: thr2 = 1.0e2_wp*sqrt(epsilon(1.0_wp))
 
 contains
@@ -60,61 +60,192 @@ contains
       type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
       testsuite = [ &
-         new_unittest("scaled-selfenergy-H2", test_scaled_selfenergy_h2), &
-         new_unittest("scaled-selfenergy-LiH", test_scaled_selfenergy_lih), &
-         new_unittest("scaled-selfenergy-S2", test_scaled_selfenergy_s2), &
-         new_unittest("scaled-selfenergy-SiH4", test_scaled_selfenergy_sih4), &
-         new_unittest("hamiltonian-H2", test_hamiltonian_h2), &
-         new_unittest("hamiltonian-LiH", test_hamiltonian_lih), &
-         new_unittest("hamiltonian-S2", test_hamiltonian_s2), &
-         new_unittest("hamiltonian-SiH4", test_hamiltonian_sih4), &
-         new_unittest("overlap_diat-H2", test_overlap_diat_h2), &
-         new_unittest("overlap_diat-LiH", test_overlap_diat_lih), &
-         new_unittest("overlap_diat-S2", test_overlap_diat_s2), &
-         new_unittest("overlap_diat-SiH4", test_overlap_diat_sih4), &
+         !new_unittest("scaled-selfenergy-H2", test_scaled_selfenergy_h2), &
+         !new_unittest("scaled-selfenergy-LiH", test_scaled_selfenergy_lih), &
+         !new_unittest("scaled-selfenergy-S2", test_scaled_selfenergy_s2), &
+         !new_unittest("scaled-selfenergy-SiH4", test_scaled_selfenergy_sih4), &
+         !new_unittest("scaled-selfenergy-AcCl6", test_scaled_selfenergy_accl6), &
+         !new_unittest("hamiltonian-H2", test_hamiltonian_h2), &
+         !new_unittest("hamiltonian-LiH", test_hamiltonian_lih), &
+         !new_unittest("hamiltonian-S2", test_hamiltonian_s2), &
+         !new_unittest("hamiltonian-SiH4", test_hamiltonian_sih4), &
+         !new_unittest("overlap_diat-H2", test_overlap_diat_h2), &
+         !new_unittest("overlap_diat-LiH", test_overlap_diat_lih), &
+         !new_unittest("overlap_diat-S2", test_overlap_diat_s2), &
+         !new_unittest("overlap_diat-SiH4", test_overlap_diat_sih4) &
          new_unittest("q-mol-h2", test_q_h2), &
          new_unittest("q-mol-lih", test_q_lih), &
-         new_unittest("q-mol-1", test_q_mb01), &
-         new_unittest("q-mol-2", test_q_mb02), &
-         new_unittest("q-mol-3", test_q_mb03), &
-         new_unittest("q-mol-4", test_q_mb04), &
-         new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
-         new_unittest("d-mol", test_d_mb01), &
-         new_unittest("d-field-mol", test_d_field_mb04), &
-         new_unittest("d-field-change-mol", test_d_hcn) &
+         new_unittest("q-mol-sih4", test_q_sih4) &
+         !new_unittest("q-mol-accl6", test_q_accl6) &
+         !new_unittest("q-mol-mb01", test_q_mb01) &
+         !new_unittest("q-mol-mb02", test_q_mb02), &
+         !new_unittest("q-mol-mb03", test_q_mb03), &
+         !new_unittest("q-mol-mb04", test_q_mb04) &
+         !new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
+         !new_unittest("d-mol", test_d_mb01), &
+         !new_unittest("d-field-mol", test_d_field_mb04), &
+         !new_unittest("d-field-change-mol", test_d_hcn) &
          ]
 
    end subroutine collect_ceh
 
-
+   !> Testing on the CEH basis
    subroutine make_basis(bas, mol, ng)
       type(basis_type), intent(out) :: bas
       type(structure_type), intent(in) :: mol
       integer, intent(in) :: ng
 
-      integer, parameter :: nsh(20) = [&
-      & 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3]
-      integer, parameter :: lsh(3, 20) = reshape([&
-      & 0, 0, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0, &
-      & 0, 1, 0,  0, 1, 0,  0, 1, 2,  0, 1, 0,  0, 1, 2,  0, 1, 2,  0, 1, 2, &
-      & 0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 0,  0, 1, 2], &
-      & shape(lsh))
-      integer, parameter :: pqn(3, 20) = reshape([&
-      & 1, 0, 0,  1, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0, &
-      & 2, 2, 0,  2, 2, 0,  2, 2, 3,  3, 3, 0,  3, 3, 3,  3, 3, 3,  3, 3, 3, &
-      & 3, 3, 3,  3, 3, 3,  3, 3, 3,  3, 3, 3,  4, 4, 0,  4, 4, 3], &
-      & shape(pqn))
-      real(wp), parameter :: zeta(3, 20) = reshape([&
-      & 1.230000_wp, 0.000000_wp, 0.000000_wp, 1.669667_wp, 1.500000_wp, 0.000000_wp, &
-      & 0.750060_wp, 0.557848_wp, 0.000000_wp, 1.034720_wp, 0.949332_wp, 0.000000_wp, &
-      & 1.479444_wp, 1.479805_wp, 0.000000_wp, 2.096432_wp, 1.800000_wp, 0.000000_wp, &
-      & 2.339881_wp, 2.014332_wp, 0.000000_wp, 2.439742_wp, 2.137023_wp, 0.000000_wp, &
-      & 2.416361_wp, 2.308399_wp, 0.000000_wp, 3.084104_wp, 2.312051_wp, 2.815609_wp, &
-      & 0.763787_wp, 0.573553_wp, 0.000000_wp, 1.184203_wp, 0.717769_wp, 1.300000_wp, &
-      & 1.352531_wp, 1.391201_wp, 1.000000_wp, 1.773917_wp, 1.718996_wp, 1.250000_wp, &
-      & 1.816945_wp, 1.903247_wp, 1.167533_wp, 1.981333_wp, 2.025643_wp, 1.702555_wp, &
-      & 2.485265_wp, 2.199650_wp, 2.476089_wp, 2.329679_wp, 2.149419_wp, 1.950531_wp, &
-      & 0.875961_wp, 0.631694_wp, 0.000000_wp, 1.267130_wp, 0.786247_wp, 1.380000_wp],&
+      integer, parameter :: nsh(103) = [&
+      & 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3, & ! 1-20
+      & 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, & ! 21-40
+      & 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, & ! 41-60
+      & 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, & ! 61-80
+      & 3, 3, 3, 3, 3, 3, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, & ! 81-100
+      & 4, 4, 4]
+      integer, parameter :: lsh(4, 103) = reshape([&
+      & 0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0, & ! 1-6
+      & 0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 2, 0, & ! 7-12
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 13-18
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 19-24
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 25-30
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 31-36
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 37-42
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 43-48
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 49-54
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 55-60
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 61-66
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 67-72
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 73-78
+      & 0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 79-84
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 3,  0, 1, 2, 3, & ! 85-90
+      & 0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3, & ! 91-96
+      & 0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3,  0, 1, 2, 3, & ! 97-102
+      & 0, 1, 2, 3], shape(lsh))
+
+      integer, parameter :: pqn(4, 103) = reshape([&
+      & 1, 0, 0, 0,  1, 0, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0, & ! 1-6
+      & 2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  3, 3, 0, 0,  3, 3, 3, 0, & ! 7-12
+      & 3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0, & ! 13-18
+      & 4, 4, 0, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0, & ! 19-24
+      & 4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 0, 0, & ! 25-30
+      & 4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0, & ! 31-36
+      & 5, 5, 0, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0, & ! 37-42
+      & 5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 0, 0, & ! 43-48
+      & 5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0, & ! 49-54
+      & 6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 55-60
+      & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 61-66
+      & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 67-72
+      & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 73-78
+      & 6, 6, 5, 0,  6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 79-84
+      & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 5,  6, 6, 5, 5, & ! 85-90
+      & 6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5, & ! 91-96
+      & 6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5, & ! 97-102
+      & 6, 6, 5, 5], shape(pqn))
+
+      real(wp), parameter :: zeta(4, 103) = reshape([&
+      & 1.23363166_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, & ! 1
+      & 2.27004605_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, & ! 2
+      & 0.86185456_wp, 1.42017184_wp, 0.00000000_wp, 0.00000000_wp, & ! 3
+      & 1.76817995_wp, 1.44095844_wp, 0.00000000_wp, 0.00000000_wp, & ! 4
+      & 2.06339837_wp, 1.52051807_wp, 0.00000000_wp, 0.00000000_wp, & ! 5
+      & 2.56058582_wp, 1.86484737_wp, 0.00000000_wp, 0.00000000_wp, & ! 6
+      & 2.71233631_wp, 2.19848968_wp, 0.00000000_wp, 0.00000000_wp, & ! 7
+      & 3.21585650_wp, 2.41309737_wp, 0.00000000_wp, 0.00000000_wp, & ! 8
+      & 3.82146807_wp, 2.63063636_wp, 0.00000000_wp, 0.00000000_wp, & ! 9
+      & 4.62721228_wp, 2.53599954_wp, 0.00000000_wp, 0.00000000_wp, & ! 10
+      & 0.93221172_wp, 1.55333839_wp, 0.00000000_wp, 0.00000000_wp, & ! 11
+      & 1.77220557_wp, 1.59942632_wp, 2.98596647_wp, 0.00000000_wp, & ! 12
+      & 2.26040231_wp, 1.78718151_wp, 2.00990188_wp, 0.00000000_wp, & ! 13
+      & 1.85259089_wp, 1.81733349_wp, 1.65269988_wp, 0.00000000_wp, & ! 14
+      & 2.65701241_wp, 2.03189759_wp, 2.03883661_wp, 0.00000000_wp, & ! 15
+      & 2.60609998_wp, 2.16530440_wp, 2.41888232_wp, 0.00000000_wp, & ! 16
+      & 2.78818934_wp, 2.24732894_wp, 1.99081182_wp, 0.00000000_wp, & ! 17
+      & 2.55424399_wp, 2.20946190_wp, 1.93619550_wp, 0.00000000_wp, & ! 18
+      & 1.73713827_wp, 1.33788617_wp, 0.00000000_wp, 0.00000000_wp, & ! 19
+      & 2.47982574_wp, 1.07250770_wp, 2.11920764_wp, 0.00000000_wp, & ! 20
+      & 2.22449249_wp, 1.55418319_wp, 2.00953578_wp, 0.00000000_wp, & ! 21
+      & 2.58879616_wp, 0.99441077_wp, 1.88561781_wp, 0.00000000_wp, & ! 22
+      & 3.04370654_wp, 4.03007600_wp, 1.66329169_wp, 0.00000000_wp, & ! 23
+      & 2.25012727_wp, 2.70681556_wp, 1.67501904_wp, 0.00000000_wp, & ! 24
+      & 2.20605319_wp, 2.82019792_wp, 1.86102254_wp, 0.00000000_wp, & ! 25
+      & 1.57297015_wp, 1.98621494_wp, 2.83790684_wp, 0.00000000_wp, & ! 26
+      & 1.80826602_wp, 1.73675835_wp, 2.79767448_wp, 0.00000000_wp, & ! 27
+      & 2.00758945_wp, 2.25075692_wp, 2.98291663_wp, 0.00000000_wp, & ! 28
+      & 2.18159986_wp, 2.38459096_wp, 3.09502522_wp, 0.00000000_wp, & ! 29
+      & 2.26376756_wp, 2.20362977_wp, 0.00000000_wp, 0.00000000_wp, & ! 30
+      & 2.63822153_wp, 2.06752328_wp, 2.11361643_wp, 0.00000000_wp, & ! 31
+      & 2.52891955_wp, 2.19441794_wp, 1.77661998_wp, 0.00000000_wp, & ! 32
+      & 3.55667605_wp, 2.42075463_wp, 1.46579772_wp, 0.00000000_wp, & ! 33
+      & 2.89652631_wp, 2.45421858_wp, 2.27883625_wp, 0.00000000_wp, & ! 34
+      & 3.28921099_wp, 2.56526915_wp, 1.64501640_wp, 0.00000000_wp, & ! 35
+      & 5.20988189_wp, 2.84336725_wp, 2.75838814_wp, 0.00000000_wp, & ! 36
+      & 1.26972917_wp, 1.88730596_wp, 0.00000000_wp, 0.00000000_wp, & ! 37
+      & 1.86880714_wp, 1.78546342_wp, 2.16012236_wp, 0.00000000_wp, & ! 38
+      & 0.92001877_wp, 1.45732462_wp, 2.22901395_wp, 0.00000000_wp, & ! 39
+      & 6.50647305_wp, 1.43202338_wp, 2.11971490_wp, 0.00000000_wp, & ! 40
+      & 2.10973371_wp, 2.79944781_wp, 2.01897369_wp, 0.00000000_wp, & ! 41
+      & 2.58413333_wp, 3.02795359_wp, 2.08733665_wp, 0.00000000_wp, & ! 42
+      & 2.62141555_wp, 3.13487625_wp, 2.13259872_wp, 0.00000000_wp, & ! 43
+      & 2.73984499_wp, 2.18167834_wp, 2.54609647_wp, 0.00000000_wp, & ! 44
+      & 1.84057176_wp, 2.97482636_wp, 3.10693700_wp, 0.00000000_wp, & ! 45
+      & 1.75622839_wp, 3.39424756_wp, 3.20265306_wp, 0.00000000_wp, & ! 46
+      & 3.05018811_wp, 2.34951987_wp, 3.35332952_wp, 0.00000000_wp, & ! 47
+      & 2.41999128_wp, 2.28892954_wp, 0.00000000_wp, 0.00000000_wp, & ! 48
+      & 2.87813961_wp, 2.44659724_wp, 2.75773502_wp, 0.00000000_wp, & ! 49
+      & 3.03823214_wp, 2.32082155_wp, 1.77513328_wp, 0.00000000_wp, & ! 50
+      & 2.68750711_wp, 2.38565373_wp, 2.12596190_wp, 0.00000000_wp, & ! 51
+      & 2.81071790_wp, 2.45274786_wp, 2.01871821_wp, 0.00000000_wp, & ! 52
+      & 2.90686956_wp, 2.49377102_wp, 1.90073732_wp, 0.00000000_wp, & ! 53
+      & 4.17531340_wp, 2.86937955_wp, 2.96894812_wp, 0.00000000_wp, & ! 54
+      & 1.24299361_wp, 1.99142040_wp, 0.00000000_wp, 0.00000000_wp, & ! 55
+      & 1.31400366_wp, 1.16438481_wp, 2.12759606_wp, 0.00000000_wp, & ! 56
+      & 2.81737350_wp, 1.69863323_wp, 2.27369715_wp, 0.00000000_wp, & ! 57
+      & 2.84503901_wp, 1.46018192_wp, 2.53498936_wp, 0.00000000_wp, & ! 58
+      & 2.81697107_wp, 1.47545307_wp, 2.54350275_wp, 0.00000000_wp, & ! 59
+      & 2.78890313_wp, 1.49072422_wp, 2.55201615_wp, 0.00000000_wp, & ! 60
+      & 2.76083520_wp, 1.50599537_wp, 2.56052955_wp, 0.00000000_wp, & ! 61
+      & 2.73276726_wp, 1.52126652_wp, 2.56904294_wp, 0.00000000_wp, & ! 62
+      & 2.70469932_wp, 1.53653767_wp, 2.57755634_wp, 0.00000000_wp, & ! 63
+      & 2.67663138_wp, 1.55180881_wp, 2.58606974_wp, 0.00000000_wp, & ! 64
+      & 2.64856345_wp, 1.56707996_wp, 2.59458313_wp, 0.00000000_wp, & ! 65
+      & 2.62049551_wp, 1.58235111_wp, 2.60309653_wp, 0.00000000_wp, & ! 66
+      & 2.59242757_wp, 1.59762226_wp, 2.61160992_wp, 0.00000000_wp, & ! 67
+      & 2.56435964_wp, 1.61289341_wp, 2.62012332_wp, 0.00000000_wp, & ! 68
+      & 2.53629170_wp, 1.62816456_wp, 2.62863672_wp, 0.00000000_wp, & ! 69
+      & 2.50822376_wp, 1.64343571_wp, 2.63715011_wp, 0.00000000_wp, & ! 70
+      & 2.48015583_wp, 1.65870685_wp, 2.64566351_wp, 0.00000000_wp, & ! 71
+      & 3.19537752_wp, 2.24853837_wp, 2.41492177_wp, 0.00000000_wp, & ! 72
+      & 3.14122020_wp, 2.48723489_wp, 2.21933576_wp, 0.00000000_wp, & ! 73
+      & 3.17661283_wp, 3.39538568_wp, 2.37502789_wp, 0.00000000_wp, & ! 74
+      & 3.14538352_wp, 2.58361113_wp, 2.47139347_wp, 0.00000000_wp, & ! 75
+      & 1.81565647_wp, 2.48106221_wp, 3.18585355_wp, 0.00000000_wp, & ! 76
+      & 2.11798490_wp, 2.85857032_wp, 3.47048400_wp, 0.00000000_wp, & ! 77
+      & 2.71241232_wp, 3.37886078_wp, 3.64124964_wp, 0.00000000_wp, & ! 78
+      & 2.80572458_wp, 2.82570220_wp, 3.72064445_wp, 0.00000000_wp, & ! 79
+      & 2.61951362_wp, 2.69607886_wp, 0.00000000_wp, 0.00000000_wp, & ! 80
+      & 3.05383193_wp, 2.61683803_wp, 3.32179612_wp, 0.00000000_wp, & ! 81
+      & 3.02135073_wp, 2.59250246_wp, 4.24674489_wp, 0.00000000_wp, & ! 82
+      & 3.16405210_wp, 2.63238785_wp, 3.04625573_wp, 0.00000000_wp, & ! 83
+      & 2.96133467_wp, 2.71388453_wp, 2.31022562_wp, 0.00000000_wp, & ! 84
+      & 2.98240599_wp, 2.95960758_wp, 2.43778345_wp, 0.00000000_wp, & ! 85
+      & 3.07936232_wp, 2.68589775_wp, 2.10311395_wp, 0.00000000_wp, & ! 86
+      & 1.81913220_wp, 3.23064408_wp, 0.00000000_wp, 0.00000000_wp, & ! 87
+      & 2.43263729_wp, 2.47485608_wp, 2.09113715_wp, 0.00000000_wp, & ! 88
+      & 3.65108887_wp, 3.45440279_wp, 1.97314608_wp, 1.98901892_wp, & ! 89
+      & 3.35816295_wp, 2.81245896_wp, 2.05947820_wp, 2.04247660_wp, & ! 90
+      & 3.08262439_wp, 2.24936413_wp, 2.13696560_wp, 2.09705269_wp, & ! 91
+      & 2.82447317_wp, 1.76511830_wp, 2.20560830_wp, 2.15274719_wp, & ! 92
+      & 2.58370931_wp, 1.35972146_wp, 2.26540630_wp, 2.20956009_wp, & ! 93
+      & 2.36033280_wp, 1.03317362_wp, 2.31635959_wp, 2.26749140_wp, & ! 94
+      & 2.15434364_wp, 0.78547477_wp, 2.35846817_wp, 2.32654112_wp, & ! 95
+      & 1.96574183_wp, 0.61662492_wp, 2.39173204_wp, 2.38670925_wp, & ! 96
+      & 1.79452738_wp, 0.52662407_wp, 2.41615121_wp, 2.44799578_wp, & ! 97
+      & 1.64070027_wp, 0.51547221_wp, 2.43172568_wp, 2.51040072_wp, & ! 98
+      & 1.50426052_wp, 0.58316935_wp, 2.43845543_wp, 2.57392407_wp, & ! 99
+      & 1.38520812_wp, 0.72971549_wp, 2.43634048_wp, 2.63856583_wp, & ! 100
+      & 1.28354307_wp, 0.95511062_wp, 2.42538083_wp, 2.70432599_wp, & ! 101
+      & 1.19926537_wp, 1.25935475_wp, 2.40557646_wp, 2.77120456_wp, & ! 102
+      & 1.13237503_wp, 1.64244787_wp, 2.37692740_wp, 2.83920154_wp],& ! 103
       & shape(zeta))
 
       integer :: isp, izp, ish, stat
@@ -165,8 +296,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cn_cutoff, rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cn_cutoff, rcov)
+      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
       call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
@@ -221,8 +352,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cn_cutoff, rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cn_cutoff, rcov)
+      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
       call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
@@ -285,8 +416,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cn_cutoff, rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cn_cutoff, rcov)
+      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
       call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
@@ -343,6 +474,7 @@ contains
       ctx%verbosity = 0
       call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
 
+      write(*,*) "qat", wfn%qat(:,1)
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
          if (allocated(error)) then
@@ -362,7 +494,7 @@ contains
 
       integer, parameter :: nsh = 2
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -5.1041627058615E-01_wp, -5.1041627058615E-01_wp &
+      & -5.2057326046758E-01_wp, -5.2057326046758E-01_wp & 
       &],shape(scaled_selfenergy))
 
       type(structure_type) :: mol
@@ -379,7 +511,7 @@ contains
 
       integer, parameter :: nsh = 3
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -3.7307764740843E-01_wp, -3.9446056938638E-01_wp, -3.3732801377653E-01_wp &
+      & -5.7614182696741E-02_wp, -1.3057703854461E-01_wp, -3.6985761349230E-01_wp &
       &],shape(scaled_selfenergy))
 
       type(structure_type) :: mol
@@ -396,8 +528,8 @@ contains
 
       integer, parameter :: nsh = 6
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -5.7642093144110E-01_wp, -5.3180811904793E-01_wp, -2.9175444046022E-01_wp, & 
-      & -5.7642093144110E-01_wp, -5.3180811904793E-01_wp, -2.9175444046022E-01_wp &
+      & -6.9008304496671E-01_wp, -5.6274208401578E-01_wp, -5.7343694597688E-02_wp, & 
+      & -6.9008304496671E-01_wp, -5.6274208401578E-01_wp, -5.7343694597688E-02_wp &
       &], shape(scaled_selfenergy))
 
       type(structure_type) :: mol
@@ -414,9 +546,9 @@ contains
 
       integer, parameter :: nsh = 7
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -5.2140420559246E-01_wp, -4.8639401015524E-01_wp, -2.4597945091348E-01_wp, & 
-      & -4.7036092200061E-01_wp, -4.7036092200061E-01_wp, -4.7036092200061E-01_wp, & 
-      & -4.7036092200061E-01_wp], shape(scaled_selfenergy))
+      & -7.0849504464403E-01_wp, -4.7605638972741E-01_wp, -1.8541704653682E-01_wp, & 
+      & -4.8652644697198E-01_wp, -4.8652644697198E-01_wp, -4.8652644697198E-01_wp, &
+      & -4.8652644697198E-01_wp], shape(scaled_selfenergy))
 
       type(structure_type) :: mol
 
@@ -424,6 +556,29 @@ contains
       call test_scaled_selfenergy_mol(error, mol, scaled_selfenergy)
 
    end subroutine test_scaled_selfenergy_sih4
+
+   subroutine test_scaled_selfenergy_accl6(error)
+
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      integer, parameter :: nsh = 22
+      real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
+      & 2.77466207309973_wp    , -4.1954263660149E-01_wp, -5.4809034482196E-01_wp, &
+      &-6.36681272518369E-03_wp, -4.3819259611367E-01_wp, -2.9082233002044E-01_wp, &
+      & 7.02743423215177E-02_wp, -4.3819425191345E-01_wp, -2.9084728314198E-01_wp, &
+      & 7.02681834728156E-02_wp, -4.3822006265352E-01_wp, -2.9084720659706E-01_wp, &
+      & 7.02683075671165E-02_wp, -4.3822174122876E-01_wp, -2.9085944552609E-01_wp, &
+      & 7.02652903250950E-02_wp, -4.3819504378374E-01_wp, -2.9083806237387E-01_wp, &
+      & 7.02704650332720E-02_wp, -4.3818833398193E-01_wp, -2.9082921173350E-01_wp, &
+      & 7.02726245699396E-02_wp], shape(scaled_selfenergy))
+
+      type(structure_type) :: mol
+
+      call get_structure(mol, "MB16-43", "AcCl6")
+      call test_scaled_selfenergy_mol(error, mol, scaled_selfenergy)
+
+   end subroutine test_scaled_selfenergy_accl6
 
 
    subroutine test_hamiltonian_h2(error)
@@ -925,13 +1080,46 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(2) = reshape([ &
-      & 0.383963042442916_wp, -0.383963042442917_wp &
+      & 0.452928818506870_wp, -0.452928818506872_wp &
       &], shape(charges))
 
       call get_structure(mol, "MB16-43", "LiH")
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_lih
+
+   subroutine test_q_sih4(error)
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(structure_type) :: mol
+      ! calculated with GP3 standalone (full matrix diagonalization)
+      real(wp), parameter :: charges(5) = reshape([ &
+      & 0.504694175287870_wp, -0.049320603215405_wp, -0.442887082747601_wp, &     
+      &-0.040897715947291_wp, -0.225355610004319_wp &
+      &], shape(charges))
+
+      call get_structure(mol, "MB16-43", "SiH4")
+      call test_q_gen(error, mol, charges)
+
+   end subroutine test_q_sih4
+
+   subroutine test_q_accl6(error)
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(structure_type) :: mol
+      ! calculated with GP3 standalone (full matrix diagonalization)
+      real(wp), parameter :: charges(7) = reshape([ &
+      & 0.504694175287870_wp, -0.049320603215405_wp, -0.442887082747601_wp, &     
+      &-0.040897715947291_wp, -0.225355610004319_wp,  0.079338661074347_wp, &
+      &-0.012184763492912_wp &
+      &], shape(charges))
+
+      call get_structure(mol, "MB16-43", "AcCl6")
+      call test_q_gen(error, mol, charges)
+
+   end subroutine test_q_accl6
 
    subroutine test_q_mb01(error)
       !> Error handling

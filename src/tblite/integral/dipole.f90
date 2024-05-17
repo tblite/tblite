@@ -24,7 +24,7 @@ module tblite_integral_dipole
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
    use tblite_integral_trafo, only : transform0, transform1, transform2
-   use tblite_integral_diat_trafo, only: relvec, diat_trafo
+   use tblite_integral_diat_trafo, only: diat_trafo
    implicit none
    private
 
@@ -367,8 +367,9 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
 
 end subroutine dipole_cgto
 
-pure subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
-& vec_diat_trafo, ksig, kpi, kdel, overlap, overlap_scaled, dpint)
+!pure 
+subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
+& ksig, kpi, kdel, overlap, overlap_scaled, dpint)
    !> Description of contracted Gaussian function on center i
    type(cgto_type), intent(in) :: cgtoi
    !> Description of contracted Gaussian function on center j
@@ -379,8 +380,6 @@ pure subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(in) :: vec(3)
    !> Maximum value of integral prefactor to consider
    real(wp), intent(in) :: intcut
-   !> Transformation vector for the diatomic frame
-   real(wp), intent(in) :: vec_diat_trafo(3)
    !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    real(wp), intent(in) :: ksig, kpi, kdel
    !> Overlap integrals (scaled and unscaled) for the given pair i  and j
@@ -388,8 +387,6 @@ pure subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
      & overlap_scaled(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Dipole moment integrals for the given pair i  and j
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
-   !> Block overlap matrix as a technical intermediate for the diatomic frame
-   real(wp) :: block_overlap(9,9)
    !> Offset array for the block overlap matrix 
    !> (number of AOs that appear before the current angular momentum)
    integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
@@ -398,6 +395,9 @@ pure subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
+
+   !> Block overlap matrix as a technical intermediate for the diatomic frame
+   real(wp) :: block_overlap(offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
 
    s3d(:, :) = 0.0_wp
    d3d(:, :, :) = 0.0_wp
@@ -443,7 +443,7 @@ pure subroutine dipole_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    !> 2. Set up transformation matrix, transform the submatrix,
    !> scale the elements with the corresponding factor, transform back 
    !> according to: trans_block_s = O^T * S * O
-   call diat_trafo(block_overlap, vec_diat_trafo, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
+   call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
    !> 3. Fill the overlap_scaled matrix with the back-transformed submatrix
    overlap_scaled(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
      & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
@@ -608,8 +608,6 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
    real(wp), intent(out) :: overlap_scaled(:, :)
    !> Dipole moment integral matrix
    real(wp), intent(out) :: dpint(:, :, :)
-   !> Transformation vector for the diatomic frame
-   real(wp) :: vec_diat_trafo(3)
    !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    !> (sigma, pi, delta)
    real(wp) :: ksig, kpi, kdel
@@ -636,7 +634,7 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
    !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled, dpint, scal_fac) &
    !$omp private(r2, vec, stmp, dtmp, sscaledtmp) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
-   !$omp private(ksig, kpi, kdel, vec_diat_trafo)
+   !$omp private(ksig, kpi, kdel)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -648,7 +646,6 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
             if (r2 > cutoff2) cycle
             if (iat /= jat) then
-               call relvec(vec, sqrt(r2), vec_diat_trafo)
                !> Determine scaling factors from atom parameters
                ksig = 2.0_wp / (1.0_wp / scal_fac(1,mol%num(mol%id(iat))) &
                & + 1.0_wp / scal_fac(1,mol%num(mol%id(jat))) )
@@ -666,7 +663,7 @@ subroutine get_dipole_integrals_diat_overlap_lat(mol, &
                   dtmp = 0.0_wp
                   if (iat /= jat) then
                      call dipole_cgto_diat_scal(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                        & r2, vec, bas%intcut, vec_diat_trafo, ksig, kpi, kdel, &
+                        & r2, vec, bas%intcut, ksig, kpi, kdel, &
                         & stmp, sscaledtmp, dtmp)
                   else
                      call dipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &

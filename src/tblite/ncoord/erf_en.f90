@@ -41,25 +41,33 @@ module tblite_ncoord_erf_en
       procedure :: ncoord_dcount
    end type erf_en_ncoord_type
 
-   !> Steepness of counting function 
-   real(wp), parameter :: kcn = 2.65_wp
+   !> Steepness of counting function (CEH)
+   real(wp), parameter :: default_kcn = 2.65_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
 contains
 
 
-   subroutine new_erf_en_ncoord(self, mol, cutoff, rcov, en)
+   subroutine new_erf_en_ncoord(self, mol, kcn, cutoff, rcov, en)
       !> Coordination number container
       type(erf_en_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
+      !> Steepness of counting function
+      real(wp), optional :: kcn
       !> Real space cutoff
       real(wp), intent(in), optional :: cutoff
       !> Covalent radii
       real(wp), intent(in), optional :: rcov(:)
       !> Electronegativity
       real(wp), intent(in), optional :: en(:)
+      
+      if(present(kcn)) then
+         self%kcn = kcn
+      else
+         self%kcn = default_kcn
+      end if
 
       if (present(cutoff)) then
          self%cutoff = cutoff
@@ -110,7 +118,7 @@ contains
       rc = self%rcov(izp) + self%rcov(jzp)
       diff_en = self%en(jzp) - self%en(izp)
       ! error function based counting function with EN 
-      count = 0.5_wp * diff_en * (1.0_wp + erf(-kcn*(r-rc)/rc))
+      count = 0.5_wp * diff_en * (1.0_wp + erf(-self%kcn*(r-rc)/rc))
 
    end function ncoord_count
 
@@ -132,9 +140,9 @@ contains
       rc = self%rcov(izp) + self%rcov(jzp)
       diff_en = self%en(jzp) - self%en(izp)
       ! error function based counting function with EN derivative
-      exponent = kcn*(r-rc)/rc
+      exponent = self%kcn*(r-rc)/rc
       expterm = exp(-exponent**2)
-      count = - diff_en * (kcn*expterm)/(rc*sqrt(pi))
+      count = - diff_en * (self%kcn*expterm)/(rc*sqrt(pi))
 
    end function ncoord_dcount
 

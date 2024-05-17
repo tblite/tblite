@@ -26,7 +26,6 @@ module tblite_ceh_h0
    use tblite_xtb_h0, only : tb_hamiltonian
    use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
    & dipole_cgto_diat_scal, maxl, msao
-   use tblite_integral_diat_trafo, only: relvec
    use tblite_adjlist, only : adjacency_list
 
    implicit none
@@ -112,7 +111,7 @@ contains
 
       integer  :: itr, img, inl, ii, jj, is, js, jzp, izp, nao
       integer  :: iat, ish, jat, jsh, k, iao, jao, ij
-      real(wp) :: hij, rr, r2, vec(3), vec_diat_trafo(3), dtmpj(3)
+      real(wp) :: hij, rr, r2, vec(3), dtmpj(3)
       real(wp), allocatable :: stmp(:), dtmpi(:, :), stmp_diat(:)
       integer :: kl, l
 
@@ -127,7 +126,7 @@ contains
       !$omp parallel do schedule(runtime) default(none) &
       !$omp shared(mol, bas, trans, list, overlap, overlap_diat, dpint, hamiltonian, h0, selfenergy) &
       !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, k) &
-      !$omp private(r2, vec, vec_diat_trafo, stmp, stmp_diat, dtmpi, dtmpj, hij, rr, inl, img)
+      !$omp private(r2, vec, stmp, stmp_diat, dtmpi, dtmpj, hij, rr, inl, img)
       do iat = 1, mol%nat
          izp = mol%id(iat)
          is = bas%ish_at(iat)
@@ -140,18 +139,18 @@ contains
             vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
             rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-            call relvec(vec, sqrt(r2), vec_diat_trafo)
             do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-
+                  write(*,*) jsh, jzp
+                  write(*,*) bas%cgto(jsh,jzp)%alpha
+                  write(*,*) bas%cgto(jsh,jzp)%coeff
                   call dipole_cgto_diat_scal(bas%cgto(jsh,jzp), bas%cgto(ish,izp), r2, vec, &
-                     bas%intcut, vec_diat_trafo, h0%ksig(izp,jzp), h0%kpi(izp,jzp), h0%kdel(izp,jzp), &
+                  & bas%intcut, h0%ksig(izp,jzp), h0%kpi(izp,jzp), h0%kdel(izp,jzp), &
                   & stmp, stmp_diat, dtmpi)
 
-                  hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
-                     * h0%hscale(jsh, ish, jzp, izp)
+                  hij = 0.5_wp * h0%hscale(jsh, ish, jzp, izp) * (selfenergy(is+ish) + selfenergy(js+jsh)) 
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
@@ -223,10 +222,6 @@ contains
                jj = bas%iao_sh(is+jsh)
                call dipole_cgto(bas%cgto(jsh,izp), bas%cgto(ish,izp), &
                & r2, vec, bas%intcut, stmp, dtmpi)
-
-               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh)) &
-               &   *  h0%hscale(ish, jsh, izp, izp)
-
                nao = msao(bas%cgto(jsh, izp)%ang)
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
                   do jao = 1, nao
@@ -239,13 +234,10 @@ contains
 
                      dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
                         + dtmpi(:, ij)
-
-                     hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                        + stmp(ij) * hij
                   end do
                end do
             end do
-            ! diagonal term (AO(i) == AO(j))
+            ! diagonal term (AO(i) == AO(j)) as on-site off-diagonal the hamiltonian is zero
             do iao = 1, msao(bas%cgto(ish, izp)%ang)
                hamiltonian(ii+iao, ii+iao) = selfenergy(is + ish)
             enddo
