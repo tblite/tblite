@@ -201,6 +201,7 @@ contains
       
       call write_2d_matrix(ints%overlap, "S")
       call write_2d_matrix(ints%hamiltonian, "H")
+      call write_2d_matrix(wfn%coeff(:,:,1), "Hfull")
       call write_2d_matrix(ints%overlap_diat, "Sdiat")
 
       ! Solve the effective Hamiltonian
@@ -211,6 +212,8 @@ contains
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
+
+      write(*,*) "emo", wfn%emo(:, 1)
 
       ! Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &

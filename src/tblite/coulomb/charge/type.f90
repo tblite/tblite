@@ -173,16 +173,13 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
-   write(*,*) "amat", ptr%amat
-   write(*,*) "qsh", wfn%qat(:, 1)
+
    if(self%shell_resolved) then
-      write(*,*) "if"
       call symv(ptr%amat, wfn%qsh(:, 1), pot%vsh(:, 1), beta=1.0_wp)
    else
-      write(*,*) "else"
       call symv(ptr%amat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
    end if
-   write(*,*) "vat", pot%vat(:, 1)
+
 end subroutine get_potential
 
 

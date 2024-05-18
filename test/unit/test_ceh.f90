@@ -60,11 +60,11 @@ contains
       type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
       testsuite = [ &
-         !new_unittest("scaled-selfenergy-H2", test_scaled_selfenergy_h2), &
-         !new_unittest("scaled-selfenergy-LiH", test_scaled_selfenergy_lih), &
-         !new_unittest("scaled-selfenergy-S2", test_scaled_selfenergy_s2), &
-         !new_unittest("scaled-selfenergy-SiH4", test_scaled_selfenergy_sih4), &
-         !new_unittest("scaled-selfenergy-AcCl6", test_scaled_selfenergy_accl6), &
+         new_unittest("scaled-selfenergy-H2", test_scaled_selfenergy_h2), &
+         new_unittest("scaled-selfenergy-LiH", test_scaled_selfenergy_lih), &
+         new_unittest("scaled-selfenergy-S2", test_scaled_selfenergy_s2), &
+         new_unittest("scaled-selfenergy-SiH4", test_scaled_selfenergy_sih4), &
+         new_unittest("scaled-selfenergy-AcCl6", test_scaled_selfenergy_accl6), &
          !new_unittest("hamiltonian-H2", test_hamiltonian_h2), &
          !new_unittest("hamiltonian-LiH", test_hamiltonian_lih), &
          !new_unittest("hamiltonian-S2", test_hamiltonian_s2), &
@@ -72,15 +72,17 @@ contains
          !new_unittest("overlap_diat-H2", test_overlap_diat_h2), &
          !new_unittest("overlap_diat-LiH", test_overlap_diat_lih), &
          !new_unittest("overlap_diat-S2", test_overlap_diat_s2), &
-         !new_unittest("overlap_diat-SiH4", test_overlap_diat_sih4) &
+         !new_unittest("overlap_diat-SiH4", test_overlap_diat_sih4), &
          new_unittest("q-mol-h2", test_q_h2), &
          new_unittest("q-mol-lih", test_q_lih), &
-         new_unittest("q-mol-sih4", test_q_sih4) &
-         !new_unittest("q-mol-accl6", test_q_accl6) &
-         !new_unittest("q-mol-mb01", test_q_mb01) &
+         new_unittest("q-mol-sih4", test_q_sih4), &
+         new_unittest("q-mol-cecl3", test_q_cecl3), &
+         new_unittest("q-mol-accl6", test_q_accl6) &
+         !new_unittest("q-mol-accf", test_q_accf) &
+         !new_unittest("q-mol-mb01", test_q_mb01), &
          !new_unittest("q-mol-mb02", test_q_mb02), &
          !new_unittest("q-mol-mb03", test_q_mb03), &
-         !new_unittest("q-mol-mb04", test_q_mb04) &
+         !new_unittest("q-mol-mb04", test_q_mb04), &
          !new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
          !new_unittest("d-mol", test_d_mb01), &
          !new_unittest("d-field-mol", test_d_field_mb04), &
@@ -1095,14 +1097,28 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(5) = reshape([ &
-      & 0.504694175287870_wp, -0.049320603215405_wp, -0.442887082747601_wp, &     
-      &-0.040897715947291_wp, -0.225355610004319_wp &
-      &], shape(charges))
+      & 0.268915553151106_wp, -0.067228888686111_wp, -0.067228888686110_wp, &
+      &-0.067228888686110_wp, -0.067228888686110_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "SiH4")
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_sih4
+
+   subroutine test_q_cecl3(error)
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(structure_type) :: mol
+      ! calculated with GP3 standalone (full matrix diagonalization)
+      real(wp), parameter :: charges(4) = reshape([ &
+      & 0.920583611024850_wp, -0.306895022009855_wp, -0.306873044744968_wp, &
+      &-0.306815544270020_wp], shape(charges))
+
+      call get_structure(mol, "MB16-43", "CeCl3")
+      call test_q_gen(error, mol, charges)
+
+   end subroutine test_q_cecl3
 
    subroutine test_q_accl6(error)
       !> Error handling
@@ -1111,15 +1127,29 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(7) = reshape([ &
-      & 0.504694175287870_wp, -0.049320603215405_wp, -0.442887082747601_wp, &     
-      &-0.040897715947291_wp, -0.225355610004319_wp,  0.079338661074347_wp, &
-      &-0.012184763492912_wp &
-      &], shape(charges))
+      & 0.207345713782614_wp, -0.034624507070784_wp, -0.034770766787644_wp, &
+      &-0.034222972032125_wp, -0.034275614569946_wp, -0.034684131955507_wp, &
+      &-0.034767721135598_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "AcCl6")
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_accl6
+
+   subroutine test_q_accf(error)
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      type(structure_type) :: mol
+      ! calculated with GP3 standalone (full matrix diagonalization)
+      real(wp), parameter :: charges(2) = reshape([ &
+      & 0.207345713782614_wp, -0.034624507070784_wp], shape(charges))
+
+      call get_structure(mol, "MB16-43", "AcCf")
+      call test_q_gen(error, mol, charges)
+
+   end subroutine test_q_accf
+
 
    subroutine test_q_mb01(error)
       !> Error handling
@@ -1128,12 +1158,12 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(16) = reshape([ &
-      & 0.504694175287870_wp, -0.049320603215405_wp, -0.442887082747601_wp, &     
-      &-0.040897715947291_wp, -0.225355610004319_wp,  0.079338661074347_wp, &
-      &-0.012184763492912_wp, -0.354104643499813_wp, -0.225243243808309_wp, &     
-      & 0.087276255050057_wp,  0.085471100209451_wp, -0.038779744241030_wp, &
-      & 0.038616630415300_wp,  0.127389947162501_wp, -0.039323802393347_wp, &
-      & 0.505310440150523_wp], shape(charges))
+      &  0.50933743182523_wp, -0.063950757122457_wp, -0.447396210062547_wp, &     
+      & -0.06007626073194_wp, -0.228995347028063_wp,  0.081936572631240_wp, &
+      & -0.04029707489635_wp, -0.384822906853029_wp, -0.214508333206973_wp, &     
+      &  0.14648324095015_wp,  0.090840217217610_wp,  0.034875957186194_wp, &
+      & -0.05930815144452_wp,  0.133798380818110_wp, -0.063944989141738_wp, &
+      &  0.56602822987298_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "01")
       call test_q_gen(error, mol, charges)
@@ -1147,12 +1177,12 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(16) = reshape([ &
-      &-0.059404506571487_wp, -0.118702191502332_wp, -0.195235491894287_wp, &
-      &-0.210021399475394_wp,  0.496594666771036_wp,  0.158190196939209_wp, &
-      &-0.075318639484230_wp, -0.045052163348822_wp,  0.286946319499636_wp, &
-      & 0.157881990181518_wp, -0.029236175252485_wp,  0.281560060657950_wp, &
-      &-0.312312030061058_wp, -0.064265894380938_wp,  0.066269279024472_wp, &
-      &-0.337894021272329_wp], shape(charges))
+      &-0.085528757393776_wp, -0.069997806147367_wp, -0.234351594245719_wp, &
+      &-0.167766349660902_wp,  0.432632782697259_wp,  0.171300109658293_wp, &
+      &-0.088439445405627_wp, -0.045209869368921_wp,  0.391614741682698_wp, &
+      & 0.148323670914553_wp, -0.084649073627366_wp,  0.371028349885743_wp, &
+      &-0.347496611788866_wp, -0.086873903658569_wp, -0.001912803785713_wp, &
+      &-0.302673439755712_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "02")
       call test_q_gen(error, mol, charges)
@@ -1166,12 +1196,12 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(16) = reshape([ &
-      & 0.047060647546981_wp, -0.452721646051320_wp,  0.000750024797478_wp, &
-      & 0.303998197523052_wp,  0.479998103945730_wp,  0.099926859160474_wp, &
-      &-0.229477809903280_wp,  0.016858971022812_wp,  0.008564268752175_wp, &
-      & 0.004606322535074_wp, -0.354502824466586_wp, -0.187631548264506_wp, &     
-      &-0.300801554641486_wp,  0.041952785802619_wp,  0.482401552816662_wp, &     
-      & 0.039017649441556_wp], shape(charges))
+      & 0.079458459812547_wp, -0.514984986958578_wp,  0.027119814956294_wp, &
+      & 0.294936546309030_wp,  0.396051282334921_wp,  0.033859363521586_wp, &
+      &-0.261951753885935_wp,  0.026314869404998_wp,  0.037212079428442_wp, &
+      &-0.005505860141304_wp, -0.364181487304452_wp, -0.142392172388313_wp, &     
+      &-0.286416123354516_wp,  0.100899051623118_wp,  0.558735071392839_wp, &     
+      & 0.020845845249307_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "03")
       call test_q_gen(error, mol, charges)
@@ -1185,12 +1215,12 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(16) = reshape([ &
-      & 0.017867676479831_wp, -0.103259042275922_wp, -0.035078199415400_wp, &
-      &-0.183433026064262_wp,  0.263017445728753_wp,  0.012000420842077_wp, &
-      & 0.040327964255115_wp, -0.119339642424892_wp, -0.010898440812181_wp, &
-      &-0.056108839369092_wp, -0.137112266394061_wp,  0.334034245022961_wp, &
-      & 0.147772637227760_wp, -0.242482916232017_wp,  0.033049020618869_wp, &
-      & 0.039642962813086_wp], shape(charges))
+      &-0.018039040440414_wp, -0.194798993283821_wp,  -0.076478151155481_wp, &
+      &-0.167853095449230_wp,  0.304619635473503_wp,  -0.022689763513518_wp, &
+      & 0.019714590105775_wp,  0.000713111871502_wp,  -0.047985458556249_wp, &
+      &-0.104183443069051_wp, -0.161265309374659_wp,   0.538802940610920_wp, &     
+      & 0.190213172949517_wp, -0.317990923047223_wp,   0.034501918582603_wp, &
+      & 0.022718808299253_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "04")
       call test_q_gen(error, mol, charges)
@@ -1211,12 +1241,12 @@ contains
       class(container_type), allocatable :: cont      
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: ref(16) = reshape([ &
-      &-6.90111445726635_wp, -0.99979611590118_wp,   4.2837802019751_wp, &
-      &-0.99980021634224_wp,  7.00023420054907_wp,   0.9454454365410_wp, &
-      &-0.98804624196187_wp,  5.84908677934913_wp,   2.2839742642425_wp, & 
-      & 0.95737100853797_wp,  0.99908251026128_wp, -10.9475535476315_wp, &
-      &-4.99687086866152_wp,  2.83244134467160_wp,   4.8453679895474_wp, &
-      &-2.16360228791069_wp], shape(ref))
+      &-5.42237346896788_wp, -0.77304500586496_wp,   2.5895850175165_wp, &     
+      &-0.92233780581096_wp,  6.99267602990832_wp,   0.4742366118103_wp, &     
+      &-0.11849846722517_wp,  4.22307140408149_wp,   1.5873873640455_wp, &     
+      & 0.31672778030780_wp,  0.99906183347402_wp, -10.5405405662106_wp, &     
+      &-3.80217066006454_wp,  1.92138378495190_wp,   3.8481284909192_wp, &     
+      & 0.62670765712891_wp], shape(ref))
 
       real(wp) :: efield(3)
       integer :: i
@@ -1254,7 +1284,7 @@ contains
       real(wp), parameter :: accuracy = 1e-8_wp
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: ref(3) = reshape([ &
-      & 0.438025381623586_wp, -0.735884148841272_wp, -2.76541717331434_wp &
+      & 0.201892497728508_wp, -1.15519893399684_wp, -1.91423938957019_wp &
       &], shape(ref))
 
       call get_structure(mol, "MB16-43", "01")
@@ -1292,8 +1322,8 @@ contains
       real(wp), parameter :: accuracy = 1e-8_wp
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: ref(3) = reshape([ & 
-         & -20.835631606789_wp,  97.0349021135889_wp, -7.70521258527074_wp &
-         ], shape(ref))
+         & -7.6402587223855_wp,  83.5065044491344_wp,  0.55047274934631_wp &
+         & ], shape(ref))
 
       call get_structure(mol, "MB16-43", "04")
       energy = 0.0_wp
@@ -1312,7 +1342,7 @@ contains
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
-      
+
       if (any(abs(dipole - ref) > 1e-5_wp)) then
          call test_failed(error, "Numerical dipole moment does not match")
          print '(3es21.14)', dipole

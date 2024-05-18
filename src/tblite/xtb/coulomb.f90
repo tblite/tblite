@@ -117,7 +117,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    end if
 
    if (allocated(self%es3)) then
-      !call self%es3%get_potential(mol, cache, wfn, pot)
+      call self%es3%get_potential(mol, cache, wfn, pot)
    end if
 end subroutine get_potential
 
