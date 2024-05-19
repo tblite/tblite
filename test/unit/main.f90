@@ -66,12 +66,12 @@ program tester
       !new_testsuite("post-processing", collect_post_processing), &
       !new_testsuite("slater-expansion", collect_slater_expansion), &
       !new_testsuite("cgto-ortho", collect_cgto_ortho), &
-      !new_testsuite("integral-overlap", collect_integral_overlap), &
-      !new_testsuite("integral-multipole", collect_integral_multipole), &
-      !new_testsuite("hamiltonian", collect_hamiltonian), &
+      new_testsuite("integral-overlap", collect_integral_overlap), &
+      new_testsuite("integral-multipole", collect_integral_multipole), &
+      new_testsuite("hamiltonian", collect_hamiltonian) &
       !new_testsuite("halogen", collect_halogen), &
       !new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
-      new_testsuite("ceh", collect_ceh) &
+      !new_testsuite("ceh", collect_ceh) &
       !new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
       !new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
       !new_testsuite("xtb-external", collect_xtb_external), &

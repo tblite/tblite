@@ -49,9 +49,9 @@ contains
       real(wp), allocatable :: tmp(:,:), transformed_s(:,:)
 
       trafo_dim = ndim(maxl+1)
-      write(*,*) "trafo_dim = ", trafo_dim
+      !write(*,*) "trafo_dim = ", trafo_dim
       allocate(transformed_s(trafo_dim,trafo_dim), tmp(trafo_dim,trafo_dim), source=0.0_wp)
-      call write_2d_matrix(block_overlap,"block_overlap start")
+      !call write_2d_matrix(block_overlap,"block_overlap start")
       ! 1. Setup the transformation matrix
       call harmtr(maxl, vec, trafomat)
 
@@ -75,7 +75,7 @@ contains
          block_overlap(1,1) = transformed_s(1,1)
       endif
 
-      call write_2d_matrix(transformed_s,"transformed_s end")
+      !call write_2d_matrix(transformed_s,"transformed_s end")
 
    end subroutine diat_trafo
 

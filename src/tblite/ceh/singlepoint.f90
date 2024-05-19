@@ -192,7 +192,7 @@ contains
          write(*,*) "eff q", wfn%qat
 
          call calc%coulomb%update(mol, ccache)
-         !call calc%coulomb%get_potential(mol, ccache, wfn, pot)
+         call calc%coulomb%get_potential(mol, ccache, wfn, pot)
          call timer%pop
       end if
 
