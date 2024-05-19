@@ -948,10 +948,12 @@ contains
                ortho(ish) = ang_idx(il)
             else
                ang_idx(il) = ish
-               end if
-               write(*,*) "slater exponent", slater_exponent(ish, izp)
+            end if
+            write(*,*) "slater exponent", slater_exponent(ish, izp)
             call slater_to_gauss(ng, principal_quantum_number(ish, izp), il, &
             & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
+            write(*,*) "alpha", cgto(ish, isp)%alpha
+            write(*,*) "coeff", cgto(ish, isp)%coeff
          end do
       end do
 
@@ -1145,7 +1147,7 @@ contains
       logical, allocatable  :: valence(:,:)
 
       integer :: isp, izp, ish, il, mshell
-      integer :: ang_idx(0:3)
+      integer :: ang_idx(0:4)
 
       allocate(valence(4, mol%nid))
       do isp = 1, mol%nid

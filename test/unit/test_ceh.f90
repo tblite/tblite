@@ -1143,7 +1143,7 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(2) = reshape([ &
-      & 0.207345713782614_wp, -0.034624507070784_wp], shape(charges))
+      & 0.308833701121285_wp, -0.308833701121291_wp], shape(charges))
 
       call get_structure(mol, "MB16-43", "AcCf")
       call test_q_gen(error, mol, charges)

@@ -17,6 +17,7 @@
 !> @file tblite/integral/diat_trafo.f90
 !> Evaluation of the diatomic scaled overlap
 module tblite_integral_diat_trafo
+   use iso_fortran_env, only: output_unit
 
    use mctc_env, only : wp
    use tblite_blas, only: gemm
@@ -32,7 +33,8 @@ module tblite_integral_diat_trafo
 contains
 
    !> Transformation to the diatomic frame and back: 
-   pure subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxl)
+   !pure 
+   subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxl)
       !> Diatomic block of CGTOs to be transformed (+ scaled)
       real(wp),intent(inout)    :: block_overlap(:,:)
       !> Transformation vector for the diatomic frame (i.e. vector between the two centers)
@@ -47,9 +49,9 @@ contains
       real(wp), allocatable :: tmp(:,:), transformed_s(:,:)
 
       trafo_dim = ndim(maxl+1)
-
+      write(*,*) "trafo_dim = ", trafo_dim
       allocate(transformed_s(trafo_dim,trafo_dim), tmp(trafo_dim,trafo_dim), source=0.0_wp)
-
+      call write_2d_matrix(block_overlap,"block_overlap start")
       ! 1. Setup the transformation matrix
       call harmtr(maxl, vec, trafomat)
 
@@ -73,8 +75,54 @@ contains
          block_overlap(1,1) = transformed_s(1,1)
       endif
 
+      call write_2d_matrix(transformed_s,"transformed_s end")
+
    end subroutine diat_trafo
 
+
+subroutine write_2d_matrix(matrix, name, unit, step)
+    implicit none
+    real(wp), intent(in) :: matrix(:, :)
+    character(len=*), intent(in), optional :: name
+    integer, intent(in), optional :: unit
+    integer, intent(in), optional :: step
+    integer :: d1, d2
+    integer :: i, j, k, l, istep, iunit
+
+    d1 = size(matrix, dim=1)
+    d2 = size(matrix, dim=2)
+
+    if (present(unit)) then
+      iunit = unit
+    else
+      iunit = output_unit
+    end if
+
+    if (present(step)) then
+      istep = step
+    else
+      istep = 6
+    end if
+
+    if (present(name)) write (iunit, '(/,"matrix printed:",1x,a)') name
+
+    do i = 1, d2, istep
+      l = min(i + istep - 1, d2)
+      write (iunit, '(/,6x)', advance='no')
+      do k = i, l
+        write (iunit, '(6x,i7,3x)', advance='no') k
+      end do
+      write (iunit, '(a)')
+      do j = 1, d1
+        write (iunit, '(i6)', advance='no') j
+        do k = i, l
+          write (iunit, '(1x,f15.8)', advance='no') matrix(j, k)
+        end do
+        write (iunit, '(a)')
+      end do
+    end do
+
+  end subroutine write_2d_matrix
 
    !> Gradient of the diatomic frame scaled overlap transformation: 
    pure subroutine diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, maxl)
@@ -249,33 +297,37 @@ contains
       SIN2P = 2.0_wp * SINP*COSP
       SQRT3 = SQRT(3.0_wp)
 
-      ! Original MSINDO ordering of d-functions 
-      ! is the same as in tblite
-      trafomat(5,5) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(6,5) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat(7,5) = SQRT3*SIN2T*SINP*0.5_wp
-      trafomat(8,5) = SQRT3*SINT**2*COS2P*0.5_wp
-      trafomat(9,5) = SQRT3*SINT**2*SIN2P*0.5_wp
-      trafomat(5,6) = -SQRT3*SIN2T*0.5_wp
-      trafomat(6,6) = COS2T*COSP
-      trafomat(7,6) = COS2T*SINP
-      trafomat(8,6) = SIN2T*COS2P*0.5_wp
-      trafomat(9,6) = SIN2T*SIN2P*0.5_wp
-      trafomat(5,7) = 0.0_wp
-      trafomat(6,7) = -COST*SINP
-      trafomat(7,7) = COST*COSP
-      trafomat(8,7) = -SINT*SIN2P
-      trafomat(9,7) = SINT*COS2P
-      trafomat(5,8) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(6,8) = -SIN2T*COSP*0.5_wp
-      trafomat(7,8) = -SIN2T*SINP*0.5_wp
-      trafomat(8,8) = (1.0_wp + COST**2) * COS2P * 0.5_wp
-      trafomat(9,8) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
-      trafomat(5,9) = 0.0_wp
-      trafomat(6,9) = SINT*SINP
-      trafomat(7,9) = -SINT*COSP
-      trafomat(8,9) = -COST*SIN2P
-      trafomat(9,9) = COST*COS2P
+      ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
+      ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
+      ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
+      ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
+      ! (8,:)_MSINDO -> (dx2-y2,:) -> (5,:)_tblite
+      ! (9,:)_MSINDO -> (dxy,:) -> (9,:)_tblite
+      trafomat(7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
+      trafomat(8,7) = SQRT3*SIN2T*COSP*0.5_wp
+      trafomat(6,7) = SQRT3*SIN2T*SINP*0.5_wp
+      trafomat(9,7) = SQRT3*SINT**2*COS2P*0.5_wp
+      trafomat(5,7) = SQRT3*SINT**2*SIN2P*0.5_wp
+      trafomat(7,8) = -SQRT3*SIN2T*0.5_wp
+      trafomat(8,8) = COS2T*COSP
+      trafomat(6,8) = COS2T*SINP
+      trafomat(9,8) = SIN2T*COS2P*0.5_wp
+      trafomat(5,8) = SIN2T*SIN2P*0.5_wp
+      trafomat(7,6) = 0.0_wp
+      trafomat(8,6) = -COST*SINP
+      trafomat(6,6) = COST*COSP
+      trafomat(9,6) = -SINT*SIN2P
+      trafomat(5,6) = SINT*COS2P
+      trafomat(7,9) = SQRT3*SINT**2 * 0.5_wp
+      trafomat(8,9) = -SIN2T*COSP*0.5_wp
+      trafomat(6,9) = -SIN2T*SINP*0.5_wp
+      trafomat(9,9) = (1.0_wp + COST**2) * COS2P * 0.5_wp
+      trafomat(5,9) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
+      trafomat(7,5) = 0.0_wp
+      trafomat(8,5) = SINT*SINP
+      trafomat(6,5) = -SINT*COSP
+      trafomat(9,5) = -COST*SIN2P
+      trafomat(5,5) = COST*COS2P
 
       if ( maxl <= 2 ) return
 
@@ -510,169 +562,173 @@ contains
       DCOS2PY = -2.0_wp * SIN2PY
       DSIN2PY =  2.0_wp * COS2PY
 
-      ! Original MSINDO ordering
-      ! The MSINDO d SAO ordering corresponds to the
-      ! tblite ordering of d SAOs
+
+      ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
+      ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
+      ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
+      ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
+      ! (8,:)_MSINDO -> (dx2-y2,:) -> (5,:)_tblite
+      ! (9,:)_MSINDO -> (dxy,:) -> (9,:)_tblite
       ! x-direction
-      trafomat(1,5,5) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(1,6,5) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat(1,7,5) = SQRT3*SIN2T*SINP*0.5_wp
-      trafomat(1,8,5) = SQRT3*SINT**2*COS2P*0.5_wp
-      trafomat(1,9,5) = SQRT3*SINT**2*SIN2P*0.5_wp
-      trafomat(1,5,6) = -SQRT3*SIN2T*0.5_wp
-      trafomat(1,6,6) = COS2T*COSP
-      trafomat(1,7,6) = COS2T*SINP
-      trafomat(1,8,6) = SIN2T*COS2P*0.5_wp
-      trafomat(1,9,6) = SIN2T*SIN2P*0.5_wp
-      trafomat(1,5,7) = 0.0_wp
-      trafomat(1,6,7) = -COST*SINP
-      trafomat(1,7,7) = COST*COSP
-      trafomat(1,8,7) = -SINT*SIN2P
-      trafomat(1,9,7) = SINT*COS2P
-      trafomat(1,5,8) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(1,6,8) = -SIN2T*COSP*0.5_wp
-      trafomat(1,7,8) = -SIN2T*SINP*0.5_wp
-      trafomat(1,8,8) = (1.0_wp + COST**2) * COS2P * 0.5_wp
-      trafomat(1,9,8) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
-      trafomat(1,5,9) = 0.0_wp
-      trafomat(1,6,9) = SINT*SINP
-      trafomat(1,7,9) = -SINT*COSP
-      trafomat(1,8,9) = -COST*SIN2P
-      trafomat(1,9,9) = COST*COS2P
+      trafomat(1,7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
+      trafomat(1,8,7) = SQRT3*SIN2T*COSP*0.5_wp
+      trafomat(1,6,7) = SQRT3*SIN2T*SINP*0.5_wp
+      trafomat(1,9,7) = SQRT3*SINT**2*COS2P*0.5_wp
+      trafomat(1,5,7) = SQRT3*SINT**2*SIN2P*0.5_wp
+      trafomat(1,7,8) = -SQRT3*SIN2T*0.5_wp
+      trafomat(1,8,8) = COS2T*COSP
+      trafomat(1,6,8) = COS2T*SINP
+      trafomat(1,9,8) = SIN2T*COS2P*0.5_wp
+      trafomat(1,5,8) = SIN2T*SIN2P*0.5_wp
+      trafomat(1,7,6) = 0.0_wp
+      trafomat(1,8,6) = -COST*SINP
+      trafomat(1,6,6) = COST*COSP
+      trafomat(1,9,6) = -SINT*SIN2P
+      trafomat(1,5,6) = SINT*COS2P
+      trafomat(1,7,9) = SQRT3*SINT**2 * 0.5_wp
+      trafomat(1,8,9) = -SIN2T*COSP*0.5_wp
+      trafomat(1,6,9) = -SIN2T*SINP*0.5_wp
+      trafomat(1,9,9) = (1.0_wp + COST**2) * COS2P * 0.5_wp
+      trafomat(1,5,9) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
+      trafomat(1,7,5) = 0.0_wp
+      trafomat(1,8,5) = SINT*SINP
+      trafomat(1,6,5) = -SINT*COSP
+      trafomat(1,9,5) = -COST*SIN2P
+      trafomat(1,5,5) = COST*COS2P
       ! y-direction
-      trafomat(2,5,5) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(2,6,5) = SQRT3*SIN2T*COSPY*0.5_wp
-      trafomat(2,7,5) = SQRT3*SIN2T*SINPY*0.5_wp
-      trafomat(2,8,5) = SQRT3*SINT**2*COS2PY*0.5_wp
-      trafomat(2,9,5) = SQRT3*SINT**2*SIN2PY*0.5_wp
-      trafomat(2,5,6) = -SQRT3*SIN2T*0.5_wp
-      trafomat(2,6,6) = COS2T*COSPY
-      trafomat(2,7,6) = COS2T*SINPY
-      trafomat(2,8,6) = SIN2T*COS2PY*0.5_wp
-      trafomat(2,9,6) = SIN2T*SIN2PY*0.5_wp
-      trafomat(2,5,7) = 0.0_wp
-      trafomat(2,6,7) = -COST*SINPY
-      trafomat(2,7,7) = COST*COSPY
-      trafomat(2,8,7) = -SINT*SIN2PY
-      trafomat(2,9,7) = SINT*COS2PY
-      trafomat(2,5,8) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(2,6,8) = -SIN2T*COSPY*0.5_wp
-      trafomat(2,7,8) = -SIN2T*SINPY*0.5_wp
-      trafomat(2,8,8) = (1.0_wp + COST**2) * COS2PY * 0.5_wp
-      trafomat(2,9,8) = (1.0_wp + COST**2) * SIN2PY * 0.5_wp
-      trafomat(2,5,9) = 0.0_wp
-      trafomat(2,6,9) = SINT*SINPY
-      trafomat(2,7,9) = -SINT*COSPY
-      trafomat(2,8,9) = -COST*SIN2PY
-      trafomat(2,9,9) = COST*COS2PY
+      trafomat(2,7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
+      trafomat(2,8,7) = SQRT3*SIN2T*COSPY*0.5_wp
+      trafomat(2,6,7) = SQRT3*SIN2T*SINPY*0.5_wp
+      trafomat(2,9,7) = SQRT3*SINT**2*COS2PY*0.5_wp
+      trafomat(2,5,7) = SQRT3*SINT**2*SIN2PY*0.5_wp
+      trafomat(2,7,8) = -SQRT3*SIN2T*0.5_wp
+      trafomat(2,8,8) = COS2T*COSPY
+      trafomat(2,6,8) = COS2T*SINPY
+      trafomat(2,9,8) = SIN2T*COS2PY*0.5_wp
+      trafomat(2,5,8) = SIN2T*SIN2PY*0.5_wp
+      trafomat(2,7,6) = 0.0_wp
+      trafomat(2,8,6) = -COST*SINPY
+      trafomat(2,6,6) = COST*COSPY
+      trafomat(2,9,6) = -SINT*SIN2PY
+      trafomat(2,5,6) = SINT*COS2PY
+      trafomat(2,7,9) = SQRT3*SINT**2 * 0.5_wp
+      trafomat(2,8,9) = -SIN2T*COSPY*0.5_wp
+      trafomat(2,6,9) = -SIN2T*SINPY*0.5_wp
+      trafomat(2,9,9) = (1.0_wp + COST**2) * COS2PY * 0.5_wp
+      trafomat(2,5,9) = (1.0_wp + COST**2) * SIN2PY * 0.5_wp
+      trafomat(2,7,5) = 0.0_wp
+      trafomat(2,8,5) = SINT*SINPY
+      trafomat(2,6,5) = -SINT*COSPY
+      trafomat(2,9,5) = -COST*SIN2PY
+      trafomat(2,5,5) = COST*COS2PY
       ! z-direction
       trafomat(3,:,:) = trafomat(1,:,:)
       
       ! derivative w.r.t. theta (x- or z-direction)
-      trafomat_dt(5,5) = -3.0_wp*SIN2T*0.5_wp
-      trafomat_dt(6,5) = SQRT3*DSIN2T*COSP*0.5_wp
-      trafomat_dt(7,5) = SQRT3*DSIN2T*SINP*0.5_wp
-      trafomat_dt(8,5) = SQRT3*SIN2T*COS2P*0.5_wp
-      trafomat_dt(9,5) = SQRT3*SIN2T*SIN2P*0.5_wp
-      trafomat_dt(5,6) = -SQRT3*DSIN2T*0.5_wp
-      trafomat_dt(6,6) = DCOS2T*COSP
-      trafomat_dt(7,6) = DCOS2T*SINP
-      trafomat_dt(8,6) = DSIN2T*COS2P*0.5_wp
-      trafomat_dt(9,6) = DSIN2T*SIN2P*0.5_wp
-      trafomat_dt(5,7) = 0.0_wp
-      trafomat_dt(6,7) = SINT*SINP
-      trafomat_dt(7,7) = -SINT*COSP
-      trafomat_dt(8,7) = -COST*SIN2P
-      trafomat_dt(9,7) = COST*COS2P
-      trafomat_dt(5,8) = SQRT3*SIN2T*0.5_wp
-      trafomat_dt(6,8) = -DSIN2T*COSP*0.5_wp
-      trafomat_dt(7,8) = -DSIN2T*SINP*0.5_wp
-      trafomat_dt(8,8) = -SIN2T*COS2P*0.5_wp
-      trafomat_dt(9,8) = -SIN2T*SIN2P*0.5_wp
-      trafomat_dt(5,9) = 0.0_wp
-      trafomat_dt(6,9) = COST*SINP
-      trafomat_dt(7,9) = -COST*COSP
-      trafomat_dt(8,9) = SINT*SIN2P
-      trafomat_dt(9,9) = -SINT*COS2P
+      trafomat_dt(7,7) = -3.0_wp*SIN2T*0.5_wp
+      trafomat_dt(8,7) = SQRT3*DSIN2T*COSP*0.5_wp
+      trafomat_dt(6,7) = SQRT3*DSIN2T*SINP*0.5_wp
+      trafomat_dt(9,7) = SQRT3*SIN2T*COS2P*0.5_wp
+      trafomat_dt(5,7) = SQRT3*SIN2T*SIN2P*0.5_wp
+      trafomat_dt(7,8) = -SQRT3*DSIN2T*0.5_wp
+      trafomat_dt(8,8) = DCOS2T*COSP
+      trafomat_dt(6,8) = DCOS2T*SINP
+      trafomat_dt(9,8) = DSIN2T*COS2P*0.5_wp
+      trafomat_dt(5,8) = DSIN2T*SIN2P*0.5_wp
+      trafomat_dt(7,6) = 0.0_wp
+      trafomat_dt(8,6) = SINT*SINP
+      trafomat_dt(6,6) = -SINT*COSP
+      trafomat_dt(9,6) = -COST*SIN2P
+      trafomat_dt(5,6) = COST*COS2P
+      trafomat_dt(7,9) = SQRT3*SIN2T*0.5_wp
+      trafomat_dt(8,9) = -DSIN2T*COSP*0.5_wp
+      trafomat_dt(6,9) = -DSIN2T*SINP*0.5_wp
+      trafomat_dt(9,9) = -SIN2T*COS2P*0.5_wp
+      trafomat_dt(5,9) = -SIN2T*SIN2P*0.5_wp
+      trafomat_dt(7,5) = 0.0_wp
+      trafomat_dt(8,5) = COST*SINP
+      trafomat_dt(6,5) = -COST*COSP
+      trafomat_dt(9,5) = SINT*SIN2P
+      trafomat_dt(5,5) = -SINT*COS2P
       ! y-direction
-      trafomat_dty(5,5) = -3.0_wp*SIN2T*0.5_wp
-      trafomat_dty(6,5) = SQRT3*DSIN2T*COSPY*0.5_wp
-      trafomat_dty(7,5) = SQRT3*DSIN2T*SINPY*0.5_wp
-      trafomat_dty(8,5) = SQRT3*SIN2T*COS2PY*0.5_wp
-      trafomat_dty(9,5) = SQRT3*SIN2T*SIN2PY*0.5_wp
-      trafomat_dty(5,6) = -SQRT3*DSIN2T*0.5_wp
-      trafomat_dty(6,6) = DCOS2T*COSPY
-      trafomat_dty(7,6) = DCOS2T*SINPY
-      trafomat_dty(8,6) = DSIN2T*COS2PY*0.5_wp
-      trafomat_dty(9,6) = DSIN2T*SIN2PY*0.5_wp
-      trafomat_dty(5,7) = 0.0_wp
-      trafomat_dty(6,7) = SINT*SINPY
-      trafomat_dty(7,7) = -SINT*COSPY
-      trafomat_dty(8,7) = -COST*SIN2PY
-      trafomat_dty(9,7) = COST*COS2PY
-      trafomat_dty(5,8) = SQRT3*SIN2T*0.5_wp
-      trafomat_dty(6,8) = -DSIN2T*COSPY*0.5_wp
-      trafomat_dty(7,8) = -DSIN2T*SINPY*0.5_wp
-      trafomat_dty(8,8) = -SIN2T*COS2PY*0.5_wp
-      trafomat_dty(9,8) = -SIN2T*SIN2PY*0.5_wp
-      trafomat_dty(5,9) = 0.0_wp
-      trafomat_dty(6,9) = COST*SINPY
-      trafomat_dty(7,9) = -COST*COSPY
-      trafomat_dty(8,9) = SINT*SIN2PY
-      trafomat_dty(9,9) = -SINT*COS2PY
+      trafomat_dty(7,7) = -3.0_wp*SIN2T*0.5_wp
+      trafomat_dty(8,7) = SQRT3*DSIN2T*COSPY*0.5_wp
+      trafomat_dty(6,7) = SQRT3*DSIN2T*SINPY*0.5_wp
+      trafomat_dty(9,7) = SQRT3*SIN2T*COS2PY*0.5_wp
+      trafomat_dty(5,7) = SQRT3*SIN2T*SIN2PY*0.5_wp
+      trafomat_dty(7,8) = -SQRT3*DSIN2T*0.5_wp
+      trafomat_dty(8,8) = DCOS2T*COSPY
+      trafomat_dty(6,8) = DCOS2T*SINPY
+      trafomat_dty(9,8) = DSIN2T*COS2PY*0.5_wp
+      trafomat_dty(5,8) = DSIN2T*SIN2PY*0.5_wp
+      trafomat_dty(7,6) = 0.0_wp
+      trafomat_dty(8,6) = SINT*SINPY
+      trafomat_dty(6,6) = -SINT*COSPY
+      trafomat_dty(9,6) = -COST*SIN2PY
+      trafomat_dty(5,6) = COST*COS2PY
+      trafomat_dty(7,9) = SQRT3*SIN2T*0.5_wp
+      trafomat_dty(8,9) = -DSIN2T*COSPY*0.5_wp
+      trafomat_dty(6,9) = -DSIN2T*SINPY*0.5_wp
+      trafomat_dty(9,9) = -SIN2T*COS2PY*0.5_wp
+      trafomat_dty(5,9) = -SIN2T*SIN2PY*0.5_wp
+      trafomat_dty(7,5) = 0.0_wp
+      trafomat_dty(8,5) = COST*SINPY
+      trafomat_dty(6,5) = -COST*COSPY
+      trafomat_dty(9,5) = SINT*SIN2PY
+      trafomat_dty(5,5) = -SINT*COS2PY
 
       ! derivative w.r.t. phi (x- or z-direction)
-      trafomat_dp(5,5) = 0.0_wp
-      trafomat_dp(6,5) = -SQRT3*SIN2T*SINP*0.5_wp
-      trafomat_dp(7,5) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat_dp(8,5) = SQRT3*SINT**2*DCOS2P*0.5_wp
-      trafomat_dp(9,5) = SQRT3*SINT**2*DSIN2P*0.5_wp
-      trafomat_dp(5,6) = 0.0_wp
-      trafomat_dp(6,6) = -COS2T*SINP
-      trafomat_dp(7,6) = COS2T*COSP
-      trafomat_dp(8,6) = SIN2T*DCOS2P*0.5_wp
-      trafomat_dp(9,6) = SIN2T*DSIN2P*0.5_wp
-      trafomat_dp(5,7) = 0.0_wp
-      trafomat_dp(6,7) = -COST*COSP
-      trafomat_dp(7,7) = -COST*SINP
-      trafomat_dp(8,7) = -SINT*DSIN2P
-      trafomat_dp(9,7) = SINT*DCOS2P
-      trafomat_dp(5,8) = 0.0_wp
-      trafomat_dp(6,8) = SIN2T*SINP*0.5_wp
-      trafomat_dp(7,8) = -SIN2T*COSP*0.5_wp
-      trafomat_dp(8,8) = (1.0+COST**2)*DCOS2P*0.5_wp
-      trafomat_dp(9,8) = (1.0+COST**2)*DSIN2P*0.5_wp
-      trafomat_dp(5,9) = 0.0_wp
-      trafomat_dp(6,9) = SINT*COSP
-      trafomat_dp(7,9) = SINT*SINP
-      trafomat_dp(8,9) = -COST*DSIN2P
-      trafomat_dp(9,9) = COST*DCOS2P
+      trafomat_dp(7,7) = 0.0_wp
+      trafomat_dp(8,7) = -SQRT3*SIN2T*SINP*0.5_wp
+      trafomat_dp(6,7) = SQRT3*SIN2T*COSP*0.5_wp
+      trafomat_dp(9,7) = SQRT3*SINT**2*DCOS2P*0.5_wp
+      trafomat_dp(5,7) = SQRT3*SINT**2*DSIN2P*0.5_wp
+      trafomat_dp(7,8) = 0.0_wp
+      trafomat_dp(8,8) = -COS2T*SINP
+      trafomat_dp(6,8) = COS2T*COSP
+      trafomat_dp(9,8) = SIN2T*DCOS2P*0.5_wp
+      trafomat_dp(5,8) = SIN2T*DSIN2P*0.5_wp
+      trafomat_dp(7,6) = 0.0_wp
+      trafomat_dp(8,6) = -COST*COSP
+      trafomat_dp(6,6) = -COST*SINP
+      trafomat_dp(9,6) = -SINT*DSIN2P
+      trafomat_dp(5,6) = SINT*DCOS2P
+      trafomat_dp(7,9) = 0.0_wp
+      trafomat_dp(8,9) = SIN2T*SINP*0.5_wp
+      trafomat_dp(6,9) = -SIN2T*COSP*0.5_wp
+      trafomat_dp(9,9) = (1.0+COST**2)*DCOS2P*0.5_wp
+      trafomat_dp(5,9) = (1.0+COST**2)*DSIN2P*0.5_wp
+      trafomat_dp(7,5) = 0.0_wp
+      trafomat_dp(8,5) = SINT*COSP
+      trafomat_dp(6,5) = SINT*SINP
+      trafomat_dp(9,5) = -COST*DSIN2P
+      trafomat_dp(5,5) = COST*DCOS2P
       ! y-direction
-      trafomat_dpy(5,5) = 0.0_wp
-      trafomat_dpy(6,5) = -SQRT3*SIN2T*SINP*0.5_wp
-      trafomat_dpy(7,5) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat_dpy(8,5) = SQRT3*SINT**2*DCOS2P*0.5_wp
-      trafomat_dpy(9,5) = SQRT3*SINT**2*DSIN2P*0.5_wp
-      trafomat_dpy(5,6) = 0.0_wp
-      trafomat_dpy(6,6) = -COS2T*SINP
-      trafomat_dpy(7,6) = COS2T*COSP
-      trafomat_dpy(8,6) = SIN2T*DCOS2P*0.5_wp
-      trafomat_dpy(9,6) = SIN2T*DSIN2P*0.5_wp
-      trafomat_dpy(5,7) = 0.0_wp
-      trafomat_dpy(6,7) = -COST*COSP
-      trafomat_dpy(7,7) = -COST*SINP
-      trafomat_dpy(8,7) = -SINT*DSIN2P
-      trafomat_dpy(9,7) = SINT*DCOS2P
-      trafomat_dpy(5,8) = 0.0_wp
-      trafomat_dpy(6,8) = SIN2T*SINP*0.5_wp
-      trafomat_dpy(7,8) = -SIN2T*COSP*0.5_wp
-      trafomat_dpy(8,8) = (1.0+COST**2)*DCOS2P*0.5_wp
-      trafomat_dpy(9,8) = (1.0+COST**2)*DSIN2P*0.5_wp
-      trafomat_dpy(5,9) = 0.0_wp
-      trafomat_dpy(6,9) = SINT*COSP
-      trafomat_dpy(7,9) = SINT*SINP
-      trafomat_dpy(8,9) = -COST*DSIN2P
-      trafomat_dpy(9,9) = COST*DCOS2P
+      trafomat_dpy(7,7) = 0.0_wp
+      trafomat_dpy(8,7) = -SQRT3*SIN2T*SINP*0.5_wp
+      trafomat_dpy(6,7) = SQRT3*SIN2T*COSP*0.5_wp
+      trafomat_dpy(9,7) = SQRT3*SINT**2*DCOS2P*0.5_wp
+      trafomat_dpy(5,7) = SQRT3*SINT**2*DSIN2P*0.5_wp
+      trafomat_dpy(7,8) = 0.0_wp
+      trafomat_dpy(8,8) = -COS2T*SINP
+      trafomat_dpy(6,8) = COS2T*COSP
+      trafomat_dpy(9,8) = SIN2T*DCOS2P*0.5_wp
+      trafomat_dpy(5,8) = SIN2T*DSIN2P*0.5_wp
+      trafomat_dpy(7,6) = 0.0_wp
+      trafomat_dpy(8,6) = -COST*COSP
+      trafomat_dpy(6,6) = -COST*SINP
+      trafomat_dpy(9,6) = -SINT*DSIN2P
+      trafomat_dpy(5,6) = SINT*DCOS2P
+      trafomat_dpy(7,9) = 0.0_wp
+      trafomat_dpy(8,9) = SIN2T*SINP*0.5_wp
+      trafomat_dpy(6,9) = -SIN2T*COSP*0.5_wp
+      trafomat_dpy(9,9) = (1.0+COST**2)*DCOS2P*0.5_wp
+      trafomat_dpy(5,9) = (1.0+COST**2)*DSIN2P*0.5_wp
+      trafomat_dpy(7,5) = 0.0_wp
+      trafomat_dpy(8,5) = SINT*COSP
+      trafomat_dpy(6,5) = SINT*SINP
+      trafomat_dpy(9,5) = -COST*DSIN2P
+      trafomat_dpy(5,5) = COST*DCOS2P
 
       if ( maxl <= 2 ) then 
          ! Transform to cartesian coordinates
@@ -746,19 +802,19 @@ contains
          diat_mat(4,4) = diat_mat(4,4)*kpi  ! Pi    bond px  <-> px
          diat_mat(2,2) = diat_mat(2,2)*kpi  ! Pi    bond py  <-> py
          if (maxl > 1) then
-            diat_mat(5,1) = diat_mat(5,1)*ksig ! Sigma bond dz2 <-> s
-            diat_mat(1,5) = diat_mat(1,5)*ksig ! Sigma bond s   <-> dz2   
-            diat_mat(3,5) = diat_mat(3,5)*ksig ! Sigma bond pz  <-> dz2
-            diat_mat(5,3) = diat_mat(5,3)*ksig ! Sigma bond dz2 <-> pz
-            diat_mat(5,5) = diat_mat(5,5)*ksig ! Sigma bond dz2 <-> dz2
-            diat_mat(4,6) = diat_mat(4,6)*kpi  ! Pi    bond px  <-> dxz
-            diat_mat(6,4) = diat_mat(6,4)*kpi  ! Pi    bond dxz <-> px
-            diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dxz <-> dxz
-            diat_mat(2,7) = diat_mat(2,7)*kpi  ! Pi    bond py  <-> dyz
-            diat_mat(7,2) = diat_mat(7,2)*kpi  ! Pi    bond dyz <-> py
-            diat_mat(7,7) = diat_mat(7,7)*kpi  ! Pi    bond dyz <-> dyz
-            diat_mat(8,8) = diat_mat(8,8)*kdel ! Delta bond dx2-y2 <-> dx2-y2
-            diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dxy <-> dxy
+            diat_mat(7,1) = diat_mat(7,1)*ksig ! Sigma bond dz2 <-> s
+            diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2   
+            diat_mat(3,7) = diat_mat(3,7)*ksig ! Sigma bond pz  <-> dz2
+            diat_mat(7,3) = diat_mat(7,3)*ksig ! Sigma bond dz2 <-> pz
+            diat_mat(7,7) = diat_mat(7,7)*ksig ! Sigma bond dz2 <-> dz2
+            diat_mat(4,8) = diat_mat(4,8)*kpi  ! Pi    bond px  <-> dxz
+            diat_mat(8,4) = diat_mat(8,4)*kpi  ! Pi    bond dxz <-> px
+            diat_mat(8,8) = diat_mat(8,8)*kpi  ! Pi    bond dxz <-> dxz
+            diat_mat(2,6) = diat_mat(2,6)*kpi  ! Pi    bond py  <-> dyz
+            diat_mat(6,2) = diat_mat(6,2)*kpi  ! Pi    bond dyz <-> py
+            diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dyz <-> dyz
+            diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dx2-y2 <-> dx2-y2
+            diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dxy <-> dxy
          endif
          ! f-functions remain unscaled
       endif

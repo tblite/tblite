@@ -170,7 +170,7 @@ contains
       ints%quadrupole = 0.0_wp
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
-
+      !ints%hamiltonian = 0.0_wp
       ! Get initial potential for external fields and Coulomb
       call new_potential(pot, mol, calc%bas, wfn%nspin)
       ! Set potential to zero
@@ -192,7 +192,7 @@ contains
          write(*,*) "eff q", wfn%qat
 
          call calc%coulomb%update(mol, ccache)
-         call calc%coulomb%get_potential(mol, ccache, wfn, pot)
+         !call calc%coulomb%get_potential(mol, ccache, wfn, pot)
          call timer%pop
       end if
 

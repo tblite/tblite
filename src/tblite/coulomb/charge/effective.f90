@@ -130,6 +130,7 @@ subroutine new_effective_coulomb(self, mol, gexp, hubbard, average, nshell)
       allocate(self%hubbard(1, 1, mol%nid, mol%nid))
       do isp = 1, mol%nid
          do jsp = 1, mol%nid
+            write(*,*) "hubbard", hubbard(1, isp)
             self%hubbard(1, 1, jsp, isp) = average(hubbard(1, isp), hubbard(1, jsp))
          end do
       end do
