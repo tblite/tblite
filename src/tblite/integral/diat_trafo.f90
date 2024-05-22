@@ -51,7 +51,7 @@ contains
       trafo_dim = ndim(maxl+1)
       !write(*,*) "trafo_dim = ", trafo_dim
       allocate(transformed_s(trafo_dim,trafo_dim), tmp(trafo_dim,trafo_dim), source=0.0_wp)
-      !call write_2d_matrix(block_overlap,"block_overlap start")
+
       ! 1. Setup the transformation matrix
       call harmtr(maxl, vec, trafomat)
 
@@ -75,54 +75,7 @@ contains
          block_overlap(1,1) = transformed_s(1,1)
       endif
 
-      !call write_2d_matrix(transformed_s,"transformed_s end")
-
    end subroutine diat_trafo
-
-
-subroutine write_2d_matrix(matrix, name, unit, step)
-    implicit none
-    real(wp), intent(in) :: matrix(:, :)
-    character(len=*), intent(in), optional :: name
-    integer, intent(in), optional :: unit
-    integer, intent(in), optional :: step
-    integer :: d1, d2
-    integer :: i, j, k, l, istep, iunit
-
-    d1 = size(matrix, dim=1)
-    d2 = size(matrix, dim=2)
-
-    if (present(unit)) then
-      iunit = unit
-    else
-      iunit = output_unit
-    end if
-
-    if (present(step)) then
-      istep = step
-    else
-      istep = 6
-    end if
-
-    if (present(name)) write (iunit, '(/,"matrix printed:",1x,a)') name
-
-    do i = 1, d2, istep
-      l = min(i + istep - 1, d2)
-      write (iunit, '(/,6x)', advance='no')
-      do k = i, l
-        write (iunit, '(6x,i7,3x)', advance='no') k
-      end do
-      write (iunit, '(a)')
-      do j = 1, d1
-        write (iunit, '(i6)', advance='no') j
-        do k = i, l
-          write (iunit, '(1x,f15.8)', advance='no') matrix(j, k)
-        end do
-        write (iunit, '(a)')
-      end do
-    end do
-
-  end subroutine write_2d_matrix
 
    !> Gradient of the diatomic frame scaled overlap transformation: 
    pure subroutine diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, maxl)
@@ -231,7 +184,9 @@ subroutine write_2d_matrix(matrix, name, unit, step)
       !> Transformation matrix
       real(wp), intent(out) :: trafomat(ndim(maxl+1),ndim(maxl+1))
 
-      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len
+      real(wp), parameter              :: eps = 4.0e-08_wp
+
+      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len, sq
       real(wp) :: norm_vec(3)
 
       trafomat = 0.0_wp
@@ -247,7 +202,35 @@ subroutine write_2d_matrix(matrix, name, unit, step)
       ! Normalize the vector
       len = sqrt(sum(vec**2))
       norm_vec = vec / len
-      
+      if ( abs(1.0_wp-abs(norm_vec(1))) .lt. eps ) then
+         norm_vec(1) = sign(1.0_wp,norm_vec(1))
+         norm_vec(2) = 0.0_wp
+         norm_vec(3) = 0.0_wp
+      else if ( abs(1.0_wp-abs(norm_vec(2))) .lt. eps ) then
+         norm_vec(1) = 0.0_wp
+         norm_vec(2) = sign(1.0_wp,norm_vec(2))
+         norm_vec(3) = 0.0_wp
+      else if ( abs(1.0_wp-abs(norm_vec(3))) .lt. eps ) then
+         norm_vec(1) = 0.0_wp
+         norm_vec(2) = 0.0_wp
+         norm_vec(3) = sign(1.0_wp,norm_vec(3))
+      else if ( (abs(norm_vec(1)) .lt. eps) .and. .not. eff_equality(norm_vec(1),0.0_wp) ) then
+         norm_vec(1) = 0.0_wp
+         sq = sqrt( norm_vec(2)**2 + norm_vec(3)**2 )
+         norm_vec(2) = norm_vec(2)/sq
+         norm_vec(3) = norm_vec(3)/sq
+      else if ( (abs(norm_vec(2)) .lt. eps) .and. .not. eff_equality(norm_vec(2),0.0_wp) ) then
+         norm_vec(2) = 0.0_wp
+         sq = sqrt( norm_vec(1)**2 + norm_vec(3)**2 )
+         norm_vec(1) = norm_vec(1)/sq
+         norm_vec(3) = norm_vec(3)/sq
+      else if ( (abs(norm_vec(3)) .lt. eps) .and. .not. eff_equality(norm_vec(3),0.0_wp) ) then
+         norm_vec(3) = 0.0_wp
+         sq = sqrt(norm_vec(1)**2 + norm_vec(2)**2)
+         norm_vec(1) = norm_vec(1)/sq
+         norm_vec(2) = norm_vec(2)/sq
+      endif
+
       ! Prepare spherical coordinats
       cost = norm_vec(3)
       if ( abs(cost) .eq. 1.0_wp ) then
@@ -415,6 +398,35 @@ subroutine write_2d_matrix(matrix, name, unit, step)
       ! Normalize the vector
       len = sqrt(sum(vec**2))
       norm_vec = vec / len
+      if ( abs(1.0_wp-abs(norm_vec(1))) .lt. eps ) then
+         norm_vec(1) = sign(1.0_wp,norm_vec(1))
+         norm_vec(2) = 0.0_wp
+         norm_vec(3) = 0.0_wp
+      else if ( abs(1.0_wp-abs(norm_vec(2))) .lt. eps ) then
+         norm_vec(1) = 0.0_wp
+         norm_vec(2) = sign(1.0_wp,norm_vec(2))
+         norm_vec(3) = 0.0_wp
+      else if ( abs(1.0_wp-abs(norm_vec(3))) .lt. eps ) then
+         norm_vec(1) = 0.0_wp
+         norm_vec(2) = 0.0_wp
+         norm_vec(3) = sign(1.0_wp,norm_vec(3))
+      else if ( (abs(norm_vec(1)) .lt. eps) .and. .not. eff_equality(norm_vec(1),0.0_wp) ) then
+         norm_vec(1) = 0.0_wp
+         sq = sqrt( norm_vec(2)**2 + norm_vec(3)**2 )
+         norm_vec(2) = norm_vec(2)/sq
+         norm_vec(3) = norm_vec(3)/sq
+      else if ( (abs(norm_vec(2)) .lt. eps) .and. .not. eff_equality(norm_vec(2),0.0_wp) ) then
+         norm_vec(2) = 0.0_wp
+         sq = sqrt( norm_vec(1)**2 + norm_vec(3)**2 )
+         norm_vec(1) = norm_vec(1)/sq
+         norm_vec(3) = norm_vec(3)/sq
+      else if ( (abs(norm_vec(3)) .lt. eps) .and. .not. eff_equality(norm_vec(3),0.0_wp) ) then
+         norm_vec(3) = 0.0_wp
+         sq = sqrt(norm_vec(1)**2 + norm_vec(2)**2)
+         norm_vec(1) = norm_vec(1)/sq
+         norm_vec(2) = norm_vec(2)/sq
+      endif
+
       ! Prepare spherical coordinats
       cost = norm_vec(3)
       if ( abs(cost) .eq. 1.0_wp ) then
@@ -820,5 +832,14 @@ subroutine write_2d_matrix(matrix, name, unit, step)
       endif
 
    end subroutine scale_diatomic_frame
+
+   logical pure function eff_equality(num1, num2)
+      !> Numbers to compare
+      real(wp), intent(in) :: num1, num2
+      !> Logical deciding if numbers are (almost) equal or not
+      eff_equality = (abs( num1 - num2 ) .le. 1.0e-12_wp)
+
+   end function eff_equality
+
 
 end module tblite_integral_diat_trafo

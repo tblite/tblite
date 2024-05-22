@@ -35,7 +35,7 @@ module tblite_ceh_singlepoint
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
-   use tblite_scf, only: new_potential, potential_type ! Potential for external field
+   use tblite_scf, only: new_potential, potential_type 
    use tblite_container, only : container_cache
    use tblite_scf_potential, only: add_pot_to_h1
    use tblite_scf_solver, only : solver_type
@@ -155,7 +155,6 @@ contains
       allocate(selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
       call get_scaled_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, cn_en=cn_en, &
       & selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
-      write(*,*) "selfenergy", selfenergy
       cutoff = get_cutoff(calc%bas, accuracy)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
       call new_adjacency_list(list, mol, lattr, cutoff)
@@ -170,7 +169,7 @@ contains
       ints%quadrupole = 0.0_wp
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
-      !ints%hamiltonian = 0.0_wp
+
       ! Get initial potential for external fields and Coulomb
       call new_potential(pot, mol, calc%bas, wfn%nspin)
       ! Set potential to zero
@@ -189,8 +188,7 @@ contains
          ! guess for the charges
          call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
          call get_qsh_from_qat(calc%bas, wfn%qat, wfn%qsh)
-         write(*,*) "eff q", wfn%qat
-
+      
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)
          call timer%pop
@@ -199,10 +197,10 @@ contains
       ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
       
-      call write_2d_matrix(ints%overlap, "S")
-      call write_2d_matrix(ints%hamiltonian, "H")
-      call write_2d_matrix(wfn%coeff(:,:,1), "Hfull")
-      call write_2d_matrix(ints%overlap_diat, "Sdiat")
+      ! call write_2d_matrix(ints%overlap, "S", step=16)
+      ! call write_2d_matrix(ints%hamiltonian, "H", step=16)
+      ! call write_2d_matrix(wfn%coeff(:,:,1), "Hfull", step=16)
+      ! call write_2d_matrix(ints%overlap_diat, "Sdiat", step=16)
 
       ! Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
@@ -212,8 +210,6 @@ contains
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
-
-      write(*,*) "emo", wfn%emo(:, 1)
 
       ! Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
@@ -229,8 +225,6 @@ contains
       ttime = timer%get("wall time CEH")
 
    end subroutine ceh_guess
-
-
 
    subroutine get_qsh_from_qat(bas, qat, qsh)
       !> Basis set information   
@@ -249,6 +243,7 @@ contains
       end do
 
    end subroutine get_qsh_from_qat
+   
 subroutine write_2d_matrix(matrix, name, unit, step)
     implicit none
     real(wp), intent(in) :: matrix(:, :)
@@ -285,7 +280,7 @@ subroutine write_2d_matrix(matrix, name, unit, step)
       do j = 1, d1
         write (iunit, '(i6)', advance='no') j
         do k = i, l
-          write (iunit, '(1x,f15.8)', advance='no') matrix(j, k)
+          write (iunit, '(1x,f15.10)', advance='no') matrix(j, k)
         end do
         write (iunit, '(a)')
       end do

@@ -949,11 +949,8 @@ contains
             else
                ang_idx(il) = ish
             end if
-            write(*,*) "slater exponent", slater_exponent(ish, izp)
             call slater_to_gauss(ng, principal_quantum_number(ish, izp), il, &
             & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
-            write(*,*) "alpha", cgto(ish, isp)%alpha
-            write(*,*) "coeff", cgto(ish, isp)%coeff
          end do
       end do
 
@@ -1007,13 +1004,11 @@ contains
       allocate(es2)
       call get_atomic_hardness(mol, calc%bas, hardness)
       call new_effective_coulomb(es2, mol, gexp, hardness, arithmetic_average) 
-            ! calc%bas%nsh_id)
       call move_alloc(es2, calc%coulomb%es2)
    
       allocate(calc%coulomb%es3)
       call get_hubbard_derivs(mol, calc%bas, hubbard_derivs)
       call new_onsite_thirdorder(calc%coulomb%es3, mol, hubbard_derivs)
-            ! calc%bas%nsh_id)
    
    end subroutine add_coulomb
 

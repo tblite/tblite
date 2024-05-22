@@ -143,9 +143,6 @@ contains
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  write(*,*) jsh, jzp
-                  write(*,*) bas%cgto(jsh,jzp)%alpha
-                  write(*,*) bas%cgto(jsh,jzp)%coeff
                   call dipole_cgto_diat_scal(bas%cgto(jsh,jzp), bas%cgto(ish,izp), r2, vec, &
                   & bas%intcut, h0%ksig(izp,jzp), h0%kpi(izp,jzp), h0%kdel(izp,jzp), &
                   & stmp, stmp_diat, dtmpi)

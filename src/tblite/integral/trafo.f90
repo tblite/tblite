@@ -40,17 +40,6 @@ module tblite_integral_trafo
       & 0.0_wp,     s3,  0.0_wp, 0.0_wp, 0.0_wp],& ! yz
       & shape(dtrafo))
 
-   ! real(wp), parameter :: dtrafo(5, 6) = reshape([&
-   ! !  0       1       -1      2       -2
-   ! & -0.5_wp, 0.0_wp, 0.0_wp,   s3_4, 0.0_wp, & ! xx
-   ! & -0.5_wp, 0.0_wp, 0.0_wp,  -s3_4, 0.0_wp, & ! yy
-   ! &  1.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, & ! zz
-   ! &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,     s3, & ! xy
-   ! &  0.0_wp,     s3, 0.0_wp, 0.0_wp, 0.0_wp, & ! xz
-   ! &  0.0_wp, 0.0_wp,     s3, 0.0_wp, 0.0_wp],& ! yz
-   ! & shape(dtrafo))
-
-
    real(wp), parameter :: d32 = 3.0_wp/2.0_wp
    real(wp), parameter :: s3_8 = sqrt(3.0_wp/8.0_wp)
    real(wp), parameter :: s5_8 = sqrt(5.0_wp/8.0_wp)

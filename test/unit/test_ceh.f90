@@ -77,16 +77,16 @@ contains
          new_unittest("q-mol-lih", test_q_lih), &
          new_unittest("q-mol-sih4", test_q_sih4), &
          new_unittest("q-mol-cecl3", test_q_cecl3), &
-         new_unittest("q-mol-accl6", test_q_accl6) &
-         !new_unittest("q-mol-accf", test_q_accf) &
-         !new_unittest("q-mol-mb01", test_q_mb01), &
-         !new_unittest("q-mol-mb02", test_q_mb02), &
-         !new_unittest("q-mol-mb03", test_q_mb03), &
-         !new_unittest("q-mol-mb04", test_q_mb04), &
-         !new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
-         !new_unittest("d-mol", test_d_mb01), &
-         !new_unittest("d-field-mol", test_d_field_mb04), &
-         !new_unittest("d-field-change-mol", test_d_hcn) &
+         new_unittest("q-mol-accl6", test_q_accl6), &
+         new_unittest("q-mol-panp", test_q_panp), &
+         new_unittest("q-mol-mb01", test_q_mb01), &
+         new_unittest("q-mol-mb02", test_q_mb02), &
+         new_unittest("q-mol-mb03", test_q_mb03), &
+         new_unittest("q-mol-mb04", test_q_mb04), &
+         new_unittest("q-chrgd-efield-mol", test_q_ef_chrg_mb01), &
+         new_unittest("d-mol", test_d_mb01), &
+         new_unittest("d-field-mol", test_d_field_mb04), &
+         new_unittest("d-field-change-mol", test_d_hcn) &
          ]
 
    end subroutine collect_ceh
@@ -477,6 +477,8 @@ contains
       call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
 
       write(*,*) "qat", wfn%qat(:,1)
+      write(*,*) "ref", ref
+      write(*,*) "diff", wfn%qat(:,1) - ref 
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
          if (allocated(error)) then
@@ -577,7 +579,7 @@ contains
 
       type(structure_type) :: mol
 
-      call get_structure(mol, "MB16-43", "AcCl6")
+      call get_structure(mol, "f-block", "AcCl6")
       call test_scaled_selfenergy_mol(error, mol, scaled_selfenergy)
 
    end subroutine test_scaled_selfenergy_accl6
@@ -1112,10 +1114,10 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(4) = reshape([ &
-      & 0.920583611024850_wp, -0.306895022009855_wp, -0.306873044744968_wp, &
-      &-0.306815544270020_wp], shape(charges))
+      & 0.941257219125013_wp, -0.312389885339237_wp, -0.316670447603892_wp, &
+      &-0.312196886181877_wp], shape(charges))
 
-      call get_structure(mol, "MB16-43", "CeCl3")
+      call get_structure(mol, "f-block", "CeCl3")
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_cecl3
@@ -1127,28 +1129,28 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(7) = reshape([ &
-      & 0.207345713782614_wp, -0.034624507070784_wp, -0.034770766787644_wp, &
-      &-0.034222972032125_wp, -0.034275614569946_wp, -0.034684131955507_wp, &
-      &-0.034767721135598_wp], shape(charges))
+      &  0.20981620627690_wp, -0.035021099224455_wp, -0.035163316843173_wp, &
+      & -0.03467242268448_wp, -0.034725300058718_wp, -0.035082404869855_wp, &
+      & -0.03515166257487_wp], shape(charges))
 
-      call get_structure(mol, "MB16-43", "AcCl6")
+      call get_structure(mol, "f-block", "AcCl6")
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_accl6
 
-   subroutine test_q_accf(error)
+   subroutine test_q_panp(error)
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
 
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(2) = reshape([ &
-      & 0.308833701121285_wp, -0.308833701121291_wp], shape(charges))
+      &-0.476795983206568_wp,  0.476795984069165_wp], shape(charges))
 
-      call get_structure(mol, "MB16-43", "AcCf")
+      call get_structure(mol, "f-block", "PaNp")
       call test_q_gen(error, mol, charges)
 
-   end subroutine test_q_accf
+   end subroutine test_q_panp
 
 
    subroutine test_q_mb01(error)
