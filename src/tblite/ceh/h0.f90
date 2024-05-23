@@ -25,7 +25,7 @@ module tblite_ceh_h0
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_h0, only : tb_hamiltonian
    use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
-   & dipole_cgto_diat_scal, maxl, msao
+   & dipole_cgto_diat, maxl, msao
    use tblite_adjlist, only : adjacency_list
 
    implicit none
@@ -104,7 +104,7 @@ contains
       real(wp), intent(out) :: overlap(:, :)
       !> Dipole moment integral matrix
       real(wp), intent(out) :: dpint(:, :, :)
-      !> Diatomic frame scaled overlap integral matrix
+      !> Diatomic-frame-scaled overlap integral matrix
       real(wp), intent(out) :: overlap_diat(:, :)
       !> Effective Hamiltonian
       real(wp), intent(out) :: hamiltonian(:, :)
@@ -143,7 +143,7 @@ contains
                ii = bas%iao_sh(is+ish)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  call dipole_cgto_diat_scal(bas%cgto(jsh,jzp), bas%cgto(ish,izp), r2, vec, &
+                  call dipole_cgto_diat(bas%cgto(jsh,jzp), bas%cgto(ish,izp), r2, vec, &
                   & bas%intcut, h0%ksig(izp,jzp), h0%kpi(izp,jzp), h0%kdel(izp,jzp), &
                   & stmp, stmp_diat, dtmpi)
 

@@ -176,16 +176,14 @@ contains
    end subroutine diat_trafo_grad
 
 
-   pure subroutine harmtr(maxl,vec,trafomat)
+   !pure 
+   subroutine harmtr(maxl,vec,trafomat)
       !> Maximum angular momentum
       integer, intent(in)  :: maxl
       !> Normalized vector from atom k to atom l
       real(wp), intent(in) :: vec(3)
       !> Transformation matrix
       real(wp), intent(out) :: trafomat(ndim(maxl+1),ndim(maxl+1))
-
-      real(wp), parameter              :: eps = 4.0e-08_wp
-
       real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len, sq
       real(wp) :: norm_vec(3)
 
@@ -202,34 +200,6 @@ contains
       ! Normalize the vector
       len = sqrt(sum(vec**2))
       norm_vec = vec / len
-      if ( abs(1.0_wp-abs(norm_vec(1))) .lt. eps ) then
-         norm_vec(1) = sign(1.0_wp,norm_vec(1))
-         norm_vec(2) = 0.0_wp
-         norm_vec(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(norm_vec(2))) .lt. eps ) then
-         norm_vec(1) = 0.0_wp
-         norm_vec(2) = sign(1.0_wp,norm_vec(2))
-         norm_vec(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(norm_vec(3))) .lt. eps ) then
-         norm_vec(1) = 0.0_wp
-         norm_vec(2) = 0.0_wp
-         norm_vec(3) = sign(1.0_wp,norm_vec(3))
-      else if ( (abs(norm_vec(1)) .lt. eps) .and. .not. eff_equality(norm_vec(1),0.0_wp) ) then
-         norm_vec(1) = 0.0_wp
-         sq = sqrt( norm_vec(2)**2 + norm_vec(3)**2 )
-         norm_vec(2) = norm_vec(2)/sq
-         norm_vec(3) = norm_vec(3)/sq
-      else if ( (abs(norm_vec(2)) .lt. eps) .and. .not. eff_equality(norm_vec(2),0.0_wp) ) then
-         norm_vec(2) = 0.0_wp
-         sq = sqrt( norm_vec(1)**2 + norm_vec(3)**2 )
-         norm_vec(1) = norm_vec(1)/sq
-         norm_vec(3) = norm_vec(3)/sq
-      else if ( (abs(norm_vec(3)) .lt. eps) .and. .not. eff_equality(norm_vec(3),0.0_wp) ) then
-         norm_vec(3) = 0.0_wp
-         sq = sqrt(norm_vec(1)**2 + norm_vec(2)**2)
-         norm_vec(1) = norm_vec(1)/sq
-         norm_vec(2) = norm_vec(2)/sq
-      endif
 
       ! Prepare spherical coordinats
       cost = norm_vec(3)
@@ -398,34 +368,6 @@ contains
       ! Normalize the vector
       len = sqrt(sum(vec**2))
       norm_vec = vec / len
-      if ( abs(1.0_wp-abs(norm_vec(1))) .lt. eps ) then
-         norm_vec(1) = sign(1.0_wp,norm_vec(1))
-         norm_vec(2) = 0.0_wp
-         norm_vec(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(norm_vec(2))) .lt. eps ) then
-         norm_vec(1) = 0.0_wp
-         norm_vec(2) = sign(1.0_wp,norm_vec(2))
-         norm_vec(3) = 0.0_wp
-      else if ( abs(1.0_wp-abs(norm_vec(3))) .lt. eps ) then
-         norm_vec(1) = 0.0_wp
-         norm_vec(2) = 0.0_wp
-         norm_vec(3) = sign(1.0_wp,norm_vec(3))
-      else if ( (abs(norm_vec(1)) .lt. eps) .and. .not. eff_equality(norm_vec(1),0.0_wp) ) then
-         norm_vec(1) = 0.0_wp
-         sq = sqrt( norm_vec(2)**2 + norm_vec(3)**2 )
-         norm_vec(2) = norm_vec(2)/sq
-         norm_vec(3) = norm_vec(3)/sq
-      else if ( (abs(norm_vec(2)) .lt. eps) .and. .not. eff_equality(norm_vec(2),0.0_wp) ) then
-         norm_vec(2) = 0.0_wp
-         sq = sqrt( norm_vec(1)**2 + norm_vec(3)**2 )
-         norm_vec(1) = norm_vec(1)/sq
-         norm_vec(3) = norm_vec(3)/sq
-      else if ( (abs(norm_vec(3)) .lt. eps) .and. .not. eff_equality(norm_vec(3),0.0_wp) ) then
-         norm_vec(3) = 0.0_wp
-         sq = sqrt(norm_vec(1)**2 + norm_vec(2)**2)
-         norm_vec(1) = norm_vec(1)/sq
-         norm_vec(2) = norm_vec(2)/sq
-      endif
 
       ! Prepare spherical coordinats
       cost = norm_vec(3)
@@ -832,14 +774,5 @@ contains
       endif
 
    end subroutine scale_diatomic_frame
-
-   logical pure function eff_equality(num1, num2)
-      !> Numbers to compare
-      real(wp), intent(in) :: num1, num2
-      !> Logical deciding if numbers are (almost) equal or not
-      eff_equality = (abs( num1 - num2 ) .le. 1.0e-12_wp)
-
-   end function eff_equality
-
 
 end module tblite_integral_diat_trafo

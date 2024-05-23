@@ -270,7 +270,7 @@ subroutine test_overlap_dipole_diat_mol(error, mol, ref)
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
-   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_scaled(:, :)
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
    real(wp), allocatable :: dipole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
@@ -285,13 +285,13 @@ subroutine test_overlap_dipole_diat_mol(error, mol, ref)
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
-   allocate(overlap(bas%nao, bas%nao), overlap_scaled(bas%nao, bas%nao))
+   allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
    allocate(dipole(3, bas%nao, bas%nao))
-   call get_dipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_scaled, dipole)
+   call get_dipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat, dipole)
 
-   do ii = 1, size(overlap_scaled, 2)
-      do jj = 1, size(overlap_scaled, 1)
-         call check(error, overlap_scaled(jj, ii), ref(jj, ii), thr=thr)
+   do ii = 1, size(overlap_diat, 2)
+      do jj = 1, size(overlap_diat, 1)
+         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
          if (allocated(error)) return
       end do
    end do
@@ -305,7 +305,7 @@ subroutine test_overlap_dipole_diat_alh3(error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: nao = 12
-   real(wp), parameter :: overlap_scaled(nao, nao) = reshape([&
+   real(wp), parameter :: overlap_diat(nao, nao) = reshape([&
       & 9.99999999869333E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
@@ -354,11 +354,11 @@ subroutine test_overlap_dipole_diat_alh3(error)
       & 5.99671156800377E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       &-2.72146898578163E-1_wp, 0.00000000000000E+0_wp, 4.71372255459672E-1_wp,&
       & 4.25520423996966E-2_wp, 4.25520423996966E-2_wp, 9.99999999881495E-1_wp],&
-      & shape(overlap_scaled))
+      & shape(overlap_diat))
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_dipole_diat_mol(error, mol, overlap_scaled)
+   call test_overlap_dipole_diat_mol(error, mol, overlap_diat)
 
 end subroutine test_overlap_dipole_diat_alh3
 
@@ -371,7 +371,7 @@ subroutine test_overlap_multipole_diat_mol(error, mol, ref)
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
-   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_scaled(:, :)
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
    real(wp), allocatable :: dipole(:, :, :), quadrupole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
@@ -386,14 +386,14 @@ subroutine test_overlap_multipole_diat_mol(error, mol, ref)
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
-   allocate(overlap(bas%nao, bas%nao), overlap_scaled(bas%nao, bas%nao))
+   allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
    allocate(dipole(3, bas%nao, bas%nao), quadrupole(6, bas%nao, bas%nao))
-   call get_multipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_scaled, &
+   call get_multipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat, &
       & dipole, quadrupole)
 
-   do ii = 1, size(overlap_scaled, 2)
-      do jj = 1, size(overlap_scaled, 1)
-         call check(error, overlap_scaled(jj, ii), ref(jj, ii), thr=thr)
+   do ii = 1, size(overlap_diat, 2)
+      do jj = 1, size(overlap_diat, 1)
+         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
          if (allocated(error)) return
       end do
    end do

@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_integral_overlap
+use iso_fortran_env, only: output_unit
+
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
@@ -282,7 +284,7 @@ subroutine test_overlap_diat_mol(error, mol, ref)
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
-   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_scaled(:, :)
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
    real(wp) :: cutoff
    integer :: ii, jj
    real(wp) :: scalfac(3,86)
@@ -296,12 +298,12 @@ subroutine test_overlap_diat_mol(error, mol, ref)
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
-   allocate(overlap(bas%nao, bas%nao), overlap_scaled(bas%nao, bas%nao))
-   call get_overlap(mol, lattr, cutoff, bas, scalfac, overlap, overlap_scaled)
+   allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
+   call get_overlap(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat)
 
-   do ii = 1, size(overlap_scaled, 2)
-      do jj = 1, size(overlap_scaled, 1)
-         call check(error, overlap_scaled(jj, ii), ref(jj, ii), thr=thr)
+   do ii = 1, size(overlap_diat, 2)
+      do jj = 1, size(overlap_diat, 1)
+         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
          if (allocated(error)) return
       end do
    end do
@@ -379,7 +381,7 @@ subroutine test_overlap_diat_alh3(error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: nao = 12
-   real(wp), parameter :: overlap_scaled(nao, nao) = reshape([&
+   real(wp), parameter :: overlap_diat(nao, nao) = reshape([&
       & 9.99999999869333E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       & 0.00000000000000E+0_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
@@ -428,12 +430,12 @@ subroutine test_overlap_diat_alh3(error)
       & 5.99671156800377E-1_wp, 0.00000000000000E+0_wp, 0.00000000000000E+0_wp,&
       &-2.72146898578163E-1_wp, 0.00000000000000E+0_wp, 4.71372255459672E-1_wp,&
       & 4.25520423996966E-2_wp, 4.25520423996966E-2_wp, 9.99999999881495E-1_wp],&
-      & shape(overlap_scaled))
+      & shape(overlap_diat))
 
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_diat_mol(error, mol, overlap_scaled)
+   call test_overlap_diat_mol(error, mol, overlap_diat)
 
 end subroutine test_overlap_diat_alh3
 
@@ -1737,33 +1739,33 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
    integer :: stat, i, j, k
    real(wp) :: r2
-   real(wp) :: overlap(msao(cgtoi%ang), msao(cgtoj%ang)), overlap_scaled(msao(cgtoi%ang), msao(cgtoj%ang)), &
+   real(wp) :: overlap(msao(cgtoi%ang), msao(cgtoj%ang)), overlap_diat(msao(cgtoi%ang), msao(cgtoj%ang)), &
    & sl(msao(cgtoj%ang), msao(cgtoi%ang)), sr(msao(cgtoj%ang), msao(cgtoi%ang)), &
-   & sl_scaled(msao(cgtoj%ang), msao(cgtoi%ang)), sr_scaled(msao(cgtoj%ang), msao(cgtoi%ang))
+   & sl_diat(msao(cgtoj%ang), msao(cgtoi%ang)), sr_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
-   real(wp) :: doverlapi(3, msao(cgtoi%ang), msao(cgtoj%ang)),  doverlapi_scaled(3, msao(cgtoi%ang), msao(cgtoj%ang)), &
-   & doverlapj(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlapj_scaled(3, msao(cgtoj%ang), msao(cgtoi%ang)), &
-   & doverlaptmp(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlaptmp_scaled(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: doverlapi(3, msao(cgtoi%ang), msao(cgtoj%ang)),  doverlapi_diat(3, msao(cgtoi%ang), msao(cgtoj%ang)), &
+   & doverlapj(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlapj_diat(3, msao(cgtoj%ang), msao(cgtoi%ang)), &
+   & doverlaptmp(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlaptmp_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
    real(wp), parameter :: step = 1.0e-6_wp
 
    r2 = sum(vec**2)
    
    ! Test antisymmetry w.r.t. the exchange of the two centers
-   call overlap_grad_cgto_diat_scal(cgtoi, cgtoj, r2, vec, 100.0_wp, & 
-   & ksig, kpi, kdel, overlap, doverlapi, overlap_scaled, doverlapi_scaled)
+   call overlap_grad_cgto_diat(cgtoi, cgtoj, r2, vec, 100.0_wp, & 
+   & ksig, kpi, kdel, overlap, doverlapi, overlap_diat, doverlapi_diat)
 
    vec(:) = -vec
 
-   call overlap_grad_cgto_diat_scal(cgtoj, cgtoi, r2, vec, 100.0_wp, & 
-   & ksig, kpi, kdel, overlap, doverlapj, overlap_scaled, doverlapj_scaled)
+   call overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, 100.0_wp, & 
+   & ksig, kpi, kdel, overlap, doverlapj, overlap_diat, doverlapj_diat)
 
    lp: do i = 1, 3
       do j = 1, msao(cgtoi%ang)
          do k = 1, msao(cgtoj%ang)
             call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr)
             if (allocated(error)) exit lp
-            call check(error, doverlapi_scaled(i, j, k), -doverlapj_scaled(i, k, j), thr=thr)
+            call check(error, doverlapi_diat(i, j, k), -doverlapj_diat(i, k, j), thr=thr)
             if (allocated(error)) exit lp
          end do
       end do
@@ -1774,17 +1776,17 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    do i = 1, 3
       vec(i) = vec(i) + step
       r2 = sum(vec**2)
-      call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
-      & 100.0_wp, ksig, kpi, kdel, sr, sr_scaled)
+      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec,&
+      & 100.0_wp, ksig, kpi, kdel, sr, sr_diat)
 
       vec(i) = vec(i) - 2*step
       r2 = sum(vec**2)
-      call overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec,&
-      & 100.0_wp, ksig, kpi, kdel, sl, sl_scaled)
+      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec,&
+      & 100.0_wp, ksig, kpi, kdel, sl, sl_diat)
 
       vec(i) = vec(i) + step
       doverlaptmp(i, :, :) = 0.5_wp * (sr - sl) / step
-      doverlaptmp_scaled(i, :, :) = 0.5_wp * (sr_scaled - sl_scaled) / step
+      doverlaptmp_diat(i, :, :) = 0.5_wp * (sr_diat - sl_diat) / step
    end do
 
    num: do i = 1, 3
@@ -1792,7 +1794,7 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
          do k = 1, msao(cgtoj%ang)
             call check(error, doverlapj(i, k, j), doverlaptmp(i, k, j), thr=thr)
             if (allocated(error)) exit num
-            call check(error, doverlapj_scaled(i, k, j), doverlaptmp_scaled(i, k, j), thr=thr)
+            call check(error, doverlapj_diat(i, k, j), doverlaptmp_diat(i, k, j), thr=thr)
             if (allocated(error)) exit num
          end do
       end do

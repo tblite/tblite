@@ -28,13 +28,13 @@ module tblite_integral_overlap
    implicit none
    private
 
-   public :: overlap_cgto, overlap_cgto_diat_scal, overlap_grad_cgto, overlap_grad_cgto_diat_scal
+   public :: overlap_cgto, overlap_cgto_diat, overlap_grad_cgto, overlap_grad_cgto_diat
    public :: get_overlap
    public :: maxl, msao
 
    interface get_overlap
       module procedure :: get_overlap_lat
-      module procedure :: get_overlap_diatframe_lat
+      module procedure :: get_overlap_diat_lat
    end interface get_overlap
 
    integer, parameter :: maxl = 6
@@ -338,8 +338,8 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
 end subroutine overlap_cgto
 
 !pure 
-subroutine overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, & 
-& ksig, kpi, kdel, overlap, overlap_scaled)
+subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, & 
+& ksig, kpi, kdel, overlap, overlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -352,9 +352,9 @@ subroutine overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(in) :: ksig, kpi, kdel
    !> Maximum value of integral prefactor to consider
    real(wp), intent(in) :: intcut
-   !> Overlap integrals (scaled and unscaled) for the given pair i  and j
+   !> Overlap integrals (unscaled and diatomic-frame-scaled) for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang)), &
-     & overlap_scaled(msao(cgtoj%ang), msao(cgtoi%ang))
+     & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
    !> Offset array for the block overlap matrix 
    !> (number of AOs that appear before the current angular momentum)
@@ -409,13 +409,13 @@ subroutine overlap_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    ! scale the elements with the corresponding factor, transform back 
    ! according to: trans_block_s = O^T * S * O
    call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
-   ! 3. Fill the overlap_scaled matrix with the back-transformed submatrix
-   overlap_scaled(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
+   ! 3. Fill the overlap_diat matrix with the back-transformed submatrix
+   overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
      & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
      & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
    ! ----------------------------------------------------------------
 
-end subroutine overlap_cgto_diat_scal
+end subroutine overlap_cgto_diat
 
 
 pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverlap)
@@ -474,8 +474,8 @@ end subroutine overlap_grad_cgto
 
 
 !pure 
-subroutine overlap_grad_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
-&  ksig, kpi, kdel, overlap, doverlap, overlap_scaled, doverlap_scaled)
+subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
+&  ksig, kpi, kdel, overlap, doverlap, overlap_diat, doverlap_diat)
    !> Description of contracted Gaussian function on center i
    type(cgto_type), intent(in) :: cgtoi
    !> Description of contracted Gaussian function on center j
@@ -492,10 +492,10 @@ subroutine overlap_grad_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap(3, msao(cgtoj%ang), msao(cgtoi%ang))
-   !> Overlap integrals for the given pair i  and j
-   real(wp), intent(out) :: overlap_scaled(msao(cgtoj%ang), msao(cgtoi%ang))
-   !> Overlap integral gradient for the given pair i  and j
-   real(wp), intent(out) :: doverlap_scaled(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Diatomic-frame-scaled overlap integrals for the given pair i  and j
+   real(wp), intent(out) :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Diatomic-frame-scaled overlap integral gradient for the given pair i  and j
+   real(wp), intent(out) :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
    !> Offset array for the block overlap matrix 
    !> (number of AOs that appear before the current angular momentum)
@@ -563,16 +563,16 @@ subroutine overlap_grad_cgto_diat_scal(cgtoj, cgtoi, r2, vec, intcut, &
    ! scale the elements with the corresponding factor, transform back 
    call diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang)) 
 
-   ! 3. Fill the (d)overlap_scaled matrix with the back-transformed submatrix
-   overlap_scaled(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
+   ! 3. Fill the (d)overlap_diat matrix with the back-transformed submatrix
+   overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
      & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
      & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
-   doverlap_scaled(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
+   doverlap_diat(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
      & block_doverlap(:, offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
      & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
 
 
-end subroutine overlap_grad_cgto_diat_scal
+end subroutine overlap_grad_cgto_diat
 
 
 !> Evaluate overlap for a molecular structure
@@ -636,9 +636,8 @@ subroutine get_overlap_lat(mol, trans, cutoff, bas, overlap)
 
 end subroutine get_overlap_lat
 
-!> Evaluate overlap for a molecular structure,
-!> with scaled elements in the diatomic frame
-subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap, overlap_scaled)
+!> Evaluate overlap and diatomic-frame scaling
+subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, scal_fac, overlap, overlap_diat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -651,8 +650,8 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
    real(wp), intent(in) :: scal_fac(:,:)
    !> Overlap matrix
    real(wp), intent(out) :: overlap(:, :)
-   !> Overlap matrix with scaled elements in the diatomic frame
-   real(wp), intent(out) :: overlap_scaled(:, :)
+   !> Overlap matrix with diatomic-frame-scaled elements in the diatomic frame
+   real(wp), intent(out) :: overlap_diat(:, :)
    !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    !> (sigma, pi, delta)
    real(wp) :: ksig, kpi, kdel
@@ -660,7 +659,7 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
    integer :: iat, jat, izp, jzp, itr, is, js
    integer :: ish, jsh, ii, jj, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2
-   real(wp), allocatable :: stmp(:), sscaledtmp(:)
+   real(wp), allocatable :: stmp(:), stmp_diat(:)
 
    if (size(scal_fac,1) /= 3) then
       error stop 'Error: scal_fac must have the dimension of 3, &
@@ -668,14 +667,14 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
    end if
 
    overlap(:, :) = 0.0_wp
-   overlap_scaled(:, :) = 0.0_wp
+   overlap_diat(:, :) = 0.0_wp
 
-   allocate(stmp(msao(bas%maxl)**2), sscaledtmp(msao(bas%maxl)**2))
+   allocate(stmp(msao(bas%maxl)**2), stmp_diat(msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_scaled,scal_fac) &
-   !$omp private(r2, vec, stmp, sscaledtmp) &
+   !$omp shared(mol, bas, trans, cutoff2, overlap, overlap_diat, scal_fac) &
+   !$omp private(r2, vec, stmp, stmp_diat) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao) &
    !$omp private(ksig, kpi, kdel)
    do iat = 1, mol%nat
@@ -702,14 +701,14 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
                   stmp = 0.0_wp
-                  sscaledtmp = 0.0_wp
+                  stmp_diat = 0.0_wp
                   if (iat /= jat) then
-                     call overlap_cgto_diat_scal(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                        & r2, vec, bas%intcut, ksig, kpi, kdel, stmp, sscaledtmp)
+                     call overlap_cgto_diat(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
+                        & r2, vec, bas%intcut, ksig, kpi, kdel, stmp, stmp_diat)
                   else
                      call overlap_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                         & r2, vec, bas%intcut, stmp)
-                     sscaledtmp = stmp
+                     stmp_diat = stmp
                   endif
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
@@ -719,8 +718,8 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(jao + nao*(iao-1))
                         
-                        overlap_scaled(jj+jao, ii+iao) = overlap_scaled(jj+jao, ii+iao) &
-                           & + sscaledtmp(jao + nao*(iao-1))
+                        overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
+                           & + stmp_diat(jao + nao*(iao-1))
                      end do
                   end do
 
@@ -731,6 +730,6 @@ subroutine get_overlap_diatframe_lat(mol, trans, cutoff, bas, scal_fac, overlap,
       end do
    end do
 
-end subroutine get_overlap_diatframe_lat
+end subroutine get_overlap_diat_lat
 
 end module tblite_integral_overlap
