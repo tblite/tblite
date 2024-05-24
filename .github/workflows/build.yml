@@ -102,7 +102,8 @@ jobs:
         rm /usr/local/bin/gfortran
         which gfortran-${{ env.GCC_V }}
         gfortran-${{ env.GCC_V }} --version
-        ls -l /usr/local/bin
+        ls -l /usr/local/bin | grep "gfortran"
+        which gfortran
         gfortran --version
         which gcc
         gcc --version

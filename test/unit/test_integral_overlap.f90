@@ -1793,12 +1793,12 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
       do j = 1, msao(cgtoi%ang) 
          do k = 1, msao(cgtoj%ang)
             call check(error, doverlapj(i, k, j), doverlaptmp(i, k, j), thr=thr)
-            if (allocated(error)) 
+            if (allocated(error)) then
                write(*,*) "Error", doverlapj(i, k, j), doverlaptmp(i, k, j)
                exit num
             end if 
             call check(error, doverlapj_diat(i, k, j), doverlaptmp_diat(i, k, j), thr=thr)
-            if (allocated(error)) 
+            if (allocated(error)) then
                write(*,*) "Error", doverlapj(i, k, j), doverlaptmp(i, k, j)
                exit num
             end if
