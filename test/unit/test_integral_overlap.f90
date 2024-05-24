@@ -32,7 +32,7 @@ use iso_fortran_env, only: output_unit
 
    public :: collect_integral_overlap
 
-   real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
+   real(wp), parameter :: thr = 1e+7_wp*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 
 contains
