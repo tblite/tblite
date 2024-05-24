@@ -100,8 +100,11 @@ jobs:
       run: |
         brew install gcc@${{ env.GCC_V }} openblas
         which gfortran
+        gfortran --version
         which gcc
+        gcc --version
         which g++
+        g++ --version
         ln -s /usr/local/bin/gfortran-${{ env.GCC_V }} /usr/local/bin/gfortran
         ln -s /usr/local/bin/gcc-${{ env.GCC_V }} /usr/local/bin/gcc
         ln -s /usr/local/bin/g++-${{ env.GCC_V }} /usr/local/bin/g++
