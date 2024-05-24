@@ -30,7 +30,7 @@ module tblite_integral_overlap
 
    public :: overlap_cgto, overlap_cgto_diat, overlap_grad_cgto, overlap_grad_cgto_diat
    public :: get_overlap
-   public :: maxl, msao
+   public :: maxl, msao, smap
 
    interface get_overlap
       module procedure :: get_overlap_lat
@@ -42,6 +42,7 @@ module tblite_integral_overlap
    integer, parameter :: msao(0:maxl) = [1, 3, 5, 7, 9, 11, 13]
    integer, parameter :: mlao(0:maxl) = [1, 3, 6, 10, 15, 21, 28]
    integer, parameter :: lmap(0:maxl) = [0, 1, 4, 10, 20, 35, 56]
+   integer, parameter :: smap(0:maxl) = [0, 1, 4, 9, 16, 25, 36]
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: sqrtpi3 = sqrtpi**3
 
@@ -356,16 +357,12 @@ subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang)), &
      & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
-   !> Offset array for the block overlap matrix 
-   !> (number of AOs that appear before the current angular momentum)
-   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
-
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    
    !> Block overlap matrix as a technical intermediate for the diatomic frame
-   real(wp) :: block_overlap(offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
+   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
 
    s3d(:, :) = 0.0_wp
 
@@ -402,8 +399,8 @@ subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    block_overlap = 0.0_wp
    ! 1. Fill the 9x9 submatrix (initialized with 0's)
    ! with the correct overlap matrix elements
-   block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
    ! 2. Set up transformation matrix, transform the submatrix,
    ! scale the elements with the corresponding factor, transform back 
@@ -411,8 +408,8 @@ subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
    ! 3. Fill the overlap_diat matrix with the back-transformed submatrix
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
+     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
    ! ----------------------------------------------------------------
 
 end subroutine overlap_cgto_diat
@@ -497,10 +494,6 @@ subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    !> Diatomic-frame-scaled overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   !> Offset array for the block overlap matrix 
-   !> (number of AOs that appear before the current angular momentum)
-   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
-
    integer :: ip, jp, mli, mlj, l, ic
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, grad(3), pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
@@ -508,8 +501,8 @@ subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 
    !> Block overlap matrix as a technical intermediate for the diatomic frame
    !> The derivative is for each dimension (x,y,z) separate
-   real(wp) :: block_overlap(offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
-   real(wp) :: block_doverlap(3,offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
+   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
+   real(wp) :: block_doverlap(3,smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
 
    s3d(:, :) = 0.0_wp
    ds3d(:, :, :) = 0.0_wp
@@ -552,11 +545,11 @@ subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 
    ! 1. Fill the 9x9 submatrix (initialized with 0's)
    ! with the correct overlap matrix elements and the derivatives in all dimensions
-   block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
-   block_doverlap(:, offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+   block_doverlap(:, smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
      & doverlap(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
 
    ! 2. Set up transformation matrix, transform the submatrix,
@@ -565,11 +558,11 @@ subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 
    ! 3. Fill the (d)overlap_diat matrix with the back-transformed submatrix
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
+     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
    doverlap_diat(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_doverlap(:, offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
+     & block_doverlap(:, smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
 
 
 end subroutine overlap_grad_cgto_diat

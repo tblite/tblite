@@ -30,7 +30,7 @@ module tblite_integral_dipole
 
    public :: dipole_cgto, dipole_cgto_diat, dipole_grad_cgto
    public :: get_dipole_integrals
-   public :: maxl, msao
+   public :: maxl, msao, smap
 
    interface get_dipole_integrals
       module procedure :: get_dipole_integrals_lat
@@ -42,6 +42,7 @@ module tblite_integral_dipole
    integer, parameter :: msao(0:maxl) = [1, 3, 5, 7, 9, 11, 13]
    integer, parameter :: mlao(0:maxl) = [1, 3, 6, 10, 15, 21, 28]
    integer, parameter :: lmap(0:maxl) = [0, 1, 4, 10, 20, 35, 56]
+   integer, parameter :: smap(0:maxl) = [0, 1, 4, 9, 16, 25, 36]
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: sqrtpi3 = sqrtpi**3
 
@@ -387,9 +388,6 @@ subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
      & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Dipole moment integrals for the given pair i  and j
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
-   !> Offset array for the block overlap matrix 
-   !> (number of AOs that appear before the current angular momentum)
-   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), pre
@@ -397,7 +395,7 @@ subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
    !> Block overlap matrix as a technical intermediate for the diatomic frame
-   real(wp) :: block_overlap(offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
+   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
 
    s3d(:, :) = 0.0_wp
    d3d(:, :, :) = 0.0_wp
@@ -430,25 +428,25 @@ subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
    call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
 
-   !> ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
-   !> Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
-   !> scale the elements with the corresponding factor,
-   !> transform them back and add them to the scaled overlap matrix
+   ! ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
+   ! Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
+   ! scale the elements with the corresponding factor,
+   ! transform them back and add them to the scaled overlap matrix
    block_overlap = 0.0_wp
-   !> 1. Fill the 9x9 submatrix (initialized with 0's)
-   !> with the correct overlap matrix elements
-   block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+   ! 1. Fill the 9x9 submatrix (initialized with 0's)
+   ! with the correct overlap matrix elements
+   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
-   !> 2. Set up transformation matrix, transform the submatrix,
-   !> scale the elements with the corresponding factor, transform back 
-   !> according to: trans_block_s = O^T * S * O
+   ! 2. Set up transformation matrix, transform the submatrix,
+   ! scale the elements with the corresponding factor, transform back 
+   ! according to: trans_block_s = O^T * S * O
    call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
-   !> 3. Fill the overlap_diat matrix with the back-transformed submatrix
+   ! 3. Fill the overlap_diat matrix with the back-transformed submatrix
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
-   !> ----------------------------------------------------------------
+     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
+   ! ----------------------------------------------------------------
 
 end subroutine dipole_cgto_diat
 

@@ -17,8 +17,6 @@
 !> @file tblite/integral/diat_trafo.f90
 !> Evaluation of the diatomic scaled overlap
 module tblite_integral_diat_trafo
-   use iso_fortran_env, only: output_unit
-
    use mctc_env, only : wp
    use tblite_blas, only: gemm
 
@@ -33,8 +31,7 @@ module tblite_integral_diat_trafo
 contains
 
    !> Transformation to the diatomic frame and back: 
-   !pure 
-   subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxl)
+   pure subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxl)
       !> Diatomic block of CGTOs to be transformed (+ scaled)
       real(wp),intent(inout)    :: block_overlap(:,:)
       !> Transformation vector for the diatomic frame (i.e. vector between the two centers)
@@ -49,7 +46,6 @@ contains
       real(wp), allocatable :: tmp(:,:), transformed_s(:,:)
 
       trafo_dim = ndim(maxl+1)
-      !write(*,*) "trafo_dim = ", trafo_dim
       allocate(transformed_s(trafo_dim,trafo_dim), tmp(trafo_dim,trafo_dim), source=0.0_wp)
 
       ! 1. Setup the transformation matrix
@@ -57,7 +53,7 @@ contains
 
       ! 2. Transform the overlap submatrix to the diatomic frame: S' = O^T * S * O
       if (maxl > 0) then
-         call gemm(amat=trafomat,bmat=block_overlap,cmat=tmp,transa='T',transb='N')
+         call gemm(amat=trafomat,bmat=block_overlap(1:trafo_dim, 1:trafo_dim),cmat=tmp,transa='T',transb='N')
          call gemm(amat=tmp,bmat=trafomat,cmat=transformed_s,transa='N',transb='N')
       else
          transformed_s(1,1) = block_overlap(1,1)
@@ -70,7 +66,7 @@ contains
       block_overlap = 0.0_wp
       if (maxl > 0) then
          call gemm(amat=trafomat,bmat=transformed_s,cmat=tmp,transa='N',transb='N')
-         call gemm(amat=tmp,bmat=trafomat,cmat=block_overlap,transa='N',transb='T')
+         call gemm(amat=tmp,bmat=trafomat,cmat=block_overlap(1:trafo_dim, 1:trafo_dim),transa='N',transb='T')
       else
          block_overlap(1,1) = transformed_s(1,1)
       endif
@@ -176,8 +172,7 @@ contains
    end subroutine diat_trafo_grad
 
 
-   !pure 
-   subroutine harmtr(maxl,vec,trafomat)
+   pure subroutine harmtr(maxl,vec,trafomat)
       !> Maximum angular momentum
       integer, intent(in)  :: maxl
       !> Normalized vector from atom k to atom l

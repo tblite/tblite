@@ -30,7 +30,7 @@ module tblite_integral_multipole
 
    public :: multipole_cgto, multipole_cgto_diat, multipole_grad_cgto
    public :: get_multipole_integrals
-   public :: maxl, msao
+   public :: maxl, msao, smap
 
    interface get_multipole_integrals
       module procedure :: get_multipole_integrals_lat
@@ -42,6 +42,7 @@ module tblite_integral_multipole
    integer, parameter :: msao(0:maxl) = [1, 3, 5, 7, 9, 11, 13]
    integer, parameter :: mlao(0:maxl) = [1, 3, 6, 10, 15, 21, 28]
    integer, parameter :: lmap(0:maxl) = [0, 1, 4, 10, 20, 35, 56]
+   integer, parameter :: smap(0:maxl) = [0, 1, 4, 9, 16, 25, 36]
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: sqrtpi3 = sqrtpi**3
 
@@ -445,9 +446,6 @@ subroutine multipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
    !> Quadrupole moment integrals for the given pair i  and j
    real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
-   !> Offset array for the block overlap matrix 
-   !> (number of AOs that appear before the current angular momentum)
-   integer, parameter :: offset_nao(8) = [0, 1, 4, 9, 16, 25, 36, 49]
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
@@ -456,7 +454,7 @@ subroutine multipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp) :: q3d(6, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
    !> Block overlap matrix as a technical intermediate for the diatomic frame
-   real(wp) :: block_overlap(offset_nao(max(cgtoj%ang,cgtoi%ang)+2),offset_nao(max(cgtoj%ang,cgtoi%ang)+2))
+   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
 
    s3d(:, :) = 0.0_wp
    d3d(:, :, :) = 0.0_wp
@@ -512,8 +510,8 @@ subroutine multipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    block_overlap = 0.0_wp
    ! 1. Fill the 9x9 submatrix (initialized with 0's)
    ! with the correct overlap matrix elements
-   block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang)) = &
+   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
    ! 2. Set up transformation matrix, transform the submatrix,
    ! scale the elements with the corresponding factor, transform back 
@@ -521,8 +519,8 @@ subroutine multipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
    ! 3. Fill the overlap_diat matrix with the back-transformed submatrix
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(offset_nao(cgtoj%ang+1)+1:offset_nao(cgtoj%ang+1)+msao(cgtoj%ang), &
-     & offset_nao(cgtoi%ang+1)+1:offset_nao(cgtoi%ang+1)+msao(cgtoi%ang))
+     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
+     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
    ! ----------------------------------------------------------------
 
 end subroutine multipole_cgto_diat
