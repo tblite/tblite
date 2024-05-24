@@ -185,7 +185,7 @@ contains
       trafomat = 0.0_wp
 
       ! -----------------------------
-      ! *** s functions (trafomat(1x1)) ***
+      !  s functions (trafomat(1x1))
       ! -----------------------------
       
       trafomat(1,1) = 1.0
@@ -215,7 +215,7 @@ contains
       endif
 
       ! -----------------------------
-      ! *** p functions (trafomat(4x4)) ***
+      !  p functions (trafomat(4x4))
       ! -----------------------------
 
       ! Adapted to tblite ordering from MSINDO
@@ -236,7 +236,7 @@ contains
       if ( maxl <= 1 ) return
 
       ! -----------------------------
-      ! *** d functions (trafomat(9x9)) ***
+      !  d functions (trafomat(9x9)) 
       ! -----------------------------
 
       COS2T = COST**2 - SINT**2
@@ -279,9 +279,9 @@ contains
 
       if ( maxl <= 2 ) return
 
-      ! -----------------------------
-      ! *** f functions (trafomat(16x16)) ***
-      ! -----------------------------
+      ! -------------------------------
+      !  f functions (trafomat(16x16)) 
+      ! -------------------------------
 
       ! f-functions are not transformed to the diatomic frame!
       trafomat(10,10) = 1.0_wp
@@ -294,9 +294,9 @@ contains
 
       if ( maxl <= 3 ) return
 
-      ! -----------------------------
-      ! *** g functions (trafomat(25x25)) ***
-      ! -----------------------------
+      ! -------------------------------
+      !  g functions (trafomat(25x25)) 
+      ! -------------------------------
 
       ! g-functions are not transformed to the diatomic frame!
       trafomat(17,17) = 1.0_wp
@@ -352,7 +352,7 @@ contains
       trafomat_dpy = 0.0_wp
 
       ! -----------------------------
-      ! *** s functions (trafomat(1x1)) ***
+      !  s functions (trafomat(1x1)) 
       ! -----------------------------
 
       trafomat(:,1,1) = 1.0_wp
@@ -410,7 +410,7 @@ contains
       dtdz = -sint / len
 
       ! -----------------------------
-      ! *** p functions (trafomat(4x4)) ***
+      !  p functions (trafomat(4x4)) 
       ! -----------------------------
 
       ! Adapted to tblite ordering from MSINDO
@@ -493,7 +493,7 @@ contains
       end if
 
       ! -----------------------------
-      ! *** d functions (trafomat(9x9)) ***
+      !  d functions (trafomat(9x9)) 
       ! -----------------------------
 
       SQRT3 = SQRT(3.0_wp)
@@ -687,9 +687,9 @@ contains
          return
       end if
 
-      ! -----------------------------
-      ! *** f functions (trafomat(16x16)) ***
-      ! -----------------------------
+      ! -------------------------------
+      !  f functions (trafomat(16x16)) 
+      ! -------------------------------
 
       ! f-functions are not transformed to the diatomic frame!
       ! Hence, the derivative remains 0!
@@ -709,9 +709,9 @@ contains
          return
       end if
 
-      ! -----------------------------
-      ! *** g functions (trafomat(25x25)) ***
-      ! -----------------------------
+      ! -------------------------------
+      !  g functions (trafomat(25x25)) 
+      ! -------------------------------
 
       ! g-functions are not transformed to the diatomic frame!
       ! Hence, the derivative remains 0!
@@ -765,7 +765,7 @@ contains
             diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dx2-y2 <-> dx2-y2
             diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dxy <-> dxy
          endif
-         ! f-functions remain unscaled
+         ! f- and g-functions remain unscaled
       endif
 
    end subroutine scale_diatomic_frame

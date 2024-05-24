@@ -368,8 +368,7 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
 
 end subroutine dipole_cgto
 
-!pure 
-subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
+pure subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 & ksig, kpi, kdel, overlap, overlap_diat, dpint)
    !> Description of contracted Gaussian function on center i
    type(cgto_type), intent(in) :: cgtoi
@@ -383,7 +382,7 @@ subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(in) :: intcut
    !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    real(wp), intent(in) :: ksig, kpi, kdel
-   !> Overlap integrals (unscaled and diatomic-frame-scaled) for the given pair i  and j
+   !> Overlap integrals (unscaled and diatomic frame-scaled) for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang)), &
      & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Dipole moment integrals for the given pair i  and j
@@ -602,7 +601,7 @@ subroutine get_dipole_integrals_diat_lat(mol, &
    real(wp), intent(in) :: scal_fac(:,:)
    !> Overlap matrix
    real(wp), intent(out) :: overlap(:, :)
-   !> Overlap matrix with diatomic-frame-scaled elements
+   !> Overlap matrix with diatomic frame-scaled elements
    real(wp), intent(out) :: overlap_diat(:, :)
    !> Dipole moment integral matrix
    real(wp), intent(out) :: dpint(:, :, :)

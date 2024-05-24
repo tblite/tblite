@@ -20,8 +20,6 @@
 
 !> Implementation of the single point calculation for the CEH model
 module tblite_ceh_singlepoint
-   use iso_fortran_env, only: output_unit
-
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
@@ -196,11 +194,6 @@ contains
 
       ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
-      
-      ! call write_2d_matrix(ints%overlap, "S", step=16)
-      ! call write_2d_matrix(ints%hamiltonian, "H", step=16)
-      ! call write_2d_matrix(wfn%coeff(:,:,1), "Hfull", step=16)
-      ! call write_2d_matrix(ints%overlap_diat, "Sdiat", step=16)
 
       ! Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
@@ -244,48 +237,4 @@ contains
 
    end subroutine get_qsh_from_qat
    
-subroutine write_2d_matrix(matrix, name, unit, step)
-    implicit none
-    real(wp), intent(in) :: matrix(:, :)
-    character(len=*), intent(in), optional :: name
-    integer, intent(in), optional :: unit
-    integer, intent(in), optional :: step
-    integer :: d1, d2
-    integer :: i, j, k, l, istep, iunit
-
-    d1 = size(matrix, dim=1)
-    d2 = size(matrix, dim=2)
-
-    if (present(unit)) then
-      iunit = unit
-    else
-      iunit = output_unit
-    end if
-
-    if (present(step)) then
-      istep = step
-    else
-      istep = 6
-    end if
-
-    if (present(name)) write (iunit, '(/,"matrix printed:",1x,a)') name
-
-    do i = 1, d2, istep
-      l = min(i + istep - 1, d2)
-      write (iunit, '(/,6x)', advance='no')
-      do k = i, l
-        write (iunit, '(6x,i7,3x)', advance='no') k
-      end do
-      write (iunit, '(a)')
-      do j = 1, d1
-        write (iunit, '(i6)', advance='no') j
-        do k = i, l
-          write (iunit, '(1x,f15.10)', advance='no') matrix(j, k)
-        end do
-        write (iunit, '(a)')
-      end do
-    end do
-
-  end subroutine write_2d_matrix
-
 end module tblite_ceh_singlepoint

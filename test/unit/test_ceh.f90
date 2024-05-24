@@ -819,7 +819,6 @@ contains
 
    end subroutine test_hamiltonian_sih4
 
-
    subroutine test_overlap_diat_h2(error)
 
       !> Error handling
@@ -1057,7 +1056,6 @@ contains
 
    end subroutine test_overlap_diat_sih4
 
-
    subroutine test_q_h2(error)
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
@@ -1072,7 +1070,6 @@ contains
       call test_q_gen(error, mol, charges)
 
    end subroutine test_q_h2
-
 
    subroutine test_q_lih(error)
       !> Error handling
@@ -1153,7 +1150,6 @@ contains
 
    end subroutine test_q_panp
 
-
    subroutine test_q_mb01(error)
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
@@ -1221,7 +1217,7 @@ contains
       &-0.018039040440414_wp, -0.194798993283821_wp,  -0.076478151155481_wp, &
       &-0.167853095449230_wp,  0.304619635473503_wp,  -0.022689763513518_wp, &
       & 0.019714590105775_wp,  0.000713111871502_wp,  -0.047985458556249_wp, &
-      &-0.104183443069051_wp, -0.161265309374659_wp,   0.538802940610920_wp, &     
+      &-0.104183443069051_wp, -0.161265309374659_wp,   0.538802940610920_wp, &
       & 0.190213172949517_wp, -0.317990923047223_wp,   0.034501918582603_wp, &
       & 0.022718808299253_wp], shape(charges))
 
@@ -1243,11 +1239,11 @@ contains
       class(container_type), allocatable :: cont      
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: ref(16) = reshape([ &
-      &-5.42237346896788_wp, -0.77304500586496_wp,   2.5895850175165_wp, &     
-      &-0.92233780581096_wp,  6.99267602990832_wp,   0.4742366118103_wp, &     
-      &-0.11849846722517_wp,  4.22307140408149_wp,   1.5873873640455_wp, &     
-      & 0.31672778030780_wp,  0.99906183347402_wp, -10.5405405662106_wp, &     
-      &-3.80217066006454_wp,  1.92138378495190_wp,   3.8481284909192_wp, &     
+      &-5.42237346896788_wp, -0.77304500586496_wp,   2.5895850175165_wp, &
+      &-0.92233780581096_wp,  6.99267602990832_wp,   0.4742366118103_wp, &
+      &-0.11849846722517_wp,  4.22307140408149_wp,   1.5873873640455_wp, &
+      & 0.31672778030780_wp,  0.99906183347402_wp, -10.5405405662106_wp, &
+      &-3.80217066006454_wp,  1.92138378495190_wp,   3.8481284909192_wp, &
       & 0.62670765712891_wp], shape(ref))
 
       real(wp) :: efield(3)

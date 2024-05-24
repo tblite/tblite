@@ -338,13 +338,12 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
 
 end subroutine overlap_cgto
 
-!pure 
-subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, & 
+pure subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, & 
 & ksig, kpi, kdel, overlap, overlap_diat)
-   !> Description of contracted Gaussian function on center j
-   type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
    type(cgto_type), intent(in) :: cgtoi
+   !> Description of contracted Gaussian function on center j
+   type(cgto_type), intent(in) :: cgtoj
    !> Square distance between center i and j
    real(wp), intent(in) :: r2
    !> Distance vector between center i and j, ri - rj
@@ -353,7 +352,7 @@ subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(in) :: ksig, kpi, kdel
    !> Maximum value of integral prefactor to consider
    real(wp), intent(in) :: intcut
-   !> Overlap integrals (unscaled and diatomic-frame-scaled) for the given pair i  and j
+   !> Overlap integrals (unscaled and diatomic frame-scaled) for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang)), &
      & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
@@ -470,13 +469,12 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
 end subroutine overlap_grad_cgto
 
 
-!pure 
-subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
+pure subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 &  ksig, kpi, kdel, overlap, doverlap, overlap_diat, doverlap_diat)
-   !> Description of contracted Gaussian function on center i
-   type(cgto_type), intent(in) :: cgtoi
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
+   !> Description of contracted Gaussian function on center i
+   type(cgto_type), intent(in) :: cgtoi
    !> Square distance between center i and j
    real(wp), intent(in) :: r2
    !> Distance vector between center i and j, ri - rj
@@ -629,7 +627,7 @@ subroutine get_overlap_lat(mol, trans, cutoff, bas, overlap)
 
 end subroutine get_overlap_lat
 
-!> Evaluate overlap and diatomic-frame scaling
+!> Evaluate overlap and diatomic frame scaling
 subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, scal_fac, overlap, overlap_diat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -643,7 +641,7 @@ subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, scal_fac, overlap, over
    real(wp), intent(in) :: scal_fac(:,:)
    !> Overlap matrix
    real(wp), intent(out) :: overlap(:, :)
-   !> Overlap matrix with diatomic-frame-scaled elements in the diatomic frame
+   !> Overlap matrix with diatomic frame-scaled elements in the diatomic frame
    real(wp), intent(out) :: overlap_diat(:, :)
    !> Scaling factors for the diatomic frame for the three differnt bonding motifs
    !> (sigma, pi, delta)

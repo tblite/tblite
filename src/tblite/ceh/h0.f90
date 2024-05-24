@@ -105,7 +105,7 @@ contains
       real(wp), intent(out) :: overlap(:, :)
       !> Dipole moment integral matrix
       real(wp), intent(out) :: dpint(:, :, :)
-      !> Diatomic-frame-scaled overlap integral matrix
+      !> Diatomic frame-scaled overlap integral matrix
       real(wp), intent(out) :: overlap_diat(:, :)
       !> Effective Hamiltonian
       real(wp), intent(out) :: hamiltonian(:, :)

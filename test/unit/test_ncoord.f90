@@ -117,8 +117,7 @@ contains
 
       if (any(abs(cn - ref) > thr)) then
          call test_failed(error, "Coordination numbers do not match")
-         write(*, '(*(6x,SP,"& ",3(es23.16e2, "":, "_wp, "), "&", /))', advance='no') cn
-         !print'(3es21.14)', cn
+         print'(3es21.14)', cn
       end if
 
    end subroutine test_cn_gen
