@@ -88,8 +88,6 @@ contains
       
       integer :: ic, trafo_dim
       real(wp) :: trafomat(3,ndim(maxl+1),ndim(maxl+1)), dtrafomat(3,ndim(maxl+1),ndim(maxl+1))
-      real(wp), allocatable :: eff_tra_mat(:,:), eff_dtra_mat(:,:,:)
-      real(wp), allocatable :: eff_block_overlap(:,:), eff_block_doverlap(:,:,:)
       real(wp), allocatable :: tmp(:,:), tmp2(:,:), interm_oso(:,:), &
       & interm_doso(:,:,:), interm_odso(:,:,:), interm_osdo(:,:,:)
 
@@ -179,7 +177,7 @@ contains
       real(wp), intent(in) :: vec(3)
       !> Transformation matrix
       real(wp), intent(out) :: trafomat(ndim(maxl+1),ndim(maxl+1))
-      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len, sq
+      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len
       real(wp) :: norm_vec(3)
 
       trafomat = 0.0_wp
@@ -334,16 +332,14 @@ contains
       !> Derivative of transformation matrix w.r.t. phi (y-direction)
       real(wp) :: trafomat_dpy(ndim(maxl+1),ndim(maxl+1))
 
-      integer :: i,j
-
       ! Intermediate variables for the trigonometric functions
       ! Separte version for y for the case: vec || z-axis
       real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp
-      real(wp) :: cos2py, cos2ty, cospy, costy, sin2py, sin2ty, sinpy
+      real(wp) :: cos2py, cospy, sin2py, sinpy
       real(wp) :: dcos2t, dsin2t, dcos2p, dsin2p
-      real(wp) :: dcos2ty, dsin2ty, dcos2py, dsin2py
+      real(wp) :: dcos2py, dsin2py
       real(wp) :: dpdx, dpdy, dpdz, dtdx, dtdy, dtdz
-      real(wp) :: norm_vec(3), sq, sint, sqrt3, len
+      real(wp) :: norm_vec(3), sint, sqrt3, len
 
       trafomat = 0.0_wp
       trafomat_dt = 0.0_wp
