@@ -98,12 +98,6 @@ jobs:
     - name: Install GCC (OSX)
       if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'gnu' }}
       run: |
-        which gfortran
-        gfortran --version
-        which gcc
-        gcc --version
-        which g++
-        g++ --version
         brew install gcc@${{ env.GCC_V }} openblas
         rm /usr/local/bin/gfortran
         which gfortran
