@@ -1793,9 +1793,15 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
       do j = 1, msao(cgtoi%ang) 
          do k = 1, msao(cgtoj%ang)
             call check(error, doverlapj(i, k, j), doverlaptmp(i, k, j), thr=thr)
-            if (allocated(error)) exit num
+            if (allocated(error)) 
+               write(*,*) "Error", doverlapj(i, k, j), doverlaptmp(i, k, j)
+               exit num
+            end if 
             call check(error, doverlapj_diat(i, k, j), doverlaptmp_diat(i, k, j), thr=thr)
-            if (allocated(error)) exit num
+            if (allocated(error)) 
+               write(*,*) "Error", doverlapj(i, k, j), doverlaptmp(i, k, j)
+               exit num
+            end if
          end do
       end do
    end do num
@@ -1930,7 +1936,7 @@ subroutine test_overlap_diat_grad_pp(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = (vec - 0.5_wp)*(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
