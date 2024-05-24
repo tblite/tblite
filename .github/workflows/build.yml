@@ -99,12 +99,12 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'gnu' }}
       run: |
         brew install gcc@${{ env.GCC_V }} openblas
+        which gfortran
+        gfortran --version
+        ls -l /usr/local/bin | grep "gfortran"
         rm /usr/local/bin/gfortran
         which gfortran-${{ env.GCC_V }}
         gfortran-${{ env.GCC_V }} --version
-        ls -l /usr/local/bin | grep "gfortran"
-        which gfortran
-        gfortran --version
         which gcc
         gcc --version
         which g++
