@@ -15,8 +15,6 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_integral_overlap
-use iso_fortran_env, only: output_unit
-
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
