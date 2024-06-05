@@ -29,7 +29,7 @@ module tblite_ceh_singlepoint
    use tblite_output_format, only: format_string
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_wavefunction, only : wavefunction_type, &
-   & get_alpha_beta_occupation
+   & get_alpha_beta_occupation, get_qsh_from_qat
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
@@ -218,23 +218,5 @@ contains
       ttime = timer%get("wall time CEH")
 
    end subroutine ceh_guess
-
-   subroutine get_qsh_from_qat(bas, qat, qsh)
-      !> Basis set information   
-      type(basis_type), intent(in) :: bas
-      !> Atomic charges, shape: [nat, spin]
-      real(wp), intent(in) :: qat(:, :)
-      !> Shell charges, shape: [nsh, spin]
-      real(wp), intent(out) :: qsh(:, :)
-      
-      integer :: ish, ispin
-
-      do ispin = 1, size(qsh, 2)
-         do ish = 1, size(qsh, 1)
-            qsh(ish, ispin) = qat(bas%sh2at(ish), ispin) / dble(bas%nsh_at(bas%sh2at(ish)))
-         end do
-      end do
-
-   end subroutine get_qsh_from_qat
    
 end module tblite_ceh_singlepoint
