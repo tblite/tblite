@@ -21,12 +21,12 @@
 module tblite_wavefunction_type
    use mctc_env, only : wp
    use tblite_blas, only : gemm
-   use tblite_basis_type, only : basis_type
+
    implicit none
    private
 
    public :: new_wavefunction
-   public :: get_density_matrix, get_alpha_beta_occupation, get_qsh_from_qat
+   public :: get_density_matrix, get_alpha_beta_occupation
 
    !> Tight-binding wavefunction
    type, public :: wavefunction_type
@@ -145,23 +145,5 @@ subroutine get_alpha_beta_occupation(nocc, nuhf, nalp, nbet)
    nalp = ntmp / 2 + diff
    nbet = ntmp / 2
 end subroutine get_alpha_beta_occupation
-
-!> Split atomic charges into shell charges 
-subroutine get_qsh_from_qat(bas, qat, qsh)
-   !> Basis set information   
-   type(basis_type), intent(in) :: bas
-   !> Atomic charges, shape: [nat, spin]
-   real(wp), intent(in) :: qat(:, :)
-   !> Shell charges, shape: [nsh, spin]
-   real(wp), intent(out) :: qsh(:, :)
-
-   integer :: ish, ispin
-   do ispin = 1, size(qsh, 2)
-      do ish = 1, size(qsh, 1)
-         qsh(ish, ispin) = qat(bas%sh2at(ish), ispin) / dble(bas%nsh_at(bas%sh2at(ish)))
-      end do
-   end do
-
-end subroutine get_qsh_from_qat
 
 end module tblite_wavefunction_type

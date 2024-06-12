@@ -24,12 +24,12 @@ module tblite_ceh_singlepoint
    use mctc_io, only: structure_type
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_cutoff, only : get_lattice_points
-   use tblite_basis_type, only : basis_type, get_cutoff
+   use tblite_basis_type, only : get_cutoff
    use tblite_context, only : context_type
    use tblite_output_format, only: format_string
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_wavefunction, only : wavefunction_type, &
-   & get_alpha_beta_occupation, get_qsh_from_qat
+   & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
@@ -182,10 +182,8 @@ contains
       ! Add potential due to Coulomb
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
-         ! Use the electronegativity-weighted CN as a 0th order
-         ! guess for the charges
+         ! Use electronegativity-weighted CN as 0th-order charge guess
          call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
-         call get_qsh_from_qat(calc%bas, wfn%qat, wfn%qsh)
       
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)
