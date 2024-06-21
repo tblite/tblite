@@ -59,7 +59,7 @@ contains
 
       type(structure_type) :: mol
       character(len=:), allocatable :: method, filename
-      integer :: unpaired, charge,nspin
+      integer :: unpaired, charge,nspin, unit
       real(wp) :: dpmom(3), qpmom(6)
       real(wp), allocatable :: gradient(:, :), sigma(:, :)
       type(context_type) :: ctx
@@ -174,6 +174,15 @@ contains
       call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
       call ascii_atomic_charges(ctx%unit, 1, mol, wfn%qat(:, 1))
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
+
+      if (config%json) then
+         open(file=config%json_output, newunit=unit)
+         call json_results(unit, "  ", charges=wfn%qat(:, 1))
+         close(unit)
+         if (config%verbosity > 0) then
+            call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
+         end if
+      end if
    end subroutine guess_main
 
 
