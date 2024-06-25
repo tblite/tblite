@@ -17,7 +17,6 @@
 set(_lib "mstore")
 set(_pkg "MSTORE")
 set(_url "https://github.com/grimme-lab/mstore")
-set(_rev "HEAD")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
@@ -30,7 +29,7 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
 
-tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "${_rev}")
+tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "v0.3.0")
 
 if(DEFINED "_${_pkg}_FIND_METHOD")
   unset("${_pkg}_FIND_METHOD")

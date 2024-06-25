@@ -26,47 +26,57 @@ module tblite_integral_diat_trafo
    public :: diat_trafo, diat_trafo_grad
 
    !> Dimension of trafo matrix for highest angular momentum.
-   integer, parameter :: ndim(7) = [1, 4, 9, 16, 25, 36, 49]
+   integer, parameter :: sdim(0:6) = [1, 4, 9, 16, 25, 36, 49]
 
 contains
 
    !> Transformation to the diatomic frame and back: 
-   pure subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxl)
+   pure subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxlj, maxli)
       !> Diatomic block of CGTOs to be transformed (+ scaled)
       real(wp),intent(inout)    :: block_overlap(:,:)
       !> Transformation vector for the diatomic frame (i.e. vector between the two centers)
       real(wp),intent(in)       :: vec(3)
       !> Scaling parameters for different bonding contributions
       real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum between the two shells
-      integer,intent(in)        :: maxl
+      !> Highest angular momentum of atom j (first index)
+      integer,intent(in)        :: maxlj
+      !> Highest angular momentum of atom i (second index)
+      integer,intent(in)        :: maxli
 
-      integer  :: trafo_dim 
-      real(wp) :: trafomat(ndim(maxl+1),ndim(maxl+1))
-      real(wp), allocatable :: tmp(:,:), transformed_s(:,:)
+      integer  :: dimj, dimi, maxl
+      real(wp), allocatable :: trafomat(:,:), tmp(:,:), transformed_s(:,:)
 
-      trafo_dim = ndim(maxl+1)
-      allocate(transformed_s(trafo_dim,trafo_dim), tmp(trafo_dim,trafo_dim), source=0.0_wp)
+      ! Select the dimensions of the transformation matrix
+      dimj = sdim(maxlj)
+      dimi = sdim(maxli)
+      maxl = max(maxlj, maxli)
+
+      allocate(trafomat(sdim(maxl), sdim(maxl)), transformed_s(dimj,dimi), &
+      & tmp(dimj,dimi), source=0.0_wp)
 
       ! 1. Setup the transformation matrix
       call harmtr(maxl, vec, trafomat)
 
       ! 2. Transform the overlap submatrix to the diatomic frame: S' = O^T * S * O
       if (maxl > 0) then
-         call gemm(amat=trafomat,bmat=block_overlap(1:trafo_dim, 1:trafo_dim),cmat=tmp,transa='T',transb='N')
-         call gemm(amat=tmp,bmat=trafomat,cmat=transformed_s,transa='N',transb='N')
+         call gemm(amat=trafomat(1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
+            & cmat=tmp, transa='T', transb='N')
+         call gemm(amat=tmp, bmat=trafomat(1:dimi,1:dimi), &
+            & cmat=transformed_s, transa='N', transb='N')
       else
          transformed_s(1,1) = block_overlap(1,1)
       endif
 
       ! 3. Scale elements in the diatomic frame
-      call scale_diatomic_frame(transformed_s, ksig, kpi, kdel, maxl) 
+      call scale_diatomic_frame(transformed_s, ksig, kpi, kdel, maxlj, maxli) 
 
       ! 4. Transform the overlap submatrix back to original frame: Ssc = O * Ssc' * O^T
       block_overlap = 0.0_wp
       if (maxl > 0) then
-         call gemm(amat=trafomat,bmat=transformed_s,cmat=tmp,transa='N',transb='N')
-         call gemm(amat=tmp,bmat=trafomat,cmat=block_overlap(1:trafo_dim, 1:trafo_dim),transa='N',transb='T')
+         call gemm(amat=trafomat(1:dimj,1:dimj), bmat=transformed_s, &
+            & cmat=tmp, transa='N', transb='N')
+         call gemm(amat=tmp, bmat=trafomat(1:dimi,1:dimi), &
+            & cmat=block_overlap(1:dimj,1:dimi), transa='N', transb='T')
       else
          block_overlap(1,1) = transformed_s(1,1)
       endif
@@ -74,7 +84,7 @@ contains
    end subroutine diat_trafo
 
    !> Gradient of the diatomic frame scaled overlap transformation: 
-   pure subroutine diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, maxl)
+   pure subroutine diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, maxlj, maxli)
       !> Diatomic block of CGTO overlap to be transformed (+ scaled)
       real(wp),intent(inout)    :: block_overlap(:,:)
       !> Derivative of diatomic block of CGTO overlap to be transformed (+ scaled)
@@ -83,22 +93,23 @@ contains
       real(wp),intent(in)       :: vec(3)
       !> Scaling parameters for different bonding contributions
       real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum between the two shells
-      integer,intent(in)        :: maxl
+      !> Highest angular momentum of atom j (first index)
+      integer,intent(in)        :: maxlj
+      !> Highest angular momentum of atom i (second index)
+      integer,intent(in)        :: maxli
       
-      integer :: ic, trafo_dim
-      real(wp) :: trafomat(3,ndim(maxl+1),ndim(maxl+1)), dtrafomat(3,ndim(maxl+1),ndim(maxl+1))
-      real(wp), allocatable :: tmp(:,:), tmp2(:,:), interm_oso(:,:), &
-      & interm_doso(:,:,:), interm_odso(:,:,:), interm_osdo(:,:,:)
+      integer :: ic, dimj, dimi, maxl
+      real(wp), allocatable :: trafomat(:,:,:), dtrafomat(:,:,:), tmp(:,:), &
+      & interm_oso(:,:), interm_doso(:,:,:), interm_odso(:,:,:), interm_osdo(:,:,:)
 
-      trafo_dim = ndim(maxl+1)
+      ! Select the dimensions of the transformation matrix
+      dimj = sdim(maxlj)
+      dimi = sdim(maxli)
+      maxl = max(maxlj, maxli)
 
-      trafomat = 0.0_wp
-      dtrafomat = 0.0_wp
-
-      allocate(interm_oso(trafo_dim,trafo_dim), interm_doso(3,trafo_dim,trafo_dim), &
-      & interm_osdo(3,trafo_dim,trafo_dim), interm_odso(3,trafo_dim,trafo_dim), &
-      & tmp(trafo_dim,trafo_dim), tmp2(trafo_dim,trafo_dim), source=0.0_wp)
+      allocate(trafomat(3,sdim(maxl), sdim(maxl)), dtrafomat(3,sdim(maxl), sdim(maxl)), &
+      & interm_oso(dimj,dimi), interm_doso(3,dimj,dimi), interm_osdo(3,dimj, dimi), &
+      & interm_odso(3,dimj,dimi), tmp(dimj,dimi), source=0.0_wp)
 
       ! 1. Setup the transformation matrix and its derivative for all directions.
       ! For the case vec || z-axis, the x- and y-derivatives are ill-defined 
@@ -108,18 +119,26 @@ contains
       ! 2. Transform the overlap submatrix to the diatomic frame: S' = O^T * S * O
       if (maxl > 0) then
          ! interm_oso = O^T * S * O
-         call gemm(amat=trafomat(3,:,:),bmat=block_overlap,cmat=tmp,transa='T',transb='N')
-         call gemm(amat=tmp,bmat=trafomat(3,:,:),cmat=interm_oso,transa='N',transb='N')
+         call gemm(amat=trafomat(3,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
+            & cmat=tmp,transa='T', transb='N')
+         call gemm(amat=tmp, bmat=trafomat(3,1:dimi,1:dimi), &
+            & cmat=interm_oso, transa='N', transb='N')
          do ic = 1, 3
             ! interm_doso = dO^T * S * O
-            call gemm(amat=dtrafomat(ic,:,:),bmat=block_overlap,cmat=tmp,transa='T',transb='N')
-            call gemm(amat=tmp,bmat=trafomat(ic,:,:),cmat=interm_doso(ic,:,:),transa='N',transb='N')
+            call gemm(amat=dtrafomat(ic,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
+               & cmat=tmp, transa='T', transb='N')
+            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
+               & cmat=interm_doso(ic,:,:), transa='N', transb='N')
             ! interm_osdo = O^T * S * dO
-            call gemm(amat=trafomat(ic,:,:),bmat=block_overlap,cmat=tmp,transa='T',transb='N')
-            call gemm(amat=tmp,bmat=dtrafomat(ic,:,:),cmat=interm_osdo(ic,:,:),transa='N',transb='N')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
+               & cmat=tmp, transa='T', transb='N')
+            call gemm(amat=tmp, bmat=dtrafomat(ic,1:dimi,1:dimi), &
+               & cmat=interm_osdo(ic,:,:), transa='N', transb='N')
             ! interm_odso = O^T * dS * O
-            call gemm(amat=trafomat(ic,:,:),bmat=block_doverlap(ic,:,:),cmat=tmp,transa='T',transb='N')
-            call gemm(amat=tmp,bmat=trafomat(ic,:,:),cmat=interm_odso(ic,:,:),transa='N',transb='N')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=block_doverlap(ic,1:dimj,1:dimi), &
+               & cmat=tmp, transa='T', transb='N')
+            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
+               & cmat=interm_odso(ic,:,:), transa='N', transb='N')
          end do
       else
          interm_oso(1,1) = block_overlap(1,1)
@@ -129,38 +148,49 @@ contains
       endif
 
       ! 3. Scale overlap and each dimension of the derivative in the diatomic frame
-      call scale_diatomic_frame(interm_oso, ksig, kpi, kdel, maxl) 
+      call scale_diatomic_frame(interm_oso, ksig, kpi, kdel, maxlj, maxli) 
       do ic = 1, 3
-         call scale_diatomic_frame(interm_doso(ic,:,:), ksig, kpi, kdel, maxl)
-         call scale_diatomic_frame(interm_osdo(ic,:,:), ksig, kpi, kdel, maxl) 
-         call scale_diatomic_frame(interm_odso(ic,:,:), ksig, kpi, kdel, maxl) 
+         call scale_diatomic_frame(interm_doso(ic,:,:), ksig, kpi, kdel, maxlj, maxli)
+         call scale_diatomic_frame(interm_osdo(ic,:,:), ksig, kpi, kdel, maxlj, maxli) 
+         call scale_diatomic_frame(interm_odso(ic,:,:), ksig, kpi, kdel, maxlj, maxli) 
       end do
 
       ! 4. Transform diatomic frame quantities (S', (dOSO)', (OSdO)' and (OdSO)') back to original frame
       if (maxl > 0) then
          ! block_overlap = O * S' * O^T
-         call gemm(amat=trafomat(3,:,:),bmat=interm_oso,cmat=tmp,transa='N',transb='N')
-         call gemm(amat=tmp,bmat=trafomat(3,:,:),cmat=block_overlap,transa='N',transb='T')
+         call gemm(amat=trafomat(3,1:dimj,1:dimj), bmat=interm_oso, &
+            & cmat=tmp, transa='N', transb='N')
+         call gemm(amat=tmp, bmat=trafomat(3,1:dimi,1:dimi), &
+            & cmat=block_overlap(1:dimj,1:dimi), transa='N', transb='T')
 
          do ic = 1, 3
             ! block_doverlap = dO * S' * O^T + O * S' * dO^T
-            call gemm(amat=dtrafomat(ic,:,:),bmat=interm_oso,cmat=tmp,transa='N',transb='N')
-            call gemm(alpha=1.0_wp,amat=tmp,bmat=trafomat(ic,:,:),cmat=block_doverlap(ic,:,:),transa='N',transb='T')
+            call gemm(amat=dtrafomat(ic,1:dimj,1:dimj), bmat=interm_oso, &
+               & cmat=tmp, transa='N', transb='N')
+            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
+               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
 
-            call gemm(amat=trafomat(ic,:,:),bmat=interm_oso,cmat=tmp,transa='N',transb='N')
-            call gemm(alpha=1.0_wp,amat=tmp,bmat=dtrafomat(ic,:,:),beta=1.0_wp,&
-            &cmat=block_doverlap(ic,:,:),transa='N',transb='T')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_oso, &
+               & cmat=tmp, transa='N', transb='N')
+            call gemm(alpha=1.0_wp, amat=tmp, bmat=dtrafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
+               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
             
             ! block_doverlap += O * (dOSO)' * O^T + O * (OSdO)' * O^T 
-            call gemm(amat=trafomat(ic,:,:),bmat=interm_doso(ic,:,:),cmat=tmp,transa='N',transb='N')
-            call gemm(alpha=1.0_wp,amat=tmp,bmat=trafomat(ic,:,:),beta=1.0_wp,cmat=block_doverlap(ic,:,:),transa='N',transb='T')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_doso(ic,:,:), &
+               & cmat=tmp, transa='N', transb='N')
+            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
+               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
 
-            call gemm(amat=trafomat(ic,:,:),bmat=interm_odso(ic,:,:),cmat=tmp,transa='N',transb='N')
-            call gemm(amat=tmp,bmat=trafomat(ic,:,:),beta=1.0_wp,cmat=block_doverlap(ic,:,:),transa='N',transb='T')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_odso(ic,:,:), &
+               & cmat=tmp, transa='N', transb='N')
+            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
+               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
             
             ! block_doverlap += O * (OdSO)' * O^T 
-            call gemm(amat=trafomat(ic,:,:),bmat=interm_osdo(ic,:,:),cmat=tmp,transa='N',transb='N')
-            call gemm(alpha=1.0_wp,amat=tmp,bmat=trafomat(ic,:,:),beta=1.0_wp,cmat=block_doverlap(ic,:,:),transa='N',transb='T')
+            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_osdo(ic,:,:), &
+               & cmat=tmp, transa='N', transb='N')
+            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
+               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
          end do
       else
          block_overlap(1,1) = interm_oso(1,1)
@@ -176,7 +206,7 @@ contains
       !> Normalized vector from atom k to atom l
       real(wp), intent(in) :: vec(3)
       !> Transformation matrix
-      real(wp), intent(out) :: trafomat(ndim(maxl+1),ndim(maxl+1))
+      real(wp), intent(out) :: trafomat(sdim(maxl),sdim(maxl))
       real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len
       real(wp) :: norm_vec(3)
 
@@ -317,20 +347,20 @@ contains
       !> Normalized vector from atom k to atom l
       real(wp), intent(in) :: vec(3)
       !> Transformation matrix
-      real(wp), intent(out) :: trafomat(3,ndim(maxl+1),ndim(maxl+1))
+      real(wp), intent(out) :: trafomat(3,sdim(maxl),sdim(maxl))
       !> Derivative of transformation matrix
-      real(wp), intent(out) :: dtrafomat(3,ndim(maxl+1),ndim(maxl+1))
+      real(wp), intent(out) :: dtrafomat(3,sdim(maxl),sdim(maxl))
       
       real(wp), parameter              :: eps = 1.0e-08_wp
 
       !> Derivative of transformation matrix w.r.t. theta (x- or z-direction)
-      real(wp) :: trafomat_dt(ndim(maxl+1),ndim(maxl+1))
+      real(wp) :: trafomat_dt(sdim(maxl),sdim(maxl))
       !> Derivative of transformation matrix w.r.t. theta (y-direction)
-      real(wp) :: trafomat_dty(ndim(maxl+1),ndim(maxl+1))
+      real(wp) :: trafomat_dty(sdim(maxl),sdim(maxl))
       !> Derivative of transformation matrix w.r.t. phi (x- or z-direction)
-      real(wp) :: trafomat_dp(ndim(maxl+1),ndim(maxl+1))
+      real(wp) :: trafomat_dp(sdim(maxl),sdim(maxl))
       !> Derivative of transformation matrix w.r.t. phi (y-direction)
-      real(wp) :: trafomat_dpy(ndim(maxl+1),ndim(maxl+1))
+      real(wp) :: trafomat_dpy(sdim(maxl),sdim(maxl))
 
       ! Intermediate variables for the trigonometric functions
       ! Separte version for y for the case: vec || z-axis
@@ -731,38 +761,56 @@ contains
 
    end subroutine d_harmtr
 
-   pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxl)
+   pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
       !> Block matrix in the diatomic frame to be scaled
       real(wp),intent(inout)    :: diat_mat(:,:)
       !> Scaling parameters for different bonding contributions
       real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum between the two shells
-      integer,intent(in)        :: maxl
+      !> Highest angular momentum of atom j (first index)
+      integer,intent(in)        :: maxlj
+      !> Highest angular momentum of atom i (second index)
+      integer,intent(in)        :: maxli
+
+      integer :: maxl
+
+      maxl = max(maxlj, maxli)
 
       diat_mat(1,1) = diat_mat(1,1)*ksig ! Sigma bond s   <-> s
-      if (maxl > 0) then
-         diat_mat(1,3) = diat_mat(1,3)*ksig ! Sigma bond s   <-> pz
+      if(maxlj > 0) then
          diat_mat(3,1) = diat_mat(3,1)*ksig ! Sigma bond pz  <-> s 
+      end if
+      if(maxli > 0)  then
+         diat_mat(1,3) = diat_mat(1,3)*ksig ! Sigma bond s   <-> pz
+      end if
+      if(maxlj > 0 .and. maxli > 0) then 
          diat_mat(3,3) = diat_mat(3,3)*ksig ! Sigma bond pz  <-> pz
          diat_mat(4,4) = diat_mat(4,4)*kpi  ! Pi    bond px  <-> px
          diat_mat(2,2) = diat_mat(2,2)*kpi  ! Pi    bond py  <-> py
-         if (maxl > 1) then
-            diat_mat(7,1) = diat_mat(7,1)*ksig ! Sigma bond dz2 <-> s
-            diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2   
-            diat_mat(3,7) = diat_mat(3,7)*ksig ! Sigma bond pz  <-> dz2
+         if(maxlj > 1) then
             diat_mat(7,3) = diat_mat(7,3)*ksig ! Sigma bond dz2 <-> pz
-            diat_mat(7,7) = diat_mat(7,7)*ksig ! Sigma bond dz2 <-> dz2
-            diat_mat(4,8) = diat_mat(4,8)*kpi  ! Pi    bond px  <-> dxz
             diat_mat(8,4) = diat_mat(8,4)*kpi  ! Pi    bond dxz <-> px
-            diat_mat(8,8) = diat_mat(8,8)*kpi  ! Pi    bond dxz <-> dxz
-            diat_mat(2,6) = diat_mat(2,6)*kpi  ! Pi    bond py  <-> dyz
             diat_mat(6,2) = diat_mat(6,2)*kpi  ! Pi    bond dyz <-> py
-            diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dyz <-> dyz
-            diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dx2-y2 <-> dx2-y2
-            diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dxy <-> dxy
-         endif
-         ! f- and g-functions remain unscaled
+         end if
+         if(maxli > 1) then         
+            diat_mat(3,7) = diat_mat(3,7)*ksig ! Sigma bond pz  <-> dz2
+            diat_mat(4,8) = diat_mat(4,8)*kpi  ! Pi    bond px  <-> dxz
+            diat_mat(2,6) = diat_mat(2,6)*kpi  ! Pi    bond py  <-> dyz
+         end if
+      end if
+      if (maxlj > 1) then
+         diat_mat(7,1) = diat_mat(7,1)*ksig ! Sigma bond dz2 <-> s
+      end if
+      if (maxli > 1) then
+         diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2   
+      end if
+      if (maxlj > 1 .and. maxli > 1) then
+         diat_mat(7,7) = diat_mat(7,7)*ksig ! Sigma bond dz2 <-> dz2
+         diat_mat(8,8) = diat_mat(8,8)*kpi  ! Pi    bond dxz <-> dxz
+         diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dyz <-> dyz
+         diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dx2-y2 <-> dx2-y2
+         diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dxy <-> dxy
       endif
+      ! f- and g-functions remain unscaled
 
    end subroutine scale_diatomic_frame
 

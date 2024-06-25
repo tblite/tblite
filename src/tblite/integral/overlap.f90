@@ -23,7 +23,7 @@ module tblite_integral_overlap
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
-   use tblite_integral_diat_trafo, only: diat_trafo, diat_trafo_grad 
+   use tblite_integral_diat_trafo, only: diat_trafo, diat_trafo_grad
    use tblite_integral_trafo, only : transform0, transform1, transform2
    implicit none
    private
@@ -41,8 +41,9 @@ module tblite_integral_overlap
    integer, parameter :: maxl2 = maxl*2
    integer, parameter :: msao(0:maxl) = [1, 3, 5, 7, 9, 11, 13]
    integer, parameter :: mlao(0:maxl) = [1, 3, 6, 10, 15, 21, 28]
-   integer, parameter :: lmap(0:maxl) = [0, 1, 4, 10, 20, 35, 56]
    integer, parameter :: smap(0:maxl) = [0, 1, 4, 9, 16, 25, 36]
+   integer, parameter :: lmap(0:maxl) = [0, 1, 4, 10, 20, 35, 56]
+   integer, parameter :: sdim(0:maxl) = [1, 4, 9, 16, 25, 36, 49]
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: sqrtpi3 = sqrtpi**3
 
@@ -356,12 +357,12 @@ pure subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang)), &
      & overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
+   integer :: ip, jp, mli, mlj, l, mapj, mapi
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    
    !> Block overlap matrix as a technical intermediate for the diatomic frame
-   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
+   real(wp) :: block_overlap(sdim(cgtoj%ang),sdim(cgtoi%ang))
 
    s3d(:, :) = 0.0_wp
 
@@ -391,25 +392,19 @@ pure subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
 
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
 
-   ! ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
-   ! Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
-   ! scale the elements with the corresponding factor,
-   ! transform them back and add them to the scaled overlap matrix
+   ! Write the cgto overlap and gradient into the diatomic matrix
    block_overlap = 0.0_wp
-   ! 1. Fill the 9x9 submatrix (initialized with 0's)
-   ! with the correct overlap matrix elements
-   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
+   mapj = smap(cgtoj%ang)
+   mapi = smap(cgtoi%ang)
+   block_overlap(mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
-   ! 2. Set up transformation matrix, transform the submatrix,
-   ! scale the elements with the corresponding factor, transform back 
-   ! according to: trans_block_s = O^T * S * O
-   call diat_trafo(block_overlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang))
-   ! 3. Fill the overlap_diat matrix with the back-transformed submatrix
+
+   ! Do the transformation and scaling 
+   call diat_trafo(block_overlap, vec, ksig, kpi, kdel, cgtoj%ang, cgtoi%ang)
+   
+   ! Write back the scaled diatomic frame overlap
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
-   ! ----------------------------------------------------------------
+     & block_overlap(mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang))
 
 end subroutine overlap_cgto_diat
 
@@ -492,15 +487,15 @@ pure subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    !> Diatomic-frame-scaled overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l, ic
+   integer :: ip, jp, mli, mlj, l, ic, mapi, mapj
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, grad(3), pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: ds3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
    !> Block overlap matrix as a technical intermediate for the diatomic frame
    !> The derivative is for each dimension (x,y,z) separate
-   real(wp) :: block_overlap(smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
-   real(wp) :: block_doverlap(3,smap(max(cgtoj%ang,cgtoi%ang)+1),smap(max(cgtoj%ang,cgtoi%ang)+1))
+   real(wp) :: block_overlap(sdim(cgtoj%ang),sdim(cgtoi%ang))
+   real(wp) :: block_doverlap(3,sdim(cgtoj%ang),sdim(cgtoi%ang))
 
    s3d(:, :) = 0.0_wp
    ds3d(:, :, :) = 0.0_wp
@@ -533,35 +528,23 @@ pure subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
    call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap)
 
-   
-   ! ---------- OVERLAP SCALING IN THE DIATOMIC FRAME ----------- 
-   ! Transform 9x9 submatrix (in the case with s,p,d) to diatomic frame,
-   ! scale the elements with the corresponding factor,
-   ! transform them back and add them to the scaled overlap matrix
+   ! Write the cgto overlap and gradient into the diatomic matrix
    block_overlap = 0.0_wp
-   block_doverlap = 0.0_wp
-
-   ! 1. Fill the 9x9 submatrix (initialized with 0's)
-   ! with the correct overlap matrix elements and the derivatives in all dimensions
-   block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
+   mapj = smap(cgtoj%ang)
+   mapi = smap(cgtoi%ang)
+   block_overlap(mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang)) = &
      & overlap(1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
-   block_doverlap(:, smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang)) = &
-     & doverlap(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
+   block_doverlap(:,mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang)) = &
+     & doverlap(:,1:msao(cgtoj%ang), 1:msao(cgtoi%ang))
 
-   ! 2. Set up transformation matrix, transform the submatrix,
-   ! scale the elements with the corresponding factor, transform back 
-   call diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, max(cgtoj%ang,cgtoi%ang)) 
+   ! Do the transformation and scaling 
+   call diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, cgtoj%ang, cgtoi%ang) 
 
-   ! 3. Fill the (d)overlap_diat matrix with the back-transformed submatrix
+   ! Write back the scaled diatomic frame overlap and gradient
    overlap_diat(1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_overlap(smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
+     & block_overlap(mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang))
    doverlap_diat(:, 1:msao(cgtoj%ang), 1:msao(cgtoi%ang)) = &
-     & block_doverlap(:, smap(cgtoj%ang)+1:smap(cgtoj%ang)+msao(cgtoj%ang), &
-     & smap(cgtoi%ang)+1:smap(cgtoi%ang)+msao(cgtoi%ang))
-
+     & block_doverlap(:, mapj+1:mapj+msao(cgtoj%ang), mapi+1:mapi+msao(cgtoi%ang))
 
 end subroutine overlap_grad_cgto_diat
 

@@ -565,8 +565,8 @@ contains
 
       integer, parameter :: nsh = 22
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & 2.77466207309973_wp    , -4.1954263660149E-01_wp, -5.4809034482196E-01_wp, &
-      &-6.36681272518369E-03_wp, -4.3819259611367E-01_wp, -2.9082233002044E-01_wp, &
+      & 2.73904391613233_wp    , -4.2731759819762E-01_wp, -5.4115371441002E-01_wp, &
+      &-1.67143635735189E-02_wp, -4.3819259611367E-01_wp, -2.9082233002044E-01_wp, &
       & 7.02743423215177E-02_wp, -4.3819425191345E-01_wp, -2.9084728314198E-01_wp, &
       & 7.02681834728156E-02_wp, -4.3822006265352E-01_wp, -2.9084720659706E-01_wp, &
       & 7.02683075671165E-02_wp, -4.3822174122876E-01_wp, -2.9085944552609E-01_wp, &
@@ -1123,13 +1123,9 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(7) = reshape([ &
-      &  0.209816016272363_wp, -0.03504133379228_wp, -0.035143062347620_wp, &
-      & -0.034681965672301_wp, -0.03471566684780_wp, -0.035077580620055_wp, &
-      & -0.035156406970968_wp], shape(charges))
-
-      ! &  0.20981620627690_wp, -0.035021099224455_wp, -0.035163316843173_wp, &
-      ! & -0.03467242268448_wp, -0.034725300058718_wp, -0.035082404869855_wp, &
-      ! & -0.03515166257487_wp], shape(charges))
+      &  0.288810442976471_wp, -0.04820498331048_wp, -0.048312400345871_wp, &
+      & -0.047844815375011_wp, -0.04788094096742_wp, -0.048243946234083_wp, &
+      & -0.048323356740988_wp], shape(charges))
 
       call get_structure(mol, "f-block", "AcCl6")
       call test_q_gen(error, mol, charges)
@@ -1143,7 +1139,7 @@ contains
       type(structure_type) :: mol
       ! calculated with GP3 standalone (full matrix diagonalization)
       real(wp), parameter :: charges(2) = reshape([ &
-      &-0.476795983206568_wp,  0.476795984069165_wp], shape(charges))
+      & -0.490095851470747_wp, 0.490095852181341_wp], shape(charges))
 
       call get_structure(mol, "f-block", "PaNp")
       call test_q_gen(error, mol, charges)

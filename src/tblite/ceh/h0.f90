@@ -25,7 +25,7 @@ module tblite_ceh_h0
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_h0, only : tb_hamiltonian
    use tblite_integral_dipole, only: get_dipole_integrals, dipole_cgto, &
-   & dipole_cgto_diat, maxl, msao, smap
+   & maxl, msao, smap
    use tblite_adjlist, only : adjacency_list
    use tblite_integral_diat_trafo, only: diat_trafo
 
@@ -196,7 +196,7 @@ contains
    
             ! Diatomic frame transformation and scaling of the overlap
             call diat_trafo(block_overlap, vec, h0%ksig(izp,jzp), h0%kpi(izp,jzp), h0%kdel(izp,jzp), &
-               & max(bas%nsh_at(iat), bas%nsh_at(jat)) - 1) 
+               & bas%nsh_at(jat)-1, bas%nsh_at(iat)-1) 
 
             ! Setup the Hamiltonian and store the diatomic frame scaled overlap. 
             do ish = 1, bas%nsh_id(izp)
