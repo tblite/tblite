@@ -176,13 +176,14 @@ subroutine ascii_quadrupole_moments(unit, verbosity, mol, qpat, qpmom)
 end subroutine ascii_quadrupole_moments
 
 
-subroutine json_results(unit, indentation, energy, gradient, sigma, energies)
+subroutine json_results(unit, indentation, energy, gradient, sigma, energies, charges)
    integer, intent(in) :: unit
    character(len=*), intent(in), optional :: indentation
    real(wp), intent(in), optional :: energy
    real(wp), intent(in), optional :: gradient(:, :)
    real(wp), intent(in), optional :: sigma(:, :)
    real(wp), intent(in), optional :: energies(:)
+   real(wp), intent(in), optional :: charges(:)
    character(len=:), allocatable :: indent, version_string
    character(len=*), parameter :: jsonkey = "('""',a,'"":',1x)"
    real(wp), allocatable :: array(:)
@@ -221,6 +222,13 @@ subroutine json_results(unit, indentation, energy, gradient, sigma, energies)
       if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
       write(unit, jsonkey, advance='no') 'gradient'
       array = reshape(gradient, [size(gradient)])
+      call write_json_array(unit, array, indent)
+   end if
+   if (present(charges)) then
+      write(unit, '(",")', advance='no')
+      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
+      write(unit, jsonkey, advance='no') 'charges'
+      array = reshape(charges, [size(charges)])
       call write_json_array(unit, array, indent)
    end if
    if (allocated(indent)) write(unit, '(/)', advance='no')

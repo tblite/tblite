@@ -31,6 +31,8 @@ module tblite_ncoord_type
    !> Abstract base class for coordination number evaluator
    type, public, abstract :: ncoord_type
       real(wp)  :: cutoff
+      !> Steepness of counting function
+      real(wp)  :: kcn 
       !> Factor determining whether the CN is evaluated with direction
       !> if +1 the CN contribution is added equally to both partners
       !> if -1 (i.e. with the EN-dep.) it is added to one and subtracted from the other

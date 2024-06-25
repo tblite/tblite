@@ -74,6 +74,8 @@ subroutine new_gamma_coulomb(self, mol, hubbard, nshell)
    integer :: isp, jsp, ish, jsh, ind, iat
 
    self%label = label
+   self%shell_resolved = present(nshell)
+
    if (present(nshell)) then
       mshell = maxval(nshell)
       self%nshell = nshell(mol%id)

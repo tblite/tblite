@@ -40,22 +40,30 @@ module tblite_ncoord_exp
    end type exp_ncoord_type
 
    !> Steepness of counting function
-   real(wp), parameter :: kcn = 16.0_wp
+   real(wp), parameter :: default_kcn = 16.0_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 
 contains
 
 
-   subroutine new_exp_ncoord(self, mol, cutoff, rcov)
+   subroutine new_exp_ncoord(self, mol, kcn, cutoff, rcov)
       !> Coordination number container
       type(exp_ncoord_type), intent(out) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
+      !> Steepness of counting function
+      real(wp), optional :: kcn
       !> Real space cutoff
       real(wp), intent(in), optional :: cutoff
       !> Covalent radii
       real(wp), intent(in), optional :: rcov(:)
+
+      if(present(kcn)) then
+         self%kcn = kcn
+      else
+         self%kcn = default_kcn
+      end if
 
       if (present(cutoff)) then
          self%cutoff = cutoff
@@ -92,7 +100,7 @@ contains
 
       rc = self%rcov(izp) + self%rcov(jzp)
       ! exponential function based counting function
-      count =1.0_wp/(1.0_wp+exp(-kcn*(rc/r-1.0_wp)))
+      count =1.0_wp/(1.0_wp+exp(-self%kcn*(rc/r-1.0_wp)))
 
    end function ncoord_count
 
@@ -114,8 +122,8 @@ contains
 
       rc = self%rcov(izp) + self%rcov(jzp)
       ! exponential function based counting function derivative
-      expterm = exp(-kcn*(rc/r-1._wp))
-      count = (-kcn*rc*expterm)/(r**2*((expterm+1._wp)**2))
+      expterm = exp(-self%kcn*(rc/r-1._wp))
+      count = (-self%kcn*rc*expterm)/(r**2*((expterm+1._wp)**2))
 
    end function ncoord_dcount
 

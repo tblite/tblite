@@ -94,6 +94,8 @@ subroutine new_effective_coulomb(self, mol, gexp, hubbard, average, nshell)
    integer :: isp, jsp, ish, jsh, ind, iat
 
    self%label = label
+
+   self%shell_resolved = present(nshell)
    if (present(nshell)) then
       mshell = maxval(nshell)
       self%nshell = nshell(mol%id)

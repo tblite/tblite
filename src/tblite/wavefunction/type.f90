@@ -21,6 +21,7 @@
 module tblite_wavefunction_type
    use mctc_env, only : wp
    use tblite_blas, only : gemm
+
    implicit none
    private
 
@@ -144,6 +145,5 @@ subroutine get_alpha_beta_occupation(nocc, nuhf, nalp, nbet)
    nalp = ntmp / 2 + diff
    nbet = ntmp / 2
 end subroutine get_alpha_beta_occupation
-
 
 end module tblite_wavefunction_type
