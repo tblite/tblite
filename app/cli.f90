@@ -431,6 +431,8 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          case("gvd")
             config%solver = lapack_algorithm%gvd
+         case("gvd-gpu")
+            config%solver = lapack_algorithm%gvd_cusolver
          case("gvr")
             config%solver = lapack_algorithm%gvr
          case("tc2")
@@ -439,6 +441,9 @@ subroutine get_run_arguments(config, list, start, error)
          case("trs4")
             allocate(config%purification_solver)
             config%purification_solver = purification_type%trs4
+         case("mcweeney")
+            allocate(config%purification_solver)
+            config%purification_solver = purification_type%mcweeney
          end select
 
       case("--purification-runmode")

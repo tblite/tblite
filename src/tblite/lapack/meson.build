@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+subdir('gpusolver')
+
 srcs += files(
   'getrf.f90',
   'getri.f90',

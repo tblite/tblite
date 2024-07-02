@@ -19,7 +19,7 @@
 module tblite_post_processing_molecular_moments
    use mctc_env, only : wp
    use tblite_post_processing_type, only : post_processing_type
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_results, only : results_type

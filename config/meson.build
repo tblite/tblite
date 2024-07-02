@@ -148,8 +148,8 @@ lib_deps += tomlf_dep
 
 tc_purification_dep = dependency(
   'tc-purification',
-  version: '0.0.0',
+  version: '>=0.0.0',
   fallback: ['tc-purification','tc_purification_dep'],
-  default_options: ['default_library=static'],
+  default_options: ['default_library=static','gpu=true'],
 )
 lib_deps += tc_purification_dep

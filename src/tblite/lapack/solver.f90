@@ -22,6 +22,7 @@ module tblite_lapack_solver
    use tblite_context_solver, only : context_solver
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
+   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -35,6 +36,8 @@ module tblite_lapack_solver
       integer :: gvd = 1
       !> Relatively robust solver
       integer :: gvr = 2
+      !> Divide-and-conquer solver cuSolver implementation
+      integer :: gvd_cusolver = 3 
    end type enum_lapack
 
    !> Actual enumerator of possible solvers
@@ -80,6 +83,13 @@ subroutine new(self, solver, ndim)
          call new_sygvr(tmp, ndim)
          call move_alloc(tmp, solver)
       end block
+   case(lapack_algorithm%gvd_cusolver)
+      block
+         type(sygvd_cusolver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvd_gpu(tmp, ndim)
+         call move_alloc(tmp, solver)
+      end block
    end select
 end subroutine new
 
@@ -91,7 +101,9 @@ subroutine delete(self, solver)
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
 
-   if (allocated(solver)) deallocate(solver)
+   if (allocated(solver)) then
+      call solver%delete()
+   end if 
 end subroutine delete
 
 

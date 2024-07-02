@@ -19,7 +19,9 @@
 
 !> Declaration of the abstract base class for electronic solvers
 module tblite_scf_solver
-   use mctc_env, only : sp, dp, error_type
+   use mctc_env, only : sp, dp, error_type, wp
+   use tblite_blas, only : gemm
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -30,6 +32,8 @@ module tblite_scf_solver
       procedure(solve_sp), deferred :: solve_sp
       procedure(solve_dp), deferred :: solve_dp
       procedure :: delete
+      procedure :: get_density_matrix
+      procedure :: get_energy_w_density_matrix
    end type solver_type
 
    abstract interface
@@ -57,6 +61,36 @@ subroutine delete(self)
    class(solver_type) :: self
 end subroutine
 
+subroutine get_density_matrix(self, focc, coeff, pmat)
+   class(solver_type) :: self
+   real(wp), intent(in) :: focc(:)
+   real(wp), contiguous, intent(in) :: coeff(:, :)
+   real(wp), contiguous, intent(out) :: pmat(:, :)
 
+   real(wp), allocatable :: scratch(:, :)
+   integer :: iao, jao
+   allocate(scratch(size(pmat, 1), size(pmat, 2)))
+   !$omp parallel do collapse(2) default(none) schedule(runtime) &
+   !$omp shared(scratch, coeff, focc, pmat) private(iao, jao)
+   do iao = 1, size(pmat, 1)
+      do jao = 1, size(pmat, 2)
+         scratch(jao, iao) = coeff(jao, iao) * focc(iao)
+      end do
+   end do
+   call gemm(scratch, coeff, pmat, transb='t')
+end subroutine get_density_matrix
+
+subroutine get_energy_w_density_matrix(self, wfn, wdensity)
+   class(solver_type) :: self
+   type(wavefunction_type), intent(inout) :: wfn
+   real(wp) :: wdensity(:,:,:)
+   real(wp), allocatable :: tmp(:)
+   integer :: spin
+
+   do spin = 1, wfn%nspin
+      tmp = wfn%focc(:, spin) * wfn%emo(:, spin)
+      call self%get_density_matrix(tmp, wfn%coeff(:, :, spin), wdensity(:, :, spin))
+   end do
+end subroutine
 
 end module tblite_scf_solver

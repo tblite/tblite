@@ -36,6 +36,20 @@
 /// Context manager for the library usage
 typedef struct _tblite_context* tblite_context;
 
+/// Possible solvers provided by LAPACK or an external library.
+typedef enum {
+   /// LAPACK SYGVD
+   TBLITE_SOLVER_SYGVD = 1,
+   /// LAPACK SYGST
+   TBLITE_SOLVER_SYGVR = 2,
+   /// cuSolver SYGVD
+   TBLITE_SOLVER_CUSOLVER_SYGVD = 3,
+   /// TC2 purification
+   TBLITE_SOLVER_TC2 = 12,
+   ///TRS4 purification
+   TBLITE_SOLVER_TRS4 = 14,  
+} tblite_solver;
+
 /// Define callback function for use in custom logger
 typedef void (*tblite_logger_callback)(tblite_error, char*, int, void*);
 
@@ -90,6 +104,14 @@ tblite_set_context_logger(tblite_context ctx,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_context_color(tblite_context ctx,
                          int color);
+
+/// Set solver algorithm to be used
+///
+/// @param ctx: Context handle
+/// @param color: Set color support, 0: disabled, 1: enabled
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_solver(tblite_context ctx,
+                         tblite_solver algo);
 
 /// Set verbosity level of printout
 ///

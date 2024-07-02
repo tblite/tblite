@@ -20,6 +20,7 @@ test(
     '@0@-capi-tester'.format(meson.project_name()),
     sources: files('main.c'),
     dependencies: tblite_dep,
+    link_language: 'c',
   ),
   suite: 'api',
 )

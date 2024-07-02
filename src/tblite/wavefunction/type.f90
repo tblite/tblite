@@ -25,7 +25,7 @@ module tblite_wavefunction_type
    private
 
    public :: new_wavefunction
-   public :: get_density_matrix, get_alpha_beta_occupation
+   public :: get_alpha_beta_occupation
 
    !> Tight-binding wavefunction
    type, public :: wavefunction_type
@@ -102,26 +102,6 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt)
    self%dpat(:, :, :) = 0.0_wp
    self%qpat(:, :, :) = 0.0_wp
 end subroutine new_wavefunction
-
-subroutine get_density_matrix(focc, coeff, pmat)
-   real(wp), intent(in) :: focc(:)
-   real(wp), contiguous, intent(in) :: coeff(:, :)
-   real(wp), contiguous, intent(out) :: pmat(:, :)
-
-   real(wp), allocatable :: scratch(:, :)
-   integer :: iao, jao
-
-   allocate(scratch(size(pmat, 1), size(pmat, 2)))
-   !$omp parallel do collapse(2) default(none) schedule(runtime) &
-   !$omp shared(scratch, coeff, focc, pmat) private(iao, jao)
-   do iao = 1, size(pmat, 1)
-      do jao = 1, size(pmat, 2)
-         scratch(jao, iao) = coeff(jao, iao) * focc(iao)
-      end do
-   end do
-   call gemm(scratch, coeff, pmat, transb='t')
-end subroutine get_density_matrix
-
 
 !> Split an real occupation number into alpha and beta space.
 !>
