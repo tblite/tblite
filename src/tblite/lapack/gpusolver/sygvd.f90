@@ -135,7 +135,6 @@ end subroutine solve_dp
 
 subroutine delete(self)
    class(sygvd_cusolver) :: self
-   write(*,*) "Here"
    call delete_ptr(self%ptr)
 
 end subroutine delete

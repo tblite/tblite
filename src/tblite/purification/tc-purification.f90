@@ -230,21 +230,21 @@ module tblite_purification_solver
       call DeletePointer(self%solver_ptr)
       self%solver_ptr = c_null_ptr
       call self%timer%pop()
-      block
-         integer :: it
-         real(wp) :: stime
-         real(wp) :: ttime = 0.0_wp
-         character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
-         do it = 1, size(label)
-            stime = self%timer%get(label(it))
-            ttime = ttime + stime
-            if (stime <= epsilon(0.0_wp)) cycle
-            write(*,*) " - "//label(it)//format_time(stime)
-         end do
-         write(*,*) "___________________________________"             
-         write(*,*) "   "//"Total: "//format_time(ttime)
-         end block
+      !block
+         !integer :: it
+         !real(wp) :: stime
+         !real(wp) :: ttime = 0.0_wp
+         !character(len=*), parameter :: label(*) = [character(len=20):: &
+         !& "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
+         !do it = 1, size(label)
+            !stime = self%timer%get(label(it))
+            !ttime = ttime + stime
+            !if (stime <= epsilon(0.0_wp)) cycle
+            !write(*,*) " - "//label(it)//format_time(stime)
+         !end do
+         !write(*,*) "___________________________________"             
+         !write(*,*) "   "//"Total: "//format_time(ttime)
+      !end block
     end subroutine
 
     subroutine get_density_matrix(self, focc, coeff, pmat)
