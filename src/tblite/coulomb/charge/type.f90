@@ -33,6 +33,8 @@ module tblite_coulomb_charge_type
 
    !> General second-order electrostatics
    type, public, extends(coulomb_type), abstract :: coulomb_charge_type
+      !> Whether the third order contribution is shell-dependent
+      logical :: shell_resolved
       !> Number of shells for each atom
       integer, allocatable :: nshell(:)
       !> Index offset for each shell
@@ -137,13 +139,21 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    call view(cache, ptr)
 
-   call symv(ptr%amat, wfn%qsh(:, 1), ptr%vvec, alpha=0.5_wp)
-   do iat = 1, mol%nat
-      ii = self%offset(iat)
-      do ish = 1, self%nshell(iat)
-         energies(iat) = energies(iat) + ptr%vvec(ii+ish) * wfn%qsh(ii+ish, 1)
+   if(self%shell_resolved) then
+      call symv(ptr%amat, wfn%qsh(:, 1), ptr%vvec, alpha=0.5_wp)
+      do iat = 1, mol%nat
+         ii = self%offset(iat)
+         do ish = 1, self%nshell(iat)
+            energies(iat) = energies(iat) + ptr%vvec(ii+ish) * wfn%qsh(ii+ish, 1)
+         end do
       end do
-   end do
+   else
+      call symv(ptr%amat, wfn%qat(:, 1), ptr%vvec, alpha=0.5_wp)
+      do iat = 1, mol%nat
+         ii = self%offset(iat)
+         energies(iat) = energies(iat) + ptr%vvec(iat) * wfn%qat(iat, 1)
+      end do
+   end if
 end subroutine get_energy
 
 
@@ -164,7 +174,11 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   call symv(ptr%amat, wfn%qsh(:, 1), pot%vsh(:, 1), beta=1.0_wp)
+   if(self%shell_resolved) then
+      call symv(ptr%amat, wfn%qsh(:, 1), pot%vsh(:, 1), beta=1.0_wp)
+   else
+      call symv(ptr%amat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
+   end if
 
 end subroutine get_potential
 
@@ -203,13 +217,13 @@ end subroutine get_gradient
 
 !> Get information about density dependent quantities used in the energy
 pure function variable_info(self) result(info)
-   use tblite_scf_info, only : scf_info, shell_resolved
+   use tblite_scf_info, only : scf_info, atom_resolved, shell_resolved
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
    !> Information on the required potential data
    type(scf_info) :: info
 
-   info = scf_info(charge=shell_resolved)
+   info = scf_info(charge=merge(shell_resolved, atom_resolved, self%shell_resolved))
 end function variable_info
 
 
