@@ -41,11 +41,11 @@ jobs:
         version: [10]
 
         include:
-        - os: macos-latest
+        - os: macos-13
           build: meson
           build-type: debug
           compiler: gnu
-          version: 9
+          version: 10
 
         - os: ubuntu-latest
           build: meson
@@ -53,7 +53,7 @@ jobs:
           compiler: gnu
           version: 10
 
-        - os: macos-latest
+        - os: macos-13
           build: cmake
           build-type: debug
           compiler: gnu
@@ -328,8 +328,8 @@ jobs:
         python_v: ['3.7', '3.8', '3.9']
 
         include:
-        - os: macos-latest
-          gcc_v: 9
+        - os: macos-13
+          gcc_v: 10
           python_v: '3.9'
 
     env:
