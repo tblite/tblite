@@ -115,6 +115,11 @@ module tblite_purification_solver
          type(c_ptr), value :: ptr
          real(c_double),  intent(in) :: X(*)
       end subroutine
+      subroutine SetOrbitalEnergiesMatrix(ptr, oen) bind(C, name="SetOrbitalEnergiesMatrix")
+         use iso_c_binding
+         type(c_ptr), value :: ptr
+         real(c_double),  intent(in) :: oen(*)
+      end subroutine
       subroutine GetDensityAO(ptr, Fock, Dens, elnum) bind(C, name="GetDensityAO")
          use iso_c_binding
          type(c_ptr), value :: ptr
@@ -177,7 +182,7 @@ module tblite_purification_solver
       if (present(maxiter)) self%maxiter = maxiter
       if (present(thresh)) self%thresh = thresh
 
-      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(0, kind=c_size_t))
+      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(1, kind=c_size_t))
       call self%timer%pop()
    end subroutine
 
@@ -203,6 +208,7 @@ module tblite_purification_solver
       allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
       tmp = hmat
       call SetTransformationMatrix(self%solver_ptr, tmp)
+      call SetOrbitalEnergiesMatrix(self%solver_ptr, eval)
       call self%timer%pop()
       self%trans = .true.
    end subroutine solve_dp

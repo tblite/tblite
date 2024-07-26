@@ -1,0 +1,7 @@
+module load cmake meson ninja
+module load compiler/2023.2.0 mkl/2023.2.0
+
+export CC=icc CXX=icpc FC=ifort
+export CUDA_ROOT=/mnt/group-lib/nvidia-hpc-sdk/Linux_x86_64/23.5/cuda/11.8/
+export LIBRARY_PATH=/mnt/group-lib/nvidia-hpc-sdk/Linux_x86_64/23.5/cuda/11.8/lib64:$LIBRARY_PATH
+export LIBRARY_PATH=/mnt/group-lib/nvidia-hpc-sdk/Linux_x86_64/23.5/math_libs/11.8/lib64:$LIBRARY_PATH
