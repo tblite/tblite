@@ -62,7 +62,7 @@ subroutine eeq_guess_qat(mol, charges, dpat)
    type(structure_type), intent(in) :: mol
    real(wp), intent(inout) :: charges(:), dpat(:, :)
 
-   dpat = 0.0_wp
+   dpat(:, :) = 0.0_wp
    call get_eeq_charges(mol, charges)
 end subroutine eeq_guess_qat
 
