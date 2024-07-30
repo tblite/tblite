@@ -88,6 +88,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn2_calculator"
 
@@ -99,8 +100,12 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn2_calculator(calc%ptr, mol%ptr)
-   vcalc = c_loc(calc)
+   call new_gfn2_calculator(calc%ptr, mol%ptr, error)
+   if (allocated(error)) then
+      deallocate(calc)
+   else
+      vcalc = c_loc(calc)
+   end if
 
 end function new_gfn2_calculator_api
 
@@ -113,6 +118,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_ipea1_calculator"
 
@@ -124,8 +130,12 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_ipea1_calculator(calc%ptr, mol%ptr)
-   vcalc = c_loc(calc)
+   call new_ipea1_calculator(calc%ptr, mol%ptr, error)
+   if (allocated(error)) then
+      deallocate(calc)
+   else
+      vcalc = c_loc(calc)
+   end if
 
 end function new_ipea1_calculator_api
 
@@ -138,6 +148,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn1_calculator"
 
@@ -149,8 +160,12 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn1_calculator(calc%ptr, mol%ptr)
-   vcalc = c_loc(calc)
+   call new_gfn1_calculator(calc%ptr, mol%ptr, error)
+   if (allocated(error)) then
+      deallocate(calc)
+   else
+      vcalc = c_loc(calc)
+   end if
 
 end function new_gfn1_calculator_api
 

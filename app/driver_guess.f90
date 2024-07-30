@@ -115,13 +115,13 @@ contains
       if (allocated(error)) return
 
       nspin = 1
-      call new_gfn2_calculator(calc, mol)
+      call new_gfn2_calculator(calc, mol, error)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp_guess * kt)
 
       method = "ceh"
       if (allocated(config%method)) method = config%method
       if (method == "ceh") then
-         call new_ceh_calculator(calc_ceh, mol)
+         call new_ceh_calculator(calc_ceh, mol, error)
          call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       end if
 

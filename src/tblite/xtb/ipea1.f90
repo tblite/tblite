@@ -19,7 +19,7 @@
 
 !> Implementation of the IPEA1-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_ipea1
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
    use tblite_basis_ortho, only : orthogonalize
@@ -525,11 +525,22 @@ module tblite_xtb_ipea1
 contains
 
 
-subroutine new_ipea1_calculator(calc, mol)
+subroutine new_ipea1_calculator(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(out) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> String out of max_elem
+   character(len=3) :: max_elem_str
+
+   write(max_elem_str, '(I3)') max_elem
+   !> Check if all atoms of mol%nat are supported (Z <= 86)
+   if (any(mol%num > max_elem)) then
+      call fatal_error(error, "No support for elements with Z >" // max_elem_str // ".")
+      return
+   end if
 
    call add_basis(calc, mol)
    call add_ncoord(calc, mol)
