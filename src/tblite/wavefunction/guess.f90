@@ -19,7 +19,7 @@
 
 !> Implementation of the guess wavefunctions
 module tblite_wavefunction_guess
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_disp_d4, only : get_eeq_charges
    use tblite_wavefunction_type, only : wavefunction_type
@@ -29,28 +29,51 @@ module tblite_wavefunction_guess
    private
 
    public :: sad_guess, eeq_guess, shell_partition
+   interface sad_guess
+      module procedure sad_guess_qat
+      module procedure sad_guess_qsh
+   end interface sad_guess
+
+   interface eeq_guess
+      module procedure eeq_guess_qat
+      module procedure eeq_guess_qsh
+   end interface eeq_guess
 
 contains
 
-subroutine sad_guess(mol, calc, wfn)
+subroutine sad_guess_qat(mol, charges, dpat)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(inout) :: charges(:), dpat(:, :)
+
+   dpat = 0.0_wp
+   charges = mol%charge / mol%nat
+end subroutine sad_guess_qat
+
+subroutine sad_guess_qsh(mol, calc, wfn)
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    type(wavefunction_type), intent(inout) :: wfn
 
-   wfn%qat(:, :) = 0.0_wp
-   wfn%qat(:, 1) = mol%charge / mol%nat
+   call sad_guess_qat(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1))
    call shell_partition(mol, calc, wfn)
-end subroutine sad_guess
+end subroutine sad_guess_qsh
 
-subroutine eeq_guess(mol, calc, wfn)
+subroutine eeq_guess_qat(mol, charges, dpat)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(inout) :: charges(:), dpat(:, :)
+
+   dpat = 0.0_wp
+   call get_eeq_charges(mol, charges)
+end subroutine eeq_guess_qat
+
+subroutine eeq_guess_qsh(mol, calc, wfn)
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    type(wavefunction_type), intent(inout) :: wfn
 
-   wfn%qat(:, :) = 0.0_wp
-   call get_eeq_charges(mol, wfn%qat(:, 1))
+   call eeq_guess_qat(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1))
    call shell_partition(mol, calc, wfn)
-end subroutine eeq_guess
+end subroutine eeq_guess_qsh
 
 subroutine shell_partition(mol, calc, wfn)
    type(structure_type), intent(in) :: mol
