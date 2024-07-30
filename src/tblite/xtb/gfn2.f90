@@ -36,6 +36,7 @@ module tblite_xtb_gfn2
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
+   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -573,15 +574,13 @@ subroutine new_gfn2_calculator(calc, mol, error)
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   !> String out of max_elem
-   character(len=3) :: max_elem_str
 
-   write(max_elem_str, '(I3)') max_elem
    !> Check if all atoms of mol%nat are supported (Z <= 86)
    if (any(mol%num > max_elem)) then
-      call fatal_error(error, "No support for elements with Z >" // max_elem_str // ".")
+      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i3)') // ".")
       return
    end if
+
    call add_basis(calc, mol)
    call add_ncoord(calc, mol)
    call add_hamiltonian(calc, mol)
