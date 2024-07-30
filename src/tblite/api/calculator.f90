@@ -135,6 +135,8 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    call new_ipea1_calculator(calc%ptr, mol%ptr, error)
    if (allocated(error)) then
       deallocate(calc)
+      call ctx%ptr%set_error(error)
+      return
    else
       vcalc = c_loc(calc)
    end if
@@ -165,6 +167,8 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    call new_gfn1_calculator(calc%ptr, mol%ptr, error)
    if (allocated(error)) then
       deallocate(calc)
+      call ctx%ptr%set_error(error)
+      return
    else
       vcalc = c_loc(calc)
    end if
@@ -201,6 +205,8 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error)
    if (allocated(error)) then
       deallocate(calc)
+      call ctx%ptr%set_error(error)
+      return
    else
       vcalc = c_loc(calc)
    end if
