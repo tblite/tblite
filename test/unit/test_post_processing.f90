@@ -61,6 +61,7 @@ subroutine test_h2_wbo(error)
    
    call new(mol, atoms, xyz, charge=+1.0_wp, uhf=1)
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
    call add_post_processing(pproc, wbo_label, error)
@@ -157,6 +158,7 @@ subroutine test_timer_print(error)
    
    call new(mol, atoms, xyz, charge=+1.0_wp, uhf=1)
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
    call add_post_processing(pproc, wbo_label, error)

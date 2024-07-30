@@ -84,6 +84,7 @@ subroutine test_e_mb01(error)
    energy = 0.0_wp
 
    call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field([-2.0_wp, 0.0_wp, 0.0_wp]*vatoau)
@@ -121,6 +122,7 @@ subroutine test_e_mb02(error)
    energy = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field([0.0_wp, sqrt(2.0_wp), -sqrt(2.0_wp)]*vatoau)
@@ -158,6 +160,7 @@ subroutine test_d_mb03(error)
    efield(:) = 0.0_wp
 
    call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field(efield)
@@ -216,6 +219,7 @@ subroutine test_d_mb04(error)
    efield(:) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn0, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = electric_field(efield)
@@ -293,6 +297,7 @@ subroutine test_g_mb05(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = empty_interaction()
@@ -345,6 +350,7 @@ subroutine test_g_mb06(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    cont = empty_interaction()

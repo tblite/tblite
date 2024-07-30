@@ -182,6 +182,7 @@ subroutine test_e_pse(error)
       if (any(izp == [21, 22, 24, 26, 40, 73])) cycle ! SCF does not converge
       call new(mol, [izp], xyz, uhf=uhf(izp))
       call new_ipea1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -253,6 +254,7 @@ subroutine test_e_pse_cation(error)
       if (any(izp == [22, 25, 79])) cycle  ! SCF does not converge
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=1.0_wp)
       call new_ipea1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -325,6 +327,7 @@ subroutine test_e_pse_anion(error)
       if (any(izp == [21, 22, 25, 40, 43, 57, 58, 59, 77, 82])) cycle  ! not converging
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=-1.0_wp)
       call new_ipea1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -357,6 +360,7 @@ subroutine test_e_mb01(error)
    energy = 0.0_wp
 
    call new_ipea1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
@@ -403,6 +407,7 @@ subroutine test_g_mb02(error)
    sigma(:, :) = 0.0_wp
 
    call new_ipea1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
@@ -438,6 +443,7 @@ subroutine test_s_mb03(error)
    sigma(:, :) = 0.0_wp
 
    call new_ipea1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 

@@ -339,6 +339,7 @@ contains
       allocate(cn(mol%nat))
 
       call new_ceh_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
       call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
@@ -1039,6 +1040,7 @@ contains
       call get_structure(mol, "MB16-43", "01")
       mol%charge = 2.0_wp
       call new_ceh_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       cont = electric_field(efield)
       call calc%push_back(cont)
@@ -1072,6 +1074,7 @@ contains
       call get_structure(mol, "MB16-43", "01")
 
       call new_ceh_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
       call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
@@ -1113,6 +1116,7 @@ contains
       efield(2) = 0.2_wp
 
       call new_ceh_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       cont = electric_field(efield)
@@ -1164,6 +1168,7 @@ contains
       efield = 0.0_wp
       efield(1) = -0.1_wp
       call new_ceh_calculator(calc1, mol1, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn1, mol1%nat, calc1%bas%nsh, calc1%bas%nao, 1, kt)
       cont1 = electric_field(efield)
       call calc1%push_back(cont1)
@@ -1176,6 +1181,7 @@ contains
       xyz(1, :) = xyz(1, :) - 1.0_wp
       call new(mol2, num, xyz)
       call new_ceh_calculator(calc2, mol2, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn2, mol2%nat, calc2%bas%nsh, calc2%bas%nao, 1, kt)
       cont2 = electric_field(efield)
       call calc2%push_back(cont2)

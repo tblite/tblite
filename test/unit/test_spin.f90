@@ -84,6 +84,7 @@ subroutine test_e_p10(error)
    energy = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    block
@@ -128,6 +129,7 @@ subroutine test_e_crcp2(error)
    energy = 0.0_wp
 
    call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    block
@@ -193,6 +195,7 @@ subroutine test_g_p10(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    block
@@ -257,6 +260,7 @@ subroutine test_g_crcp2(error)
    sigma(:, :) = 0.0_wp
 
    call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    block
