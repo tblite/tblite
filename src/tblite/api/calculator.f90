@@ -103,6 +103,8 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    call new_gfn2_calculator(calc%ptr, mol%ptr, error)
    if (allocated(error)) then
       deallocate(calc)
+      call ctx%ptr%set_error(error)
+      return
    else
       vcalc = c_loc(calc)
    end if
