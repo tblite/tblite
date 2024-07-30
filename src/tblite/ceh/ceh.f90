@@ -447,7 +447,7 @@ contains
 
       !> Check if all atoms of mol%nat are supported (Z <= 86)
       if (any(mol%num > max_elem)) then
-         call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i3)') // ".")
+         call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
          return
       end if
 
