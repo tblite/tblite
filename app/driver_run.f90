@@ -40,7 +40,7 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
    use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
 
@@ -187,7 +187,7 @@ subroutine run_main(config, error)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
    case("ceh")
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
+      call ceh_singlepoint(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
       if (ctx%failed()) then
          call fatal(ctx, "CEH singlepoint calculation failed")
          do while(ctx%failed())

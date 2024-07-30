@@ -35,7 +35,7 @@ module test_ceh
 
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : ceh_h0spec, new_ceh_calculator
    use tblite_ceh_h0, only : get_scaled_selfenergy, get_hamiltonian
 
@@ -341,7 +341,7 @@ contains
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
 
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
@@ -1043,7 +1043,7 @@ contains
       cont = electric_field(efield)
       call calc%push_back(cont)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
 
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge&
@@ -1074,7 +1074,7 @@ contains
       call new_ceh_calculator(calc, mol)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -1119,7 +1119,7 @@ contains
       call calc%push_back(cont)
 
       ctx%verbosity = 0
-      call ceh_guess(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -1167,7 +1167,7 @@ contains
       call new_wavefunction(wfn1, mol1%nat, calc1%bas%nsh, calc1%bas%nao, 1, kt)
       cont1 = electric_field(efield)
       call calc1%push_back(cont1)
-      call ceh_guess(ctx, calc1, mol1, error, wfn1, accuracy)
+      call ceh_singlepoint(ctx, calc1, mol1, error, wfn1, accuracy)
       tmp = 0.0_wp
       dip1 = 0.0_wp
       call gemv(mol1%xyz, wfn1%qat(:, 1), tmp)
@@ -1179,7 +1179,7 @@ contains
       call new_wavefunction(wfn2, mol2%nat, calc2%bas%nsh, calc2%bas%nao, 1, kt)
       cont2 = electric_field(efield)
       call calc2%push_back(cont2)
-      call ceh_guess(ctx, calc2, mol2, error, wfn2, accuracy)
+      call ceh_singlepoint(ctx, calc2, mol2, error, wfn2, accuracy)
       tmp = 0.0_wp
       dip2 = 0.0_wp
       call gemv(mol2%xyz, wfn2%qat(:, 1), tmp)
