@@ -45,7 +45,7 @@ module tblite_ceh_singlepoint
    implicit none
    private
 
-   public :: ceh_guess
+   public :: ceh_singlepoint
 
    real(wp), parameter :: cn_cutoff = 25.0_wp
 
@@ -60,7 +60,7 @@ contains
 
 
    !> Run the CEH calculation (equivalent to xtb_singlepoint)
-   subroutine ceh_guess(ctx, calc, mol, error, wfn, accuracy, verbosity)
+   subroutine ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy, verbosity)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
       !> CEH calculator
@@ -202,6 +202,6 @@ contains
       call timer%pop
       ttime = timer%get("wall time CEH")
 
-   end subroutine ceh_guess
+   end subroutine ceh_singlepoint
 
 end module tblite_ceh_singlepoint
