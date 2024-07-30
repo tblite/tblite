@@ -45,7 +45,7 @@ subroutine sad_guess_qat(mol, charges, dpat)
    type(structure_type), intent(in) :: mol
    real(wp), intent(inout) :: charges(:), dpat(:, :)
 
-   dpat = 0.0_wp
+   dpat(:, :) = 0.0_wp
    charges = mol%charge / mol%nat
 end subroutine sad_guess_qat
 
