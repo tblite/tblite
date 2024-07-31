@@ -40,7 +40,7 @@ module tblite_ncoord_erf
    end type erf_ncoord_type
 
    !> Steepness of counting function (CEH)
-   real(wp), parameter :: default_kcn = 2.60_wp
+   real(wp), parameter :: default_kcn = 3.15_wp
 
    real(wp), parameter :: default_cutoff = 25.0_wp
 

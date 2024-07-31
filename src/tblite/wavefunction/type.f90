@@ -145,5 +145,4 @@ subroutine get_alpha_beta_occupation(nocc, nuhf, nalp, nbet)
    nbet = ntmp / 2
 end subroutine get_alpha_beta_occupation
 
-
 end module tblite_wavefunction_type
