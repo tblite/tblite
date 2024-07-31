@@ -142,11 +142,11 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol)
+         call new_gfn2_calculator(calc, mol, error)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol)
+         call new_gfn1_calculator(calc, mol, error)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol)
+         call new_ipea1_calculator(calc, mol, error)
       end select
    end if
    if (allocated(error)) return
@@ -156,7 +156,8 @@ subroutine run_main(config, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    if (config%guess == "ceh") then
-      call new_ceh_calculator(calc_ceh, mol)
+      call new_ceh_calculator(calc_ceh, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       if (config%grad) then
          call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")

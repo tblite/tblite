@@ -18,7 +18,7 @@
 !> Contains the specification of the Charge Extended Hückel (CEH) method.
 
 module tblite_ceh_ceh
-   use mctc_env, only : error_type, wp
+   use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only: structure_type
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
@@ -438,10 +438,18 @@ module tblite_ceh_ceh
 contains
 
 
-   subroutine new_ceh_calculator(calc,mol)
+   subroutine new_ceh_calculator(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(out) :: calc
       type(structure_type), intent(in)  :: mol
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+
+      ! Check if all atoms of mol%nat are supported (Z <= 86)
+      if (any(mol%num > max_elem)) then
+         call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
+         return
+      end if
 
       call add_ceh_basis(calc, mol)
       call add_ncoord(calc, mol)
