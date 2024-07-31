@@ -75,21 +75,21 @@ contains
       !> Verbosity level of output
       integer, intent(in), optional :: verbosity
 
-      !> Molecular dipole moment
+      ! Molecular dipole moment
       real(wp) :: dipole(3)
-      !> Integral container
+      ! Integral container
       type(integral_type) :: ints
-      !> Electronic solver
+      ! Electronic solver
       class(solver_type), allocatable :: solver
-      !> Adjacency list
+      ! Adjacency list
       type(adjacency_list) :: list
-      !> Potential type
+      ! Potential type
       type(potential_type) :: pot
-      !> Restart data for interaction containers and coulomb 
+      ! Restart data for interaction containers and coulomb 
       type(container_cache) :: icache, ccache
-      !> Timer
+      ! Timer
       type(timer_type) :: timer
-      !> Error container
+      ! Error container
       type(error_type), allocatable :: error
       
       logical :: grad

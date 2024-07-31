@@ -478,7 +478,6 @@ contains
       call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
 
@@ -1265,7 +1264,6 @@ contains
       call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
 
@@ -1302,7 +1300,6 @@ contains
       call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
       tmp = 0.0_wp
@@ -1353,7 +1350,6 @@ contains
       call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
       tmp = 0.0_wp
@@ -1407,7 +1403,6 @@ contains
       call ceh_singlepoint(ctx, calc1, mol1, wfn1, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
       tmp = 0.0_wp
@@ -1425,7 +1420,6 @@ contains
       call ceh_singlepoint(ctx, calc2, mol2, wfn2, accuracy)
       if (ctx%failed()) then
          call ctx%get_error(error)
-         call test_failed(error, "Singlepoint calculation failed")
          return
       end if
       tmp = 0.0_wp
