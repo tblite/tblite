@@ -78,7 +78,7 @@ if lapack_vendor == 'mkl'
 elif lapack_vendor == 'mkl-rt'
   mkl_dep = fc.find_library('mkl_rt')
   lib_deps += mkl_dep
-  add_project_arguments(['-DW_MKL'], language: 'fortran')
+  add_project_arguments(['-DWITH_MKL'], language: 'fortran')
 elif lapack_vendor == 'openblas'
   openblas_dep = dependency('openblas', required: false)
   if not openblas_dep.found()
