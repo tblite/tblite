@@ -164,7 +164,6 @@ subroutine run_main(config, error)
          return
       end if
    end if
-   if (allocated(error)) return
 
    if (allocated(config%efield)) then
       block
