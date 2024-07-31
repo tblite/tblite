@@ -152,7 +152,7 @@ contains
       case("eeq")
          call eeq_guess(mol, qat, dpat)
       case("ceh")
-         call ceh_singlepoint(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
+         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then
             call fatal(ctx, "CEH singlepoint calculation failed")
             do while(ctx%failed())

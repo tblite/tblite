@@ -71,7 +71,7 @@ module tblite_coulomb_charge_effective
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
    real(wp), parameter :: conv = eps
-   character(len=*), parameter :: label = "isotropic Klopman-Ohno electrostatics"
+   character(len=*), parameter :: label = "isotropic Klopman-Ohno-Mataga-Nishimoto electrostatics"
 
 contains
 

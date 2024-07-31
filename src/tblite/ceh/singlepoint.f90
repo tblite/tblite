@@ -61,15 +61,13 @@ contains
 
 
    !> Run the CEH calculation (equivalent to xtb_singlepoint)
-   subroutine ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy, verbosity)
+   subroutine ceh_singlepoint(ctx, calc, mol, wfn, accuracy, verbosity)
       !> Calculation context
       type(context_type), intent(inout) :: ctx
       !> CEH calculator
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in)  :: mol
-      !> Error container
-      type(error_type), allocatable, intent(out) :: error
       !> Wavefunction data
       type(wavefunction_type), intent(inout) :: wfn
       !> Accuracy for computation
@@ -77,24 +75,24 @@ contains
       !> Verbosity level of output
       integer, intent(in), optional :: verbosity
 
-      !> Molecular dipole moment
+      ! Molecular dipole moment
       real(wp) :: dipole(3)
-      !> Integral container
+      ! Integral container
       type(integral_type) :: ints
-      !> Electronic solver
+      ! Electronic solver
       class(solver_type), allocatable :: solver
-      !> Adjacency list
+      ! Adjacency list
       type(adjacency_list) :: list
-      !> Potential type
+      ! Potential type
       type(potential_type) :: pot
-      !> Restart data for interaction containers and coulomb 
+      ! Restart data for interaction containers and coulomb 
       type(container_cache) :: icache, ccache
-      !> Timer
+      ! Timer
       type(timer_type) :: timer
-      real(wp) :: ttime
-
+      ! Error container
+      type(error_type), allocatable :: error
+      
       logical :: grad
-
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
@@ -106,7 +104,7 @@ contains
       ! self energy related arrays
       real(wp), allocatable :: selfenergy(:), dsedcn(:), dsedcn_en(:), lattr(:, :)
 
-      call timer%push("wall time CEH")
+      call timer%push("total CEH")
 
       if (present(verbosity)) then
          prlevel = verbosity
@@ -115,7 +113,7 @@ contains
       end if
 
       if (prlevel > 1) then
-         call ctx%message("CEH guess")
+         call ctx%message("CEH singlepoint")
       endif
       ! Gradient logical as future starting point (not implemented yet)
       ! Entry point could either be (i) modified wavefunction type (including derivatives),
@@ -133,6 +131,7 @@ contains
       end if
       call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
+      call timer%push("hamiltonian")
       ! calculate coordination number (CN) and the EN-weighted coordination number
       if (allocated(calc%ncoord)) then
          allocate(cn(mol%nat))
@@ -168,6 +167,7 @@ contains
       ints%quadrupole = 0.0_wp
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
+      call timer%pop
 
       ! Get initial potential for external fields and Coulomb
       call new_potential(pot, mol, calc%bas, wfn%nspin)
@@ -194,6 +194,7 @@ contains
       ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
+      call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
       call ctx%new_solver(solver, calc%bas%nao)
 
@@ -202,6 +203,7 @@ contains
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
+      call timer%pop
 
       ! Get charges and dipole moment from density and integrals
       call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
@@ -214,7 +216,27 @@ contains
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
 
       call timer%pop
-      ttime = timer%get("wall time CEH")
+      
+      block
+         integer :: it
+         real(wp) :: ttime, stime
+         character(len=*), parameter :: label(*) = [character(len=20):: &
+            & "coulomb", "hamiltonian", "diagonalization"]
+         if (prlevel > 1) then
+            ttime = timer%get("total CEH")
+            call ctx%message(" total CEH:"//repeat(" ", 16)//format_time(ttime))
+         end if
+         if (prlevel > 2) then
+            do it = 1, size(label)
+               stime = timer%get(label(it))
+               if (stime <= epsilon(0.0_wp)) cycle
+               call ctx%message(" - "//label(it)//format_time(stime) &
+                  & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+            end do
+            call ctx%message("")
+         end if
+      end block
+
 
    end subroutine ceh_singlepoint
 
