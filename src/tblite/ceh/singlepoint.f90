@@ -33,12 +33,13 @@ module tblite_ceh_singlepoint
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
    use tblite_scf_iterator, only: get_density, get_qat_from_qsh
-   use tblite_scf, only: new_potential, potential_type ! Potential for external field
+   use tblite_scf, only: new_potential, potential_type 
    use tblite_container, only : container_cache
    use tblite_scf_potential, only: add_pot_to_h1
    use tblite_scf_solver, only : solver_type
    use tblite_blas, only : gemv
    use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
+   use tblite_ceh_ceh, only : get_effective_qat
    use tblite_xtb_spec, only : tb_h0spec 
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_timer, only : timer_type, format_time
@@ -54,7 +55,7 @@ module tblite_ceh_singlepoint
    character(len=25), parameter :: &
       label_cutoff = "integral cutoff", &
       label_charges = "CEH atomic charges", &
-      label_dipole = "CEH molecular dipole moment / a.u."
+      label_dipole = "CEH mol. dip. mom. / a.u."
 
 contains
 
@@ -86,8 +87,8 @@ contains
       type(adjacency_list) :: list
       !> Potential type
       type(potential_type) :: pot
-      !> Restart data for interaction containers
-      type(container_cache) :: icache
+      !> Restart data for interaction containers and coulomb 
+      type(container_cache) :: icache, ccache
       !> Timer
       type(timer_type) :: timer
       real(wp) :: ttime
@@ -168,14 +169,27 @@ contains
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
 
-      ! Get initial potential
+      ! Get initial potential for external fields and Coulomb
       call new_potential(pot, mol, calc%bas, wfn%nspin)
       ! Set potential to zero
       call pot%reset
+      ! Add potential due to external field
       if (allocated(calc%interactions)) then
+         call timer%push("interactions")
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
+         call timer%pop
       endif
+      ! Add potential due to Coulomb
+      if (allocated(calc%coulomb)) then
+         call timer%push("coulomb")
+         ! Use electronegativity-weighted CN as 0th-order charge guess
+         call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
+      
+         call calc%coulomb%update(mol, ccache)
+         call calc%coulomb%get_potential(mol, ccache, wfn, pot)
+         call timer%pop
+      end if
 
       ! Add effective Hamiltonian to wavefunction
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
