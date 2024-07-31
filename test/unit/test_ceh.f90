@@ -475,7 +475,12 @@ contains
       if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
 
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=1e-6_wp)
@@ -1257,7 +1262,12 @@ contains
       cont = electric_field(efield)
       call calc%push_back(cont)
       ctx%verbosity = 0
-      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
 
       do i = 1, mol%nat
          call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, message="Calculated charge&
@@ -1289,7 +1299,12 @@ contains
       if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       ctx%verbosity = 0
-      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -1335,7 +1350,12 @@ contains
       call calc%push_back(cont)
 
       ctx%verbosity = 0
-      call ceh_singlepoint(ctx, calc, mol, error, wfn, accuracy)
+      call ceh_singlepoint(ctx, calc, mol, wfn, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
       tmp = 0.0_wp
       dipole = 0.0_wp
       call gemv(mol%xyz, wfn%qat(:, 1), tmp)
@@ -1384,7 +1404,12 @@ contains
       call new_wavefunction(wfn1, mol1%nat, calc1%bas%nsh, calc1%bas%nao, 1, kt)
       cont1 = electric_field(efield)
       call calc1%push_back(cont1)
-      call ceh_singlepoint(ctx, calc1, mol1, error, wfn1, accuracy)
+      call ceh_singlepoint(ctx, calc1, mol1, wfn1, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
       tmp = 0.0_wp
       dip1 = 0.0_wp
       call gemv(mol1%xyz, wfn1%qat(:, 1), tmp)
@@ -1397,7 +1422,12 @@ contains
       call new_wavefunction(wfn2, mol2%nat, calc2%bas%nsh, calc2%bas%nao, 1, kt)
       cont2 = electric_field(efield)
       call calc2%push_back(cont2)
-      call ceh_singlepoint(ctx, calc2, mol2, error, wfn2, accuracy)
+      call ceh_singlepoint(ctx, calc2, mol2, wfn2, accuracy)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         call test_failed(error, "Singlepoint calculation failed")
+         return
+      end if
       tmp = 0.0_wp
       dip2 = 0.0_wp
       call gemv(mol2%xyz, wfn2%qat(:, 1), tmp)
