@@ -51,6 +51,8 @@ module tblite_coulomb_thirdorder
       procedure :: get_energy
       !> Evaluate charge dependent potential shift from the interaction
       procedure :: get_potential
+      !> Evaluate gradient of charge dependent potential shift from the interaction
+      procedure :: get_potential_gradient
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
    end type onsite_thirdorder
@@ -169,6 +171,33 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    end if
 end subroutine get_potential
 
+
+!> Evaluate gradient of charge dependent potential shift from the interaction
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the electrostatic container
+   class(onsite_thirdorder), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+
+   integer :: iat, izp, ii, ish
+
+   if (.not. self%shell_resolved) then
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         pot%dvatdr(:, :, iat, 1) = pot%dvatdr(:, :, iat, 1) &
+         & + 2.0_wp * wfn%qat(iat, 1) * wfn%dqatdr(:, :, iat, 1) * self%hubbard_derivs(1, izp)
+         pot%dvatdL(:, :, iat, 1) = pot%dvatdL(:, :, iat, 1) &
+         & + 2.0_wp * wfn%qat(iat, 1) * wfn%dqatdL(:, :, iat, 1) * self%hubbard_derivs(1, izp)
+      end do
+   end if
+
+end subroutine get_potential_gradient
 
 !> Evaluate gradient contributions from the selfconsistent interaction
 subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)

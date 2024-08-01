@@ -20,6 +20,7 @@ set(
   "cgto-ortho"
   "coulomb-charge"
   "coulomb-multipole"
+  "coulomb-thirdorder"
   "double-dictionary"
   "fit"
   "gfn1-xtb"
