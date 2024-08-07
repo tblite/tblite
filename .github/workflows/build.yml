@@ -193,7 +193,9 @@ jobs:
 
     - name: Build library (fpm)
       if: ${{ matrix.build == 'fpm' }}
-      run: fpm build
+      run: |
+        fpm --version
+        fpm build
 
     - name: Build library
       if: ${{ matrix.build != 'fpm' }}
