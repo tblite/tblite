@@ -79,17 +79,9 @@ jobs:
       with:
         micromamba-version: 'latest'
 
-    # Check where the mamaba is installed
-    - name: Check mamba
-      run: |
-        which micromamba
-        micromamba --version
-        which mamba
-        mamba --version
-
     - name: Create environment
       run: >-
-        mamba create -n wheel
+        micromamba create -n wheel
         --yes
         c-compiler
         fortran-compiler
@@ -112,7 +104,7 @@ jobs:
         name: tblite-python-sdist
     - name: Build wheel
       run: |
-        conda activate wheel
+        micromamba activate wheel
         set -ex
         tar xvf tblite-*.tar.gz
         python -m build tblite-*/ --wheel
