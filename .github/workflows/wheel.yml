@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Setup Python
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: assets/ci/build-env.yaml
     - run: |
@@ -78,6 +78,14 @@ jobs:
       uses: mamba-org/setup-micromamba@v1
       with:
         micromamba-version: 'latest'
+
+    # Check where the mamaba is installed
+    - name: Check mamba
+      run: |
+        which micromamba
+        micromamba --version
+        which mamba
+        mamba --version
 
     - name: Create environment
       run: >-
