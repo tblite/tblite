@@ -40,10 +40,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Setup Python
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: assets/ci/python-env.yaml
-        extra-specs: |
+        create-args: >-
           meson-python
           python-build
     - name: Reorganize repository
@@ -74,6 +74,11 @@ jobs:
         shell: ${{ matrix.shell || 'bash -l {0}' }}
 
     steps:
+    - name: Set up micromamba
+      uses: mamba-org/setup-micromamba@v1
+      with:
+        micromamba-version: 'latest'
+
     - name: Create environment
       run: >-
         mamba create -n wheel
