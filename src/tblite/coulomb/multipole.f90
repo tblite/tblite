@@ -72,6 +72,8 @@ module tblite_coulomb_multipole
       procedure :: get_energy
       !> Get anisotropic electrostatic potential
       procedure :: get_potential
+      !> Get anisotropic electrostatic potential gradient
+      procedure :: get_potential_gradient
       !> Get derivatives of anisotropic electrostatics
       procedure :: get_gradient
    end type damped_multipole
@@ -266,6 +268,24 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1))
    call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1))
 end subroutine get_potential
+
+
+!> Get anisotropic electrostatic potential gradient
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the multipole container
+   class(damped_multipole), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+   type(coulomb_cache), pointer :: ptr
+
+end subroutine get_potential_gradient
+
 
 !> Get multipolar anisotropic potential contribution
 subroutine get_kernel_potential(mol, kernel, mpat, vm)

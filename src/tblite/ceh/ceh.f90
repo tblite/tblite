@@ -20,17 +20,14 @@
 module tblite_ceh_ceh
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only: structure_type
-   use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
-      & arithmetic_average, coulomb_kernel
+      & arithmetic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_basis_type, only : cgto_type, new_basis, basis_type
    use tblite_ncoord, only : new_ncoord
-   use tblite_context, only : context_type
    use tblite_output_format, only: format_string
-   use tblite_integral_type, only : integral_type, new_integral
-   use tblite_wavefunction, only : new_wavefunction
+   use tblite_integral_type, only : integral_type
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
@@ -913,6 +910,7 @@ contains
    subroutine new_ceh_calculator(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(out) :: calc
+      !> Molecular structure data
       type(structure_type), intent(in)  :: mol
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
@@ -1085,6 +1083,7 @@ contains
             selfenergy(ish, isp) = p_ceh_selfenergy(ish, izp)
          end do
       end do
+
    end subroutine get_selfenergy
 
 
@@ -1272,29 +1271,48 @@ contains
 
 
    !> Build effective charges from the electronegativity-weighted CN
-   subroutine get_effective_qat(mol, bas, cn_en, qat)
+   subroutine get_effective_qat(mol, cn_en, qat, &
+      & dcn_endr, dcn_endL, dqatdr, dqatdL)
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-      !> Basis set information
-      type(basis_type), intent(in) :: bas
       !> Electronegativity weighted CN, shape: [nat]
       real(wp), intent(in) :: cn_en(:)
       !> Effective atomic charges, shape: [nat, spin]
       real(wp), intent(out) :: qat(:, :)
+      !> Position and lattice vector gradient of cn_en, shape: [3, nat/3, nat]
+      real(wp), intent(in), optional :: dcn_endr(:, :, :), dcn_endL(:, :, :)
+      !> Position and lattice vector gradient of qat, shape: [3, nat/3, nat, spin]
+      real(wp), intent(out), optional :: dqatdr(:, :, :, :), dqatdL(:, :, :, :)
 
       integer :: iat, isp, izp, ispin
 
       qat(:, :) = 0.0_wp
+      if (present(dqatdr)) dqatdr(:,:,:,:) = 0.0_wp
+      if (present(dqatdL)) dqatdL(:,:,:,:) = 0.0_wp
 
-      do ispin = 1, size(qat, 2)
-         do iat = 1, size(qat, 1)
-            isp = mol%id(iat)
-            izp = mol%num(isp)
+      if (present(dqatdr) .and. present(dqatdL)) then
+         do ispin = 1, size(qat, 2)
+            do iat = 1, size(qat, 1)
+               isp = mol%id(iat)
+               izp = mol%num(isp)
 
-            qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
-            & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+               qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
+               & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+               dqatdr(:,:,iat, ispin) = p_ceh_en_to_q(izp) * dcn_endr(:,:,iat)
+               dqatdL(:,:,iat, ispin) = p_ceh_en_to_q(izp) * dcn_endL(:,:,iat)
+            end do
          end do
-      end do
+      else
+         do ispin = 1, size(qat, 2)
+            do iat = 1, size(qat, 1)
+               isp = mol%id(iat)
+               izp = mol%num(isp)
+
+               qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
+               & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+            end do
+         end do
+      end if 
    
    end subroutine get_effective_qat
 

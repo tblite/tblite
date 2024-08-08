@@ -48,6 +48,8 @@ module tblite_coulomb_charge_type
       procedure :: get_energy
       !> Evaluate charge dependent potential shift from the interaction
       procedure :: get_potential
+      !> Evaluate gradient of the charge dependent potential shift from the interaction
+      procedure :: get_potential_gradient
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
       !> Evaluate Coulomb matrix
@@ -181,6 +183,56 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    end if
 
 end subroutine get_potential
+
+
+!> Evaluate gradient of the charge dependent potential shift 
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+
+   integer :: ic, jc, iat, ndim
+   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :)
+   type(coulomb_cache), pointer :: ptr
+
+   call view(cache, ptr)
+
+   ndim = sum(self%nshell)
+   allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim))
+
+   ! Get derivatives of the Coulomb matrix already contracted with the atom-resolved charges
+   call self%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, datr)
+
+   if(.not. self%shell_resolved) then
+      ! Off-diagonal Coulomb matrix derivative
+      pot%dvatdr(:, :, :, 1) = dadr
+
+      do ic = 1, 3 
+         do iat = 1, mol%nat
+            ! Diagonal Coulomb matrix derivative
+            pot%dvatdr(ic, iat, iat, 1) = - sum(dadr(ic, :, iat))
+
+            ! Charge derivative
+            call symv(ptr%amat, wfn%dqatdr(ic, iat, :, 1), pot%dvatdr(ic, iat, :, 1), beta=1.0_wp)
+         end do
+         
+         ! Coulomb matrix derivative 
+         pot%dvatdL(ic, :, :, 1) = pot%dvatdL(ic, :, :, 1) + dadL(ic, :, :)
+         do jc = 1, 3
+            ! Charge derivative
+            call symv(ptr%amat, wfn%dqatdL(ic, jc, :, 1), pot%dvatdL(ic, jc, :, 1), beta=1.0_wp)
+         end do
+      end do
+   end if
+
+end subroutine get_potential_gradient
 
 
 !> Evaluate gradient contributions from the selfconsistent interaction

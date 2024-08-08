@@ -48,6 +48,8 @@ module tblite_external_field
       procedure :: get_energy
       !> Get electric field potential
       procedure :: get_potential
+      !> Get electric field potential
+      procedure :: get_potential_gradient
       !> Get electric field gradient
       procedure :: get_gradient
    end type electric_field
@@ -137,6 +139,22 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    pot%vat(:, 1) = pot%vat(:, 1) - matmul(self%efield, mol%xyz)
    pot%vdp(:, :, 1) = pot%vdp(:, :, 1) - spread(self%efield, 2, mol%nat)
 end subroutine get_potential
+
+
+!> Get electric field potential gradient (empty)
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the electrostatic container
+   class(electric_field), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+
+end subroutine get_potential_gradient
 
 
 !> Get electric field gradient

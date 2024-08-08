@@ -41,6 +41,7 @@ module tblite_xtb_coulomb
       procedure :: variable_info
       procedure :: get_energy
       procedure :: get_potential
+      procedure :: get_potential_gradient
       procedure :: get_gradient
       procedure :: info
    end type tb_coulomb
@@ -120,6 +121,32 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       call self%es3%get_potential(mol, cache, wfn, pot)
    end if
 end subroutine get_potential
+
+
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the electrostatic container
+   class(tb_coulomb), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+
+   if (allocated(self%es2)) then
+      call self%es2%get_potential_gradient(mol, cache, wfn, pot)
+   end if
+
+   if (allocated(self%aes2)) then
+      call self%aes2%get_potential_gradient(mol, cache, wfn, pot)
+   end if
+
+   if (allocated(self%es3)) then
+      call self%es3%get_potential_gradient(mol, cache, wfn, pot)
+   end if
+end subroutine get_potential_gradient
 
 
 subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)

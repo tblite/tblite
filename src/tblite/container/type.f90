@@ -43,6 +43,8 @@ module tblite_container_type
       procedure :: get_energy
       !> Evaluate charge dependent potential shift from the interaction
       procedure :: get_potential
+      !> Evaluate gradient of charge dependent potential shift from the interaction
+      procedure :: get_potential_gradient
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
       !> Information on container
@@ -109,6 +111,21 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 end subroutine get_potential
+
+
+!> Evaluate charge dependent potential shift from the interaction
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the interaction container
+   class(container_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Cached data between different runs
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+end subroutine get_potential_gradient
 
 
 !> Evaluate gradient contributions from the selfconsistent interaction

@@ -33,6 +33,8 @@ module tblite_scf_potential
 
    !> Container for density dependent potential-shifts
    type, public :: potential_type
+      !> Flag if potential includes potential gradients 
+      logical :: grad = .false.
       !> Atom-resolved charge-dependent potential shift
       real(wp), allocatable :: vat(:, :)
       !> Shell-resolved charge-dependent potential shift
@@ -44,6 +46,10 @@ module tblite_scf_potential
       real(wp), allocatable :: vdp(:, :, :)
       !> Atom-resolved quadrupolar potential
       real(wp), allocatable :: vqp(:, :, :)
+
+      !> Position and lattice vector derivative of atom-resolved charge-dependent potential shift
+      real(wp), allocatable :: dvatdr(:, :, :, :)
+      real(wp), allocatable :: dvatdL(:, :, :, :)
    contains
       !> Reset the density dependent potential
       procedure :: reset
@@ -54,7 +60,7 @@ contains
 
 
 !> Create a new potential object
-subroutine new_potential(self, mol, bas, nspin)
+subroutine new_potential(self, mol, bas, nspin, grad)
    !> Instance of the density dependent potential
    type(potential_type), intent(out) :: self
    !> Molecular structure data
@@ -63,6 +69,8 @@ subroutine new_potential(self, mol, bas, nspin)
    type(basis_type), intent(in) :: bas
    !> Number of spin channels
    integer, intent(in) :: nspin
+   !> Flag to indicate if potential gradients are requested
+   logical, intent(in), optional :: grad
 
    allocate(self%vat(mol%nat, nspin))
    allocate(self%vsh(bas%nsh, nspin))
@@ -70,6 +78,15 @@ subroutine new_potential(self, mol, bas, nspin)
 
    allocate(self%vdp(3, mol%nat, nspin))
    allocate(self%vqp(6, mol%nat, nspin))
+
+   if(present(grad)) then
+      if(grad) then
+         self%grad = .true.
+         allocate(self%dvatdr(3, mol%nat, mol%nat, nspin))
+         allocate(self%dvatdL(3, 3, mol%nat, nspin))
+      end if
+   end if
+
 end subroutine new_potential
 
 !> Reset the density dependent potential
@@ -82,6 +99,11 @@ subroutine reset(self)
    self%vao(:, :) = 0.0_wp
    self%vdp(:, :, :) = 0.0_wp
    self%vqp(:, :, :) = 0.0_wp
+
+   if(self%grad) then
+      self%dvatdr(:, :, :, :) = 0.0_wp
+      self%dvatdL(:, :, :, :) = 0.0_wp
+   end if
 end subroutine reset
 
 !> Add the collected potential shifts to the effective Hamiltonian
