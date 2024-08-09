@@ -77,14 +77,6 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      # Install dependencies for building wheels
-      - name: Install dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y liblapack-dev
-      - name: Install dependencies on macOS
-        if: matrix.os == 'macos-latest'
-        run: brew install lapack
-
       # Set up Python to host 'cibuildwheel'
       - uses: actions/setup-python@v5
         with:
@@ -107,7 +99,16 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_BUILD: "*${{ matrix.python }}-*"
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_ENVIRONMENT_MACOS: CC=gcc-12 CXX=g++-12 FC=gfortran-12
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL_LINUX: apt-get -y liblapack-dev
+          CIBW_BEFORE_ALL_MACOS: >
+            brew install openblas
+          CIBW_ENVIRONMENT_MACOS: >
+            CC=gcc-12 CXX=g++-12 FC=gfortran-12
+            PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig
+            LDFLAGS=-L/opt/homebrew/opt/openblas/lib
+            CPPFLAGS=-I/opt/homebrew/opt/openblas/include
+
 
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
