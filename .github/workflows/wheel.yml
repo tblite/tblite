@@ -99,7 +99,7 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_BUILD: "*${{ matrix.python }}-*"
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_BEFORE_ALL_LINUX: yum install -y liblapack-dev
+          CIBW_BEFORE_ALL_LINUX: yum install -y liblapack-devel
           CIBW_BEFORE_ALL_MACOS: >
             brew install openblas
           CIBW_ENVIRONMENT_MACOS: >
