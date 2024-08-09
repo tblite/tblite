@@ -97,7 +97,7 @@ jobs:
         run: python -m cibuildwheel --output-dir . *.tar.gz
         env:
           CIBW_PLAT: ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
-          CIBW_ARCHS: auto64
+          CIBW_ARCHS_MACOS: arm64
           CIBW_ARCHS_LINUX: x86_64
           CIBW_BUILD: "*${{ matrix.python }}-*"
           # MM: Package installation (yum install ...) works differently on musllinux
