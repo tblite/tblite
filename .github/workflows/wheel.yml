@@ -76,6 +76,14 @@ jobs:
         shell: bash -l {0}
 
     steps:
+      # Install dependencies for building wheels
+      - name: Install dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y liblapack-dev
+      - name: Install dependencies on macOS
+        if: matrix.os == 'macos-latest'
+        run: brew install lapack
+
       # Set up Python to host 'cibuildwheel'
       - uses: actions/setup-python@v5
         with:
