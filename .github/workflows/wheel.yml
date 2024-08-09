@@ -96,9 +96,11 @@ jobs:
       - name: Build wheels
         run: python -m cibuildwheel --output-dir . *.tar.gz
         env:
+          CIBW_PLAT: ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           CIBW_ARCHS: auto64
           CIBW_ARCHS_LINUX: x86_64
           CIBW_BUILD: "*${{ matrix.python }}-*"
+          CIBW_SKIP: "*musllinux*" # package installation works differently
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
           CIBW_BEFORE_ALL_MACOS: >
