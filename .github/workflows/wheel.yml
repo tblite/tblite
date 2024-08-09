@@ -100,21 +100,27 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_ARCHS_LINUX: x86_64
           CIBW_BUILD: "*${{ matrix.python }}-*"
-          CIBW_SKIP: "*musllinux*" # package installation works differently
-          CIBW_BUILD_VERBOSITY:
+          # MM: Package installation (yum install ...) works differently on musllinux
+          CIBW_SKIP: "*musllinux*"
+          # Control verbosity of the 'pip wheel' output
+          CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
+          # Delete all other (=/= gcc-14) GCC versions to avoid conflicts in delocation of the wheel
+          # MM: 'openblas' from brew requires gcc@14, using a different version for building leads to delocation errors
+          # MM: gcc@14 needs macOS14
           CIBW_BEFORE_ALL_MACOS: |
             brew uninstall gcc@11
             brew uninstall gcc@12
             brew uninstall gcc@13
             brew autoremove
             brew install openblas
+          # Set macOS variables to find gfortran, lapack, and avoid testing against macOS earlier than 14 (see above)
           CIBW_ENVIRONMENT_MACOS: >
             CC=gcc-14 CXX=g++-14 FC=gfortran-14
             PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig
             LDFLAGS=-L/opt/homebrew/opt/openblas/lib
             CPPFLAGS=-I/opt/homebrew/opt/openblas/include
-            MACOSX_DEPLOYMENT_TARGET=12.0
+            MACOSX_DEPLOYMENT_TARGET=14.0
 
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
