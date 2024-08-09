@@ -104,6 +104,10 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
           CIBW_BEFORE_ALL_MACOS: >
+            brew uninstall gcc@11
+            brew uninstall gcc@13
+            brew uninstall gcc@14
+            brew autoremove
             brew install openblas
           CIBW_ENVIRONMENT_MACOS: >
             CC=gcc-12 CXX=g++-12 FC=gfortran-12
