@@ -103,7 +103,7 @@ jobs:
           CIBW_SKIP: "*musllinux*" # package installation works differently
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
-          CIBW_BEFORE_ALL_MACOS: >
+          CIBW_BEFORE_ALL_MACOS: |
             brew uninstall gcc@11
             brew uninstall gcc@13
             brew uninstall gcc@14
