@@ -97,6 +97,7 @@ jobs:
         run: python -m cibuildwheel --output-dir . *.tar.gz
         env:
           CIBW_ARCHS: auto64
+          CIBW_ARCHS_LINUX: x86_64
           CIBW_BUILD: "*${{ matrix.python }}-*"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
