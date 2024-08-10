@@ -70,7 +70,8 @@ jobs:
         os:
         - ubuntu-latest
         - macos-latest
-        python: ['39', '310', '311', '312'] # only Python versions before EOL
+        python: ['39', '310', '311'] # only Python versions before EOL, so no 3.7
+        # TODO: Add Python 3.12 support
         include:
           - os: ubuntu-latest
             python: '38' # Python 3.8 is not supported on 'macos-latest'
