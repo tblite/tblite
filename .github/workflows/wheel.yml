@@ -70,7 +70,11 @@ jobs:
         os:
         - ubuntu-latest
         - macos-latest
-        python: ['38', '39', '310', '311', '312'] # only Python versions before EOL
+        python: ['39', '310', '311', '312'] # only Python versions before EOL
+        include:
+          - os: ubuntu-latest
+            python: '38' # Python 3.8 is not supported on 'macos-latest'
+            # see also: https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md
 
     defaults:
       run:
