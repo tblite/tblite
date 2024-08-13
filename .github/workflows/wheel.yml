@@ -6,6 +6,10 @@ on:
   release:
     types: [published]
 
+env:
+  # https://github.com/actions/checkout/issues/1809
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   source:
     runs-on: ubuntu-latest
@@ -13,7 +17,7 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup Python
       uses: mamba-org/provision-with-micromamba@main
       with:
@@ -22,7 +26,7 @@ jobs:
         meson setup _build
         meson dist -C _build --no-tests --include-subprojects
         mv _build/meson-dist/*.tar.xz .
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: tblite-source
         path: ./*.tar.xz
@@ -34,7 +38,7 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup Python
       uses: mamba-org/provision-with-micromamba@main
       with:
@@ -49,7 +53,7 @@ jobs:
         git subtree add --prefix python/subprojects/tblite . HEAD
     - run: |
         python -m build python/ --sdist --outdir . -n
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: tblite-python-sdist
         path: ./*.tar.gz
@@ -90,7 +94,7 @@ jobs:
         unzip
         wheel
     - name: Download sdist
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: tblite-python-sdist
     - name: Build wheel
@@ -100,10 +104,8 @@ jobs:
         tar xvf tblite-*.tar.gz
         python -m build tblite-*/ --wheel
         auditwheel show tblite-*/dist/*.whl
-        auditwheel repair -w . tblite-*/dist/*.whl --plat ${{ env.plat }}
-      env:
-        plat: manylinux${{ matrix.python == '3.6' && '2010' || '_2_12' }}_x86_64
-    - uses: actions/upload-artifact@v3
+        auditwheel repair -w . tblite-*/dist/*.whl --plat manylinux_2_17_x86_64
+    - uses: actions/upload-artifact@v4
       with:
         name: tblite-python-${{ matrix.python }}
         path: ./*.whl
@@ -117,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: ${{ github.workspace }}  # This will download all files
 

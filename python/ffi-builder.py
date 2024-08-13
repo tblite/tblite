@@ -30,6 +30,7 @@ ourselves using pkg-config.
 """
 
 import os
+
 import cffi
 
 library = "tblite"

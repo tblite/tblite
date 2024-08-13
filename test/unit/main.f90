@@ -32,7 +32,7 @@ program tester
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
-   use test_ncoord_gfn, only : collect_ncoord_gfn
+   use test_ncoord, only : collect_ncoord
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
@@ -43,6 +43,7 @@ program tester
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
    use test_double_dictionary, only : collect_double_dictionary
+   use tblite_test_post_processing, only : collect_post_processing
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
@@ -55,13 +56,14 @@ program tester
       new_testsuite("tagged-io", collect_tagged_io), &
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
-      new_testsuite("ncoord-gfn", collect_ncoord_gfn), &
+      new_testsuite("ncoord", collect_ncoord), &
       new_testsuite("solvation-born", collect_solvation_born), &
       new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
       new_testsuite("solvation-surface", collect_solvation_surface), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
       new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
       new_testsuite("double-dictionary", collect_double_dictionary), &
+      new_testsuite("post-processing", collect_post_processing), &
       new_testsuite("slater-expansion", collect_slater_expansion), &
       new_testsuite("cgto-ortho", collect_cgto_ortho), &
       new_testsuite("integral-overlap", collect_integral_overlap), &

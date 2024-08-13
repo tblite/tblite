@@ -20,14 +20,18 @@ This module mainly acts as a guard for importing the libtblite extension and
 also provides some FFI based wappers for memory handling.
 """
 
-import sys
 import functools
+import sys
+from typing import Callable
+
 import numpy as np
 
 try:
     from ._libtblite import ffi, lib
 except ImportError:
     raise ImportError("tblite C extension unimportable, cannot use C-API")
+
+from .exceptions import TBLiteRuntimeError, TBLiteTypeError, TBLiteValueError
 
 
 def get_version() -> tuple:
@@ -69,17 +73,25 @@ def error_check(func):
         if lib.tblite_check_error(_err):
             _message = ffi.new("char[]", 512)
             lib.tblite_get_error(_err, _message, ffi.NULL)
-            raise RuntimeError(ffi.string(_message).decode())
+            raise TBLiteRuntimeError(ffi.string(_message).decode())
         return value
 
     return handle_error
 
 
 @ffi.def_extern()
-def logger_callback(message, nchar, data):
+def logger_callback(error, message, nchar, data):
     """Custom logger callback to write output in a Python friendly way"""
-
-    print(ffi.unpack(message, nchar).decode())
+    try:
+        callback = ffi.from_handle(data)
+        callback(ffi.unpack(message, nchar).decode())
+    except Exception as e:
+        error_message = ffi.new("char[]", str(e).encode())
+        lib.tblite_set_error(
+            error,
+            error_message,
+            ffi.NULL,
+        )
 
 
 def context_check(func):
@@ -88,11 +100,13 @@ def context_check(func):
     @functools.wraps(func)
     def handle_context_error(ctx, *args, **kwargs):
         """Run function and than compare context"""
+        if isinstance(ctx, tuple):
+            ctx, _ = ctx
         value = func(ctx, *args, **kwargs)
         if lib.tblite_check_context(ctx):
             _message = ffi.new("char[]", 512)
             lib.tblite_get_context_error(ctx, _message, ffi.NULL)
-            raise RuntimeError(ffi.string(_message).decode())
+            raise TBLiteRuntimeError(ffi.string(_message).decode())
         return value
 
     return handle_context_error
@@ -105,13 +119,14 @@ def _delete_context(context) -> None:
     lib.tblite_delete_context(ptr)
 
 
-def new_context(color: bool = True):
+def new_context(color: bool = True, logger: Callable[[str], None] = print):
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
-    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, ffi.NULL)
+    handle = ffi.new_handle(logger)
+    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, handle)
     if color and sys.stdout.isatty():
         context_check(lib.tblite_set_context_color)(ctx, 1)
-    return ctx
+    return ctx, handle
 
 
 def _delete_structure(mol) -> None:
@@ -197,6 +212,27 @@ def copy_result(res):
     return ffi.gc(lib.tblite_copy_result(res), _delete_result)
 
 
+def get_number_of_atoms(res) -> int:
+    """Retrieve number of atoms from result container"""
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    return _natoms[0]
+
+
+def get_number_of_orbitals(res) -> int:
+    """Retrieve number of orbitals from result container"""
+    _norb = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
+    return _norb[0]
+
+
+def get_number_of_spins(res) -> int:
+    """Retrieve number of spins from result container"""
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    return _nspin[0]
+
+
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
     _energy = np.array(0.0)
@@ -208,9 +244,7 @@ def get_energy(res) -> float:
 
 def get_energies(res):
     """Retrieve atom-resolved energies from result container"""
-    _natoms = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
-    _energies = np.zeros((_natoms[0],))
+    _energies = np.zeros((get_number_of_atoms(res),))
     error_check(lib.tblite_get_result_energies)(
         res, ffi.cast("double*", _energies.ctypes.data)
     )
@@ -219,9 +253,7 @@ def get_energies(res):
 
 def get_gradient(res):
     """Retrieve gradient from result container"""
-    _natoms = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
-    _gradient = np.zeros((_natoms[0], 3))
+    _gradient = np.zeros((get_number_of_atoms(res), 3))
     error_check(lib.tblite_get_result_gradient)(
         res, ffi.cast("double*", _gradient.ctypes.data)
     )
@@ -239,9 +271,7 @@ def get_virial(res):
 
 def get_charges(res):
     """Retrieve atomic charges from result container"""
-    _natoms = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
-    _charges = np.zeros((_natoms[0],))
+    _charges = np.zeros((get_number_of_atoms(res),))
     error_check(lib.tblite_get_result_charges)(
         res, ffi.cast("double*", _charges.ctypes.data)
     )
@@ -250,74 +280,92 @@ def get_charges(res):
 
 def get_bond_orders(res):
     """Retrieve Wiberg / Mayer bond orders from result container"""
-    _natoms = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
-    _bond_orders = np.zeros((_natoms[0], _natoms[0]))
-    error_check(lib.tblite_get_result_bond_orders)(
-        res, ffi.cast("double*", _bond_orders.ctypes.data)
-    )
+    _dict = get_post_processing_dict(res=res)
+    if not("bond-orders" in _dict.keys()):
+        raise TBLiteValueError(
+                f"Bond-orders were not calculated. By default they are computed."
+            )
+    _bond_orders = _dict['bond-orders']
     return _bond_orders
 
 
 def get_dipole(res):
-    """Retrieve dipole moment from result container"""
-    _dipole = np.zeros((3,))
-    error_check(lib.tblite_get_result_dipole)(
-        res, ffi.cast("double*", _dipole.ctypes.data)
-    )
+    """Retrieve dipole moment from post processing dictionary"""
+    _dict = get_post_processing_dict(res=res)
+    if not("molecular-dipole" in _dict.keys()):
+        raise ValueError(
+                f"Molecular dipole was not calculated. By default it is computed."
+            )
+    _dipole = _dict["molecular-dipole"]
     return _dipole
 
 
 def get_quadrupole(res):
-    """Retrieve quadrupole moment from result container"""
-    _quadrupole = np.zeros((6,))
-    error_check(lib.tblite_get_result_quadrupole)(
-        res, ffi.cast("double*", _quadrupole.ctypes.data)
-    )
+    """Retrieve quadrupole moment from post processing dictionary"""
+    _dict = get_post_processing_dict(res=res)
+    if not("molecular-quadrupole" in _dict.keys()):
+        raise ValueError(
+                f"Molecular quadrupole was not calculated. By default it is computed."
+            )
+    _quadrupole = _dict["molecular-quadrupole"]
     return _quadrupole
 
 
 def get_orbital_energies(res):
     """Retrieve orbital energies from result container"""
-    _norb = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
-    _emo = np.zeros((_norb[0],))
+    _norb = get_number_of_orbitals(res)
+    _nspin = get_number_of_spins(res)
+    _emo = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_energies)(
         res, ffi.cast("double*", _emo.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_emo, axis=0)
     return _emo
 
 
 def get_orbital_occupations(res):
     """Retrieve orbital occupations from result container"""
-    _norb = ffi.new("int *")
-    error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
-    _occ = np.zeros((_norb[0],))
+    _norb = get_number_of_orbitals(res)
+    _nspin = get_number_of_spins(res)
+    _occ = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_occupations)(
         res, ffi.cast("double*", _occ.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_occ, axis=0)
     return _occ
 
 
-def _get_ao_matrix(getter):
+def _get_ao_matrix(getter, is_spin_dependent: bool):
     """Correctly set allocation for matrix objects before querying the getter"""
 
     @functools.wraps(getter)
     def with_allocation(res):
         """Get a matrix property from the results object"""
-        _norb = ffi.new("int *")
-        error_check(lib.tblite_get_result_number_of_orbitals)(res, _norb)
-        _mat = np.zeros((_norb[0], _norb[0]))
+        _norb = get_number_of_orbitals(res)
+        _nspin = get_number_of_spins(res) if is_spin_dependent else 1
+
+        # (_norb, _norb, _nspin) in col-major -> (_nspin, _norb, _norb) in row-major
+        # this will allow us to extract alpha- and beta matrices as mat[0] and mat[1]
+        _mat = np.zeros((_nspin, _norb, _norb))
         error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+
+        # Transpose actual matrix from col-major to row-major
+        # -> important for orbital coefficients
+        _mat = np.swapaxes(_mat, 1, 2)
+
+        if _nspin == 1:
+            return np.squeeze(_mat, axis=0)
         return _mat
 
     return with_allocation
 
 
-get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients)
-get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix)
-get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix)
-get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix)
+get_orbital_coefficients = _get_ao_matrix(lib.tblite_get_result_orbital_coefficients, True)
+get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
+get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
 
 
 def _delete_calculator(calc) -> None:
@@ -348,8 +396,7 @@ def new_ipea1_calculator(ctx, mol):
 @context_check
 def new_xtb_calculator(ctx, mol, param):
     """Create new tblite calculator from parametrization records"""
-    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol, param), _delete_calculator)
-
+    return ffi.gc(lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator)
 
 def get_calculator_shell_map(ctx, calc):
     """Retrieve index mapping from shells to atomic centers"""
@@ -361,6 +408,39 @@ def get_calculator_shell_map(ctx, calc):
     )
     return _map
 
+def _delete_double_dictionary(calc) -> None:
+    """Delete a tblite double dictionary object"""
+    ptr = ffi.new("tblite_double_dictionary *")
+    ptr[0] = calc
+    lib.tblite_delete_double_dictionary(ptr)
+
+def get_post_processing_dict(res):
+    """Retrieve the dictionary containing all post processing results"""
+    _dict = ffi.gc(error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary)
+    _nentries = error_check(lib.tblite_get_n_entries_dict)(_dict)
+    print(_nentries)
+    _dict_py = dict()
+    for i in range(1,_nentries+1):
+        _index = ffi.new("const int*", i)
+
+        _dim1 = ffi.new("int*")
+        _dim2 = ffi.new("int*")
+        _dim3 = ffi.new("int*")
+        error_check(lib.tblite_get_array_size_index)(_dict, _index,  _dim1, _dim2, _dim3)
+        if (_dim3[0] == 0):
+            if (_dim2[0] == 0):
+                _array = np.zeros((_dim1[0],))
+            else:
+                _array = np.zeros((_dim1[0], _dim2[0]))
+        else:
+            _array = np.zeros((_dim1[0], _dim2[0], _dim3[0]))
+        error_check(lib.tblite_get_array_entry_index)(_dict, _index, ffi.cast("double*", _array.ctypes.data))
+        _message = ffi.new("char[]", 512)
+        error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
+        label = ffi.string(_message).decode()
+        _dict_py[label] = _array
+        print(_dict_py)
+    return _dict_py
 
 def get_calculator_angular_momenta(ctx, calc):
     """Retrieve angular momenta of shells"""
@@ -391,6 +471,10 @@ set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
+@context_check
+def post_processing_push_back(ctx, calc, str):
+    _string = ffi.new("char[]", str.encode("ascii"))
+    lib.tblite_push_back_post_processing_str(ctx, calc, _string)
 
 @context_check
 def set_calculator_verbosity(ctx, calc, verbosity: int):
@@ -411,6 +495,7 @@ def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
 
+
 @context_check
 def new_alpb_solvation(ctx, mol, calc, solvent):
     "Create new ALPB solvation model object"
@@ -421,7 +506,10 @@ def new_alpb_solvation(ctx, mol, calc, solvent):
         _eps = float(solvent)
         return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps)
     else:
-        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")
+        raise TBLiteTypeError(
+            "Enter desired solvent as string, or enter epsilon value as float or intger."
+        )
+
 
 @context_check
 def new_cpcm_solvation(ctx, mol, calc, solvent):
@@ -433,7 +521,10 @@ def new_cpcm_solvation(ctx, mol, calc, solvent):
         _eps = float(solvent)
         return lib.tblite_new_cpcm_solvation_epsilon(ctx, mol, calc, _eps)
     else:
-        raise TypeError ("Enter desired solvent as string, or enter epsilon value as float or intger.")  
+        raise TBLiteTypeError(
+            "Enter desired solvent as string, or enter epsilon value as float or intger."
+        )
+
 
 @context_check
 def new_spin_polarization(ctx, mol, calc, wscale: float = 1.0):

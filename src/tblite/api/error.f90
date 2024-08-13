@@ -22,7 +22,7 @@ module tblite_api_error
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error
    use tblite_api_version, only : namespace
-   use tblite_api_utils, only : f_c_character
+   use tblite_api_utils, only : f_c_character, c_f_character
    implicit none
    private
 
@@ -145,6 +145,27 @@ subroutine get_error_api(verror, charptr, buffersize) &
    end if
 
 end subroutine get_error_api
+
+
+!> Set error message to error handle
+subroutine set_error_api(verror, charptr, nchars) &
+      & bind(C, name=namespace//"set_error")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   character(kind=c_char), intent(in) :: charptr(*)
+   integer(c_int), intent(in), optional :: nchars
+   character(len=:), allocatable :: message
+
+   if (debug) print '("[Info]", 1x, a)', "set_error"
+
+   if (c_associated(verror)) then
+      call c_f_pointer(verror, error)
+
+      call c_f_character(charptr, message)
+      call fatal_error(error%ptr, message)
+   end if
+
+end subroutine set_error_api
 
 
 end module tblite_api_error

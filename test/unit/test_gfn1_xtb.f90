@@ -50,8 +50,9 @@ subroutine collect_gfn1_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
-      new_unittest("gradient-mol", test_g_mb02) &
+      new_unittest("gradient-mol", test_g_mb02), &
       !new_unittest("virial-mol", test_s_mb03) &
+      new_unittest("error-uhf", test_error_mb01) &
       ]
 
 end subroutine collect_gfn1_xtb
@@ -182,7 +183,8 @@ subroutine test_e_pse(error)
    do izp = 1, 86
       if (izp == 25) cycle
       call new(mol, [izp], xyz, uhf=uhf(izp))
-      call new_gfn1_calculator(calc, mol)
+      call new_gfn1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -253,7 +255,8 @@ subroutine test_e_pse_cation(error)
    do izp = 1, 86
       if (izp == 79) cycle  ! SCF does not converge for gold
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=1.0_wp)
-      call new_gfn1_calculator(calc, mol)
+      call new_gfn1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -325,7 +328,8 @@ subroutine test_e_pse_anion(error)
       if (izp == 2) cycle  ! Helium doesn't have enough orbitals for negative charge
       if (any(izp == [21, 22, 23, 25, 43, 57, 58, 59])) cycle  ! not converging
       call new(mol, [izp], xyz, uhf=uhf(izp), charge=-1.0_wp)
-      call new_gfn1_calculator(calc, mol)
+      call new_gfn1_calculator(calc, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
       energy = 0.0_wp
@@ -357,7 +361,8 @@ subroutine test_e_mb01(error)
 
    energy = 0.0_wp
 
-   call new_gfn1_calculator(calc, mol)
+   call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
@@ -404,7 +409,8 @@ subroutine test_g_mb02(error)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
 
-   call new_gfn1_calculator(calc, mol)
+   call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
@@ -439,7 +445,8 @@ subroutine test_s_mb03(error)
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
 
-   call new_gfn1_calculator(calc, mol)
+   call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
@@ -455,6 +462,43 @@ subroutine test_s_mb03(error)
    end if
 
 end subroutine test_s_mb03
+
+
+subroutine test_error_mb01(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   real(wp), parameter :: ref = -33.040345103604_wp  ! value calculated by xtb
+
+   call get_structure(mol, "MB16-43", "01")
+   mol%uhf = mol%uhf + 1
+
+   energy = 0.0_wp
+
+   call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+
+   call check(error, ctx%failed(), .true.)
+   if (allocated(error)) return
+   block
+      type(error_type), allocatable :: error2
+      call ctx%get_error(error2)
+      call check(error, allocated(error2))
+      if (allocated(error)) return
+      call check(error, error2%message, "Total number of electrons (52) and number unpaired electrons (1) is not compatible")
+      if (allocated(error)) return
+   end block
+   call check(error, ctx%failed(), .false.)
+
+end subroutine test_error_mb01
 
 
 end module test_gfn1_xtb

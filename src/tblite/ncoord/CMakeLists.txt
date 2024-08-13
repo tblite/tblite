@@ -20,8 +20,8 @@ list(
   APPEND srcs
   "${dir}/exp.f90"
   "${dir}/gfn.f90"
-  "${dir}/ceh_std.f90"
-  "${dir}/ceh_en.f90"
+  "${dir}/erf.f90"
+  "${dir}/erf_en.f90"
   "${dir}/type.f90"
 )
 
