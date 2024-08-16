@@ -101,16 +101,17 @@ subroutine get_cds_param(input, mol, error)
          case('acetone');      param = gfn2_acetone
          case('acetonitrile'); param = gfn2_acetonitrile
          case('benzene');      param = gfn2_benzene
-         case('ch2cl2','dichlormethane'); param = gfn2_ch2cl2
-         case('chcl3','chloroform');      param = gfn2_chcl3
-         case('cs2');          param = gfn2_cs2
-         case('dmso');         param = gfn2_dmso
-         case('ether');        param = gfn2_ether
-         case('h2o','water');  param = gfn2_h2o
-         case('methanol');     param = gfn2_methanol
-         case('thf');          param = gfn2_thf
-         case('toluene');      param = gfn2_toluene
-         case('dmf');          param = gfn2_dmf
+         case('ch2cl2','dichlormethane','methylenechloride');
+            param = gfn2_ch2cl2
+         case('chcl3','chloroform');       param = gfn2_chcl3
+         case('cs2','carbondisulfide');    param = gfn2_cs2
+         case('dmso','dimethylsulfoxide'); param = gfn2_dmso
+         case('ether','diethylether');     param = gfn2_ether
+         case('h2o','water');              param = gfn2_h2o
+         case('methanol');                 param = gfn2_methanol
+         case('thf','tetrahydrofuran');    param = gfn2_thf
+         case('toluene');                  param = gfn2_toluene
+         case('dmf','dimethylformamide');  param = gfn2_dmf
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_nhexan
          end select
@@ -119,15 +120,16 @@ subroutine get_cds_param(input, mol, error)
          case('acetone');      param = gfn1_acetone
          case('acetonitrile'); param = gfn1_acetonitrile
          case('benzene');      param = gfn1_benzene
-         case('ch2cl2','dichlormethane'); param = gfn1_ch2cl2
-         case('chcl3','chloroform');      param = gfn1_chcl3
-         case('cs2');          param = gfn1_cs2
-         case('dmso');         param = gfn1_dmso
-         case('ether');        param = gfn1_ether
-         case('h2o','water');  param = gfn1_h2o
-         case('methanol');     param = gfn1_methanol
-         case('thf');          param = gfn1_thf
-         case('toluene');      param = gfn1_toluene
+         case('ch2cl2','dichlormethane','methylenechloride');
+            param = gfn1_ch2cl2
+         case('chcl3','chloroform');       param = gfn1_chcl3
+         case('cs2','carbondisulfide');    param = gfn1_cs2
+         case('dmso','dimethylsulfoxide'); param = gfn1_dmso
+         case('ether','diethylether');     param = gfn1_ether
+         case('h2o','water');              param = gfn1_h2o
+         case('methanol');                 param = gfn1_methanol
+         case('thf','tetrahydrofuran');    param = gfn1_thf
+         case('toluene');                  param = gfn1_toluene
          end select
       end if
    case(.true.)
@@ -136,27 +138,28 @@ subroutine get_cds_param(input, mol, error)
          case('acetone');      param = gfn2_alpb_acetone
          case('acetonitrile'); param = gfn2_alpb_acetonitrile
          case('aniline');      param = gfn2_alpb_aniline
-         case('benzaldehyde');      param = gfn2_alpb_benzaldehyde
+         case('benzaldehyde'); param = gfn2_alpb_benzaldehyde
          case('benzene');      param = gfn2_alpb_benzene
          case('dioxane');      param = gfn2_alpb_dioxane
-         case('ethylacetate');      param = gfn2_alpb_ethylacetate
-         case('furane');      param = gfn2_alpb_furane
-         case('hexadecane');      param = gfn2_alpb_hexadecane
-         case('nitromethane');      param = gfn2_alpb_nitromethane
+         case('ethylacetate'); param = gfn2_alpb_ethylacetate
+         case('furane');       param = gfn2_alpb_furane
+         case('hexadecane');   param = gfn2_alpb_hexadecane
+         case('nitromethane'); param = gfn2_alpb_nitromethane
          case('octanol');      param = gfn2_alpb_octanol
-         case('woctanol');      param = gfn2_alpb_woctanol
-         case('phenol');      param = gfn2_alpb_phenol 
-         case('ch2cl2','dichlormethane'); param = gfn2_alpb_ch2cl2
-         case('chcl3','chloroform');      param = gfn2_alpb_chcl3
-         case('cs2');          param = gfn2_alpb_cs2
-         case('dmso');         param = gfn2_alpb_dmso
-         case('ether');        param = gfn2_alpb_ether
-         case('h2o','water');  param = gfn2_alpb_water
-         case('methanol');     param = gfn2_alpb_methanol 
-         case('thf');          param = gfn2_alpb_thf
-         case('toluene');      param = gfn2_alpb_toluene
-         case('dmf');          param = gfn2_alpb_dmf
-         case('ethanol');      param = gfn2_alpb_ethanol
+         case('woctanol');     param = gfn2_alpb_woctanol
+         case('phenol');       param = gfn2_alpb_phenol 
+         case('ch2cl2','dichlormethane','methylenechloride'); 
+            param = gfn2_alpb_ch2cl2
+         case('chcl3','chloroform');       param = gfn2_alpb_chcl3
+         case('cs2','carbondisulfide');    param = gfn2_alpb_cs2
+         case('dmso','dimethylsulfoxide'); param = gfn2_alpb_dmso
+         case('ether','diethylether');     param = gfn2_alpb_ether
+         case('h2o','water');              param = gfn2_alpb_water
+         case('methanol');                 param = gfn2_alpb_methanol 
+         case('thf','tetrahydrofuran');    param = gfn2_alpb_thf
+         case('toluene');                  param = gfn2_alpb_toluene
+         case('dmf','dimethylformamide');  param = gfn2_alpb_dmf
+         case('ethanol');                  param = gfn2_alpb_ethanol
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn2_alpb_hexane
          end select
@@ -165,27 +168,28 @@ subroutine get_cds_param(input, mol, error)
          case('acetone');      param = gfn1_alpb_acetone
          case('acetonitrile'); param = gfn1_alpb_acetonitrile
          case('aniline');      param = gfn1_alpb_aniline
-         case('benzaldehyde');      param = gfn1_alpb_benzaldehyde
+         case('benzaldehyde'); param = gfn1_alpb_benzaldehyde
          case('benzene');      param = gfn1_alpb_benzene
          case('dioxane');      param = gfn1_alpb_dioxane
-         case('ethylacetate');      param = gfn1_alpb_ethylacetate
-         case('furane');      param = gfn1_alpb_furane
-         case('hexadecane');      param = gfn1_alpb_hexadecane
-         case('nitromethane');      param = gfn1_alpb_nitromethane
+         case('ethylacetate'); param = gfn1_alpb_ethylacetate
+         case('furane');       param = gfn1_alpb_furane
+         case('hexadecane');   param = gfn1_alpb_hexadecane
+         case('nitromethane'); param = gfn1_alpb_nitromethane
          case('octanol');      param = gfn1_alpb_octanol
-         case('woctanol');      param = gfn1_alpb_woctanol
-         case('phenol');      param = gfn1_alpb_phenol 
-         case('ch2cl2','dichlormethane'); param = gfn1_alpb_ch2cl2
-         case('chcl3','chloroform');      param = gfn1_alpb_chcl3
-         case('cs2');          param = gfn1_alpb_cs2
-         case('dmso');         param = gfn1_alpb_dmso
-         case('ether');        param = gfn1_alpb_ether
-         case('h2o','water');  param = gfn1_alpb_water
-         case('methanol');     param = gfn1_alpb_methanol
-         case('ethanol');      param = gfn1_alpb_ethanol
-         case('thf');          param = gfn1_alpb_thf
-         case('toluene');      param = gfn1_alpb_toluene
-         case('dmf');          param = gfn1_alpb_dmf
+         case('woctanol');     param = gfn1_alpb_woctanol
+         case('phenol');       param = gfn1_alpb_phenol 
+         case('ch2cl2','dichlormethane','methylenechloride');
+            param = gfn1_alpb_ch2cl2
+         case('chcl3','chloroform');       param = gfn1_alpb_chcl3
+         case('cs2','carbondisulfide');    param = gfn1_alpb_cs2
+         case('dmso','dimethylsulfoxide'); param = gfn1_alpb_dmso
+         case('ether','diethylether');     param = gfn1_alpb_ether
+         case('h2o','water');              param = gfn1_alpb_water
+         case('methanol');                 param = gfn1_alpb_methanol
+         case('ethanol');                  param = gfn1_alpb_ethanol
+         case('thf','tetrahydrofuran');    param = gfn1_alpb_thf
+         case('toluene');                  param = gfn1_alpb_toluene
+         case('dmf','dimethylformamide');  param = gfn1_alpb_dmf
          case('nhexan','n-hexan','nhexane','n-hexane','hexane');
             param = gfn1_alpb_hexane
          end select

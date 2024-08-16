@@ -25,6 +25,7 @@ list(
   "${dir}/spin.f90"
   "${dir}/alpb.f90"
   "${dir}/cds.f90"
+  "${dir}/cm5.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

@@ -27,6 +27,7 @@ module tblite_solvation_alpb
    use mctc_io_math, only : matdet_3x3
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
+   use tblite_data_cm5, only : get_cm5_charges
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
@@ -88,6 +89,8 @@ module tblite_solvation_alpb
       type(born_integrator) :: gbobc
       !> Interaction kernel
       integer :: kernel
+      !> Use CM5 charges (GFN1-xTB compatibility)
+      logical :: useCM5 = .false.
    contains
       !> Update cache from container
       procedure :: update
@@ -117,6 +120,14 @@ module tblite_solvation_alpb
       real(wp), allocatable :: rad(:)
       !> Derivatives of Born radii w.r.t. cartesian displacements
       real(wp), allocatable :: draddr(:, :, :)
+      !> scratch workspace for gradient construction
+      real(wp), allocatable :: scratch(:)
+      !> workspace for atomic charges
+      real(wp), allocatable :: qscratch(:)
+      !> CM5 charges (only required for GFN1 compatibility)
+      real(wp), allocatable :: cm5(:)
+      !> CM5 charge derivatives
+      real(wp), allocatable :: dcm5dr(:,:,:)
    end type alpb_cache
 
 
@@ -148,6 +159,7 @@ subroutine new_alpb(self, mol, input, error)
    self%alpbet = merge(alpha_alpb / input%dielectric_const, 0.0_wp, input%alpb)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
+   self%useCM5 = input%method=='gfn1'
 
    if (allocated(input%rvdw)) then
       rvdw = input%rvdw
@@ -201,6 +213,15 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%draddr)) then
       allocate(ptr%draddr(3, mol%nat, mol%nat))
    end if
+   if (.not.allocated(ptr%qscratch))then
+      allocate(ptr%qscratch(mol%nat))
+   endif 
+   if (self%useCM5.and..not.allocated(ptr%cm5))then
+      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
+   endif
+   if (self%useCM5.and..not.allocated(ptr%scratch))then
+      allocate(ptr%scratch(mol%nat))
+   endif
 
    call self%gbobc%get_rad(mol, ptr%rad, ptr%draddr)
    ptr%jmat(:, :) = 0.0_wp
@@ -236,9 +257,15 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    type(alpb_cache), pointer :: ptr
 
    call view(cache, ptr)
+   
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
 
-   call symv(ptr%jmat, wfn%qat(:, 1), ptr%vat, alpha=0.5_wp)
-   energies(:) = energies + ptr%vat * wfn%qat(:, 1)
+   call symv(ptr%jmat, ptr%qscratch(:), ptr%vat, alpha=0.5_wp)
+   energies(:) = energies + ptr%vat * ptr%qscratch(:)
 end subroutine get_energy
 
 
@@ -259,7 +286,13 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   call symv(ptr%jmat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
+
+   call symv(ptr%jmat, ptr%qscratch(:), pot%vat(:, 1), beta=1.0_wp)
 end subroutine get_potential
 
 
@@ -284,19 +317,31 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    energy = 0.0_wp
    call view(cache, ptr)
 
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
+
    select case(self%kernel)
    case(born_kernel%p16)
       call add_born_deriv_p16(mol%nat, mol%xyz, &
-         & wfn%qat(:, 1), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
    case(born_kernel%still)
       call add_born_deriv_still(mol%nat, mol%xyz, &
-         & wfn%qat(:, 1), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
    end select
 
    if (self%alpbet > 0.0_wp) then
       call get_adet_deriv(mol%nat, mol%xyz, self%gbobc%vdwr, self%kEps*self%alpbet, &
-         & wfn%qat(:, 1), gradient)
+         & ptr%qscratch(:), gradient)
    end if
+
+   if(self%useCM5)then
+      call gemv(ptr%jmat, ptr%qscratch, ptr%scratch)
+      call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+   endif
+
 end subroutine get_gradient
 
 

@@ -160,9 +160,8 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    type(shift_cache), pointer :: ptr
    
    call view(cache, ptr)
-   
+    
    energies(:) = energies + ptr%total_shift/real(mol%nat)
-   
 end subroutine get_engrad
 
 !> Get solvation energy
