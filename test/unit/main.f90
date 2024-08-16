@@ -39,6 +39,7 @@ program tester
    use test_solvation_born, only : collect_solvation_born
    use test_solvation_cpcm, only : collect_solvation_cpcm
    use test_solvation_surface, only : collect_solvation_surface
+   use test_solvation_cds, only: collect_solvation_cds
    use test_tagged_io, only : collect_tagged_io
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
@@ -60,6 +61,7 @@ program tester
       new_testsuite("solvation-born", collect_solvation_born), &
       new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
       new_testsuite("solvation-surface", collect_solvation_surface), &
+      new_testsuite("solvation-cds", collect_solvation_cds), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
       new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
       new_testsuite("double-dictionary", collect_double_dictionary), &
