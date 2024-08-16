@@ -159,7 +159,11 @@ subroutine new_alpb(self, mol, input, error)
    self%alpbet = merge(alpha_alpb / input%dielectric_const, 0.0_wp, input%alpb)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
-   self%useCM5 = input%method=='gfn1'
+   if (input%xtb .and. allocated(input%method))then
+     self%useCM5 = trim(input%method)=='gfn1'
+   else
+     self%useCM5 = .false.
+   endif
 
    if (allocated(input%rvdw)) then
       rvdw = input%rvdw

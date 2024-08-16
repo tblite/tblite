@@ -140,7 +140,9 @@ subroutine new_cds(self, mol, input)
       self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
    end if
 
-   self%useCM5 = input%method=='gfn1'
+   if (allocated(input%method))then
+      self%useCM5 = trim(input%method)=='gfn1'
+   endif
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
