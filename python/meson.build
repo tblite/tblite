@@ -37,5 +37,6 @@ tblite_dep = dependency(
   ],
 )
 tblite_header = files('include'/'_tblite.h')
+tblite_typed = files('py.typed')
 
 subdir('tblite')
