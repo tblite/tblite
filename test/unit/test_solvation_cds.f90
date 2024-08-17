@@ -416,6 +416,8 @@ subroutine test_g_cds(error)
       &-9.54898757869102E-2_wp]
 
    call get_structure(mol, "MB16-43", "06")
+   call test_g(error, mol, cds_input(alpb=.true., solvent='water', method='gfn1'), qat)
+   if(allocated(error)) return
    call test_g(error, mol, cds_input(alpb=.true., solvent='water', method='gfn2'), qat)
    if(allocated(error)) return
 
