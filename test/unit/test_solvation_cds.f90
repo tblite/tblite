@@ -101,7 +101,7 @@ subroutine test_e(error, mol, input, qat, ref)
 
    if (abs(sum(energy) - ref) > thr) then
       call test_failed(error, "Energy does not match reference")
-      print *, sum(energy)
+      print *, sum(energy),'reference:',ref
    end if
 end subroutine test_e
 

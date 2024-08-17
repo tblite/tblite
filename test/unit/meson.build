@@ -52,6 +52,7 @@ tests = [
   'solvation-cpcm',
   'solvation-surface',
   'solvation-cds',
+  'solvation-shift',
   'tagged-io',
   'xtb-param',
   'xtb-external',
