@@ -25,6 +25,7 @@ module test_solvation_born
    use tblite_solvation_alpb
    use tblite_solvation_born
    use tblite_solvation_data
+   use tblite_data_alpb
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -222,12 +223,19 @@ subroutine test_e(error, mol, input, qat, ref)
    type(container_cache) :: cache
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp) :: energy(mol%nat)
+   type(alpb_input) :: tmpinput
 
    energy = 0.0_wp
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = alpb_solvation(mol, input)
+   if(input%xtb)then
+     tmpinput = input
+     call get_alpb_param(tmpinput, mol, error)
+     solv = alpb_solvation(mol, tmpinput)
+   else
+     solv = alpb_solvation(mol, input)
+   endif
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -263,11 +271,18 @@ subroutine test_g(error, mol, input, qat)
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
+   type(alpb_input) :: tmpinput
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = alpb_solvation(mol, input)
+   if(input%xtb)then
+     tmpinput = input
+     call get_alpb_param(tmpinput, mol, error)
+     solv = alpb_solvation(mol, tmpinput)
+   else
+     solv = alpb_solvation(mol, input)
+   endif
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -331,11 +346,18 @@ subroutine test_p(error, mol, input, qat)
    real(wp), allocatable :: vat(:)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
    integer :: ii
+   type(alpb_input) :: tmpinput    
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = alpb_solvation(mol, input)
+   if(input%xtb)then
+     tmpinput = input
+     call get_alpb_param(tmpinput, mol, error)
+     solv = alpb_solvation(mol, tmpinput)
+   else
+     solv = alpb_solvation(mol, input)
+   endif
 
    call solv%update(mol, cache)
 
@@ -449,13 +471,22 @@ subroutine test_e_charged(error)
    call get_structure(mol, "UPU23", "0a")
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%p16, alpb=.true.), qat, &
       & -6.2968900200158134E-2_wp) !> cosmo radii
-   !>&  -0.16095444035091083_wp)
    if (allocated(error)) return
 
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%p16, alpb=.false.), qat, &
       & -6.3099611865806121E-2_wp) !> cosmo radii
-   !>&  -0.16177752986298113_wp) 
+   if (allocated(error)) return
 
+
+   !> xtb-compatible implementation
+   call test_e(error, mol, alpb_input(feps, solvent='water', kernel=born_kernel%p16, &
+        &      method='gfn1', xtb=.true.), qat, &
+        &      -9.7339246821001216E-002_wp)
+   if (allocated(error)) return
+   call test_e(error, mol, alpb_input(feps, solvent="water", kernel=born_kernel%p16, &
+        &      method='gfn2', xtb=.true.), qat, &
+        &      -0.10736560684364888_wp)
+   if (allocated(error)) return
 end subroutine test_e_charged
 
 
@@ -476,6 +507,13 @@ subroutine test_g_p16(error)
 
    call get_structure(mol, "MB16-43", "06")
    call test_g(error, mol, alpb_input(feps, kernel=born_kernel%p16), qat)
+   if (allocated(error)) return
+
+   !> xtb-compatible implementation
+   call test_g(error, mol, alpb_input(feps, solvent='water', kernel=born_kernel%p16, method='gfn1', xtb=.true.), qat)
+   if (allocated(error)) return
+   call test_g(error, mol, alpb_input(feps, solvent='water', kernel=born_kernel%p16, method='gfn2', xtb=.true.), qat)
+   if (allocated(error)) return
 
 end subroutine test_g_p16
 
@@ -518,6 +556,13 @@ subroutine test_p_p16(error)
 
    call get_structure(mol, "MB16-43", "08")
    call test_p(error, mol, alpb_input(feps, kernel=born_kernel%p16), qat)
+   if (allocated(error)) return
+
+   !> xtb-compatible implementation
+   call test_p(error, mol, alpb_input(feps, solvent='water', kernel=born_kernel%p16, method='gfn1', xtb=.true.), qat)
+   if (allocated(error)) return
+   call test_p(error, mol, alpb_input(feps, solvent='water', kernel=born_kernel%p16, method='gfn2', xtb=.true.), qat)
+   if (allocated(error)) return
 
 end subroutine test_p_p16
 
