@@ -80,6 +80,7 @@ if install
       'test_interface.py',
       'test_library.py',
       'test_qcschema.py',
+      'py.typed',
     ),
     subdir: 'tblite',
     pure: false,
