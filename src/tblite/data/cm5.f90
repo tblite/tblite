@@ -71,9 +71,9 @@ contains
     !> Molecular structure data
     type(structure_type),intent(in) :: mol
     !> cm5 charges
-    real(wp),allocatable,intent(out) :: cm5(:)
+    real(wp),intent(out) :: cm5(mol%nat)
     !> cm5 charge derivatives
-    real(wp),allocatable,intent(out) :: dcm5dr(:,:,:)
+    real(wp),intent(out) :: dcm5dr(3, mol%nat, mol%nat)
 
     !> pair parameters set up from cm5_a0
     real(wp),allocatable :: pairpar(:,:)
@@ -83,10 +83,8 @@ contains
 
     !> molecule-specific setup
     nat = mol%nat
-
-    !> allocate CM5 storage
-    allocate (cm5(nat),source=0.0_wp)
-    allocate (dcm5dr(3,nat,nat),source=0.0_wp)
+    cm5(:) = 0.0_wp
+    dcm5dr(:,:,:) = 0.0_wp
 
     !> set up pair parameters
     allocate (pairpar(max_elements,max_elements),source=0.0_wp)

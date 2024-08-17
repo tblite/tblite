@@ -185,9 +185,16 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%qscratch))then
       allocate(ptr%qscratch(mol%nat))
    endif
-   if (self%useCM5.and..not.allocated(ptr%cm5))then
+   if (self%useCM5)then
+      if (.not.allocated(ptr%cm5))then
+         allocate(ptr%cm5(mol%nat))
+      endif
+      if (.not.allocated(ptr%dcm5dr))then
+         allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
+      endif
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
    endif
+
 
    call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
 
