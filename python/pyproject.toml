@@ -32,3 +32,6 @@ optional-dependencies.test = [
   "pytest",
   "pytest-cov",
 ]
+
+[tool.setuptools.package-data]
+tblite = ["py.typed"]
