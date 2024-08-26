@@ -20,6 +20,8 @@ module tblite_purification_solver
         integer(c_size_t) :: none = 0
         !> TC2 purification
         integer(c_size_t) :: tc2 = 2
+        !> accelerated SP2
+        integer(c_size_t) :: tc2accel = 42
         !> Mc Weeney Purification
         integer(c_size_t) :: mcweeney = 3
         !> TRS4 purification
@@ -154,31 +156,49 @@ module tblite_purification_solver
       integer :: ndim
       integer(c_size_t), optional :: maxiter
       real(c_double), optional :: thresh
-      
+      self%type = type_
+      self%precision = prec_
+      self%runmode = run_
+
       call self%timer%push("Setup LAPACK")
       !use LAPACK for molecules smaller than 750 basis functions
-      if (ndim < 750) then
+      select case(run_)
+      case(purification_runmode%cpu)
          block
             type(sygvd_solver), allocatable :: tmp
             allocate(tmp) 
             call new_sygvd(tmp, ndim)
             call move_alloc(tmp, self%lapack_solv)
          end block
-      else
+      case(purification_runmode%gpu)
          block
             type(sygvd_cusolver), allocatable :: tmp
             allocate(tmp) 
             call new_sygvd_gpu(tmp, ndim, .true.)
             call move_alloc(tmp, self%lapack_solv)
          end block
-      end if
+      case(purification_runmode%default)
+         if (ndim < 750) then
+            block
+               type(sygvd_solver), allocatable :: tmp
+               allocate(tmp) 
+               call new_sygvd(tmp, ndim)
+               call move_alloc(tmp, self%lapack_solv)
+            end block
+         else
+            block
+               type(sygvd_cusolver), allocatable :: tmp
+               allocate(tmp) 
+               call new_sygvd_gpu(tmp, ndim, .true.)
+               call move_alloc(tmp, self%lapack_solv)
+            end block
+            end if
+      end select
+
 
       call self%timer%pop()
       call self%timer%push("Setup TC")
-      self%type = type_
-      self%precision = prec_
-      self%runmode = run_
-
+      
       if (present(maxiter)) self%maxiter = maxiter
       if (present(thresh)) self%thresh = thresh
 
@@ -236,21 +256,21 @@ module tblite_purification_solver
       call DeletePointer(self%solver_ptr)
       self%solver_ptr = c_null_ptr
       call self%timer%pop()
-      !block
-         !integer :: it
-         !real(wp) :: stime
-         !real(wp) :: ttime = 0.0_wp
-         !character(len=*), parameter :: label(*) = [character(len=20):: &
-         !& "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
-         !do it = 1, size(label)
-            !stime = self%timer%get(label(it))
-            !ttime = ttime + stime
-            !if (stime <= epsilon(0.0_wp)) cycle
-            !write(*,*) " - "//label(it)//format_time(stime)
-         !end do
-         !write(*,*) "___________________________________"             
-         !write(*,*) "   "//"Total: "//format_time(ttime)
-      !end block
+      block
+         integer :: it
+         real(wp) :: stime
+         real(wp) :: ttime = 0.0_wp
+         character(len=*), parameter :: label(*) = [character(len=20):: &
+         & "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
+         do it = 1, size(label)
+            stime = self%timer%get(label(it))
+            ttime = ttime + stime
+            if (stime <= epsilon(0.0_wp)) cycle
+            write(*,*) " - "//label(it)//format_time(stime)
+         end do
+         write(*,*) "___________________________________"             
+         write(*,*) "   "//"Total: "//format_time(ttime)
+      end block
     end subroutine
 
     subroutine get_density_matrix(self, focc, coeff, pmat)

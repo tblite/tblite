@@ -437,7 +437,10 @@ subroutine get_run_arguments(config, list, start, error)
             config%solver = lapack_algorithm%gvr
          case("tc2")
             allocate(config%purification_solver)
-            config%purification_solver = purification_type%tc2  
+            config%purification_solver = purification_type%tc2
+         case("tc2-accel")
+            allocate(config%purification_solver)
+            config%purification_solver = purification_type%tc2accel    
          case("trs4")
             allocate(config%purification_solver)
             config%purification_solver = purification_type%trs4
