@@ -105,7 +105,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(timer_type) :: timer
    type(error_type), allocatable :: error
    type(scf_info) :: info
-   class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
    type(container_cache), allocatable :: cache_list(:)
    
@@ -122,7 +121,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    econv = 1.e-6_wp*accuracy
    pconv = 2.e-5_wp*accuracy
 
-   call ctx%new_solver(solver, calc%bas%nao)
+   call ctx%new_solver(calc%bas%nao)
 
    grad = present(gradient) .and. present(sigma)
 
@@ -247,7 +246,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
-      call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
+      call next_scf(iscf, mol, calc%bas, wfn, ctx%solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
       econverged = abs(sum(eelec) - elast) < econv
@@ -307,7 +306,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
-      call solver%get_energy_w_density_matrix(wfn, wdensity)      
+      call ctx%solver%get_energy_w_density_matrix(wfn, wdensity)      
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
@@ -323,7 +322,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
-   call ctx%delete_solver(solver)
    if (ctx%failed()) return
 
    if (present(post_process)) then

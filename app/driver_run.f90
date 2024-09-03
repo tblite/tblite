@@ -84,9 +84,9 @@ subroutine run_main(config, error)
 
    ctx%terminal = context_terminal(config%color)
    if (allocated(config%purification_solver)) then
-      ctx%solver = purification_solver_context(config%purification_solver, config%purification_precision_, config%purification_runmode_)
+      ctx%ctxsolver = purification_solver_context(config%purification_solver, config%purification_precision_, config%purification_runmode_)
    else
-      ctx%solver = lapack_solver(config%solver)
+      ctx%ctxsolver = lapack_solver(config%solver)
    end if
    
    if (config%input == "-") then
@@ -300,6 +300,8 @@ subroutine run_main(config, error)
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
    end if
+
+   call ctx%delete_solver()
 end subroutine run_main
 
 

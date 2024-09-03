@@ -185,10 +185,10 @@ if (debug) print '("[Info]", 1x, a)', "set_context_solver"
 
 if (c_associated(vctx)) then
    call c_f_pointer(vctx, ctx)
-   if (solver < 10) then
-      ctx%ptr%solver = lapack_solver(solver)
+   if (solver < 10 .and. solver /= 42) then
+      ctx%ptr%ctxsolver = lapack_solver(solver)
    else 
-      ctx%ptr%solver = purification_solver_context(solver-10)
+      ctx%ptr%ctxsolver = purification_solver_context(solver-10)
    end if
 end if
 end subroutine set_context_solver_api
@@ -204,7 +204,7 @@ subroutine delete_context_api(vctx) &
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
-
+      call ctx%ptr%delete_solver()
       deallocate(ctx)
       vctx = c_null_ptr
    end if
