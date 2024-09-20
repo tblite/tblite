@@ -1292,7 +1292,7 @@ contains
             izp = mol%num(isp)
 
             qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
-            & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+            & + p_ceh_total_to_q * mol%charge/real(mol%nat, wp)
          end do
       end do
    

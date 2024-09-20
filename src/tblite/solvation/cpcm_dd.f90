@@ -1836,7 +1836,7 @@ pure subroutine rmsvec(n, v, vrms, vmax)
    end do
 
    ! the much neglected square root
-   vrms = sqrt(vrms/dble(n))
+   vrms = sqrt(vrms/real(n, wp))
 
 end subroutine rmsvec
 
