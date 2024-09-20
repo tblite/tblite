@@ -752,7 +752,8 @@ pure subroutine dbasis(self, x, basloc, dbsloc, vplm, vcos, vsin)
    real(wp), intent(inout) :: dbsloc(:, :) ! [3, self%nylm]
    real(wp), intent(inout) :: vcos(:), vsin(:) ! [self%lmax+1]
 
-   integer :: l, m, ind, VC, VS
+   integer :: l, m, ind
+   real(wp) :: VC, VS
    real(wp) :: cthe, sthe, cphi, sphi, plm, fln, pp1, pm1, pp
    real(wp) :: et(3), ep(3)
 
