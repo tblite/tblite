@@ -820,7 +820,7 @@ module tblite_ceh_ceh
    &  0.1308523996_wp,  0.1635461451_wp,  0.1994570401_wp]                     ! 101-103
 
    !> Empirical atomic radii for calculation of the coordination number
-   real(wp), parameter :: ceh_cov_radii(max_elem) = 0.5 * [&
+   real(wp), parameter :: ceh_cov_radii(max_elem) = 0.5_wp * [&
    &  2.4040551903_wp,  1.8947380542_wp,  3.4227634078_wp,  3.5225408137_wp, & ! 1-4
    &  3.6150631704_wp,  2.8649682108_wp,  2.4695867541_wp,  2.3533691180_wp, & ! 5-8
    &  2.4992147462_wp,  3.3390521781_wp,  4.4665909451_wp,  4.3877250907_wp, & ! 9-12
@@ -850,7 +850,7 @@ module tblite_ceh_ceh
 
    !> Empirical Pauling EN normalized to EN(F)=1 as start values
    !> Used for EN-scaled Coordination number in CEH
-   real(wp), parameter :: pauling_en_ceh(max_elem) = (1d0/3.98d0) * [&
+   real(wp), parameter :: pauling_en_ceh(max_elem) = (1e0_wp/3.98e0_wp) * [&
    &  1.9435211923_wp,  3.6116085622_wp,  2.4630915335_wp,  2.0658837656_wp, & ! 1-4
    &  2.3619778807_wp,  2.9484294262_wp,  3.8753937411_wp,  4.6235054741_wp, & ! 5-8
    &  3.9800000000_wp,  3.6615073276_wp,  2.3578254072_wp,  2.4225832022_wp, & ! 9-12
@@ -1292,7 +1292,7 @@ contains
             izp = mol%num(isp)
 
             qat(iat, ispin) = p_ceh_en_to_q(izp)*cn_en(iat) &
-            & + p_ceh_total_to_q * mol%charge/dble(mol%nat)
+            & + p_ceh_total_to_q * mol%charge/real(mol%nat, wp)
          end do
       end do
    
