@@ -69,6 +69,11 @@ module tblite_wavefunction_type
       real(wp), allocatable :: dqatdr(:, :, :, :)
       !> Derivative of atomic charges w.r.t. the lattice vectors: [3, 3, nat, spin]
       real(wp), allocatable :: dqatdL(:, :, :, :)
+
+      !> Derivative of shell charges w.r.t. the positions: [3, nat, nsh, spin]
+      real(wp), allocatable :: dqshdr(:, :, :, :)
+      !> Derivative of shell charges w.r.t. the lattice vectors: [3, 3, nsh, spin]
+      real(wp), allocatable :: dqshdL(:, :, :, :)
    end type wavefunction_type
 
 contains
@@ -110,8 +115,13 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
          allocate(self%dqatdr(3, nat, nat, nspin))
          allocate(self%dqatdL(3, 3, nat, nspin))
 
+         allocate(self%dqshdr(3, nat, nsh, nspin))
+         allocate(self%dqshdL(3, 3, nsh, nspin))
+
          self%dqatdr(:, :, :, :) = 0.0_wp
          self%dqatdL(:, :, :, :) = 0.0_wp
+         self%dqshdr(:, :, :, :) = 0.0_wp
+         self%dqshdL(:, :, :, :) = 0.0_wp
       end if
    end if
 

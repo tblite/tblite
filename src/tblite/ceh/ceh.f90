@@ -1279,10 +1279,14 @@ contains
       real(wp), intent(in) :: cn_en(:)
       !> Effective atomic charges, shape: [nat, spin]
       real(wp), intent(out) :: qat(:, :)
-      !> Position and lattice vector gradient of cn_en, shape: [3, nat/3, nat]
-      real(wp), intent(in), optional :: dcn_endr(:, :, :), dcn_endL(:, :, :)
-      !> Position and lattice vector gradient of qat, shape: [3, nat/3, nat, spin]
-      real(wp), intent(out), optional :: dqatdr(:, :, :, :), dqatdL(:, :, :, :)
+      !> Position gradient of cn_en, shape: [3, nat, nat]
+      real(wp), intent(in), optional :: dcn_endr(:, :, :)
+      !> Lattice vector gradient of cn_en, shape: [3, 3, nat]
+      real(wp), intent(in), optional :: dcn_endL(:, :, :)
+      !> Position gradient of qat, shape: [3, nat, nat, spin]
+      real(wp), intent(out), optional :: dqatdr(:, :, :, :)
+      !> Lattice vector gradient of qat, shape: [3, 3, nat, spin]
+      real(wp), intent(out), optional :: dqatdL(:, :, :, :)
 
       integer :: iat, isp, izp, ispin
 
@@ -1290,7 +1294,8 @@ contains
       if (present(dqatdr)) dqatdr(:,:,:,:) = 0.0_wp
       if (present(dqatdL)) dqatdL(:,:,:,:) = 0.0_wp
 
-      if (present(dqatdr) .and. present(dqatdL)) then
+      if (present(dqatdr) .and. present(dqatdL) .and. &
+         & present(dcn_endr) .and. present(dcn_endL)) then
          do ispin = 1, size(qat, 2)
             do iat = 1, size(qat, 1)
                isp = mol%id(iat)

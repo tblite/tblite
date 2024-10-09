@@ -198,19 +198,44 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
 
-   integer :: ic, jc, iat, ndim
-   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :)
+   integer :: ic, jc, iat, ndim, ii, ish
+   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :), tmpdq(:)
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
    ndim = sum(self%nshell)
-   allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim))
+   allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim), tmpdq(ndim))
 
    ! Get derivatives of the Coulomb matrix already contracted with the atom-resolved charges
    call self%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, datr)
 
-   if(.not. self%shell_resolved) then
+   if(self%shell_resolved) then
+      ! Off-diagonal Coulomb matrix derivative
+      pot%dvshdr(:, :, :, 1) = dadr
+      
+      do ic = 1, 3 
+         do iat = 1, mol%nat
+            ii = self%offset(iat)
+            do ish = 1, self%nshell(iat)
+               ! Diagonal Coulomb matrix derivative
+               pot%dvshdr(ic, iat, ii+ish, 1) = - sum(dadr(ic, :, ii+ish))
+            end do 
+            ! Charge derivative
+            tmpdq = wfn%dqshdr(ic, iat, :, 1)
+            call symv(ptr%amat, tmpdq, pot%dvshdr(ic, iat, :, 1), beta=1.0_wp)
+         end do
+         
+         ! Coulomb matrix derivative 
+         pot%dvshdL(ic, :, :, 1) = pot%dvshdL(ic, :, :, 1) + dadL(ic, :, :)
+         do jc = 1, 3
+            ! Charge derivative
+            tmpdq = wfn%dqshdL(ic, jc, :, 1)
+            call symv(ptr%amat, tmpdq, pot%dvshdL(ic, jc, :, 1), beta=1.0_wp)
+         end do
+      end do
+
+   else
       ! Off-diagonal Coulomb matrix derivative
       pot%dvatdr(:, :, :, 1) = dadr
 
@@ -220,14 +245,16 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
             pot%dvatdr(ic, iat, iat, 1) = - sum(dadr(ic, :, iat))
 
             ! Charge derivative
-            call symv(ptr%amat, wfn%dqatdr(ic, iat, :, 1), pot%dvatdr(ic, iat, :, 1), beta=1.0_wp)
+            tmpdq = wfn%dqatdr(ic, iat, :, 1)
+            call symv(ptr%amat, tmpdq, pot%dvatdr(ic, iat, :, 1), beta=1.0_wp)
          end do
          
          ! Coulomb matrix derivative 
          pot%dvatdL(ic, :, :, 1) = pot%dvatdL(ic, :, :, 1) + dadL(ic, :, :)
          do jc = 1, 3
             ! Charge derivative
-            call symv(ptr%amat, wfn%dqatdL(ic, jc, :, 1), pot%dvatdL(ic, jc, :, 1), beta=1.0_wp)
+            tmpdq = wfn%dqatdL(ic, jc, :, 1)
+            call symv(ptr%amat, tmpdq, pot%dvatdL(ic, jc, :, 1), beta=1.0_wp)
          end do
       end do
    end if

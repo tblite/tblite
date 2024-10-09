@@ -47,9 +47,15 @@ module tblite_scf_potential
       !> Atom-resolved quadrupolar potential
       real(wp), allocatable :: vqp(:, :, :)
 
-      !> Position and lattice vector derivative of atom-resolved charge-dependent potential shift
+      !> Position derivative of atom-resolved charge-dependent potential shift
       real(wp), allocatable :: dvatdr(:, :, :, :)
+      !> Lattice vector derivative of atom-resolved charge-dependent potential shift
       real(wp), allocatable :: dvatdL(:, :, :, :)
+
+      !> Position derivative of shell-resolved charge-dependent potential shift
+      real(wp), allocatable :: dvshdr(:, :, :, :)
+      !> Lattice vector derivative of shell-resolved charge-dependent potential shift
+      real(wp), allocatable :: dvshdL(:, :, :, :)
    contains
       !> Reset the density dependent potential
       procedure :: reset
@@ -84,6 +90,9 @@ subroutine new_potential(self, mol, bas, nspin, grad)
          self%grad = .true.
          allocate(self%dvatdr(3, mol%nat, mol%nat, nspin))
          allocate(self%dvatdL(3, 3, mol%nat, nspin))
+
+         allocate(self%dvshdr(3, mol%nat, bas%nsh, nspin))
+         allocate(self%dvshdL(3, 3, bas%nsh, nspin))
       end if
    end if
 
@@ -103,6 +112,9 @@ subroutine reset(self)
    if(self%grad) then
       self%dvatdr(:, :, :, :) = 0.0_wp
       self%dvatdL(:, :, :, :) = 0.0_wp
+
+      self%dvshdr(:, :, :, :) = 0.0_wp
+      self%dvshdL(:, :, :, :) = 0.0_wp
    end if
 end subroutine reset
 

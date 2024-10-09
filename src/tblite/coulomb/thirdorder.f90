@@ -187,7 +187,18 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
 
    integer :: iat, izp, ii, ish
 
-   if (.not. self%shell_resolved) then
+   if (self%shell_resolved) then
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         ii = self%ish_at(iat)
+         do ish = 1, self%nsh_at(iat)
+            pot%dvshdr(:, :, ii+ish, 1) = pot%dvshdr(:, :, ii+ish, 1) &
+               & + 2.0_wp * wfn%qsh(ii+ish, 1) * wfn%dqshdr(:, :, ii+ish, 1) * self%hubbard_derivs(ish, izp)
+            pot%dvshdL(:, :, ii+ish, 1) = pot%dvshdL(:, :, ii+ish, 1) &
+               & + 2.0_wp * wfn%qsh(ii+ish, 1) * wfn%dqshdL(:, :, ii+ish, 1) * self%hubbard_derivs(ish, izp)
+         end do
+      end do
+   else 
       do iat = 1, mol%nat
          izp = mol%id(iat)
          pot%dvatdr(:, :, iat, 1) = pot%dvatdr(:, :, iat, 1) &
