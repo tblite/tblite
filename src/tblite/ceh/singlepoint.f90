@@ -184,7 +184,7 @@ contains
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
          ! Use electronegativity-weighted CN as 0th-order charge guess
-         call get_effective_qat(mol, calc%bas, cn_en, wfn%qat)
+         call get_effective_qat(mol, cn_en, wfn%qat)
       
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)

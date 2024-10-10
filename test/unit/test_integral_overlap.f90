@@ -1797,7 +1797,7 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
             end if 
             call check(error, doverlapj_diat(i, k, j), doverlaptmp_diat(i, k, j), thr=thr2)
             if (allocated(error)) then
-               write(*,*) "Error", doverlapj(i, k, j), doverlaptmp(i, k, j)
+               write(*,*) "Error", doverlapj_diat(i, k, j), doverlaptmp_diat(i, k, j)
                exit num
             end if
          end do
@@ -2126,9 +2126,9 @@ subroutine test_overlap_diat_grad_dd_z(error)
    call slater_to_gauss(ng, 3, 2, 1.3_wp, cgtoj, .true., stat)
 
    ! Vector along the z-axis to test the ill-defined gradient
-   vec(1) = 0.0_wp
-   vec(2) = 0.0_wp   
-   vec(3) = 0.7_wp
+   vec(1) = -4.2738582800000008E-005_wp
+   vec(2) = 1.9619373507000001E-004_wp
+   vec(3) = -5.1529538776373203_wp
 
    ksig = 0.1_wp
    kpi = 0.2_wp
