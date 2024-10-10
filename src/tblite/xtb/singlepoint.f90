@@ -112,6 +112,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    
    integer :: iscf, spin
 
+   real(wp),allocatable :: gradbackup(:,:)
+
    call timer%push("total")
 
    if (present(verbosity)) then

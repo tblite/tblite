@@ -32,6 +32,8 @@ module tblite_solvation_cds
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
+   use tblite_data_cm5, only : get_cm5_charges
+   use mctc_io_convert, only : aatoau
    implicit none
    private
 
@@ -40,15 +42,21 @@ module tblite_solvation_cds
    !> Input for CDS model
    type :: cds_input
       !> Probe radius of the solvent
-      real(wp) :: probe
+      real(wp) :: probe = 1.00000_wp * aatoau
       !> Number of angular grid points for integration
-      integer :: nang
+      integer :: nang = 230
       !> Van-der-Waals radii for each species
       real(wp), allocatable :: rad(:)
       !> Surface tension for each species
       real(wp), allocatable :: tension(:)
       !> Hydrogen bonding strength for each species
       real(wp), allocatable :: hbond(:)
+      !> Linearized Poisson-Boltzmann model for parameter selection
+      logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
    end type cds_input
 
    !> Definition of the CDS model
@@ -59,6 +67,8 @@ module tblite_solvation_cds
       real(wp), allocatable :: tension(:)
       !> Hydrogen bonding correction
       real(wp), allocatable :: hbond(:)
+      !> Use CM5 charges (for GFN1-xTB compatibility)
+      logical :: useCM5 = .false.
    contains
       !> Update cache from container
       procedure :: update
@@ -93,7 +103,16 @@ module tblite_solvation_cds
       real(wp), allocatable :: scratch(:)
       !> Hydrogen bonding correction
       real(wp), allocatable :: hbond(:)
+      !> Scratch for atomic charges
+      real(wp), allocatable :: qscratch(:)
+      !> CM5 charges (only required for GFN1 compatibility)
+      real(wp), allocatable :: cm5(:)
+      !> CM5 charge derivatives
+      real(wp), allocatable :: dcm5dr(:,:,:)
    end type cds_cache
+
+   !> Identifier for container
+   character(len=*), parameter :: label = "cds contribution to solvation"
 
 contains
 
@@ -108,6 +127,7 @@ subroutine new_cds(self, mol, input)
 
    real(wp), allocatable :: rad(:)
 
+   self%label = label
    if (allocated(input%rad)) then
       rad = input%rad
    else
@@ -115,15 +135,19 @@ subroutine new_cds(self, mol, input)
    end if
 
    self%tension = input%tension
-
+  
    if (allocated(input%hbond)) then
-      self%hbond = input%hbond
+      self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
    end if
+
+   if (allocated(input%method))then
+      self%useCM5 = trim(input%method)=='gfn1'
+   endif
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
 
-!> Type constructor for CDS splvation
+!> Type constructor for CDS solvation
 function create_cds(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -158,6 +182,19 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%scratch)) then
       allocate(ptr%scratch(mol%nat))
    end if
+   if (.not.allocated(ptr%qscratch))then
+      allocate(ptr%qscratch(mol%nat))
+   endif
+   if (self%useCM5)then
+      if (.not.allocated(ptr%cm5))then
+         allocate(ptr%cm5(mol%nat))
+      endif
+      if (.not.allocated(ptr%dcm5dr))then
+         allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
+      endif
+      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
+   endif
+
 
    call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
 
@@ -186,7 +223,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    type(cds_cache), pointer :: ptr
 
    call view(cache, ptr)
-
+   
    energies(:) = energies + ptr%surface * ptr%tension
 
    if (present(gradient)) then
@@ -216,7 +253,12 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
-      ptr%scratch(:) = ptr%hbond * ptr%surface * wfn%qat(:, 1)**2
+      if(self%useCM5)then
+         ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+      else
+         ptr%qscratch(:) = wfn%qat(:, 1)
+      endif
+      ptr%scratch(:) = ptr%hbond * ptr%surface * ptr%qscratch(:)**2
       energies(:) = energies + ptr%scratch
    end if
 end subroutine get_energy
@@ -240,7 +282,12 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
-      ptr%scratch(:) = 2*ptr%hbond * ptr%surface * wfn%qat(:, 1)
+      if(self%useCM5)then
+         ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+      else
+         ptr%qscratch(:) = wfn%qat(:, 1)
+      endif
+      ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)
       pot%vat(:, 1) = pot%vat(:, 1) + ptr%scratch(:)
    end if
 end subroutine get_potential
@@ -266,9 +313,18 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
-      ptr%scratch(:) = ptr%hbond * wfn%qat(:, 1)**2
+      if(self%useCM5)then
+         ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+      else
+         ptr%qscratch(:) = wfn%qat(:, 1)
+      endif
+      ptr%scratch(:) = ptr%hbond * ptr%qscratch(:)**2
       if (allocated(ptr%dsdr)) &
          call gemv(ptr%dsdr, ptr%scratch, gradient, beta=1.0_wp)
+      if(self%useCM5)then 
+        ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)  
+        call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp) 
+      endif  
    end if
 end subroutine get_gradient
 

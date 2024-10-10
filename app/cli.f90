@@ -25,7 +25,7 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & solvent_data, get_solvent_data
+      & cds_input, shift_input, solvent_data, get_solvent_data
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -249,6 +249,7 @@ subroutine get_run_arguments(config, list, start, error)
    logical :: getopts
    character(len=:), allocatable :: arg
    logical :: alpb
+   integer :: kernel
    type(solvent_data) :: solvent
 
    iarg = start
@@ -357,7 +358,7 @@ subroutine get_run_arguments(config, list, start, error)
 
       case("--alpb", "--gbsa")
          if (allocated(config%solvation)) then
-            call fatal_error(error, "Cannot use ALPB/GBSA if CPCM is enabled")
+            call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
          alpb = arg == "--alpb"
@@ -375,6 +376,38 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(error)) exit
          allocate(config%solvation)
          config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb)
+
+      case("--alpb-xtb", "--gbsa-xtb")
+         if (allocated(config%solvation)) then
+            call fatal_error(error, "Cannot use multiple solvation models")
+            exit
+         end if
+         if (arg == "--alpb-xtb") then
+            alpb = .true.
+            kernel = 2
+         else 
+            alpb = .false.
+            kernel = 1
+         end if
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for xTB ALPB/GBSA")
+            exit
+         end if
+
+         solvent = get_solvent_data(arg)
+         if (solvent%eps <= 0.0_wp) then
+            call fatal_error(error, "Solvent not found! Solvent name required for xTB solvation")
+         end if
+         if (allocated(error)) exit
+         allocate(config%solvation)
+         config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, alpb=alpb, solvent=solvent%solvent, xtb=.true.)
+         config%solvation%alpb%solvent = solvent%solvent
+         config%solvation%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
+         config%solvation%cds%solvent = solvent%solvent
+         config%solvation%shift = shift_input(alpb=alpb, solvent=solvent%solvent)
+         config%solvation%shift%solvent = solvent%solvent
 
       case("--param")
          if (allocated(config%param)) then
