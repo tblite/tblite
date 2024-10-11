@@ -55,6 +55,8 @@ module tblite_container_list
       procedure :: get_energy
       !> Evaluate charge dependent potential shift from the interaction
       procedure :: get_potential
+      !> Evaluate gradient of charge dependent potential shift from the interaction
+      procedure :: get_potential_gradient
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
       !> Add a container
@@ -191,6 +193,34 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       end if
    end do
 end subroutine get_potential
+
+
+!> Evaluate charge dependent potential shift from the interaction
+subroutine get_potential_gradient(self, mol, cache, wfn, pot)
+   !> Instance of the interaction container
+   class(container_list), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Cached data between different runs
+   type(container_cache), intent(inout) :: cache
+   !> Wavefunction data
+   type(wavefunction_type), intent(in) :: wfn
+   !> Density dependent potential
+   type(potential_type), intent(inout) :: pot
+
+   integer :: ic
+   type(cache_list), pointer :: ptr
+
+   call view(cache, ptr)
+
+   do ic = 1, self%nc
+      if (allocated(self%list(ic)%raw)) then
+         associate(cont => self%list(ic)%raw)
+            call cont%get_potential_gradient(mol, ptr%list(ic), wfn, pot)
+         end associate
+      end if
+   end do
+end subroutine get_potential_gradient
 
 
 !> Evaluate gradient contributions from the selfconsistent interaction

@@ -21,6 +21,7 @@ python = pymod.find_installation(
   get_option('python_version'),
   modules: [
     'cffi',
+    'setuptools',
   ],
 )
 python_dep = python.dependency(required: true)
@@ -80,6 +81,7 @@ if install
       'test_interface.py',
       'test_library.py',
       'test_qcschema.py',
+      'py.typed',
     ),
     subdir: 'tblite',
     pure: false,

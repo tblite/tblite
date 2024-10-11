@@ -267,6 +267,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1))
 end subroutine get_potential
 
+
 !> Get multipolar anisotropic potential contribution
 subroutine get_kernel_potential(mol, kernel, mpat, vm)
    !> Molecular structure data
