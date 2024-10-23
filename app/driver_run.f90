@@ -301,7 +301,7 @@ subroutine run_main(config, error)
       end if
    end if
 
-   call ctx%delete_solver()
+   !call ctx%delete_solver()
 end subroutine run_main
 
 

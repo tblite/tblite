@@ -68,7 +68,7 @@ contains
       type(wavefunction_type) :: wfn, wfn_ceh
 
       ctx%terminal = context_terminal(config%color)
-      ctx%solver = lapack_solver(config%solver)
+      ctx%ctxsolver = lapack_solver(config%solver)
 
       if (config%input == "-") then
          if (allocated(config%input_format)) then

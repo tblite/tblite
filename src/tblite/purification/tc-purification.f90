@@ -59,11 +59,12 @@ module tblite_purification_solver
       integer(c_size_t) :: runmode = purification_runmode%default
       real(c_double) :: thresh = 1.0e-07
       type(c_ptr) :: solver_ptr
-      integer(c_size_t) :: maxiter = 200
+      integer(c_size_t) :: maxiter = 50
       integer :: iscf = 0
       class(solver_type), allocatable :: lapack_solv
       type(timer_type) :: timer
       logical :: trans = .false.
+      logical :: purification_success = .true.
    contains
       procedure :: solve_sp
       procedure :: solve_dp
@@ -72,6 +73,7 @@ module tblite_purification_solver
       procedure :: delete
       procedure :: get_density_matrix
       procedure :: get_energy_w_density_matrix
+      procedure :: reset
    end type
 
    interface
@@ -88,6 +90,7 @@ module tblite_purification_solver
          type(c_ptr), value, intent(in) :: Fock
          type(c_ptr), value, intent(in) :: Overlap
          type(c_ptr), value :: Dens
+         
       end subroutine
       subroutine GetDensityGuess(nao, efermi, hmax, hmin, nel, Fock, Dens) bind(C, name="GetDensityGuess")
          use iso_c_binding
@@ -122,12 +125,13 @@ module tblite_purification_solver
          type(c_ptr), value :: ptr
          real(c_double),  intent(in) :: oen(*)
       end subroutine
-      subroutine GetDensityAO(ptr, Fock, Dens, elnum) bind(C, name="GetDensityAO")
+      subroutine GetDensityAO(ptr, Fock, Dens, elnum, info) bind(C, name="GetDensityAO")
          use iso_c_binding
          type(c_ptr), value :: ptr
          real(c_double) :: Fock(*)
          real(c_double) :: Dens(*)
          real(c_double), value :: elnum
+         integer(kind=4) :: info
       end subroutine
       subroutine GetEnergyWDensityAO(ptr, Fock, Dens, WDens) bind(C, name="GetEnergyWDensityAO")
          use iso_c_binding
@@ -140,9 +144,21 @@ module tblite_purification_solver
          use iso_c_binding
          type(c_ptr), value :: ptr
       end subroutine
+      subroutine ResetLib(ptr) bind(C, name="Reset")
+         use iso_c_binding
+         type(c_ptr), value :: ptr
+      end subroutine
    end interface
 
    contains
+
+   subroutine reset(self)
+      class(purification_solver) :: self
+      self%trans = .false.
+      self%purification_success = .true.
+      call ResetLib(self%solver_ptr)
+   end subroutine
+   
 
    function got_transform(self) result(trans)
       class(purification_solver) :: self
@@ -202,7 +218,7 @@ module tblite_purification_solver
       if (present(maxiter)) self%maxiter = maxiter
       if (present(thresh)) self%thresh = thresh
 
-      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(1, kind=c_size_t))
+      self%solver_ptr =  PurifyFockSetup(int(ndim, kind=c_size_t), self%thresh, self%maxiter, self%type, self%runmode, self%precision, int(0, kind=c_size_t))
       call self%timer%pop()
    end subroutine
 
@@ -227,23 +243,26 @@ module tblite_purification_solver
       call self%lapack_solv%solve(hmat, smat, eval, error)
       allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
       tmp = hmat
-      call SetTransformationMatrix(self%solver_ptr, tmp)
-      call SetOrbitalEnergiesMatrix(self%solver_ptr, eval)
+      if (self%purification_success) call SetTransformationMatrix(self%solver_ptr, tmp)
+      !call SetOrbitalEnergiesMatrix(self%solver_ptr, eval)
       call self%timer%pop()
       self%trans = .true.
    end subroutine solve_dp
 
    subroutine purify_dp(self, hmat, smat, dens, nel, error)
         class(purification_solver), intent(inout) :: self
-        real(c_double), contiguous, target, intent(inout)  :: hmat(:, :)
-        real(c_double), contiguous, target, intent(in) :: smat(:, :)
-        real(c_double), contiguous, target, intent(inout) :: dens(:, :)
+        real(c_double), contiguous, intent(inout)  :: hmat(:, :)
+        real(c_double), contiguous, intent(in) :: smat(:, :)
+        real(c_double), contiguous, intent(inout) :: dens(:, :)
         real(c_double) :: nel
+        integer(kind=4) :: info
         type(error_type), allocatable, intent(out) :: error
 
          self%iscf = self%iscf +1
          call self%timer%push("Purification") 
-         call GetDensityAO(self%solver_ptr, hmat, dens, nel/2)
+         info = 42
+         call GetDensityAO(self%solver_ptr, hmat, dens, nel/2, info)
+         if (info /= 0) self%purification_success = .false.
          call self%timer%pop()
          
     end subroutine purify_dp
@@ -256,21 +275,21 @@ module tblite_purification_solver
       call DeletePointer(self%solver_ptr)
       self%solver_ptr = c_null_ptr
       call self%timer%pop()
-      block
-         integer :: it
-         real(wp) :: stime
-         real(wp) :: ttime = 0.0_wp
-         character(len=*), parameter :: label(*) = [character(len=20):: &
-         & "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
-         do it = 1, size(label)
-            stime = self%timer%get(label(it))
-            ttime = ttime + stime
-            if (stime <= epsilon(0.0_wp)) cycle
-            write(*,*) " - "//label(it)//format_time(stime)
-         end do
-         write(*,*) "___________________________________"             
-         write(*,*) "   "//"Total: "//format_time(ttime)
-      end block
+      !block
+         !integer :: it
+         !real(wp) :: stime
+         !real(wp) :: ttime = 0.0_wp
+         !character(len=*), parameter :: label(*) = [character(len=20):: &
+         !& "Setup LAPACK", "Setup TC", "Purification", "TransformD", "Diagonalize", "Delete"]
+         !do it = 1, size(label)
+            !stime = self%timer%get(label(it))
+            !ttime = ttime + stime
+            !if (stime <= epsilon(0.0_wp)) cycle
+            !write(*,*) " - "//label(it)//format_time(stime)
+         !end do
+         !write(*,*) "___________________________________"             
+         !write(*,*) "   "//"Total: "//format_time(ttime)
+      !end block
     end subroutine
 
     subroutine get_density_matrix(self, focc, coeff, pmat)
@@ -291,9 +310,13 @@ module tblite_purification_solver
       real(wp) :: wdensity(:,:,:)
       real(wp), allocatable :: tmp(:)
       integer :: spin
-      do spin = 1, wfn%nspin
-         call GetEnergyWDensityAO(self%solver_ptr, wfn%coeff(:, :, spin), wfn%density(:, :, spin), wdensity(:, :, spin))         
-      end do
+      if (self%purification_success) then
+         do spin = 1, wfn%nspin
+            call GetEnergyWDensityAO(self%solver_ptr, wfn%coeff(:, :, spin), wfn%density(:, :, spin), wdensity(:, :, spin))         
+         end do
+      else
+         call self%lapack_solv%get_energy_w_density_matrix(wfn, wdensity)
+      end if
    end subroutine
 
 

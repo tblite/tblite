@@ -34,6 +34,7 @@ module tblite_scf_solver
       procedure :: delete
       procedure :: get_density_matrix
       procedure :: get_energy_w_density_matrix
+      procedure :: reset
    end type solver_type
 
    abstract interface
@@ -58,6 +59,10 @@ module tblite_scf_solver
 contains
 
 subroutine delete(self)
+   class(solver_type) :: self
+end subroutine
+
+subroutine reset(self)
    class(solver_type) :: self
 end subroutine
 

@@ -397,7 +397,7 @@ subroutine test_g_mb02(error)
       & 5.0312912247987E-03_wp,   1.9370384553649E-02_wp,  -2.2296588485063E-02_wp],&
       & shape(ref))
 
-   ctx%solver = lapack_solver(lapack_algorithm%gvr)
+   ctx%ctxsolver = lapack_solver(lapack_algorithm%gvr)
    call get_structure(mol, "MB16-43", "02")
 
    allocate(gradient(3, mol%nat), sigma(3, 3))

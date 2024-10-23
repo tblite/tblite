@@ -303,35 +303,46 @@ subroutine get_density(wfn, solver, ints, ts, error)
    real(wp), intent(out) :: ts
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-
-   real(wp) :: e_fermi = 0.0_wp, stmp(2)
-   real(wp), allocatable :: focc(:)
    integer :: spin
    ts = 0.0_wp
    select type(solver)
    type is (purification_solver)
-      if (solver%got_transform()) then
+      if (solver%got_transform() .and. solver%purification_success) then
          do spin = 1, size(wfn%coeff, dim=3)
             call solver%purify_dp(wfn%coeff(:, : ,spin), ints%overlap, wfn%density(:, :, spin), sum(wfn%nel), error)
          end do
-      else
-         call solver%solve(wfn%coeff(:, :, 1), ints%overlap, wfn%emo(:, 1), error)
-         if (allocated(error)) return
 
-         allocate(focc(size(wfn%focc, 1)))
-         wfn%focc(:, :) = 0.0_wp
-         do spin = 1, 2
-            call get_fermi_filling(wfn%nel(spin), wfn%kt, wfn%emo(:, 1), &
-               & wfn%homo(spin), focc, e_fermi)
-            call get_electronic_entropy(focc, wfn%kt, stmp(spin))
-            wfn%focc(:, 1) = wfn%focc(:, 1) + focc
-         end do
-         ts = sum(stmp)
-         call solver%get_density_matrix(wfn%focc(:, 1), wfn%coeff(:, :, 1), wfn%density(:, :, 1))
+         if (.not.solver%purification_success) then 
+            write(*,*) "Oops that failed."
+            call get_density_from_coeff(wfn, solver, ints, ts, error)
+         end if
+      else
+         call get_density_from_coeff(wfn, solver, ints, ts, error)
       end if
    class default
+      call get_density_from_coeff(wfn, solver, ints, ts, error)
+   end select
+
+end subroutine get_density
+
+subroutine get_density_from_coeff(wfn, solver, ints, ts, error)
+   !> Tight-binding wavefunction data
+   type(wavefunction_type), intent(inout) :: wfn
+   !> Solver for the general eigenvalue problem
+   class(solver_type), intent(inout) :: solver
+   !> Integral container
+   type(integral_type), intent(in) :: ints
+   !> Electronic entropy
+   real(wp), intent(inout) :: ts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp) :: e_fermi = 0.0_wp, stmp(2)
+   real(wp), allocatable :: focc(:)
+   integer :: spin
    select case(wfn%nspin)
    case default
+     
       call solver%solve(wfn%coeff(:, :, 1), ints%overlap, wfn%emo(:, 1), error)
       if (allocated(error)) return
 
@@ -359,8 +370,7 @@ subroutine get_density(wfn, solver, ints, ts, error)
       end do
       ts = sum(stmp)
    end select
-   end select
-end subroutine get_density
+end subroutine
 
 subroutine get_electronic_entropy(occ, kt, s)
    real(wp), intent(in) :: occ(:)

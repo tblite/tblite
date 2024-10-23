@@ -122,7 +122,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    pconv = 2.e-5_wp*accuracy
 
    call ctx%new_solver(calc%bas%nao)
-
    grad = present(gradient) .and. present(sigma)
 
    allocate(energies(mol%nat), source=0.0_wp)
@@ -282,7 +281,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message(label_total // format_string(sum(energies), real_format) // " Eh")
       call ctx%message("")
    end if
-
    if (grad) then
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
@@ -371,6 +369,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
       call ctx%set_error(error)
    end if
+   call ctx%solver%reset()
+   !call ctx%delete_solver()
 
 end subroutine xtb_singlepoint
 

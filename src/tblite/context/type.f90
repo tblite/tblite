@@ -140,7 +140,9 @@ subroutine new_solver(self, ndim)
    if (.not.allocated(self%ctxsolver)) then
       self%ctxsolver = lapack_solver()
    end if
-   if (.not.allocated(self%solver)) call self%ctxsolver%new(self%solver, ndim)
+   if (.not.allocated(self%solver)) then
+      call self%ctxsolver%new(self%solver, ndim)
+   end if
 end subroutine new_solver
 
 
