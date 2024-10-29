@@ -26,7 +26,7 @@ module tblite_solvation_data
    private
 
    public :: get_vdw_rad_d3, get_vdw_rad_cosmo, get_vdw_rad_bondi
-   public :: solvent_data, get_solvent_data
+   public :: get_solvent_data
 
 
    !> Solvent specific parameters
