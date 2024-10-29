@@ -171,13 +171,13 @@ subroutine run_main(config, error)
          cont = electric_field(config%efield*vatoau)
          call calc%push_back(cont)
       end block
-         if (config%guess == "ceh") then
-            block
-            class(container_type), allocatable :: cont
-            cont = electric_field(config%efield*vatoau)
-            call calc_ceh%push_back(cont)
-            end block
-         end if
+      if (config%guess == "ceh") then
+         block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc_ceh%push_back(cont)
+         end block
+      end if
    end if
 
    select case(config%guess)

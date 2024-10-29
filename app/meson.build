@@ -49,6 +49,91 @@ test('run-help', tblite_exe, args: ['--color', 'auto', 'run', '--help'], suite: 
 test('tagdiff-help', tblite_exe, args: ['tagdiff', '--help'], suite: 'app')
 
 test(
+  'run-double-solv', 
+  tblite_exe, 
+  should_fail:true, 
+  args: [
+    'run', 
+    '--alpb', 
+    'water', 
+    '--cpcm', 
+    '78.36', 
+    files('test'/'water.xyz')
+  ], 
+  suite: 'app'
+)
+
+app_tester = find_program(files('tester.py'))
+
+test(
+  'app-run-gfn2-alpb',
+  app_tester,
+  args: [
+    tblite_exe,
+    'run',
+    files('test'/'01-gfn2-alpb-energy.json'),
+    '--method', 'gfn2',
+    '--alpb', 'water', 
+    files('test'/'water.xyz'),
+  ],
+)
+
+test(
+  'app-run-gfn1-gbsa',
+  app_tester,
+  args: [
+    tblite_exe,
+    'run',
+    files('test'/'02-gfn1-gbsa-gradient.json'),
+    '--method', 'gfn1',
+    '--gbsa', 'toluene', 'bar1mol',
+    '--grad', 
+    files('test'/'water.xyz'),
+  ],
+)
+
+test(
+  'app-run-sp-gfn2-cpcm',
+  app_tester,
+  args: [
+    tblite_exe,
+    'run',
+    files('test'/'03-sp-gfn2-cpcm-energy.json'),
+    '--spin', '1',
+    '--method', 'gfn2',
+    '--spin-polarized', 
+    '--cpcm', '78.36',
+    files('test'/'mb33.xyz'),
+  ],
+)
+
+test(
+  'app-run-gfn2-periodic',
+  app_tester,
+  args: [
+    tblite_exe,
+    'run',
+    files('test'/'04-gfn2-gradient.json'),
+    '--method', 'gfn2',
+    '--grad', 
+    files('test'/'ammonia.tmol'),
+  ],
+)
+
+test(
+  'app-guess-ceh',
+  app_tester,
+  args: [
+    tblite_exe,
+    'guess',
+    files('test'/'05-ceh-charges.json'),
+    '--method', 'ceh', 
+    '--spin', '1', 
+    files('test'/'mb33.xyz'),
+  ],
+)
+
+test(
   'tagdiff-example',
   tblite_exe,
   args: [
@@ -83,7 +168,52 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
   )
 endforeach
 
-test('post-processing-str', tblite_exe, args: ['run', '--post-processing', 'molmom', files('test'/'input.xyz')], suite: 'app')
-test('post-processing-toml', tblite_exe, args: ['run', '--post-processing', files('test'/'molmom.toml'), '-v',files('test'/'input.xyz')], suite: 'app')
-test('post-processing-param', tblite_exe, args: ['run', '--param', files('test'/'gfn2-molmom.toml'), files('test'/'input.xyz')], suite: 'app')
-test('post-processing-other-file', tblite_exe, should_fail:true, args: ['run', '--post-processing', files('test'/'reference.tag'), files('test'/'input.xyz')], suite: 'app')
+test(
+  'post-processing-str', 
+  tblite_exe, 
+  args: [
+    'run', 
+    '--post-processing', 
+    'molmom', 
+    files('test'/'mb33.xyz')
+  ], 
+  suite: 'app',
+)
+
+test(
+  'post-processing-toml', 
+  tblite_exe, 
+  args: [
+    'run', 
+    '--post-processing', 
+    files('test'/'molmom.toml'), 
+    '-v',
+    files('test'/'mb33.xyz')
+  ], 
+  suite: 'app',
+)
+
+test(
+   'post-processing-param', 
+   tblite_exe, 
+   args: [
+      'run', 
+      '--param', 
+      files('test'/'gfn2-molmom.toml'), 
+      files('test'/'mb33.xyz')
+   ], 
+   suite: 'app',
+)
+
+test(
+   'post-processing-other-file', 
+   tblite_exe, 
+   should_fail:true, 
+   args: [
+      'run', 
+      '--post-processing', 
+      files('test'/'reference.tag'), 
+      files('test'/'mb33.xyz')
+   ], 
+   suite: 'app',
+)

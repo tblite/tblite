@@ -32,6 +32,8 @@ Main driver for tight-binding framework.
 *tblite-tagdiff*(1)::
      Auxilary tool to compute differences between data outputs.
 
+*tblite-solvents*(1)::
+     List of all available solvents with parameters.
 
 == Options
 

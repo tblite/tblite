@@ -1,4 +1,4 @@
-type(alpb_parameter),parameter :: gfn1_h2o = alpb_parameter ( &
+type(alpb_parameter),parameter :: gfn1_water = alpb_parameter ( &
     78.50000000_wp, &
      1.58079374_wp, &
      0.07194512_wp, &
@@ -21,7 +21,7 @@ type(alpb_parameter),parameter :: gfn1_h2o = alpb_parameter ( &
        1.16371238_wp,   1.25645400_wp,   1.11614538_wp,   0.60000000_wp,   0.60000000_wp, &
        0.60000000_wp,   0.60000000_wp,   0.60000000_wp,   0.60000000_wp,   0.60000000_wp, &
        0.60000000_wp,   0.60000000_wp,   0.60000000_wp,   0.60000000_wp /) )
-type(alpb_parameter),parameter :: gfn2_h2o = alpb_parameter ( &
+type(alpb_parameter),parameter :: gfn2_water = alpb_parameter ( &
     80.20000000_wp, &
      1.55243817_wp, &
      0.13032636_wp, &

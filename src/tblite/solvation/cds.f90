@@ -195,7 +195,6 @@ subroutine update(self, mol, cache)
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
    endif
 
-
    call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
 
    ptr%tension = self%tension(mol%id)
@@ -223,7 +222,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    type(cds_cache), pointer :: ptr
 
    call view(cache, ptr)
-   
+
    energies(:) = energies + ptr%surface * ptr%tension
 
    if (present(gradient)) then

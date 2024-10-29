@@ -27,11 +27,11 @@ module tblite_solvation
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input
    use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
-   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input
+   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solutionState
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
-   use tblite_data_alpb, only: get_alpb_param
+   use tblite_data_alpb, only: get_alpb_param!, get_alpb_solvents
    use tblite_data_cds, only: get_cds_param
    use tblite_data_shift, only: get_shift_param
    implicit none
@@ -44,7 +44,7 @@ module tblite_solvation
    public :: solvent_data, get_solvent_data
    public :: solvation_input, new_solvation, solvation_type
    public :: new_solvation_cds
-   public :: new_solvation_shift
+   public :: new_solvation_shift, solutionState
 
 contains
 
@@ -64,8 +64,8 @@ subroutine new_solvation(solv, mol, input, error, method)
    type(alpb_input), allocatable :: scratch_input
 
    if (allocated(input%alpb)) then
-      !> xTB like ALPB/GBSA with empirical parameters 
-      if (input%alpb%xtb) then
+      ! ALPB/GBSA with empirical parameters 
+      if (input%alpb%parametrized) then
          if ( .not. present(method)) then
             call fatal_error(error, "Unkown method for ALPB/GBSA parameter selection")
             return
@@ -73,9 +73,13 @@ subroutine new_solvation(solv, mol, input, error, method)
          scratch_input = input%alpb
          scratch_input%method = method
          call get_alpb_param(scratch_input, mol, error)
+         if(allocated(error)) then
+            call fatal_error(error, "No ALPB/GBSA parameters found for the method/solvent")
+            return
+         end if 
          solv = alpb_solvation(mol, scratch_input)
          return
-      !> ALPB/GBSA without empirical parameters
+      ! ALPB/GBSA without empirical parameters
       else
          solv = alpb_solvation(mol, input%alpb)
          return
@@ -109,11 +113,15 @@ subroutine new_solvation_cds(solv, mol, input, error, method)
       scratch_input = input%cds
       scratch_input%method = method
       call get_cds_param(scratch_input, mol, error)
+      if(allocated(error)) then
+         call fatal_error(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
       solv = cds_solvation(mol, scratch_input)
       return
     end if
 
-   call fatal_error(error, "Unknown cds model")
+   call fatal_error(error, "Unknown CDS model")
 end subroutine new_solvation_cds
 
 !> Create new solvation shift from input data
@@ -133,6 +141,10 @@ subroutine new_solvation_shift(solv, input, error, method)
       scratch_input = input%shift
       scratch_input%method = method
       call get_shift_param(scratch_input, error)
+      if(allocated(error)) then
+         call fatal_error(error, "No shift parameters found for the method/solvent")
+         return
+      end if
       solv = shift_solvation(scratch_input)
       return
     end if

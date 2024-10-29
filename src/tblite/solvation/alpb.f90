@@ -74,12 +74,12 @@ module tblite_solvation_alpb
       character(len=:), allocatable :: method
       !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
-      !> xTB like solvation with empirical parameters
-      logical :: xtb = .false.
+      !> Parametrized (xTB-like) solvation with empirical parameters
+      logical :: parametrized = .false.
    end type alpb_input
 
 
-   !> Definition of polarizable continuum model
+   !> Definition of ALPB/GBSA model
    type, public, extends(solvation_type) :: alpb_solvation
       !> Dielectric function
       real(wp) :: keps
@@ -120,9 +120,9 @@ module tblite_solvation_alpb
       real(wp), allocatable :: rad(:)
       !> Derivatives of Born radii w.r.t. cartesian displacements
       real(wp), allocatable :: draddr(:, :, :)
-      !> scratch workspace for gradient construction
+      !> Scratch workspace for gradient construction
       real(wp), allocatable :: scratch(:)
-      !> workspace for atomic charges
+      !> Workspace for atomic charges
       real(wp), allocatable :: qscratch(:)
       !> CM5 charges (only required for GFN1 compatibility)
       real(wp), allocatable :: cm5(:)
@@ -159,10 +159,8 @@ subroutine new_alpb(self, mol, input, error)
    self%alpbet = merge(alpha_alpb / input%dielectric_const, 0.0_wp, input%alpb)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
-   if (input%xtb .and. allocated(input%method))then
-     self%useCM5 = trim(input%method)=='gfn1'
-   else
-     self%useCM5 = .false.
+   if (input%parametrized .and. allocated(input%method)) then
+      self%useCM5 = trim(input%method) == 'gfn1'
    endif
 
    if (allocated(input%rvdw)) then
@@ -636,9 +634,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
          grddbi = brad(j)*bp
          grddbj = brad(i)*bp
          grddb(i) = grddb(i) + grddbi*qq
-         !gradient = gradient + brdr(:, :, i) * grddbi*qq
          grddb(j) = grddb(j) + grddbj*qq
-         !gradient = gradient + brdr(:, :, j) * grddbj*qq
 
       enddo
 
@@ -648,7 +644,6 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
       egb = egb + 0.5_wp*qat(i)*qq*keps
       grddbi = -0.5_wp*keps*qq*bp
       grddb(i) = grddb(i) + grddbi*qat(i)
-      !gradient = gradient + brdr(:, :, i) * grddbi*qat(i)
    enddo
 
    ! contract with the Born radii derivatives

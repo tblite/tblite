@@ -25,7 +25,7 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data
+      & cds_input, shift_input, solvent_data, get_solvent_data, solutionState
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -245,10 +245,10 @@ subroutine get_run_arguments(config, list, start, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: iarg, narg
+   integer :: iarg, narg, sol_state
    logical :: getopts
    character(len=:), allocatable :: arg
-   logical :: alpb
+   logical :: alpb, solvent_not_found
    integer :: kernel
    type(solvent_data) :: solvent
 
@@ -338,18 +338,21 @@ subroutine get_run_arguments(config, list, start, error)
 
       case("--cpcm")
          if (allocated(config%solvation)) then
-            call fatal_error(error, "Cannot use CPCM if ALPB/GBSA is enabled")
+            call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
+
+         ! Check for solvent information
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
             call fatal_error(error, "Missing argument for CPCM")
             exit
          end if
-
+         solvent_not_found = .false.
          solvent = get_solvent_data(arg)
          if (solvent%eps <= 0.0_wp) then
+            solvent_not_found = .true.
             call get_argument_as_real(arg, solvent%eps, error)
          end if
          if (allocated(error)) exit
@@ -360,54 +363,66 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(config%solvation)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
-         end if
-         alpb = arg == "--alpb"
-         iarg = iarg + 1
-         call list%get(iarg, arg)
-         if (.not.allocated(arg)) then
-            call fatal_error(error, "Missing argument for ALPB/GBSA")
-            exit
-         end if
-
-         solvent = get_solvent_data(arg)
-         if (solvent%eps <= 0.0_wp) then
-            call get_argument_as_real(arg, solvent%eps, error)
-         end if
-         if (allocated(error)) exit
-         allocate(config%solvation)
-         config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb)
-
-      case("--alpb-xtb", "--gbsa-xtb")
-         if (allocated(config%solvation)) then
-            call fatal_error(error, "Cannot use multiple solvation models")
-            exit
-         end if
-         if (arg == "--alpb-xtb") then
+         end if 
+         if (arg == "--alpb") then
             alpb = .true.
             kernel = 2
          else 
             alpb = .false.
             kernel = 1
          end if
+
+         ! Check for solvent information
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
-            call fatal_error(error, "Missing argument for xTB ALPB/GBSA")
+            call fatal_error(error, "Missing argument for ALPB/GBSA")
             exit
          end if
-
+         solvent_not_found = .false.
          solvent = get_solvent_data(arg)
          if (solvent%eps <= 0.0_wp) then
-            call fatal_error(error, "Solvent not found! Solvent name required for xTB solvation")
+            solvent_not_found = .true. 
+            call get_argument_as_real(arg, solvent%eps, error)
          end if
          if (allocated(error)) exit
+
+         ! Check for optional solution state 
+         sol_state = solutionState%gsolv
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg == "gsolv") then
+               sol_state = solutionState%gsolv
+            else if (arg == "bar1mol") then
+               sol_state = solutionState%bar1mol
+            else if (arg == "reference") then
+               sol_state = solutionState%reference
+            else
+               iarg = iarg - 1
+            end if
+         end if
+
+         ! Configure the solvation model 
          allocate(config%solvation)
-         config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, alpb=alpb, solvent=solvent%solvent, xtb=.true.)
-         config%solvation%alpb%solvent = solvent%solvent
-         config%solvation%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
-         config%solvation%cds%solvent = solvent%solvent
-         config%solvation%shift = shift_input(alpb=alpb, solvent=solvent%solvent)
-         config%solvation%shift%solvent = solvent%solvent
+         if (solvent_not_found) then
+            ! Setup ALPB/GBSA without parametrization
+            config%solvation%alpb = alpb_input(solvent%eps, alpb=alpb)
+            if (sol_state /= solutionState%gsolv) then 
+               call fatal_error(error, "Solution state shift is only supported for named solvents")
+               exit
+            end if 
+         else 
+            ! Setup ALPB/GBSA with CDS and shift with empirical parameters
+            config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, &
+               & alpb=alpb, solvent=solvent%solvent, parametrized=.true.)
+            config%solvation%alpb%solvent = solvent%solvent
+            config%solvation%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
+            config%solvation%cds%solvent = solvent%solvent
+            config%solvation%shift = shift_input(alpb=alpb, solvent=solvent%solvent, &
+               & state=sol_state)
+            config%solvation%shift%solvent = solvent%solvent
+         end if 
 
       case("--param")
          if (allocated(config%param)) then
@@ -481,10 +496,12 @@ subroutine get_run_arguments(config, list, start, error)
 
       case("--grad")
          config%grad = .true.
+         config%grad_output = "tblite.txt"
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (allocated(arg)) then
-            if (arg(1:1) == "-") then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
                iarg = iarg - 1
                cycle
             end if
@@ -497,7 +514,8 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (allocated(arg)) then
-            if (arg(1:1) == "-") then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
                iarg = iarg - 1
                cycle
             end if

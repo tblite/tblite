@@ -21,7 +21,6 @@
 module tblite_data_cds
    use mctc_env, only : error_type, fatal_error
    use mctc_env, only : wp
-   use mctc_io_symbols, only : to_number
    use tblite_solvation_cds, only: cds_input
    use tblite_solvation_data, only : get_vdw_rad_d3
    use mctc_io, only : structure_type
@@ -31,12 +30,14 @@ module tblite_data_cds
 
    public :: get_cds_param
 
-   logical, parameter :: debug = .false.
-
+   !> Parameters for cavity dispersion solvation term
    type :: cds_parameter
+      !> Probe radius for the SASA
       real(wp) :: rprobe = 0.0_wp
+      !> Surface tension parameter
       real(wp) :: gamscale(94) = 0.0_wp
-      real(wp) :: tmp(94) = 0.0_wp
+      !> H bond solvation contribution 
+      real(wp) :: sqrtGhbond(94) = 0.0_wp
    end type cds_parameter
 
    include 'cds/param_gbsa_acetone.fh'
@@ -45,14 +46,14 @@ module tblite_data_cds
    include 'cds/param_gbsa_ch2cl2.fh'
    include 'cds/param_gbsa_chcl3.fh'
    include 'cds/param_gbsa_cs2.fh'
+   include 'cds/param_gbsa_dmf.fh'
    include 'cds/param_gbsa_dmso.fh'
    include 'cds/param_gbsa_ether.fh'
-   include 'cds/param_gbsa_h2o.fh'
+   include 'cds/param_gbsa_hexane.fh'
    include 'cds/param_gbsa_methanol.fh'
    include 'cds/param_gbsa_thf.fh'
-   include 'cds/param_gbsa_toluene.fh'
-   include 'cds/param_gbsa_dmf.fh'
-   include 'cds/param_gbsa_nhexan.fh'
+   include 'cds/param_gbsa_toluene.fh'   
+   include 'cds/param_gbsa_water.fh'
 
    include 'cds/param_alpb_acetone.fh'
    include 'cds/param_alpb_acetonitrile.fh'
@@ -65,20 +66,20 @@ module tblite_data_cds
    include 'cds/param_alpb_dioxane.fh'
    include 'cds/param_alpb_dmf.fh'
    include 'cds/param_alpb_dmso.fh'
+   include 'cds/param_alpb_ethanol.fh'
    include 'cds/param_alpb_ether.fh'
    include 'cds/param_alpb_ethylacetate.fh'
    include 'cds/param_alpb_furane.fh'
    include 'cds/param_alpb_hexadecane.fh'
    include 'cds/param_alpb_hexane.fh'
    include 'cds/param_alpb_nitromethane.fh'
+   include 'cds/param_alpb_methanol.fh'
    include 'cds/param_alpb_octanol.fh'
    include 'cds/param_alpb_phenol.fh'
    include 'cds/param_alpb_thf.fh'
    include 'cds/param_alpb_toluene.fh'
    include 'cds/param_alpb_water.fh'
    include 'cds/param_alpb_woctanol.fh'
-   include 'cds/param_alpb_methanol.fh'
-   include 'cds/param_alpb_ethanol.fh'
 
 contains
 
@@ -89,10 +90,11 @@ subroutine get_cds_param(input, mol, error)
    type(cds_input), intent(inout) :: input
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> Internal parameter type
-   type(cds_parameter), allocatable :: param
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+
+   !> Internal parameter type
+   type(cds_parameter), allocatable :: param
 
    select case(input%alpb)
    case(.false.)
@@ -105,15 +107,15 @@ subroutine get_cds_param(input, mol, error)
             param = gfn2_ch2cl2
          case('chcl3','chloroform');       param = gfn2_chcl3
          case('cs2','carbondisulfide');    param = gfn2_cs2
+         case('dmf','dimethylformamide');  param = gfn2_dmf
          case('dmso','dimethylsulfoxide'); param = gfn2_dmso
          case('ether','diethylether');     param = gfn2_ether
-         case('h2o','water');              param = gfn2_h2o
+         case('hexane','nhexan','n-hexan','nhexane','n-hexane');
+            param = gfn2_hexane
          case('methanol');                 param = gfn2_methanol
          case('thf','tetrahydrofuran');    param = gfn2_thf
          case('toluene');                  param = gfn2_toluene
-         case('dmf','dimethylformamide');  param = gfn2_dmf
-         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
-            param = gfn2_nhexan
+         case('water','h2o');              param = gfn2_water
          end select
       else if (input%method == 'gfn1') then
          select case(input%solvent)
@@ -126,10 +128,10 @@ subroutine get_cds_param(input, mol, error)
          case('cs2','carbondisulfide');    param = gfn1_cs2
          case('dmso','dimethylsulfoxide'); param = gfn1_dmso
          case('ether','diethylether');     param = gfn1_ether
-         case('h2o','water');              param = gfn1_h2o
          case('methanol');                 param = gfn1_methanol
          case('thf','tetrahydrofuran');    param = gfn1_thf
          case('toluene');                  param = gfn1_toluene
+         case('water','h2o');              param = gfn1_water
          end select
       end if
    case(.true.)
@@ -140,28 +142,28 @@ subroutine get_cds_param(input, mol, error)
          case('aniline');      param = gfn2_alpb_aniline
          case('benzaldehyde'); param = gfn2_alpb_benzaldehyde
          case('benzene');      param = gfn2_alpb_benzene
-         case('dioxane');      param = gfn2_alpb_dioxane
-         case('ethylacetate'); param = gfn2_alpb_ethylacetate
-         case('furane');       param = gfn2_alpb_furane
-         case('hexadecane');   param = gfn2_alpb_hexadecane
-         case('nitromethane'); param = gfn2_alpb_nitromethane
-         case('octanol');      param = gfn2_alpb_octanol
-         case('woctanol');     param = gfn2_alpb_woctanol
-         case('phenol');       param = gfn2_alpb_phenol 
          case('ch2cl2','dichlormethane','methylenechloride'); 
             param = gfn2_alpb_ch2cl2
          case('chcl3','chloroform');       param = gfn2_alpb_chcl3
          case('cs2','carbondisulfide');    param = gfn2_alpb_cs2
-         case('dmso','dimethylsulfoxide'); param = gfn2_alpb_dmso
-         case('ether','diethylether');     param = gfn2_alpb_ether
-         case('h2o','water');              param = gfn2_alpb_water
-         case('methanol');                 param = gfn2_alpb_methanol 
-         case('thf','tetrahydrofuran');    param = gfn2_alpb_thf
-         case('toluene');                  param = gfn2_alpb_toluene
+         case('dioxane');      param = gfn2_alpb_dioxane
          case('dmf','dimethylformamide');  param = gfn2_alpb_dmf
-         case('ethanol');                  param = gfn2_alpb_ethanol
-         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
+         case('dmso','dimethylsulfoxide'); param = gfn2_alpb_dmso
+         case('ethanol');      param = gfn2_alpb_ethanol
+         case('ether','diethylether');     param = gfn2_alpb_ether
+         case('ethylacetate'); param = gfn2_alpb_ethylacetate
+         case('furane');       param = gfn2_alpb_furane
+         case('hexadecane');   param = gfn2_alpb_hexadecane
+         case('hexane','nhexan','n-hexan','nhexane','n-hexane');
             param = gfn2_alpb_hexane
+         case('nitromethane'); param = gfn2_alpb_nitromethane
+         case('methanol');     param = gfn2_alpb_methanol 
+         case('octanol');      param = gfn2_alpb_octanol
+         case('phenol');       param = gfn2_alpb_phenol 
+         case('thf','tetrahydrofuran');    param = gfn2_alpb_thf
+         case('toluene');      param = gfn2_alpb_toluene
+         case('water','h2o');  param = gfn2_alpb_water
+         case('woctanol');     param = gfn2_alpb_woctanol
          end select
       else if (input%method == 'gfn1') then
          select case(input%solvent)
@@ -170,34 +172,35 @@ subroutine get_cds_param(input, mol, error)
          case('aniline');      param = gfn1_alpb_aniline
          case('benzaldehyde'); param = gfn1_alpb_benzaldehyde
          case('benzene');      param = gfn1_alpb_benzene
-         case('dioxane');      param = gfn1_alpb_dioxane
-         case('ethylacetate'); param = gfn1_alpb_ethylacetate
-         case('furane');       param = gfn1_alpb_furane
-         case('hexadecane');   param = gfn1_alpb_hexadecane
-         case('nitromethane'); param = gfn1_alpb_nitromethane
-         case('octanol');      param = gfn1_alpb_octanol
-         case('woctanol');     param = gfn1_alpb_woctanol
-         case('phenol');       param = gfn1_alpb_phenol 
          case('ch2cl2','dichlormethane','methylenechloride');
             param = gfn1_alpb_ch2cl2
          case('chcl3','chloroform');       param = gfn1_alpb_chcl3
          case('cs2','carbondisulfide');    param = gfn1_alpb_cs2
-         case('dmso','dimethylsulfoxide'); param = gfn1_alpb_dmso
-         case('ether','diethylether');     param = gfn1_alpb_ether
-         case('h2o','water');              param = gfn1_alpb_water
-         case('methanol');                 param = gfn1_alpb_methanol
-         case('ethanol');                  param = gfn1_alpb_ethanol
-         case('thf','tetrahydrofuran');    param = gfn1_alpb_thf
-         case('toluene');                  param = gfn1_alpb_toluene
+         case('dioxane');      param = gfn1_alpb_dioxane
          case('dmf','dimethylformamide');  param = gfn1_alpb_dmf
-         case('nhexan','n-hexan','nhexane','n-hexane','hexane');
+         case('dmso','dimethylsulfoxide'); param = gfn1_alpb_dmso
+         case('ethanol');      param = gfn1_alpb_ethanol
+         case('ether','diethylether');     param = gfn1_alpb_ether
+         case('ethylacetate'); param = gfn1_alpb_ethylacetate
+         case('furane');       param = gfn1_alpb_furane
+         case('hexadecane');   param = gfn1_alpb_hexadecane
+         case('hexane','nhexan','n-hexan','nhexane','n-hexane');
             param = gfn1_alpb_hexane
+         case('nitromethane'); param = gfn1_alpb_nitromethane
+         case('methanol');     param = gfn1_alpb_methanol
+         case('octanol');      param = gfn1_alpb_octanol
+         case('phenol');       param = gfn1_alpb_phenol 
+         case('thf','tetrahydrofuran');    param = gfn1_alpb_thf
+         case('toluene');      param = gfn1_alpb_toluene         
+         case('water','h2o');  param = gfn1_alpb_water
+         case('woctanol');     param = gfn1_alpb_woctanol
          end select
       end if
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent, cannot set up xTB ALPB/GBSA")
+      call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA CDS")
+      return
    end if
  
    call load_cds_param(input, mol, param)
@@ -212,7 +215,6 @@ subroutine load_cds_param(input, mol, param)
    !> Internal Parameter type
    type(cds_parameter), intent(in) :: param
 
-
    if (.not. allocated(input%tension)) then
       allocate(input%tension(mol%nid))
    end if
@@ -221,14 +223,11 @@ subroutine load_cds_param(input, mol, param)
       allocate(input%hbond(mol%nid))
    end if
 
-   !> set probe radius
    input%probe = param%rprobe * aatoau
 
-   !> set tension parameter
    input%tension = param%gamscale(mol%num) * 1.0e-5_wp 
 
-   !> set hbond parameter
-   input%hbond =  -kcaltoau * param%tmp(mol%num)**2 
+   input%hbond =  -kcaltoau * param%sqrtGhbond(mol%num)**2 
 
    input%rad = get_vdw_rad_d3(mol%num)
    

@@ -18,88 +18,79 @@
 !> Provides solvent and state specific shifts to the free energy.
 
 module tblite_solvation_shift
-    use mctc_env, only : wp, error_type, fatal_error
-    use mctc_io, only : structure_type
-    use tblite_container_cache, only : container_cache
-    use tblite_scf_potential, only : potential_type
-    use tblite_wavefunction_type, only : wavefunction_type
-    use tblite_solvation_type, only : solvation_type
-    implicit none
-    private
+   use mctc_env, only : wp, error_type, fatal_error
+   use mctc_io, only : structure_type
+   use tblite_container_cache, only : container_cache
+   use tblite_scf_potential, only : potential_type
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_solvation_type, only : solvation_type
+   use mctc_io_codata2018, only : molar_gas_constant, atomic_unit_of_energy
+   use mctc_io_constants, only : codata
+   use mctc_io_convert, only : kjtoau
+   implicit none
+   private
  
-    public :: shift_solvation, new_shift, shift_input
+   public :: shift_solvation, new_shift, shift_input, solutionState
 
-    type :: shift_input
-        !> reference state
-        integer :: state = 1
-        !> solvent specific free energy shift
-        real(wp) :: gshift = 0.0_wp
-        !> molar mass of solvent
-        real(wp), allocatable :: molar_mass 
-        !> density of solvent
-        real(wp), allocatable :: rho
-        !> temperature in Kelvin
-        real(wp) :: temperature = 298.15_wp
-        !> Linearized Poisson-Boltzmann model for parameter selection
-        logical :: alpb = .true.
-        !> Method for parameter selection
-        character(len=:), allocatable :: method
-        !> Solvent for parameter selection
+   type :: shift_input
+      !> Reference state
+      integer :: state = 1
+      !> Solvent specific free energy shift
+      real(wp) :: gshift = 0.0_wp
+      !> Molar mass of solvent
+      real(wp), allocatable :: molar_mass 
+      !> Density of solvent
+      real(wp), allocatable :: rho
+      !> Temperature in Kelvin
+      real(wp) :: temperature = 298.15_wp
+      !> Linearized Poisson-Boltzmann model for parameter selection
+      logical :: alpb = .true.
+      !> Method for parameter selection
+      character(len=:), allocatable :: method
+      !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
-    end type shift_input
+   end type shift_input
 
-    !> Possible reference states for the solution
-    type :: TSolutionStateEnum
+   !> Possible reference states for the solution
+   type :: TSolutionStateEnum
+      !> 1 l of ideal gas in 1 l of liquid solution
+      integer :: gsolv = 1
+      !> 1 bar of ideal gas and 1 mol/L of liquid solution
+      integer :: bar1mol = 2
+      !> 1 bar of ideal gas to 1 mol/L of liquid solution at infinite dilution
+      integer :: reference = 3
+   end type TSolutionStateEnum
 
-       !> 1 l of ideal gas and 1 l of liquid solution
-       integer :: gsolv = 1
+   !> Actual solvation state enumerator
+   type(TSolutionStateEnum), parameter :: solutionState = TSolutionStateEnum()
 
-       !> 1 bar of ideal gas and 1 mol/L of liquid solution at infinite dilution
-       integer :: reference = 2
+   real(wp), parameter :: refDensity = 1.0e-3_wp         ! kg__au/(1.0e10_wp*AA__Bohr)**3
+   real(wp), parameter :: refPressure = 1.0e2_wp         ! kPa__au
+   real(wp), parameter :: refMolecularMass = 1.0_wp      ! amu__au
+   real(wp), parameter :: ambientTemperature = 298.15_wp 
 
-       !> 1 bar of ideal gas and 1 mol/L of liquid solution
-       integer :: mol1bar = 3
+   type, extends(solvation_type) :: shift_solvation
+      !> total shift
+      real(wp) :: total_shift 
+      contains   
+      !> Update cache from container
+      procedure :: update
+      !> Get shift energy
+      procedure :: get_engrad
+   end type shift_solvation
 
-    end type TSolutionStateEnum
+   !> Provide constructor for shift
+   interface shift_solvation
+      module procedure :: create_shift
+   end interface shift_solvation
 
-    !> Actual solvation state enumerator
-    type(TSolutionStateEnum), parameter :: solutionState = TSolutionStateEnum()
+   type :: shift_cache
+      !> Total free energy shift
+      real(wp) :: total_shift
+   end type shift_cache
 
-    real(wp), parameter :: refDensity = 1.0e-3_wp ! kg__au/(1.0e10_wp*AA__Bohr)**3
-    real(wp), parameter :: refMolecularMass = 1.0_wp ! amu__au
-    real(wp), parameter :: idealGasMolVolume = 24.79_wp
-    real(wp), parameter :: ambientTemperature = 298.15_wp ! * Boltzman
-
-    type, extends(solvation_type) :: shift_solvation
-       !> total shift
-       real(wp) :: total_shift 
-       contains   
-       !> Update cache from container
-       procedure :: update
-       !> Return dependency on density
-       !>procedure :: variable_info
-       !> Get shift energy
-       procedure :: get_engrad
-       !> Get solvation energy
-       procedure :: get_energy
-       !> Get solvation potential
-       procedure :: get_potential
-       !> Get solvation gradient
-       procedure :: get_gradient
-    end type shift_solvation
-
-    !> Provide constructor for shift
-    interface shift_solvation
-        module procedure :: create_shift
-    end interface shift_solvation
-
-    type :: shift_cache
-         !> Total free energy shift
-         real(wp) :: total_shift
-    end type shift_cache
-
-    !> Identifier for container 
-    character(len=*), parameter :: label = "free energy shift for state and solvent"
+   !> Identifier for container 
+   character(len=*), parameter :: label = "empirical free energy shift and standard state/solvent correction"
 
 contains
 
@@ -164,96 +155,35 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    energies(:) = energies + ptr%total_shift/real(mol%nat)
 end subroutine get_engrad
 
-!> Get solvation energy
-subroutine get_energy(self, mol, cache, wfn, energies)
-   !> Instance of the solvation model
-   class(shift_solvation), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(container_cache), intent(inout) :: cache
-   !> Wavefunction data
-   type(wavefunction_type), intent(in) :: wfn
-   !> Solvation free energy
-   real(wp), intent(inout) :: energies(:)
-
-   type(shift_cache), pointer :: ptr
-
-   call view(cache, ptr)
-
-end subroutine get_energy
-
-!> Get shift potential
-subroutine get_potential(self, mol, cache, wfn, pot)
-   !> Instance of the solvation model
-   class(shift_solvation), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(container_cache), intent(inout) :: cache
-   !> Wavefunction data
-   type(wavefunction_type), intent(in) :: wfn
-   !> Density dependent potential
-   type(potential_type), intent(inout) :: pot
-
-   type(shift_cache), pointer :: ptr
-
-   call view(cache, ptr)
-
-end subroutine get_potential
-
-!> Get shift gradient
-subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
-   !> Instance of the solvation model
-   class(shift_solvation), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(container_cache), intent(inout) :: cache
-   !> Wavefunction data
-   type(wavefunction_type), intent(in) :: wfn
-   !> Molecular gradient of the solvation free energy
-   real(wp), contiguous, intent(inout) :: gradient(:, :)
-   !> Strain derivatives of the solvation free energy
-   real(wp), contiguous, intent(inout) :: sigma(:, :)
-
-   type(shift_cache), pointer :: ptr
-
-   call view(cache, ptr)
-
-end subroutine get_gradient
-
+!> Calculate the solvation state shift
 function get_stateshift(state, temperature, density, molecularMass) &
    & result(stateshift)
-
    !> Reference state
    integer, intent(in) :: state
-
    !> Temperature of the solution
    real(wp), intent(in) :: temperature
-
    !> Mass density of the solvent
    real(wp), intent(in) :: density
-
    !> Molecular mass of the solvent
    real(wp), intent(in) :: molecularMass
-
    !> Resulting shift to the solvation free energy
    real(wp) :: stateshift
 
-   !  Boltzmann constant in Eh/K
-   real(wp),parameter :: boltzmann = 3.166808578545117e-06_wp
+   ! Boltzmann constant in au/K
+   real(wp) :: boltzmann = codata%kb / atomic_unit_of_energy
+   ! Ideal gas molar volume in m^3/mol 
+   real(wp) :: idealGasMolVolume = molar_gas_constant * ambientTemperature / refPressure
 
    select case(state)
    case default
       stateshift = 0.0_wp
+   case(solutionState%bar1mol)
+      stateshift = temperature * boltzmann &
+         & * log(idealGasMolVolume * temperature / ambientTemperature)
    case(solutionState%reference)
       stateshift = temperature * boltzmann &
          & * (log(idealGasMolVolume * temperature / ambientTemperature) &
          & + log(density/refDensity * refMolecularMass/molecularMass))
-   case(solutionState%mol1bar)
-      stateshift = temperature * boltzmann &
-         & * log(idealGasMolVolume * temperature / ambientTemperature)
    end select
 
 end function get_stateshift

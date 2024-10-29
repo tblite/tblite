@@ -26,7 +26,7 @@ module tblite_solvation_data
    private
 
    public :: get_vdw_rad_d3, get_vdw_rad_cosmo, get_vdw_rad_bondi
-   public :: get_solvent_data
+   public :: solvent_data, get_solvent_data
 
 
    !> Solvent specific parameters
@@ -259,7 +259,7 @@ pure function get_solvent_data(solvent) result(data)
       data = solvent_data(6.8882_wp, 1.5863_wp, 0.26_wp, 0.41_wp, 60.62_wp, 0.734449_wp, 0.0_wp, "aniline")
    case("anisole")
       data = solvent_data(4.2247_wp, 1.5174_wp, 0.0_wp, 0.29_wp, 50.52_wp, 0.5625_wp, 0.0_wp, "anisole")
-   case("benzaldehyde") !> no Minnisota database entry
+   case("benzaldehyde") ! no Minnisota database entry
       data = solvent_data(17.85_wp,1.5456_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, "benzaldehyde")
    case("benzene")
       data = solvent_data(2.2706_wp, 1.5011_wp, 0.0_wp, 0.14_wp, 40.62_wp, 1_wp, 0.0_wp, "benzene")
@@ -321,7 +321,7 @@ pure function get_solvent_data(solvent) result(data)
       data = solvent_data(7.1735_wp, 1.4953_wp, 0.0_wp, 0.63_wp, 44.64_wp, 0.390625_wp, 0.0_wp, "dimethylpyridine")
    case("dimethylsulfoxide","dmso")
       data = solvent_data(46.826_wp, 1.417_wp, 0.0_wp, 0.88_wp, 61.78_wp, 0.0_wp, 0.0_wp, "dimethylsulfoxide")
-   case("dioxane") !> no Minnisota database entry
+   case("dioxane") ! no Minnisota database entry
       data = solvent_data(2.2099_wp, 1.4224_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, "dioxane")
    case("dodecane")
       data = solvent_data(2.006_wp, 1.4216_wp, 0.0_wp, 0.0_wp, 35.85_wp, 0.0_wp, 0.0_wp, "dodecane")
@@ -337,7 +337,7 @@ pure function get_solvent_data(solvent) result(data)
       data = solvent_data(5.42_wp, 1.4684_wp, 0.0_wp, 0.1_wp, 38.37_wp, 0.734449_wp, 0.020449_wp, "fluorobenzene")
    case("fluoroctane")
       data = solvent_data(3.89_wp, 1.3935_wp, 0.0_wp, 0.1_wp, 33.92_wp, 0.0_wp, 0.012321_wp, "fluoroctane")
-   case("furan","furane") !> no Minnisota database entry
+   case("furan","furane") ! no Minnisota database entry
       data = solvent_data(2.953_wp, 1.4214_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, "furane")
    case("heptane")
       data = solvent_data(1.9113_wp, 1.3878_wp, 0.0_wp, 0.0_wp, 28.28_wp, 0.0_wp, 0.0_wp, "heptane")
@@ -399,7 +399,7 @@ pure function get_solvent_data(solvent) result(data)
       data = solvent_data(15.13_wp, 1.4101_wp, 0.37_wp, 0.48_wp, 36.5_wp, 0.0_wp, 0.0_wp, "pentanol")
    case("perfluorobenzene")
       data = solvent_data(2.029_wp, 1.3777_wp, 0.0_wp, 0.0_wp, 31.74_wp, 0.25_wp, 0.25_wp, "perfluorobenzene")
-   case("phenol") !> no Minnisota database entry
+   case("phenol") ! no Minnisota database entry
       data = solvent_data(12.4_wp, 1.5408_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, "phenol")
    case("phenylether")
       data = solvent_data(3.73_wp, 1.5787_wp, 0.0_wp, 0.2_wp, 38.5_wp, 0.851929_wp, 0.0_wp, "phenylether")
@@ -433,7 +433,7 @@ pure function get_solvent_data(solvent) result(data)
       data = solvent_data(1.991_wp, 1.4398_wp, 0.0_wp, 0.0_wp, 34.85_wp, 0.0_wp, 0.0_wp, "undecane")
    case("water","h2o")
       data = solvent_data(78.36_wp, 1.3328_wp, 0.82_wp, 0.35_wp, 103.62_wp, 0.0_wp, 0.0_wp, "water")
-  case("woctanol") !> no Minnisota database entry
+   case("woctanol") ! no Minnisota database entry
       data = solvent_data(9.8629_wp, 1.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, "woctanol")
    case("xylene")
       data = solvent_data(2.3879_wp, 1.4995_wp, 0.0_wp, 0.16_wp, 41.38_wp, 0.5625_wp, 0.0_wp, "xylene")

@@ -63,7 +63,7 @@ This library depends on several Fortran modules to provide the desired functiona
 - `toml-f`_: Library for processing and emitting TOML data
 
 .. _dftd4: https://github.com/dftd4/dftd4
-.. _s-dftd3: https://github.com/awvwgk/simple-dftd3
+.. _s-dftd3: https://github.com/dftd3/simple-dftd3
 .. _multicharge: https://github.com/grimme-lab/multicharge
 .. _mctc-lib: https://github.com/grimme-lab/mctc-lib
 .. _mstore: https://github.com/grimme-lab/mstore

@@ -1,4 +1,4 @@
-type(alpb_parameter),parameter :: gfn2_nhexan = alpb_parameter ( &
+type(alpb_parameter),parameter :: gfn2_hexane = alpb_parameter ( &
      1.88000000_wp, &
      1.35049002_wp, &
      0.00000000_wp, &
