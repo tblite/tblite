@@ -69,7 +69,8 @@ subroutine collect_solvation_born(testsuite)
       new_unittest("potential-p16", test_p_p16), &
       new_unittest("potential-alpb", test_p_alpb), &
       new_unittest("potential-still", test_p_still), &
-      new_unittest("potential-gbsa", test_p_gbsa) &
+      new_unittest("potential-gbsa", test_p_gbsa), &
+      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.) &
       ]
 
 end subroutine collect_solvation_born
@@ -443,7 +444,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
    ! Check GFN1/ALPB for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+      input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
          & method='gfn1', parametrized=.true., alpb=.true.)
       input%solvent = solvent%solvent
       call get_alpb_param(input, mol, error)
@@ -491,7 +492,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
    ! Check GFN2/ALPB for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+      input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
          & method='gfn2', parametrized=.true., alpb=.true.)
       input%solvent = solvent%solvent
       call get_alpb_param(input, mol, error)
@@ -553,7 +554,7 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    ! Check GFN1/GBSA for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+      input = alpb_input(solvent%eps, kernel=born_kernel%still, &
          & method='gfn1', parametrized=.true., alpb=.false.)
       input%solvent = solvent%solvent
       call get_alpb_param(input, mol, error)
@@ -595,7 +596,7 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
    ! Check GFN2/GBSA for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+      input = alpb_input(solvent%eps, kernel=born_kernel%still, &
          & method='gfn2', parametrized=.true., alpb=.false.)
       input%solvent = solvent%solvent
       call get_alpb_param(input, mol, error)
@@ -675,7 +676,7 @@ subroutine test_e_charged_alpb_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
       & method='gfn1', parametrized=.true., alpb=.true.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -717,7 +718,7 @@ subroutine test_e_charged_alpb_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
       & method='gfn2', parametrized=.true., alpb=.true.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -796,7 +797,7 @@ subroutine test_e_charged_gbsa_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%still, &
       & method='gfn1', parametrized=.true., alpb=.false.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -838,7 +839,7 @@ subroutine test_e_charged_gbsa_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%still, &
       & method='gfn2', parametrized=.true., alpb=.false.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -890,7 +891,7 @@ subroutine test_g_alpb(error)
 
    call get_structure(mol, "MB16-43", "06")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
       & method='gfn2', parametrized=.true., alpb=.true.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -941,7 +942,7 @@ subroutine test_g_gbsa(error)
 
    call get_structure(mol, "MB16-43", "07")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%still, &
       & method='gfn2', parametrized=.true., alpb=.false.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -993,7 +994,7 @@ subroutine test_p_alpb(error)
 
    call get_structure(mol, "MB16-43", "08")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%p16, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%p16, &
       & method='gfn2', parametrized=.true., alpb=.true.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -1044,7 +1045,7 @@ subroutine test_p_gbsa(error)
 
    call get_structure(mol, "MB16-43", "09")
    solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=born_kernel%still, &
+   input = alpb_input(solvent%eps, kernel=born_kernel%still, &
       & method='gfn2', parametrized=.true., alpb=.false.)
    input%solvent = solvent%solvent
    call get_alpb_param(input, mol, error)
@@ -1053,5 +1054,34 @@ subroutine test_p_gbsa(error)
    if (allocated(error)) return
 
 end subroutine test_p_gbsa
+
+
+subroutine test_unsupported_solvent(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   real(wp), parameter :: qat(*) = [&
+      &-8.99890404486076E-2_wp, 9.42168087556583E-2_wp,-1.49387631509499E-1_wp, &
+      &-2.99114121895542E-1_wp, 4.85527734875224E-1_wp,-6.83156326406137E-2_wp, &
+      & 1.50011293889337E-2_wp, 2.79368544459465E-1_wp,-1.24072452878322E-1_wp, &
+      &-9.36760994051244E-2_wp,-2.19062123031622E-1_wp, 2.14538817685587E-1_wp, &
+      & 3.06156726072831E-1_wp,-3.86105514712244E-1_wp,-1.51265171389388E-3_wp, &
+      & 3.64255069977693E-2_wp]
+   type(alpb_input) :: input
+
+   call get_structure(mol, "MB16-43", "04")
+
+   ! Check GFN1/GBSA unavailable solvent
+   solvent = get_solvent_data("aniline")
+   input = alpb_input(solvent%eps, kernel=born_kernel%still, &
+      & method='gfn1', parametrized=.true., alpb=.false.)
+   input%solvent = solvent%solvent
+   call get_alpb_param(input, mol, error)
+
+end subroutine test_unsupported_solvent
+
 
 end module test_solvation_born

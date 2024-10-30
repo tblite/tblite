@@ -55,7 +55,8 @@ subroutine collect_solvation_cds(testsuite)
       new_unittest("energy-charged-gbsa-gfn2", test_e_charged_gbsa_gfn2), &
       new_unittest("gradient-scf", test_g_cds), &
       new_unittest("gradient-nonscf", test_g_cds_nonscf), &
-      new_unittest("potential", test_p_cds) &
+      new_unittest("potential", test_p_cds), &
+      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.) &
       ]
 
 end subroutine collect_solvation_cds
@@ -334,7 +335,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
    ! Check GFN1/ALPB for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(solvent=solvent%solvent, method='gfn1', alpb=.true.)
+      input = cds_input(method='gfn1', alpb=.true.)
       input%solvent = solvent%solvent
       call get_cds_param(input, mol, error)
       call test_e(error, mol, input, qat, refs(i)) 
@@ -381,7 +382,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
    ! Check GFN2/ALPB for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.true.)
+      input = cds_input(method='gfn2', alpb=.true.)
       input%solvent = solvent%solvent
       call get_cds_param(input, mol, error)
       call test_e(error, mol, input, qat, refs(i)) 
@@ -420,7 +421,7 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    ! Check GFN1/GBSA for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(solvent=solvent%solvent, method='gfn1', alpb=.false.)
+      input = cds_input(method='gfn1', alpb=.false.)
       input%solvent = solvent%solvent
       call get_cds_param(input, mol, error)
       call test_e(error, mol, input, qat, refs(i)) 
@@ -461,7 +462,7 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
    ! Check GFN2/GBSA for all available solvents
    do i=1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.false.)
+      input = cds_input(method='gfn2', alpb=.false.)
       input%solvent = solvent%solvent
       call get_cds_param(input, mol, error)
       call test_e(error, mol, input, qat, refs(i)) 
@@ -502,7 +503,7 @@ subroutine test_e_charged_alpb_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn1', alpb=.true.)
+   input = cds_input(method='gfn1', alpb=.true.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return  
@@ -543,7 +544,7 @@ subroutine test_e_charged_alpb_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.true.)
+   input = cds_input(method='gfn2', alpb=.true.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return  
@@ -584,7 +585,7 @@ subroutine test_e_charged_gbsa_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn1', alpb=.false.)
+   input = cds_input(method='gfn1', alpb=.false.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return  
@@ -625,7 +626,7 @@ subroutine test_e_charged_gbsa_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.false.)
+   input = cds_input(method='gfn2', alpb=.false.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return  
@@ -653,7 +654,7 @@ subroutine test_g_cds(error)
 
    call get_structure(mol, "MB16-43", "06")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.true.)
+   input = cds_input(method='gfn2', alpb=.true.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return 
@@ -681,7 +682,7 @@ subroutine test_g_cds_nonscf(error)
 
    call get_structure(mol, "MB16-43", "07")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.true.)
+   input = cds_input(method='gfn2', alpb=.true.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return 
@@ -709,7 +710,7 @@ subroutine test_p_cds(error)
 
    call get_structure(mol, "MB16-43", "08")
    solvent = get_solvent_data("water")
-   input = cds_input(solvent=solvent%solvent, method='gfn2', alpb=.true.)
+   input = cds_input(method='gfn2', alpb=.true.)
    input%solvent = solvent%solvent
    call get_cds_param(input, mol, error)
    if(allocated(error)) return 
@@ -717,6 +718,34 @@ subroutine test_p_cds(error)
    if(allocated(error)) return
 
 end subroutine test_p_cds
+
+
+subroutine test_unsupported_solvent(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   real(wp), parameter :: qat(*) = [&
+      &-8.99890404486076E-2_wp, 9.42168087556583E-2_wp,-1.49387631509499E-1_wp, &
+      &-2.99114121895542E-1_wp, 4.85527734875224E-1_wp,-6.83156326406137E-2_wp, &
+      & 1.50011293889337E-2_wp, 2.79368544459465E-1_wp,-1.24072452878322E-1_wp, &
+      &-9.36760994051244E-2_wp,-2.19062123031622E-1_wp, 2.14538817685587E-1_wp, &
+      & 3.06156726072831E-1_wp,-3.86105514712244E-1_wp,-1.51265171389388E-3_wp, &
+      & 3.64255069977693E-2_wp]
+   type(cds_input) :: input
+
+   call get_structure(mol, "MB16-43", "04")
+
+   ! Check GFN1/GBSA unavailable solvent
+   solvent = get_solvent_data("aniline")
+   input = cds_input(method='gfn1', alpb=.false.)
+   input%solvent = solvent%solvent
+   call get_cds_param(input, mol, error)
+   if(allocated(error)) return 
+
+end subroutine test_unsupported_solvent
 
 
 end module test_solvation_cds

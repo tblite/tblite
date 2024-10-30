@@ -203,7 +203,7 @@ subroutine get_alpb_param(input, mol, error)
       call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA parameters")
       return
    end if
- 
+
    call load_alpb_param(input, mol, param)
 
 end subroutine get_alpb_param

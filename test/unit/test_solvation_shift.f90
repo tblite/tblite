@@ -48,7 +48,8 @@ subroutine collect_solvation_shift(testsuite)
       new_unittest("solvation-shift-alpb-gfn1", test_e_alpb_gfn1_all_solvents), &
       new_unittest("solvation-shift-alpb-gfn2", test_e_alpb_gfn2_all_solvents), &
       new_unittest("solvation-shift-gbsa-gfn1", test_e_gbsa_gfn1_all_solvents), &
-      new_unittest("solvation-shift-gbsa-gfn2", test_e_gbsa_gfn2_all_solvents) &
+      new_unittest("solvation-shift-gbsa-gfn2", test_e_gbsa_gfn2_all_solvents), &
+      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.) &
       ]
 
 end subroutine collect_solvation_shift
@@ -131,16 +132,13 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
    do i=1, nsolvents
       ! bar1mol state
       solvent = get_solvent_data(solvents(i))
-      input = shift_input(state=solutionState%bar1mol, &
-         & solvent=solvent%solvent, method='gfn1', alpb=.true.)
+      input = shift_input(state=solutionState%bar1mol, method='gfn1', alpb=.true.)
       input%solvent = solvent%solvent
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_bar1mol(i)) 
       ! reference state
-      input = shift_input(state=solutionState%reference, &
-         & solvent=solvent%solvent, method='gfn1', alpb=.true.)
-      input%solvent = solvent%solvent
+      input%state = solutionState%reference
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_reference(i)) 
@@ -190,16 +188,13 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
    do i=1, nsolvents
       ! bar1mol state
       solvent = get_solvent_data(solvents(i))
-      input = shift_input(state=solutionState%bar1mol, &
-         & solvent=solvent%solvent, method='gfn2', alpb=.true.)
+      input = shift_input(state=solutionState%bar1mol, method='gfn2', alpb=.true.)
       input%solvent = solvent%solvent
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_bar1mol(i)) 
       ! reference state
-      input = shift_input(state=solutionState%reference, &
-         & solvent=solvent%solvent, method='gfn2', alpb=.true.)
-      input%solvent = solvent%solvent
+      input%state = solutionState%reference
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_reference(i)) 
@@ -237,16 +232,13 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    do i=1, nsolvents
       ! bar1mol state
       solvent = get_solvent_data(solvents(i))
-      input = shift_input(state=solutionState%bar1mol, &
-         & solvent=solvent%solvent, method='gfn1', alpb=.false.)
+      input = shift_input(state=solutionState%bar1mol, method='gfn1', alpb=.false.)
       input%solvent = solvent%solvent
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_bar1mol(i)) 
       ! reference state
-      input = shift_input(state=solutionState%reference, &
-         & solvent=solvent%solvent, method='gfn1', alpb=.false.)
-      input%solvent = solvent%solvent
+      input%state = solutionState%reference
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_reference(i)) 
@@ -286,22 +278,46 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
    do i=1, nsolvents
       ! bar1mol state
       solvent = get_solvent_data(solvents(i))
-      input = shift_input(state=solutionState%bar1mol, &
-         & solvent=solvent%solvent, method='gfn2', alpb=.false.)
+      input = shift_input(state=solutionState%bar1mol, method='gfn2', alpb=.false.)
       input%solvent = solvent%solvent
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_bar1mol(i)) 
       ! reference state
-      input = shift_input(state=solutionState%reference, &
-         & solvent=solvent%solvent, method='gfn2', alpb=.false.)
-      input%solvent = solvent%solvent
+      input%state = solutionState%reference
       call get_shift_param(input, error)
       if(allocated(error)) return  
       call test_e(error, mol, input, refs_reference(i)) 
    end do 
 
 end subroutine test_e_gbsa_gfn2_all_solvents
+
+
+subroutine test_unsupported_solvent(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   real(wp), parameter :: qat(*) = [&
+      &-8.99890404486076E-2_wp, 9.42168087556583E-2_wp,-1.49387631509499E-1_wp, &
+      &-2.99114121895542E-1_wp, 4.85527734875224E-1_wp,-6.83156326406137E-2_wp, &
+      & 1.50011293889337E-2_wp, 2.79368544459465E-1_wp,-1.24072452878322E-1_wp, &
+      &-9.36760994051244E-2_wp,-2.19062123031622E-1_wp, 2.14538817685587E-1_wp, &
+      & 3.06156726072831E-1_wp,-3.86105514712244E-1_wp,-1.51265171389388E-3_wp, &
+      & 3.64255069977693E-2_wp]
+   type(shift_input) :: input
+
+   call get_structure(mol, "MB16-43", "04")
+
+   ! Check GFN1/GBSA unavailable solvent
+   solvent = get_solvent_data("aniline")
+   input = shift_input(state=solutionState%bar1mol, method='gfn1', alpb=.false.)
+   input%solvent = solvent%solvent
+   call get_shift_param(input, error)
+
+end subroutine test_unsupported_solvent
 
 
 end module test_solvation_shift
