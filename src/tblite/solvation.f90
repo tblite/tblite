@@ -31,9 +31,9 @@ module tblite_solvation
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
-   use tblite_data_alpb, only: get_alpb_param
-   use tblite_data_cds, only: get_cds_param
-   use tblite_data_shift, only: get_shift_param
+   use tblite_solvation_data_alpb, only: get_alpb_param
+   use tblite_solvation_data_cds, only: get_cds_param
+   use tblite_solvation_data_shift, only: get_shift_param
    implicit none
    private
 

@@ -21,7 +21,7 @@
 !> Implements CM5 charges and derivatives.
 !> See: J. Chem. Theory Comput. 2012, 8, 2, 527–541
 !> https://doi.org/10.1021/ct200866d
-module tblite_data_cm5
+module tblite_solvation_cm5
    use mctc_env, only: error_type, fatal_error
    use mctc_env, only: wp
    use mctc_io,only: structure_type
@@ -125,4 +125,4 @@ subroutine get_cm5_charges(mol, cm5, dcm5dr)
 
 end subroutine get_cm5_charges
 
-end module tblite_data_cm5
+end module tblite_solvation_cm5

@@ -14,81 +14,83 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/data/alpb.f90
-!> Provides ALPB/GBSA parameters
+!> @dir tblite/solvation/data/cds
+!> Provides solvent specific data for CDS term
 
-!> ALPB/GBSA parameters
-module tblite_data_alpb
+!> @file tblite/solvation/data/cds.f90
+!> Provides ALPB/GBSA cds parameters
+
+!> CDS parameters
+module tblite_solvation_data_cds
    use mctc_env, only : error_type, fatal_error
    use mctc_env, only : wp
-   use tblite_solvation_alpb, only: alpb_input
+   use tblite_solvation_cds, only: cds_input
    use tblite_solvation_data, only : get_vdw_rad_d3
    use mctc_io, only : structure_type
-   use mctc_io_convert, only : aatoau
+   use mctc_io_convert, only : aatoau, kcaltoau
    implicit none
    private
 
-   public :: get_alpb_param!, get_alpb_solvents
+   public :: get_cds_param
 
-   !> Parameters for ALPB solvation term
-   type :: alpb_parameter
-      !> Dielectric constant of the solvent
-      real(wp) :: epsv = 0.0_wp
-      !> Scaling of Born radii
-      real(wp) :: c1 = 0.0_wp
-      !> Born offset parameter
-      real(wp) :: soset = 0.0_wp
-      !> Descreening parameter
-      real(wp) :: sx(94) = 0.0_wp
-   end type alpb_parameter
+   !> Parameters for cavity dispersion solvation term
+   type :: cds_parameter
+      !> Probe radius for the SASA
+      real(wp) :: rprobe = 0.0_wp
+      !> Surface tension parameter
+      real(wp) :: gamscale(94) = 0.0_wp
+      !> H bond solvation contribution 
+      real(wp) :: sqrtGhbond(94) = 0.0_wp
+   end type cds_parameter
 
-   include 'alpb/param_gbsa_acetone.fh'
-   include 'alpb/param_gbsa_acetonitrile.fh'
-   include 'alpb/param_gbsa_benzene.fh'
-   include 'alpb/param_gbsa_ch2cl2.fh'
-   include 'alpb/param_gbsa_chcl3.fh'
-   include 'alpb/param_gbsa_cs2.fh'
-   include 'alpb/param_gbsa_dmf.fh'
-   include 'alpb/param_gbsa_dmso.fh'
-   include 'alpb/param_gbsa_ether.fh'
-   include 'alpb/param_gbsa_hexane.fh'
-   include 'alpb/param_gbsa_methanol.fh'
-   include 'alpb/param_gbsa_thf.fh'
-   include 'alpb/param_gbsa_toluene.fh'   
-   include 'alpb/param_gbsa_water.fh'
+   include 'cds/param_gbsa_acetone.fh'
+   include 'cds/param_gbsa_acetonitrile.fh'
+   include 'cds/param_gbsa_benzene.fh'
+   include 'cds/param_gbsa_ch2cl2.fh'
+   include 'cds/param_gbsa_chcl3.fh'
+   include 'cds/param_gbsa_cs2.fh'
+   include 'cds/param_gbsa_dmf.fh'
+   include 'cds/param_gbsa_dmso.fh'
+   include 'cds/param_gbsa_ether.fh'
+   include 'cds/param_gbsa_hexane.fh'
+   include 'cds/param_gbsa_methanol.fh'
+   include 'cds/param_gbsa_thf.fh'
+   include 'cds/param_gbsa_toluene.fh'   
+   include 'cds/param_gbsa_water.fh'
 
-   include 'alpb/param_alpb_acetone.fh'
-   include 'alpb/param_alpb_acetonitrile.fh'
-   include 'alpb/param_alpb_aniline.fh'
-   include 'alpb/param_alpb_benzaldehyde.fh'
-   include 'alpb/param_alpb_benzene.fh'
-   include 'alpb/param_alpb_ch2cl2.fh'
-   include 'alpb/param_alpb_chcl3.fh'
-   include 'alpb/param_alpb_cs2.fh'
-   include 'alpb/param_alpb_dioxane.fh'
-   include 'alpb/param_alpb_dmf.fh'
-   include 'alpb/param_alpb_dmso.fh'
-   include 'alpb/param_alpb_ethanol.fh'
-   include 'alpb/param_alpb_ether.fh'
-   include 'alpb/param_alpb_ethylacetate.fh'
-   include 'alpb/param_alpb_furane.fh'
-   include 'alpb/param_alpb_hexadecane.fh'
-   include 'alpb/param_alpb_hexane.fh'
-   include 'alpb/param_alpb_nitromethane.fh'
-   include 'alpb/param_alpb_methanol.fh'
-   include 'alpb/param_alpb_octanol.fh'
-   include 'alpb/param_alpb_phenol.fh'
-   include 'alpb/param_alpb_thf.fh'
-   include 'alpb/param_alpb_toluene.fh'
-   include 'alpb/param_alpb_water.fh'
-   include 'alpb/param_alpb_woctanol.fh'
+   include 'cds/param_alpb_acetone.fh'
+   include 'cds/param_alpb_acetonitrile.fh'
+   include 'cds/param_alpb_aniline.fh'
+   include 'cds/param_alpb_benzaldehyde.fh'
+   include 'cds/param_alpb_benzene.fh'
+   include 'cds/param_alpb_ch2cl2.fh'
+   include 'cds/param_alpb_chcl3.fh'
+   include 'cds/param_alpb_cs2.fh'
+   include 'cds/param_alpb_dioxane.fh'
+   include 'cds/param_alpb_dmf.fh'
+   include 'cds/param_alpb_dmso.fh'
+   include 'cds/param_alpb_ethanol.fh'
+   include 'cds/param_alpb_ether.fh'
+   include 'cds/param_alpb_ethylacetate.fh'
+   include 'cds/param_alpb_furane.fh'
+   include 'cds/param_alpb_hexadecane.fh'
+   include 'cds/param_alpb_hexane.fh'
+   include 'cds/param_alpb_nitromethane.fh'
+   include 'cds/param_alpb_methanol.fh'
+   include 'cds/param_alpb_octanol.fh'
+   include 'cds/param_alpb_phenol.fh'
+   include 'cds/param_alpb_thf.fh'
+   include 'cds/param_alpb_toluene.fh'
+   include 'cds/param_alpb_water.fh'
+   include 'cds/param_alpb_woctanol.fh'
 
 contains
 
-!> Get ALPB/GBSA parameters
-subroutine get_alpb_param(input, mol, method, error)
-   !> Input of ALPB
-   type(alpb_input), intent(inout) :: input
+
+!> Get CDS parameters
+subroutine get_cds_param(input, mol, method, error)
+   !> Input of cds
+   type(cds_input), intent(inout) :: input
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Method for parameter selection
@@ -96,8 +98,8 @@ subroutine get_alpb_param(input, mol, method, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> Internal parameters to be used
-   type(alpb_parameter), allocatable :: param
+   !> Internal parameter type
+   type(cds_parameter), allocatable :: param
 
    select case(input%alpb)
    case(.false.)
@@ -194,7 +196,7 @@ subroutine get_alpb_param(input, mol, method, error)
          case('octanol');      param = gfn1_alpb_octanol
          case('phenol');       param = gfn1_alpb_phenol 
          case('thf','tetrahydrofuran');    param = gfn1_alpb_thf
-         case('toluene');      param = gfn1_alpb_toluene
+         case('toluene');      param = gfn1_alpb_toluene         
          case('water','h2o');  param = gfn1_alpb_water
          case('woctanol');     param = gfn1_alpb_woctanol
          end select
@@ -202,37 +204,38 @@ subroutine get_alpb_param(input, mol, method, error)
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA parameters")
+      call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA CDS")
       return
    end if
+ 
+   call load_cds_param(input, mol, param)
 
-   call load_alpb_param(input, mol, param)
+end subroutine get_cds_param
 
-end subroutine get_alpb_param
-
-!> Get ALPB/GBSA parameters
-subroutine load_alpb_param(input, mol, param)
-   !> Input of ALPB
-   type(alpb_input), intent(inout) :: input
+subroutine load_cds_param(input, mol, param)
+   !> Input of cds
+   type(cds_input), intent(inout) :: input
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> Internal parameters to be used
-   type(alpb_parameter), intent(in) :: param
+   !> Internal Parameter type
+   type(cds_parameter), intent(in) :: param
 
-   input%born_scale = param%c1
-
-   input%born_offset = param%soset * 0.1_wp * aatoau
-
-   input%dielectric_const = param%epsv
-
-   if (.not. allocated(input%descreening)) then
-      allocate(input%descreening(mol%nid))
+   if (.not. allocated(input%tension)) then
+      allocate(input%tension(mol%nid))
    end if
 
-   input%descreening = param%sx(mol%num)
+   if (.not. allocated(input%hbond)) then
+      allocate(input%hbond(mol%nid))
+   end if
 
-   input%rvdw = get_vdw_rad_d3(mol%num)
+   input%probe = param%rprobe * aatoau
 
-end subroutine load_alpb_param
+   input%tension = param%gamscale(mol%num) * 1.0e-5_wp 
 
-end module tblite_data_alpb
+   input%hbond =  -kcaltoau * param%sqrtGhbond(mol%num)**2 
+
+   input%rad = get_vdw_rad_d3(mol%num)
+   
+end subroutine load_cds_param
+
+end module tblite_solvation_data_cds

@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+!> @dir tblite/solvation/data
+!> Provides solvent specific data for parametrized solvation models
+
 !> @file tblite/solvation/data.f90
 !> Provides element specific data
 

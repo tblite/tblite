@@ -14,23 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-add_subdirectory("charge")
-
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
   "${dir}/alpb.f90"
-  "${dir}/born.f90"
   "${dir}/cds.f90"
-  "${dir}/cm5.f90"
-  "${dir}/cpcm.f90"
-  "${dir}/cpcm_dd.f90"
-  "${dir}/data.f90"
-  "${dir}/input.f90"
-  "${dir}/surface.f90"
   "${dir}/shift.f90"
-  "${dir}/type.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

@@ -32,7 +32,7 @@ module tblite_solvation_cds
    use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
-   use tblite_data_cm5, only : get_cm5_charges
+   use tblite_solvation_cm5, only : get_cm5_charges
    use mctc_io_convert, only : aatoau
    implicit none
    private

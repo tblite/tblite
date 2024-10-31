@@ -14,84 +14,93 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/data/shift.f90
-!> Provides parameters for solvation state shift
+!> @dir tblite/solvation/data/alpb
+!> Provides solvent specific data for the ALPB/GBSA solvation models
 
-!> ALPB/GBSA shift parameters
-module tblite_data_shift
+!> @file tblite/solvationdata/alpb.f90
+!> Provides ALPB/GBSA parameters
+
+!> ALPB/GBSA parameters
+module tblite_solvation_data_alpb
    use mctc_env, only : error_type, fatal_error
    use mctc_env, only : wp
-   use tblite_solvation_shift, only: shift_input
-   use mctc_io_convert, only : kcaltoau
+   use tblite_solvation_alpb, only: alpb_input
+   use tblite_solvation_data, only : get_vdw_rad_d3
+   use mctc_io, only : structure_type
+   use mctc_io_convert, only : aatoau
    implicit none
    private
 
-   public :: get_shift_param
+   public :: get_alpb_param!, get_alpb_solvents
 
-   !> Parameters for solvation state shift
-   type :: shift_parameter
-      !> Molar mass of solvent
-      real(wp) :: smass = 0.0_wp
-      !> Density of solvent
-      real(wp) :: rhos = 0.0_wp
-      !> Solvent specific free energy shift
-      real(wp) :: gshift = 0.0_wp
-   end type shift_parameter
+   !> Parameters for ALPB solvation term
+   type :: alpb_parameter
+      !> Dielectric constant of the solvent
+      real(wp) :: epsv = 0.0_wp
+      !> Scaling of Born radii
+      real(wp) :: c1 = 0.0_wp
+      !> Born offset parameter
+      real(wp) :: soset = 0.0_wp
+      !> Descreening parameter
+      real(wp) :: sx(94) = 0.0_wp
+   end type alpb_parameter
 
-   include 'shift/param_gbsa_acetone.fh'
-   include 'shift/param_gbsa_acetonitrile.fh'
-   include 'shift/param_gbsa_benzene.fh'
-   include 'shift/param_gbsa_ch2cl2.fh'
-   include 'shift/param_gbsa_chcl3.fh'
-   include 'shift/param_gbsa_cs2.fh'
-   include 'shift/param_gbsa_dmf.fh'
-   include 'shift/param_gbsa_dmso.fh'
-   include 'shift/param_gbsa_ether.fh'
-   include 'shift/param_gbsa_hexane.fh'
-   include 'shift/param_gbsa_methanol.fh'
-   include 'shift/param_gbsa_thf.fh'
-   include 'shift/param_gbsa_toluene.fh'
-   include 'shift/param_gbsa_water.fh'
+   include 'alpb/param_gbsa_acetone.fh'
+   include 'alpb/param_gbsa_acetonitrile.fh'
+   include 'alpb/param_gbsa_benzene.fh'
+   include 'alpb/param_gbsa_ch2cl2.fh'
+   include 'alpb/param_gbsa_chcl3.fh'
+   include 'alpb/param_gbsa_cs2.fh'
+   include 'alpb/param_gbsa_dmf.fh'
+   include 'alpb/param_gbsa_dmso.fh'
+   include 'alpb/param_gbsa_ether.fh'
+   include 'alpb/param_gbsa_hexane.fh'
+   include 'alpb/param_gbsa_methanol.fh'
+   include 'alpb/param_gbsa_thf.fh'
+   include 'alpb/param_gbsa_toluene.fh'   
+   include 'alpb/param_gbsa_water.fh'
 
-   include 'shift/param_alpb_acetone.fh'
-   include 'shift/param_alpb_acetonitrile.fh'
-   include 'shift/param_alpb_aniline.fh'
-   include 'shift/param_alpb_benzaldehyde.fh'
-   include 'shift/param_alpb_benzene.fh'
-   include 'shift/param_alpb_ch2cl2.fh'
-   include 'shift/param_alpb_chcl3.fh'
-   include 'shift/param_alpb_cs2.fh'
-   include 'shift/param_alpb_dioxane.fh'
-   include 'shift/param_alpb_dmf.fh'
-   include 'shift/param_alpb_dmso.fh'
-   include 'shift/param_alpb_ethanol.fh'
-   include 'shift/param_alpb_ether.fh'
-   include 'shift/param_alpb_ethylacetate.fh'
-   include 'shift/param_alpb_furane.fh'
-   include 'shift/param_alpb_hexadecane.fh'
-   include 'shift/param_alpb_hexane.fh'
-   include 'shift/param_alpb_nitromethane.fh'
-   include 'shift/param_alpb_octanol.fh'
-   include 'shift/param_alpb_phenol.fh'
-   include 'shift/param_alpb_thf.fh'
-   include 'shift/param_alpb_toluene.fh'
-   include 'shift/param_alpb_water.fh'
-   include 'shift/param_alpb_woctanol.fh'
-   include 'shift/param_alpb_methanol.fh'
+   include 'alpb/param_alpb_acetone.fh'
+   include 'alpb/param_alpb_acetonitrile.fh'
+   include 'alpb/param_alpb_aniline.fh'
+   include 'alpb/param_alpb_benzaldehyde.fh'
+   include 'alpb/param_alpb_benzene.fh'
+   include 'alpb/param_alpb_ch2cl2.fh'
+   include 'alpb/param_alpb_chcl3.fh'
+   include 'alpb/param_alpb_cs2.fh'
+   include 'alpb/param_alpb_dioxane.fh'
+   include 'alpb/param_alpb_dmf.fh'
+   include 'alpb/param_alpb_dmso.fh'
+   include 'alpb/param_alpb_ethanol.fh'
+   include 'alpb/param_alpb_ether.fh'
+   include 'alpb/param_alpb_ethylacetate.fh'
+   include 'alpb/param_alpb_furane.fh'
+   include 'alpb/param_alpb_hexadecane.fh'
+   include 'alpb/param_alpb_hexane.fh'
+   include 'alpb/param_alpb_nitromethane.fh'
+   include 'alpb/param_alpb_methanol.fh'
+   include 'alpb/param_alpb_octanol.fh'
+   include 'alpb/param_alpb_phenol.fh'
+   include 'alpb/param_alpb_thf.fh'
+   include 'alpb/param_alpb_toluene.fh'
+   include 'alpb/param_alpb_water.fh'
+   include 'alpb/param_alpb_woctanol.fh'
 
 contains
 
-!> Get ALPB/GBSA shift parameters
-subroutine get_shift_param(input, method, error)
+!> Get ALPB/GBSA parameters
+subroutine get_alpb_param(input, mol, method, error)
    !> Input of ALPB
-   type(shift_input), intent(inout) :: input
+   type(alpb_input), intent(inout) :: input
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
    !> Method for parameter selection
    character(len=*), intent(in) :: method
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> internal parameters to be used
-   type(shift_parameter), allocatable :: param
+   !> Internal parameters to be used
+   type(alpb_parameter), allocatable :: param
 
    select case(input%alpb)
    case(.false.)
@@ -111,7 +120,7 @@ subroutine get_shift_param(input, method, error)
             param = gfn2_hexane
          case('methanol');                 param = gfn2_methanol
          case('thf','tetrahydrofuran');    param = gfn2_thf
-         case('toluene');                  param = gfn2_toluene         
+         case('toluene');                  param = gfn2_toluene
          case('water','h2o');              param = gfn2_water
          end select
       else if (method == 'gfn1') then
@@ -196,27 +205,37 @@ subroutine get_shift_param(input, method, error)
    end select
 
    if (.not.allocated(param)) then
-      call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA shift")
+      call fatal_error(error, "Unknown solvent, cannot set up ALPB/GBSA parameters")
       return
    end if
- 
-   call load_shift_param(input, param)
 
-end subroutine get_shift_param
+   call load_alpb_param(input, mol, param)
 
-!> Load ALPB/GBSA shift parameters
-subroutine load_shift_param(input, param)
+end subroutine get_alpb_param
+
+!> Get ALPB/GBSA parameters
+subroutine load_alpb_param(input, mol, param)
    !> Input of ALPB
-   type(shift_input), intent(inout) :: input
+   type(alpb_input), intent(inout) :: input
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
    !> Internal parameters to be used
-   type(shift_parameter), intent(in) :: param
+   type(alpb_parameter), intent(in) :: param
 
-   input%molar_mass = param%smass
+   input%born_scale = param%c1
 
-   input%rho = param%rhos
+   input%born_offset = param%soset * 0.1_wp * aatoau
 
-   input%gshift = param%gshift * kcaltoau
+   input%dielectric_const = param%epsv
 
-end subroutine load_shift_param
+   if (.not. allocated(input%descreening)) then
+      allocate(input%descreening(mol%nid))
+   end if
 
-end module tblite_data_shift
+   input%descreening = param%sx(mol%num)
+
+   input%rvdw = get_vdw_rad_d3(mol%num)
+
+end subroutine load_alpb_param
+
+end module tblite_solvation_data_alpb

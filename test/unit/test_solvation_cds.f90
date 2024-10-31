@@ -24,7 +24,7 @@ module test_solvation_cds
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_cds, only : cds_solvation, cds_input
-   use tblite_data_cds, only : get_cds_param
+   use tblite_solvation_data_cds, only : get_cds_param
    use tblite_solvation_data, only : solvent_data, get_solvent_data, & 
       & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
    use tblite_wavefunction_type, only : wavefunction_type

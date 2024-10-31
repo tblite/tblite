@@ -26,7 +26,7 @@ module test_solvation_born
    use tblite_solvation_born
    use tblite_solvation_data, only : solvent_data, get_solvent_data, &
       & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
-   use tblite_data_alpb, only: get_alpb_param
+   use tblite_solvation_data_alpb, only: get_alpb_param
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private

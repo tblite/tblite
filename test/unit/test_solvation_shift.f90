@@ -23,7 +23,7 @@ module test_solvation_shift
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_shift, only : shift_solvation, shift_input, solutionState
-   use tblite_data_shift, only : get_shift_param
+   use tblite_solvation_data_shift, only : get_shift_param
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none

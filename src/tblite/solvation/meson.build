@@ -14,10 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+subdir('data')
+
 srcs += files(
   'alpb.f90',
   'born.f90',
   'cds.f90',
+  'cm5.f90',
   'cpcm.f90',
   'cpcm_dd.f90',
   'data.f90',

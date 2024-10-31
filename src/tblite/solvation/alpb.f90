@@ -27,7 +27,6 @@ module tblite_solvation_alpb
    use mctc_io_math, only : matdet_3x3
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
-   use tblite_data_cm5, only : get_cm5_charges
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
@@ -35,6 +34,7 @@ module tblite_solvation_alpb
    use tblite_solvation_born, only : born_integrator, new_born_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
+   use tblite_solvation_cm5, only : get_cm5_charges
    implicit none
    private
 

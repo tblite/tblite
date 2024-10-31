@@ -21,11 +21,7 @@ list(
   "${dir}/atomicrad.f90"
   "${dir}/covrad.f90"
   "${dir}/paulingen.f90"
-  "${dir}/shift.f90"
   "${dir}/spin.f90"
-  "${dir}/alpb.f90"
-  "${dir}/cds.f90"
-  "${dir}/cm5.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
