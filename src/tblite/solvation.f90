@@ -31,7 +31,7 @@ module tblite_solvation
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
-   use tblite_data_alpb, only: get_alpb_param!, get_alpb_solvents
+   use tblite_data_alpb, only: get_alpb_param
    use tblite_data_cds, only: get_cds_param
    use tblite_data_shift, only: get_shift_param
    implicit none
@@ -64,26 +64,17 @@ subroutine new_solvation(solv, mol, input, error, method)
    type(alpb_input), allocatable :: scratch_input
 
    if (allocated(input%alpb)) then
+      scratch_input = input%alpb
       ! ALPB/GBSA with empirical parameters 
-      if (input%alpb%parametrized) then
-         if ( .not. present(method)) then
-            call fatal_error(error, "Unkown method for ALPB/GBSA parameter selection")
-            return
-         end if
-         scratch_input = input%alpb
-         scratch_input%method = method
-         call get_alpb_param(scratch_input, mol, error)
+      if (allocated(input%alpb%solvent) .and. present(method)) then   
+         call get_alpb_param(scratch_input, mol, method, error)
          if(allocated(error)) then
             call fatal_error(error, "No ALPB/GBSA parameters found for the method/solvent")
             return
-         end if 
-         solv = alpb_solvation(mol, scratch_input)
-         return
-      ! ALPB/GBSA without empirical parameters
-      else
-         solv = alpb_solvation(mol, input%alpb)
-         return
+         end if
       end if
+      solv = alpb_solvation(mol, scratch_input, method)
+      return
    end if
 
    if (allocated(input%cpcm)) then
@@ -109,15 +100,15 @@ subroutine new_solvation_cds(solv, mol, input, error, method)
    !> scratch input
    type(cds_input), allocatable :: scratch_input
 
-   if (allocated(input%cds).and.present(method)) then
+   if (allocated(input%cds) .and. &
+      & allocated(input%cds%solvent) .and. present(method)) then
       scratch_input = input%cds
-      scratch_input%method = method
-      call get_cds_param(scratch_input, mol, error)
+      call get_cds_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call fatal_error(error, "No CDS parameters found for the method/solvent")
          return
       end if
-      solv = cds_solvation(mol, scratch_input)
+      solv = cds_solvation(mol, scratch_input, method)
       return
     end if
 
@@ -137,10 +128,10 @@ subroutine new_solvation_shift(solv, input, error, method)
    !> scratch input
    type(shift_input), allocatable :: scratch_input
 
-   if (allocated(input%shift).and.present(method)) then
+   if (allocated(input%shift) .and. &
+      & allocated(input%shift%solvent) .and. present(method)) then
       scratch_input = input%shift
-      scratch_input%method = method
-      call get_shift_param(scratch_input, error)
+      call get_shift_param(scratch_input, method, error)
       if(allocated(error)) then
          call fatal_error(error, "No shift parameters found for the method/solvent")
          return

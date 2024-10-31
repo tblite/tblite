@@ -45,11 +45,14 @@ module tblite_solvation_shift
       real(wp) :: temperature = 298.15_wp
       !> Linearized Poisson-Boltzmann model for parameter selection
       logical :: alpb = .true.
-      !> Method for parameter selection
-      character(len=:), allocatable :: method
       !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
    end type shift_input
+
+   !> Provide constructor for shift input
+   interface shift_input
+      module procedure :: create_shift_input
+   end interface shift_input
 
    !> Possible reference states for the solution
    type :: TSolutionStateEnum
@@ -94,12 +97,63 @@ module tblite_solvation_shift
 
 contains
 
+
+!> Consturctor for shift input to properly assign allocatable strings
+function create_shift_input(state, solvent, alpb, gshift, molar_mass, rho, temperature) result(self)
+   !> Reference state
+   integer, intent(in), optional :: state
+   !> Solvent for parameter selection
+   character(len=*), intent(in), optional :: solvent
+   !> Use analytical linearized Poisson-Boltzmann model
+   logical, intent(in), optional :: alpb
+   !> Solvent specific free energy shift
+   real(wp), intent(in), optional :: gshift
+   !> Molar mass of solvent
+   real(wp), allocatable, intent(in), optional :: molar_mass 
+   !> Density of solvent
+   real(wp), allocatable, intent(in), optional :: rho
+   !> Temperature in Kelvin
+   real(wp), intent(in), optional :: temperature
+
+   type(shift_input) :: self
+
+   if (present(state)) then
+      self%state = state
+   end if
+
+   if (present(solvent)) then 
+      self%solvent = solvent
+   end if
+
+   if (present(alpb)) then 
+      self%alpb = alpb
+   end if
+
+   if (present(gshift)) then 
+      self%gshift = gshift
+   end if
+
+   if (present(molar_mass)) then 
+      self%molar_mass = molar_mass
+   end if
+
+   if (present(rho)) then
+      self%rho = rho
+   end if
+
+   if (present(temperature)) then
+      self%temperature = temperature
+   end if
+
+end function create_shift_input
+
 !> Calculate the solvent and state shift
 subroutine new_shift(self, input)
    !> Instance of the solvation model
    type(shift_solvation) :: self
    !> Input for shift solvation
    type(shift_input), intent(in) :: input
+
    !> State shift
    real(wp) :: stateshift
       

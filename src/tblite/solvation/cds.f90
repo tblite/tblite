@@ -53,11 +53,14 @@ module tblite_solvation_cds
       real(wp), allocatable :: hbond(:)
       !> Linearized Poisson-Boltzmann model for parameter selection
       logical :: alpb = .true.
-      !> Method for parameter selection
-      character(len=:), allocatable :: method
       !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
    end type cds_input
+
+   !> Provide constructor for CDS input
+   interface cds_input
+      module procedure :: create_cds_input
+   end interface cds_input
 
    !> Definition of the CDS model
    type, extends(solvation_type) :: cds_solvation
@@ -116,14 +119,67 @@ module tblite_solvation_cds
 
 contains
 
+
+!> Consturctor for CDS input to properly assign allocatable strings
+function create_cds_input(solvent, alpb, probe, nang, rad, tension, hbond) result(self)
+   !> Solvent for parameter selection
+   character(len=*), intent(in), optional :: solvent
+   !> Use analytical linearized Poisson-Boltzmann model
+   logical, intent(in), optional :: alpb
+   !> Probe radius of the solvent
+   real(wp), intent(in), optional :: probe
+   !> Number of angular grid points for integration
+   integer, intent(in), optional :: nang
+   !> Van-der-Waals radii for each species
+   real(wp), allocatable, intent(in), optional :: rad(:)
+   !> Surface tension for each species
+   real(wp), allocatable, intent(in), optional :: tension(:)
+   !> Hydrogen bonding strength for each species
+   real(wp), allocatable, intent(in), optional :: hbond(:)
+
+   type(cds_input) :: self
+
+   if (present(solvent)) then 
+      self%solvent = solvent
+   end if
+
+   if (present(alpb)) then 
+      self%alpb = alpb
+   end if
+
+   if (present(probe)) then
+      self%probe = probe
+   end if
+
+   if (present(nang)) then
+      self%nang = nang
+   end if
+
+   if (present(rad)) then
+      self%rad = rad
+   end if
+
+   if (present(tension)) then
+      self%tension = tension
+   end if
+
+   if (present(hbond)) then
+      self%hbond = hbond
+   end if
+
+end function create_cds_input
+
+
 !> Create new CDS solvation model
-subroutine new_cds(self, mol, input)
+subroutine new_cds(self, mol, input, method)
    !> Instance of the solvation model
    type(cds_solvation), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for CDS solvation
    type(cds_input), intent(in) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
 
    real(wp), allocatable :: rad(:)
 
@@ -140,23 +196,25 @@ subroutine new_cds(self, mol, input)
       self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
    end if
 
-   if (allocated(input%method))then
-      self%useCM5 = trim(input%method)=='gfn1'
+   if (allocated(input%solvent) .and. present(method))then
+      self%useCM5 = trim(method)=='gfn1'
    endif
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
 
 !> Type constructor for CDS solvation
-function create_cds(mol, input) result(self)
+function create_cds(mol, input, method) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for CDS solvation
    type(cds_input), intent(in) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
    !> Instance of the solvation model
    type(cds_solvation) :: self
 
-   call new_cds(self, mol, input)
+   call new_cds(self, mol, input, method)
 end function create_cds
 
 !> Update cache from container

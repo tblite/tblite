@@ -70,14 +70,14 @@ module tblite_solvation_alpb
       integer :: kernel = born_kernel%p16
       !> Use analytical linearized Poisson-Boltzmann model
       logical :: alpb = .true.
-      !> Method for parameter selection
-      character(len=:), allocatable :: method
       !> Solvent for parameter selection
       character(len=:), allocatable :: solvent
-      !> Parametrized (xTB-like) solvation with empirical parameters
-      logical :: parametrized = .false.
    end type alpb_input
 
+   !> Provide constructor for ALPB input
+   interface alpb_input
+      module procedure :: create_alpb_input
+   end interface alpb_input
 
    !> Definition of ALPB/GBSA model
    type, public, extends(solvation_type) :: alpb_solvation
@@ -142,16 +142,46 @@ module tblite_solvation_alpb
 contains
 
 
+!> Consturctor for ALPB input to properly assign allocatable strings
+function create_alpb_input(dielectric_const, solvent, alpb, kernel) result(self)
+   !> Dielectric constant
+   real(wp), intent(in) :: dielectric_const
+   !> Solvent for parameter selection
+   character(len=*), intent(in), optional :: solvent
+   !> Use analytical linearized Poisson-Boltzmann model
+   logical, intent(in), optional :: alpb
+   !> Interaction kernel
+   integer, intent(in), optional :: kernel
+
+   type(alpb_input) :: self
+
+   self%dielectric_const = dielectric_const
+
+   if (present(solvent)) then 
+      self%solvent = solvent
+   end if
+
+   if (present(alpb)) then 
+      self%alpb = alpb
+   end if
+
+   if (present(kernel)) then 
+      self%kernel = kernel
+   end if
+
+end function create_alpb_input
+
+
 !> Create new ALPB solvation model
-subroutine new_alpb(self, mol, input, error)
+subroutine new_alpb(self, mol, input, method)
    !> Instance of the solvation model
    type(alpb_solvation), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ALPB solvation
    type(alpb_input), intent(in) :: input
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
 
    real(wp), allocatable :: rvdw(:)
 
@@ -159,8 +189,8 @@ subroutine new_alpb(self, mol, input, error)
    self%alpbet = merge(alpha_alpb / input%dielectric_const, 0.0_wp, input%alpb)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
-   if (input%parametrized .and. allocated(input%method)) then
-      self%useCM5 = trim(input%method) == 'gfn1'
+   if (allocated(input%solvent) .and. present(method)) then
+      self%useCM5 = trim(method) == 'gfn1'
    endif
 
    if (allocated(input%rvdw)) then
@@ -175,17 +205,17 @@ end subroutine new_alpb
 
 
 !> Type constructor for ALPB solvation
-function create_alpb(mol, input) result(self)
+function create_alpb(mol, input, method) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ALPB solvation
    type(alpb_input), intent(in) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
    !> Instance of the solvation model
    type(alpb_solvation) :: self
 
-   type(error_type), allocatable :: error
-
-   call new_alpb(self, mol, input, error)
+   call new_alpb(self, mol, input, method)
 end function create_alpb
 
 

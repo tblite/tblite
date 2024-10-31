@@ -21,8 +21,6 @@ driv = sys.argv[2]
 outp = sys.argv[3]
 args = sys.argv[4:]
 
-print("hallo")
-
 print([prog, driv, "--json", os.path.basename(outp)] + args)
 
 stat = subprocess.call(

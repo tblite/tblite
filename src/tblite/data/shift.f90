@@ -82,9 +82,11 @@ module tblite_data_shift
 contains
 
 !> Get ALPB/GBSA shift parameters
-subroutine get_shift_param(input, error)
+subroutine get_shift_param(input, method, error)
    !> Input of ALPB
    type(shift_input), intent(inout) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in) :: method
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -93,7 +95,7 @@ subroutine get_shift_param(input, error)
 
    select case(input%alpb)
    case(.false.)
-      if (input%method == 'gfn2') then
+      if (method == 'gfn2') then
          select case(input%solvent)
          case('acetone');      param = gfn2_acetone
          case('acetonitrile'); param = gfn2_acetonitrile
@@ -112,7 +114,7 @@ subroutine get_shift_param(input, error)
          case('toluene');                  param = gfn2_toluene         
          case('water','h2o');              param = gfn2_water
          end select
-      else if (input%method == 'gfn1') then
+      else if (method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_acetone
          case('acetonitrile'); param = gfn1_acetonitrile
@@ -130,7 +132,7 @@ subroutine get_shift_param(input, error)
          end select
       end if
    case(.true.)
-      if (input%method == 'gfn2') then
+      if (method == 'gfn2') then
          select case(input%solvent)
          case('acetone');      param = gfn2_alpb_acetone
          case('acetonitrile'); param = gfn2_alpb_acetonitrile
@@ -160,7 +162,7 @@ subroutine get_shift_param(input, error)
          case('water','h2o');  param = gfn2_alpb_water
          case('woctanol');     param = gfn2_alpb_woctanol
          end select
-      else
+      else if (method == 'gfn1') then
          select case(input%solvent)
          case('acetone');      param = gfn1_alpb_acetone
          case('acetonitrile'); param = gfn1_alpb_acetonitrile

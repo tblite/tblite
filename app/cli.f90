@@ -414,13 +414,11 @@ subroutine get_run_arguments(config, list, start, error)
             end if 
          else 
             ! Setup ALPB/GBSA with CDS and shift with empirical parameters
-            config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, &
-               & alpb=alpb, parametrized=.true.)
-            config%solvation%alpb%solvent = solvent%solvent
-            config%solvation%cds = cds_input(alpb=alpb)
-            config%solvation%cds%solvent = solvent%solvent
-            config%solvation%shift = shift_input(alpb=alpb, state=sol_state)
-            config%solvation%shift%solvent = solvent%solvent
+            config%solvation%alpb = alpb_input(solvent%eps, solvent=solvent%solvent, &
+               & kernel=kernel, alpb=alpb)
+            config%solvation%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
+            config%solvation%shift = shift_input(alpb=alpb, solvent=solvent%solvent, &
+               & state=sol_state)
          end if 
 
       case("--param")

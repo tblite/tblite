@@ -19,21 +19,33 @@ module test_solvation_cds
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
+   use mctc_io_convert, only : kcaltoau
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_cds, only : cds_solvation, cds_input
    use tblite_data_cds, only : get_cds_param
-   use tblite_solvation_data, only : solvent_data, get_solvent_data
+   use tblite_solvation_data, only : solvent_data, get_solvent_data, & 
+      & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
    public :: collect_solvation_cds
 
-
    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
+
+   real(wp), parameter :: tension_water(20) = 1.0e-5_wp * [&
+      &-0.08499967_wp, 0.46780225_wp,-2.87013596_wp,-3.95935069_wp,-0.29783987_wp, &
+      &-0.48323273_wp, 0.00133622_wp, 0.20448945_wp, 0.20150600_wp, 0.36379863_wp, &
+      &-3.47082133_wp,-0.93451053_wp,-1.46342018_wp,-0.32774697_wp,-0.38015204_wp, &
+      &-0.35311116_wp,-0.19972593_wp,-0.12891363_wp,-1.19450558_wp,-1.61289300_wp]
+   real(wp), parameter :: hbond_water(20) = -kcaltoau * [&
+      & 6.70894947_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, &
+      & 1.26459036_wp, 3.52206160_wp, 2.30440543_wp, 1.98829409_wp, 0.00000000_wp, &
+      & 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp, 2.68116653_wp, &
+      & 0.38262428_wp, 1.02948365_wp, 0.00000000_wp, 0.00000000_wp, 0.00000000_wp]**2
 
 contains
 
@@ -45,6 +57,9 @@ subroutine collect_solvation_cds(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
+      new_unittest("sasa-e", test_e_sasa), &
+      new_unittest("sasa-g", test_g_sasa), &
+      new_unittest("sasa-p", test_p_sasa), &
       new_unittest("energy-neutral-alpb-gfn1", test_e_alpb_gfn1_all_solvents), &
       new_unittest("energy-neutral-alpb-gfn2", test_e_alpb_gfn2_all_solvents), &
       new_unittest("energy-neutral-gbsa-gfn1", test_e_gbsa_gfn1_all_solvents), &
@@ -62,7 +77,7 @@ subroutine collect_solvation_cds(testsuite)
 end subroutine collect_solvation_cds
 
 
-subroutine test_e(error, mol, input, qat, ref)
+subroutine test_e(error, mol, input, qat, ref, method)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -79,7 +94,11 @@ subroutine test_e(error, mol, input, qat, ref)
    !> Reference energy
    real(wp), intent(in) :: ref
 
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
    type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -89,7 +108,17 @@ subroutine test_e(error, mol, input, qat, ref)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = cds_solvation(mol, input)
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -106,7 +135,7 @@ subroutine test_e(error, mol, input, qat, ref)
 end subroutine test_e
 
 
-subroutine test_g(error, mol, input, qat)
+subroutine test_g(error, mol, input, qat, method)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -120,7 +149,11 @@ subroutine test_g(error, mol, input, qat)
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
 
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
    type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -133,7 +166,17 @@ subroutine test_g(error, mol, input, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = cds_solvation(mol, input)
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then   
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -174,7 +217,7 @@ subroutine test_g(error, mol, input, qat)
 end subroutine test_g
 
 
-subroutine test_g_nonscf(error, mol, input, qat)
+subroutine test_g_nonscf(error, mol, input, qat, method)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -188,7 +231,11 @@ subroutine test_g_nonscf(error, mol, input, qat)
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
 
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
    type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -197,7 +244,17 @@ subroutine test_g_nonscf(error, mol, input, qat)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
 
-   solv = cds_solvation(mol, input)
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then   
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -233,7 +290,7 @@ subroutine test_g_nonscf(error, mol, input, qat)
    end if
 end subroutine test_g_nonscf
 
-subroutine test_p(error, mol, input, qat)
+subroutine test_p(error, mol, input, qat, method)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -247,7 +304,11 @@ subroutine test_p(error, mol, input, qat)
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
 
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
    type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -256,11 +317,20 @@ subroutine test_p(error, mol, input, qat)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
    integer :: ii
 
-
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = cds_solvation(mol, input)
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then   
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
 
    call solv%update(mol, cache)
 
@@ -294,6 +364,96 @@ subroutine test_p(error, mol, input, qat)
       print '(3es20.13)', [pot%vat] - vat
    end if
 end subroutine test_p
+
+
+subroutine test_e_sasa(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-8.99890404486076E-2_wp, 9.42168087556583E-2_wp,-1.49387631509499E-1_wp, &
+      &-2.99114121895542E-1_wp, 4.85527734875224E-1_wp,-6.83156326406137E-2_wp, &
+      & 1.50011293889337E-2_wp, 2.79368544459465E-1_wp,-1.24072452878322E-1_wp, &
+      &-9.36760994051244E-2_wp,-2.19062123031622E-1_wp, 2.14538817685587E-1_wp, &
+      & 3.06156726072831E-1_wp,-3.86105514712244E-1_wp,-1.51265171389388E-3_wp, &
+      & 3.64255069977693E-2_wp]
+   real(wp), allocatable :: rad(:), tension(:), hbond(:)
+
+   call get_structure(mol, "MB16-43", "04")
+   rad = get_vdw_rad_cosmo(mol%num)
+   tension = tension_water(mol%num)
+   hbond = hbond_water(mol%num)
+
+   input = cds_input(probe=0.3_wp, nang=110, rad=rad, tension=tension)
+   call test_e(error, mol, input, qat, -2.0260929722303264E-3_wp)
+
+   if (allocated(error)) return
+
+   input = cds_input(probe=0.3_wp, nang=110, rad=rad, tension=tension, hbond=hbond)
+   call test_e(error, mol, input, qat, -3.89595604489100E-3_wp)
+
+end subroutine test_e_sasa
+
+
+subroutine test_g_sasa(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+   real(wp), allocatable :: rad(:), tension(:), hbond(:)
+
+   call get_structure(mol, "MB16-43", "06")
+   rad = get_vdw_rad_bondi(mol%num)
+   tension = tension_water(mol%num)
+   hbond = hbond_water(mol%num)
+
+   input = cds_input(probe=0.3_wp, nang=110, rad=rad, tension=tension, hbond=hbond)
+   call test_g(error, mol, input, qat)
+
+   if (allocated(error)) return
+
+   call test_g_nonscf(error, mol, input, qat)
+
+end subroutine test_g_sasa
+
+
+subroutine test_p_sasa(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-2.05668345919710E-1_wp,-3.99553123071811E-1_wp, 3.29242774348191E-1_wp, &
+      &-3.11737933844111E-1_wp, 3.58851882478133E-2_wp, 3.21886835736497E-1_wp, &
+      & 4.14743455841314E-2_wp, 2.95727359478547E-2_wp,-5.06347224522431E-1_wp, &
+      & 3.43067182413129E-1_wp, 6.88373767679515E-1_wp, 7.03357390141253E-2_wp, &
+      &-9.62424552888750E-2_wp,-1.32209348056625E-1_wp, 9.78998441832186E-2_wp, &
+      &-3.05979982450903E-1_wp]
+   real(wp), allocatable :: rad(:), tension(:), hbond(:)
+
+   call get_structure(mol, "MB16-43", "08")
+   rad = get_vdw_rad_d3(mol%num)
+   tension = tension_water(mol%num)
+   hbond = hbond_water(mol%num)
+
+   input = cds_input(probe=2.2_wp, nang=110, rad=rad, tension=tension, hbond=hbond)
+   call test_p(error, mol, input, qat)
+
+end subroutine test_p_sasa
 
 
 subroutine test_e_alpb_gfn1_all_solvents(error)
@@ -333,12 +493,11 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
    call get_structure(mol, "MB16-43", "04")
 
    ! Check GFN1/ALPB for all available solvents
-   do i=1, nsolvents
+   do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(method='gfn1', alpb=.true.)
-      input%solvent = solvent%solvent
-      call get_cds_param(input, mol, error)
-      call test_e(error, mol, input, qat, refs(i)) 
+      input = cds_input(solvent=solvent%solvent, alpb=.true.)
+      call test_e(error, mol, input, qat, refs(i), method='gfn1') 
+      if (allocated(error)) return
    end do 
 
 end subroutine test_e_alpb_gfn1_all_solvents
@@ -380,12 +539,11 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
    call get_structure(mol, "MB16-43", "05")
 
    ! Check GFN2/ALPB for all available solvents
-   do i=1, nsolvents
+   do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(method='gfn2', alpb=.true.)
-      input%solvent = solvent%solvent
-      call get_cds_param(input, mol, error)
-      call test_e(error, mol, input, qat, refs(i)) 
+      input = cds_input(solvent=solvent%solvent, alpb=.true.)
+      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      if (allocated(error)) return
    end do 
 
 end subroutine test_e_alpb_gfn2_all_solvents
@@ -419,12 +577,11 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    call get_structure(mol, "MB16-43", "06")
 
    ! Check GFN1/GBSA for all available solvents
-   do i=1, nsolvents
+   do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(method='gfn1', alpb=.false.)
-      input%solvent = solvent%solvent
-      call get_cds_param(input, mol, error)
-      call test_e(error, mol, input, qat, refs(i)) 
+      input = cds_input(solvent=solvent%solvent, alpb=.false.)
+      call test_e(error, mol, input, qat, refs(i), method='gfn1') 
+      if (allocated(error)) return
    end do 
 
 end subroutine test_e_gbsa_gfn1_all_solvents
@@ -460,12 +617,11 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
    call get_structure(mol, "MB16-43", "07")
 
    ! Check GFN2/GBSA for all available solvents
-   do i=1, nsolvents
+   do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
-      input = cds_input(method='gfn2', alpb=.false.)
-      input%solvent = solvent%solvent
-      call get_cds_param(input, mol, error)
-      call test_e(error, mol, input, qat, refs(i)) 
+      input = cds_input(solvent=solvent%solvent, alpb=.false.)
+      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      if (allocated(error)) return
    end do 
 
 end subroutine test_e_gbsa_gfn2_all_solvents
@@ -503,12 +659,8 @@ subroutine test_e_charged_alpb_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn1', alpb=.true.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return  
-   call test_e(error, mol, input, qat, -1.74474048674407E-02_wp)
-   if (allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_e(error, mol, input, qat, -1.74474048674407E-02_wp, method='gfn1')
 
 end subroutine test_e_charged_alpb_gfn1
 
@@ -544,12 +696,8 @@ subroutine test_e_charged_alpb_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn2', alpb=.true.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return  
-   call test_e(error, mol, input, qat, -7.40555251354138E-03_wp)
-   if (allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_e(error, mol, input, qat, -7.40555251354138E-03_wp, method='gfn2')
 
 end subroutine test_e_charged_alpb_gfn2
 
@@ -585,12 +733,8 @@ subroutine test_e_charged_gbsa_gfn1(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn1', alpb=.false.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return  
-   call test_e(error, mol, input, qat, 8.78720929142896E-03_wp)
-   if (allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.false.)
+   call test_e(error, mol, input, qat, 8.78720929142896E-03_wp, method='gfn1')
 
 end subroutine test_e_charged_gbsa_gfn1
 
@@ -626,12 +770,8 @@ subroutine test_e_charged_gbsa_gfn2(error)
 
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn2', alpb=.false.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return  
-   call test_e(error, mol, input, qat, -1.68750629525887E-02_wp)
-   if (allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.false.)
+   call test_e(error, mol, input, qat, -1.68750629525887E-02_wp, method='gfn2')
 
 end subroutine test_e_charged_gbsa_gfn2
 
@@ -654,12 +794,8 @@ subroutine test_g_cds(error)
 
    call get_structure(mol, "MB16-43", "06")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn2', alpb=.true.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return 
-   call test_g(error, mol, input, qat)
-   if(allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_g(error, mol, input, qat, method='gfn2')
 
 end subroutine test_g_cds
 
@@ -682,12 +818,8 @@ subroutine test_g_cds_nonscf(error)
 
    call get_structure(mol, "MB16-43", "07")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn2', alpb=.true.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return 
-   call test_g_nonscf(error, mol, input, qat)
-   if(allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_g_nonscf(error, mol, input, qat, method='gfn2')
 
 end subroutine test_g_cds_nonscf
 
@@ -710,12 +842,8 @@ subroutine test_p_cds(error)
 
    call get_structure(mol, "MB16-43", "08")
    solvent = get_solvent_data("water")
-   input = cds_input(method='gfn2', alpb=.true.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return 
-   call test_p(error, mol, input, qat)
-   if(allocated(error)) return
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_p(error, mol, input, qat, method='gfn2')
 
 end subroutine test_p_cds
 
@@ -740,10 +868,8 @@ subroutine test_unsupported_solvent(error)
 
    ! Check GFN1/GBSA unavailable solvent
    solvent = get_solvent_data("aniline")
-   input = cds_input(method='gfn1', alpb=.false.)
-   input%solvent = solvent%solvent
-   call get_cds_param(input, mol, error)
-   if(allocated(error)) return 
+   input = cds_input(solvent=solvent%solvent, alpb=.false.)
+   call get_cds_param(input, mol, 'gfn1', error)
 
 end subroutine test_unsupported_solvent
 
