@@ -3008,6 +3008,339 @@ int test_post_processing_api()
     return 1;
 }
 
+int test_solvation_models_api()
+{
+    printf("Start test: Solvation Models\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    const double thr = 1.0e-6;
+
+    int natoms = 21;
+    int num[21] = { 24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1 };
+    double xyz[3 * 21] = {
+        +0.00000000000000, +0.00000000000000, -0.06044684528305,
+        +0.00000000000000, +3.19613712523833, +2.30877824528580,
+        +2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -1.33235791539260, +3.55640652898451, -1.83908673090077,
+        -2.18828801115897, +3.32943780995850, +0.70249948585735,
+        +0.00000000000000, +3.10509505378016, +4.34935395653655,
+        +4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -2.52190264478215, +3.60569548880831, -3.50208900904436,
+        -4.13810718850644, +3.28428734944129, +1.31235006648465,
+        +2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.19613712523833, +2.30877824528580,
+        +1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.18828801115897, -3.32943780995850, +0.70249948585735,
+        +0.00000000000000, -3.10509505378016, +4.34935395653655,
+        -1.33235791539260, -3.55640652898451, -1.83908673090077,
+        +2.52190264478215, -3.60569548880831, -3.50208900904436,
+        -4.13810718850644, -3.28428734944129, +1.31235006648465,
+        -2.52190264478215, -3.60569548880831, -3.50208900904436,
+    };
+    double energy;
+
+    error = tblite_new_error();
+    // check that we get an immediate return if ctx is not associated
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 0.0); 
+    if (cont != NULL)
+    goto err;
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+    
+    //check if it fails when mol is not associated
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, 0.0); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+    
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check_error(error))
+        goto err;
+    
+    //check if it fails when calc is not associated
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 0.0); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx)
+    ;  
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethal"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethal"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);  
+
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethal"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
+    
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, "ethanol"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.43248830035, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_cpcm_solvation(ctx, mol, calc, 7.0); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.43287176929, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.43674134364, thr, "energy error"))
+        goto err;
+
+    
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.448543412625, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "water"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.439916755536, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.43677095356, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont); 
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "bar1mol"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.445512179798, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "reference"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy, -28.442829765226, thr, "energy error"))
+        goto err;
+
+    tblite_delete(calc);
+    tblite_delete(cont);
+
+    calc = tblite_new_gfn1_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "reference"); 
+    if (tblite_check_context(ctx))
+        goto err;
+    
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(energy,  -28.354559810599, thr, "energy error"))
+        goto err;
+
+    return 0;
+    err:
+    if (tblite_check_error(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check_context(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
 int main(void)
 {
     int stat = 0;
@@ -3034,5 +3367,6 @@ int main(void)
     stat += test_post_processing_api();
     stat += test_uninitialized_dict();
     stat += test_h2plus_wbo();
+    stat += test_solvation_models_api();
     return stat;
 }

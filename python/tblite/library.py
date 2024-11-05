@@ -497,14 +497,30 @@ def new_electric_field(ctx, mol, calc, efield):
 
 
 @context_check
-def new_alpb_solvation(ctx, mol, calc, solvent):
+def new_alpb_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
     "Create new ALPB solvation model object"
+    _refstr = ffi.new("char[]", refstate.encode("ascii"))
     if isinstance(solvent, str):
         _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string)
+        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string, _refstr)
     elif isinstance(solvent, float) or isinstance(solvent, int):
         _eps = float(solvent)
-        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps)
+        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps, _refstr)
+    else:
+        raise TBLiteTypeError(
+            "Enter desired solvent as string, or enter epsilon value as float or intger."
+        )
+
+@context_check
+def new_gbsa_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
+    "Create new GBSA solvation model object"
+    _refstr = ffi.new("char[]", refstate.encode("ascii"))
+    if isinstance(solvent, str):
+        _string = ffi.new("char[]", solvent.encode("ascii"))
+        return lib.tblite_new_gbsa_solvation_solvent(ctx, mol, calc, _string, _refstr)
+    elif isinstance(solvent, float) or isinstance(solvent, int):
+        _eps = float(solvent)
+        return lib.tblite_new_gbsa_solvation_epsilon(ctx, mol, calc, _eps, _refstr)
     else:
         raise TBLiteTypeError(
             "Enter desired solvent as string, or enter epsilon value as float or intger."
