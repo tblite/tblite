@@ -3318,6 +3318,16 @@ int test_solvation_models_api()
     if (!check(energy,  -28.354559810599, thr, "energy error"))
         goto err;
 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0, "reference"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0, "reference"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
     return 0;
     err:
     if (tblite_check_error(error)) {

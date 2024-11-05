@@ -387,6 +387,7 @@ function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
    
    if (refstate /= "gsolv") then
       call fatal_error(error, "Solution state shift is only supported for named solvents")
+      call ctx%ptr%set_error(error)
       return
    end if
 
