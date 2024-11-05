@@ -3328,6 +3328,11 @@ int test_solvation_models_api()
         goto err;
     show_context_error(ctx);
 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethanol"); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
     return 0;
     err:
     if (tblite_check_error(error)) {

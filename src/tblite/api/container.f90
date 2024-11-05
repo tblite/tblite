@@ -188,7 +188,10 @@ function new_cpcm_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont
    end if
    solvmodel%cpcm = cpcm_input(solvent%eps)
    call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
+   if (allocated(error)) then 
+      call ctx%ptr%set_error(error)
+      return
+   end if
    
    allocate(cont)
    call move_alloc(solv, cont%ptr)
@@ -308,8 +311,11 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
 
    solvmodel%alpb = alpb_input(eps, alpb=alpb)
    call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
-
+   if (allocated(error)) then 
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   
    allocate(cont)
    call move_alloc(solv, cont%ptr)
 
