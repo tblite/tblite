@@ -588,6 +588,8 @@ subroutine new_gfn2_calculator(calc, mol, error)
    call add_dispersion(calc, mol)
    call add_coulomb(calc, mol)
 
+   calc%method = "gfn2"
+
 end subroutine new_gfn2_calculator
 
 subroutine add_basis(calc, mol)
