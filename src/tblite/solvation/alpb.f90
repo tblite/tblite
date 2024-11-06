@@ -34,6 +34,7 @@ module tblite_solvation_alpb
    use tblite_solvation_born, only : born_integrator, new_born_integrator
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
+   use tblite_solvation_cm5, only : get_cm5_charges
    implicit none
    private
 
@@ -69,10 +70,16 @@ module tblite_solvation_alpb
       integer :: kernel = born_kernel%p16
       !> Use analytical linearized Poisson-Boltzmann model
       logical :: alpb = .true.
+      !> Solvent for parameter selection
+      character(len=:), allocatable :: solvent
    end type alpb_input
 
+   !> Provide constructor for ALPB input
+   interface alpb_input
+      module procedure :: create_alpb_input
+   end interface alpb_input
 
-   !> Definition of polarizable continuum model
+   !> Definition of ALPB/GBSA model
    type, public, extends(solvation_type) :: alpb_solvation
       !> Dielectric function
       real(wp) :: keps
@@ -82,6 +89,8 @@ module tblite_solvation_alpb
       type(born_integrator) :: gbobc
       !> Interaction kernel
       integer :: kernel
+      !> Use CM5 charges (GFN1-xTB compatibility)
+      logical :: useCM5 = .false.
    contains
       !> Update cache from container
       procedure :: update
@@ -111,11 +120,19 @@ module tblite_solvation_alpb
       real(wp), allocatable :: rad(:)
       !> Derivatives of Born radii w.r.t. cartesian displacements
       real(wp), allocatable :: draddr(:, :, :)
+      !> Scratch workspace for gradient construction
+      real(wp), allocatable :: scratch(:)
+      !> Workspace for atomic charges
+      real(wp), allocatable :: qscratch(:)
+      !> CM5 charges (only required for GFN1 compatibility)
+      real(wp), allocatable :: cm5(:)
+      !> CM5 charge derivatives
+      real(wp), allocatable :: dcm5dr(:,:,:)
    end type alpb_cache
 
 
    !> Identifier for container
-   character(len=*), parameter :: label = "reaction field model"
+   character(len=*), parameter :: label = "alpb/gbsa reaction field model"
 
    real(wp), parameter :: zetaP16 = 1.028_wp
    real(wp), parameter :: zetaP16o16 = zetaP16 / 16.0_wp
@@ -125,16 +142,46 @@ module tblite_solvation_alpb
 contains
 
 
+!> Consturctor for ALPB input to properly assign allocatable strings
+function create_alpb_input(dielectric_const, solvent, alpb, kernel) result(self)
+   !> Dielectric constant
+   real(wp), intent(in) :: dielectric_const
+   !> Solvent for parameter selection
+   character(len=*), intent(in), optional :: solvent
+   !> Use analytical linearized Poisson-Boltzmann model
+   logical, intent(in), optional :: alpb
+   !> Interaction kernel
+   integer, intent(in), optional :: kernel
+
+   type(alpb_input) :: self
+
+   self%dielectric_const = dielectric_const
+
+   if (present(solvent)) then 
+      self%solvent = solvent
+   end if
+
+   if (present(alpb)) then 
+      self%alpb = alpb
+   end if
+
+   if (present(kernel)) then 
+      self%kernel = kernel
+   end if
+
+end function create_alpb_input
+
+
 !> Create new ALPB solvation model
-subroutine new_alpb(self, mol, input, error)
+subroutine new_alpb(self, mol, input, method)
    !> Instance of the solvation model
    type(alpb_solvation), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ALPB solvation
    type(alpb_input), intent(in) :: input
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
 
    real(wp), allocatable :: rvdw(:)
 
@@ -142,6 +189,9 @@ subroutine new_alpb(self, mol, input, error)
    self%alpbet = merge(alpha_alpb / input%dielectric_const, 0.0_wp, input%alpb)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
+   if (allocated(input%solvent) .and. present(method)) then
+      self%useCM5 = trim(method) == 'gfn1'
+   endif
 
    if (allocated(input%rvdw)) then
       rvdw = input%rvdw
@@ -154,18 +204,18 @@ subroutine new_alpb(self, mol, input, error)
 end subroutine new_alpb
 
 
-!> Type constructor for ALPB splvation
-function create_alpb(mol, input) result(self)
+!> Type constructor for ALPB solvation
+function create_alpb(mol, input, method) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ALPB solvation
    type(alpb_input), intent(in) :: input
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
    !> Instance of the solvation model
    type(alpb_solvation) :: self
 
-   type(error_type), allocatable :: error
-
-   call new_alpb(self, mol, input, error)
+   call new_alpb(self, mol, input, method)
 end function create_alpb
 
 
@@ -195,6 +245,21 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%draddr)) then
       allocate(ptr%draddr(3, mol%nat, mol%nat))
    end if
+   if (.not.allocated(ptr%qscratch))then
+      allocate(ptr%qscratch(mol%nat))
+   endif 
+   if (self%useCM5)then
+      if (.not.allocated(ptr%cm5))then
+         allocate(ptr%cm5(mol%nat)) 
+      endif
+      if (.not.allocated(ptr%dcm5dr))then
+         allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
+      endif
+      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
+   endif
+   if (self%useCM5.and..not.allocated(ptr%scratch))then
+      allocate(ptr%scratch(mol%nat))
+   endif
 
    call self%gbobc%get_rad(mol, ptr%rad, ptr%draddr)
    ptr%jmat(:, :) = 0.0_wp
@@ -230,9 +295,15 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    type(alpb_cache), pointer :: ptr
 
    call view(cache, ptr)
+   
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
 
-   call symv(ptr%jmat, wfn%qat(:, 1), ptr%vat, alpha=0.5_wp)
-   energies(:) = energies + ptr%vat * wfn%qat(:, 1)
+   call symv(ptr%jmat, ptr%qscratch(:), ptr%vat, alpha=0.5_wp)
+   energies(:) = energies + ptr%vat * ptr%qscratch(:)
 end subroutine get_energy
 
 
@@ -253,7 +324,13 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   call symv(ptr%jmat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
+
+   call symv(ptr%jmat, ptr%qscratch(:), pot%vat(:, 1), beta=1.0_wp)
 end subroutine get_potential
 
 
@@ -278,19 +355,31 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    energy = 0.0_wp
    call view(cache, ptr)
 
+   if(self%useCM5)then
+      ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
+   else
+      ptr%qscratch(:) = wfn%qat(:, 1)
+   endif
+
    select case(self%kernel)
    case(born_kernel%p16)
       call add_born_deriv_p16(mol%nat, mol%xyz, &
-         & wfn%qat(:, 1), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
    case(born_kernel%still)
       call add_born_deriv_still(mol%nat, mol%xyz, &
-         & wfn%qat(:, 1), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
    end select
 
    if (self%alpbet > 0.0_wp) then
       call get_adet_deriv(mol%nat, mol%xyz, self%gbobc%vdwr, self%kEps*self%alpbet, &
-         & wfn%qat(:, 1), gradient)
+         & ptr%qscratch(:), gradient)
    end if
+
+   if(self%useCM5)then
+      call gemv(ptr%jmat, ptr%qscratch, ptr%scratch)
+      call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+   endif
+
 end subroutine get_gradient
 
 
@@ -575,9 +664,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
          grddbi = brad(j)*bp
          grddbj = brad(i)*bp
          grddb(i) = grddb(i) + grddbi*qq
-         !gradient = gradient + brdr(:, :, i) * grddbi*qq
          grddb(j) = grddb(j) + grddbj*qq
-         !gradient = gradient + brdr(:, :, j) * grddbj*qq
 
       enddo
 
@@ -587,7 +674,6 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
       egb = egb + 0.5_wp*qat(i)*qq*keps
       grddbi = -0.5_wp*keps*qq*bp
       grddb(i) = grddb(i) + grddbi*qat(i)
-      !gradient = gradient + brdr(:, :, i) * grddbi*qat(i)
    enddo
 
    ! contract with the Born radii derivatives

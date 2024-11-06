@@ -538,6 +538,8 @@ subroutine new_gfn1_calculator(calc, mol, error)
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
 
+   calc%method = "gfn1"
+
 end subroutine new_gfn1_calculator
 
 subroutine add_basis(calc, mol)

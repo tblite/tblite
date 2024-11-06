@@ -27,12 +27,13 @@ module tblite_api_container
    use tblite_api_context, only : vp_context
    use tblite_api_structure, only : vp_structure
    use tblite_basis, only : basis_type
-   use tblite_container, only : container_type
+   use tblite_container, only : container_type, container_list
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & solvent_data, get_solvent_data, solvation_type, new_solvation
+      & solvent_data, get_solvent_data, solvation_type, new_solvation, solutionState, &
+      & new_solvation_cds, new_solvation_shift, cds_input, shift_input
    use tblite_api_utils, only: c_f_character
    implicit none
    private
@@ -187,7 +188,10 @@ function new_cpcm_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont
    end if
    solvmodel%cpcm = cpcm_input(solvent%eps)
    call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
+   if (allocated(error)) then 
+      call ctx%ptr%set_error(error)
+      return
+   end if
    
    allocate(cont)
    call move_alloc(solv, cont%ptr)
@@ -220,7 +224,10 @@ function new_cpcm_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
 
    solvmodel%cpcm = cpcm_input(eps)
    call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
+   if (allocated(error)) then
+      call ctx%ptr%set_error(error)
+      return
+   end if
    
    allocate(cont)
    call move_alloc(solv, cont%ptr)
@@ -229,7 +236,7 @@ function new_cpcm_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
 
 end function
 
-function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont) &
+function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) result(vcont) &
    & bind(C, name=namespace//"new_alpb_solvation_solvent")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -240,13 +247,13 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    character(kind=c_char), intent(in) :: solvstr(*)
-   character(len=:), allocatable :: solvinp
-   type(solvation_input) :: solvmodel
-   type(solvent_data) :: solvent
-   class(solvation_type), allocatable :: solv
+   character(kind=c_char), intent(in) :: refstr(*)
+   character(len=:), allocatable :: solvinp, refstate
+   type(container_list), allocatable :: cont_list
    type(error_type), allocatable :: error
-   integer :: stat
-   logical :: ok
+   integer :: stat, kernel = 2
+   logical :: ok, alpb = .true.
+   
    if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation"
    vcont = c_null_ptr
 
@@ -254,25 +261,23 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr) result(vcont
    if (.not.ok) return
 
    call c_f_character(solvstr, solvinp)
+   call c_f_character(refstr, refstate)
 
-   solvent = get_solvent_data(solvinp)
-   if (solvent%eps <= 0.0_wp) then
-      call fatal_error(error, "String value for epsilon was not found among database of solvents")
+   call setup_gbsa_alpb_solvent_model(solvinp, refstate, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
+   if (allocated(error)) then
       call ctx%ptr%set_error(error)
       return
    end if
-   solvmodel%alpb = alpb_input(solvent%eps)
-   call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
 
    allocate(cont)
-   call move_alloc(solv, cont%ptr)
+   call move_alloc(cont_list, cont%ptr)
 
    vcont = c_loc(cont)
    
 end function
 
-function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
+
+function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(vcont) &
    & bind(C, name=namespace//"new_alpb_solvation_epsilon")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -283,21 +288,121 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    real(c_double), value :: eps
+   character(kind=c_char), intent(in) :: refstr(*)
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
    type(error_type), allocatable :: error
+   character(len=:), allocatable :: refstate
    integer :: stat
-   logical :: ok
+   logical :: ok, alpb = .true.
 
    if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation float input"
    vcont = c_null_ptr
 
    call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
    if (.not.ok) return
+   call c_f_character(refstr, refstate)
+   
+   if (refstate /= "gsolv") then
+      call fatal_error(error, "Solution state shift is only supported for named solvents")
+      call ctx%ptr%set_error(error)
+      return
+   end if
 
-   solvmodel%alpb = alpb_input(eps)
+   solvmodel%alpb = alpb_input(eps, alpb=alpb)
    call new_solvation(solv, mol%ptr, solvmodel, error)
-   if (allocated(error)) return
+   if (allocated(error)) then 
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+
+   vcont = c_loc(cont)
+   
+end function
+
+
+function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) result(vcont) &
+   & bind(C, name=namespace//"new_gbsa_solvation_solvent")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   character(kind=c_char), intent(in) :: solvstr(*)
+   character(kind=c_char), intent(in) :: refstr(*)
+   character(len=:), allocatable :: solvinp, refstate
+   type(container_list), allocatable :: cont_list
+   type(error_type), allocatable :: error
+   integer :: stat, kernel = 1
+   logical :: ok, alpb = .false.
+   
+   if (debug) print '("[Info]", 1x, a)', "new_gbsa_solvation"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+
+   call c_f_character(solvstr, solvinp)
+   call c_f_character(refstr, refstate)
+
+   call setup_gbsa_alpb_solvent_model(solvinp, refstate, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
+   if (allocated(error)) then
+      call ctx%ptr%set_error(error)
+      return
+   end if
+
+   allocate(cont)
+   call move_alloc(cont_list, cont%ptr)
+
+   vcont = c_loc(cont)
+   
+end function
+
+
+function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(vcont) &
+   & bind(C, name=namespace//"new_gbsa_solvation_epsilon")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+   real(c_double), value :: eps
+   character(kind=c_char), intent(in) :: refstr(*)
+   type(solvation_input) :: solvmodel
+   class(solvation_type), allocatable :: solv
+   type(error_type), allocatable :: error
+   character(len=:), allocatable :: refstate
+   integer :: stat
+   logical :: ok, alpb = .false.
+
+   if (debug) print '("[Info]", 1x, a)', "new_gbsa_solvation float input"
+   vcont = c_null_ptr
+
+   call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
+   if (.not.ok) return
+   call c_f_character(refstr, refstate)
+   
+   if (refstate /= "gsolv") then
+      call fatal_error(error, "Solution state shift is only supported for named solvents")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+
+   solvmodel%alpb = alpb_input(eps, alpb=alpb)
+   call new_solvation(solv, mol%ptr, solvmodel, error)
+   if (allocated(error)) then
+      call ctx%ptr%set_error(error)
+      return
+   end if
 
    allocate(cont)
    call move_alloc(solv, cont%ptr)
@@ -305,6 +410,7 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
    vcont = c_loc(cont)
    
 end function
+
 
 subroutine resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
    type(c_ptr), value :: vctx
@@ -371,5 +477,69 @@ subroutine delete_container_api(vcont) &
    end if
 end subroutine delete_container_api
 
+
+subroutine setup_gbsa_alpb_solvent_model(solvstr, refstr, method, kernel, alpb, mol, cont_list, error)
+   !> String containing the solvent name
+   character(len=:), allocatable, intent(in) :: solvstr
+   !> String for the reference state
+   character(len=:), allocatable, intent(in) :: refstr
+   !> String with the short name of the GFN Hamiltoniann in use
+   character(len=:), allocatable, intent(inout) :: method
+   !> which kernel are we using
+   integer, intent(in) :: kernel
+   !> do we use gbsa or alpb
+   logical, intent(in) :: alpb
+   type(structure_type), intent(in) :: mol
+   !> Container list passed back, containing all solvent contributions
+   type(container_list), allocatable, intent(out) :: cont_list
+   !> Error object returned for bad input
+   type(error_type), allocatable, intent(out) :: error
+   integer :: sol_state
+   
+   type(solvation_input) :: solvmodel
+   type(solvent_data) :: solvent
+   
+   class(container_type), allocatable :: tmp_cont
+   class(solvation_type), allocatable :: solv
+   class(solvation_type), allocatable :: cds
+   class(solvation_type), allocatable :: shift
+   allocate(cont_list)
+   solvent = get_solvent_data(solvstr)
+   if (solvent%eps <= 0.0_wp) then
+      call fatal_error(error, "String value for epsilon was not found among database of solvents")
+      return
+   end if
+
+   sol_state = solutionState%gsolv
+   select case(refstr)
+   case("gsolv")
+      sol_state = solutionState%gsolv
+   case("bar1mol")
+      sol_state = solutionState%bar1mol
+   case("reference")
+      sol_state = solutionState%reference
+   case default
+      sol_state = solutionState%gsolv
+   end select
+
+   solvmodel%alpb = alpb_input(solvent%eps, solvent=solvent%solvent, kernel=kernel, alpb=alpb)
+   solvmodel%cds = cds_input(alpb=alpb, solvent=solvent%solvent)
+   solvmodel%shift = shift_input(alpb=alpb, solvent=solvent%solvent, state=sol_state)
+   if (method == "custom") method = "gfn2"
+   call new_solvation(solv, mol, solvmodel, error, method)
+   call move_alloc(solv, tmp_cont)
+   if (allocated(error)) return
+   call cont_list%push_back(tmp_cont)
+   
+   call new_solvation_cds(cds, mol, solvmodel, error, method)
+   call move_alloc(cds, tmp_cont)
+   if (allocated(error)) return
+   call cont_list%push_back(tmp_cont)
+   call new_solvation_shift(shift, solvmodel, error, method)
+   if (allocated(error)) return
+   call move_alloc(shift, tmp_cont)
+   call cont_list%push_back(tmp_cont)
+
+end subroutine
 
 end module tblite_api_container

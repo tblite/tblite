@@ -462,6 +462,7 @@ class Calculator(Structure):
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
         "alpb-solvation": library.new_alpb_solvation,
+        "gbsa-solvation": library.new_gbsa_solvation,
         "cpcm-solvation": library.new_cpcm_solvation,
     }
     _post_processing = {
@@ -535,14 +536,22 @@ class Calculator(Structure):
         """
         Add an interaction to the calculator instance. Supported interactions are
 
-        =================== =========================== ===================
+        =================== =========================== ======================================
          name                description                 Arguments
-        =================== =========================== ===================
+        =================== =========================== ======================================
          electric-field      Uniform electric field      Field vector (3,)
          spin-polarization   Spin polarization           Scaling factor
-         alpb-solvation      ALPB implicit solvation     Epsilon or solvent
+         alpb-solvation      ALPB implicit solvation     Epsilon or solvent, [solution state]
+         gbsa-solvation      GBSA implicit solvation     Epsilon or solvent, [solution state]
          cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
-        =================== =========================== ===================
+        =================== =========================== ======================================
+        
+        .. note::
+
+            For GSBA and ALPB:
+            For named solvents, uses parametrized GBSA/ALPB with CDS and empirical shift.
+            For unnamed solvents (dielectric constant), uses non-empirical GBSA/ALPB.
+            Optional solution state correction: gsolv (default), bar1mol, reference.
         """
 
         if interaction in self._interaction:
