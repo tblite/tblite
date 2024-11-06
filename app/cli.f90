@@ -25,7 +25,7 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solutionState
+      & cds_input, shift_input, solvent_data, get_solvent_data, solutionState, born_kernel
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -366,10 +366,10 @@ subroutine get_run_arguments(config, list, start, error)
          end if 
          if (arg == "--alpb") then
             alpb = .true.
-            kernel = 2
+            kernel = born_kernel%p16
          else 
             alpb = .false.
-            kernel = 1
+            kernel = born_kernel%still
          end if
 
          ! Check for solvent information

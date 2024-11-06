@@ -24,7 +24,7 @@
 module tblite_solvation
    use mctc_env, only : error_type, fatal_error
    use mctc_io, only : structure_type
-   use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input
+   use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input, born_kernel
    use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
    use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solutionState
@@ -37,7 +37,7 @@ module tblite_solvation
    implicit none
    private
 
-   public :: alpb_solvation, new_alpb, alpb_input
+   public :: alpb_solvation, new_alpb, alpb_input, born_kernel
    public :: cpcm_solvation, new_cpcm, cpcm_input
    public :: cds_solvation, new_cds, cds_input
    public :: shift_solvation, new_shift, shift_input

@@ -175,7 +175,7 @@ module tblite_cli_help
       "      --efield <real>,<real>,<real>"//nl//&
       "                           Homogeneous electric field in V/Å."//nl//&
       "      --grad               Evaluate analytic gradient of charges."//nl//&
-      "      --json [file]       Dump results as JSON output (default: tblite.json)"//nl//&
+      "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
       "  -i, --input <format>     Hint for the format of the input file"//nl//&
       "  -v, --verbose            Increase verbosity of printout"//nl//&
       "  -s, --silent             Reduce verbosity of printout"//nl//&
