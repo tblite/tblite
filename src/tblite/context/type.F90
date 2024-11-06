@@ -163,7 +163,7 @@ subroutine delete_solver(self)
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
-   if (allocated(solver)) deallocate(solver)
+   if (allocated(self%ctxsolver)) deallocate(self%ctxsolver)
 end subroutine delete_solver
 
 
