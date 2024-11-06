@@ -17,6 +17,10 @@
 !> @file tblite/context/type.f90
 !> Provides a context manager for storing persistent environment settings
 
+#ifndef WITH_MKL
+#define WITH_MKL 0
+#endif
+
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use iso_fortran_env, only : output_unit
@@ -156,8 +160,10 @@ subroutine delete_solver(self)
    if (allocated(self%solver)) then
       call self%ctxsolver%delete(self%solver)
    end if
-
-   if (allocated(self%solver)) deallocate(self%solver)
+#if WITH_MKL 
+   call mkl_free_buffers()
+#endif
+   if (allocated(solver)) deallocate(solver)
 end subroutine delete_solver
 
 

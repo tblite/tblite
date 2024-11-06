@@ -262,26 +262,26 @@ class Result:
         Get a quantity stored instade the result container.
         The following quantities are available
 
-        ====================== =========== ==============
-         property               dimension   unit
-        ====================== =========== ==============
-         energy                 scalar      Hartree
-         energies               nat         Hartree
-         gradient               nat, 3      Hartree/Bohr
-         virial                 3, 3        Hartree
-         charges                nat         e
-         bond-orders            nat, nat    e
-         dipole                 3           e·Bohr
-         quadrupole             6           e·Bohr²
-         orbital-energies       norb        Hartree
-         orbital-occupations    norb        e
-         orbital-coefficients   norb        unitless
-         overlap-matrix         norb, norb  unitless
-         hamiltonian-matrix     norb, norb  Hartree
-         density-matrix         norb, norb  e
-         natoms                 scalar      unitless
-         norbitals              scalar      unitless
-        ====================== =========== ==============
+        ====================== ================================= ==============
+         property               dimension [spin-polarized case]   unit
+        ====================== ================================= ==============
+         energy                 scalar                            Hartree
+         energies               nat                               Hartree
+         gradient               nat, 3                            Hartree/Bohr
+         virial                 3, 3                              Hartree
+         charges                nat                               e
+         bond-orders            nat, nat                          e
+         dipole                 3                                 e·Bohr
+         quadrupole             6                                 e·Bohr²
+         orbital-energies       norb [2, norb]                    Hartree
+         orbital-occupations    norb [2, norb]                    e
+         orbital-coefficients   norb, norb [2, norb, norb]        unitless
+         overlap-matrix         norb, norb                        unitless
+         hamiltonian-matrix     norb, norb                        Hartree
+         density-matrix         norb, norb [2, norb, norb]        e
+         natoms                 scalar                            unitless
+         norbitals              scalar                            unitless
+        ====================== ================================= ==============
 
         Notes
         -----
@@ -556,8 +556,8 @@ class Calculator(Structure):
             raise TBLiteValueError(
                 f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-        
-        
+
+
 
     def get(self, attribute: str) -> Any:
         """
@@ -600,7 +600,7 @@ class Calculator(Structure):
 
         _res = Result(res) if copy or res is None else res
         library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
-        
+
         return _res
 
 

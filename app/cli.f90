@@ -77,7 +77,7 @@ module tblite_cli
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp
       !> Electronic temperature for the guess (currently only CEH)
-      real(wp) :: etemp_guess = 5000.0_wp
+      real(wp) :: etemp_guess = 4000.0_wp
       !> Electric field
       real(wp), allocatable :: efield(:)
       !> Spin polarization
@@ -115,7 +115,7 @@ module tblite_cli
       !> File for output of JSON dump
       character(len=:), allocatable :: json_output
       !> Electronic temperature for the guess (currently only CEH)
-      real(wp) :: etemp_guess = 5000.0_wp
+      real(wp) :: etemp_guess = 4000.0_wp
       !> Electric field
       real(wp), allocatable :: efield(:)
       !> Algorithm for electronic solver

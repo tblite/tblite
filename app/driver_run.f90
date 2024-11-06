@@ -40,7 +40,7 @@ module tblite_driver_run
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_singlepoint, only : ceh_guess
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
    use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
    use tblite_purification_solver_context, only : purification_solver_context, purification_type
@@ -147,11 +147,11 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol)
+         call new_gfn2_calculator(calc, mol, error)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol)
+         call new_gfn1_calculator(calc, mol, error)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol)
+         call new_ipea1_calculator(calc, mol, error)
       end select
    end if
    if (allocated(error)) return
@@ -161,7 +161,8 @@ subroutine run_main(config, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    if (config%guess == "ceh") then
-      call new_ceh_calculator(calc_ceh, mol)
+      call new_ceh_calculator(calc_ceh, mol, error)
+      if (allocated(error)) return
       call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
       if (config%grad) then
          call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
@@ -192,7 +193,7 @@ subroutine run_main(config, error)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
    case("ceh")
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%accuracy, config%verbosity)
+      call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
       if (ctx%failed()) then
          call fatal(ctx, "CEH singlepoint calculation failed")
          do while(ctx%failed())

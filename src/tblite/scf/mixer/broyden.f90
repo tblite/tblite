@@ -169,12 +169,12 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    it1 = mod(itn - 1, memory) + 1
 
    ! set parameters
-   ! alpha = 0.25d0
-   omega0 = 0.01d0
-   minw = 1.0d0
-   maxw = 100000.0d0
-   wfac = 0.01d0
-   ! wfac = 0.05d0
+   ! alpha = 0.25e0_wp
+   omega0 = 0.01e0_wp
+   minw = 1.0e0_wp
+   maxw = 100000.0e0_wp
+   wfac = 0.01e0_wp
+   ! wfac = 0.05e0_wp
 
    ! if case for first iteration: simple damping
    if (iter == 1) then
