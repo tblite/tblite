@@ -32,7 +32,7 @@ module tblite_driver_run
    use tblite_param, only : param_record
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : new_solvation, solvation_type
+   use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
@@ -176,13 +176,13 @@ subroutine run_main(config, error)
          cont = electric_field(config%efield*vatoau)
          call calc%push_back(cont)
       end block
-         if (config%guess == "ceh") then
-            block
-            class(container_type), allocatable :: cont
-            cont = electric_field(config%efield*vatoau)
-            call calc_ceh%push_back(cont)
-            end block
-         end if
+      if (config%guess == "ceh") then
+         block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc_ceh%push_back(cont)
+         end block
+      end if
    end if
 
    select case(config%guess)
@@ -229,14 +229,36 @@ subroutine run_main(config, error)
    end if
 
    if (allocated(config%solvation)) then
+      method = "gfn2"
+      if (allocated(config%method)) method = config%method
       block
          class(container_type), allocatable :: cont
          class(solvation_type), allocatable :: solv
-         call new_solvation(solv, mol, config%solvation, error)
+         call new_solvation(solv, mol, config%solvation, error, method)
          if (allocated(error)) return
          call move_alloc(solv, cont)
          call calc%push_back(cont)
       end block
+      if (allocated(config%solvation%cds)) then
+         block
+            class(container_type), allocatable :: cont
+            class(solvation_type), allocatable :: cds
+            call new_solvation_cds(cds, mol, config%solvation, error, method)
+            if (allocated(error)) return
+            call move_alloc(cds, cont)
+            call calc%push_back(cont)
+         end block
+      end if
+      if (allocated(config%solvation%shift)) then
+         block
+            class(container_type), allocatable :: cont
+            class(solvation_type), allocatable :: shift
+            call new_solvation_shift(shift, config%solvation, error, method)
+            if (allocated(error)) return
+            call move_alloc(shift, cont)
+            call calc%push_back(cont)
+         end block
+      end if
    end if
 
    wbo_label = "bond-orders"

@@ -548,6 +548,8 @@ subroutine new_ipea1_calculator(calc, mol, error)
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
 
+   calc%method = "ipea1"
+
 end subroutine new_ipea1_calculator
 
 subroutine add_basis(calc, mol)
