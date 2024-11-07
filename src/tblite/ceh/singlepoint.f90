@@ -236,6 +236,7 @@ contains
          end if
       end block
 
+      call ctx%delete_solver()
 
    end subroutine ceh_singlepoint
 

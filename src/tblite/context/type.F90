@@ -158,11 +158,14 @@ subroutine delete_solver(self)
    !class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
+      write(*,*) "Allocated solver"
       call self%ctxsolver%delete(self%solver)
+      if (allocated(self%solver)) deallocate(self%solver)
    end if
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
+
    if (allocated(self%ctxsolver)) deallocate(self%ctxsolver)
 end subroutine delete_solver
 
