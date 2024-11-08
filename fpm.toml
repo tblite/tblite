@@ -26,6 +26,7 @@ toml-f.tag = "v0.4.1"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"
+mstore.tag = "v0.3.0"
 
 [[test]]
 name = "unit-tester"
