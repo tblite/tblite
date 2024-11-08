@@ -16,8 +16,8 @@
 
 set(_lib "s-dftd3")
 set(_pkg "SDFTD3")
-set(_url "https://github.com/awvwgk/simple-dftd3")
-set(_rev "HEAD")
+set(_url "https://github.com/dftd3/simple-dftd3")
+set(_rev "v1.2.0")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
