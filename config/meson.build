@@ -123,7 +123,7 @@ lib_deps += mctc_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: '>=3.0.0',
+  version: ['>=3.4.0', '<4'],
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -132,6 +132,7 @@ lib_deps += dftd4_dep
 # Create DFT-D3 library as subproject
 sdftd3_dep = dependency(
   's-dftd3',
+  version: '>=0.6.0',
   fallback: ['s-dftd3', 'sdftd3_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )

@@ -14,15 +14,19 @@ auto-tests = false
 
 [dependencies]
 mctc-lib.git = "https://github.com/grimme-lab/mctc-lib"
-mctc-lib.tag = "v0.3.0"
+mctc-lib.tag = "v0.3.2"
+multicharge.git = "https://github.com/grimme-lab/multicharge"
+multicharge.tag = "v0.3.0"
 dftd4.git = "https://github.com/dftd4/dftd4"
-dftd4.tag = "v3.4.0"
-s-dftd3.git = "https://github.com/awvwgk/simple-dftd3"
+dftd4.tag = "v3.7.0"
+s-dftd3.git = "https://github.com/dftd3/simple-dftd3"
+s-dftd3.tag = "v1.2.0"
 toml-f.git = "https://github.com/toml-f/toml-f"
-toml-f.tag = "v0.4.0"
+toml-f.tag = "v0.4.1"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"
+mstore.tag = "v0.3.0"
 
 [[test]]
 name = "unit-tester"
