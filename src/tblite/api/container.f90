@@ -236,7 +236,7 @@ function new_cpcm_solvation_epsilon_api(vctx, vmol, vcalc, eps) result(vcont) &
 
 end function
 
-function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) result(vcont) &
+function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, c_refstate) result(vcont) &
    & bind(C, name=namespace//"new_alpb_solvation_solvent")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -247,11 +247,11 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    character(kind=c_char), intent(in) :: solvstr(*)
-   character(kind=c_char), intent(in) :: refstr(*)
-   character(len=:), allocatable :: solvinp, refstate
+   integer(c_int), optional, intent(in) :: c_refstate(1)
+   character(len=:), allocatable :: solvinp, refstr
    type(container_list), allocatable :: cont_list
    type(error_type), allocatable :: error
-   integer :: stat, kernel = 2
+   integer :: stat, kernel = 2, refstate
    logical :: ok, alpb = .true.
    
    if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation"
@@ -261,9 +261,14 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
    if (.not.ok) return
 
    call c_f_character(solvstr, solvinp)
-   call c_f_character(refstr, refstate)
+   if (present(c_refstate)) then 
+      refstate = c_refstate(1)
+   else
+      refstate = 1
+   end if
+   call get_ref_state_from_enum(refstate, refstr, error)
 
-   call setup_gbsa_alpb_solvent_model(solvinp, refstate, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
+   call setup_gbsa_alpb_solvent_model(solvinp, refstr, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
    if (allocated(error)) then
       call ctx%ptr%set_error(error)
       return
@@ -277,7 +282,7 @@ function new_alpb_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
 end function
 
 
-function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(vcont) &
+function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, c_refstate) result(vcont) &
    & bind(C, name=namespace//"new_alpb_solvation_epsilon")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -288,12 +293,12 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    real(c_double), value :: eps
-   character(kind=c_char), intent(in) :: refstr(*)
+   integer(c_int), optional, intent(in) :: c_refstate(1)
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
    type(error_type), allocatable :: error
-   character(len=:), allocatable :: refstate
-   integer :: stat
+   character(len=:), allocatable :: refstr
+   integer :: stat, refstate
    logical :: ok, alpb = .true.
 
    if (debug) print '("[Info]", 1x, a)', "new_alpb_solvation float input"
@@ -301,9 +306,14 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
 
    call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
    if (.not.ok) return
-   call c_f_character(refstr, refstate)
+   if (present(c_refstate)) then 
+      refstate = c_refstate(1)
+   else
+      refstate = 1
+   end if
+   call get_ref_state_from_enum(refstate, refstr, error)
    
-   if (refstate /= "gsolv") then
+   if (refstr /= "gsolv") then
       call fatal_error(error, "Solution state shift is only supported for named solvents")
       call ctx%ptr%set_error(error)
       return
@@ -324,7 +334,7 @@ function new_alpb_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
 end function
 
 
-function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) result(vcont) &
+function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, c_refstate) result(vcont) &
    & bind(C, name=namespace//"new_gbsa_solvation_solvent")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -335,11 +345,11 @@ function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    character(kind=c_char), intent(in) :: solvstr(*)
-   character(kind=c_char), intent(in) :: refstr(*)
-   character(len=:), allocatable :: solvinp, refstate
+   integer(c_int), optional, intent(in) :: c_refstate(1)
+   character(len=:), allocatable :: solvinp, refstr
    type(container_list), allocatable :: cont_list
    type(error_type), allocatable :: error
-   integer :: stat, kernel = 1
+   integer :: stat, kernel = 1, refstate
    logical :: ok, alpb = .false.
    
    if (debug) print '("[Info]", 1x, a)', "new_gbsa_solvation"
@@ -349,9 +359,15 @@ function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
    if (.not.ok) return
 
    call c_f_character(solvstr, solvinp)
-   call c_f_character(refstr, refstate)
+   if (present(c_refstate)) then 
+      refstate = c_refstate(1)
+   else
+      refstate = 1
+   end if
+   call get_ref_state_from_enum(refstate, refstr, error)
+   
 
-   call setup_gbsa_alpb_solvent_model(solvinp, refstate, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
+   call setup_gbsa_alpb_solvent_model(solvinp, refstr, calc%ptr%method, kernel, alpb, mol%ptr, cont_list, error)
    if (allocated(error)) then
       call ctx%ptr%set_error(error)
       return
@@ -365,7 +381,7 @@ function new_gbsa_solvation_solvent_api(vctx, vmol, vcalc, solvstr, refstr) resu
 end function
 
 
-function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(vcont) &
+function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, c_refstate) result(vcont) &
    & bind(C, name=namespace//"new_gbsa_solvation_epsilon")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -376,12 +392,12 @@ function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
    real(c_double), value :: eps
-   character(kind=c_char), intent(in) :: refstr(*)
+   integer(c_int), optional, intent(in) :: c_refstate(1)
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
    type(error_type), allocatable :: error
-   character(len=:), allocatable :: refstate
-   integer :: stat
+   character(len=:), allocatable :: refstr
+   integer :: stat, refstate
    logical :: ok, alpb = .false.
 
    if (debug) print '("[Info]", 1x, a)', "new_gbsa_solvation float input"
@@ -389,9 +405,14 @@ function new_gbsa_solvation_epsilon_api(vctx, vmol, vcalc, eps, refstr) result(v
 
    call resolve_ptr_input(vctx, vmol, vcalc, ctx, mol, calc, ok)
    if (.not.ok) return
-   call c_f_character(refstr, refstate)
+   if (present(c_refstate)) then 
+      refstate = c_refstate(1)
+   else
+      refstate = 1
+   end if
+   call get_ref_state_from_enum(refstate, refstr, error)
    
-   if (refstate /= "gsolv") then
+   if (refstr /= "gsolv") then
       call fatal_error(error, "Solution state shift is only supported for named solvents")
       call ctx%ptr%set_error(error)
       return
@@ -539,6 +560,24 @@ subroutine setup_gbsa_alpb_solvent_model(solvstr, refstr, method, kernel, alpb, 
    if (allocated(error)) return
    call move_alloc(shift, tmp_cont)
    call cont_list%push_back(tmp_cont)
+
+end subroutine
+
+subroutine get_ref_state_from_enum(refstate, refstr, error)
+   integer(c_int), intent(in) :: refstate
+   character(len=:), allocatable, intent(out) :: refstr
+   type(error_type), allocatable, intent(inout) :: error
+
+   select case(refstate)
+   case(1)
+      refstr = "gsolv"
+   case(2)
+      refstr = "bar1mol"
+   case(3)
+      refstr = "reference"
+   case default
+      call fatal_error(error, "Given reference state is not known check enumerator in container.h for valid options.")
+   end select 
 
 end subroutine
 

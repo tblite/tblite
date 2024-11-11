@@ -3048,7 +3048,7 @@ int test_solvation_models_api()
 
     error = tblite_new_error();
     // check that we get an immediate return if ctx is not associated
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 0.0); 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 0.0, NULL); 
     if (cont != NULL)
     goto err;
     ctx = tblite_new_context();
@@ -3065,7 +3065,7 @@ int test_solvation_models_api()
         goto err;
     
     //check if it fails when calc is not associated
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, 0.0); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 0.0, NULL); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx)
@@ -3078,12 +3078,12 @@ int test_solvation_models_api()
         goto err;
     show_context_error(ctx);
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethal"); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethal", NULL); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);  
 
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethal"); 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethal", NULL); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);
@@ -3142,7 +3142,7 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0, NULL); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3169,7 +3169,7 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol"); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", NULL); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3195,7 +3195,7 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "water"); 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "water", NULL); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3221,7 +3221,7 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0); 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0, NULL); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3247,7 +3247,9 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "bar1mol"); 
+    int ref_enum = bar1mol;
+    
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", &ref_enum); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3273,7 +3275,9 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "reference"); 
+    ref_enum = reference;
+
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", &ref_enum); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3299,7 +3303,7 @@ int test_solvation_models_api()
     if (!calc)
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", "reference"); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, "ethanol", &ref_enum); 
     if (tblite_check_context(ctx))
         goto err;
     
@@ -3318,17 +3322,23 @@ int test_solvation_models_api()
     if (!check(energy,  -28.354559810599, thr, "energy error"))
         goto err;
 
-    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0, "reference"); 
+    cont = tblite_new_alpb_solvation(ctx, mol, calc, 7.0, &ref_enum); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);
 
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0, "reference"); 
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0, &ref_enum); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);
 
-    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethanol"); 
+    ref_enum = 7;
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, 7.0, &ref_enum); 
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
+    cont = tblite_new_gbsa_solvation(ctx, mol, calc, "ethanol", NULL); 
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);

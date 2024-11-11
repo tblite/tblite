@@ -30,6 +30,13 @@
 /// Interaction container
 typedef struct _tblite_container* tblite_container;
 
+/// Reference state enumerator
+enum tblite_ref_solvation_state{
+        gsolv = 1,
+        bar1mol = 2,
+        reference = 3,
+} ;
+
 /// Create new electric field container
 ///
 /// @param efield: Electric field in atomic units (Hartree/(Bohr*e)), shape: [3]
@@ -85,20 +92,13 @@ tblite_new_cpcm_solvation_solvent(tblite_context ctx,
                           tblite_calculator calc,
                           char* solvent);
 
-// standard/default argument for reference state of solvation model
-char * std_refstr = "gsolv";
-//Macro to call tblite_new_alpb_solvation with or without/default reference string
-#define tblite_new_alpb_solvation(...) vrg(tblite_new_alpb_solvation, __VA_ARGS__)
-//in case only 4 arguments are used add default argument to macro call
-#define tblite_new_alpb_solvation4(ctx, mol, calc, x) tblite_new_alpb_solvation_(ctx, mol, calc, x, std_refstr)
-#define tblite_new_alpb_solvation5(ctx, mol, calc, x, refstr) tblite_new_alpb_solvation_(ctx, mol, calc, x, refstr)
 
-#define tblite_new_alpb_solvation_(ctx, mol, calc, x, refstr)            \
+#define tblite_new_alpb_solvation(ctx, mol, calc, x, refstate)            \
                         _Generic((x),                           \
                                 char*                           \
                                 : tblite_new_alpb_solvation_solvent,\
                                 double                          \
-                                : tblite_new_alpb_solvation_epsilon) (ctx, mol, calc, x, refstr)
+                                : tblite_new_alpb_solvation_epsilon) (ctx, mol, calc, x, refstate)
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -112,7 +112,7 @@ tblite_new_alpb_solvation_solvent(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           char* solvent,
-                          char* refstr);
+                          int* refstate);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -126,20 +126,15 @@ tblite_new_alpb_solvation_epsilon(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           double eps,
-                          char* refstr);
+                          int* refstate);
 
-//Macro to call tblite_new_aöllpbsolvation with or without/default reference string
-#define tblite_new_gbsa_solvation(...) vrg(tblite_new_gbsa_solvation, __VA_ARGS__)
-//in case only 4 arguments are used add default argument to macro call
-#define tblite_new_gbsa_solvation4(ctx, mol, calc, x) tblite_new_gbsa_solvation_(ctx, mol, calc, x, std_refstr)
-#define tblite_new_gbsa_solvation5(ctx, mol, calc, x, refstr) tblite_new_gbsa_solvation_(ctx, mol, calc, x, refstr)
 
-#define tblite_new_gbsa_solvation_(ctx, mol, calc, x, refstr)            \
+#define tblite_new_gbsa_solvation(ctx, mol, calc, x, refstate)            \
                         _Generic((x),                           \
                                 char*                           \
                                 : tblite_new_gbsa_solvation_solvent,\
                                 double                          \
-                                : tblite_new_gbsa_solvation_epsilon) (ctx, mol, calc, x, refstr)
+                                : tblite_new_gbsa_solvation_epsilon) (ctx, mol, calc, x, refstate)
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -153,7 +148,7 @@ tblite_new_gbsa_solvation_solvent(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           char* solvent,
-                          char* refstr);
+                          int* refstate);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -167,7 +162,7 @@ tblite_new_gbsa_solvation_epsilon(tblite_context ctx,
                           tblite_structure mol,
                           tblite_calculator calc,
                           double eps,
-                          char* refstr);
+                          int* refstate);
 
 
 /// Add container to calculator object.

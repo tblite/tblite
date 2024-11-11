@@ -499,13 +499,14 @@ def new_electric_field(ctx, mol, calc, efield):
 @context_check
 def new_alpb_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
     "Create new ALPB solvation model object"
-    _refstr = ffi.new("char[]", refstate.encode("ascii"))
+    _refint = np.array(gbsa_alpb_enum_wrapper(refstate), dtype=np.int32)
+    _refstate = ffi.cast("int *", _refint.ctypes.data)
     if isinstance(solvent, str):
         _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string, _refstr)
+        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string, _refstate)
     elif isinstance(solvent, float) or isinstance(solvent, int):
         _eps = float(solvent)
-        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps, _refstr)
+        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps, _refstate)
     else:
         raise TBLiteTypeError(
             "Enter desired solvent as string, or enter epsilon value as float or intger."
@@ -514,18 +515,33 @@ def new_alpb_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
 @context_check
 def new_gbsa_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
     "Create new GBSA solvation model object"
-    _refstr = ffi.new("char[]", refstate.encode("ascii"))
+    _refint = np.array(gbsa_alpb_enum_wrapper(refstate), dtype=np.int32)
+    _refstate = ffi.cast("int *", _refint.ctypes.data)
     if isinstance(solvent, str):
         _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_gbsa_solvation_solvent(ctx, mol, calc, _string, _refstr)
+        return lib.tblite_new_gbsa_solvation_solvent(ctx, mol, calc, _string, _refstate)
     elif isinstance(solvent, float) or isinstance(solvent, int):
         _eps = float(solvent)
-        return lib.tblite_new_gbsa_solvation_epsilon(ctx, mol, calc, _eps, _refstr)
+        return lib.tblite_new_gbsa_solvation_epsilon(ctx, mol, calc, _eps, _refstate)
     else:
         raise TBLiteTypeError(
             "Enter desired solvent as string, or enter epsilon value as float or intger."
         )
 
+def gbsa_alpb_enum_wrapper(refstate_str) -> int:
+    "Set int value for reference state enumerator based on string value"
+    enum_value = 0
+    if (refstate_str.lower() == "gsolv"):
+        enum_value = 1
+    elif (refstate_str.lower() == "bar1mol"):
+        enum_value = 2
+    elif (refstate_str.lower() == "reference"):
+        enum_value = 3
+    else:
+        raise TBLiteTypeError(
+            "Unknown string for solavtion reference variable."
+        )
+    return enum_value
 
 @context_check
 def new_cpcm_solvation(ctx, mol, calc, solvent):
