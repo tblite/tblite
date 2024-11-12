@@ -23,6 +23,7 @@
 module tblite_xtb_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : ncoord_type, new_ncoord
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -35,7 +36,6 @@ module tblite_xtb_calculator
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
       & d3_dispersion, new_d3_dispersion
-   use tblite_ncoord, only : ncoord_type, new_ncoord
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion

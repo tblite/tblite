@@ -19,16 +19,15 @@ module test_hamiltonian
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_cutoff, only : get_lattice_points
-   use tblite_data_covrad, only : get_covalent_rad
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
-   use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
-   use tblite_ncoord_type, only : get_coordination_number
    use tblite_xtb_gfn2
    use tblite_xtb_h0
    implicit none
@@ -117,7 +116,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    type(basis_type) :: bas
    type(tb_hamiltonian) :: h0
-   type(gfn_ncoord_type) :: gfn_ncoord
+   class(ncoord_type), allocatable :: ncoord
    type(adjacency_list) :: list
    real(wp), parameter :: cn_cutoff = 30.0_wp
    real(wp), allocatable :: lattr(:, :), cn(:), rcov(:)
@@ -135,9 +134,9 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    allocate(cn(mol%nat), rcov(mol%nid))
    rcov(:) = get_covalent_rad(mol%num)
-   call new_gfn_ncoord(gfn_ncoord, mol, cn_cutoff, rcov)
+   call new_ncoord(ncoord, mol, "dexp", cutoff=cn_cutoff, rcov=rcov)
    call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
-   call get_coordination_number(gfn_ncoord, mol, lattr, cn_cutoff, cn)
+   call ncoord%get_coordination_number(mol, lattr, cn)
 
    cutoff = get_cutoff(bas)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)

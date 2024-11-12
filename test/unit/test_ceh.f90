@@ -19,6 +19,9 @@ module test_ceh
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
    & test_failed
    use mctc_io, only : structure_type, new
+   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_data_paulingen, only : get_pauling_en
+   use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
    use tblite_lapack_solver, only : lapack_solver, lapack_algorithm
@@ -27,12 +30,6 @@ module test_ceh
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
-   use tblite_data_covrad, only : get_covalent_rad
-   use tblite_data_paulingen, only : get_pauling_en
-   use tblite_ncoord_erf
-   use tblite_ncoord_erf_en
-   use tblite_ncoord_type, only : get_coordination_number
-
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_ceh_singlepoint, only : ceh_singlepoint
@@ -278,8 +275,8 @@ contains
 
       type(basis_type) :: bas
       type(tb_hamiltonian) :: h0
-      type(erf_ncoord_type) :: ncoord
-      type(erf_en_ncoord_type) :: ncoord_en
+      class(ncoord_type), allocatable :: ncoord
+      class(ncoord_type), allocatable :: ncoord_en
       type(adjacency_list) :: list
       real(wp), parameter :: cn_cutoff = 30.0_wp
       real(wp), allocatable :: lattr(:, :), cn(:), cn_en(:), rcov(:), en(:)
@@ -298,11 +295,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
-      call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
-      call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
+      call ncoord%get_coordination_number(mol, lattr, cn)
+      call ncoord_en%get_coordination_number(mol, lattr, cn_en)
 
       cutoff = get_cutoff(bas)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
@@ -333,8 +330,8 @@ contains
 
       type(basis_type) :: bas
       type(tb_hamiltonian) :: h0
-      type(erf_ncoord_type) :: ncoord
-      type(erf_en_ncoord_type) :: ncoord_en
+      class(ncoord_type), allocatable :: ncoord
+      class(ncoord_type), allocatable :: ncoord_en
       type(adjacency_list) :: list
       real(wp), parameter :: cn_cutoff = 30.0_wp
       real(wp), allocatable :: lattr(:, :), cn(:), cn_en(:), rcov(:), en(:)
@@ -354,11 +351,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
-      call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
-      call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
+      call ncoord%get_coordination_number(mol, lattr, cn)
+      call ncoord_en%get_coordination_number(mol, lattr, cn_en)
 
       cutoff = get_cutoff(bas)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
@@ -397,8 +394,8 @@ contains
 
       type(basis_type) :: bas
       type(tb_hamiltonian) :: h0
-      type(erf_ncoord_type) :: ncoord
-      type(erf_en_ncoord_type) :: ncoord_en
+      class(ncoord_type), allocatable :: ncoord
+      class(ncoord_type), allocatable :: ncoord_en
       type(adjacency_list) :: list
       real(wp), parameter :: cn_cutoff = 30.0_wp
       real(wp), allocatable :: lattr(:, :), cn(:), cn_en(:), rcov(:), en(:)
@@ -418,11 +415,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_erf_ncoord(ncoord, mol, cutoff=cn_cutoff, rcov=rcov)
-      call new_erf_en_ncoord(ncoord_en, mol, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
-      call get_coordination_number(ncoord , mol, lattr, cn_cutoff, cn)
-      call get_coordination_number(ncoord_en, mol, lattr, cn_cutoff, cn_en)
+      call ncoord%get_coordination_number(mol, lattr, cn)
+      call ncoord_en%get_coordination_number(mol, lattr, cn_en)
 
       cutoff = get_cutoff(bas)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
@@ -569,14 +566,14 @@ contains
 
       integer, parameter :: nsh = 22
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & 2.73904391613233_wp    , -4.2731759819762E-01_wp, -5.4115371441002E-01_wp, &
-      &-1.67143635735189E-02_wp, -4.3819259611367E-01_wp, -2.9082233002044E-01_wp, &
-      & 7.02743423215177E-02_wp, -4.3819425191345E-01_wp, -2.9084728314198E-01_wp, &
-      & 7.02681834728156E-02_wp, -4.3822006265352E-01_wp, -2.9084720659706E-01_wp, &
-      & 7.02683075671165E-02_wp, -4.3822174122876E-01_wp, -2.9085944552609E-01_wp, &
-      & 7.02652903250950E-02_wp, -4.3819504378374E-01_wp, -2.9083806237387E-01_wp, &
-      & 7.02704650332720E-02_wp, -4.3818833398193E-01_wp, -2.9082921173350E-01_wp, &
-      & 7.02726245699396E-02_wp], shape(scaled_selfenergy))
+      & 3.47146858519381_wp,     -4.35870279866614E-01_wp, -5.8999616375307806E-01_wp, &
+      & 5.07577833416763E-02_wp, -3.63354240235948E-01_wp, -1.8456541144073824E-01_wp, &
+      & 9.62240909632790E-02_wp, -3.63356385871318E-01_wp, -1.8459106004014270E-01_wp, &
+      & 9.62177622670393E-02_wp, -3.63388268461152E-01_wp, -1.8459960442278944E-01_wp, &
+      & 9.62157809840490E-02_wp, -3.63390391126379E-01_wp, -1.8461247387922086E-01_wp, &
+      & 9.62126097565016E-02_wp, -3.63357326972503E-01_wp, -1.8458205115288362E-01_wp, &
+      & 9.62199920825849E-02_wp, -3.63349003068365E-01_wp, -1.8457090877938098E-01_wp, &
+      & 9.62227112995023E-02_wp], shape(scaled_selfenergy))
 
       type(structure_type) :: mol
 

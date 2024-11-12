@@ -34,10 +34,8 @@ program tester
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
-   use test_ncoord, only : collect_ncoord
    use test_npy, only : collect_npy
    use test_npz, only : collect_npz
-   use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
@@ -63,7 +61,6 @@ program tester
       new_testsuite("tagged-io", collect_tagged_io), &
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
-      new_testsuite("ncoord", collect_ncoord), &
       new_testsuite("npy", collect_npy), &
       new_testsuite("npz", collect_npz), &
       new_testsuite("solvation-born", collect_solvation_born), &

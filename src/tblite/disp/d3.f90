@@ -21,12 +21,12 @@
 module tblite_disp_d3
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type
    use tblite_container_cache, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
    use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
-   use dftd3_ncoord, only : get_coordination_number, add_coordination_number_derivs
    implicit none
    private
 
@@ -80,13 +80,15 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), allocatable :: gwvec(:, :), gwdcn(:, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :)
    real(wp), allocatable :: dEdcn(:), lattr(:, :)
+   class(ncoord_type), allocatable :: ncoord
 
    mref = maxval(self%model%ref)
    grad = present(gradient).and.present(sigma)
 
    allocate(cn(mol%nat))
+   call new_ncoord(ncoord, mol, "exp", cutoff=self%cutoff%cn, rcov=self%model%rcov)
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
-   call get_coordination_number(mol, lattr, self%cutoff%cn, self%model%rcov, cn)
+   call ncoord%get_coordination_number(mol, lattr, cn)
 
    allocate(gwvec(mref, mol%nat))
    if (grad) allocate(gwdcn(mref, mol%nat))
@@ -108,8 +110,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    call self%param%get_dispersion3(mol, lattr, self%cutoff%disp3, self%model%rvdw, &
       & self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma)
    if (grad) then
-      call add_coordination_number_derivs(mol, lattr, self%cutoff%cn, self%model%rcov, &
-         & dEdcn, gradient, sigma)
+      call ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
    end if
 end subroutine get_engrad
 

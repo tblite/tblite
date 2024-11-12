@@ -5,7 +5,7 @@ format = 1
 wexp = 5.0000000000000000E-01
 kpol = 2.0000000000000000E+00
 enscale = 2.0000000000000000E-02
-cn = "gfn"
+cn = "dexp"
 [hamiltonian.xtb.shell]
 ss = 1.8500000000000001E+00
 pp = 2.2300000000000000E+00

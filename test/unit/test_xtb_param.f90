@@ -104,7 +104,7 @@ subroutine test_param_minimal(error)
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
       "enscale = 2.0000000000000000E-02", &
-      "cn = ""gfn""", &
+      "cn = ""dexp""", &
       "shell = {ss=1.85, pp=2.23, dd=2.23, sd=2.00, pd=2.00}", &
       "[element.H]", &
       "shells = [ ""1s"" ]", &
@@ -163,7 +163,7 @@ subroutine test_param_invalid(error)
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
       "enscale = 2.0000000000000000E-02", &
-      "cn = ""gfn""", &
+      "cn = ""dexp""", &
       "shell = {ss=1.85, pp=2.23, dd=2.23, sd=2.00, pd=2.00"
    rewind io
 

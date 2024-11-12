@@ -23,13 +23,13 @@ module tblite_coulomb_multipole
    use mctc_io, only : structure_type
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
+   use mctc_ncoord, only : new_ncoord, ncoord_type
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wignerseitz, only : wignerseitz_cell
@@ -62,7 +62,7 @@ module tblite_coulomb_multipole
       real(wp), allocatable :: valence_cn(:)
 
       !> Coordination number container for multipolar damping radii
-      type(gfn_ncoord_type), allocatable :: ncoord
+      class(ncoord_type), allocatable :: ncoord
    contains
       !> Update cache from container
       procedure :: update
@@ -131,8 +131,7 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    self%rad = rad
    self%valence_cn = vcn
 
-   allocate(self%ncoord)
-   call new_gfn_ncoord(self%ncoord, mol)
+   call new_ncoord(self%ncoord, mol, "dexp")
 end subroutine new_damped_multipole
 
 

@@ -32,7 +32,6 @@ subdir('integral')
 subdir('io')
 subdir('lapack')
 subdir('mesh')
-subdir('ncoord')
 subdir('output')
 subdir('param')
 subdir('post_processing')
@@ -54,7 +53,6 @@ srcs += files(
   'double_dictionary.f90',
   'disp.f90',
   'lapack.f90',
-  'ncoord.f90',
   'os.F90',
   'param.f90',
   'repulsion.f90',

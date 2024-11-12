@@ -19,6 +19,7 @@ module test_coulomb_charge
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type, new
+   use mctc_ncoord, only : new_ncoord, ncoord_type
    use mstore, only : get_structure
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -28,8 +29,6 @@ module test_coulomb_charge
       & gamma_coulomb, new_gamma_coulomb
    use tblite_scf, only: new_potential, potential_type
    use tblite_ceh_ceh, only : get_effective_qat
-   use tblite_ncoord_erf_en
-   use tblite_ncoord_type, only : get_coordination_number
    use tblite_cutoff, only : get_lattice_points
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
@@ -447,17 +446,16 @@ subroutine get_charges_effceh(wfn, mol, nshell)
    &  4.1093492601_wp,  3.7979559518_wp,  2.4147937668_wp,  2.1974781961_wp]
    
    real(wp), allocatable :: lattr(:, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
-   type(erf_en_ncoord_type) :: ncoord_en
+   class(ncoord_type), allocatable :: ncoord_en
    integer :: iat, ii, ish
 
    allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
 
-   ! Get electronegativity-weighted coordination number
-   call new_erf_en_ncoord(ncoord_en, mol, &
-   & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+   ! Get electronegativity-weighted coordination number 
+   call new_ncoord(ncoord_en, mol, "erf_en", &
+      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-   call get_coordination_number(ncoord_en, mol, lattr, cutoff, &
-      & cn_en, dcn_endr, dcn_endL)
+   call ncoord_en%get_coordination_number(mol, lattr, cn_en, dcn_endr, dcn_endL)
 
    ! Get effective charges and their gradients
    call get_effective_qat(mol, cn_en, wfn%qat, &

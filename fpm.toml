@@ -13,8 +13,8 @@ link = ["lapack", "blas"]
 auto-tests = false
 
 [dependencies]
-mctc-lib.git = "https://github.com/grimme-lab/mctc-lib"
-mctc-lib.tag = "v0.3.2"
+mctc-lib.git = "https://github.com/thfroitzheim/mctc-lib"
+mctc-lib.tag = "ncoord"
 multicharge.git = "https://github.com/grimme-lab/multicharge"
 multicharge.tag = "v0.3.0"
 dftd4.git = "https://github.com/dftd4/dftd4"
