@@ -475,7 +475,7 @@ class Calculator(Structure):
     def __init__(
         self,
         method: str,
-        numbers: np.ndarray,
+        numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
         uhf: Optional[int] = None,
