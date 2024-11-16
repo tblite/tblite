@@ -579,3 +579,39 @@ def test_gfn1_logging():
     calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
     with raises(TBLiteRuntimeError):
         calc.singlepoint()
+
+def test_symbols():
+    """Check initialization with element symbols"""
+    numbers = ["Si", "H", "H", "H", "H"]
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+    
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)
+
+def test_numbers():
+    """Check initialization with atomic numbers"""
+    numbers = np.array([14, 1, 1, 1, 1])
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)
