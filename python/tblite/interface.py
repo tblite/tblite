@@ -62,7 +62,7 @@ class Structure:
 
     def __init__(
         self,
-        numbers: Union[np.ndarray, List[str]],
+        numbers: Union[np.ndarray, List[int]],  
         positions: np.ndarray,
         charge: Optional[float] = None,
         uhf: Optional[int] = None,
@@ -80,7 +80,7 @@ class Structure:
             on invalid input, like incorrect shape / type of the passed arrays
         """
         if isinstance(numbers, list):
-            numbers = np.array([symbol_to_number(symbol) for symbol in numbers])  # this takes the symbols and
+            numbers = np.asarray(numbers) 
             
         if positions.size % 3 != 0:
             raise TBLiteValueError("Expected tripels of cartesian coordinates")
@@ -624,6 +624,9 @@ def _ref(ctype, value):
     ref[0] = value
     return ref
 
+
+def symbols_to_numbers(symbols: List[str]) -> List[int]:
+    return [symbol_to_number(symbol) for symbol in symbols]
 
 def symbol_to_number(symbol: str) -> int:
     return {

@@ -19,7 +19,7 @@ from logging import Logger
 import numpy as np
 from pytest import approx, raises
 from tblite.exceptions import TBLiteRuntimeError
-from tblite.interface import Calculator, Result
+from tblite.interface import Calculator, Result, symbols_to_numbers
 
 thr = 1.0e-9
 
@@ -582,7 +582,7 @@ def test_gfn1_logging():
 
 def test_symbols():
     """Check initialization with element symbols"""
-    numbers = ["Si", "H", "H", "H", "H"]
+    symbols = ["Si", "H", "H", "H", "H"]
     positions = np.array(
         [
             [+0.00000000000000, +0.00000000000000, +0.00000000000000],
@@ -593,14 +593,14 @@ def test_symbols():
         ]
     )
     
-    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc = Calculator("GFN2-xTB", symbols_to_numbers(symbols), positions)
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-3.763120637211, abs=thr)
 
 def test_numbers():
     """Check initialization with atomic numbers"""
-    numbers = np.array([14, 1, 1, 1, 1])
+    numbers = [14, 1, 1, 1, 1]
     positions = np.array(
         [
             [+0.00000000000000, +0.00000000000000, +0.00000000000000],
