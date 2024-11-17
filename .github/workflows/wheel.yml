@@ -73,6 +73,9 @@ jobs:
         - macos-latest
         # windows-latest
         python: ['38', '39', '310', '311', '312', '313']
+        exclude:
+          - os: macos-latest
+            python: '38'
 
     defaults:
       run:
