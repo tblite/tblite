@@ -69,8 +69,9 @@ jobs:
       matrix:
         os:
         - ubuntu-latest
-        - macos-13
+        # macos-13
         - macos-latest
+        # windows-latest
         python: ['38', '39', '310', '311', '312', '313']
 
     defaults:
