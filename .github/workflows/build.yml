@@ -286,12 +286,12 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         gcc_v: [12]
-        python_v: ['3.7', '3.8', '3.9']
+        python_v: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 
         include:
         - os: macos-latest
           gcc_v: 12
-          python_v: '3.9'
+          python_v: '3.12'
 
     env:
       FC: gfortran

@@ -151,11 +151,12 @@ def run_schema(
         input_data = qcel.models.AtomicInput(**input_data)
 
     if input_data.driver not in SUPPORTED_DRIVERS:
+        driver_name = input_data.driver.name if hasattr(input_data.driver, "name") else str(input_data.driver)
         return get_error(
             input_data,
             qcel.models.ComputeError(
                 error_type="input_error",
-                error_message=f"Driver '{input_data.driver}' is not supported by tblite.",
+                error_message=f"Driver '{driver_name}' is not supported by tblite.",
             ),
         )
 
