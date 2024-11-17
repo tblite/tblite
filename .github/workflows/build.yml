@@ -290,7 +290,7 @@ jobs:
 
         include:
         - os: macos-latest
-          gcc_v: 14
+          gcc_v: 12
           python_v: '3.12'
 
     env:
