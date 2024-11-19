@@ -1,5 +1,5 @@
 name = "tblite"
-version = "0.3.0"
+version = "0.4.0"
 license = "LGPL-3.0-or-later"
 maintainer = ["@awvwgk"]
 author = ["Sebastian Ehlert"]
@@ -20,9 +20,9 @@ multicharge.tag = "v0.3.0"
 dftd4.git = "https://github.com/dftd4/dftd4"
 dftd4.tag = "v3.7.0"
 s-dftd3.git = "https://github.com/dftd3/simple-dftd3"
-s-dftd3.tag = "v1.2.0"
+s-dftd3.tag = "v1.2.1"
 toml-f.git = "https://github.com/toml-f/toml-f"
-toml-f.tag = "v0.4.1"
+toml-f.tag = "v0.4.2"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"

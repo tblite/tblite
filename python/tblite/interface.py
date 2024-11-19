@@ -20,7 +20,7 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 
 import numpy as np
 
@@ -62,7 +62,7 @@ class Structure:
 
     def __init__(
         self,
-        numbers: np.ndarray,
+        numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
         uhf: Optional[int] = None,
@@ -79,6 +79,9 @@ class Structure:
         TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
+        if isinstance(numbers, list):
+            numbers = np.asarray(numbers)
+            
         if positions.size % 3 != 0:
             raise TBLiteValueError("Expected tripels of cartesian coordinates")
 
@@ -473,7 +476,7 @@ class Calculator(Structure):
     def __init__(
         self,
         method: str,
-        numbers: np.ndarray,
+        numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
         uhf: Optional[int] = None,
@@ -629,3 +632,33 @@ def _ref(ctype, value):
     ref = library.ffi.new(ctype + "*")
     ref[0] = value
     return ref
+
+
+ELEMENT_SYMBOLS = [
+    *["H", "He"],
+    *["Li", "Be", "B", "C", "N", "O", "F", "Ne"],
+    *["Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar"],
+    *["K", "Ca"],
+    *["Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn"],
+    *["Ga", "Ge", "As", "Se", "Br", "Kr"],
+    *["Rb", "Sr"],
+    *["Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd"],
+    *["In", "Sn", "Sb", "Te", "I", "Xe"],
+    *["Cs", "Ba"],
+    *["La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb"],
+    *["Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg"],
+    *["Tl", "Pb", "Bi", "Po", "At", "Rn"],
+    *["Fr", "Ra"],
+    *["Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No"],
+    *["Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn"],
+    *["Nh", "Fl", "Mc", "Lv", "Ts", "Og"],
+]
+
+SYMBOL_TO_NUMBER = {
+    symbol: number + 1
+    for number, symbol in enumerate(ELEMENT_SYMBOLS)
+}
+
+
+def symbols_to_numbers(symbols: List[str]) -> List[int]:
+    return [SYMBOL_TO_NUMBER[symbol] for symbol in symbols]

@@ -19,7 +19,7 @@ from logging import Logger
 import numpy as np
 from pytest import approx, raises
 from tblite.exceptions import TBLiteRuntimeError
-from tblite.interface import Calculator, Result
+from tblite.interface import Calculator, Result, symbols_to_numbers
 
 thr = 1.0e-9
 
@@ -616,3 +616,39 @@ def test_gfn1_logging():
     calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
     with raises(TBLiteRuntimeError):
         calc.singlepoint()
+
+def test_symbols():
+    """Check initialization with element symbols"""
+    symbols = ["Si", "H", "H", "H", "H"]
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+    
+    calc = Calculator("GFN2-xTB", symbols_to_numbers(symbols), positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)
+
+def test_numbers():
+    """Check initialization with atomic numbers"""
+    numbers = [14, 1, 1, 1, 1]
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)

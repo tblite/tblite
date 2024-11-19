@@ -17,7 +17,7 @@
 set(_lib "toml-f")
 set(_pkg "TOMLF")
 set(_url "https://github.com/toml-f/toml-f")
-set(_rev "v0.4.1")
+set(_rev "v0.4.2")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
@@ -39,3 +39,4 @@ endif()
 unset(_lib)
 unset(_pkg)
 unset(_url)
+unset(_rev)

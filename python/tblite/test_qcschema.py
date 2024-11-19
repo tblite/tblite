@@ -146,7 +146,7 @@ def return_result(molecule: Molecule, driver: str, method: str) -> Any:
     }[(molecule.get_hash(), driver, method)]
 
 
-@pytest.mark.skipif(qcel is None, reason="requires ase")
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
     atomic_result = run_schema(atomic_input)
 
@@ -155,6 +155,7 @@ def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
     assert pytest.approx(atomic_result.return_result) == return_result
 
 
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_driver(molecule: Molecule):
     atomic_input = AtomicInput(
         molecule=molecule,
@@ -169,6 +170,7 @@ def test_unsupported_driver(molecule: Molecule):
     assert "Driver 'hessian' is not supported by tblite." in atomic_result.error.error_message
 
 
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_method(molecule: Molecule):
     atomic_input = AtomicInput(
         molecule=molecule,
@@ -183,6 +185,7 @@ def test_unsupported_method(molecule: Molecule):
     assert "Model 'GFN-xTB' is not supported by tblite." in atomic_result.error.error_message
 
 
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_basis(molecule: Molecule):
     atomic_input = AtomicInput(
         molecule=molecule,
@@ -197,6 +200,7 @@ def test_unsupported_basis(molecule: Molecule):
     assert "Basis sets are not supported by tblite." in atomic_result.error.error_message
 
 
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_keywords(molecule: Molecule):
     atomic_input = AtomicInput(
         molecule=molecule,
@@ -212,6 +216,7 @@ def test_unsupported_keywords(molecule: Molecule):
     assert "Unknown keywords: unsupported" in atomic_result.error.error_message
 
 
+@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_scf_not_converged(molecule: Molecule):
     atomic_input = AtomicInput(
         molecule=molecule,
