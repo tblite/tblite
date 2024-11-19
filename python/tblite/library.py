@@ -418,7 +418,6 @@ def get_post_processing_dict(res):
     """Retrieve the dictionary containing all post processing results"""
     _dict = ffi.gc(error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary)
     _nentries = error_check(lib.tblite_get_n_entries_dict)(_dict)
-    print(_nentries)
     _dict_py = dict()
     for i in range(1,_nentries+1):
         _index = ffi.new("const int*", i)
@@ -439,7 +438,6 @@ def get_post_processing_dict(res):
         error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
-        print(_dict_py)
     return _dict_py
 
 def get_calculator_angular_momenta(ctx, calc):
