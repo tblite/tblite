@@ -271,7 +271,7 @@ subroutine run_main(config, error)
       call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
       call post_proc%dict%get_entry("molecular-dipole", dpmom)
       call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
-      
+
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
@@ -290,7 +290,7 @@ subroutine run_main(config, error)
    if (config%json) then
       open(file=config%json_output, newunit=unit)
       call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma, &
-         & energies=results%energies)
+         & energies=results%energies, charges=wfn%qat(:, 1))
       close(unit)
       if (config%verbosity > 0) then
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
