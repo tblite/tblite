@@ -8,12 +8,47 @@ supposed to be used by meson for testing purposes only.
 """
 
 try:
-    import subprocess, sys, json, os, pytest
+    import subprocess, sys, json, os
 except ImportError:
     exit(77)
 
 if len(sys.argv) < 5:
     raise RuntimeError("Requires at least five arguments")
+
+class approx:
+    def __init__(self, value, abs):
+        self.value = value
+        self.abs = abs
+        self.log = []
+
+    def __eq__(self, other):
+        def compare(a, b, ctx):
+            if isinstance(a, list) and isinstance(b, list):
+                return all(compare(x, y, f"{ctx}[{idx}]") for idx, (x, y) in enumerate(zip(a, b)))
+
+            if isinstance(a, dict) and isinstance(b, dict):
+                try:
+                    return all(compare(a[k], b[k], f"{ctx}[{k}]") for k in a.keys())
+                except KeyError as e:
+                    self.log.append(f"{ctx}: Missing key {e} in dictionary")
+                    return False
+
+            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+                stat = abs(a - b) < self.abs
+                if not stat:
+                    self.log.append(f"{ctx}: {a} != {b} (diff: {abs(a - b)})")
+                return stat
+
+            stat = a == b
+            if not stat:
+                self.log.append(f"{ctx}: {a} != {b}")
+            return stat
+
+        stat = compare(self.value, other, "")
+        if not stat:
+            print("\n".join(self.log))
+
+        return stat
 
 thr = 1.0e-9
 prog = sys.argv[1]
@@ -39,7 +74,4 @@ with open(outp) as f:
 with open(os.path.basename(outp)) as f:
     res = json.load(f)
 
-for key in ref:
-    if key not in res:
-        raise RuntimeError("Missing '" + key + "' entry in results")
-    assert pytest.approx(res[key], abs=thr) == ref[key]
+assert approx(ref, abs=thr) == res
