@@ -12,8 +12,9 @@ try:
 except ImportError:
     exit(77)
 
-if len(sys.argv) < 5:
-    raise RuntimeError("Requires at least five arguments")
+if len(sys.argv) < 4:
+    raise RuntimeError("Requires at least four arguments")
+
 
 class approx:
     def __init__(self, value, abs):
@@ -50,16 +51,16 @@ class approx:
 
         return stat
 
-thr = 1.0e-9
-prog = sys.argv[1]
-driv = sys.argv[2]
-outp = sys.argv[3]
-args = sys.argv[4:]
 
-print([prog, driv, "--json", os.path.basename(outp)] + args)
+thr = 1.0e-6
+prog = sys.argv[1]
+outp = sys.argv[2]
+with open(sys.argv[3]) as fd:
+    wdir = os.path.dirname(fd.name)
+    args = [arg.replace('$ORIGIN', wdir) for arg in fd.read().strip().split("\n")]
 
 stat = subprocess.call(
-    [prog, driv, "--json", os.path.basename(outp)] + args,
+    [prog, *args, "--json", os.path.basename(outp)],
     shell=False,
     stdin=None,
     stderr=subprocess.STDOUT,

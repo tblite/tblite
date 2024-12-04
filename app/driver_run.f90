@@ -159,10 +159,6 @@ subroutine run_main(config, error)
       call new_ceh_calculator(calc_ceh, mol, error)
       if (allocated(error)) return
       call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
-      if (config%grad) then
-         call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
-         return
-      end if
    end if
 
    if (allocated(config%efield)) then

@@ -1,0 +1,6 @@
+$ORIGIN/03-ser-xar.sdf
+--method
+gfn2
+--cpcm-eps
+inf
+--grad
