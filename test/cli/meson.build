@@ -60,6 +60,8 @@ run_testcases = [
   '05c-ipea1xtb',
   '05d-gfn1xtb-solv',
   '05e-gfn2xtb-solv',
+  '06a-gfn1xtb',
+  '07f-ceh',
 ]
 foreach case: run_testcases
   test(
@@ -116,7 +118,7 @@ test(
     'run', 
     '--post-processing', 
     'molmom', 
-    files('test'/'mb33.xyz')
+    files('07-mb33.xyz')
   ], 
   suite: 'cli',
 )
@@ -129,7 +131,7 @@ test(
     '--post-processing', 
     files('test'/'molmom.toml'), 
     '-v',
-    files('test'/'mb33.xyz')
+    files('07-mb33.xyz')
   ], 
   suite: 'cli',
 )
@@ -141,7 +143,7 @@ test(
     'run', 
     '--param', 
     files('test'/'gfn2-molmom.toml'), 
-    files('test'/'mb33.xyz')
+    files('07-mb33.xyz')
   ], 
   suite: 'cli',
 )
@@ -154,7 +156,7 @@ test(
     'run', 
     '--post-processing', 
     files('test'/'reference.tag'), 
-    files('test'/'mb33.xyz')
+    files('07-mb33.xyz')
   ], 
   suite: 'cli',
 )
