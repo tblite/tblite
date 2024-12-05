@@ -18,7 +18,7 @@ from logging import Logger
 
 import numpy as np
 from pytest import approx, raises
-from tblite.exceptions import TBLiteRuntimeError
+from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
 from tblite.interface import Calculator, Result, symbols_to_numbers
 
 thr = 1.0e-9
@@ -461,16 +461,18 @@ def test_post_processing_api():
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("bond-orders")
     res = calc.singlepoint()
-    with raises(ValueError, match="Molecular dipole was not calculated. By default it is computed."):
+    with raises(TBLiteValueError, match="Molecular dipole was not calculated. By default it is computed."):
         res.get("dipole")
 
-    with raises(ValueError, match="Molecular quadrupole was not calculated. By default it is computed."):
+    with raises(TBLiteValueError, match="Molecular quadrupole was not calculated. By default it is computed."):
         res.get("quadrupole")
 
+    res.dict()
+    
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("molecular-multipoles")
     res = calc.singlepoint()
-    with raises(ValueError, match="Bond-orders were not calculated. By default they are computed."):
+    with raises(TBLiteValueError, match="Bond-orders were not calculated. By default they are computed."):
         res.get("bond-orders")
 
     calc = Calculator("GFN1-xTB", numbers, positions)

@@ -25,7 +25,7 @@ from typing import Any, List, Optional, Union
 import numpy as np
 
 from . import library
-from .exceptions import TBLiteValueError
+from .exceptions import TBLiteValueError, TBLiteRuntimeError
 
 
 class Structure:
@@ -346,7 +346,7 @@ class Result:
         for key in self._getter:
             try:
                 res[key] = self.get(key)
-            except RuntimeError:
+            except (TBLiteValueError, TBLiteRuntimeError):
                 pass
 
         return res
