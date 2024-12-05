@@ -31,7 +31,7 @@ try:
 except ImportError:
     raise ImportError("tblite C extension unimportable, cannot use C-API")
 
-from .exceptions import TBLiteRuntimeError, TBLiteTypeError
+from .exceptions import TBLiteRuntimeError, TBLiteTypeError, TBLiteValueError
 
 
 def get_version() -> tuple:
@@ -80,11 +80,18 @@ def error_check(func):
 
 
 @ffi.def_extern()
-def logger_callback(message, nchar, data):
+def logger_callback(error, message, nchar, data):
     """Custom logger callback to write output in a Python friendly way"""
-
-    callback = ffi.from_handle(data)
-    callback(ffi.unpack(message, nchar).decode())
+    try:
+        callback = ffi.from_handle(data)
+        callback(ffi.unpack(message, nchar).decode())
+    except Exception as e:
+        error_message = ffi.new("char[]", str(e).encode())
+        lib.tblite_set_error(
+            error,
+            error_message,
+            ffi.NULL,
+        )
 
 
 def context_check(func):
@@ -219,6 +226,13 @@ def get_number_of_orbitals(res) -> int:
     return _norb[0]
 
 
+def get_number_of_spins(res) -> int:
+    """Retrieve number of spins from result container"""
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    return _nspin[0]
+
+
 def get_energy(res) -> float:
     """Retrieve energy from result container"""
     _energy = np.array(0.0)
@@ -268,7 +282,7 @@ def get_bond_orders(res):
     """Retrieve Wiberg / Mayer bond orders from result container"""
     _dict = get_post_processing_dict(res=res)
     if not("bond-orders" in _dict.keys()):
-        raise ValueError(
+        raise TBLiteValueError(
                 f"Bond-orders were not calculated. By default they are computed."
             )
     _bond_orders = _dict['bond-orders']
@@ -300,32 +314,49 @@ def get_quadrupole(res):
 def get_orbital_energies(res):
     """Retrieve orbital energies from result container"""
     _norb = get_number_of_orbitals(res)
-    _emo = np.zeros((_norb,))
+    _nspin = get_number_of_spins(res)
+    _emo = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_energies)(
         res, ffi.cast("double*", _emo.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_emo, axis=0)
     return _emo
 
 
 def get_orbital_occupations(res):
     """Retrieve orbital occupations from result container"""
     _norb = get_number_of_orbitals(res)
-    _occ = np.zeros((_norb,))
+    _nspin = get_number_of_spins(res)
+    _occ = np.zeros((_nspin, _norb))
     error_check(lib.tblite_get_result_orbital_occupations)(
         res, ffi.cast("double*", _occ.ctypes.data)
     )
+    if _nspin == 1:
+        return np.squeeze(_occ, axis=0)
     return _occ
 
 
-def _get_ao_matrix(getter):
+def _get_ao_matrix(getter, is_spin_dependent: bool):
     """Correctly set allocation for matrix objects before querying the getter"""
 
     @functools.wraps(getter)
     def with_allocation(res):
         """Get a matrix property from the results object"""
         _norb = get_number_of_orbitals(res)
-        _mat = np.zeros((_norb, _norb))
+        _nspin = get_number_of_spins(res) if is_spin_dependent else 1
+
+        # (_norb, _norb, _nspin) in col-major -> (_nspin, _norb, _norb) in row-major
+        # this will allow us to extract alpha- and beta matrices as mat[0] and mat[1]
+        _mat = np.zeros((_nspin, _norb, _norb))
         error_check(getter)(res, ffi.cast("double*", _mat.ctypes.data))
+
+        # Transpose actual matrix from col-major to row-major
+        # -> important for orbital coefficients
+        _mat = np.swapaxes(_mat, 1, 2)
+
+        if _nspin == 1:
+            return np.squeeze(_mat, axis=0)
         return _mat
 
     return with_allocation
@@ -442,7 +473,6 @@ def get_post_processing_dict(res):
     """Retrieve the dictionary containing all post processing results"""
     _dict = ffi.gc(error_check(lib.tblite_get_post_processing_dict)(res), _delete_double_dictionary)
     _nentries = error_check(lib.tblite_get_n_entries_dict)(_dict)
-    print(_nentries)
     _dict_py = dict()
     for i in range(1,_nentries+1):
         _index = ffi.new("const int*", i)
@@ -463,9 +493,8 @@ def get_post_processing_dict(res):
         error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
-        print(_dict_py)
     return _dict_py
-        
+
 def get_calculator_angular_momenta(ctx, calc):
     """Retrieve angular momenta of shells"""
     _nsh = ffi.new("int *")

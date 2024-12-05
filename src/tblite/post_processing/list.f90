@@ -1,3 +1,21 @@
+! This file is part of tblite.
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+!> @file tblite/post_processing/list.f90
+!> Implements post processing conatiner list, collcting post processing methods.
 module tblite_post_processing_list
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_post_processing_type, only : post_processing_type
@@ -68,6 +86,7 @@ subroutine pack_res(self, mol, res)
    real(wp), allocatable :: tmp_array(:)
    character(len=:), allocatable :: tmp_label
 
+   !allocate(res%dict)
    res%dict = self%dict
 end subroutine
 
@@ -139,15 +158,15 @@ subroutine add_post_processing_param(self, param)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
-      type is (xtbml_features_record)
-            block
-               type(xtbml_type), allocatable :: tmp
-               class(post_processing_type), allocatable :: proc
-               allocate(tmp)
-               call new_xtbml_features(tmp, par)
-               call move_alloc(tmp, proc)
-               call self%push(proc)
-            end block   
+         type is (xtbml_features_record)
+         block
+            type(xtbml_type), allocatable :: tmp
+            class(post_processing_type), allocatable :: proc
+            allocate(tmp)
+            call new_xtbml_features(tmp, par)
+            call move_alloc(tmp, proc)
+            call self%push(proc)
+         end block
       end select
    end do
 end subroutine
@@ -178,24 +197,24 @@ subroutine add_post_processing_cli(self, config, error)
          call move_alloc(molmom_tmp, tmp)
          call param%push(tmp)
       end block
-    case("xtbml")
-        block 
-            type(xtbml_features_record), allocatable :: ml_param
-            class(serde_record), allocatable :: cont
-            allocate(ml_param)
-            call ml_param%populate_default_param(.false.)
-            call move_alloc(ml_param, cont)
-            call param%push(cont)
-        end block
-    case("xtbml_xyz")
+   case("xtbml")
       block 
-        type(xtbml_features_record), allocatable :: ml_param
-        class(serde_record), allocatable :: cont 
-        allocate(ml_param)
-        call ml_param%populate_default_param(.true.)
-        call move_alloc(ml_param, cont)
-        call param%push(cont) 
+          type(xtbml_features_record), allocatable :: ml_param
+          class(serde_record), allocatable :: cont
+          allocate(ml_param)
+          call ml_param%populate_default_param(.false.)
+          call move_alloc(ml_param, cont)
+          call param%push(cont)
       end block
+   case("xtbml_xyz")
+    block 
+      type(xtbml_features_record), allocatable :: ml_param
+      class(serde_record), allocatable :: cont 
+      allocate(ml_param)
+      call ml_param%populate_default_param(.true.)
+      call move_alloc(ml_param, cont)
+      call param%push(cont) 
+   end block
    case default
       block
          type(toml_table), allocatable :: table

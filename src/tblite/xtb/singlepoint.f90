@@ -137,6 +137,21 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       sigma(:, :) = 0.0_wp
    end if
 
+   call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
+   nel = sum(wfn%n0at) - mol%charge
+   if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
+      wfn%nuhf = mol%uhf
+   else
+      if (mol%uhf /= 0) then
+         call fatal_error(error, "Total number of electrons ("//format_string(nint(nel), "(i0)")//") and "//&
+            & "number unpaired electrons ("//format_string(mol%uhf, "(i0)")//") is not compatible")
+         call ctx%set_error(error)
+         return
+      end if
+      wfn%nuhf = mod(nint(nel), 2)
+   end if
+   call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
+
    if (allocated(calc%halogen)) then
       call timer%push("halogen")
       allocate(hcache)
@@ -188,15 +203,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call calc%coulomb%update(mol, ccache)
       call timer%pop
    end if
-
-   call get_occupation(mol, calc%bas, calc%h0, wfn%nocc, wfn%n0at, wfn%n0sh)
-   nel = sum(wfn%n0at) - mol%charge
-   if (mod(mol%uhf, 2) == mod(nint(nel), 2)) then
-      wfn%nuhf = mol%uhf
-   else
-      wfn%nuhf = mod(nint(nel), 2)
-   end if
-   call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
 
    if (prlevel > 1) &
       call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
@@ -374,6 +380,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
       call ctx%set_error(error)
    end if
+
 
 end subroutine xtb_singlepoint
 

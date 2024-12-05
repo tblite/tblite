@@ -20,12 +20,18 @@ module test_coulomb_charge
       & test_failed
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
+   use tblite_basis_type
+   use tblite_basis_slater, only : slater_to_gauss
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_charge, only : coulomb_charge_type, effective_coulomb, &
       & new_effective_coulomb, harmonic_average, arithmetic_average, &
       & gamma_coulomb, new_gamma_coulomb
+   use tblite_scf, only: new_potential, potential_type
+   use tblite_ceh_ceh, only : get_effective_qat
+   use tblite_ncoord_erf_en
+   use tblite_ncoord_type, only : get_coordination_number
    use tblite_cutoff, only : get_lattice_points
-   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
    private
 
@@ -42,6 +48,15 @@ module test_coulomb_charge
          type(structure_type), intent(in) :: mol
          logical, intent(in) :: shell
       end subroutine coulomb_maker
+   end interface
+
+   abstract interface
+      subroutine charge_maker(wfn, mol, nshell)
+         import :: wavefunction_type, structure_type
+         class(wavefunction_type), intent(inout) :: wfn
+         type(structure_type), intent(in) :: mol
+         integer, optional, intent(in) :: nshell(:)
+      end subroutine charge_maker
    end interface
 
 contains
@@ -74,10 +89,69 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("sigma-atom-pbc-e2", test_s_effective_ammonia), &
       new_unittest("sigma-atom-g1", test_s_effective_m12), &
       new_unittest("sigma-shell-g2", test_s_effective_m15), &
-      new_unittest("sigma-atom-pbc-g2", test_s_effective_pyrazine) &
+      new_unittest("sigma-atom-pbc-g2", test_s_effective_pyrazine), &
+      new_unittest("potential-gradient-lih-effceh", test_ceh_potgrad_lih), &
+      new_unittest("potential-gradient-mb15-effceh", test_ceh_potgrad_mb15), &
+      new_unittest("potential-gradient-mb16-shell-effceh", test_ceh_potgrad_mb16), &
+      new_unittest("potential-sigma-lih-effceh", test_ceh_potsigma_lih), &
+      new_unittest("potential-sigma-co2-effceh", test_ceh_potsigma_co2), &
+      new_unittest("potential-sigma-mb05-effceh", test_ceh_potsigma_mb05), &
+      new_unittest("potential-sigma-mb17-shell-effceh", test_ceh_potsigma_mb17) &
       ]
 
 end subroutine collect_coulomb_charge
+
+
+!> Factory to setup the CEH basis set for testing of the potential (gradient)
+subroutine make_basis(bas, mol, ng)
+   type(basis_type), intent(out) :: bas
+   type(structure_type), intent(in) :: mol
+   integer, intent(in) :: ng
+
+   integer, parameter :: nsh(20) = [&
+   & 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3]
+   integer, parameter :: lsh(3, 20) = reshape([&
+   & 0, 0, 0,  0, 0, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0, &
+   & 0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 2, &
+   & 0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2,  0, 1, 2, &
+   & 0, 1, 0,  0, 1, 2], shape(lsh))
+
+   integer, parameter :: pqn(3, 20) = reshape([&
+   & 1, 0, 0,  1, 0, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0, &
+   & 2, 2, 0,  2, 2, 0,  2, 2, 0,  2, 2, 0,  3, 3, 0,  3, 3, 3, &
+   & 3, 3, 3,  3, 3, 3,  3, 3, 3,  3, 3, 3,  3, 3, 3,  3, 3, 3, &
+   & 4, 4, 0,  4, 4, 3], shape(pqn))
+
+   real(wp), parameter :: zeta(3, 20) = reshape([&
+   & 1.23363166_wp, 0.00000000_wp, 0.00000000_wp, 2.27004605_wp, 0.00000000_wp, 0.00000000_wp, &
+   & 0.86185456_wp, 1.42017184_wp, 0.00000000_wp, 1.76817995_wp, 1.44095844_wp, 0.00000000_wp, &
+   & 2.06339837_wp, 1.52051807_wp, 0.00000000_wp, 2.56058582_wp, 1.86484737_wp, 0.00000000_wp, &
+   & 2.71233631_wp, 2.19848968_wp, 0.00000000_wp, 3.21585650_wp, 2.41309737_wp, 0.00000000_wp, &
+   & 3.82146807_wp, 2.63063636_wp, 0.00000000_wp, 4.62721228_wp, 2.53599954_wp, 0.00000000_wp, &
+   & 0.93221172_wp, 1.55333839_wp, 0.00000000_wp, 1.77220557_wp, 1.59942632_wp, 2.98596647_wp, &
+   & 2.26040231_wp, 1.78718151_wp, 2.00990188_wp, 1.85259089_wp, 1.81733349_wp, 1.65269988_wp, &
+   & 2.65701241_wp, 2.03189759_wp, 2.03883661_wp, 2.60609998_wp, 2.16530440_wp, 2.41888232_wp, &
+   & 2.78818934_wp, 2.24732894_wp, 1.99081182_wp, 2.55424399_wp, 2.20946190_wp, 1.93619550_wp, &
+   & 1.73713827_wp, 1.33788617_wp, 0.00000000_wp, 2.47982574_wp, 1.07250770_wp, 2.11920764_wp],&
+   & shape(zeta))
+
+   integer :: isp, izp, ish, stat
+   integer, allocatable :: nshell(:)
+   type(cgto_type), allocatable :: cgto(:, :)
+
+   nshell = nsh(mol%num)
+   allocate(cgto(maxval(nshell), mol%nid))
+   do isp = 1, mol%nid
+      izp = mol%num(isp)
+      do ish = 1, nshell(isp)
+         call slater_to_gauss(ng, pqn(ish, izp), lsh(ish, izp), zeta(ish, izp), &
+         & cgto(ish, isp), .true., stat)
+      end do
+   end do
+
+   call new_basis(bas, mol, nshell, cgto, 1.0_wp)
+
+end subroutine make_basis
 
 
 !> Factory to create electrostatic objects based on GFN1-xTB values
@@ -190,6 +264,51 @@ subroutine make_coulomb_e2(coulomb, mol, shell)
 
 end subroutine make_coulomb_e2
 
+!> Factory to create electrostatic objects based on CEH values
+subroutine make_coulomb_eceh(coulomb, mol, shell)
+
+   !> New electrostatic object
+   class(coulomb_charge_type), allocatable, intent(out) :: coulomb
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Return a shell resolved object
+   logical, intent(in) :: shell
+
+   real(wp), parameter :: hubbard_parameter(20) = [&
+      & 0.47259288_wp, 0.92203391_wp, 0.17452888_wp, 0.25700733_wp, &
+      & 0.33949086_wp, 0.42195412_wp, 0.50438193_wp, 0.58691863_wp, &
+      & 0.66931351_wp, 0.75191607_wp, 0.17964105_wp, 0.22157276_wp, &
+      & 0.26348578_wp, 0.30539645_wp, 0.34734014_wp, 0.38924725_wp, &
+      & 0.43115670_wp, 0.47308269_wp, 0.17105469_wp, 0.20276244_wp]
+   integer, parameter :: shell_count(20) = [&
+      & 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3]
+
+   real(wp), parameter :: gexp = 1.0_wp
+   real(wp), allocatable :: hubbard(:, :)
+   integer :: isp, izp, ish
+   type(effective_coulomb), allocatable :: tmp
+
+   allocate(tmp)
+   if (shell) then
+      ! If shell-resolved, we use the atomic parameter for each shell
+      allocate(hubbard(3, mol%nid))
+      do isp = 1, mol%nid
+         izp = mol%num(isp)
+         do ish = 1, shell_count(izp)
+            hubbard(ish, isp) = hubbard_parameter(izp)
+         end do
+      end do
+      call new_effective_coulomb(tmp, mol, gexp, hubbard, arithmetic_average, &
+         & shell_count(mol%num))
+   else
+      hubbard = reshape(hubbard_parameter(mol%num), [1, mol%nid])
+      call new_effective_coulomb(tmp, mol, gexp, hubbard, arithmetic_average)
+   end if
+   call move_alloc(tmp, coulomb)
+
+end subroutine make_coulomb_eceh
 
 !> Factory to create electrostatic objects based on GFN1-xTB values
 subroutine make_coulomb_g1(coulomb, mol, shell)
@@ -299,6 +418,65 @@ subroutine make_coulomb_g2(coulomb, mol, shell)
    call move_alloc(tmp, coulomb)
 
 end subroutine make_coulomb_g2
+
+
+!> Procedure to create CN based effective charges and gradients from CEH
+subroutine get_charges_effceh(wfn, mol, nshell)
+
+   !> New wavefunction object
+   class(wavefunction_type), intent(inout) :: wfn
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Return shell-resolved charges
+   integer, optional, intent(in) :: nshell(:)
+
+   real(wp), parameter :: ceh_cov_radii(20) = 0.5 * [&
+   &  2.4040551903_wp,  1.8947380542_wp,  3.4227634078_wp,  3.5225408137_wp, &
+   &  3.6150631704_wp,  2.8649682108_wp,  2.4695867541_wp,  2.3533691180_wp, &
+   &  2.4992147462_wp,  3.3442607441_wp,  4.4665909451_wp,  4.3877250907_wp, &
+   &  4.6647077385_wp,  4.2086223530_wp,  4.4750280107_wp,  4.2847281423_wp, &
+   &  3.8560304959_wp,  3.9017061017_wp,  5.2392192639_wp,  5.1872031383_wp]
+
+   real(wp), parameter :: pauling_en_ceh(20) = (1.0_wp/3.98_wp) * [ &
+   &  1.9435211923_wp,  3.6116085622_wp,  2.4630915335_wp,  2.0658837656_wp, &
+   &  2.3619778807_wp,  2.9484294262_wp,  3.8753937411_wp,  4.6235054741_wp, &
+   &  3.9800000000_wp,  3.5124865506_wp,  2.3578254072_wp,  2.4225832022_wp, &
+   &  2.1120078826_wp,  2.4607564741_wp,  2.7410779326_wp,  3.3517034720_wp, &
+   &  4.1093492601_wp,  3.7979559518_wp,  2.4147937668_wp,  2.1974781961_wp]
+   
+   real(wp), allocatable :: lattr(:, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
+   type(erf_en_ncoord_type) :: ncoord_en
+   integer :: iat, ii, ish
+
+   allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
+
+   ! Get electronegativity-weighted coordination number
+   call new_erf_en_ncoord(ncoord_en, mol, &
+   & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call get_coordination_number(ncoord_en, mol, lattr, cutoff, &
+      & cn_en, dcn_endr, dcn_endL)
+
+   ! Get effective charges and their gradients
+   call get_effective_qat(mol, cn_en, wfn%qat, &
+      & dcn_endr, dcn_endL, wfn%dqatdr, wfn%dqatdL)
+
+   ! If shell-resolved charges are requested, partition atomic charges on shells
+   if(present(nshell)) then
+      ii = 0
+      do iat = 1, mol%nat
+         do ish = 1, nshell(iat)
+            wfn%qsh(ii+ish, :) = wfn%qat(iat, :) / real(nshell(iat), wp)
+            wfn%dqshdr(:, :, ii+ish, :) = wfn%dqatdr(:, :, iat, :) / real(nshell(iat), wp)
+            wfn%dqshdL(:, :, ii+ish, :) = wfn%dqatdL(:, :, iat, :) / real(nshell(iat), wp)
+         end do 
+         ii = ii + nshell(iat)
+      end do 
+   end if
+
+end subroutine get_charges_effceh
 
 
 subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
@@ -420,6 +598,88 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
 end subroutine test_numgrad
 
 
+subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Procedure to provide atomic charges (and their gradients)
+   procedure(charge_maker) :: get_charges
+
+   !> Factory to create new electrostatic objects
+   procedure(coulomb_maker) :: make_coulomb
+
+   !> Test shell-resolved
+   logical, intent(in) :: shell
+
+   integer :: iat, ic
+   type(basis_type) :: bas
+   type(potential_type) :: potl, potr
+   class(coulomb_charge_type), allocatable :: coulomb
+   type(container_cache) :: cache
+   real(wp), allocatable :: numpotgrad(:, :, :)
+   real(wp), parameter :: step = 5.0e-5_wp
+   type(wavefunction_type) :: wfn
+
+   ! Setup potentials and wavefunction with dummy basis set 
+   call make_basis(bas, mol, 6)
+   call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
+   call new_potential(potr, mol, bas, 1, .true.)
+   call new_potential(potl, mol, bas, 1, .true.)
+   call make_coulomb(coulomb, mol, shell)
+
+   if(shell) then
+      allocate(numpotgrad(3, mol%nat, bas%nsh), source=0.0_wp)
+   else
+      allocate(numpotgrad(3, mol%nat, mol%nat), source=0.0_wp)
+   end if
+
+   do iat = 1, mol%nat
+      do ic = 1, 3
+         call potr%reset
+         call potl%reset
+         mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
+         call get_charges(wfn, mol, coulomb%nshell)
+         call coulomb%update(mol, cache)
+         call coulomb%get_potential(mol, cache, wfn, potr)
+
+         mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
+         call get_charges(wfn, mol, coulomb%nshell)
+         call coulomb%update(mol, cache)
+         call coulomb%get_potential(mol, cache, wfn, potl)
+         
+         mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
+         if(shell) then
+            numpotgrad(ic, iat, :) = 0.5_wp*(potr%vsh(:,1) - potl%vsh(:,1))/step
+         else
+            numpotgrad(ic, iat, :) = 0.5_wp*(potr%vat(:,1) - potl%vat(:,1))/step
+         end if
+      end do
+   end do
+
+   call get_charges(wfn, mol, coulomb%nshell)
+   call coulomb%update(mol, cache)
+   call coulomb%get_potential(mol, cache, wfn, potl)
+   call coulomb%get_potential_gradient(mol, cache, wfn, potl)
+   
+   if(shell) then
+      if (any(abs(potl%dvshdr(:,:,:,1) - numpotgrad) > thr2)) then
+         call test_failed(error, "Gradient of shell-resolved potential does not match")
+         print'(3es21.14)', potl%dvshdr(:,:,:,1) - numpotgrad
+      end if
+   else
+      if (any(abs(potl%dvatdr(:,:,:,1) - numpotgrad) > thr2)) then
+         call test_failed(error, "Gradient of atom-resolved potential does not match")
+         print'(3es21.14)', potl%dvatdr(:,:,:,1) - numpotgrad
+      end if
+   end if
+
+end subroutine test_numpotgrad
+
+
 subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
 
    !> Error handling
@@ -492,6 +752,101 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
    end if
 
 end subroutine test_numsigma
+
+
+subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Procedure to provide atomic charges (and their gradients)
+   procedure(charge_maker) :: get_charges
+
+   !> Factory to create new electrostatic objects
+   procedure(coulomb_maker) :: make_coulomb
+
+   !> Test shell-resolved
+   logical, intent(in) :: shell
+
+   integer :: ic, jc
+   type(basis_type) :: bas
+   type(potential_type) :: potl, potr
+   class(coulomb_charge_type), allocatable :: coulomb
+   type(container_cache) :: cache
+   real(wp) :: eps(3, 3)
+   real(wp), allocatable :: numpotsigma(:, :, :), xyz(:, :), lattice(:, :)
+   real(wp), parameter :: unity(3, 3) = reshape(&
+   & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), parameter :: step = 5.0e-5_wp
+   type(wavefunction_type) :: wfn
+
+   allocate(xyz(3, mol%nat), source=0.0_wp)
+
+   ! Setup potentials and wavefunction with dummy basis set 
+   call make_basis(bas, mol, 6)
+   call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
+   call new_potential(potr, mol, bas, 1, .true.)
+   call new_potential(potl, mol, bas, 1, .true.)
+   call make_coulomb(coulomb, mol, shell)
+
+   if(shell) then
+      allocate(numpotsigma(3, 3, bas%nsh), source=0.0_wp)
+   else
+      allocate(numpotsigma(3, 3, mol%nat), source=0.0_wp)
+   end if
+
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   if (any(mol%periodic)) lattice = mol%lattice
+   do ic = 1, 3
+      do jc = 1, 3
+         call potr%reset
+         call potl%reset
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
+         call get_charges(wfn, mol, coulomb%nshell)
+         call coulomb%update(mol, cache)
+         call coulomb%get_potential(mol, cache, wfn, potr)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
+         call get_charges(wfn, mol, coulomb%nshell)
+         call coulomb%update(mol, cache)
+         call coulomb%get_potential(mol, cache, wfn, potl)
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         if (allocated(lattice)) mol%lattice = lattice
+         if(shell) then
+            numpotsigma(jc, ic, :) = 0.5_wp*(potr%vsh(:,1) - potl%vsh(:,1))/step
+         else
+            numpotsigma(jc, ic, :) = 0.5_wp*(potr%vat(:,1) - potl%vat(:,1))/step
+         end if
+      end do
+   end do
+
+   call get_charges(wfn, mol, coulomb%nshell)
+   call coulomb%update(mol, cache)
+   call coulomb%get_potential(mol, cache, wfn, potl)
+   call coulomb%get_potential_gradient(mol, cache, wfn, potl)
+
+   if(shell) then
+      if (any(abs(potl%dvshdL(:,:,:,1) - numpotsigma) > thr2)) then
+         call test_failed(error, "Sigma of shell-resolved potential does not match")
+         print'(3es21.14)', potl%dvshdL(:,:,:,1) - numpotsigma
+      end if
+   else
+      if (any(abs(potl%dvatdL(:,:,:,1) - numpotsigma) > thr2)) then
+         call test_failed(error, "Sigma of atom-resolved potential does not match")
+         print'(3es21.14)', potl%dvatdL(:,:,:,1) - numpotsigma
+      end if
+   end if
+
+end subroutine test_numpotsigma
 
 
 subroutine test_e_effective_m01(error)
@@ -1039,5 +1394,89 @@ subroutine test_s_effective_m15(error)
    call test_numsigma(error, mol, qat, qsh, make_coulomb_g2)
 
 end subroutine test_s_effective_m15
+
+subroutine test_ceh_potgrad_lih(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "LiH")
+   call test_numpotgrad(error, mol, get_charges_effceh, make_coulomb_eceh, .false.)
+
+end subroutine test_ceh_potgrad_lih
+
+subroutine test_ceh_potgrad_mb15(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "15")
+   call test_numpotgrad(error, mol, get_charges_effceh, make_coulomb_eceh, .false.)
+
+end subroutine test_ceh_potgrad_mb15
+
+subroutine test_ceh_potgrad_mb16(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "16")
+   call test_numpotgrad(error, mol, get_charges_effceh, make_coulomb_eceh, .true.)
+
+end subroutine test_ceh_potgrad_mb16
+
+subroutine test_ceh_potsigma_lih(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "LiH")
+   call test_numpotsigma(error, mol, get_charges_effceh, make_coulomb_eceh, .false.)
+
+end subroutine test_ceh_potsigma_lih
+
+subroutine test_ceh_potsigma_co2(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "X23", "CO2")
+   call test_numpotsigma(error, mol, get_charges_effceh, make_coulomb_eceh, .false.)
+
+end subroutine test_ceh_potsigma_co2
+
+subroutine test_ceh_potsigma_mb05(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "05")
+   call test_numpotsigma(error, mol, get_charges_effceh, make_coulomb_eceh, .false.)
+
+end subroutine test_ceh_potsigma_mb05
+
+subroutine test_ceh_potsigma_mb17(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "17")
+   call test_numpotsigma(error, mol, get_charges_effceh, make_coulomb_eceh, .true.)
+
+end subroutine test_ceh_potsigma_mb17
 
 end module test_coulomb_charge

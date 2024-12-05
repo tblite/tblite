@@ -50,6 +50,9 @@ Supported geometry input formats are:
      Guess for the initial populations, possible options:
      _sad_ (default), and _eeq_.
 
+*--etemp-guess* _real_::
+     Electronic temperature for ceh-guess in Kelvin (default: 5000K).
+
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
 

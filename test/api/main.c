@@ -202,6 +202,13 @@ int test_uninitialized_result(void)
 
     show_error(error);
 
+    int nspin;
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (!tblite_check_error(error))
+        goto unexpected;
+
+    show_error(error);
+
     double energy;
     tblite_get_result_energy(error, res, &energy);
     if (!tblite_check_error(error))
@@ -612,6 +619,14 @@ unexpected:
     return 1;
 }
 
+int test_error_setter(void)
+{
+    printf("Start test: error set\n");
+    tblite_error error = tblite_new_error();
+    tblite_set_error(error, "some error message", NULL);
+    return tblite_check_error(error) ? 0 : 1;
+}
+
 int test_empty_result(void)
 {
     printf("Start test: empty result\n");
@@ -620,6 +635,13 @@ int test_empty_result(void)
 
     error = tblite_new_error();
     res = tblite_new_result();
+
+    int nspin;
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (!tblite_check_error(error))
+        goto unexpected;
+
+    show_error(error);
 
     double energy;
     tblite_get_result_energy(error, res, &energy);
@@ -1050,7 +1072,7 @@ err:
     return 1;
 }
 
-void example_callback(char* msg, int len, void* udata)
+void example_callback(tblite_error error, char* msg, int len, void* udata)
 {
     printf("[callback] %.*s\n", len, msg);
 }
@@ -1951,6 +1973,14 @@ int test_spgfn1()
     if (tblite_check_context(ctx))
         goto err;
 
+    int nspin;
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(nspin, 2, "nspin error"))
+        goto err;
+
     tblite_get_result_energy(error, res, &energy);
     if (tblite_check_error(error))
         goto err;
@@ -1974,7 +2004,7 @@ int test_spgfn1()
     if (!check(energy, -28.370520606196546, thr, "energy error"))
         goto err;
 
-    
+
     tblite_delete(error);
     tblite_delete(ctx);
     tblite_delete(mol);
@@ -2016,10 +2046,10 @@ int get_array_dimension(int ndim1, int ndim2, int ndim3){
 
     if (ndim3 == 0){
         return array_size;
-    } 
+    }
 
     array_size = ndim1 * ndim2 * ndim3;
-    return array_size; 
+    return array_size;
 
 }
 
@@ -2079,7 +2109,7 @@ int test_dict_api()
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check_context(ctx))
         goto err;
-    
+
     dict = tblite_get_post_processing_dict(error, res);
 
     int n_dict_entries = 0;
@@ -2088,7 +2118,7 @@ int test_dict_api()
         goto err;
     }
 
-    int ndim1 = 0; 
+    int ndim1 = 0;
     int ndim2 = 0;
     int ndim3 = 0;
 
@@ -2108,10 +2138,10 @@ int test_dict_api()
         goto err;
     }
 
-    int ndim1_label = 0; 
+    int ndim1_label = 0;
     int ndim2_label = 0;
     int ndim3_label = 0;
-    
+
     tblite_get_array_size_label(error, dict, label, &ndim1_label, &ndim2_label, &ndim3_label);
 
     if (!check_int(ndim1, ndim1_label, "Comparing dimension of quadrupole tensor")) {
@@ -2136,7 +2166,7 @@ int test_dict_api()
     }
     if (!check_int(ndim3, 0, "Check dimension of dipole tensor")) {
         goto err;
-    } 
+    }
     tblite_get_label_entry_index(error, dict, &n_dict_entries, label, NULL);
     if (!(strcmp(label, "molecular-dipole") == 0)){
         goto err;
@@ -2166,7 +2196,7 @@ int test_dict_api()
     }
     if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
         goto err;
-    } 
+    }
     tblite_get_label_entry_index(error, dict, &n_dict_entries, label, NULL);
     if (!(strcmp(label, "bond-orders") == 0)){
         goto err;
@@ -2198,16 +2228,16 @@ int test_dict_api()
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check_context(ctx))
         goto err;
-    dict= NULL; 
+    dict= NULL;
     dict = tblite_get_post_processing_dict(error, res);
     if (tblite_check_error(error))
         goto err;
-    
-    ndim1 = 0; 
+
+    ndim1 = 0;
     ndim2 = 0;
     ndim3 = 0;
     int index = 1;
-    ndim1_label = 0; 
+    ndim1_label = 0;
     ndim2_label = 0;
     ndim3_label = 0;
 
@@ -2221,7 +2251,7 @@ int test_dict_api()
     if (!(strcmp(label, "bond-orders") == 0)){
         goto err;
     }
-    
+
     tblite_get_array_size_label(error, dict, label, &ndim1_label, &ndim2_label, &ndim3_label);
 
     if (!check_int(ndim1, ndim1_label, "Check dimension of wbo tensor")) {
@@ -2257,7 +2287,7 @@ int test_dict_api()
     if (!(strcmp(label, "molecular-dipole") == 0)){
         goto err;
     }
-    
+
     tblite_get_array_size_label(error, dict, label, &ndim1_label, &ndim2_label, &ndim3_label);
 
     if (!check_int(ndim1, ndim1_label, "Check dimension of dipole tensor")) {
@@ -2303,7 +2333,7 @@ int test_dict_api()
     if (!(strcmp(label, "bond-orders") == 0)){
         goto err;
     }
-    
+
     tblite_get_array_size_label(error, dict, label, &ndim1_label, &ndim2_label, &ndim3_label);
 
     if (!check_int(ndim1, ndim1_label, "Check dimension of wbo tensor")) {
@@ -2326,7 +2356,7 @@ int test_dict_api()
        goto err;
     }
     free(wbo_index);
-    free(wbo_label);  
+    free(wbo_label);
 
     tblite_delete(error);
     tblite_delete(ctx);
@@ -2335,7 +2365,7 @@ int test_dict_api()
     tblite_delete(cont);
     tblite_delete(res);
     tblite_delete(dict);
-    return 0; 
+    return 0;
 
     err:
     if (tblite_check_error(error)) {
@@ -2405,7 +2435,7 @@ int test_uninitialized_dict()
 
     error = tblite_new_error();
     ctx = tblite_new_context();
-    
+
 
     mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
     if (tblite_check_error(error))
@@ -2414,11 +2444,11 @@ int test_uninitialized_dict()
     calc = tblite_new_gfn1_calculator(ctx, mol);
     if (!calc)
         goto unexpected;
-     
+
     dict = tblite_get_post_processing_dict(error, res);
     if (!tblite_check_error(error))
         goto unexpected;
-    
+
     res = tblite_new_result();
     dict = tblite_get_post_processing_dict(error, res);
     if (!tblite_check_error(error))
@@ -2450,15 +2480,15 @@ int test_uninitialized_dict()
     }
     if (!check_int(dim3, 0, "Check dimension of empty dict")) {
         goto unexpected;
-    } 
+    }
 
     double array[10];
 
     tblite_get_array_entry_index(error, dict, &index, array);
-    
+
     error = tblite_new_error();
     dict = tblite_get_post_processing_dict(error, res);
-    
+
     error = NULL;
     n_entries = 0;
     n_entries = tblite_get_n_entries_dict(error, dict);
@@ -2480,7 +2510,7 @@ int test_uninitialized_dict()
     }
     if (!check_int(dim3, 0, "Check dimension of empty dict")) {
         goto unexpected;
-    } 
+    }
 
     tblite_get_array_entry_index(error, dict, &index, array);
     if (!tblite_check_error(error)){
@@ -2498,7 +2528,7 @@ int test_uninitialized_dict()
     }
     if (!check_int(dim3, 0, "Check dimension of empty dict")) {
         goto unexpected;
-    } 
+    }
 
     tblite_get_array_entry_label(error, dict, "wbo", array);
     if (!tblite_check_error(error)){
@@ -2511,8 +2541,8 @@ int test_uninitialized_dict()
     tblite_delete(calc);
     tblite_delete(cont);
     tblite_delete(res);
-    
-    return 0; 
+
+    return 0;
 
     unexpected:
     if (tblite_check_error(error)) {
@@ -2554,7 +2584,7 @@ int test_h2plus_wbo()
         +0.00000000, +0.000000000, +0.472429040,
         +0.00000000, +0.000000000, -0.472429040,
     };
-    
+
     error = tblite_new_error();
     ctx = tblite_new_context();
     double charge = +1.0;
@@ -2590,11 +2620,11 @@ int test_h2plus_wbo()
     }
 
     double dipm[3] = {0.000000, 0.000000, 0.000000};
-    int index = 1; 
-    int ndim1 = 0; 
+    int index = 1;
+    int ndim1 = 0;
     int ndim2 = 0;
     int ndim3 = 0;
-    
+
     tblite_get_array_size_index(error, dict, &index, &ndim1, &ndim2, &ndim3);
     if (!check_int(ndim1, 3, "Check dimension of dipole tensor")) {
         goto err;
@@ -2604,11 +2634,11 @@ int test_h2plus_wbo()
     }
     if (!check_int(ndim3, 0, "Check dimension of dipole tensor")) {
         goto err;
-    } 
-    double* dipm_dict = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double)); 
+    }
+    double* dipm_dict = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
 
     tblite_get_array_entry_index(error, dict, &index, dipm_dict);
-    double norm2_comp ; 
+    double norm2_comp ;
     double norm2_exp ;
     norm2_comp = norm2(ndim1, dipm_dict);
     norm2_exp = norm2(ndim1, dipm);
@@ -2630,11 +2660,11 @@ int test_h2plus_wbo()
     }
     if (!check_int(ndim3, 0, "Check dimension of quadrupole tensor")) {
         goto err;
-    } 
-    double* qp_dict = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double)); 
+    }
+    double* qp_dict = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
 
     tblite_get_array_entry_index(error, dict, &index, qp_dict);
-    
+
     norm2_comp = norm2(ndim1, qp_dict);
     norm2_exp = norm2(ndim1, qp);
     if (!check_double(norm2_comp, norm2_exp, thr, "Norm2 of mol. dipole not mathcing with expected")) {
@@ -2670,9 +2700,9 @@ int test_h2plus_wbo()
         goto err;
     }
 
-    double wbo[4] = {0.000000000000000E+000, 0.500000000000000, 0.500000000000000,     
+    double wbo[4] = {0.000000000000000E+000, 0.500000000000000, 0.500000000000000,
   0.000000000000000E+000};
-    index = 1; 
+    index = 1;
     tblite_get_array_size_index(error, dict, &index, &ndim1, &ndim2, &ndim3);
 
     double* wbo_comp = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
@@ -2687,7 +2717,7 @@ int test_h2plus_wbo()
     tblite_delete(calc);
     tblite_delete(res);
     tblite_delete(dict);
-    return 0; 
+    return 0;
 err:
     if (tblite_check_error(error)) {
         char message[512];
@@ -2707,7 +2737,7 @@ err:
     tblite_delete(calc);
     tblite_delete(res);
     tblite_delete(dict);
-    return 1; 
+    return 1;
 }
 
 int my_strcmp(const char *a, const char *b)
@@ -2729,7 +2759,7 @@ int test_post_processing_api()
     tblite_container cont = NULL;
     tblite_result res = NULL;
     tblite_double_dictionary dict = NULL;
-    tblite_table table = NULL; 
+    tblite_table table = NULL;
     tblite_param param = NULL;
     tblite_table table_extra = NULL;
     tblite_table bottom = NULL;
@@ -2785,7 +2815,7 @@ int test_post_processing_api()
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check_context(ctx))
         goto err;
-    
+
     dict = tblite_get_post_processing_dict(error, res);
     if (!dict)
         goto err;
@@ -2838,7 +2868,7 @@ int test_post_processing_api()
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check_context(ctx))
         goto err;
-    
+
     dict = tblite_get_post_processing_dict(error, res);
     if (tblite_check_error(error))
         goto err;
@@ -2854,7 +2884,7 @@ int test_post_processing_api()
         goto err;
     }
 
-    ndim1 = 0; 
+    ndim1 = 0;
     ndim2 = 0;
     ndim3 = 0;
 
@@ -2884,7 +2914,7 @@ int test_post_processing_api()
     }
     if (!check_int(ndim3, 0, "Check dimension of dipole tensor")) {
         goto err;
-    } 
+    }
 
     n_dict_entries = 1;
 
@@ -2957,7 +2987,7 @@ int test_post_processing_api()
     if (!tblite_check_context(ctx))
         goto err;
     show_context_error(ctx);
-    
+
     param = tblite_new_param();
     tblite_load_param(error, param, table);
     table = tblite_new_table(NULL);
@@ -2966,7 +2996,7 @@ int test_post_processing_api()
         goto err;
     tblite_delete(calc);
     calc = NULL;
-    
+
     tblite_push_back_post_processing_param(ctx, calc, param);
     if (!tblite_check_context(ctx))
         goto err;
@@ -3021,9 +3051,9 @@ int test_post_processing_api()
         goto err;
     if (!dict)
         goto err;
-    
-    
-    int index = 1; 
+
+
+    int index = 1;
     tblite_get_array_size_index(error, dict, &index, &ndim1, &ndim2, &ndim3);
 
     double* wbo_index = (double*) malloc((get_array_dimension(ndim1, ndim2, ndim3))*sizeof(double));
@@ -3046,7 +3076,7 @@ int test_post_processing_api()
     tblite_delete(table);
     tblite_delete(bottom);
     tblite_delete(table_extra);
-    return 0; 
+    return 0;
 
     err:
     if (tblite_check_error(error)) {
@@ -3067,7 +3097,7 @@ int test_post_processing_api()
     tblite_delete(calc);
     tblite_delete(cont);
     tblite_delete(res);
-    tblite_delete(dict); 
+    tblite_delete(dict);
     tblite_delete(param);
     tblite_delete(table);
     tblite_delete(bottom);
@@ -3100,6 +3130,6 @@ int main(void)
     stat += test_dict_api();
     stat += test_post_processing_api();
     stat += test_uninitialized_dict();
-    stat += test_h2plus_wbo(); 
+    stat += test_h2plus_wbo();
     return stat;
 }

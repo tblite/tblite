@@ -22,7 +22,8 @@
 module tblite_double_dictionary
    use mctc_env_accuracy, only : wp, i8
    use mctc_env, only : error_type, fatal_error
-   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error, toml_dump, add_array,  get_value, toml_parse
+   use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
+   use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
    implicit none
    private
 
@@ -90,8 +91,8 @@ module tblite_double_dictionary
       procedure :: load_from_toml
       procedure :: load_from_file
       procedure :: load_from_unit
-   end type double_dictionary_type
 
+   end type double_dictionary_type
 
 contains
 
@@ -146,7 +147,7 @@ function equal_dict(lhs, rhs) result(equal)
    end if
 
    do i = 1, lhs%get_n_entries()
-      if (not(lhs%record(i) == rhs%record(i))) return
+      if (.not.(lhs%record(i) == rhs%record(i))) return
    end do
 
    equal = .true.
@@ -241,33 +242,41 @@ subroutine dump_to_toml(self, table, error)
    type(toml_array), pointer :: array
    real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
 
-   integer :: i, stat
-   
+   integer :: i, stat, j
    do i = 1, self%get_n_entries()
       call add_array(table, self%record(i)%label, array)
 
+      if (allocated(array1)) deallocate(array1)
       call self%get_entry(i, array1)
-      if (allocated(array1)) then 
-         call set_value(array, array1, stat=stat)
+      if (allocated(array1)) then
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         cycle
       end if
 
       call self%get_entry(i, array2)
       if (allocated(array2)) then
          array1 = reshape(array2, [size(array2, 1)*size(array2, 2)])
-         call set_value(array, array1, stat=stat)
+         deallocate(array2)
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         cycle
       end if
 
       call self%get_entry(i, array3)
       if (allocated(array3)) then
          array1 = reshape(array3, [size(array3, 1)*size(array3, 2)*size(array3, 3)])
-         call set_value(array, array1, stat=stat)
-      end if
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot add array to toml table")
-         return
+         do j = 1, size(array1)
+            call set_value(array, j, array1(j), stat=stat)
+         end do
+         deallocate(array3)
+         cycle
       end if
    end do
 
+   deallocate(array1)
 end subroutine
 
 subroutine dump_to_file(self, file, error)
@@ -320,7 +329,6 @@ subroutine remove_entry_index(self, index)
    tmp = self
    old_n = self%n
    self%n = self%n - 1
-   
    
    deallocate(self%record)
    allocate(self%record(self%n))
@@ -580,7 +588,7 @@ subroutine push(self, label, it)
 
       self%n = self%n + 1
       it = self%n
-      self%record(it) = double_record(label)
+      self%record(it) = double_record(label=label)
    end if
 end subroutine push
 

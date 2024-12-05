@@ -22,6 +22,7 @@ program tester
       & select_suite, run_selected
    use test_cgto_ortho, only : collect_cgto_ortho
    use test_coulomb_charge, only : collect_coulomb_charge
+   use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
@@ -32,7 +33,7 @@ program tester
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
-   use test_ncoord_gfn, only : collect_ncoord_gfn
+   use test_ncoord, only : collect_ncoord
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
@@ -57,11 +58,12 @@ program tester
       new_testsuite("tagged-io", collect_tagged_io), &
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
-      new_testsuite("ncoord-gfn", collect_ncoord_gfn), &
+      new_testsuite("ncoord", collect_ncoord), &
       new_testsuite("solvation-born", collect_solvation_born), &
       new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
       new_testsuite("solvation-surface", collect_solvation_surface), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
+      new_testsuite("coulomb-thirdorder", collect_coulomb_thirdorder), &
       new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
       new_testsuite("double-dictionary", collect_double_dictionary), &
       new_testsuite("post-processing", collect_post_processing), &

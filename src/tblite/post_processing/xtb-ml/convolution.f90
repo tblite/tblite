@@ -1,7 +1,7 @@
 module tblite_xtbml_convolution
     use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_ncoord_xtbml, only : xtbml_ncoord_type, new_xtbml_ncoord
+   use tblite_ncoord_exp, only : exp_ncoord_type, new_exp_ncoord
   
     implicit none
     private
@@ -46,13 +46,15 @@ module tblite_xtbml_convolution
         
         class(xtbml_convolution_type) :: self
         type(structure_type) :: mol
-        type(xtbml_ncoord_type) :: ncoord_xtbml
+        type(exp_ncoord_type) :: ncoord_exp
         integer :: i, n_a
         n_a = size(self%a)
         allocate(self%cn(mol%nat, n_a), source=0.0_wp)
         do i = 1, n_a
-            call new_xtbml_ncoord(ncoord_xtbml, mol, a=self%a(i))
-            call ncoord_xtbml%get_cn(mol, self%cn(:, i))
+
+            call new_exp_ncoord(ncoord_exp, mol, rcov=self%rcov*self%a(i))
+            call ncoord_exp%get_cn(mol, self%cn(:, i))
+
         end do 
     end subroutine
 
@@ -91,7 +93,6 @@ module tblite_xtbml_convolution
               end do
            end do
         end do
-        
      
      end subroutine populate_kernel
     

@@ -37,7 +37,7 @@ from .interface import Calculator
 
 
 class TBLite(ase.calculators.calculator.Calculator):
-    """
+    r"""
     ASE calculator for using xTB Hamiltonians from the tblite library.
     Supported properties by this calculator are:
 
@@ -49,16 +49,22 @@ class TBLite(ase.calculators.calculator.Calculator):
 
     Supported keywords are
 
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
      Keyword                  Default           Description
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
      method                   "GFN2-xTB"        Underlying method for energy and forces
+     charge                   None              Total charge of the system
+     multiplicity             None              Total multiplicity of the system
      accuracy                 1.0               Numerical accuracy of the calculation
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
+     initial_guess            "sad"             Initial guess for wavefunction (sad or eeq)
+     mixer_damping            0.4               Damping parameter for self-consistent mixer
+     electric_field           None              Uniform electric field vector (in V/A)
+     spin_polarization        None              Spin polarization (scaling factor)
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
-    ======================== ================= ============================================
+    ======================== ================= ====================================================
 
     Example
     -------
@@ -109,8 +115,14 @@ class TBLite(ase.calculators.calculator.Calculator):
 
     default_parameters = {
         "method": "GFN2-xTB",
+        "charge": None,
+        "multiplicity": None,
         "accuracy": 1.0,
+        "guess": "sad",
         "max_iterations": 250,
+        "mixer_damping": 0.4,
+        "electric_field": None,
+        "spin_polarization": None,
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
@@ -156,7 +168,11 @@ class TBLite(ase.calculators.calculator.Calculator):
             self.reset()
 
         # If the method is changed, invalidate the cached calculator as well
-        if "method" in changed_parameters:
+        if (
+            "method" in changed_parameters
+            or "electric_field" in changed_parameters
+            or "spin_polarization" in changed_parameters
+        ):
             self._xtb = None
             self._res = None
 
@@ -178,6 +194,11 @@ class TBLite(ase.calculators.calculator.Calculator):
 
             if "charge" in changed_parameters:
                 self._xtb.set("charge", self.parameters.charge)
+            if "initial_guess" in changed_parameters:
+                self._xtb.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
+
+            if "mixer_damping" in changed_parameters:
+                self._xtb.set("mixer-damping", self.parameters.mixer_damping)
 
         return changed_parameters
 
@@ -191,6 +212,22 @@ class TBLite(ase.calculators.calculator.Calculator):
         if not self.parameters.cache_api:
             self._xtb = None
             self._res = None
+
+    @property
+    def _charge(self) -> int:
+        return (
+            self.atoms.get_initial_charges().sum()
+            if self.parameters.charge is None
+            else self.parameters.charge
+        )
+
+    @property
+    def _uhf(self) -> int:
+        return (
+            int(self.atoms.get_initial_magnetic_moments().sum().round())
+            if self.parameters.multiplicity is None
+            else self.parameters.multiplicity - 1
+        )
 
     def _check_api_calculator(self, system_changes: List[str]) -> None:
         """Check state of API calculator and reset if necessary"""
@@ -226,14 +263,8 @@ class TBLite(ase.calculators.calculator.Calculator):
         try:
             _cell = self.atoms.cell
             _periodic = self.atoms.pbc
-            if hasattr(self.parameters, "charge"):
-                _charge = self.parameters.charge
-            else:
-                _charge = self.atoms.get_initial_charges().sum()
-            if hasattr(self.parameters, "uhf"):
-                _uhf = self.parameters.uhf
-            else:
-                _uhf = int(self.atoms.get_initial_magnetic_moments().sum().round())
+            _charge = self._charge
+            _uhf = self._uhf
 
             calc = Calculator(
                 self.parameters.method,
@@ -249,14 +280,20 @@ class TBLite(ase.calculators.calculator.Calculator):
                 "temperature", self.parameters.electronic_temperature * kB / Hartree
             )
             calc.set("max-iter", self.parameters.max_iterations)
+            calc.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
+            calc.set("mixer-damping", self.parameters.mixer_damping)
             calc.set("verbosity", self.parameters.verbosity)
             if hasattr(self.parameters, "ml_features"): 
                 calc.set("ml_features", self.parameters.ml_features)
+            if self.parameters.electric_field is not None:
+                calc.add(
+                    "electric-field", self.parameters.electric_field * Bohr / Hartree
+                )
+            if self.parameters.spin_polarization is not None:
+                calc.add("spin-polarization", self.parameters.spin_polarization)
 
-        except RuntimeError:
-            raise ase.calculators.calculator.InputError(
-                "Cannot construct calculator for TBLite"
-            )
+        except RuntimeError as e:
+            raise ase.calculators.calculator.InputError(str(e)) from e
 
         return calc
 
@@ -304,10 +341,8 @@ class TBLite(ase.calculators.calculator.Calculator):
 
         try:
             self._res = self._xtb.singlepoint(self._res)
-        except RuntimeError:
-            raise ase.calculators.calculator.CalculationFailed(
-                "TBLite could not evaluate input"
-            )
+        except RuntimeError as e:
+            raise ase.calculators.calculator.CalculationFailed(str(e)) from e
 
         # These properties are garanteed to exist for all implemented calculators
         self.results["energy"] = self._res.get("energy") * Hartree

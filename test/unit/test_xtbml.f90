@@ -71,7 +71,7 @@ end subroutine collect_xtbml
     integer, parameter :: num(2) = (/1,1/)
  
     call new(mol, num, xyz*aatoau, uhf=1, charge=1.0_wp)
-    call new_gfn2_calculator(calc, mol)
+    call new_gfn2_calculator(calc, mol, error)
     call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
     calc%save_integrals = .true.
     allocate(pproc)
@@ -118,7 +118,7 @@ subroutine test_dipm_shell_h2p(error)
  
  
    call new(mol,num,xyz*aatoau,uhf=1,charge=1.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -203,7 +203,7 @@ subroutine test_dipm_shell_co2(error)
    mol_dipm_delta = 0.0_wp
  
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    calc%save_integrals = .true.
    
@@ -315,7 +315,7 @@ subroutine test_qp_shell_benz(error)
 
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -461,7 +461,7 @@ subroutine test_qp_shell_benz_high_a(error)
    qm_xyz = 0.0_wp
    
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -577,7 +577,7 @@ subroutine test_rotation_co2(error)
    integer :: i
  
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -601,7 +601,7 @@ subroutine test_rotation_co2(error)
    call gemm(rot_matrix,xyz,xyz_rot)
  
    call new(mol,num,xyz_rot*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
@@ -637,7 +637,7 @@ subroutine test_translation_co2(error)
    integer :: i
  
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -660,7 +660,7 @@ subroutine test_translation_co2(error)
    enddo
  
    call new(mol,num,xyz_trans*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
@@ -699,7 +699,7 @@ subroutine test_permutation_co2(error)
    integer :: i
  
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -717,7 +717,7 @@ subroutine test_permutation_co2(error)
 
  
    call new(mol,num_perm,xyz_perm*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol)
+   call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
@@ -829,7 +829,7 @@ subroutine test_energy_sum_up_gfn2(error)
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc, mol)
+   call new_gfn2_calculator(calc, mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -903,7 +903,7 @@ subroutine test_energy_sum_up_gfn1(error)
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn1_calculator(calc,mol)
+   call new_gfn1_calculator(calc,mol,error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)

@@ -17,7 +17,7 @@
 # Create mstore as subproject for testing
 mstore_dep = dependency(
   'mstore',
-  version: '>=0.1',
+  version: '>=0.3.0',
   fallback: ['mstore', 'mstore_dep'],
   required: not meson.is_subproject(),
   default_options: [
@@ -33,6 +33,7 @@ tests = [
   'cgto-ortho',
   'coulomb-charge',
   'coulomb-multipole',
+  'coulomb-thirdorder',
   'double-dictionary',
   'fit',
   'gfn1-xtb',
@@ -43,7 +44,7 @@ tests = [
   'integral-overlap',
   'integral-multipole',
   'ipea1-xtb',
-  'ncoord-gfn',
+  'ncoord',
   'post-processing',
   'repulsion',
   'slater-expansion',
