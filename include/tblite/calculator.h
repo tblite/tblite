@@ -149,16 +149,6 @@ tblite_set_calculator_save_integrals(tblite_context ctx,
                                      tblite_calculator calc,
                                      int save_integrals);
 
-/// Set the flag in the calculator to compute xtbml features
-///
-/// @param ctx: Context handle
-/// @param calc: Calculator instance
-/// @param ml: string of ml features to compute
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_set_calculator_ml_features(tblite_context ctx,
-                            tblite_calculator calc,
-                            char* ml);
-
 /// Query calculator for the number of shells
 ///
 /// @param ctx: Context handle

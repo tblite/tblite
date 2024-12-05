@@ -109,8 +109,6 @@ class TBLite(ase.calculators.calculator.Calculator):
         "charges",
         "dipole",
         "stress",
-        "ml_features",
-        "xtbml weights",
     ]
 
     default_parameters = {
@@ -189,11 +187,6 @@ class TBLite(ase.calculators.calculator.Calculator):
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
-            if "ml_features" in changed_parameters:
-                self._xtb.set("ml_features", self.parameters.ml_features)
-
-            if "charge" in changed_parameters:
-                self._xtb.set("charge", self.parameters.charge)
             if "initial_guess" in changed_parameters:
                 self._xtb.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
 
@@ -283,8 +276,6 @@ class TBLite(ase.calculators.calculator.Calculator):
             calc.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
             calc.set("mixer-damping", self.parameters.mixer_damping)
             calc.set("verbosity", self.parameters.verbosity)
-            if hasattr(self.parameters, "ml_features"): 
-                calc.set("ml_features", self.parameters.ml_features)
             if self.parameters.electric_field is not None:
                 calc.add(
                     "electric-field", self.parameters.electric_field * Bohr / Hartree
@@ -350,10 +341,6 @@ class TBLite(ase.calculators.calculator.Calculator):
         self.results["forces"] = -self._res.get("gradient") * Hartree / Bohr
         self.results["charges"] = self._res.get("charges")
         self.results["dipole"] = self._res.get("dipole") * Bohr
-        if self.parameters.ml_features != "":
-            self.results["ml features"] = self._res.get("ml features")
-            self.results["xtbml weights"] = self._res.get("xtbml weights")
-            self.results["ml labels"] = self._res.get("ml labels")
         self.results["bond-orders"] = self._res.get("bond-orders")
         # stress tensor is only returned for periodic systems
         if self.atoms.pbc.any():

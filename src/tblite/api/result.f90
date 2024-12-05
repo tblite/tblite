@@ -346,12 +346,6 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
    end if
    call res%results%dict%get_entry("molecular-dipole", dipm)
 
-   if (.not.allocated(res%results)) then
-      call fatal_error(error%ptr, "Result does not contain dipole moment")
-      return
-   end if
-   call res%results%dict%get_entry("molecular-dipole", dipm)
-
    if (.not.allocated(dipm)) then
       call fatal_error(error%ptr, "Result does not contain dipole moment")
       return
@@ -551,7 +545,6 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    real(c_double), intent(out) :: mbo(*)
    real(kind=wp), allocatable :: mbo_f(:, :, :)
    logical :: ok
-   real(wp), allocatable :: wbo(:, :, :)
 
    if (debug) print '("[Info]", 1x, a)', "get_result_bond_orders"
 
@@ -568,7 +561,7 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    if (.not.allocated(mbo_f)) then
       call fatal_error(error%ptr, "Could not find bond orders in results dictionary")
       return
-   end if 
+   end if
 
    mbo(:size(mbo_f)) = &
       & reshape(mbo_f, [size(mbo_f)])

@@ -245,11 +245,11 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
-        "ml features": library.get_ml_features,
-        "ml labels": library.get_ml_labels,
+        "post-processing-dict": library.get_post_processing_dict,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
-        "post-processing-dict": library.get_post_processing_dict,
+        "ml features": library.get_ml_features,
+        "ml labels": library.get_ml_labels,
     }
     _setter = {}
 
@@ -288,7 +288,6 @@ class Result:
          natoms                 scalar                            unitless
          norbitals              scalar                            unitless
          ml features            nfeat, nat                        /
-         xtbml weights          nat                               unitless
          ml labels              nfeat                             string
         ====================== ================================= ==============
 
@@ -479,14 +478,6 @@ class Calculator(Structure):
         "xtbml" : "xtbml",
         "xtbml_xyz" : "xtbml_xyz"
     }
-    _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
-    }
-    _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
-    }
 
     def __init__(
         self,
@@ -530,7 +521,6 @@ class Calculator(Structure):
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
          verbosity         Set verbosity of printout            1
-         xtbml             Set string of ml features to compute ""
         ================= ==================================== =================
 
         .. note::
@@ -562,6 +552,8 @@ class Calculator(Structure):
          spin-polarization   Spin polarization           Scaling factor
          alpb-solvation      ALPB implicit solvation     Epsilon or solvent
          cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
+         xtbml               Atomistic properties        /
+         xtbml_xyz           At. properties as tensors
         =================== =========================== ===================
         """
 
@@ -602,17 +594,6 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         return self._getter[attribute](self._ctx, self._calc)
-
-    def add_post_proc(self, post_processing: str = "") -> None:
-        """
-        Add post processing to the single point calculation. 
-        Methods can also be entered as a toml file. 
-        Supported post processing methods are:
-
-
-        """
-        self._post_proc = library.ffi.NULL
-        self._post_proc = library.new_post_processing(post_processing)
         
 
     def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:

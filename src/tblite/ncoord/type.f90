@@ -174,7 +174,7 @@ contains
                r2 = sum(rij**2)
                if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
                r1 = sqrt(r2)
-               
+
                countf = self%ncoord_count(mol, izp, jzp, r1)
 
                cn(iat) = cn(iat) + countf

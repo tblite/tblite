@@ -99,7 +99,6 @@ contains
       real(wp) :: rc, count
 
       rc = self%rcov(izp) + self%rcov(jzp)
-      
       ! exponential function based counting function
       count =1.0_wp/(1.0_wp+exp(-self%kcn*(rc/r-1.0_wp)))
 

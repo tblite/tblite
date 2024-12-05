@@ -42,7 +42,6 @@ module tblite_xtb_calculator
    use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
-
    implicit none
    private
 
@@ -363,6 +362,7 @@ subroutine add_coulomb(calc, mol, param, irc)
    end if
 
 end subroutine add_coulomb
+
 
 subroutine get_average(average_type, averager)
    character(len=*), intent(in) :: average_type
@@ -698,7 +698,6 @@ pure function info(self, verbosity, indent) result(str)
    if (allocated(self%interactions)) then
       str = str // nl // indent // self%interactions%info(verbosity, indent)
    end if
-
 end function info
 
 

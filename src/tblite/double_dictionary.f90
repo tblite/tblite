@@ -332,8 +332,7 @@ subroutine remove_entry_index(self, index)
    
    deallocate(self%record)
    allocate(self%record(self%n))
-   it = 1
-   
+   it = 1 
    do i = 1, old_n
       if (i == index) cycle
       self%record(it) = tmp%record(i)

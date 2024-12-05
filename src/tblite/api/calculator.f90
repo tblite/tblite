@@ -74,7 +74,7 @@ module tblite_api_calculator
    end type vp_calculator
 
 
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
 
 
 contains
