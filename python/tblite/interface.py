@@ -26,7 +26,7 @@ import numpy as np
 from typing import Any, Optional
 
 from . import library
-from .exceptions import TBLiteValueError
+from .exceptions import TBLiteValueError, TBLiteRuntimeError
 
 
 class Structure:
@@ -248,8 +248,6 @@ class Result:
         "post-processing-dict": library.get_post_processing_dict,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
-        "ml features": library.get_ml_features,
-        "ml labels": library.get_ml_labels,
     }
     _setter = {}
 
@@ -287,8 +285,7 @@ class Result:
          density-matrix         norb, norb [2, norb, norb]        e
          natoms                 scalar                            unitless
          norbitals              scalar                            unitless
-         ml features            nfeat, nat                        /
-         ml labels              nfeat                             string
+         post-processing-dict   dependes on the key               /
         ====================== ================================= ==============
 
         Notes
@@ -351,7 +348,7 @@ class Result:
         for key in self._getter:
             try:
                 res[key] = self.get(key)
-            except RuntimeError:
+            except (TBLiteValueError, TBLiteRuntimeError):
                 pass
 
         return res
