@@ -293,7 +293,7 @@ def get_dipole(res):
     """Retrieve dipole moment from post processing dictionary"""
     _dict = get_post_processing_dict(res=res)
     if not("molecular-dipole" in _dict.keys()):
-        raise ValueError(
+        raise TBLiteValueError(
                 f"Molecular dipole was not calculated. By default it is computed."
             )
     _dipole = _dict["molecular-dipole"]
@@ -304,7 +304,7 @@ def get_quadrupole(res):
     """Retrieve quadrupole moment from post processing dictionary"""
     _dict = get_post_processing_dict(res=res)
     if not("molecular-quadrupole" in _dict.keys()):
-        raise ValueError(
+        raise TBLiteValueError(
                 f"Molecular quadrupole was not calculated. By default it is computed."
             )
     _quadrupole = _dict["molecular-quadrupole"]
