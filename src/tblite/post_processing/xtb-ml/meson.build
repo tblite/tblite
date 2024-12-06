@@ -14,16 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-add_subdirectory("xtb-ml")
-
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
-
-list(
-  APPEND srcs
-  "${dir}/list.f90"
-  "${dir}/molmom.f90"
-  "${dir}/type.f90"
-  "${dir}/wbo.f90"
+srcs += files(
+  'atomic_frontier_orbitals.f90',
+  'convolution.f90',
+  'density.f90',
+  'energy.f90',
+  'features.f90',
+  'geometry.f90',
+  'orbital_energy.f90',
+  'xtbml.f90',
 )
-
-set(srcs "${srcs}" PARENT_SCOPE)

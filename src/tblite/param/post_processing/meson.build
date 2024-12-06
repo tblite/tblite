@@ -16,4 +16,5 @@
 
 srcs += files(
   'molmom.f90',
+  'xtbml.f90',
 )

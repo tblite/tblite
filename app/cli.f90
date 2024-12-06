@@ -66,7 +66,7 @@ module tblite_cli
       character(len=:), allocatable :: json_output
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
-      !> Input for ml feature generation
+      !> Input for post processing container
       character(len=:), allocatable :: post_processing
       !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
