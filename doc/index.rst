@@ -10,7 +10,7 @@ The *tblite* project aims to provide an efficent and uniform interface to the (e
    If you are looking for a simulation environment that provides the functionality available in *tblite*, checkout the :ref:`available integrations <integration>`.
 
 
-.. _tblite: https://github.com/awvwgk/tblite
+.. _tblite: https://github.com/tblite/tblite
 
 .. toctree::
 

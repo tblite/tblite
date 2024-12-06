@@ -1,0 +1,7 @@
+$ORIGIN/04-val-xaj.gen
+--method
+gfn1
+--grad
+-s
+--acc
+2.0
