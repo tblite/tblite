@@ -464,11 +464,11 @@ class Calculator(Structure):
     _interaction = {
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
-        "alpb-solvent": library.new_alpb_solvation,
-        "gbsa-solvent": library.new_gbsa_solvation,
-        "cpcm-dielectric": library.new_cpcm_solvation_epsilon,
-        "alpb-dielectric": library.new_alpb_solvation_epsilon,
-        "gb-dielectric": library.new_gb_solvation_epsilon,
+        "alpb-solvation": library.new_alpb_solvation,
+        "gbsa-solvation": library.new_gbsa_solvation,
+        "cpcm-solvation": library.new_cpcm_solvation,
+        "gbe-solvation": library.new_gbe_solvation,
+        "gb-solvaion": library.new_gb_solvation,
     }
     _post_processing = {
         "bond-orders" : "bond-orders",
