@@ -486,13 +486,6 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", "ethanol")
-
-    energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43248830035)
-
-    calc = Calculator("GFN2-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
     calc.add("cpcm-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
@@ -504,15 +497,52 @@ def test_solvation_models():
     calc.add("alpb-solvation", "ethanol")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43680849760)
+    assert energy == approx(-28.448543412625)
+    
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol", "bar1mol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.445512179798)
+    
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol", "reference")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.442829765226)
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("alpb-solvation", 7.0)
+    calc.add("gbe-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
 
     assert energy == approx(-28.43674134364)
+    
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("gbsa-solvation", "water")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.439916755536)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("gb-solvation", 7.0)
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43677095356)
+    
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol", "reference")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.354559810599)
+
 
 
 def test_result_getter():

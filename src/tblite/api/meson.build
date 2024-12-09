@@ -22,6 +22,7 @@ srcs += files(
   'error.f90',
   'param.f90',
   'result.f90',
+  'solvation.f90',
   'structure.f90',
   'table.f90',
   'utils.f90',

@@ -1,0 +1,7 @@
+$ORIGIN/03-ser-xar.sdf
+--method
+gfn2
+--grad
+--etemp
+400
+--spin-polarized

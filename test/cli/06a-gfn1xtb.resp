@@ -1,0 +1,5 @@
+run
+$ORIGIN/06-ammonia.tmol
+--method
+gfn1
+--grad

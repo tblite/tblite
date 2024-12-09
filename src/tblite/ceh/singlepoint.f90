@@ -97,7 +97,7 @@ contains
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
 
-      integer :: i, prlevel
+      integer :: prlevel
 
       ! coordination number related arrays
       real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)

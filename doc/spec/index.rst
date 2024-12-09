@@ -14,4 +14,5 @@ A list of :ref:`built-in methods <methods>` is available as well.
    repulsion
    coulomb
    dispersion
+   solvation
    parameter
