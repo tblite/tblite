@@ -25,7 +25,7 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solutionState, born_kernel
+      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -347,11 +347,11 @@ subroutine get_run_arguments(config, list, start, error)
 
          select case(arg)
          case("gsolv")
-            sol_state = solutionState%gsolv
+            sol_state = solution_state%gsolv
          case("bar1mol")
-            sol_state = solutionState%bar1mol
+            sol_state = solution_state%bar1mol
          case("reference")
-            sol_state = solutionState%reference
+            sol_state = solution_state%reference
          case default
             call fatal_error(error, "Unknown solution state '"//arg//"'")
             exit
@@ -375,7 +375,7 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cpcm-eps")
+      case("--cpcm")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
@@ -398,13 +398,13 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          if (allocated(error)) exit
 
-      case("--gb-eps", "--alpb-eps")
+      case("--gb", "--gbe")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if 
          parametrized_solvation = .false.
-         alpb = arg == "--alpb-eps"
+         alpb = arg == "--gbe"
 
          ! Check for solvent information
          iarg = iarg + 1
@@ -548,7 +548,7 @@ subroutine get_run_arguments(config, list, start, error)
 
    if (allocated(solvent)) then
       if (.not.allocated(sol_state)) then
-         sol_state = solutionState%gsolv
+         sol_state = solution_state%gsolv
       end if
       if (allocated(alpb)) then
          ! ALPB/GBSA solvation model
@@ -556,7 +556,7 @@ subroutine get_run_arguments(config, list, start, error)
             kernel = merge(born_kernel%still, born_kernel%p16, alpb)
          end if
 
-         if (.not.parametrized_solvation .and. sol_state /= solutionState%gsolv) then
+         if (.not.parametrized_solvation .and. sol_state /= solution_state%gsolv) then
             call fatal_error(error, "Solution state shift is only supported for named solvents")
             return
          end if
@@ -573,7 +573,7 @@ subroutine get_run_arguments(config, list, start, error)
          end if
       else
          ! CPCM solvation model
-         if (sol_state /= solutionState%gsolv) then 
+         if (sol_state /= solution_state%gsolv) then 
             call fatal_error(error, "Solution state shift not supported for CPCM")
             return
          end if

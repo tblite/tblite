@@ -484,13 +484,6 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", "ethanol")
-
-    energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43248830035)
-
-    calc = Calculator("GFN2-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
     calc.add("cpcm-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
@@ -520,7 +513,7 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("alpb-solvation", 7.0)
+    calc.add("gbe-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
 
@@ -535,7 +528,7 @@ def test_solvation_models():
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("gbsa-solvation", 7.0)
+    calc.add("gb-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
 

@@ -128,14 +128,11 @@ module tblite_cli_help
       "      --gbsa <name>        Use generalized Born solvation model (GBSA)."//nl//&
       "                           Solvent is specified by the solvent name."//nl//&
       "                           Uses parametrized GB with CDS and empirical shift."//nl//&
-      "      --alpb-eps <real>/<name>"//nl//&
-      "                           Use analytical linearized Poisson-Boltzmann (ALPB) solvation model."//nl//&
+      "      --gbe <real>/<name>  Use generalized Born for finite epsilion (GBE) solvation model."//nl//&
       "                           Solvent is specified by dielectric constant or the solvent name."//nl//&
-      "      --gb-eps <real>/<name>"//nl//&
-      "                           Use generalized Born solvation model (GB)."//nl//&
+      "      --gb <real>/<name>   Use generalized Born solvation model (GB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --cpcm-eps <real>/<name>"//nl//&
-      "                           Use polarizable continuum solvation model (CPCM)."//nl//&
+      "      --cpcm               Use polarizable continuum solvation model (CPCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
       "      --born-kernel <name> Specify Born kernel to use with ALPB, GBSA or GB solvation model."//nl//&
       "                           Possible options are p16 (default for ALPB) and still (default for GB/GBSA)."//nl//&

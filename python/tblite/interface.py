@@ -464,9 +464,11 @@ class Calculator(Structure):
     _interaction = {
         "electric-field": library.new_electric_field,
         "spin-polarization": library.new_spin_polarization,
-        "alpb-solvation": library.new_alpb_solvation,
-        "gbsa-solvation": library.new_gbsa_solvation,
-        "cpcm-solvation": library.new_cpcm_solvation,
+        "alpb-solvent": library.new_alpb_solvation,
+        "gbsa-solvent": library.new_gbsa_solvation,
+        "cpcm-dielectric": library.new_cpcm_solvation_epsilon,
+        "alpb-dielectric": library.new_alpb_solvation_epsilon,
+        "gb-dielectric": library.new_gb_solvation_epsilon,
     }
     _post_processing = {
         "bond-orders" : "bond-orders",
@@ -500,6 +502,7 @@ class Calculator(Structure):
                 f"Method '{method}' is not available for this calculator"
             )
         self._calc = self._loader[method](self._ctx, self._mol)
+        self._method = method
 
     def set(self, attribute: str, value) -> None:
         """
@@ -539,15 +542,17 @@ class Calculator(Structure):
         """
         Add an interaction to the calculator instance. Supported interactions are
 
-        =================== =========================== ======================================
+        =================== =========================== =========================================
          name                description                 Arguments
-        =================== =========================== ======================================
+        =================== =========================== =========================================
          electric-field      Uniform electric field      Field vector (3,)
          spin-polarization   Spin polarization           Scaling factor
-         alpb-solvation      ALPB implicit solvation     Epsilon or solvent, [solution state]
-         gbsa-solvation      GBSA implicit solvation     Epsilon or solvent, [solution state]
-         cpcm-solvation      CPCM implicit solvation     Epsilon or solvent
-        =================== =========================== ======================================
+         alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
+         gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
+         cpcm-solvation      CPCM implicit solvation     Epsilon
+         gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
+         gb-solvation        GB implicit solvation       Epsilon, Born kernel
+        =================== =========================== =========================================
         
         .. note::
 
@@ -558,7 +563,10 @@ class Calculator(Structure):
         """
 
         if interaction in self._interaction:
-            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args)
+            kwargs = {}
+            if interaction in ("alpb-solvation", "gbsa-solvation"):
+                kwargs["version"] = {"GFN2-xTB": 2, "IPEA1-xTB": 1, "GFN1-xTB": 1}[calc._method]
+            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args, **kwargs)
             library.calculator_push_back(self._ctx, self._calc, cont)
         elif interaction in self._post_processing:
             library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])

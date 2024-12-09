@@ -27,7 +27,7 @@ module tblite_solvation
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input, born_kernel
    use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
-   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solutionState
+   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solution_state
    use tblite_solvation_data, only : solvent_data, get_solvent_data
    use tblite_solvation_input, only : solvation_input
    use tblite_solvation_type, only : solvation_type
@@ -44,7 +44,7 @@ module tblite_solvation
    public :: solvent_data, get_solvent_data
    public :: solvation_input, new_solvation, solvation_type
    public :: new_solvation_cds
-   public :: new_solvation_shift, solutionState
+   public :: new_solvation_shift, solution_state
 
 contains
 
@@ -65,8 +65,8 @@ subroutine new_solvation(solv, mol, input, error, method)
 
    if (allocated(input%alpb)) then
       scratch_input = input%alpb
-      ! ALPB/GBSA with empirical parameters 
-      if (allocated(input%alpb%solvent) .and. present(method)) then   
+      ! ALPB/GBSA with empirical parameters
+      if (allocated(input%alpb%solvent) .and. present(method)) then
          call get_alpb_param(scratch_input, mol, method, error)
          if(allocated(error)) then
             call fatal_error(error, "No ALPB/GBSA parameters found for the method/solvent")

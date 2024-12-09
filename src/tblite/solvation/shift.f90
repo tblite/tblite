@@ -30,7 +30,7 @@ module tblite_solvation_shift
    implicit none
    private
  
-   public :: shift_solvation, new_shift, shift_input, solutionState
+   public :: shift_solvation, new_shift, shift_input, solution_state
 
    type :: shift_input
       !> Reference state
@@ -55,27 +55,27 @@ module tblite_solvation_shift
    end interface shift_input
 
    !> Possible reference states for the solution
-   type :: TSolutionStateEnum
+   type :: enum_solution_state
       !> 1 l of ideal gas in 1 l of liquid solution
       integer :: gsolv = 1
       !> 1 bar of ideal gas and 1 mol/L of liquid solution
       integer :: bar1mol = 2
       !> 1 bar of ideal gas to 1 mol/L of liquid solution at infinite dilution
       integer :: reference = 3
-   end type TSolutionStateEnum
+   end type enum_solution_state
 
    !> Actual solvation state enumerator
-   type(TSolutionStateEnum), parameter :: solutionState = TSolutionStateEnum()
+   type(enum_solution_state), parameter :: solution_state = enum_solution_state()
 
    real(wp), parameter :: refDensity = 1.0e-3_wp         ! kg__au/(1.0e10_wp*AA__Bohr)**3
    real(wp), parameter :: refPressure = 1.0e2_wp         ! kPa__au
    real(wp), parameter :: refMolecularMass = 1.0_wp      ! amu__au
-   real(wp), parameter :: ambientTemperature = 298.15_wp 
+   real(wp), parameter :: ambientTemperature = 298.15_wp
 
    type, extends(solvation_type) :: shift_solvation
       !> total shift
       real(wp) :: total_shift 
-      contains   
+   contains
       !> Update cache from container
       procedure :: update
       !> Get shift energy
@@ -156,7 +156,7 @@ subroutine new_shift(self, input)
 
    !> State shift
    real(wp) :: stateshift
-      
+
    self%label = label
    stateshift = get_stateshift(input%state, input%temperature, input%rho, input%molar_mass)
    self%total_shift = input%gshift + stateshift 
@@ -168,7 +168,7 @@ function create_shift(input) result(self)
    type(shift_solvation) :: self
    !> Input for solvation shift
    type(shift_input), intent(in) :: input
-   
+
    call new_shift(self, input)
 end function create_shift
 
@@ -201,11 +201,11 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), contiguous, intent(inout), optional :: gradient(:, :)
    !> Interaction virial
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
-   
+
    type(shift_cache), pointer :: ptr
-   
+
    call view(cache, ptr)
-    
+
    energies(:) = energies + ptr%total_shift/real(mol%nat)
 end subroutine get_engrad
 
@@ -231,10 +231,10 @@ function get_stateshift(state, temperature, density, molecularMass) &
    select case(state)
    case default
       stateshift = 0.0_wp
-   case(solutionState%bar1mol)
+   case(solution_state%bar1mol)
       stateshift = temperature * boltzmann &
          & * log(idealGasMolVolume * temperature / ambientTemperature)
-   case(solutionState%reference)
+   case(solution_state%reference)
       stateshift = temperature * boltzmann &
          & * (log(idealGasMolVolume * temperature / ambientTemperature) &
          & + log(density/refDensity * refMolecularMass/molecularMass))

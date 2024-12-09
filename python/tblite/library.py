@@ -495,67 +495,40 @@ def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
 
+_state_enum = {
+    "gsolv": 1,
+    "bar1mol": 2,
+    "reference": 3,
+}
 
-@context_check
-def new_alpb_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
-    "Create new ALPB solvation model object"
-    _refint = np.array(gbsa_alpb_enum_wrapper(refstate), dtype=np.int32)
-    _refstate = ffi.cast("int *", _refint.ctypes.data)
-    if isinstance(solvent, str):
-        _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_alpb_solvation_solvent(ctx, mol, calc, _string, _refstate)
-    elif isinstance(solvent, float) or isinstance(solvent, int):
-        _eps = float(solvent)
-        return lib.tblite_new_alpb_solvation_epsilon(ctx, mol, calc, _eps, _refstate)
-    else:
-        raise TBLiteTypeError(
-            "Enter desired solvent as string, or enter epsilon value as float or intger."
-        )
+_born_enum = {
+    "still": 1,
+    "p16": 2,
+}
 
-@context_check
-def new_gbsa_solvation(ctx, mol, calc, solvent, refstate="gsolv"):
-    "Create new GBSA solvation model object"
-    _refint = np.array(gbsa_alpb_enum_wrapper(refstate), dtype=np.int32)
-    _refstate = ffi.cast("int *", _refint.ctypes.data)
-    if isinstance(solvent, str):
-        _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_gbsa_solvation_solvent(ctx, mol, calc, _string, _refstate)
-    elif isinstance(solvent, float) or isinstance(solvent, int):
-        _eps = float(solvent)
-        return lib.tblite_new_gbsa_solvation_epsilon(ctx, mol, calc, _eps, _refstate)
-    else:
-        raise TBLiteTypeError(
-            "Enter desired solvent as string, or enter epsilon value as float or intger."
-        )
+def new_alpb_solvation(ctx, mol, calc, solvent: str, state: str = "gsolv", *, version: int):
+    """Create new tblite ALPB solvation object"""
+    _solvent = ffi.new("char[]", solvent.encode("ascii"))
+    _version = 10 + version
+    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _state_enum[state])
 
-def gbsa_alpb_enum_wrapper(refstate_str) -> int:
-    "Set int value for reference state enumerator based on string value"
-    enum_value = 0
-    if (refstate_str.lower() == "gsolv"):
-        enum_value = 1
-    elif (refstate_str.lower() == "bar1mol"):
-        enum_value = 2
-    elif (refstate_str.lower() == "reference"):
-        enum_value = 3
-    else:
-        raise TBLiteTypeError(
-            "Unknown string for solavtion reference variable."
-        )
-    return enum_value
+def new_gbsa_solvation(ctx, mol, calc, solvent: str, state: str = "gsolv", *, version: int):
+    """Create new tblite GBSA solvation object"""
+    _solvent = ffi.new("char[]", solvent.encode("ascii"))
+    _version = 20 + version
+    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _state_enum[state])
 
-@context_check
-def new_cpcm_solvation(ctx, mol, calc, solvent):
-    "Create new ALPB solvation model object"
-    if isinstance(solvent, str):
-        _string = ffi.new("char[]", solvent.encode("ascii"))
-        return lib.tblite_new_cpcm_solvation_solvent(ctx, mol, calc, _string)
-    elif isinstance(solvent, float) or isinstance(solvent, int):
-        _eps = float(solvent)
-        return lib.tblite_new_cpcm_solvation_epsilon(ctx, mol, calc, _eps)
-    else:
-        raise TBLiteTypeError(
-            "Enter desired solvent as string, or enter epsilon value as float or intger."
-        )
+def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
+    """Create new tblite GB solvation object"""
+    return error_check(lib.tblite_new_gb_solvation)(mol, float(epsilon), _born_enum[born])
+
+def new_gbe_solvation(ctx, mol, calc, epsilon: float, born: str):
+    """Create new tblite GBE solvation object"""
+    return error_check(lib.tblite_new_gbe_solvation)(mol, float(epsilon), _born_enum[born])
+
+def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
+    """Create new tblite CPCM solvation object"""
+    return error_check(lib.tblite_new_cpcm_solvation)(mol, float(epsilon))
 
 
 @context_check

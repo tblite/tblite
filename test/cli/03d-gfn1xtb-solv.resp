@@ -2,5 +2,5 @@ $ORIGIN/03-ser-xar.sdf
 --method
 gfn1
 --grad
---cpcm-eps
+--cpcm
 35.8
