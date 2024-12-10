@@ -495,6 +495,7 @@ def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
 
+
 _state_enum = {
     "gsolv": 1,
     "bar1mol": 2,
@@ -506,25 +507,30 @@ _born_enum = {
     "p16": 2,
 }
 
+
 def new_alpb_solvation(ctx, mol, calc, solvent: str, state: str = "gsolv", *, version: int):
     """Create new tblite ALPB solvation object"""
     _solvent = ffi.new("char[]", solvent.encode("ascii"))
     _version = 10 + version
-    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _state_enum[state])
+    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _version, _state_enum[state])
+
 
 def new_gbsa_solvation(ctx, mol, calc, solvent: str, state: str = "gsolv", *, version: int):
     """Create new tblite GBSA solvation object"""
     _solvent = ffi.new("char[]", solvent.encode("ascii"))
     _version = 20 + version
-    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _state_enum[state])
+    return error_check(lib.tblite_new_alpb_solvation)(mol, _solvent, _version, _state_enum[state])
 
-def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
-    """Create new tblite GB solvation object"""
-    return error_check(lib.tblite_new_gb_solvation)(mol, float(epsilon), _born_enum[born])
 
 def new_gbe_solvation(ctx, mol, calc, epsilon: float, born: str):
     """Create new tblite GBE solvation object"""
-    return error_check(lib.tblite_new_gbe_solvation)(mol, float(epsilon), _born_enum[born])
+    return error_check(lib.tblite_new_gb_solvation)(mol, float(epsilon), 10, _born_enum[born])
+
+
+def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
+    """Create new tblite GB solvation object"""
+    return error_check(lib.tblite_new_gb_solvation)(mol, float(epsilon), 20, _born_enum[born])
+
 
 def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
     """Create new tblite CPCM solvation object"""
