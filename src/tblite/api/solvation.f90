@@ -93,7 +93,7 @@ function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
 end function new_cpcm_solvation_epsilon_api
 
 function new_gb_solvation_epsilon_api(verr, vmol, eps, version, born_type) result(vcont) &
-   & bind(C, name=namespace//"new_alpb_solvation_epsilon")
+   & bind(C, name=namespace//"new_gb_solvation_epsilon")
    type(c_ptr), value :: verr
    type(vp_error), pointer :: err
    type(c_ptr), value :: vmol

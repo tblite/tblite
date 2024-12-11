@@ -3466,6 +3466,8 @@ int main(void)
     stat += test_uninitialized_calculator();
     stat += test_uninitialized_table();
     stat += test_uninitialized_param();
+    stat += test_uninitialized_dict();
+    stat += test_uninitialized_solvation();
     stat += test_empty_result();
     stat += test_invalid_structure();
     stat += test_table_builder();
@@ -3479,9 +3481,7 @@ int main(void)
     stat += test_callback();
     stat += test_dict_api();
     stat += test_post_processing_api();
-    stat += test_uninitialized_dict();
     stat += test_h2plus_wbo();
-    stat += test_uninitialized_solvation();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
     stat += test_solvation_cpcm_eps();
