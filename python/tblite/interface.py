@@ -468,7 +468,7 @@ class Calculator(Structure):
         "gbsa-solvation": library.new_gbsa_solvation,
         "cpcm-solvation": library.new_cpcm_solvation,
         "gbe-solvation": library.new_gbe_solvation,
-        "gb-solvaion": library.new_gb_solvation,
+        "gb-solvation": library.new_gb_solvation,
     }
     _post_processing = {
         "bond-orders" : "bond-orders",
