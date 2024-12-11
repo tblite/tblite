@@ -565,7 +565,7 @@ class Calculator(Structure):
         if interaction in self._interaction:
             kwargs = {}
             if interaction in ("alpb-solvation", "gbsa-solvation"):
-                kwargs["version"] = {"GFN2-xTB": 2, "IPEA1-xTB": 1, "GFN1-xTB": 1}[calc._method]
+                kwargs["version"] = {"GFN2-xTB": 2, "IPEA1-xTB": 1, "GFN1-xTB": 1}[self._method]
             cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args, **kwargs)
             library.calculator_push_back(self._ctx, self._calc, cont)
         elif interaction in self._post_processing:
