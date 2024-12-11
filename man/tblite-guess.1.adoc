@@ -37,10 +37,10 @@ Supported geometry input formats are:
 
 *--method* _string_::
      Name of the atomic charge model to use, supported are
-     sad, eeq, and ceh (Charge-Extended Hückel method) (default)
+     sad, eeq, and ceh (Charge-Extended Hückel method, default)
 
 *--etemp-guess* _real_::
-     Electronic temperature for ceh-guess in Kelvin (default: 5000K).
+     Electronic temperature for ceh-guess in Kelvin (default: 4000K).
 
 *--solver* _name_::
      Electronic solver for charge model, possible options:
