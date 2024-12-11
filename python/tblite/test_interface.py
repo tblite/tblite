@@ -479,7 +479,8 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
-def test_solvation_models():
+
+def test_solvation_gfn2_cpcm():
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
@@ -490,20 +491,32 @@ def test_solvation_models():
 
     assert energy == approx(-28.43287176929)
 
+
+def test_solvation_gfn2_alpb():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("alpb-solvation", "ethanol")
 
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.448543412625)
+
     
+def test_solvation_gfn2_alpb_bar1mol():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("alpb-solvation", "ethanol", "bar1mol")
 
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.445512179798)
+
     
+def test_solvation_gfn2_alpb_reference():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("alpb-solvation", "ethanol", "reference")
@@ -511,14 +524,22 @@ def test_solvation_models():
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.442829765226)
 
+
+def test_solvation_gfn1_gbe():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("gbe-solvation", 7.0)
+    calc.add("gbe-solvation", 7.0, "p16")
 
     energy = calc.singlepoint().get("energy")
 
     assert energy == approx(-28.43674134364)
+
     
+def test_solvation_gfn2_gbsa():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("gbsa-solvation", "water")
@@ -526,21 +547,28 @@ def test_solvation_models():
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.439916755536)
 
+
+def test_solvation_gfn2_gb():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("gb-solvation", 7.0)
+    calc.add("gb-solvation", 7.0, "still")
 
     energy = calc.singlepoint().get("energy")
 
     assert energy == approx(-28.43677095356)
+
     
+def test_solvation_gfn1_alpb():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("alpb-solvation", "ethanol", "reference")
 
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.354559810599)
-
 
 
 def test_result_getter():
