@@ -47,6 +47,10 @@ jobs:
         create-args: >-
           meson-python
           python-build
+    - name: Install LAPACK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y liblapack-dev
     - name: Reorganize repository
       run: |
         git config user.email ""
@@ -74,7 +78,12 @@ jobs:
         # windows-latest
         python: ['38', '39', '310', '311', '312', '313']
         exclude:
+          - os: ubuntu-latest
+            python: '38'
           - os: macos-latest
+            python: '38'
+        include: 
+          - os: ubuntu-22.04
             python: '38'
 
     defaults:
