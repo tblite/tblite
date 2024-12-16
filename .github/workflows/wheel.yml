@@ -23,6 +23,10 @@ jobs:
       uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: assets/ci/build-env.yaml
+    - name: Install LAPACK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y liblapack-dev
     - run: |
         meson setup _build
         meson dist -C _build --no-tests --include-subprojects

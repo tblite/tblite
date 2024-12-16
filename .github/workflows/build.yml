@@ -294,7 +294,10 @@ jobs:
           python_v: '3.12'
         - os: ubuntu-22.04
           gcc_v: 12
-          python_v: ['3.7', '3.8']
+          python_v: '3.7'
+        - os: ubuntu-22.04
+          gcc_v: 12
+          python_v: '3.8'
 
     env:
       FC: gfortran
