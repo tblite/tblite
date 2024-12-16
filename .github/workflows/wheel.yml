@@ -128,7 +128,6 @@ jobs:
           # MM: 'openblas' from brew requires gcc@14, using a different version for building leads to delocation errors
           # MM: gcc@14 needs macOS14
           CIBW_BEFORE_ALL_MACOS: |
-            brew uninstall gcc@11
             brew uninstall gcc@12
             brew uninstall gcc@13
             brew autoremove
