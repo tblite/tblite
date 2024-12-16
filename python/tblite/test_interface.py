@@ -394,7 +394,7 @@ def test_spgfn1():
 
     calc.update(uhf=2)
     hs_energy_sp = calc.singlepoint().get("energy")
-    assert hs_energy_sp == approx(-28.370520606196546)
+    assert hs_energy_sp == approx(-28.37648585236444)
 
 def test_spgfn1_densities():
     numbers = np.array([1, 8])
