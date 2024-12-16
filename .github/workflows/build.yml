@@ -328,9 +328,9 @@ jobs:
 
     - name: Install GCC (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') }}
-      run: >-
+      run: |
         sudo apt-get update
-        sudo apt-get install -y  liblapack-dev
+        sudo apt-get install -y libblas-dev liblapack-dev
         sudo update-alternatives
         --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100
         --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
