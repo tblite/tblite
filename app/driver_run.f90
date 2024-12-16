@@ -32,17 +32,18 @@ module tblite_driver_run
    use tblite_param, only : param_record
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : new_solvation, solvation_type
+   use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, get_molecular_dipole_moment, get_molecular_quadrupole_moment, &
-      & shell_partition
+      & sad_guess, eeq_guess, shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_ceh, only : ceh_guess, new_ceh_calculator
-   use tblite_ceh_calculator, only : ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
+   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
+
    implicit none
    private
 
@@ -56,6 +57,7 @@ module tblite_driver_run
    real(wp), parameter :: jtoau = 1.0_wp / (codata%me*codata%c**2*codata%alpha**2)
    !> Convert V/Å = J/(C·Å) to atomic units
    real(wp), parameter :: vatoau = jtoau / (ctoau * aatoau)
+   character(len=:), allocatable :: wbo_label, molmom_label
 
 contains
 
@@ -67,14 +69,17 @@ subroutine run_main(config, error)
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, unit, nspin
-   real(wp) :: energy, dpmom(3), qpmom(6)
+   logical :: exist
+   real(wp) :: energy
+   real(wp), allocatable :: dpmom(:), qpmom(:)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    type(param_record) :: param
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
-   type(ceh_calculator):: calc_ceh
+   type(xtb_calculator) :: calc_ceh
    type(wavefunction_type) :: wfn, wfn_ceh
    type(results_type) :: results
+   class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
@@ -137,11 +142,11 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol)
+         call new_gfn2_calculator(calc, mol, error)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol)
+         call new_gfn1_calculator(calc, mol, error)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol)
+         call new_ipea1_calculator(calc, mol, error)
       end select
    end if
    if (allocated(error)) return
@@ -151,12 +156,9 @@ subroutine run_main(config, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
 
    if (config%guess == "ceh") then
-      call new_ceh_calculator(calc_ceh, mol)
-      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp * kt)
-      if (config%grad) then
-         call ctx%message("WARNING: CEH gradient not yet implemented. Stopping.")
-         return
-      end if
+      call new_ceh_calculator(calc_ceh, mol, error)
+      if (allocated(error)) return
+      call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
    end if
 
    if (allocated(config%efield)) then
@@ -165,13 +167,13 @@ subroutine run_main(config, error)
          cont = electric_field(config%efield*vatoau)
          call calc%push_back(cont)
       end block
-         if (config%guess == "ceh") then
-            block
-            class(container_type), allocatable :: cont
-            cont = electric_field(config%efield*vatoau)
-            call calc_ceh%push_back(cont)
-            end block
-         end if
+      if (config%guess == "ceh") then
+         block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc_ceh%push_back(cont)
+         end block
+      end if
    end if
 
    select case(config%guess)
@@ -182,7 +184,7 @@ subroutine run_main(config, error)
    case("eeq")
       call eeq_guess(mol, calc, wfn)
    case("ceh")
-      call ceh_guess(ctx, calc_ceh, mol, error, wfn_ceh, config%verbosity)
+      call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
       if (ctx%failed()) then
          call fatal(ctx, "CEH singlepoint calculation failed")
          do while(ctx%failed())
@@ -195,6 +197,14 @@ subroutine run_main(config, error)
       call shell_partition(mol, calc, wfn)
    end select
    if (allocated(error)) return
+
+   if (allocated(config%efield)) then
+      block
+         class(container_type), allocatable :: cont
+         cont = electric_field(config%efield*vatoau)
+         call calc%push_back(cont)
+      end block
+   end if
 
    if (config%spin_polarized) then
       block
@@ -210,14 +220,53 @@ subroutine run_main(config, error)
    end if
 
    if (allocated(config%solvation)) then
+      method = "gfn2"
+      if (allocated(config%method)) method = config%method
       block
          class(container_type), allocatable :: cont
          class(solvation_type), allocatable :: solv
-         call new_solvation(solv, mol, config%solvation, error)
+         call new_solvation(solv, mol, config%solvation, error, method)
          if (allocated(error)) return
          call move_alloc(solv, cont)
          call calc%push_back(cont)
       end block
+      if (allocated(config%solvation%cds)) then
+         block
+            class(container_type), allocatable :: cont
+            class(solvation_type), allocatable :: cds
+            call new_solvation_cds(cds, mol, config%solvation, error, method)
+            if (allocated(error)) return
+            call move_alloc(cds, cont)
+            call calc%push_back(cont)
+         end block
+      end if
+      if (allocated(config%solvation%shift)) then
+         block
+            class(container_type), allocatable :: cont
+            class(solvation_type), allocatable :: shift
+            call new_solvation_shift(shift, config%solvation, error, method)
+            if (allocated(error)) return
+            call move_alloc(shift, cont)
+            call calc%push_back(cont)
+         end block
+      end if
+   end if
+
+   wbo_label = "bond-orders"
+   allocate(post_proc)
+   call add_post_processing(post_proc, wbo_label, error)
+
+   if (config%verbosity > 2) then
+      molmom_label = "molmom"
+      call add_post_processing(post_proc, molmom_label, error)
+   end if
+
+   if (allocated(config%post_processing)) then
+      call add_post_processing(post_proc, config%post_processing, error)
+   end if
+
+   if (allocated(param%post_proc)) then
+      call add_post_processing(post_proc, param%post_proc)
    end if
 
    if (config%verbosity > 0) then
@@ -226,7 +275,7 @@ subroutine run_main(config, error)
    end if
 
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
-      & config%verbosity, results)
+      & config%verbosity, results, post_proc)
    if (ctx%failed()) then
       call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
@@ -238,13 +287,14 @@ subroutine run_main(config, error)
 
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
-
-      call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dpmom)
-      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
-         & wfn%qpat(:, :, 1), qpmom)
+      call post_proc%dict%get_entry("molecular-dipole", dpmom)
+      call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
+      
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
+
+   deallocate(post_proc)
 
    if (allocated(config%grad_output)) then
       open(file=config%grad_output, newunit=unit)

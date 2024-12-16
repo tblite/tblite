@@ -31,6 +31,7 @@
 
 #include "tblite/macros.h"
 #include "tblite/error.h"
+#include "tblite/double_dictionary.h"
 
 /// Container to for storing and handling calculation results
 typedef struct _tblite_result* tblite_result;
@@ -83,6 +84,16 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_number_of_orbitals(tblite_error error,
                                      tblite_result res,
                                      int* nao);
+
+/// Retrieve number of spins from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param nspin: Number of spins
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_spins(tblite_error error,
+                                  tblite_result res,
+                                  int* nspin);
 
 /// Retrieve energy from result container
 ///
@@ -223,3 +234,12 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_get_result_hamiltonian_matrix(tblite_error error,
                                      tblite_result res,
                                      double* hmat);
+
+/// Retrieve Hamiltonian matrix from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param dict: Pointer to dictionary object
+TBLITE_API_ENTRY tblite_double_dictionary TBLITE_API_CALL
+tblite_get_post_processing_dict(tblite_error error,
+                                tblite_result res);

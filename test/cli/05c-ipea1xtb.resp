@@ -1,0 +1,9 @@
+$ORIGIN/05-met-xbf.qchem
+--method
+ipea1
+--guess
+eeq
+--input
+qchem
+--grad
+--spin-polarized

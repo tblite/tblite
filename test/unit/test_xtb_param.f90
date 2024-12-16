@@ -24,6 +24,7 @@ module test_xtb_param
    use tblite_param, only : param_record, charge_record, dispersion_record, element_record, &
       & halogen_record, hamiltonian_record, multipole_record, repulsion_record, &
       & thirdorder_record, param_mask, count
+   use tblite_param_molecular_moments, only:  molecular_multipole_record
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
@@ -61,6 +62,7 @@ subroutine collect_xtb_param(testsuite)
       new_unittest("multipole-empty", test_multipole_empty, should_fail=.true.), &
       new_unittest("repulsion-empty", test_repulsion_empty, should_fail=.true.), &
       new_unittest("thirdorder-empty", test_thirdorder_empty), &
+      new_unittest("mol-multipole-empty", test_mol_multipole_empty), &
       new_unittest("mask-a", test_mask_gfn2), &
       new_unittest("mask-b", test_mask_gfn1), &
       new_unittest("gfn2-xtb-a", test_gfn2_mb02), &
@@ -182,6 +184,16 @@ subroutine test_element_empty(error)
    call param%load(table, error)
 end subroutine test_element_empty
 
+subroutine test_mol_multipole_empty(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(toml_table) :: table
+   type(molecular_multipole_record) :: param
+
+   table = toml_table()
+   call param%load(table, error)
+end subroutine test_mol_multipole_empty
 
 subroutine test_charge_empty(error)
    !> Error handling
@@ -379,17 +391,18 @@ subroutine export_gen_param(method, param)
 end subroutine export_gen_param
 
 
-subroutine new_gen_calculator(calc, method, mol)
+subroutine new_gen_calculator(calc, method, mol, error)
    type(xtb_calculator), intent(out) :: calc
    character(len=*), intent(in) :: method
    type(structure_type), intent(in) :: mol
+   type(error_type), allocatable, intent(out) :: error
    select case(method)
    case("gfn1")
-      call new_gfn1_calculator(calc, mol)
+      call new_gfn1_calculator(calc, mol, error)
    case("gfn2")
-      call new_gfn2_calculator(calc, mol)
+      call new_gfn2_calculator(calc, mol, error)
    case("ipea1")
-      call new_ipea1_calculator(calc, mol)
+      call new_ipea1_calculator(calc, mol, error)
    end select
 end subroutine new_gen_calculator
 
@@ -415,7 +428,8 @@ subroutine test_gen(mol, method, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy1, verbosity=0)
 
-   call new_gen_calculator(calc, method, mol)
+   call new_gen_calculator(calc, method, mol, error)
+   if (allocated(error)) return
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy2, verbosity=0)

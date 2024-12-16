@@ -1,0 +1,12 @@
+$ORIGIN/02-trp-xao.mol
+--method
+gfn1
+--gbsa
+water
+--solv-state
+reference
+--grad
+--etemp
+500
+--guess
+sad

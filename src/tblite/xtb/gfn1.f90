@@ -19,7 +19,7 @@
 
 !> Implementation of the GFN1-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_gfn1
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
    use tblite_basis_ortho, only : orthogonalize
@@ -37,6 +37,7 @@ module tblite_xtb_gfn1
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
+   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -515,11 +516,19 @@ module tblite_xtb_gfn1
 contains
 
 
-subroutine new_gfn1_calculator(calc, mol)
+subroutine new_gfn1_calculator(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(out) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   ! Check if all atoms of mol%nat are supported (Z <= 86)
+   if (any(mol%num > max_elem)) then
+      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
+      return
+   end if
 
    call add_basis(calc, mol)
    call add_ncoord(calc, mol)
@@ -528,6 +537,8 @@ subroutine new_gfn1_calculator(calc, mol)
    call add_dispersion(calc, mol)
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
+
+   calc%method = "gfn1"
 
 end subroutine new_gfn1_calculator
 

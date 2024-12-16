@@ -52,7 +52,7 @@ module tblite_solvation_surface
    real(wp), parameter :: tolsesp = 1.e-6_wp
 
    real(wp), parameter :: default_offset = 2.0_wp*aatoau
-   real(wp), parameter :: default_smoothing = 0.3*aatoau
+   real(wp), parameter :: default_smoothing = 0.3_wp*aatoau
 
 contains
 

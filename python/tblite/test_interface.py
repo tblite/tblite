@@ -14,9 +14,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-from tblite.interface import Structure, Calculator, Result
-from pytest import approx, raises
+from logging import Logger
+
 import numpy as np
+from pytest import approx, raises
+from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
+from tblite.interface import Calculator, Result, symbols_to_numbers
 
 thr = 1.0e-9
 
@@ -306,6 +309,7 @@ def test_ipea1():
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-38.40436019312474, abs=thr)
+    assert res.get("energy") == res["energy"]
 
     numbers, positions = get_ala("xag")
     calc.update(positions)
@@ -392,15 +396,94 @@ def test_spgfn1():
     hs_energy_sp = calc.singlepoint().get("energy")
     assert hs_energy_sp == approx(-28.370520606196546)
 
-def test_solvation_models():
+def test_spgfn1_densities():
+    numbers = np.array([1, 8])
+    positions = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+    )
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+    calc.set("save-integrals", 1)
+
+    res = calc.singlepoint()
+
+    s = res.get("overlap-matrix")
+    pa, pb = res.get("density-matrix")
+
+    assert np.sum(pa * s) == approx(4.0)
+    assert np.sum(pb * s) == approx(3.0)
+
+def test_spgfn1_orbital_energies():
     numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
 
-    calc = Calculator("GFN2-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", "ethanol")
+    orben = calc.singlepoint().get("orbital-energies")
 
-    energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43248830035)
+    calc.add("spin-polarization")
+    orben_a, orben_b = calc.singlepoint().get("orbital-energies")
+    assert orben_a == approx(orben)
+    assert orben_b == approx(orben)
+
+def test_spgfn1_orbital_occupations():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+
+    occs = calc.singlepoint().get("orbital-occupations")
+
+    calc.add("spin-polarization")
+    occs_a, occs_b = calc.singlepoint().get("orbital-occupations")
+    assert occs_a == approx(0.5 * occs, abs=thr)
+    assert occs_b == approx(0.5 * occs, abs=thr)
+
+def test_spgfn1_orbital_occupations_and_coefficients():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+
+    res = calc.singlepoint()
+
+    occs_a, occs_b = res.get("orbital-occupations")
+    ca, cb = res.get("orbital-coefficients")
+
+    pa, pb = res.get("density-matrix")
+
+    pa_reconstruct = np.einsum("k,ik,jk->ij", occs_a, ca, ca)
+    pb_reconstruct = np.einsum("k,ik,jk->ij", occs_b, cb, cb)
+
+    assert pa_reconstruct == approx(pa, abs=thr)
+    assert pb_reconstruct == approx(pb, abs=thr)
+
+def test_post_processing_api():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("bond-orders")
+    res = calc.singlepoint()
+    with raises(TBLiteValueError, match="Molecular dipole was not calculated. By default it is computed."):
+        res.get("dipole")
+
+    with raises(TBLiteValueError, match="Molecular quadrupole was not calculated. By default it is computed."):
+        res.get("quadrupole")
+
+    res.dict()
+    
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("molecular-multipoles")
+    res = calc.singlepoint()
+    with raises(TBLiteValueError, match="Bond-orders were not calculated. By default they are computed."):
+        res.get("bond-orders")
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("spin-polarization")
+
+    wbo_sp = calc.singlepoint().get("bond-orders")
+    assert wbo_sp.ndim == 3
+
+
+def test_solvation_gfn2_cpcm():
+    numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
@@ -410,20 +493,84 @@ def test_solvation_models():
 
     assert energy == approx(-28.43287176929)
 
+
+def test_solvation_gfn2_alpb():
+    numbers, positions = get_crcp2()
+
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("alpb-solvation", "ethanol")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43680849760)
+    assert energy == approx(-28.448543412625)
+
+    
+def test_solvation_gfn2_alpb_bar1mol():
+    numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("alpb-solvation", 7.0)
+    calc.add("alpb-solvation", "ethanol", "bar1mol")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.445512179798)
+
+    
+def test_solvation_gfn2_alpb_reference():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol", "reference")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.442829765226)
+
+
+def test_solvation_gfn1_gbe():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("gbe-solvation", 7.0, "p16")
 
     energy = calc.singlepoint().get("energy")
 
     assert energy == approx(-28.43674134364)
+
+    
+def test_solvation_gfn2_gbsa():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("gbsa-solvation", "water")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.439916755536)
+
+
+def test_solvation_gfn2_gb():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("gb-solvation", 7.0, "still")
+
+    energy = calc.singlepoint().get("energy")
+
+    assert energy == approx(-28.43677095356)
+
+    
+def test_solvation_gfn1_alpb():
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("alpb-solvation", "ethanol", "reference")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.354559810599)
 
 
 def test_result_getter():
@@ -442,7 +589,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
+
 
 
 def test_result_setter():
@@ -452,6 +599,9 @@ def test_result_setter():
 
     with raises(ValueError, match="Attribute 'unknown' cannot be set"):
         res.set("unknown", 1.0)
+
+    with raises(ValueError, match="Attribute 'unknown' cannot be set"):
+        res["unknown"] = 1.0
 
 
 def test_unknown_method():
@@ -470,3 +620,58 @@ def test_unknown_attribute():
 
     with raises(ValueError, match="Attribute 'unknown' is not supported"):
         calc.set("unknown", 1.0)
+
+
+def test_gfn1_logging():
+    """Basic test for GFN1-xTB method"""
+    numbers, positions = get_ala("xab")
+
+    logger = Logger("test")
+
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=logger.info)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-34.980794815805446, abs=thr)
+
+    def broken_logger(message: str) -> None:
+        raise NotImplementedError("This logger is broken")
+
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
+    with raises(TBLiteRuntimeError):
+        calc.singlepoint()
+
+def test_symbols():
+    """Check initialization with element symbols"""
+    symbols = ["Si", "H", "H", "H", "H"]
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+    
+    calc = Calculator("GFN2-xTB", symbols_to_numbers(symbols), positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)
+
+def test_numbers():
+    """Check initialization with atomic numbers"""
+    numbers = [14, 1, 1, 1, 1]
+    positions = np.array(
+        [
+            [+0.00000000000000, +0.00000000000000, +0.00000000000000],
+            [+1.61972522566005, -1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, +1.61972522566005, +1.61972522566005],
+            [-1.61972522566005, -1.61972522566005, -1.61972522566005],
+            [+1.61972522566005, +1.61972522566005, -1.61972522566005],
+        ]
+    )
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-3.763120637211, abs=thr)

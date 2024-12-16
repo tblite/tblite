@@ -25,18 +25,20 @@ module tblite_api_result
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_api_double_dictionary, only : vp_double_dictionary
    implicit none
    private
 
    public :: vp_result, new_result_api, copy_result_api, delete_result_api
    public :: get_result_number_of_atoms_api, get_result_number_of_shells_api, &
-      & get_result_number_of_orbitals_api, get_result_energy_api, get_result_gradient_api, &
-      & get_result_virial_api, get_result_charges_api, get_result_dipole_api, &
-      & get_result_quadrupole_api, get_result_orbital_energies_api, &
-      & get_result_orbital_occupations_api, get_result_orbital_coefficients_api, &
-      & get_result_energies_api, get_result_density_matrix_api, &
-      & get_result_overlap_matrix_api, get_result_hamiltonian_matrix_api, &
-      & get_result_bond_orders_api
+      & get_result_number_of_spins_api, get_result_number_of_orbitals_api, &
+      & get_result_energy_api, get_result_gradient_api, get_result_virial_api, &
+      & get_result_charges_api, get_result_dipole_api, get_result_quadrupole_api, &
+      & get_result_orbital_energies_api, get_result_orbital_occupations_api, &
+      & get_result_orbital_coefficients_api, get_result_energies_api, &
+      & get_result_density_matrix_api, get_result_overlap_matrix_api, &
+      & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
+      & get_post_processing_dict_api
 
 
    !> Void pointer holding results of a calculation
@@ -47,10 +49,6 @@ module tblite_api_result
       real(wp), allocatable :: gradient(:, :)
       !> Virial
       real(wp), allocatable :: sigma(:, :)
-      !> Dipole moment
-      real(wp), allocatable :: dipole(:)
-      !> Quadrupole moment
-      real(wp), allocatable :: quadrupole(:)
       !> Wavefunction
       type(wavefunction_type), allocatable :: wfn
       !> Additional results
@@ -134,8 +132,31 @@ subroutine get_result_number_of_atoms_api(verror, vres, natoms) &
       return
    end if
 
-   natoms = size(res%wfn%qat)
+   natoms = size(res%wfn%qat, 1)
 end subroutine get_result_number_of_atoms_api
+
+
+subroutine get_result_number_of_spins_api(verror, vres, nspin) &
+      & bind(C, name=namespace//"get_result_number_of_spins")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: nspin
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_number_of_spins"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain number of spins")
+      return
+   end if
+
+   nspin = res%wfn%nspin
+end subroutine get_result_number_of_spins_api
 
 
 subroutine get_result_number_of_shells_api(verror, vres, nshells) &
@@ -157,7 +178,7 @@ subroutine get_result_number_of_shells_api(verror, vres, nshells) &
       return
    end if
 
-   nshells = size(res%wfn%qsh)
+   nshells = size(res%wfn%qsh, 1)
 end subroutine get_result_number_of_shells_api
 
 
@@ -180,7 +201,7 @@ subroutine get_result_number_of_orbitals_api(verror, vres, norb) &
       return
    end if
 
-   norb = size(res%wfn%emo)
+   norb = size(res%wfn%emo, 1)
 end subroutine get_result_number_of_orbitals_api
 
 
@@ -300,7 +321,7 @@ subroutine get_result_charges_api(verror, vres, charges) &
       return
    end if
 
-   charges(:size(res%wfn%qat)) = res%wfn%qat(:, 1)
+   charges(:size(res%wfn%qat, 1)) = res%wfn%qat(:, 1)
 end subroutine get_result_charges_api
 
 
@@ -310,6 +331,7 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
+   real(wp), allocatable :: dipm(:)
    real(c_double), intent(out) :: dipole(*)
    logical :: ok
 
@@ -318,12 +340,18 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
 
-   if (.not.allocated(res%dipole)) then
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
+   call res%results%dict%get_entry("molecular-dipole", dipm)
+
+   if (.not.allocated(dipm)) then
       call fatal_error(error%ptr, "Result does not contain dipole moment")
       return
    end if
 
-   dipole(:size(res%dipole)) = res%dipole
+   dipole(:size(dipm)) = dipm
 end subroutine get_result_dipole_api
 
 
@@ -333,6 +361,7 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
    type(vp_error), pointer :: error
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
+   real(wp), allocatable :: qp(:)
    real(c_double), intent(out) :: quadrupole(*)
    logical :: ok
 
@@ -341,12 +370,19 @@ subroutine get_result_quadrupole_api(verror, vres, quadrupole) &
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
 
-   if (.not.allocated(res%quadrupole)) then
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain dipole moment")
+      return
+   end if
+
+   call res%results%dict%get_entry("molecular-quadrupole", qp)
+
+   if (.not.allocated(qp)) then
       call fatal_error(error%ptr, "Result does not contain quadrupole moment")
       return
    end if
 
-   quadrupole(:size(res%quadrupole)) = res%quadrupole
+   quadrupole(:size(qp)) = qp
 end subroutine get_result_quadrupole_api
 
 
@@ -369,7 +405,7 @@ subroutine get_result_orbital_energies_api(verror, vres, emo) &
       return
    end if
 
-   emo(:size(res%wfn%emo)) = res%wfn%emo(:, 1)
+   emo(:size(res%wfn%emo)) = reshape(res%wfn%emo, [size(res%wfn%emo)])
 end subroutine get_result_orbital_energies_api
 
 
@@ -392,7 +428,7 @@ subroutine get_result_orbital_occupations_api(verror, vres, occ) &
       return
    end if
 
-   occ(:size(res%wfn%focc)) = res%wfn%focc(:, 1)
+   occ(:size(res%wfn%focc)) = reshape(res%wfn%focc, [size(res%wfn%focc)])
 end subroutine get_result_orbital_occupations_api
 
 
@@ -415,7 +451,7 @@ subroutine get_result_orbital_coefficients_api(verror, vres, cmo) &
       return
    end if
 
-   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff(:, :, 1), [size(res%wfn%coeff)])
+   cmo(:size(res%wfn%coeff)) = reshape(res%wfn%coeff, [size(res%wfn%coeff)])
 end subroutine get_result_orbital_coefficients_api
 
 
@@ -438,7 +474,7 @@ subroutine get_result_density_matrix_api(verror, vres, pmat) &
       return
    end if
 
-   pmat(:size(res%wfn%density)) = reshape(res%wfn%density(:, :, 1), [size(res%wfn%density)])
+   pmat(:size(res%wfn%density)) = reshape(res%wfn%density, [size(res%wfn%density)])
 end subroutine get_result_density_matrix_api
 
 
@@ -507,6 +543,7 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    type(c_ptr), value :: vres
    type(vp_result), pointer :: res
    real(c_double), intent(out) :: mbo(*)
+   real(kind=wp), allocatable :: mbo_f(:, :, :)
    logical :: ok
 
    if (debug) print '("[Info]", 1x, a)', "get_result_bond_orders"
@@ -519,15 +556,41 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
       return
    end if
 
-   if (.not.allocated(res%results%bond_orders)) then
-      call fatal_error(error%ptr, "Result does not contain bond orders")
+   call res%results%dict%get_entry("bond-orders", mbo_f)
+
+   if (.not.allocated(mbo_f)) then
+      call fatal_error(error%ptr, "Could not find bond orders in results dictionary")
       return
    end if
 
-   mbo(:size(res%results%bond_orders)) = &
-      & reshape(res%results%bond_orders, [size(res%results%bond_orders)])
+   mbo(:size(mbo_f)) = &
+      & reshape(mbo_f, [size(mbo_f)])
 end subroutine get_result_bond_orders_api
 
+function get_post_processing_dict_api(verror, vres) result(vdict) &
+   & bind(C, name=namespace//"get_post_processing_dict")
+type(c_ptr), value :: verror
+type(vp_error), pointer :: error
+type(c_ptr), value :: vres
+type(vp_result), pointer :: res
+type(c_ptr) :: vdict
+logical :: ok
+type(vp_double_dictionary), pointer :: dict
+
+if (debug) print '("[Info]", 1x, a)', "get_result_dict"
+vdict = c_null_ptr
+call get_result(verror, vres, error, res, ok)
+if (.not.ok) return
+
+if (.not.allocated(res%results)) then
+   call fatal_error(error%ptr, "Result does not contain post processing dictionary.")
+   return
+end if
+allocate(dict)
+dict%ptr = res%results%dict
+
+vdict = c_loc(dict)
+end function get_post_processing_dict_api
 
 subroutine get_result(verror, vres, error, res, ok)
    type(c_ptr), intent(in) :: verror

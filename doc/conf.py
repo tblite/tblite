@@ -14,18 +14,19 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-import os, sys, subprocess
+import os
+import subprocess
+import sys
 
 _dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(_dir, "..", "python"))
 import tblite
 
-
 project = "tblite"
 author = "Sebastian Ehlert"
-copyright = f"2021-2022, {author}"
+copyright = f"2021-2023, {author}"
 
-version = "0.3.0"
+version = "0.4.0"
 release = version
 
 

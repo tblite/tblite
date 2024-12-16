@@ -23,7 +23,13 @@ supposed to be used by meson for testing purposes only.
 """
 
 try:
-    import subprocess, sys, json, os, pytest, numpy as np
+    import json
+    import os
+    import subprocess
+    import sys
+
+    import numpy as np
+    import pytest
 except ImportError:
     exit(77)
 

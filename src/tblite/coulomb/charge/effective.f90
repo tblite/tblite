@@ -71,7 +71,7 @@ module tblite_coulomb_charge_effective
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
    real(wp), parameter :: conv = eps
-   character(len=*), parameter :: label = "isotropic Klopman-Ohno electrostatics"
+   character(len=*), parameter :: label = "isotropic Klopman-Ohno-Mataga-Nishimoto electrostatics"
 
 contains
 
@@ -94,6 +94,8 @@ subroutine new_effective_coulomb(self, mol, gexp, hubbard, average, nshell)
    integer :: isp, jsp, ish, jsh, ind, iat
 
    self%label = label
+
+   self%shell_resolved = present(nshell)
    if (present(nshell)) then
       mshell = maxval(nshell)
       self%nshell = nshell(mol%id)
@@ -501,13 +503,23 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
 
-   if (any(mol%periodic)) then
-      call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-         & self%rcut, cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+   if(self%shell_resolved) then
+      if (any(mol%periodic)) then
+         call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+            & self%rcut, cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+      else
+         call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
+            & dadr, dadL, atrace)
+      end if
    else
-      call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
-         & dadr, dadL, atrace)
-   end if
+      if (any(mol%periodic)) then
+         call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+            & self%rcut, cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
+      else
+         call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
+            & dadr, dadL, atrace)
+      end if
+   end if 
 
 end subroutine get_coulomb_derivs
 
@@ -545,9 +557,9 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset, gexp) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp, arg) &
    !$omp private(itrace, didr, didL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
+   allocate(itrace, source=atrace)
+   allocate(didr, source=dadr)
+   allocate(didL, source=dadL)
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -579,6 +591,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    dadr(:, :, :) = dadr + didr
    dadL(:, :, :) = dadL + didL
    !$omp end critical (get_damat_0d_)
+   deallocate(didL, didr, itrace)
    !$omp end parallel
 
 end subroutine get_damat_0d
@@ -629,9 +642,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp, &
    !$omp& rcut) private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS, &
    !$omp& dGr, dSr, dGd, dSd, itrace, didr, didL)
-   itrace = atrace
-   didr = dadr
-   didL = dadL
+   allocate(itrace, source=atrace)
+   allocate(didr, source=dadr)
+   allocate(didL, source=dadL)
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -684,6 +697,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    dadr(:, :, :) = dadr + didr
    dadL(:, :, :) = dadL + didL
    !$omp end critical (get_damat_3d_)
+   deallocate(didL, didr, itrace) 
    !$omp end parallel
 
 end subroutine get_damat_3d

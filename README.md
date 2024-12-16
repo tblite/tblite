@@ -10,7 +10,6 @@ This project is an effort to create a library implementation of the
 extended tight binding (xTB) Hamiltonian which can be shared between
 [``xtb``](https://github.com/grimme-lab/xtb) and
 [``dftb+``](https://github.com/dftbplus/dftbplus).
-The current state of this project should be considered as *highly experimental*.
 
 Goals of this project are
 
