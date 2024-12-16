@@ -67,24 +67,26 @@ subroutine collect_spin(testsuite)
 end subroutine collect_spin
 
 
-subroutine test_e_p10(error)
+subroutine test_e_gen(error, mol, calc, ref1, ref0)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Molecular structure 
+   type(structure_type), intent(inout) :: mol
+   !> XTB calculator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Reference energy for spin-polarized UHF
+   real(wp), intent(in) :: ref1
+   !> Reference energy without spin-polarization
+   real(wp), intent(in) :: ref0
 
    type(context_type) :: ctx
-   type(structure_type) :: mol
-   type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    class(container_type), allocatable :: cont
    real(wp) :: energy
-   real(wp), parameter :: ref1 = -10.8011953472361_wp, ref0 = -10.7897113668574_wp
 
-   call rse43_p10(mol)
    energy = 0.0_wp
 
-   call new_gfn2_calculator(calc, mol, error)
-   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
    block
@@ -102,13 +104,86 @@ subroutine test_e_p10(error)
    call check(error, energy, ref1, thr=thr)
    if (allocated(error)) return
 
+   if(mod(mol%uhf, 2) == 0) then
+      mol%uhf = 0
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
+   
+      call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+   
+      call check(error, energy, ref0, thr=thr)
+      if (allocated(error)) return
+   end if
+   
    call calc%pop(cont)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
    call check(error, energy, ref0, thr=thr)
 
-end subroutine test_e_p10
+end subroutine test_e_gen
 
+
+subroutine test_g_gen(error, mol, calc, eref, gref)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Molecular structure 
+   type(structure_type), intent(inout) :: mol
+   !> XTB calculator
+   type(xtb_calculator), intent(inout) :: calc
+   !> Reference energy for spin-polarized UHF
+   real(wp), intent(in) :: eref
+   !> Reference gradient for spin-polarized UHF
+   real(wp), intent(in) :: gref(:, :)
+
+   type(context_type) :: ctx
+   type(wavefunction_type) :: wfn
+   class(container_type), allocatable :: cont
+   real(wp) :: energy
+   real(wp), allocatable :: gradient(:, :), sigma(:, :)
+
+   allocate(gradient(3, mol%nat), sigma(3, 3))
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
+
+   block
+      type(spin_polarization), allocatable :: spin
+      real(wp), allocatable :: wll(:, :, :)
+      allocate(spin)
+      call get_spin_constants(wll, mol, calc%bas)
+      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
+      call move_alloc(spin, cont)
+      call calc%push_back(cont)
+   end block
+
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
+
+   call check(error, energy, eref, thr=thr)
+   if (allocated(error)) return
+   call check(error, all(abs(gradient - gref) < thr))
+
+end subroutine test_g_gen
+
+
+subroutine test_e_p10(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   real(wp), parameter :: ref1 = -10.801224611773206_wp, ref0 = -10.7897113668574_wp
+
+   call rse43_p10(mol)
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   call test_e_gen(error, mol, calc, ref1, ref0)
+
+end subroutine test_e_p10
 
 subroutine test_e_crcp2(error)
 
@@ -122,7 +197,7 @@ subroutine test_e_crcp2(error)
    class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: ref1 = -28.3763344264682_wp, ref0 = -28.3496138337329_wp
+   real(wp), parameter :: ref1 = -28.376485853038645_wp, ref0 = -28.3496138337329_wp
 
    call crcp2(mol)
    allocate(gradient(3, mol%nat), sigma(3, 3))
@@ -130,36 +205,8 @@ subroutine test_e_crcp2(error)
 
    call new_gfn1_calculator(calc, mol, error)
    if (allocated(error)) return
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
-   block
-      type(spin_polarization), allocatable :: spin
-      real(wp), allocatable :: wll(:, :, :)
-      allocate(spin)
-      call get_spin_constants(wll, mol, calc%bas)
-      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
-      call move_alloc(spin, cont)
-      call calc%push_back(cont)
-   end block
-
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-
-   call check(error, energy, ref1, thr=thr)
-   if (allocated(error)) return
-
-   mol%uhf = 0
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
-
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-
-   call check(error, energy, ref0, thr=thr)
-   if (allocated(error)) return
-
-   call calc%pop(cont)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-
-   call check(error, energy, ref0, thr=thr)
+   call test_e_gen(error, mol, calc, ref1, ref0)
 
 end subroutine test_e_crcp2
 
@@ -176,16 +223,16 @@ subroutine test_g_p10(error)
    class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: eref = -11.5396425107754_wp, gref(3, 8) = reshape([&
-  &  4.617922713076135E-003_wp,   3.055183799431468E-003_wp,  -8.709334070555372E-019_wp, &
-  & -5.803572662303740E-003_wp,   7.033951465230674E-003_wp,  -4.168577567334383E-017_wp, &
-  &  8.474107442195294E-003_wp,  -7.855009709204370E-003_wp,  -1.908380750365926E-017_wp, &
-  &  1.673932557644197E-004_wp,  -2.701027978285800E-003_wp,  -8.348359302333630E-018_wp, &
-  & -2.474761698194612E-003_wp,   1.134460559816175E-003_wp,   1.000175684686357E-017_wp, &
-  & -1.201151483881359E-003_wp,  -5.344335356455324E-004_wp,   2.150192604901390E-003_wp, &
-  & -1.201151483881335E-003_wp,  -5.344335356455487E-004_wp,  -2.150192604901349E-003_wp, &
-  & -2.578786082774796E-003_wp,   4.013089343029468E-004_wp,   6.873111356709724E-019_wp], &
-     & shape(gref))
+   real(wp), parameter :: eref = -11.539671328635730_wp, gref(3, 8) = reshape([&
+      &  4.6250747795231898E-03_wp,  3.0613008404354290E-03_wp, -4.1003763872489694E-17_wp, &
+      & -5.8127688918931083E-03_wp,  7.0212976481872583E-03_wp,  7.4006869452289192E-17_wp, &
+      &  8.4737687859435182E-03_wp, -7.8529734509620933E-03_wp,  1.4182424493755559E-17_wp, &
+      &  1.6732818000371087E-04_wp, -2.6987199782906278E-03_wp,  8.6784398428552196E-18_wp, &
+      & -2.4727166634656915E-03_wp,  1.1335882595829142E-03_wp,  1.1165068841281504E-17_wp, &
+      & -1.2010615143533908E-03_wp, -5.3284767411932365E-04_wp,  2.1499927548673772E-03_wp, &
+      & -1.2010615143534362E-03_wp, -5.3284767411941928E-04_wp, -2.1499927548674475E-03_wp, &
+      & -2.5785631614047800E-03_wp,  4.0120202928582558E-04_wp, -2.7346723399901103E-18_wp], &
+      & shape(gref))
 
 
    call rse43_p10(mol)
@@ -196,23 +243,8 @@ subroutine test_g_p10(error)
 
    call new_gfn1_calculator(calc, mol, error)
    if (allocated(error)) return
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
-   block
-      type(spin_polarization), allocatable :: spin
-      real(wp), allocatable :: wll(:, :, :)
-      allocate(spin)
-      call get_spin_constants(wll, mol, calc%bas)
-      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
-      call move_alloc(spin, cont)
-      call calc%push_back(cont)
-   end block
-
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-
-   call check(error, energy, eref, thr=thr)
-   if (allocated(error)) return
-   call check(error, all(abs(gradient - gref) < thr))
+   call test_g_gen(error, mol, calc, eref, gref)
 
 end subroutine test_g_p10
 
@@ -229,29 +261,29 @@ subroutine test_g_crcp2(error)
    class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: eref = -28.4712820267740_wp, gref(3, 21) = reshape([&
-  & -3.615380752790689E-014_wp,  -6.128593609364818E-015_wp,   7.446373803562436E-004_wp, &
-  &  2.255179235373212E-014_wp,  -1.387678543360229E-003_wp,   1.455234962155995E-002_wp, &
-  &  1.203721801045242E-002_wp,   8.661445659815034E-005_wp,   9.573029611071851E-004_wp, &
-  &  3.200216258616877E-005_wp,   1.839889792025707E-003_wp,  -7.422807303885855E-003_wp, &
-  & -3.200216256614849E-005_wp,   1.839889792017230E-003_wp,  -7.422807303928467E-003_wp, &
-  & -1.203721801047703E-002_wp,   8.661445657771957E-005_wp,   9.573029611334458E-004_wp, &
-  & -2.268978408809382E-015_wp,  -4.763291809188703E-003_wp,   1.720252959073481E-003_wp, &
-  &  1.815694181767953E-003_wp,  -4.732567673037307E-003_wp,  -1.240992083303616E-004_wp, &
-  &  4.599245077263882E-004_wp,  -4.584244909899227E-003_wp,  -1.732857084288763E-003_wp, &
-  & -4.599245077278532E-004_wp,  -4.584244909898971E-003_wp,  -1.732857084284529E-003_wp, &
-  & -1.815694181764320E-003_wp,  -4.732567673036048E-003_wp,  -1.240992083328980E-004_wp, &
-  &  1.203721801045781E-002_wp,  -8.661445659636432E-005_wp,   9.573029611068801E-004_wp, &
-  &  2.332366001737109E-014_wp,   1.387678543363916E-003_wp,   1.455234962156562E-002_wp, &
-  &  3.200216258490514E-005_wp,  -1.839889792026087E-003_wp,  -7.422807303889528E-003_wp, &
-  &  1.815694181766321E-003_wp,   4.732567673036918E-003_wp,  -1.240992083306916E-004_wp, &
-  & -1.203721801048352E-002_wp,  -8.661445657521662E-005_wp,   9.573029611335994E-004_wp, &
-  & -2.412213268822006E-015_wp,   4.763291809188074E-003_wp,   1.720252959071919E-003_wp, &
-  & -3.200216256423079E-005_wp,  -1.839889792017341E-003_wp,  -7.422807303933058E-003_wp, &
-  &  4.599245077256235E-004_wp,   4.584244909899196E-003_wp,  -1.732857084287647E-003_wp, &
-  & -1.815694181762447E-003_wp,   4.732567673035733E-003_wp,  -1.240992083334584E-004_wp, &
-  & -4.599245077272394E-004_wp,   4.584244909898960E-003_wp,  -1.732857084283062E-003_wp], &
-   & shape(gref))
+   real(wp), parameter :: eref = -28.471439648669477_wp, gref(3, 21) = reshape([&
+      & -3.3346209907941793E-14_wp,  9.4095128281949936E-15_wp,  7.3031040873146682E-04_wp, &
+      &  2.0737422989057993E-14_wp, -1.3810438730716156E-03_wp,  1.4534865767653804E-02_wp, &
+      &  1.2023217179885587E-02_wp,  8.5569295722914113E-05_wp,  9.6517319007189957E-04_wp, &
+      &  3.7815059360380221E-05_wp,  1.8331263028967730E-03_wp, -7.4190049135553562E-03_wp, &
+      & -3.7815059340987442E-05_wp,  1.8331263028886257E-03_wp, -7.4190049135963677E-03_wp, &
+      & -1.2023217179908601E-02_wp,  8.5569295703461453E-05_wp,  9.6517319009760687E-04_wp, &
+      & -2.1579772050526842E-15_wp, -4.7641226402683678E-03_wp,  1.7211385778858280E-03_wp, &
+      &  1.8164603206477625E-03_wp, -4.7321956256350887E-03_wp, -1.2363412674730632E-04_wp, &
+      &  4.6032135883547536E-04_wp, -4.5828980598753965E-03_wp, -1.7331139247164979E-03_wp, &
+      & -4.6032135883693128E-04_wp, -4.5828980598751675E-03_wp, -1.7331139247122576E-03_wp, &
+      & -1.8164603206444060E-03_wp, -4.7321956256338536E-03_wp, -1.2363412674987575E-04_wp, &
+      &  1.2023217179875622E-02_wp, -8.5569295726056334E-05_wp,  9.6517319007691270E-04_wp, &
+      &  2.1969354427773201E-14_wp,  1.3810438730645139E-03_wp,  1.4534865767642511E-02_wp, &
+      &  3.7815059363820869E-05_wp, -1.8331263028954043E-03_wp, -7.4190049135521609E-03_wp, &
+      &  1.8164603206502138E-03_wp,  4.7321956256355432E-03_wp, -1.2363412674731755E-04_wp, &
+      & -1.2023217179899397E-02_wp, -8.5569295707092256E-05_wp,  9.6517319009984900E-04_wp, &
+      & -2.2096020250407485E-15_wp,  4.7641226402693401E-03_wp,  1.7211385778886621E-03_wp, &
+      & -3.7815059345164216E-05_wp, -1.8331263028875707E-03_wp, -7.4190049135908296E-03_wp, &
+      &  4.6032135883590795E-04_wp,  4.5828980598754208E-03_wp, -1.7331139247177656E-03_wp, &
+      & -1.8164603206467446E-03_wp,  4.7321956256343913E-03_wp, -1.2363412674968964E-04_wp, &
+      & -4.6032135883749967E-04_wp,  4.5828980598752534E-03_wp, -1.7331139247138050E-03_wp], &
+      & shape(gref))
 
    call crcp2(mol)
    allocate(gradient(3, mol%nat), sigma(3, 3))
@@ -261,23 +293,8 @@ subroutine test_g_crcp2(error)
 
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
 
-   block
-      type(spin_polarization), allocatable :: spin
-      real(wp), allocatable :: wll(:, :, :)
-      allocate(spin)
-      call get_spin_constants(wll, mol, calc%bas)
-      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
-      call move_alloc(spin, cont)
-      call calc%push_back(cont)
-   end block
-
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
-
-   call check(error, energy, eref, thr=thr)
-   if (allocated(error)) return
-   call check(error, all(abs(gradient - gref) < thr))
+   call test_g_gen(error, mol, calc, eref, gref)
 
 end subroutine test_g_crcp2
 
