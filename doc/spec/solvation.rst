@@ -4,7 +4,7 @@
 Solvation
 =========
 
-Implicit Solvation models are available for the calculation of the solvation free energies partitioned as 
+Implicit solvation models are available for the calculation of the solvation free energies partitioned as 
 
 .. math::
    \Delta G_{\text{solv}} = \Delta G_{\text{polar}} + \Delta G_{\text{npol}} + \Delta G_{\text{shift}}
@@ -22,16 +22,16 @@ The analytical linearized Poisson-Boltzmann (ALPB) model evaluates the polar con
    \frac{1}{1+\alpha\beta}
    \sum_{A,B} q_{A} q_{B} \left( \frac{1}{f(R_{AB, a_{A}, a_{B}})} + \frac{\alpha\beta}{\mathcal{A}_{\text{det}}} \right)
 
-based on the ALPB constant :math:`{\alpha}` (set to 0.571214), the solute (:math:`{\epsilon_{\text{in}}=1}`) and solvent (:math:`{\epsilon_{\text{out}}}`) dielectric constants combined in :math:`{\beta=\frac{\epsilon_{\text{in}}}{\epsilon_{\text{out}}}`, atomic partial charges :math:`{q_{A/B}}`, and the electrostatic size of the solute :math:`{\mathcal{A}_{\text{det}}}`. \ :footcite:`ehlert2021`
-:math:`{f(R_{AB, a_{A}, a_{B}})}` is the interaction kernel with the Born radii a_{A/B} and can take two forms, either 
+based on the ALPB constant :math:`{\alpha}` (set to 0.571214), the solute (:math:`{\epsilon_{\text{in}}=1}`) and solvent (:math:`{\epsilon_{\text{out}}}`) dielectric constants combined in :math:`{\beta=\frac{\epsilon_{\text{in}}}{\epsilon_{\text{out}}}}`, atomic partial charges :math:`{q_{A/B}}`, and the electrostatic size of the solute :math:`{\mathcal{A}_{\text{det}}}`. \ :footcite:`ehlert2021`
+:math:`{f(R_{AB}, a_{A}, a_{B})}` is the interaction kernel with the Born radii :math:`{a_{A/B}}` and can take two forms, either 
 
 .. math::
-   f(R_{AB, a_{A}, a_{B}}) = \left( R_{AB}^2 + a_{A} a_{B} \exp\right[-\frac{R_{AB}^2}{4 a_{A} a_{B}} \left] \right)^{\frac{1}{2}}
+   f(R_{AB}, a_{A}, a_{B}) = \left( R_{AB}^2 + a_{A} a_{B} \exp\left[-\frac{R_{AB}^2}{4 a_{A} a_{B}} \right] \right)^{\frac{1}{2}}
 
 proposed by Still (default in GBSA), or the more recent P16 kernel (default for ALPB): 
 
 .. math::
-   f(R_{AB, a_{A}, a_{B}} = R_{AB} + \sqrt{a_{A} a_{B}} \left(1+-\frac{1.028R_{AB}}{16 \sqrt{a_{A} a_{B}}} \right)^16
+   f(R_{AB}, a_{A}, a_{B}) = R_{AB} + \sqrt{a_{A} a_{B}} \left(1+\frac{1.028 R_{AB}}{16 \sqrt{a_{A} a_{B}}} \right)^{16}
 
 For specific polar interactions, an atom-wise hydrogen bonding correction is introduced:
 
@@ -45,14 +45,12 @@ In addition to the polar contribution, the non-polar contribution is included wi
 
 An additional empirical constant shift is applied to the solvation free energy.
 A solution state correction can be activated but is not included by default.
-If the solvent is specified by the dielectric constant, only the polar electrostatics contribution can be included. 
 
 GBSA solvation model
 --------------------
 
-The generalized Born solvation model (GBSA) is a simplified version of ALPB in the limit of an ideal conductor environment (:math:`{\epsilon_{\text{out}}}\rightarrow \infty` and :math:`{\beta\rightarrow 0`).
+The generalized Born solvation model (GBSA) is a simplified version of ALPB in the limit of an ideal conductor environment (:math:`{\epsilon_{\text{out}}}\rightarrow \infty` and :math:`{\beta\rightarrow 0}`).
 As for ALPB, CDS and a constant shift shift are applied, while a solution state correction can be activated (only if the solvent is specified by name).
-If the solvent is specified by the dielectric constant, only the polar electrostatics contribution is included. 
 
 CPCM solvation model 
 --------------------

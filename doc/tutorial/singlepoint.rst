@@ -123,11 +123,11 @@ We can select a method by adding the ``--method`` argument to the command line a
 
 This will perform the calculation again using the GFN1-xTB method.
 
-We can add a solvation model by adding the ``--alpb`` or ``--gbsa`` flag followed by the solvent name or dielectric constant. A reference state can be added as an optional argument (gsolv (default), bar1mol, or reference).
+We can add a parametrized solvation model with the ``--alpb`` or ``--gbsa`` flag followed by the solvent name. Alternatively, the purely electrostatic generalized Born model (``--gb``/ ``-gbe``) or the polarizable continuum model (``--cpcm``) can be specified with the solvent name or the dielectric constant. The reference state can be corrected with the ``--solv-state`` (options: ``gsolv`` (default), ``bar1mol``, or ``reference``).
 
 .. code-block:: text
 
-   tblite run --method gfn1 --alpb struc.xyz
+   tblite run --method gfn1 --alpb water struc.xyz
 
 Calculating derivatives
 ~~~~~~~~~~~~~~~~~~~~~~~
