@@ -146,10 +146,10 @@ tomlf_dep = dependency(
 )
 lib_deps += tomlf_dep
 
-tc_purification_dep = dependency(
-  'tc-purification',
+gambits_dep = dependency(
+  'gambits',
   version: '>=0.0.0',
-  fallback: ['tc-purification','tc_purification_dep'],
+  fallback: ['gambits','gambits_dep'],
   default_options: ['default_library=static','gpu=true'],
 )
-lib_deps += tc_purification_dep
+lib_deps += gambits_dep
