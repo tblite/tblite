@@ -93,7 +93,11 @@ subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
          total_number = total_number + fermifunct
          total_dfermi = total_dfermi + dfermifunct
       end do
-      change_fermi = (occt-total_number)/total_dfermi
+      if (total_dfermi > 1e-80_wp) then
+          change_fermi = (occt-total_number)/total_dfermi
+      else
+          change_fermi = 0.0_wp
+      end if
       e_fermi = e_fermi+change_fermi
       if (abs(occt-total_number) <= thr) exit
    end do
