@@ -798,10 +798,12 @@ subroutine test_energy_sum_up_gfn2(error)
    do i = 1, res%dict%get_n_entries()
       call res%dict%get_entry(i, tmp_array)
       call res%dict%get_label(i, label1)
+      write(*,*) label1
+      write(*,*) tmp_array
       sum_energy = sum_energy + sum(tmp_array)
       deallocate(tmp_array)
    end do
-    
+   print'(3es21.14)', abs(sum_energy-energy)
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN2: Energy features don't add up to total energy.")
       print'(3es21.14)', abs(sum_energy-energy)
