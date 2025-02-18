@@ -223,7 +223,8 @@ subroutine print_timer(self, prlevel, ctx)
     real(wp) :: ttime, stime
     integer :: it
     character(len=*), parameter :: labels(*) = [character(len=20):: &
-         & "geometry", "density", "orbital energy", "energy", "geometry convolution", "density convolution", "orbital energy convolution"]
+         & "geometry", "density", "orbital energy", "energy", "geometry convolution", &
+         "density convolution", "orbital energy convolution"]
 
     
 
