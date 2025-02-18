@@ -1,0 +1,13 @@
+$ORIGIN/02-trp-xao.mol
+--method
+gfn1
+-i
+mol
+--grad
+--etemp
+500
+--guess
+sad
+--spin-polarized
+--efield
+0,0,0

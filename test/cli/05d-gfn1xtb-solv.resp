@@ -1,0 +1,9 @@
+$ORIGIN/05-met-xbf.qchem
+--method
+gfn1
+--guess
+sad
+--grad
+--verbose
+--gbe
+water
