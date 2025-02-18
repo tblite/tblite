@@ -35,17 +35,17 @@ module tblite_param_xtbml_features
    !> Parametrization record specifying the dispersion model
    type, public, extends(serde_record) :: xtbml_features_record
       !> Compute geometry-based xtbml features
-      logical :: xtbml_geometry
+      logical :: xtbml_geometry = .false.
       !> Compute density-based xtbml features
-      logical :: xtbml_density
+      logical :: xtbml_density = .false.
       !> Return vectorial information additional to norm of the corresponding multipole moments
-      logical :: xtbml_tensor
+      logical :: xtbml_tensor = .false.
       !> Compute orbital energy based xtbml features
-      logical :: xtbml_orbital_energy
+      logical :: xtbml_orbital_energy = .false.
       !> Compute energy based features, necessary for partitioning weights
-      logical :: xtbml_energy
+      logical :: xtbml_energy = .false.
       !> Compute extended feature i.e. do CN weigthed real space convolution
-      logical :: xtbml_convolution
+      logical :: xtbml_convolution = .false.
       !> Scaling for logistic function, convolution over an array of values is supported
       real(wp), allocatable :: xtbml_a(:)
       
