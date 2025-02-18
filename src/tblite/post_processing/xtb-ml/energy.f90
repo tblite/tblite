@@ -80,6 +80,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
       call self%dict%add_entry("E_rep", tmp_energy)
     end associate
   end if
+  if (allocated(cache)) deallocate(cache)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%coulomb)) then
@@ -108,6 +109,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     end if
     end associate
   end if
+  if (allocated(cache)) deallocate(cache)
   tmp_energy = 0.0_wp
   if (allocated(calc%halogen)) then 
     cache = cache_list(3)
@@ -117,6 +119,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
       call self%dict%add_entry("E_HX", tmp_energy)
     end associate
   end if
+  if (allocated(cache)) deallocate(cache)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%dispersion)) then
@@ -151,6 +154,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     end select
     end associate
   end if
+  if (allocated(cache)) deallocate(cache)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%interactions)) then
@@ -162,6 +166,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
         call self%dict%add_entry(cont%info(0, ""), tmp_energy)
     end associate
   end if
+  if (allocated(cache)) deallocate(cache)
   tot_energy = tot_energy + tmp_energy
   call self%dict%add_entry("E_tot", tot_energy)
   call self%dict%add_entry("w_tot", tot_energy/sum(tot_energy))
