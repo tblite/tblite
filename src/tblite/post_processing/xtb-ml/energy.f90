@@ -72,19 +72,23 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
   call self%dict%add_entry("E_EHT", tmp_energy)
   tot_energy = tmp_energy
   tmp_energy = 0.0_wp
+  
   if (allocated(calc%repulsion)) then
     associate(cont => calc%repulsion)
+      if (.not. allocated(cache)) allocate(cache)
+      call move_alloc(cache_list(1)%raw, cache%raw)
+      !allocate(cache, source=cache_list(1))
       cache = cache_list(1)
       call cont%update(mol, cache)
       call cont%get_engrad(mol, cache, tmp_energy)
       call self%dict%add_entry("E_rep", tmp_energy)
     end associate
   end if
-  if (allocated(cache)) deallocate(cache)
+  if (allocated(cache%raw)) deallocate(cache%raw)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%coulomb)) then
-    cache = cache_list(2)
+    call move_alloc(cache_list(2)%raw, cache%raw)
     associate(cont => calc%coulomb)
     call cont%update(mol, cache)
     if (allocated(cont%es2)) then
@@ -109,21 +113,21 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     end if
     end associate
   end if
-  if (allocated(cache)) deallocate(cache)
+  if (allocated(cache%raw)) deallocate(cache%raw)
   tmp_energy = 0.0_wp
   if (allocated(calc%halogen)) then 
-    cache = cache_list(3)
+    call move_alloc(cache_list(3)%raw, cache%raw)
     associate(cont => calc%halogen)
       call cont%update(mol, cache)
       call cont%get_engrad(mol, cache, tmp_energy)
       call self%dict%add_entry("E_HX", tmp_energy)
     end associate
   end if
-  if (allocated(cache)) deallocate(cache)
+  if (allocated(cache%raw)) deallocate(cache%raw)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%dispersion)) then
-    cache = cache_list(4)
+    call move_alloc(cache_list(4)%raw, cache%raw)
     associate(cont => calc%dispersion)
     select type(cont)
     type is (d3_dispersion)
@@ -154,11 +158,11 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
     end select
     end associate
   end if
-  if (allocated(cache)) deallocate(cache)
+  if (allocated(cache%raw)) deallocate(cache%raw)
   tot_energy = tot_energy + tmp_energy
   tmp_energy = 0.0_wp
   if (allocated(calc%interactions)) then
-    cache = cache_list(5)
+    call move_alloc(cache_list(5)%raw, cache%raw)
     associate(cont => calc%dispersion)
         call cont%update(mol, cache)
         call cont%get_engrad(mol, cache, tmp_energy)
@@ -166,7 +170,8 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list, prlevel
         call self%dict%add_entry(cont%info(0, ""), tmp_energy)
     end associate
   end if
-  if (allocated(cache)) deallocate(cache)
+  if (allocated(cache%raw)) deallocate(cache%raw)
+  deallocate(cache)
   tot_energy = tot_energy + tmp_energy
   call self%dict%add_entry("E_tot", tot_energy)
   call self%dict%add_entry("w_tot", tot_energy/sum(tot_energy))
