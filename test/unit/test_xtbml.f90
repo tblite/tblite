@@ -607,7 +607,7 @@ subroutine test_rotation_co2(error)
    call add_post_processing(pproc, pparam)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc) 
   
-   if (not(compare_dict(res%dict, res_%dict, thr2))) then
+   if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
       call test_failed(error, "Rotational invariance is not respected.")
    end if
  
@@ -666,7 +666,7 @@ subroutine test_translation_co2(error)
    call add_post_processing(pproc, pparam)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc) 
   
-   if (not(compare_dict(res%dict, res_%dict, thr2))) then
+   if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
       call test_failed(error, "Translational invariance is not respected.")
    end if
  
