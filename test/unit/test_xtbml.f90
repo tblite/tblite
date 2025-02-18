@@ -582,6 +582,7 @@ subroutine test_rotation_co2(error)
    allocate(xtbml_param)
    allocate(pparam)
    xtbml_param%xtbml_energy = .true.
+   xtbml_param%xtbml_orbital_energy = .true.
    xtbml_param%xtbml_geometry = .true.
    xtbml_param%xtbml_density = .true.
    xtbml_param%xtbml_tensor = .false.
@@ -643,6 +644,7 @@ subroutine test_translation_co2(error)
    allocate(pparam)
    xtbml_param%xtbml_energy = .true.
    xtbml_param%xtbml_geometry = .true.
+   xtbml_param%xtbml_orbital_energy = .true.
    xtbml_param%xtbml_density = .true.
    xtbml_param%xtbml_tensor = .false.
    xtbml_param%xtbml_convolution = .true.
