@@ -25,6 +25,7 @@ list(
   "${dir}/features.f90"
   "${dir}/geometry.f90"
   "${dir}/orbital_energy.f90"
+  "${dir}/xtbml.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
