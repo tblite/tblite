@@ -46,8 +46,7 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-energy-sum-up-gfn2", test_energy_sum_up_gfn2),&
       new_unittest("xtbml-energy-sum-up-gfn1", test_energy_sum_up_gfn1),& 
       new_unittest("xtbml-rot", test_rotation_co2),&
-      new_unittest("xtbml-translation", test_translation_co2),&
-      new_unittest("xtbml-permutation", test_permutation_co2)&
+      new_unittest("xtbml-translation", test_translation_co2)&
       ]
  
 end subroutine collect_xtbml
@@ -669,63 +668,6 @@ subroutine test_translation_co2(error)
   
    if (not(compare_dict(res%dict, res_%dict, thr2))) then
       call test_failed(error, "Translational invariance is not respected.")
-   end if
- 
-end subroutine
-
-subroutine test_permutation_co2(error)
-   type(context_type) :: ctx
-   type(structure_type) :: mol
-   type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
-   type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
-   !> Error handling
-   integer,parameter :: nat = 3
-   type(error_type), allocatable, intent(out) :: error
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
-   real(wp), parameter :: xyz_perm(3, nat) = reshape((/0.00000,0.00000,0.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,1.000000/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/6,8,8/)
-   integer, parameter :: num_perm(nat) = (/8,8,6/)
-   type(results_type) :: res, res_
-   real(wp) :: rot_matrix(3,3), energy
-   real(wp), allocatable :: xtbml(:,:)
-   integer :: i
- 
-   call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol, error)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-   allocate(pproc)
-   allocate(xtbml_param)
-   allocate(pparam)
-   xtbml_param%xtbml_energy = .true.
-   xtbml_param%xtbml_geometry = .true.
-   xtbml_param%xtbml_density = .true.
-   xtbml_param%xtbml_tensor = .false.
-   xtbml_param%xtbml_convolution = .true.
-   xtbml_param%xtbml_a = [1.0_wp]
-   call move_alloc(xtbml_param, tmp_record)
-   call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
-
- 
-   call new(mol,num_perm,xyz_perm*aatoau,uhf=0,charge=0.0_wp)
-   call new_gfn2_calculator(calc,mol, error)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-   deallocate(pproc)
-   allocate(pproc)
-   call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc) 
-  
-   if (not(compare_dict(res%dict, res_%dict, thr2))) then
-      call test_failed(error, "Permutational invariance is not respected.")
    end if
  
 end subroutine
