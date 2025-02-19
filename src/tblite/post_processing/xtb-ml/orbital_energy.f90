@@ -15,6 +15,7 @@
 
 !> @file tblite/post-processing/xtb-ml/orbital_energy.f90
 !> Orbital energy based xtbml features
+module tblite_xtbml_orbital_energy
    use mctc_env, only : wp
    use mctc_io_convert, only : autoev
    use tblite_xtbml_feature_type, only : xtbml_feature_type
