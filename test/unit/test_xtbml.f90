@@ -24,6 +24,7 @@ module tblite_test_xtbml
     use tblite_param_serde, only : serde_record
     use tblite_blas, only : gemm
     use tblite_double_dictionary, only : double_dictionary_type
+    use tblite_toml, only : toml_table, add_table, toml_value, set_value, toml_key, get_value, toml_array,add_array
     implicit none
     private
     real(wp), parameter :: thr = 100*epsilon(1.0_wp)
@@ -46,7 +47,9 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-energy-sum-up-gfn2", test_energy_sum_up_gfn2),&
       new_unittest("xtbml-energy-sum-up-gfn1", test_energy_sum_up_gfn1),& 
       new_unittest("xtbml-rot", test_rotation_co2),&
-      new_unittest("xtbml-translation", test_translation_co2)&
+      new_unittest("xtbml-translation", test_translation_co2),&
+      new_unittest("xtbml-param-load", test_xtbml_param_load),&
+      new_unittest("xtbml-param-dump", test_xtbml_param_load)&
       ]
  
 end subroutine collect_xtbml
@@ -591,7 +594,7 @@ subroutine test_rotation_co2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=3, results=res, post_process=pproc) 
    
  
    rot_matrix = (reshape((/&
@@ -733,6 +736,84 @@ function compare_dict(lhs, rhs, thr_) result(equal)
    equal = .true.
 
 end function
+
+subroutine test_xtbml_param_load(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(toml_table), pointer :: table_multipole
+   type(toml_table) :: table_post_proc
+   type(xtbml_features_record) :: param
+   real(wp) :: a_array(2)
+   type(toml_array), pointer :: array
+   a_array =  [1.2, 1.0]
+  
+   table_post_proc = toml_table()
+   call add_table(table_post_proc, "xtbml", table_multipole)
+   call set_value(table_multipole, "geometry", .true.)
+   call set_value(table_multipole, "density", .false.)
+   call set_value(table_multipole, "orbital", .true.)
+   call set_value(table_multipole, "energy", .false.)
+   call set_value(table_multipole, "convolution", .true.)
+   call add_array(table_multipole, "a", array)
+   call set_value(array, a_array)
+   call set_value(table_multipole, "tensorial-output", .true.)
+   
+   call param%load(table_post_proc, error)
+   
+end subroutine
+
+subroutine test_xtbml_param_dump(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(toml_table), pointer :: table_multipole, child
+   type(toml_table) :: table_post_proc
+   type(toml_table) :: new_table
+   type(xtbml_features_record) :: param
+   type(toml_key), allocatable :: list(:)
+   real(wp) :: a_array(2)
+   type(toml_array), pointer :: array
+   a_array =  [1.2, 1.0]
+
+   table_post_proc = toml_table()
+   call add_table(table_post_proc, "xtbml", table_multipole)
+   call set_value(table_multipole, "geometry", .true.)
+   call set_value(table_multipole, "density", .false.)
+   call set_value(table_multipole, "orbital", .true.)
+   call set_value(table_multipole, "energy", .false.)
+   call set_value(table_multipole, "convolution", .true.)
+   call add_array(table_multipole, "a", array)
+   call set_value(array, a_array)
+   !call set_value(table_multipole, "a", a_array)
+   call set_value(table_multipole, "tensorial-output", .true.)
+   
+   call param%load(table_post_proc, error)
+
+   call check(error, param%xtbml_geometry, .true.)
+   if (allocated(error)) return
+   call check(error, param%xtbml_density, .false.)
+   if (allocated(error)) return
+   call check(error, param%xtbml_orbital_energy, .true.)
+   if (allocated(error)) return
+   call check(error, param%xtbml_energy, .false.)
+   if (allocated(error)) return
+   call check(error, param%xtbml_convolution, .true.)
+   if (allocated(error)) return
+   call check(error, size(param%xtbml_a), 2)
+   if (allocated(error)) return
+   call check(error, param%xtbml_tensor, .true.)
+   if (allocated(error)) return   
+
+   new_table = toml_table()
+   call param%dump(new_table, error)
+   call param%load(new_table, error)
+   call new_table%get_keys(list)
+
+   call check(error, size(list), 1)
+   if (allocated(error)) return
+   call get_value(new_table, list(1)%key, child)
+   call child%get_keys(list)
+   call check(error, size(list), 7)
+   if (allocated(error)) return
+
+end subroutine
 
 
 

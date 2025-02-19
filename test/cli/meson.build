@@ -160,3 +160,42 @@ test(
   ], 
   suite: 'cli',
 )
+
+test(
+  'xtbml-cli-arg', 
+  tblite_exe, 
+  should_fail:false, 
+  args: [
+    'run', 
+    '--post-processing', 
+    'xtbml', 
+    files('07-mb33.xyz')
+  ], 
+  suite: 'cli',
+)
+
+test(
+  'xtbml-xyz-cli-arg', 
+  tblite_exe, 
+  should_fail:false, 
+  args: [
+    'run', 
+    '--post-processing', 
+    'xtbml-xyz', 
+    files('07-mb33.xyz')
+  ], 
+  suite: 'cli',
+)
+
+test(
+  'xtbml-xyz-cli-arg', 
+  tblite_exe, 
+  should_fail:false, 
+  args: [
+    'run', 
+    '--post-processing', 
+    files('test'/'xtbml.toml'), 
+    files('07-mb33.xyz')
+  ], 
+  suite: 'cli',
+)

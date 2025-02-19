@@ -206,7 +206,7 @@ subroutine add_post_processing_cli(self, config, error)
           call move_alloc(ml_param, cont)
           call param%push(cont)
       end block
-   case("xtbml_xyz")
+   case("xtbml-xyz","xtbml_xyz")
     block 
       type(xtbml_features_record), allocatable :: ml_param
       class(serde_record), allocatable :: cont 

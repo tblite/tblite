@@ -51,11 +51,6 @@ contains
    real(wp) :: occa, occb, tmp, tmp2, ps, virta, virtb, tmp3, weight, osite, vsite
    real(wp), parameter :: damp = 0.5_wp ! damping in response function (in eV)
    logical, intent(in) :: print
-   type(timer_type) :: timer
-   logical, parameter :: debug = .false.
-   character(len=150)  :: tmp_str
-   call timer%push("total")
-   call timer%push("occupation a")
 
    po = 0.0_wp
    pv = 0.0_wp
@@ -103,14 +98,11 @@ contains
       end if
    end do
 
-   call timer%pop()
-
    ! now accumulate the atomic H-L gaps and Fermi levels (we approximate it as 0.5*(eH + eL))
    ! we make use of an atomic response-type weightinhg:
    ! chempot=\sum_ai * wA_ai * 0.5 * (e_a + e_i)
    ! here wA_ai is the variable "response" computed as: wA_ai=  [p_i p_a / ( (e_a - e_i)**2 + damp**2) ]/ [\sum_ia p_j p_b / ((e_b - e_j)**2 + damp**2)]
    ! the "p"s are the MO densities, for gaps we accumulate the regularized inverse and later on invert it again
-   call timer%push("prep a")
 
    response = 0.0_wp
    chempot = 0.0_wp
@@ -144,15 +136,6 @@ contains
       end if ! if occ
    end do ! occ
    !!$omp end parallel do
-   call timer%pop()
-   if (print) then
-      call ctx%message("")
-      call ctx%message( "  -------------------------")
-      call ctx%message( "  atomic frontier MO (alpha) info ")
-      call ctx%message( "  -------------------------")
-      call ctx%message( "  atom   response (a.u.)   gap (eV)  chem.pot (eV)  HOAO (eV)    LUAO (eV)")
-   end if
-   call timer%push("AO A")
 
    ehoaoa = 0.0_wp
    eluaoa = 0.0_wp
@@ -209,16 +192,6 @@ contains
       end if
    end do
 
-   if (print) then
-      do m = 1, nat
-         write (tmp_str, '(3x,i6,5x,f8.4,5x,f8.4,5x,f8.4,5x,f8.4,5x,f8.4)') m, &
-            response(m)*(autoev**2), egap(m), chempot(m), ehoaoa(m), eluaoa(m)
-         call ctx%message(trim(tmp_str))
-      end do
-      call ctx%message("")
-   end if
-   call timer%pop()
-   call timer%push("occupation b")
    po = 0.0_wp
    pv = 0.0_wp
    
@@ -262,9 +235,6 @@ contains
          end do
       end if
    end do
-   
-   call timer%pop()
-   call timer%push("prep b")
 
    response = 0.0_wp
    chempot = 0.0_wp
@@ -297,16 +267,6 @@ contains
       end if ! if occ
    end do ! occ
    !!$omp end parallel do
-   call timer%pop()
-   call timer%push("AO B")
-   if (print) then
-      call ctx%message("")
-      call ctx%message( "  -------------------------")
-      call ctx%message( "  atomic frontier MO (beta) info ")
-      call ctx%message( "  -------------------------")
-      call ctx%message( "  atom   response (a.u.)   gap (eV)  chem.pot (eV)  HOAO (eV)    LUAO (eV)")
-   end if
-
    ehoaob = 0.0_wp
    eluaob = 0.0_wp
 
@@ -361,39 +321,6 @@ contains
          end do !  occ
       end if
    end do
-
-   call timer%pop()
-   if (print) then
-      do m = 1, nat
-         write (tmp_str, '(3x,i6,5x,f8.4,5x,f8.4,5x,f8.4,5x,f8.4,5x,f8.4)') m, &
-            response(m)*(autoev**2), egap(m), chempot(m), ehoaob(m), eluaob(m)
-         call ctx%message(tmp_str)
-      end do
-      call ctx%message("")
-   end if
-
-   if (debug) then
-      block
-         
-         integer :: it
-         real(wp) :: ttime, stime
-         character(len=*), parameter :: label(*) = [character(len=20):: &
-            & "occupation a", "prep a", "AO A", "occupation b", "prep b", "AO B"]
-         call ctx%message("")
-         call ctx%message( "Frontier detail")
-         call timer%pop()
-         ttime = timer%get("total")
-         call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
-
-         do it = 1, size(label)
-            stime = timer%get(label(it))
-            if (stime <= epsilon(0.0_wp)) cycle
-            call ctx%message(" - "//label(it)//format_time(stime) &
-               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
-         end do
-         call ctx%message("")
-      end block
-   end if
 
    end subroutine atomic_frontier_orbitals
 end module

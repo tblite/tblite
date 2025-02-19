@@ -493,23 +493,6 @@ subroutine get_delta_partial(nat, n_a, atom_partial, at, xyz, conv, delta_partia
         
 end subroutine
 
-subroutine sum_up_mm(nat, nshell, aoat2, ash, dipm_shell, qm_shell, dipm_at, qm_at)
-   implicit none
-   integer, intent(in) :: nat, nshell, aoat2(:), ash(:)
-   real(wp), intent(in) :: dipm_shell(:, :), qm_shell(:, :)
-   real(wp), intent(out) :: dipm_at(3, nat), qm_at(6, nat)
-   integer :: i
-
-   dipm_at = 0.0_wp
-   qm_at = 0.0_wp
-
-   do i = 1, nshell
-      dipm_at(:, ash(i)) = dipm_at(:, ash(i)) + dipm_shell(:, i)
-      qm_at(:, ash(i)) = qm_at(:, ash(i)) + qm_shell(:, i)
-   end do
-
-end subroutine
-
 subroutine sum_up_mulliken(nat, nshell, aoat2, ash, mull_shell, mull_at)
    implicit none
    integer, intent(in) :: nat, nshell, aoat2(:), ash(:)
