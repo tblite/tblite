@@ -22,7 +22,7 @@ module tblite_param_xtbml_features
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number
    use tblite_param_serde, only : serde_record
-   use tblite_toml, only : toml_table, get_value, set_value, add_table, toml_array
+   use tblite_toml, only : toml_table, get_value, set_value, add_table, toml_array, add_array
    implicit none
    private
 
@@ -115,53 +115,66 @@ subroutine load_from_toml(self, table, error)
    integer :: stat, i, stat2
    character(len=:), allocatable :: method
    
-   call get_value(table, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
+   call get_value(table, k_xtbml, child, requested=.false., stat=stat)
+   if (stat /= 0 .or. .not.associated(child)) then
+      call fatal_error(error, "Cannot read entry for xtbml table")
+      return
+   end if
+
+   call get_value(child, k_xtbmlgeometry, self%xtbml_geometry, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
       return
    end if
 
-   call get_value(table, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
+   call get_value(child, k_xtbmldensity, self%xtbml_density, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml density based features, boolean expected")
       return
    end if
    if (self%xtbml_density) then 
-      call get_value(table, k_tensor, self%xtbml_tensor, .false., stat=stat)
+      call get_value(child, k_tensor, self%xtbml_tensor, .false., stat=stat)
       if (stat /= 0) then
             call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
             return
       end if 
    end if
 
-   call get_value(table, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
+   call get_value(child, k_xtbmlorbital, self%xtbml_orbital_energy, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml orbital energy based features, boolean expected")
    return
    end if
 
-   call get_value(table, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
+   call get_value(child, k_xtbmlenergy, self%xtbml_energy, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml geometry based features, boolean expected")
    return
    end if
 
-   call get_value(table, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
+   call get_value(child, k_xtbmlconvolution, self%xtbml_convolution, .false., stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Cannot read entry for xtbml convolution, boolean expected")
       return
    end if
    if (self%xtbml_convolution) then
-      if (table%has_key(k_xtbmla)) then
-         call get_value(table, k_xtbmla, array, stat=stat)
-         if (stat /= 0) then
-            call fatal_error(error, "Cannot read entry for xtbml convolution scale array, array of real values expected")
-            return
+      if (child%has_key(k_xtbmla)) then
+         call get_value(child, k_xtbmla, array, stat=stat)
+         if (.not. associated(array)) then
+            if (allocated(self%xtbml_a)) deallocate(self%xtbml_a)
+            allocate(self%xtbml_a(1))
+            call get_value(child, k_xtbmla, self%xtbml_a(1), stat=stat)
+            if (stat /= 0) then
+               call fatal_error(error, "Cannot read entry for xtbml a, float expected")
+               return
+            end if
+         else
+            if (allocated(self%xtbml_a)) deallocate(self%xtbml_a)
+            allocate(self%xtbml_a(len(array)))
+            do i=1, size(self%xtbml_a)
+               call get_value(array, i, self%xtbml_a(i))
+            end do
          end if
-         allocate(self%xtbml_a(len(array)))
-         do i=1, size(self%xtbml_a)
-            call get_value(array, i, self%xtbml_a(i))
-         end do
       else 
          self%xtbml_a = [1.0_wp]
       end if
@@ -181,15 +194,24 @@ subroutine dump_to_toml(self, table, error)
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_table), pointer :: child
+
+   type(toml_array), pointer :: array
+
+   integer :: i
    
    call add_table(table, k_xtbml, child)
 
    call set_value(child, k_xtbmlgeometry, self%xtbml_geometry)
    call set_value(child, k_xtbmldensity, self%xtbml_density)
-   if (self%xtbml_density) call set_value(child, k_tensor, self%xtbml_tensor)
+   call set_value(child, k_tensor, self%xtbml_tensor)
    call set_value(child, k_xtbmlorbital, self%xtbml_orbital_energy)
    call set_value(child, k_xtbmlenergy, self%xtbml_energy)
    call set_value(child, k_xtbmlconvolution, self%xtbml_convolution)
+   call add_array(child, k_xtbmla, array)
+   do i=1, size(self%xtbml_a)
+      call set_value(array, i, self%xtbml_a(i))
+   end do
+   
   
 end subroutine dump_to_toml
 

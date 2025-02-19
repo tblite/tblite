@@ -152,11 +152,8 @@ subroutine load_from_toml(self, table, error)
          block
             type(xtbml_features_record), allocatable :: tmp_record
             class(serde_record), allocatable :: cont
-            type(toml_table), pointer :: child
             allocate(tmp_record)
-            call get_value(table, "xtbml", child, requested=.false.)
-            if (.not.associated(child)) return
-            call tmp_record%load(child, error) 
+            call tmp_record%load(table, error) 
             call move_alloc(tmp_record, cont)
             call self%push(cont)
          end block
