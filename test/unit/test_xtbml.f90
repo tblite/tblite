@@ -784,7 +784,7 @@ end subroutine
 
 subroutine test_xtbml_param_bad_inp(error)
    type(error_type), allocatable, intent(out) :: error
-   type(toml_table), pointer :: xtbml
+   type(toml_table), pointer :: xtbml, xtbml_
    type(toml_table) :: table_post_proc
    type(xtbml_features_record) :: param
    real(wp) :: a_array(2)
@@ -792,6 +792,15 @@ subroutine test_xtbml_param_bad_inp(error)
    a_array =  [1.2, 1.0]
   
    table_post_proc = toml_table()
+   call add_table(table_post_proc, "xtbml-", xtbml_)
+   call param%load(table_post_proc, error)
+   if (allocated(error)) then
+      deallocate(error)
+   else
+      call fatal_error(error, "Bad key in geometry was accepted")
+      return
+   endif
+
    call add_table(table_post_proc, "xtbml", xtbml)
    call set_value(xtbml, "geometry", 7)
    call param%load(table_post_proc, error)
@@ -879,9 +888,7 @@ subroutine test_xtbml_param_dump(error)
    type(toml_table) :: new_table
    type(xtbml_features_record) :: param
    type(toml_key), allocatable :: list(:)
-   real(wp) :: a_array(2)
-   type(toml_array), pointer :: array
-   a_array =  [1.2, 1.0]
+   
 
    table_post_proc = toml_table()
    call add_table(table_post_proc, "xtbml", table_xtbml)
@@ -890,8 +897,6 @@ subroutine test_xtbml_param_dump(error)
    call set_value(table_xtbml, "orbital", .true.)
    call set_value(table_xtbml, "energy", .false.)
    call set_value(table_xtbml, "convolution", .true.)
-   call add_array(table_xtbml, "a", array)
-   call set_value(array, a_array)
    call set_value(table_xtbml, "tensorial-output", .true.)
 
    call param%load(table_post_proc, error)
@@ -905,7 +910,6 @@ subroutine test_xtbml_param_dump(error)
    call new_table%get_keys(list)
    call check(error, size(list), 1)
    call get_value(new_table, list(1)%key, child)
-   if (.not.associated(child)) write(*,*) "Stuff"
    call child%get_keys(list)
    call check(error, size(list), 7)
    if (allocated(error)) return
@@ -920,7 +924,7 @@ subroutine test_xtbml_param_dump(error)
    if (allocated(error)) return
    call check(error, param%xtbml_convolution, .true.)
    if (allocated(error)) return
-   call check(error, size(param%xtbml_a), 2)
+   call check(error, size(param%xtbml_a), 1)
    if (allocated(error)) return
    call check(error, param%xtbml_tensor, .true.)
    if (allocated(error)) return  
@@ -993,8 +997,6 @@ subroutine test_energy_sum_up_gfn2(error)
    do i = 1, res%dict%get_n_entries()
       call res%dict%get_entry(i, tmp_array)
       call res%dict%get_label(i, label1)
-      write(*,*) label1
-      write(*,*) tmp_array
       sum_energy = sum_energy + sum(tmp_array)
       deallocate(tmp_array)
    end do

@@ -339,7 +339,7 @@ subroutine get_result_dipole_api(verror, vres, dipole) &
 
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
- 
+
    if (.not.allocated(res%results)) then
       call fatal_error(error%ptr, "Result does not contain dipole moment")
       return

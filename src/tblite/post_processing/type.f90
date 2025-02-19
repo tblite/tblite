@@ -26,7 +26,6 @@ module tblite_post_processing_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_results, only : results_type
    use tblite_context, only : context_type
-   use tblite_container, only : container_list
    use tblite_timer, only : timer_type, format_time
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_container_cache, only : container_cache

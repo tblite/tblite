@@ -30,14 +30,11 @@ module tblite_container_list
    implicit none
    private
 
-   public :: taint
 
    !> Wrapped container type for creation of lists
    type :: container_node
       !> Actual interaction container
       class(container_type), allocatable :: raw
-      !> container cache to along
-      type(container_cache), allocatable :: cache
    end type container_node
 
    !> List of interaction containers
@@ -68,8 +65,6 @@ module tblite_container_list
       procedure :: pop
       !> Information about the container list
       procedure :: info
-      !> get number of containers
-      procedure :: get_n_containers
    end type container_list
 
 
@@ -88,12 +83,6 @@ module tblite_container_list
 
 contains
 
-function get_n_containers(self) result(n)
-    !> Instance of the interaction container
-   class(container_list), intent(in) :: self
-   integer :: n
-   n = self%nc
-end function   
 
 !> Update container cache
 subroutine update(self, mol, cache)
@@ -314,37 +303,30 @@ end function info
 
 
 !> Add a container
-subroutine push_back(self, cont, cache)
+subroutine push_back(self, cont)
    !> Instance of the container list
    class(container_list), intent(inout) :: self
    !> Container to be added
    class(container_type), allocatable, intent(inout) :: cont
-   !> Container cache, optional
-   type(container_cache), allocatable, optional :: cache 
+
    if (.not.allocated(self%list)) call resize(self%list)
 
    if (allocated(cont)) then
       if (self%nc >= size(self%list)) call resize(self%list)
       self%nc = self%nc + 1
       call move_alloc(cont, self%list(self%nc)%raw)
-      if (present(cache)) then
-         if (allocated(cache)) call move_alloc(cache, self%list(self%nc)%cache)
-      end if
    end if
-
 end subroutine push_back
 
 
 !> Add a container
-subroutine pop(self, cont, idx, cache)
+subroutine pop(self, cont, idx)
    !> Instance of the container list
    class(container_list), intent(inout) :: self
    !> Container to be removed
    class(container_type), allocatable, intent(out) :: cont
    !> Index to remove container from
    integer, intent(in), optional :: idx
-   !> Container cache, optional
-   type(container_cache), allocatable, optional :: cache 
 
    integer :: ic, pos
 
@@ -357,14 +339,13 @@ subroutine pop(self, cont, idx, cache)
    if (pos <= 0) return
 
    call move_alloc(self%list(pos)%raw, cont)
-   if (present(cache)) then
-      if (allocated(self%list(pos)%cache)) call move_alloc(self%list(pos)%cache, cache)
-   end if
+
    self%nc = self%nc - 1
    do ic = pos, self%nc
       call move_alloc(self%list(ic+1)%raw, self%list(ic)%raw)
    end do
 end subroutine pop
+
 
 !> Reallocate list of containers
 pure subroutine resize_node(list, n)

@@ -50,7 +50,7 @@ module tblite_param
       & k_charge = "charge", k_thirdorder = "thirdorder", k_multipole = "multipole", &
       & k_halogen = "halogen", k_hamiltonian = "hamiltonian", k_element = "element", &
       & k_meta = "meta", k_version = "version", k_name = "name", k_reference = "reference", &
-      & k_format = "format",  k_ml_features = "ml-features", k_post_proc = "post-processing"
+      & k_format = "format", k_post_proc = "post-processing"
 
    !> Current parameter format version
    integer, parameter :: current_format = 1
@@ -110,7 +110,7 @@ subroutine load_from_toml(self, table, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   type(toml_table), pointer :: child, child2
+   type(toml_table), pointer :: child
    integer :: this_format
 
    call get_value(table, k_meta, child)
@@ -449,6 +449,5 @@ subroutine dump_to_array(self, array, mask, error)
    end do
    if (allocated(error)) return
 end subroutine dump_to_array
-
 
 end module tblite_param

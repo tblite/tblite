@@ -14,8 +14,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/param/dispersion.f90
-!> Provides model for the dispersion corrections
+!> @file tblite/param/post_processing/xtbml.f90
+!> Provides paramerts to address the xtbml features
 
 !> Definition of the dispersion corrections
 module tblite_param_xtbml_features

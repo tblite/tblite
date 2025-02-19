@@ -1,5 +1,22 @@
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+!> @file tblite/post-processing/xtb-ml/energy.f90
+!> Energy-based features
 module tblite_xtbml_energy_features
-  use mctc_env, only : wp
+   use mctc_env, only : wp
    use mctc_io_convert, only : autoev
    use tblite_xtbml_feature_type, only : xtbml_feature_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -11,24 +28,24 @@ module tblite_xtbml_energy_features
    use tblite_double_dictionary, only : double_dictionary_type   
    use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
-  use tblite_container, only : container_list, container_type
+   use tblite_container, only : container_type
    use tblite_xtb_calculator, only : xtb_calculator
-  use tblite_repulsion, only : tb_repulsion
-  use tblite_xtb_coulomb, only : tb_coulomb
-  use tblite_scf_iterator, only : get_electronic_energy, reduce
-  use tblite_disp_d3, only : d3_dispersion, new_d3_dispersion
-  use tblite_classical_halogen, only : halogen_correction
-  use tblite_disp_d4, only : d4_dispersion, new_d4_dispersion
+   use tblite_repulsion, only : tb_repulsion
+   use tblite_xtb_coulomb, only : tb_coulomb
+   use tblite_scf_iterator, only : get_electronic_energy, reduce
+   use tblite_disp_d3, only : d3_dispersion, new_d3_dispersion
+   use tblite_classical_halogen, only : halogen_correction
+   use tblite_disp_d4, only : d4_dispersion, new_d4_dispersion
    implicit none
    private
-  character(len=*), parameter :: label = "energy-based features"
+   character(len=*), parameter :: label = "energy-based features"
    type, public, extends(xtbml_feature_type) :: xtbml_energy_features_type
       
-    contains
+   contains
       procedure :: compute_features
       procedure :: compute_extended
       procedure :: setup
-    end type
+   end type
 
 contains
 
