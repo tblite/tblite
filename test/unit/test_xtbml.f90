@@ -51,7 +51,9 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-translation", test_translation_co2),&
       new_unittest("xtbml-param-load", test_xtbml_param_load),&
       new_unittest("xtbml-param-dump", test_xtbml_param_dump),&
-      new_unittest("xtbml-param-bad-inp", test_xtbml_param_bad_inp)&
+      new_unittest("xtbml-param-bad-inp", test_xtbml_param_bad_inp),&
+      new_unittest("xtbml-h+-orbital-energies", test_orbital_energy_hp),&
+      new_unittest("xtbml-he-orbital-energies", test_orbital_energy_he)&
       ]
  
 end subroutine collect_xtbml
@@ -1080,6 +1082,82 @@ subroutine test_energy_sum_up_gfn1(error)
    end if
 
 end subroutine test_energy_sum_up_gfn1
+
+subroutine test_orbital_energy_hp(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(post_processing_list), allocatable :: pproc
+   type(xtbml_features_record), allocatable :: xtbml_param
+   type(post_processing_param_list), allocatable :: pparam
+   type(results_type) :: res
+   class(serde_record), allocatable :: tmp_record
+   real(wp), allocatable :: mulliken_shell(:)
+   real(wp) :: energy
+   real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
+   integer, parameter :: num(1) = (/1/)
+
+   call new(mol, num, xyz*aatoau, uhf=0, charge=1.0_wp)
+   call new_gfn2_calculator(calc, mol, error)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   calc%save_integrals = .true.
+   allocate(pproc)
+   allocate(xtbml_param)
+   allocate(pparam)
+   xtbml_param%xtbml_orbital_energy = .true.
+   call move_alloc(xtbml_param, tmp_record)
+   call pparam%push(tmp_record)
+   call add_post_processing(pproc, pparam)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
+   call res%dict%get_entry("HOAO_a", mulliken_shell)
+   if (sum(mulliken_shell) > -10.0e10) then
+      call test_failed(error, "HOAO is occupied")
+      print'(3es21.14)', mulliken_shell
+   end if
+
+end subroutine test_orbital_energy_hp
+
+subroutine test_orbital_energy_he(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(post_processing_list), allocatable :: pproc
+   type(xtbml_features_record), allocatable :: xtbml_param
+   type(post_processing_param_list), allocatable :: pparam
+   type(results_type) :: res
+   class(serde_record), allocatable :: tmp_record
+   real(wp), allocatable :: mulliken_shell(:)
+   real(wp) :: energy
+   real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
+   integer, parameter :: num(1) = (/2/)
+
+   call new(mol, num, xyz*aatoau, uhf=0, charge=0.0_wp)
+   call new_gfn1_calculator(calc, mol, error)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   calc%save_integrals = .true.
+   allocate(pproc)
+   allocate(xtbml_param)
+   allocate(pparam)
+   xtbml_param%xtbml_orbital_energy = .true.
+   call move_alloc(xtbml_param, tmp_record)
+   call pparam%push(tmp_record)
+   call add_post_processing(pproc, pparam)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
+   call res%dict%get_entry("LUAO_a", mulliken_shell)
+   if (sum(mulliken_shell) < 10.0e10) then
+      call test_failed(error, "LUAO is occupied")
+      print'(3es21.14)', mulliken_shell
+   end if
+
+end subroutine test_orbital_energy_he
  
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    integer :: n,i,l,k,j

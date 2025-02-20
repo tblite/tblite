@@ -481,6 +481,17 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
+def test_xtbml_api():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml")
+    res = calc.singlepoint()
+    cn = res.get("CN")
+    assert cn.ndim == numbers.size
+
+    dict_xtbml = res.dict()
+    assert dict_xtbml.keys() == 40
+    
 
 def test_solvation_gfn2_cpcm():
     numbers, positions = get_crcp2()
