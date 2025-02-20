@@ -486,11 +486,14 @@ def test_xtbml_api():
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("xtbml")
     res = calc.singlepoint()
-    cn = res.get("CN")
-    assert cn.ndim == numbers.size
+    dict_ = res.dict()
+    cn = dict_.get("post-processing-dict")
+    cn = cn.get("CN")
+    assert len(cn) == numbers.size
 
     dict_xtbml = res.dict()
-    assert dict_xtbml.keys() == 40
+    dict_xtbml = dict_xtbml.get("post-processing-dict")
+    assert len(dict_xtbml.keys()) == 40
     
 
 def test_solvation_gfn2_cpcm():
