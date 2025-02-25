@@ -135,8 +135,8 @@ subroutine load_from_toml(self, table, error)
    if (self%xtbml_density) then 
       call get_value(child, k_tensor, self%xtbml_tensor, .false., stat=stat)
       if (stat /= 0) then
-            call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
-            return
+         call fatal_error(error, "Cannot read entry for xtbml tensorial-output, boolean expected")
+         return
       end if 
    end if
 
@@ -171,7 +171,7 @@ subroutine load_from_toml(self, table, error)
          else
             if (allocated(self%xtbml_a)) deallocate(self%xtbml_a)
             allocate(self%xtbml_a(len(array)))
-            do i=1, size(self%xtbml_a)
+            do i = 1, size(self%xtbml_a)
                call get_value(array, i, self%xtbml_a(i))
             end do
          end if
@@ -208,7 +208,7 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_xtbmlenergy, self%xtbml_energy)
    call set_value(child, k_xtbmlconvolution, self%xtbml_convolution)
    call add_array(child, k_xtbmla, array)
-   do i=1, size(self%xtbml_a)
+   do i = 1, size(self%xtbml_a)
       call set_value(array, i, self%xtbml_a(i))
    end do
    

@@ -345,7 +345,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(results%dict)
       if (present(post_process)) then 
          call post_process%pack_res(mol, results)
-         if (prlevel > 1 ) call results%dict%dump("post_processing.toml", error)
+         if (prlevel > 1) call results%dict%dump("post_processing.toml", error)
       end if
    end if
 

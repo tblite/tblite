@@ -45,7 +45,6 @@ module tblite_xtbml_density_based
       real(wp),allocatable ::  delta_qm_e(:,:)
       real(wp),allocatable ::  delta_dipm_Z(:,:)
       real(wp),allocatable ::  delta_qm_Z(:,:)
-      !
       !> shell dipm xyz
       real(wp),allocatable ::  dipm_shell_xyz(:,:)
       !> dipm xyz
@@ -58,7 +57,6 @@ module tblite_xtbml_density_based
       real(wp),allocatable ::  qm_atom_xyz(:,:)
       !> delta qm xyz
       real(wp),allocatable ::  delta_qm_xyz(:,:,:)
-      !
       !> delta dipm only electron effect
       real(wp),allocatable ::  delta_dipm_e_xyz(:,:,:)
       !> delta qm only electron effect

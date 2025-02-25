@@ -60,7 +60,6 @@ contains
    end subroutine
 
    subroutine compute_cn(self, mol)
-
       class(xtbml_convolution_type) :: self
       type(structure_type) :: mol
       type(exp_ncoord_type) :: ncoord_exp
@@ -68,10 +67,8 @@ contains
       n_a = size(self%a)
       allocate(self%cn(mol%nat, n_a), source=0.0_wp)
       do i = 1, n_a
-
          call new_exp_ncoord(ncoord_exp, mol, rcov=self%rcov*self%a(i))
          call ncoord_exp%get_cn(mol, self%cn(:, i))
-
       end do
    end subroutine
 
@@ -98,9 +95,10 @@ contains
          deallocate (self%kernel)
       end if
       allocate (self%kernel(nat, nat, n_a), source=0.0_wp)
-      !$omp parallel do default(none) collapse(2)&
-      !$omp shared(self, nat, at, xyz, n_a)&
-      !$omp private(result,i,j,k)
+
+      !$omp parallel do default(none) collapse(2) &
+      !$omp shared(self, nat, at, xyz, n_a) &
+      !$omp private(result, i, j, k)
       do k = 1, n_a
          do i = 1, nat
             do j = 1, nat

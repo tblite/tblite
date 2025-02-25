@@ -61,7 +61,6 @@ contains
       new_xtbml_model%label = label
 
       if (param%xtbml_geometry) then
-
          allocate(new_xtbml_model%geom)
          call new_xtbml_model%geom%setup()
       end if

@@ -157,7 +157,7 @@ subroutine add_post_processing_param(self, param)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
-         type is (xtbml_features_record)
+      type is (xtbml_features_record)
          block
             type(xtbml_type), allocatable :: tmp
             class(post_processing_type), allocatable :: proc

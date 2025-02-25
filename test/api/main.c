@@ -2998,7 +2998,7 @@ int test_xtbml_api()
 
     tblite_push_back_post_processing_param(ctx, calc, param);
     if (tblite_check(ctx))
-    goto err;
+        goto err;
 
     tblite_delete(res);
     res = tblite_new_result();
