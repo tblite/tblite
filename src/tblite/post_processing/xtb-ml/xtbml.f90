@@ -85,9 +85,9 @@ subroutine new_xtbml_features(new_xtbml_model, param)
       if (allocated(param%xtbml_a)) then
          new_xtbml_model%conv%a = param%xtbml_a
       else 
-         new_xtbml_model%conv%a = [1.0_wp]
+         new_xtbml_model%conv%a = (/1.0_wp/)
       end if
-      new_xtbml_model%conv%n_a = size(param%xtbml_a)
+      new_xtbml_model%conv%n_a = size(new_xtbml_model%conv%a)
       call new_xtbml_model%conv%setup()
    end if
 
