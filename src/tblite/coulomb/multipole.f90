@@ -74,10 +74,13 @@ module tblite_coulomb_multipole
       procedure :: get_potential
       !> Get derivatives of anisotropic electrostatics
       procedure :: get_gradient
+      ! These additional functions are necessary as the atomic contributions to AES are not 
+      ! the same in this implemntation and in the GFN2 paper,
+      ! for details see https://github.com/tblite/tblite/pull/224/files#r1970341792
       !> Get only AXC part of the anisotropic electrostatics
-      procedure :: get_AXC
-      !> Get xtb type AES energy
-      procedure :: get_energy_aes_xtb
+      procedure :: get_energy_axc
+      !> Get AES energy of the anisotropic electrostatics
+      procedure :: get_energy_aes
    end type damped_multipole
 
    real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
@@ -219,7 +222,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 end subroutine get_energy
 
 !> Get anisotropic electrostatic energy
-subroutine get_energy_aes_xtb(self, mol, cache, wfn, energies)
+subroutine get_energy_aes(self, mol, cache, wfn, energies)
    !> Instance of the multipole container
    class(damped_multipole), intent(in) :: self
    !> Molecular structure data
@@ -232,8 +235,8 @@ subroutine get_energy_aes_xtb(self, mol, cache, wfn, energies)
    type(container_cache), intent(inout) :: cache
 
    real(wp), allocatable :: vs(:), vd(:, :), vq(:, :),mur(:)
-   real(wp),allocatable :: e01(:),e11(:),e02(:)
-   real(wp),allocatable :: t1(:)
+   real(wp), allocatable :: e01(:),e11(:),e02(:)
+   real(wp), allocatable :: t1(:)
    type(coulomb_cache), pointer :: ptr
    integer :: i,j
 
@@ -263,9 +266,9 @@ subroutine get_energy_aes_xtb(self, mol, cache, wfn, energies)
    end do
    e02 = t1*wfn%qat(:,1) + sum(wfn%qpat(:, :, 1) * vq, 1)
 
-   energies(:) = energies + 0.5* e01 + e11 + 0.5_wp * e02
+   energies(:) = energies + 0.5_wp * e01 + e11 + 0.5_wp * e02
 
-end subroutine get_energy_aes_xtb
+end subroutine get_energy_aes
 
 !> Get multipolar anisotropic exchange-correlation kernel
 subroutine get_kernel_energy(mol, kernel, mpat, energies)
@@ -1186,7 +1189,7 @@ subroutine view(cache, ptr)
    end select
 end subroutine view
 
-subroutine get_AXC(self, mol, wfn, energies)
+subroutine get_energy_axc(self, mol, wfn, energies)
    !> Instance of the multipole container
    class(damped_multipole), intent(in) :: self
    !> Molecular structure data
@@ -1199,6 +1202,6 @@ subroutine get_AXC(self, mol, wfn, energies)
    call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
    call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
 
-end subroutine get_AXC
+end subroutine get_energy_axc
 
 end module tblite_coulomb_multipole

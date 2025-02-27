@@ -55,14 +55,16 @@ module tblite_post_processing_type
       !> Wavefunction strcuture data
       type(wavefunction_type), intent(in) :: wfn
       !> integral container
-      type(integral_type) :: integrals
+      type(integral_type), intent(in) :: integrals
       !> calculator instance
       type(xtb_calculator), intent(in) :: calc
+      !> Cache list for storing caches of various interactions
+      type(container_cache), intent(inout) :: cache_list(:)
       !> Context container for writing to stdout
       type(context_type), intent(inout) :: ctx
-
-      type(container_cache), intent(inout) :: cache_list(:)
-      integer :: prlevel
+      !> Print level
+      integer, intent(in) :: prlevel
+      !> Dictionary for storing results
       type(double_dictionary_type), intent(inout) :: dict
       end subroutine
    end interface
@@ -90,7 +92,9 @@ end function info
 subroutine print_timer(self, prlevel, ctx)
    !> Instance of the interaction container
    class(post_processing_type), intent(in) :: self
+   !> Print level
    integer :: prlevel
+   !> Context container for writing to stdout
    type(context_type) :: ctx
    real(wp) :: ttime
 

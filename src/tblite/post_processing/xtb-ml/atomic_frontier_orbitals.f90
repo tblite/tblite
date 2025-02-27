@@ -16,18 +16,6 @@
 !> @file tblite/post-processing/xtb-ml/atomic_frontier_orbitals.f90
 
 !> compute atomic response function and effective H-L gap
-! nat:  # of atoms
-! nao:  # of AOs/MOs (assuming spherical basis here)
-! focca,b: (fractional) occupation numbers for (alpha, beta) part
-! eps:  orbital energies
-! aoat: ao-to-orbital indexer
-! C: MO coefficient
-! S: overlap matrix
-! response: atomic response (measures level availability on atom)
-! egap: effective atomic H-L gap
-! chempot: efffective Fermi level per atom (as 0.5*(eh+el)
-! ehoaoa,b: highest occ. atomic orbital for (alpha, beta) part
-! eluaoa,b: lowest virt. atomic orbital for (alpha, beta) part
 module tblite_xtbml_atomic_frontier
    use mctc_io_convert, only : autoev
    use tblite_timer, only : timer_type, format_time
@@ -39,60 +27,85 @@ module tblite_xtbml_atomic_frontier
    public :: atomic_frontier_orbitals
 
 contains
-   subroutine atomic_frontier_orbitals(nat, nao, focca, foccb, eps, aoat, C, S, response, egap, &
-      chempot, ehoaoa, eluaoa, ehoaob, eluaob, print, ctx)
-   integer, intent(in)    :: nat, nao, aoat(nao)
-   real(wp), intent(in)    :: focca(nao), foccb(nao), eps(nao)
-   real(wp), intent(in)    :: C(nao, nao), S(nao, nao)
-   type(context_type), intent(inout) :: ctx
-   real(wp), intent(out)  :: ehoaoa(nat), eluaoa(nat), ehoaob(nat), eluaob(nat), egap(nat), response(nat), chempot(nat)
-   integer  :: i, j, k, jj, kk, m
-   real(wp):: po(nat, nao), pv(nat, nao)
-   real(wp) :: occa, occb, tmp, tmp2, ps, virta, virtb, tmp3, weight, osite, vsite
+
+!> compute atomic response function and atomic H-L gap and Fermi level
+subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chempot, ehoao, eluao)
+   !> get atom index of AO orbital
+   integer, intent(in) :: aoat(:)
+   !> occupation numbers
+   real(wp), intent(in) :: focc(:)
+   !> orbital energies
+   real(wp), intent(in) :: eps(:)
+   !> MO coefficients
+   real(wp), intent(in) :: C(:,:)
+   !> overlap matrix
+   real(wp), intent(in) :: S(:,:)
+   !> atomic response
+   real(wp), intent(out) :: response(:)
+   !> effective atomic H-L gap
+   real(wp), intent(out) :: egap(:)
+   !> effective Fermi level per atom
+   real(wp), intent(out) :: chempot(:)
+   !> highest occ. atomic orbital
+   real(wp), intent(out) :: ehoao(:)
+   !> lowest virt. atomic orbital
+   real(wp), intent(out) :: eluao(:)
+   integer :: i, j, k, jj, kk, m
+   real(wp), allocatable :: po(:,:), pv(:,:)
+   real(wp) :: occ, tmp, tmp2, ps, virt, tmp3, weight
+   !occupation cutoff for fractional occupation, below this threshold orbitals are not considered
+   real(wp), parameter :: occ_cutoff = 0.0001_wp
+   ! theshold below which we consider the sum or virtual/ocuupied orbitals as zero
+   real(wp), parameter :: zero_cutoff = 1.0e-12_wp
    real(wp), parameter :: damp = 0.5_wp ! damping in response function (in eV)
-   logical, intent(in) :: print
+   ! value used when either virtual or occupied space is nearly unoccupied
+   real(wp), parameter :: near_infty = 1.0e100_wp
+   integer :: nat, nao
 
-   po = 0.0_wp
-   pv = 0.0_wp
+   nat = size(response)
+   nao = size(focc)
 
-   ! collect the atomic MO populations (alpha)
+   !allocate temp arrays
+   allocate(po(nat, nao), source=0.0_wp)
+   allocate(pv(nat, nao), source=0.0_wp)
+
    ! we collect occ & virt separately (and allow for fractional occupation)
    !$omp parallel do default(private) schedule(runtime) reduction(+:po)&
-   !$omp shared(aoat, nao, s, C, focca) &
-   !$omp private(ps, occa, jj, kk, j, i, k)
+   !$omp shared(aoat, nao, S, C, focc) &
+   !$omp private(ps, occ, jj, kk, j, i, k)
    do i = 1, nao
       ! occ part
-      occa = focca(i)
-      if (occa .gt. 0.0001_wp) then
+      occ = focc(i)
+      if (occ .gt. occ_cutoff) then
          do j = 1, nao
             jj = aoat(j)
             do k = 1, j - 1
                kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*occa
+               ps = s(k, j) * C(j, i) * C(k, i) * occ
                po(kk, i) = po(kk, i) + ps
                po(jj, i) = po(jj, i) + ps
             end do
-            ps = s(j, j)*C(j, i)*C(j, i)*occa
+            ps = s(j, j) * C(j, i) * C(j, i) * occ
             po(jj, i) = po(jj, i) + ps
          end do
       end if
    end do
-   
+
    !$omp parallel do default(private) schedule(runtime) reduction(+:pv)&
-   !$omp shared(aoat, nao, s, C, focca) &
-   !$omp private(ps, jj, kk, virta, j, i, k)
+   !$omp shared(aoat, nao, s, C, focc) &
+   !$omp private(ps, jj, kk, virt, j, i, k)
    do i = 1, nao
-      virta = (1.0_wp - focca(i))
-      if (virta .gt. 0.0001_wp) then
+      virt = (1.0_wp - focc(i))
+      if (virt .gt. occ_cutoff) then
          do j = 1, nao
             jj = aoat(j)
             do k = 1, j - 1
                kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*virta
+               ps = s(k, j) * C(j, i) * C(k, i) * virt
                pv(kk, i) = pv(kk, i) + ps
                pv(jj, i) = pv(jj, i) + ps
             end do
-            ps = s(j, j)*C(j, i)*C(j, i)*virta
+            ps = s(j, j)*C(j, i)*C(j, i)*virt
             pv(jj, i) = pv(jj, i) + ps
          end do
       end if
@@ -108,37 +121,35 @@ contains
    chempot = 0.0_wp
    egap = 0.0_wp
    ! go through occ (including fractionally occupied)
-   !!$omp parallel do default(private) &
-   !!$omp shared( eps,nao,focca,po,pv,response,chempot_tmp,egap_tmp,nat) &
-   !!$omp private(occa,virta,tmp,tmp2,tmp3)&
-   !!$omp private(weight,i,j,m)
+   !$omp parallel do default(private) reduction(+:response,chempot,egap)&
+   !$omp shared(eps, nao, focc, po, pv, nat) &
+   !$omp private(occ, virt, tmp, tmp2, tmp3)&
+   !$omp private(weight, i, j, m)
    do i = 1, nao
-      occa = focca(i)
-      if (occa .gt. 0.0001_wp) then
-         osite = sum(po(:, i))/maxval(po(:, i)) ! not used, but roughly gives the number of centers for the canonical MOs
+      occ = focc(i)
+      if (occ .gt. occ_cutoff) then
          !virt part  (including fractionally occupied)
          do j = 1, nao
-            virta = (1.0_wp - focca(j))
-            if (virta .gt. 0.0001_wp) then
-               vsite = sum(pv(:, j))/maxval(pv(:, j)) ! not used, but roughly gives the number of centers for the canonical MOs
-               tmp = 1.0_wp/((eps(j) - eps(i))**2 + damp**2)
-               tmp2 = 0.5_wp*(eps(j) + eps(i))
-               tmp3 = 1.0_wp/(eps(j) - eps(i) + damp)
+            virt = (1.0_wp - focc(j))
+            if (virt .gt. occ_cutoff) then
+               tmp = 1.0_wp / ((eps(j) - eps(i))**2 + damp**2) !divsion by zero not possible due to damping
+               tmp2 = 0.5_wp * (eps(j) + eps(i))
+               tmp3 = 1.0_wp / (eps(j) - eps(i) + damp) !divsion by zero not possible due to damping
                ! compute atomic response
                do m = 1, nat
-                  weight = po(m, i)*pv(m, j)*tmp
+                  weight = po(m, i) * pv(m, j) * tmp
                   response(m) = response(m) + weight
-                  chempot(m) = chempot(m) + tmp2*weight
-                  egap(m) = egap(m) + weight*tmp3
+                  chempot(m) = chempot(m) + tmp2 * weight
+                  egap(m) = egap(m) + weight * tmp3
                end do ! at
             end if ! if virt
          end do !  virt
       end if ! if occ
    end do ! occ
-   !!$omp end parallel do
+   !$omp end parallel do
 
-   ehoaoa = 0.0_wp
-   eluaoa = 0.0_wp
+   ehoao = 0.0_wp
+   eluao = 0.0_wp
 
    ! now get the atomic frontier orbitals
    tmp = 0.0_wp
@@ -146,181 +157,51 @@ contains
       egap(m) = egap(m)/(response(m))
       egap(m) = 1.0_wp/egap(m) - damp
       chempot(m) = chempot(m)/(response(m))
-      ehoaoa(m) = (chempot(m) - 0.5_wp*egap(m))
-      eluaoa(m) = (chempot(m) + 0.5_wp*egap(m))
+      ehoao(m) = (chempot(m) - 0.5_wp*egap(m))
+      eluao(m) = (chempot(m) + 0.5_wp*egap(m))
 
       ! fix cases for missing HOAO/LUAO
-      if (sum(po(m, :)) .lt. 1.0d-12) then ! there is no occupied orbital for this atom
+      if (sum(po(m, :)) .lt. zero_cutoff) then ! there is no occupied orbital for this atom
          !virt part  (including fractionally occupied)
          egap(m) = 0.0_wp
          chempot(m) = 0.0_wp
          do j = 1, nao
-            virta = (1.0_wp - focca(j))
-            if (virta .gt. 0.0001_wp) then
-               tmp = 1.0_wp/((eps(j))**2 + damp**2)
+            virt = (1.0_wp - focc(j))
+            if (virt .gt. occ_cutoff) then
+               tmp = 1.0_wp / ((eps(j))**2 + damp**2)
                tmp2 = eps(j)
-               tmp3 = 1.0_wp/(eps(j) + 1.0d100 + damp)
+               tmp3 = 1.0_wp / (eps(j) + near_infty + damp)
                ! compute atomic response
-               weight = pv(m, j)*tmp
-               chempot(m) = chempot(m) + tmp2*weight
-               egap(m) = egap(m) + weight*tmp3
+               weight = pv(m, j) * tmp
+               chempot(m) = chempot(m) + tmp2 * weight
+               egap(m) = egap(m) + weight * tmp3
             end if ! if virt
-            egap(m) = 1.0_wp/(egap(m) + 1.0d-12) - damp
-            eluaoa(m) = chempot(m)
-            ehoaoa(m) = chempot(m) - egap(m)
+            egap(m) = 1.0_wp / (egap(m) + zero_cutoff) - damp
+            eluao(m) = chempot(m)
+            ehoao(m) = chempot(m) - egap(m)
          end do !  virt
       end if
-      if (sum(pv(m, :)) .lt. 1.0d-12) then
+      if (sum(pv(m, :)) .lt. zero_cutoff) then
          !occ part  (including fractionally occupied)
          egap(m) = 0.0_wp
          chempot(m) = 0.0_wp
          do j = 1, nao
-            occa = focca(j)
-            if (occa .gt. 0.0001_wp) then
-               tmp = 1.0_wp/((eps(j))**2 + damp**2)
+            occ = focc(j)
+            if (occ .gt. occ_cutoff) then
+               tmp = 1.0_wp / ((eps(j))**2 + damp**2)
                tmp2 = eps(j)
-               tmp3 = 1.0_wp/(1.0d100 - eps(j) + damp)
+               tmp3 = 1.0_wp / (near_infty - eps(j) + damp)
                ! compute atomic response
-               weight = po(m, j)*tmp
-               chempot(m) = chempot(m) + tmp2*weight
-               egap(m) = egap(m) + weight*tmp3
+               weight = po(m, j) * tmp
+               chempot(m) = chempot(m) + tmp2 * weight
+               egap(m) = egap(m) + weight * tmp3
             end if ! if occ
-            egap(m) = 1.0_wp/(egap(m) + 1.0d-12) - damp
-            ehoaoa(m) = chempot(m)
-            eluaoa(m) = chempot(m) + egap(m)
+            egap(m) = 1.0_wp/(egap(m) + zero_cutoff) - damp
+            ehoao(m) = chempot(m)
+            eluao(m) = chempot(m) + egap(m)
          end do !  occ
       end if
    end do
 
-   po = 0.0_wp
-   pv = 0.0_wp
-   
-   !$omp parallel do default(private) schedule(runtime) reduction(+:po)&
-   !$omp shared(aoat, nao, s, C, foccb) &
-   !$omp private(ps, occb, jj, kk, j, i, k)
-   do i = 1, nao
-      ! occ part
-      occb = foccb(i)
-      if (occb .gt. 0.0001_wp) then
-         do j = 1, nao
-            jj = aoat(j)
-            do k = 1, j - 1
-               kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*occb
-               po(kk, i) = po(kk, i) + ps
-               po(jj, i) = po(jj, i) + ps
-            end do
-            ps = s(j, j)*C(j, i)*C(j, i)*occb
-            po(jj, i) = po(jj, i) + ps
-         end do
-      end if
-   end do
-   
-   !$omp parallel do default(private) schedule(runtime) reduction(+:pv)&
-   !$omp shared(aoat, nao, s, C, foccb) &
-   !$omp private(ps, jj, kk, virtb, j, i, k)
-   do i = 1, nao
-      virtb = (1.0_wp - foccb(i))
-      if (virtb .gt. 0.0001_wp) then
-         do j = 1, nao
-            jj = aoat(j)
-            do k = 1, j - 1
-               kk = aoat(k)
-               ps = s(k, j)*C(j, i)*C(k, i)*virtb
-               pv(kk, i) = pv(kk, i) + ps
-               pv(jj, i) = pv(jj, i) + ps
-            end do
-            ps = s(j, j)*C(j, i)*C(j, i)*virtb
-            pv(jj, i) = pv(jj, i) + ps
-         end do
-      end if
-   end do
-
-   response = 0.0_wp
-   chempot = 0.0_wp
-   egap = 0.0_wp
-   !!$omp parallel do default(private) &
-   !!$omp shared( eps,nao,foccb,po,pv) &
-   !!$omp private(occb,virtb,tmp,tmp2,tmp3,weight,response,chempot_tmp,egap_tmp)
-   ! go through occ (including fractionally occupied)
-   do i = 1, nao
-      occb = foccb(i)
-      if (occb .gt. 0.0001_wp) then
-         osite = sum(po(:, i))/maxval(po(:, i)) ! not used, but roughly gives the number of centers for the canonical MOs
-         !virt part  (including fractionally occupied)
-         do j = 1, nao
-            virtb = (1.0_wp - foccb(j))
-            if (virtb .gt. 0.0001_wp) then
-               vsite = sum(pv(:, j))/maxval(pv(:, j)) ! not used, but roughly gives the number of centers for the canonical MOs
-               tmp = 1.0_wp/((eps(j) - eps(i))**2 + damp**2)
-               tmp2 = 0.5_wp*(eps(j) + eps(i))
-               tmp3 = 1.0_wp/(eps(j) - eps(i) + damp)
-               ! compute atomic response
-               do m = 1, nat
-                  weight = po(m, i)*pv(m, j)*tmp
-                  response(m) = response(m) + weight
-                  chempot(m) = chempot(m) + tmp2*weight
-                  egap(m) = egap(m) + weight*tmp3
-               end do ! at
-            end if ! if virt
-         end do !  virt
-      end if ! if occ
-   end do ! occ
-   !!$omp end parallel do
-   ehoaob = 0.0_wp
-   eluaob = 0.0_wp
-
-   ! now get the atomic frontier orbitals
-   tmp = 0.0_wp
-   do m = 1, nat
-      egap(m) = egap(m)/response(m)
-      egap(m) = 1.0_wp/egap(m) - damp
-      chempot(m) = chempot(m)/response(m)
-      ehoaob(m) = (chempot(m) - 0.5_wp*egap(m))
-      eluaob(m) = (chempot(m) + 0.5_wp*egap(m))
-
-      ! fix cases for missing HOAO/LUAO
-      if (sum(po(m, :)) .lt. 1.0d-12) then ! there is no occupied orbital for this atom
-         !virt part  (including fractionally occupied)
-         egap(m) = 0.0_wp
-         chempot(m) = 0.0_wp
-         do j = 1, nao
-            virtb = (1.0_wp - foccb(j))
-            if (virtb .gt. 0.0001_wp) then
-               tmp = 1.0_wp/((eps(j))**2 + damp**2)
-               tmp2 = eps(j)
-               tmp3 = 1.0_wp/(eps(j) + 1.0d100 + damp)
-               ! compute atomic response
-               weight = pv(m, j)*tmp
-               chempot(m) = chempot(m) + tmp2*weight
-               egap(m) = egap(m) + weight*tmp3
-            end if ! if virt
-            egap(m) = 1.0_wp/(egap(m) + 1.0d-12) - damp
-            eluaob(m) = chempot(m)
-            ehoaob(m) = chempot(m) - egap(m)
-         end do !  virt
-      end if
-      if (sum(pv(m, :)) .lt. 1.0d-12) then
-         !occ part  (including fractionally occupied)
-         egap(m) = 0.0_wp
-         chempot(m) = 0.0_wp
-         do j = 1, nao
-            occb = foccb(j)
-            if (occb .gt. 0.0001_wp) then
-               tmp = 1.0_wp/((eps(j))**2 + damp**2)
-               tmp2 = eps(j)
-               tmp3 = 1.0_wp/(1.0d100 - eps(j) + damp)
-               ! compute atomic response
-               weight = po(m, j)*tmp
-               chempot(m) = chempot(m) + tmp2*weight
-               egap(m) = egap(m) + weight*tmp3
-            end if ! if occ
-            egap(m) = 1.0_wp/(egap(m) + 1.0d-12) - damp
-            ehoaob(m) = chempot(m)
-            eluaob(m) = chempot(m) + egap(m)
-         end do !  occ
-      end if
-   end do
-
-   end subroutine atomic_frontier_orbitals
+end subroutine atomic_frontier_orbitals
 end module

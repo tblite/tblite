@@ -188,7 +188,7 @@ test(
 )
 
 test(
-  'xtbml-xyz-cli-arg', 
+  'xtbml-xyz-cli-toml', 
   tblite_exe, 
   should_fail:false, 
   args: [

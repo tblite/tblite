@@ -49,6 +49,7 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-energy-sum-up-gfn1", test_energy_sum_up_gfn1),& 
       new_unittest("xtbml-rot", test_rotation_co2),&
       new_unittest("xtbml-translation", test_translation_co2),&
+      new_unittest("xtbml-orbital-energy", test_orbital_energy_ref),&
       new_unittest("xtbml-param-load", test_xtbml_param_load),&
       new_unittest("xtbml-param-dump", test_xtbml_param_dump),&
       new_unittest("xtbml-param-bad-inp", test_xtbml_param_bad_inp),&
@@ -639,7 +640,7 @@ subroutine test_translation_co2(error)
  
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
-   real(wp) :: rot_matrix(3,3),xyz_rot(3,nat),energy, xyz_trans(3,nat)
+   real(wp) :: energy, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
  
@@ -681,6 +682,66 @@ subroutine test_translation_co2(error)
  
 end subroutine
 
+subroutine test_orbital_energy_ref(error)
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(post_processing_list), allocatable :: pproc
+   type(xtbml_features_record), allocatable :: xtbml_param
+   type(post_processing_param_list), allocatable :: pparam
+   class(serde_record), allocatable :: tmp_record
+   type(double_dictionary_type) :: dict_ref
+   !> Error handling
+   integer,parameter :: nat = 3
+   type(error_type), allocatable, intent(out) :: error
+   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+      &0.0000,0.00000,-1.0000000,&
+      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+   
+   integer, parameter :: num(nat) = (/8,8,6/)
+   type(results_type) :: res, res_
+   real(wp) :: energy
+   real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
+   integer :: i
+   integer :: io
+
+   open(newunit=io, status="scratch")
+   write(io, '(a)') &
+         "response = [ 0.0062028389576145, 0.0062028389576144, 0.0063838431541046 ]", &
+         "gap = [ 15.3845686374721939, 15.3845686374722046, 18.9729226332611205 ]", &
+         "chem_pot = [ -7.9908971673281757, -7.9908971673281775, -9.2638252661395164 ]", &
+         "HOAO_a = [ -15.6831814860642726, -15.6831814860642798, -18.7502865827700731 ]", &
+         "LUAO_a = [ -0.2986128485920787, -0.2986128485920716, 0.2226360504910403 ]", &
+         "HOAO_b = [ -15.6831814860642726, -15.6831814860642798, -18.7502865827700766 ]", &
+         "LUAO_b = [ -0.2986128485920787, -0.2986128485920752, 0.2226360504910438 ]",&
+         "delta_gap = [ 17.1166010883161341, 17.1166010883161377, 16.5806877968880713 ]", &
+         "delta_chem_pot = [ -8.6053161397371660, -8.6053161397371660, -8.4152069453862683 ]", &
+         "delta_HOAO = [ -17.1636166838952349, -17.1636166838952349, -16.7055508438303022 ]", &
+         "delta_LUAO = [ -0.0470155955790990, -0.0470155955790972, -0.1248630469422327 ]", &
+      ""
+   rewind io
+   call dict_ref%load(io, error)
+   close(io)
+
+   call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
+   call new_gfn2_calculator(calc,mol, error)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   allocate(pproc)
+   allocate(xtbml_param)
+   allocate(pparam)
+   xtbml_param%xtbml_orbital_energy = .true.
+   xtbml_param%xtbml_convolution = .true.
+   call move_alloc(xtbml_param, tmp_record)
+   call pparam%push(tmp_record)
+   call add_post_processing(pproc, pparam)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
+   
+   if (.not.(compare_dict(res%dict, dict_ref, thr2))) then
+      call test_failed(error, "Comparing the orbital energy values with a reference failed")
+   end if
+end subroutine
+
 function compare_dict(lhs, rhs, thr_) result(equal)
    type(double_dictionary_type), intent(in) :: lhs, rhs
    real(kind=wp), intent(in) :: thr_
@@ -692,9 +753,12 @@ function compare_dict(lhs, rhs, thr_) result(equal)
    real(wp), allocatable :: array1_(:)
    real(wp), allocatable :: array2_(:, :)
    real(wp), allocatable :: array3_(:, :, :)
+   character(len=:), allocatable :: label
    equal = .false.
    i = lhs%get_n_entries()
    if (i /= rhs%get_n_entries()) then
+      write(*,*) "Not the same number of entries"
+      write(*,*) "Expected: ", i, " Got: ", rhs%get_n_entries()
       return
    end if
 
@@ -705,7 +769,10 @@ function compare_dict(lhs, rhs, thr_) result(equal)
          call rhs%get_entry(i, array1_)
          if (allocated(array1_)) then
             
-            if (any(array1-array1_  > thr_)) then
+            if (any(abs(array1-array1_)  > thr_)) then
+               call lhs%get_label(i, label)
+               write(*,*) "Entry ", label, " is diverging"
+               write(*,*) array1
                return
             end if
             continue
@@ -718,7 +785,11 @@ function compare_dict(lhs, rhs, thr_) result(equal)
       if (allocated(array2)) then
          call rhs%get_entry(i, array2_)
          if (allocated(array2_)) then
-            if (any(array2-array2_  > thr_)) return
+            if (any(abs(array2-array2_)  > thr_)) then 
+               call lhs%get_label(i, label)
+               write(*,*) "Entry ", label, " is diverging"
+               return
+            endif
             continue
          else 
             return
@@ -729,7 +800,11 @@ function compare_dict(lhs, rhs, thr_) result(equal)
       if (allocated(array3)) then
          call rhs%get_entry(i, array3_)
          if (allocated(array3_)) then
-            if (any(array3-array3_  > thr_)) return
+            if (any(abs(array3-array3_)  > thr_)) then
+               call lhs%get_label(i, label)
+               write(*,*) "Entry ", label, " is diverging"
+               return
+            endif
             continue
          else 
             return
@@ -1199,7 +1274,6 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
 end subroutine
  
 pure elemental integer function lin(i1,i2)
-   !$acc routine seq
    integer,intent(in) :: i1,i2
    integer :: idum1,idum2
    idum1=max(i1,i2)
