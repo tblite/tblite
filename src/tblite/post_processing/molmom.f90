@@ -79,7 +79,6 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    integer, intent(in) :: prlevel
    !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
-   integer :: prlevel
    real(wp) :: dipm(3), qp(6)
 
    call timer%push("total")

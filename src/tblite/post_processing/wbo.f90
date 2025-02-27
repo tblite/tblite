@@ -72,7 +72,7 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(double_dictionary_type), intent(inout) :: dict
    real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
    real(kind=wp), allocatable :: focc_(:, :)
-   integer :: prlevel, nspin, i, j
+   integer :: nspin, i, j
    real(kind=wp) :: nel_
    real(wp), allocatable :: pmat(:, :, :)
 
