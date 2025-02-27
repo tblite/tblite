@@ -72,7 +72,7 @@ end subroutine collect_xtbml
     type(results_type) :: res
     class(serde_record), allocatable :: tmp_record
     real(wp), allocatable :: mulliken_shell(:)
-    real(wp) :: energy
+    real(wp) :: energy = 0.0_wp
     real(wp), parameter :: xyz(3, 2) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
        &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
     integer, parameter :: num(2) = (/1,1/)
@@ -195,7 +195,7 @@ subroutine test_dipm_shell_co2(error)
    type(post_processing_param_list), allocatable :: pparam
    class(serde_record), allocatable :: tmp_record
    integer, parameter :: nat=3
-   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
+   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy  = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
    real(wp), allocatable :: partial(:), delta_partial(:)
@@ -287,7 +287,7 @@ subroutine test_qp_shell_benz(error)
    type(post_processing_param_list), allocatable :: pparam
    class(serde_record), allocatable :: tmp_record 
    integer, parameter :: nat=12
-   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
+   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
    real(wp), allocatable :: partial(:), delta_partial(:)
@@ -416,7 +416,7 @@ subroutine test_qp_shell_benz(error)
 
    if (norm2(mol_qm-delta_mol_qm)  > thr2) then
       call test_failed(error, "Molecular quadrupole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_dipm_delta-mol_dipm)
+      print'(3es21.14)', norm2(mol_qm-delta_mol_qm)
    end if
 end subroutine test_qp_shell_benz
  
@@ -640,7 +640,7 @@ subroutine test_translation_co2(error)
  
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
-   real(wp) :: energy, xyz_trans(3,nat)
+   real(wp) :: energy = 0.0_wp, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
  
@@ -701,7 +701,7 @@ subroutine test_orbital_energy_ref(error)
    
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
-   real(wp) :: energy
+   real(wp) :: energy = 0.0_wp
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
    integer :: io
@@ -1026,7 +1026,7 @@ subroutine test_energy_sum_up_gfn2(error)
    class(serde_record), allocatable :: tmp_record 
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
-   real(wp) :: energy, sum_energy
+   real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
    integer :: i,j
    character(len=:), allocatable :: label1
  
@@ -1101,7 +1101,7 @@ subroutine test_energy_sum_up_gfn1(error)
    class(serde_record), allocatable :: tmp_record 
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
-   real(wp) :: energy, sum_energy
+   real(wp) :: energy = 1.0_wp, sum_energy = 0.0_wp
    integer :: i,j
  
    real(wp), parameter :: xyz(3, nat) = reshape((/&
@@ -1171,7 +1171,7 @@ subroutine test_orbital_energy_hp(error)
    type(results_type) :: res
    class(serde_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
-   real(wp) :: energy
+   real(wp) :: energy = 0.0_wp
    real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
    integer, parameter :: num(1) = (/1/)
 
@@ -1209,7 +1209,7 @@ subroutine test_orbital_energy_he(error)
    type(results_type) :: res
    class(serde_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
-   real(wp) :: energy
+   real(wp) :: energy = 0.0_wp
    real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
    integer, parameter :: num(1) = (/2/)
 
@@ -1227,13 +1227,14 @@ subroutine test_orbital_energy_he(error)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("LUAO_a", mulliken_shell)
-   if (sum(mulliken_shell) < 10.0e10) then
+   if (sum(mulliken_shell) < 10.0e10_wp) then
       call test_failed(error, "LUAO is occupied")
       print'(3es21.14)', mulliken_shell
    end if
 
 end subroutine test_orbital_energy_he
- 
+
+!this function is copied from the xtb codebase
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    integer :: n,i,l,k,j
    real(wp) :: xyz(3,n),dipm(3,n), qp(6,n),q(n)
@@ -1272,7 +1273,8 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    enddo
    mol_qm = tma+tmb+tmc
 end subroutine
- 
+
+!> this function returns the linear index of a matrix element
 pure elemental integer function lin(i1,i2)
    integer,intent(in) :: i1,i2
    integer :: idum1,idum2

@@ -60,6 +60,7 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    real(wp), parameter :: damp = 0.5_wp ! damping in response function (in eV)
    ! value used when either virtual or occupied space is nearly unoccupied
    real(wp), parameter :: near_infty = 1.0e100_wp
+   real(wp), parameter :: epsilon = 1.0e-14_wp
    integer :: nat, nao
 
    nat = size(response)
@@ -154,9 +155,9 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    ! now get the atomic frontier orbitals
    tmp = 0.0_wp
    do m = 1, nat
-      egap(m) = egap(m)/(response(m))
-      egap(m) = 1.0_wp/egap(m) - damp
-      chempot(m) = chempot(m)/(response(m))
+      egap(m) = egap(m)/(response(m)+epsilon)
+      egap(m) = 1.0_wp / (egap(m)+epsilon) - damp
+      chempot(m) = chempot(m)/(response(m)+epsilon)
       ehoao(m) = (chempot(m) - 0.5_wp*egap(m))
       eluao(m) = (chempot(m) + 0.5_wp*egap(m))
 
