@@ -236,7 +236,7 @@ contains
    end function ncore
 end subroutine mol_set_nuclear_charge
 
-!> seperate a vector of properties for all shells into sperate arrays for each shell type
+!> separate a vector of properties for all shells into separate arrays for each shell type
 subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh)
    !> array containing the shell properties
    real(wp), intent(in) :: shell_prop(:)
@@ -273,7 +273,7 @@ subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh)
    end do
 end subroutine
 
-!> seperate a vector of properties for all shells into sperate arrays for each shell type, for tensorial properties
+!> separate a vector of properties for all shells into separate arrays for each shell type, for tensorial properties
 subroutine resolve_xyz_shell(mult_xyz, array, at2nsh)
    !> array containing the tensorial shell properties
    real(wp), intent(in) :: mult_xyz(:, :)
@@ -525,7 +525,7 @@ subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
 
 end subroutine
 
-!> Copmute the extended atomic partial charges
+!> Compute the extended atomic partial charges
 subroutine get_delta_partial_charge(atom_partial, xyz, conv, delta_partial)
    !> Convolution container
    type(xtbml_convolution_type), intent(in) :: conv
@@ -555,7 +555,7 @@ subroutine get_delta_partial_charge(atom_partial, xyz, conv, delta_partial)
 
 end subroutine
 
-!summing up the mulliken charges to get atomic charges
+!> summing up the mulliken charges to get atomic charges
 subroutine sum_up_mulliken(ash, mull_shell, mull_at)
    !> shell to atom mapping
    integer, intent(in) :: ash(:)
