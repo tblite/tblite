@@ -1189,7 +1189,7 @@ subroutine test_orbital_energy_hp(error)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("HOAO_a", mulliken_shell)
-   if (sum(mulliken_shell) > -10.0e10) then
+   if (sum(mulliken_shell) > -10.0e10_wp) then
       call test_failed(error, "HOAO is occupied")
       print'(3es21.14)', mulliken_shell
    end if
