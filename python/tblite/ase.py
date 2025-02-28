@@ -14,24 +14,24 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """
-The Python API of *tblite* natively support integration with the atomic simulation environment (`ASE`_).
+The Python API of *tblite* natively support integration with the atomic 
+simulation environment (`ASE`_).
 By constructing a calculator most functionality of ASE is readily available.
-For details on building the Python API checkout the :ref:`installation guide <python-build>`.
+For details on building the Python API checkout the
+:ref:`installation guide <python-build>`.
 
 .. _ase: https://wiki.fysik.dtu.dk/ase/
 """
 
 try:
     import ase
-except ModuleNotFoundError:
-    raise ModuleNotFoundError("This submodule requires ASE installed")
-
+    import ase.calculators.calculator
+    from ase.atoms import Atoms
+    from ase.units import Bohr, Hartree, kB
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError("This submodule requires ASE installed") from e
 
 from typing import List, Optional
-
-import ase.calculators.calculator
-from ase.atoms import Atoms
-from ase.units import Bohr, Hartree, kB
 
 from .interface import Calculator
 
@@ -69,8 +69,10 @@ class TBLite(ase.calculators.calculator.Calculator):
     Example
     -------
 
-    An ASE calculator can be constructed by using the *TBLite* class provided by the *tblite.ase* module.
-    For example to perform a single point calculation for a CO\ :sub:`2` crystal use
+    An ASE calculator can be constructed by using the *TBLite* class provided
+    by the *tblite.ase* module.
+    For example to perform a single point calculation for a CO\ :sub:`2`
+    crystal use
 
     >>> from tblite.ase import TBLite
     >>> from ase.atoms import Atoms
@@ -138,7 +140,9 @@ class TBLite(ase.calculators.calculator.Calculator):
         Construct the TBLite base calculator object.
         """
 
-        ase.calculators.calculator.Calculator.__init__(self, atoms=atoms, **kwargs)
+        ase.calculators.calculator.Calculator.__init__(
+            self, atoms=atoms, **kwargs
+        )
 
     def set(self, **kwargs) -> dict:
         """
@@ -159,7 +163,9 @@ class TBLite(ase.calculators.calculator.Calculator):
         -156.9675057724589
         """
 
-        changed_parameters = ase.calculators.calculator.Calculator.set(self, **kwargs)
+        changed_parameters = ase.calculators.calculator.Calculator.set(
+            self, **kwargs
+        )
 
         # Always reset the calculation if parameters change
         if changed_parameters:
@@ -181,14 +187,17 @@ class TBLite(ase.calculators.calculator.Calculator):
 
             if "electronic_temperature" in changed_parameters:
                 self._xtb.set(
-                    "temperature", self.parameters.electronic_temperature * kB / Hartree
+                    "temperature",
+                    self.parameters.electronic_temperature * kB / Hartree,
                 )
 
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
             if "initial_guess" in changed_parameters:
-                self._xtb.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
+                self._xtb.set(
+                    "guess", {"sad": 0, "eeq": 1}[self.parameters.guess]
+                )
 
             if "mixer_damping" in changed_parameters:
                 self._xtb.set("mixer-damping", self.parameters.mixer_damping)
@@ -270,7 +279,8 @@ class TBLite(ase.calculators.calculator.Calculator):
             )
             calc.set("accuracy", self.parameters.accuracy)
             calc.set(
-                "temperature", self.parameters.electronic_temperature * kB / Hartree
+                "temperature",
+                self.parameters.electronic_temperature * kB / Hartree,
             )
             calc.set("max-iter", self.parameters.max_iterations)
             calc.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
@@ -278,7 +288,8 @@ class TBLite(ase.calculators.calculator.Calculator):
             calc.set("verbosity", self.parameters.verbosity)
             if self.parameters.electric_field is not None:
                 calc.add(
-                    "electric-field", self.parameters.electric_field * Bohr / Hartree
+                    "electric-field",
+                    self.parameters.electric_field * Bohr / Hartree,
                 )
             if self.parameters.spin_polarization is not None:
                 calc.add("spin-polarization", self.parameters.spin_polarization)
@@ -291,7 +302,7 @@ class TBLite(ase.calculators.calculator.Calculator):
     def calculate(
         self,
         atoms: Optional[Atoms] = None,
-        properties: List[str] = None,
+        properties: Optional[List[str]] = None,
         system_changes: List[str] = ase.calculators.calculator.all_changes,
     ) -> None:
         """
@@ -343,5 +354,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         self.results["dipole"] = self._res.get("dipole") * Bohr
         # stress tensor is only returned for periodic systems
         if self.atoms.pbc.any():
-            _stress = self._res.get("virial") * Hartree / self.atoms.get_volume()
+            _stress = (
+                self._res.get("virial") * Hartree / self.atoms.get_volume()
+            )
             self.results["stress"] = _stress.flat[[0, 4, 8, 5, 2, 1]]
