@@ -25,7 +25,7 @@ from typing import Any, List, Optional, Union
 import numpy as np
 
 from . import library
-from .exceptions import TBLiteValueError, TBLiteRuntimeError
+from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
 
 class Structure:
@@ -81,12 +81,14 @@ class Structure:
         """
         if isinstance(numbers, list):
             numbers = np.asarray(numbers)
-            
+
         if positions.size % 3 != 0:
             raise TBLiteValueError("Expected tripels of cartesian coordinates")
 
         if 3 * numbers.size != positions.size:
-            raise TBLiteValueError("Dimension missmatch between numbers and positions")
+            raise TBLiteValueError(
+                "Dimension missmatch between numbers and positions"
+            )
 
         self._natoms = len(numbers)
         _numbers = np.ascontiguousarray(numbers, dtype="i4")
@@ -471,8 +473,8 @@ class Calculator(Structure):
         "gb-solvation": library.new_gb_solvation,
     }
     _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
+        "bond-orders": "bond-orders",
+        "molecular-multipoles": "molmom",
     }
 
     def __init__(
@@ -494,7 +496,9 @@ class Calculator(Structure):
         TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
-        Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
+        Structure.__init__(
+            self, numbers, positions, charge, uhf, lattice, periodic
+        )
 
         self._ctx = library.new_context(**context_kwargs)
         if method not in self._loader:
@@ -553,7 +557,7 @@ class Calculator(Structure):
          gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
          gb-solvation        GB implicit solvation       Epsilon, Born kernel
         =================== =========================== =========================================
-        
+
         .. note::
 
             For GSBA and ALPB:
@@ -565,19 +569,27 @@ class Calculator(Structure):
         if interaction in self._interaction:
             kwargs = {}
             if interaction in ("alpb-solvation", "gbsa-solvation"):
-                kwargs["version"] = {"GFN2-xTB": 2, "IPEA1-xTB": 1, "GFN1-xTB": 1}[self._method]
-            cont = self._interaction[interaction](self._ctx, self._mol, self._calc, *args, **kwargs)
+                kwargs["version"] = {
+                    "GFN2-xTB": 2,
+                    "IPEA1-xTB": 1,
+                    "GFN1-xTB": 1,
+                }[self._method]
+            cont = self._interaction[interaction](
+                self._ctx, self._mol, self._calc, *args, **kwargs
+            )
             library.calculator_push_back(self._ctx, self._calc, cont)
         elif interaction in self._post_processing:
-            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+            library.post_processing_push_back(
+                self._ctx, self._calc, self._post_processing[interaction]
+            )
         elif ".toml" in interaction:
-            library.post_processing_push_back(self._ctx, self._calc, self._post_processing[interaction])
+            library.post_processing_push_back(
+                self._ctx, self._calc, self._post_processing[interaction]
+            )
         else:
             raise TBLiteValueError(
                 f"Interaction or post processing '{interaction}' is not supported in this calculator"
             )
-
-
 
     def get(self, attribute: str) -> Any:
         """
@@ -603,7 +615,9 @@ class Calculator(Structure):
             )
         return self._getter[attribute](self._ctx, self._calc)
 
-    def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
+    def singlepoint(
+        self, res: Optional[Result] = None, copy: bool = False
+    ) -> Result:
         """
         Perform actual single point calculation in the library backend.
         The output of the library will be forwarded to the standard output.
@@ -642,6 +656,7 @@ def _ref(ctype, value):
     return ref
 
 
+# fmt: off
 ELEMENT_SYMBOLS = [
     *["H", "He"],
     *["Li", "Be", "B", "C", "N", "O", "F", "Ne"],
@@ -661,12 +676,13 @@ ELEMENT_SYMBOLS = [
     *["Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn"],
     *["Nh", "Fl", "Mc", "Lv", "Ts", "Og"],
 ]
+# fmt: on
 
 SYMBOL_TO_NUMBER = {
-    symbol: number + 1
-    for number, symbol in enumerate(ELEMENT_SYMBOLS)
+    symbol: number + 1 for number, symbol in enumerate(ELEMENT_SYMBOLS)
 }
 
 
 def symbols_to_numbers(symbols: List[str]) -> List[int]:
+    """Convert a list of atomic symbols to atomic numbers."""
     return [SYMBOL_TO_NUMBER[symbol] for symbol in symbols]

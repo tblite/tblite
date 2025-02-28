@@ -18,16 +18,10 @@
 class TBLiteRuntimeError(RuntimeError):
     """Raised when an error occurs during TBLite runtime."""
 
-    pass
-
 
 class TBLiteTypeError(TypeError):
     """Raised when an error occurs during TBLite input processing."""
 
-    pass
-
 
 class TBLiteValueError(ValueError):
     """Raised when an error occurs during TBLite input processing."""
-
-    pass

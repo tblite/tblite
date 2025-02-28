@@ -1,3 +1,19 @@
+# This file is part of tblite.
+# SPDX-Identifier: LGPL-3.0-or-later
+#
+# tblite is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# tblite is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+"""Tests for the qcelemental interface."""
 from typing import Any
 
 import numpy as np
@@ -6,6 +22,7 @@ import pytest
 try:
     import qcelemental as qcel
     from qcelemental.models import AtomicInput, Molecule
+
     from tblite.qcschema import run_schema
 except ModuleNotFoundError:
     qcel = None
@@ -15,6 +32,7 @@ except ModuleNotFoundError:
 
 @pytest.fixture(params=["ala-xab"])
 def molecule(request) -> Molecule:
+    """Get a molecule for testing."""
     if request.param == "ala-xab":
         return Molecule(
             symbols=list("NHCHCCHHHOCCHHHONHCHHH"),
@@ -51,16 +69,19 @@ def molecule(request) -> Molecule:
 
 @pytest.fixture(params=["energy", "gradient"])
 def driver(request) -> str:
+    """Driver fixture."""
     return request.param
 
 
 @pytest.fixture(params=["GFN1-xTB", "GFN2-xTB"])
 def method(request) -> str:
+    """Method fixture."""
     return request.param
 
 
 @pytest.fixture()
 def atomic_input(molecule: Molecule, driver: str, method: str) -> AtomicInput:
+    """AtomicInput fixture."""
     return AtomicInput(
         molecule=molecule,
         driver=driver,
@@ -70,8 +91,11 @@ def atomic_input(molecule: Molecule, driver: str, method: str) -> AtomicInput:
 
 @pytest.fixture()
 def return_result(molecule: Molecule, driver: str, method: str) -> Any:
+    """Return result fixture."""
     if qcel is None:
         return None
+
+    # fmt: off
     return {
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
@@ -144,10 +168,12 @@ def return_result(molecule: Molecule, driver: str, method: str) -> Any:
             ],
         ),
     }[(molecule.get_hash(), driver, method)]
+    # fmt: on
 
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
+    """Test qcschema interface."""
     atomic_result = run_schema(atomic_input)
 
     assert atomic_result.success
@@ -157,59 +183,72 @@ def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_driver(molecule: Molecule):
-    atomic_input = AtomicInput(
+    """Test unsupported driver name."""
+    atomic_inp = AtomicInput(
         molecule=molecule,
         driver="hessian",
         model={"method": "GFN1-xTB"},
     )
 
-    atomic_result = run_schema(atomic_input)
+    atomic_result = run_schema(atomic_inp)
 
     assert not atomic_result.success
     assert atomic_result.error.error_type == "input_error"
-    assert "Driver 'hessian' is not supported by tblite." in atomic_result.error.error_message
+    assert (
+        "Driver 'hessian' is not supported by tblite."
+        in atomic_result.error.error_message
+    )
 
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_method(molecule: Molecule):
-    atomic_input = AtomicInput(
+    """Test unsupported method name."""
+    atomic_inp = AtomicInput(
         molecule=molecule,
         driver="energy",
         model={"method": "GFN-xTB"},
     )
 
-    atomic_result = run_schema(atomic_input)
+    atomic_result = run_schema(atomic_inp)
 
     assert not atomic_result.success
     assert atomic_result.error.error_type == "input_error"
-    assert "Model 'GFN-xTB' is not supported by tblite." in atomic_result.error.error_message
+    assert (
+        "Model 'GFN-xTB' is not supported by tblite."
+        in atomic_result.error.error_message
+    )
 
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_basis(molecule: Molecule):
-    atomic_input = AtomicInput(
+    """Test unsupported basis set."""
+    atomic_inp = AtomicInput(
         molecule=molecule,
         driver="energy",
         model={"method": "GFN1-xTB", "basis": "def2-SVP"},
     )
 
-    atomic_result = run_schema(atomic_input)
+    atomic_result = run_schema(atomic_inp)
 
     assert not atomic_result.success
     assert atomic_result.error.error_type == "input_error"
-    assert "Basis sets are not supported by tblite." in atomic_result.error.error_message
+    assert (
+        "Basis sets are not supported by tblite."
+        in atomic_result.error.error_message
+    )
 
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_unsupported_keywords(molecule: Molecule):
-    atomic_input = AtomicInput(
+    """Test unsupported keywords."""
+    atomic_inp = AtomicInput(
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
         keywords={"unsupported": True},
     )
 
-    atomic_result = run_schema(atomic_input)
+    atomic_result = run_schema(atomic_inp)
 
     assert not atomic_result.success
     assert atomic_result.error.error_type == "input_error"
@@ -218,14 +257,15 @@ def test_unsupported_keywords(molecule: Molecule):
 
 @pytest.mark.skipif(qcel is None, reason="requires qcelemental")
 def test_scf_not_converged(molecule: Molecule):
-    atomic_input = AtomicInput(
+    """Test unconverged SCF."""
+    atomic_inp = AtomicInput(
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
         keywords={"max-iter": 3},
     )
 
-    atomic_result = run_schema(atomic_input)
+    atomic_result = run_schema(atomic_inp)
 
     assert not atomic_result.success
     assert atomic_result.error.error_type == "execution_error"
