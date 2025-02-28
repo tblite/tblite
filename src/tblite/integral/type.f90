@@ -51,11 +51,11 @@ subroutine new_integral(self, nao)
    !> Dimension of the integrals
    integer, intent(in) :: nao
 
-   allocate(self%hamiltonian(nao, nao))
-   allocate(self%overlap(nao, nao))
-   allocate(self%dipole(3, nao, nao))
-   allocate(self%quadrupole(6, nao, nao))
-   allocate(self%overlap_diat(nao, nao))
+   allocate(self%hamiltonian(nao, nao), source = 0.0_wp)
+   allocate(self%overlap(nao, nao), source = 0.0_wp)
+   allocate(self%dipole(3, nao, nao), source = 0.0_wp)
+   allocate(self%quadrupole(6, nao, nao), source = 0.0_wp)
+   allocate(self%overlap_diat(nao, nao), source = 0.0_wp)
 end subroutine new_integral
 
 end module tblite_integral_type
