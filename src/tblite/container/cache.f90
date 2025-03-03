@@ -43,7 +43,7 @@ contains
 
 
 !> Reallocate list of containers
-pure subroutine resize_cache(list, n)
+subroutine resize_cache(list, n)
    !> Instance of the array to be resized
    type(container_cache), allocatable, intent(inout) :: list(:)
    !> Dimension of the final array size

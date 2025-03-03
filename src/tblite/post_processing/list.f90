@@ -244,7 +244,7 @@ function is_duplicate(self, record) result(duplicate)
    end do
 end function
 
-pure subroutine resize(list, n)
+subroutine resize(list, n)
    !> Instance of the array to be resized
    type(post_processing_record), allocatable, intent(inout) :: list(:)
    !> Dimension of the final array size

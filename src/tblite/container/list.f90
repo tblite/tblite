@@ -348,7 +348,7 @@ end subroutine pop
 
 
 !> Reallocate list of containers
-pure subroutine resize_node(list, n)
+subroutine resize_node(list, n)
    !> Instance of the array to be resized
    type(container_node), allocatable, intent(inout) :: list(:)
    !> Dimension of the final array size

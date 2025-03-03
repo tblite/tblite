@@ -216,7 +216,7 @@ end subroutine get
 
 
 !> Reallocate list of tagged entries
-pure subroutine resize(var, n)
+subroutine resize(var, n)
    !> Instance of the array to be resized
    type(tagged_entry), allocatable, intent(inout) :: var(:)
    !> Dimension of the final array size
