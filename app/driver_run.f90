@@ -198,14 +198,6 @@ subroutine run_main(config, error)
    end select
    if (allocated(error)) return
 
-   if (allocated(config%efield)) then
-      block
-         class(container_type), allocatable :: cont
-         cont = electric_field(config%efield*vatoau)
-         call calc%push_back(cont)
-      end block
-   end if
-
    if (config%spin_polarized) then
       block
          class(container_type), allocatable :: cont
