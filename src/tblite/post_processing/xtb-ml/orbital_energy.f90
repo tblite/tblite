@@ -35,16 +35,14 @@ module tblite_xtbml_orbital_energy
    type, public, extends(xtbml_feature_type) :: xtbml_orbital_features_type
 
       real(wp),allocatable ::  response(:)
-      real(wp),allocatable ::  egap(:)
-      real(wp),allocatable ::  chempot(:)
-      real(wp),allocatable ::  ehoao_a(:)
-      real(wp),allocatable ::  eluao_a(:)
-      real(wp),allocatable ::  ehoao_b(:)
-      real(wp),allocatable ::  eluao_b(:)
-      real(wp),allocatable ::  delta_chempot(:,:)
-      real(wp),allocatable ::  delta_egap(:,:)
-      real(wp),allocatable ::  delta_eluao(:,:)
-      real(wp),allocatable ::  delta_ehoao(:,:)
+      real(wp),allocatable ::  egap(:, :)
+      real(wp),allocatable ::  chempot(:, :)
+      real(wp),allocatable ::  ehoao(:)
+      real(wp),allocatable ::  eluao(:)
+      real(wp),allocatable ::  ext_chempot(:,:)
+      real(wp),allocatable ::  ext_egap(:,:)
+      real(wp),allocatable ::  ext_eluao(:,:)
+      real(wp),allocatable ::  ext_ehoao(:,:)
    contains
       procedure :: compute_features
       procedure :: compute_extended
@@ -66,19 +64,19 @@ subroutine setup(self)
 end subroutine
 
 !> Allocate memory for the features
-subroutine allocate(self, nat)
+subroutine allocate(self, nat, nspin)
    !> Instance of feature container
    class(xtbml_orbital_features_type), intent(inout) :: self
    !> Number of atoms
    integer, intent(in) :: nat
+   !> Number of spins
+   integer, intent(in) :: nspin
 
    allocate(self%response(nat), source=0.0_wp)
-   allocate(self%egap(nat), source=0.0_wp)
-   allocate(self%chempot(nat), source=0.0_wp)
-   allocate(self%ehoao_a(nat), source=0.0_wp)
-   allocate(self%eluao_a(nat), source=0.0_wp)
-   allocate(self%ehoao_b(nat), source=0.0_wp)
-   allocate(self%eluao_b(nat), source=0.0_wp)
+   allocate(self%egap(nat, nspin), source=0.0_wp)
+   allocate(self%chempot(nat, nspin), source=0.0_wp)
+   allocate(self%ehoao(nat), source=0.0_wp)
+   allocate(self%eluao(nat), source=0.0_wp)
 
 end subroutine
 
@@ -91,10 +89,10 @@ subroutine allocate_extended(self, nat, n_a)
    !> Number of convolution kernels
    integer, intent(in) :: n_a
 
-   allocate(self%delta_chempot(nat, n_a), source=0.0_wp)
-   allocate(self%delta_egap(nat, n_a), source=0.0_wp)
-   allocate(self%delta_eluao(nat, n_a), source=0.0_wp)
-   allocate(self%delta_ehoao(nat, n_a), source=0.0_wp)
+   allocate(self%ext_chempot(nat, n_a), source=0.0_wp)
+   allocate(self%ext_egap(nat, n_a), source=0.0_wp)
+   allocate(self%ext_eluao(nat, n_a), source=0.0_wp)
+   allocate(self%ext_ehoao(nat, n_a), source=0.0_wp)
 
 end subroutine
 
@@ -112,16 +110,27 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    !> Cache list for storing caches of various interactions
    type(container_cache), intent(inout) :: cache_list(:)
 
-   real(wp) :: focc_(2,size(wfn%focc, dim=1))
-   integer :: i, j
+   real(wp) :: focc_(2, size(wfn%focc, dim=1))
+   integer :: i, j, nspin, spin
    real(wp) :: nel_
+   character(len=6), allocatable :: spin_label(:)
 
-   call self%allocate(mol%nat)
+   if (wfn%nuhf > 0 .or. wfn%nspin > 1) then
+      nspin = 2
+   else
+      nspin = 1
+   end if
+
+   if (nspin > 1) then
+      spin_label = ["_alpha", "_beta"]
+   else
+      spin_label = [""]
+   end if
+   call self%allocate(mol%nat, nspin)
    self%label = label
 
    focc_ = 0.0_wp
-
-   if (size(wfn%nel(:)) > 1) then
+   if (wfn%nuhf > 0) then
       do j = 1,2
          nel_ = wfn%nel(j)
          do i = 1, size(wfn%focc)
@@ -138,24 +147,26 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
       focc_(1, :) = wfn%focc(:, 1) / 2.0_wp
       focc_(2, :) = wfn%focc(:, 1) / 2.0_wp
    end if
-
-   call atomic_frontier_orbitals(focc_(1, :), wfn%emo(:, 1)*autoev, &
-      calc%bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
-      self%response, self%egap, self%chempot, self%ehoao_a, &
-      self%eluao_a)
-   call atomic_frontier_orbitals(focc_(2, :), wfn%emo(:, 1)*autoev, &
-      calc%bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
-      self%response, self%egap, self%chempot, self%ehoao_b, &
-      self%eluao_b)
-   associate(dict => self%dict)
-      call dict%add_entry("response", self%response)
-      call dict%add_entry("gap", self%egap)
-      call dict%add_entry("chem_pot", self%chempot)
-      call dict%add_entry("HOAO_a", self%ehoao_a)
-      call dict%add_entry("LUAO_a", self%eluao_a)
-      call dict%add_entry("HOAO_b", self%ehoao_b)
-      call dict%add_entry("LUAO_b", self%eluao_b)
-   end associate
+   do spin = 1, nspin
+      if (wfn%nspin > 1) then
+         call atomic_frontier_orbitals(wfn%focc(:, spin), wfn%emo(:, spin)*autoev, &
+            calc%bas%ao2at, wfn%coeff(:, :, spin), integrals%overlap(:, :), &
+            self%response, self%egap(:, spin), self%chempot(:, spin), self%ehoao, &
+            self%eluao)
+      else
+         call atomic_frontier_orbitals(focc_(spin, :), wfn%emo(:, 1)*autoev, &
+            calc%bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
+            self%response, self%egap(:, spin), self%chempot(:, spin), self%ehoao, &
+            self%eluao)
+      endif
+      associate(dict => self%dict)
+         call dict%add_entry(trim("response"//spin_label(spin)), self%response)
+         call dict%add_entry(trim("gap"//spin_label(spin)), self%egap(:, spin))
+         call dict%add_entry(trim("chem_pot"//spin_label(spin)), self%chempot(:, spin))
+         call dict%add_entry(trim("HOAO"//spin_label(spin)), self%ehoao)
+         call dict%add_entry(trim("LUAO"//spin_label(spin)), self%eluao)
+      end associate
+   end do
 end subroutine
 
 subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
@@ -174,44 +185,53 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
    !> Convolution container
    type(xtbml_convolution_type), intent(in) :: convolution
 
-   integer :: n, i
+   integer :: n, i, nspin, spin
    character(len=:), allocatable :: a_label
    real(wp), allocatable :: beta(:, :, :)
-
+   character(len=6), allocatable :: spin_label(:)
+   nspin = size(self%chempot, 2)
    call self%allocate_extended(mol%nat, convolution%n_a)
-
+   if (nspin > 1) then
+      spin_label = ["_alpha", "_beta"]
+   else
+      spin_label = [""]
+   end if
 
    n=convolution%n_a
    allocate(beta(mol%nat, mol%nat, n))
-   call get_beta(convolution%kernel, beta)
+   call get_beta(convolution%kernel, convolution%cn, beta)
 
-   call get_chem_pot_ext(beta, self%chempot, self%delta_chempot)
+   do spin = 1, nspin
+      call get_chem_pot_ext(beta, self%chempot(:, spin), self%ext_chempot)
 
-   call get_e_gap_ext(beta, self%egap, self%delta_egap)
+      call get_e_gap_ext(beta, self%egap(:, spin), self%ext_egap)
 
-   call get_ehoao_ext(self%delta_chempot, self%delta_egap, self%delta_ehoao)
+      call get_ehoao_ext(self%ext_chempot, self%ext_egap, self%ext_ehoao)
 
-   call get_eluao_ext(self%delta_chempot, self%delta_egap, self%delta_eluao)
+      call get_eluao_ext(self%ext_chempot, self%ext_egap, self%ext_eluao)
 
-   associate( dict => self%dict_ext)
-      do i = 1, n
-         a_label = "_"//trim(adjustl(format_string(convolution%a(i), '(f12.2)')) )
-         if (a_label .eq. "_1.00") a_label = ""
-         call dict%add_entry("delta_gap"//a_label, self%delta_egap(:, i))
-         call dict%add_entry("delta_chem_pot"//a_label, self%delta_chempot(:, i))
-         call dict%add_entry("delta_HOAO"//a_label, self%delta_ehoao(:, i))
-         call dict%add_entry("delta_LUAO"//a_label, self%delta_eluao(:, i))
-      end do
-   end associate
+      associate( dict => self%dict_ext)
+         do i = 1, n
+            a_label = "_"//trim(adjustl(format_string(convolution%a(i), '(f12.2)')) )
+            if (a_label .eq. "_1.00") a_label = ""
+            call dict%add_entry(trim("ext_gap"//spin_label(spin))//a_label, self%ext_egap(:, i))
+            call dict%add_entry(trim("ext_chem_pot"//spin_label(spin))//a_label, self%ext_chempot(:, i))
+            call dict%add_entry(trim("ext_HOAO"//spin_label(spin))//a_label, self%ext_ehoao(:, i))
+            call dict%add_entry(trim("ext_LUAO"//spin_label(spin))//a_label, self%ext_eluao(:, i))
+         end do
+      end associate
+   end do
 end subroutine
 
-subroutine get_beta(kernel, beta)
+subroutine get_beta(kernel, cn, beta)
    intrinsic :: sum
-   !> Concolution kernel
+   !> Convolution kernel
    real(wp), intent(in) :: kernel(:, :, :)
+   !> Coordination number
+   real(wp), intent(in) :: cn(:, :)
+   !> Convolution coefficients
    real(wp), intent(out) :: beta(:, :, :)
    real(wp) :: sigma_tot
-   real(wp), allocatable :: sigma(:, :, :)
    real(wp) :: damp_func
    integer :: nat, n_a
    integer :: a, b, k
@@ -219,24 +239,16 @@ subroutine get_beta(kernel, beta)
 
    nat = size(kernel, 1)
    n_a = size(kernel, 3)
-   allocate(sigma(nat, nat, n_a), source=0.0_wp)
+   !$omp parallel do default(none) schedule(runtime) &
+   !$omp shared(kernel, cn, beta, n_a, nat) private(a, b, k)
+   do k = 1, n_a
+      do a = 1, nat
+         do b = 1, nat
+            beta(a, b, k) = 1.0_wp/(kernel(a, b, k) *(cn(a, k) +1.0_wp)) 
+         end do
+      end do
+   end do
    
-   do k = 1, n_a
-      do a = 1, nat
-         do b = 1, nat
-            damp_func = kernel(a, b, k)
-            sigma(a, b, k) = 1.0_wp / (damp_func + eps)
-         end do
-      end do
-   end do
-
-   do k = 1, n_a
-      do a = 1, nat
-         do b = 1, nat
-            beta(a, b, k) = sigma(a, b, k)/sum(sigma(a, :, k))
-         end do
-      end do
-   end do
 end subroutine
 
 !> Get the extended chemical potential
@@ -248,6 +260,8 @@ subroutine get_chem_pot_ext(beta, chempot, chempot_ext)
    !> Extended chemical potential
    real(wp), intent(out) :: chempot_ext(:, :)
    integer :: a, b, k
+   !$omp parallel do default(none) schedule(runtime) reduction(+:chempot_ext) &
+   !$omp shared(beta, chempot) private(a, b, k)
    do k = 1, size(beta, 3)
       do a = 1, size(chempot, 1)
          do b = 1, size(chempot, 1)
@@ -266,7 +280,8 @@ subroutine get_e_gap_ext(beta, e_gap, e_gap_ext)
    !> Extended energy gap
    real(wp), intent(out) :: e_gap_ext(:, :)
    integer :: a, b, k
-
+   !$omp parallel do default(none) schedule(runtime) reduction(+:e_gap_ext) &
+   !$omp shared(beta, e_gap) private(a, b, k)
    do k = 1, size(beta, 3)
       do a = 1, size(e_gap)
          do b = 1, size(e_gap)

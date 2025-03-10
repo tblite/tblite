@@ -38,7 +38,7 @@ module tblite_xtbml_geometry_based
    type, public, extends(xtbml_feature_type) :: xtbml_geometry_features_type
 
       real(wp), allocatable ::  cn_atom(:)
-      real(wp), allocatable ::  delta_cn(:, :)
+      real(wp), allocatable ::  ext_cn(:, :)
 
    contains
       procedure :: compute_features
@@ -57,7 +57,7 @@ subroutine setup(self)
    if (allocated(self%dict_ext)) deallocate(self%dict_ext)
    allocate(self%dict_ext)
    if (allocated(self%cn_atom)) deallocate(self%cn_atom)
-   if (allocated(self%delta_cn)) deallocate(self%delta_cn)
+   if (allocated(self%ext_cn)) deallocate(self%ext_cn)
 end subroutine
 
 !> Compute geometry-based features
@@ -83,7 +83,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    call new_exp_ncoord(ncoord_exp, mol)
    call ncoord_exp%get_cn(mol, self%cn_atom)
 
-   call self%dict%add_entry("CN", self%cn_atom)
+   call self%dict%add_entry("CN_A", self%cn_atom)
 
 end subroutine
 
@@ -105,33 +105,33 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
    character(len=:), allocatable :: tmp_label
    integer :: j
 
-   allocate(self%delta_cn(mol%nat, convolution%n_a))
-   call get_delta_cn(self%cn_atom, mol%xyz, self%delta_cn, convolution)
+   allocate(self%ext_cn(mol%nat, convolution%n_a))
+   call get_ext_cn(self%cn_atom, mol%xyz, self%ext_cn, convolution)
    self%n_features = self%n_features + ext_features
 
    do j = 1, convolution%n_a
-      tmp_label = trim("delta_CN"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')))
-      if (tmp_label .eq. "delta_CN_1.00") tmp_label = "delta_CN"
-      call self%dict_ext%add_entry(tmp_label, self%delta_cn(:, j))
+      tmp_label = trim("ext_CN_A"//'_'//adjustl(format_string(convolution%a(j), '(f12.2)')))
+      if (tmp_label .eq. "ext_CN_A_1.00") tmp_label = "ext_CN"
+      call self%dict_ext%add_entry(tmp_label, self%ext_cn(:, j))
    end do
 end subroutine
 
-subroutine get_delta_cn(cn, xyz, delta_cn, conv)
+subroutine get_ext_cn(cn, xyz, ext_cn, conv)
    !> Coordinated number
    real(wp), intent(in) :: cn(:)
    !> Cartesian coordinates
    real(wp), intent(in) :: xyz(:, :)
    !> Delta CN
-   real(wp), intent(out) :: delta_cn(:, :)
+   real(wp), intent(out) :: ext_cn(:, :)
    !> Convolution container
    type(xtbml_convolution_type) :: conv
    integer :: i, j, k, nat
    real(wp) :: result
    nat = size(cn)
 
-   delta_cn = 0.0_wp
+   ext_cn = 0.0_wp
    !$omp parallel do default(none) collapse(2)&
-   !$omp shared(nat, conv, cn, delta_cn)&
+   !$omp shared(nat, conv, cn, ext_cn)&
    !$omp private(i, j , k, result)
    do k = 1, conv%n_a
       do i = 1, nat
@@ -139,7 +139,7 @@ subroutine get_delta_cn(cn, xyz, delta_cn, conv)
             if (i == j) cycle
             result = cn(j)/conv%kernel(i, j, k)
             !$omp atomic
-            delta_cn(i, k) = delta_cn(i, k) + result
+            ext_cn(i, k) = ext_cn(i, k) + result
          end do
       end do
    end do

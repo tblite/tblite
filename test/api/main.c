@@ -2952,12 +2952,12 @@ int test_xtbml_api()
 
     int n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 40, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 38, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
 
     double CN_array[21];
-    tblite_get_array_entry_label(error, dict, "CN", CN_array);
+    tblite_get_array_entry_label(error, dict, "CN_A", CN_array);
     if (tblite_check(error))
         goto err;
 
@@ -3012,7 +3012,7 @@ int test_xtbml_api()
 
     n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 103, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 101, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
     

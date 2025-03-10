@@ -66,6 +66,12 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    nat = size(response)
    nao = size(focc)
 
+   response = 0.0_wp
+   egap = 0.0_wp
+   chempot = 0.0_wp
+   ehoao = 0.0_wp
+   eluao = 0.0_wp
+
    !allocate temp arrays
    allocate(po(nat, nao), source=0.0_wp)
    allocate(pv(nat, nao), source=0.0_wp)

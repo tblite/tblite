@@ -97,7 +97,6 @@ subroutine get_mulliken_shell_multipoles(bas, mpmat, pmat, mpat)
 
    integer :: iao, jao, spin
    real(wp) :: pao(size(mpmat, 1))
-
    mpat(:, :, :) = 0.0_wp
    !$omp parallel do default(none) schedule(runtime) reduction(+:mpat) &
    !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao)

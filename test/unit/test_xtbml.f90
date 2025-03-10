@@ -1,44 +1,47 @@
 module tblite_test_xtbml
-    use mctc_env, only : wp
-    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
-       & test_failed
-    use mctc_env_error, only : fatal_error
-    use mctc_io_structure, only : new
-    use mctc_io, only : structure_type
-    use mstore, only : get_structure
-    use tblite_context_type, only : context_type
-    use tblite_basis_type
-    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
-    use tblite_integral_type, only : integral_type, new_integral
-    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
-       & get_hamiltonian_gradient
-    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
-    use tblite_xtb_calculator, only : xtb_calculator
-    use tblite_xtb_gfn2, only : new_gfn2_calculator
-    use tblite_xtb_gfn1, only : new_gfn1_calculator
-    use tblite_xtb_singlepoint, only : xtb_singlepoint
-    use mctc_io_convert, only : aatoau
-    use tblite_post_processing_list, only : add_post_processing, post_processing_list
-    use tblite_param_post_processing, only : post_processing_param_list
-    use tblite_param_xtbml_features, only : xtbml_features_record
-    use tblite_results, only : results_type
-    use tblite_param_serde, only : serde_record
-    use tblite_blas, only : gemm
-    use tblite_double_dictionary, only : double_dictionary_type
-    use tblite_toml, only : toml_table, add_table, toml_value, set_value, toml_key, get_value, toml_array,add_array
-    implicit none
-    private
-    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
-    real(wp), parameter :: acc = 0.001_wp
-    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
-    real(wp), parameter :: thr2 = 10e-4
-    public :: collect_xtbml
- contains
- 
+   use mctc_env, only : wp
+   use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
+   & test_failed
+   use mctc_env_error, only : fatal_error
+   use mctc_io_structure, only : new
+   use mctc_io, only : structure_type
+   use mstore, only : get_structure
+   use tblite_context_type, only : context_type
+   use tblite_basis_type
+   use tblite_wavefunction , only : wavefunction_type, new_wavefunction
+   use tblite_integral_type, only : integral_type, new_integral
+   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
+   & get_hamiltonian_gradient
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
+   use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use mctc_io_convert, only : aatoau
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
+   use tblite_param_post_processing, only : post_processing_param_list
+   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_results, only : results_type
+   use tblite_param_serde, only : serde_record
+   use tblite_blas, only : gemm
+   use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_container, only : container_type
+   use tblite_spin, only : spin_polarization, new_spin_polarization
+   use tblite_data_spin, only : get_spin_constant
+   use tblite_toml, only : toml_table, add_table, toml_value, set_value, toml_key, get_value, toml_array,add_array
+   implicit none
+   private
+   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: acc = 0.001_wp
+   real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
+   real(wp), parameter :: thr2 = 10e-4
+   public :: collect_xtbml
+contains
+
 subroutine collect_xtbml(testsuite)
    !> Collection of tests
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
- 
+
    testsuite = [ &
       new_unittest("xtbml-mulliken-charges", test_mulliken_charges_shell_h2p),&
       new_unittest("xtbml-dipm-mol-sum-up-h2+", test_dipm_shell_h2p),&
@@ -46,7 +49,7 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-qp-sum-up-benzene", test_qp_shell_benz),&
       new_unittest("xtbml-qp-dipm-benzene-high-a", test_qp_shell_benz_high_a),&
       new_unittest("xtbml-energy-sum-up-gfn2", test_energy_sum_up_gfn2),&
-      new_unittest("xtbml-energy-sum-up-gfn1", test_energy_sum_up_gfn1),& 
+      new_unittest("xtbml-energy-sum-up-gfn1", test_energy_sum_up_gfn1),&
       new_unittest("xtbml-rot", test_rotation_co2),&
       new_unittest("xtbml-translation", test_translation_co2),&
       new_unittest("xtbml-orbital-energy", test_orbital_energy_ref),&
@@ -54,51 +57,52 @@ subroutine collect_xtbml(testsuite)
       new_unittest("xtbml-param-dump", test_xtbml_param_dump),&
       new_unittest("xtbml-param-bad-inp", test_xtbml_param_bad_inp),&
       new_unittest("xtbml-h+-orbital-energies", test_orbital_energy_hp),&
-      new_unittest("xtbml-he-orbital-energies", test_orbital_energy_he)&
+      new_unittest("xtbml-he-orbital-energies", test_orbital_energy_he),&
+      new_unittest("xtbml-co2-high-spin", test_high_spin)&
       ]
- 
+
 end subroutine collect_xtbml
- 
- subroutine test_mulliken_charges_shell_h2p(error)
-    !> Error handling
-    type(error_type), allocatable, intent(out) :: error
-    type(context_type) :: ctx
-    type(structure_type) :: mol
-    type(xtb_calculator) :: calc
-    type(wavefunction_type) :: wfn
-    type(post_processing_list), allocatable :: pproc
-    type(xtbml_features_record), allocatable :: xtbml_param
-    type(post_processing_param_list), allocatable :: pparam
-    type(results_type) :: res
-    class(serde_record), allocatable :: tmp_record
-    real(wp), allocatable :: mulliken_shell(:)
-    real(wp) :: energy = 0.0_wp
-    real(wp), parameter :: xyz(3, 2) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
-       &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
-    integer, parameter :: num(2) = (/1,1/)
- 
-    call new(mol, num, xyz*aatoau, uhf=1, charge=1.0_wp)
-    call new_gfn2_calculator(calc, mol, error)
-    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-    calc%save_integrals = .true.
-    allocate(pproc)
-    allocate(xtbml_param)
-    allocate(pparam)
-    xtbml_param%xtbml_density = .true.
-    call move_alloc(xtbml_param, tmp_record)
-    call pparam%push(tmp_record)
-    call add_post_processing(pproc, pparam)
-    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
- 
-    call res%dict%get_entry("q_A", mulliken_shell)
-    if (sum(mulliken_shell) - 1.0_wp > thr) then
-       call test_failed(error, "Charge is not summing up to 1 electron for H2+")
-       print'(3es21.14)', mulliken_shell
-    end if
- 
- end subroutine test_mulliken_charges_shell_h2p
- 
- 
+
+subroutine test_mulliken_charges_shell_h2p(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(post_processing_list), allocatable :: pproc
+   type(xtbml_features_record), allocatable :: xtbml_param
+   type(post_processing_param_list), allocatable :: pparam
+   type(results_type) :: res
+   class(serde_record), allocatable :: tmp_record
+   real(wp), allocatable :: mulliken_shell(:)
+   real(wp) :: energy = 0.0_wp
+   real(wp), parameter :: xyz(3, 2) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
+   &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
+   integer, parameter :: num(2) = (/1,1/)
+
+   call new(mol, num, xyz*aatoau, uhf=1, charge=1.0_wp)
+   call new_gfn2_calculator(calc, mol, error)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   calc%save_integrals = .true.
+   allocate(pproc)
+   allocate(xtbml_param)
+   allocate(pparam)
+   xtbml_param%xtbml_density = .true.
+   call move_alloc(xtbml_param, tmp_record)
+   call pparam%push(tmp_record)
+   call add_post_processing(pproc, pparam)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
+   call res%dict%get_entry("q_A", mulliken_shell)
+   if (sum(mulliken_shell) - 1.0_wp > thr) then
+      call test_failed(error, "Charge is not summing up to 1 electron for H2+")
+      print'(3es21.14)', mulliken_shell
+   end if
+
+end subroutine test_mulliken_charges_shell_h2p
+
+
 subroutine test_dipm_shell_h2p(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -115,15 +119,15 @@ subroutine test_dipm_shell_h2p(error)
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
-   real(wp), allocatable :: partial(:), delta_partial(:)
-   real(wp) :: delta_dipm_xyz(3,nat),delta_qm_xyz(6,nat)
- 
+   real(wp), allocatable :: partial(:), ext_partial(:)
+   real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat)
+
    real(wp), parameter :: xyz(3, nat) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
-      &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
+   &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
    integer, parameter :: num(nat) = (/1,1/)
    integer :: i
- 
- 
+
+
    call new(mol,num,xyz*aatoau,uhf=1,charge=1.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -137,8 +141,8 @@ subroutine test_dipm_shell_h2p(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)   
- 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
    call res%dict%get_entry("dipm_A_x", tmp_array)
    dipm_xyz(1, :) = tmp_array
    call res%dict%get_entry("dipm_A_y", tmp_array)
@@ -147,40 +151,40 @@ subroutine test_dipm_shell_h2p(error)
    dipm_xyz(3, :) = tmp_array
    call res%dict%get_entry("q_A", partial)
    mol_dipm = 0.0_wp
-   
-   call res%dict%get_entry("delta_dipm_A_x", tmp_array)
-   delta_dipm_xyz(1, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_y", tmp_array)
-   delta_dipm_xyz(2, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_z", tmp_array)
-   delta_dipm_xyz(3, :) = tmp_array
-   call res%dict%get_entry("delta_q_A", delta_partial)
-   
+
+   call res%dict%get_entry("ext_dipm_A_x", tmp_array)
+   ext_dipm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_y", tmp_array)
+   ext_dipm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_z", tmp_array)
+   ext_dipm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_q_A", ext_partial)
+
    do i= 1,2
       mol_dipm = mol_dipm+ dipm_xyz(:,i)+xyz(:,i)*partial(i)
    enddo
- 
+
    if (sum(mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm")
       print'(3es21.14)', mol_dipm
    end if
    mol_dipm_delta = 0.0_wp
    do i= 1,2
-      mol_dipm_delta = mol_dipm_delta + delta_dipm_xyz(:,i)+xyz(:,i)*delta_partial(i)
+      mol_dipm_delta = mol_dipm_delta + ext_dipm_xyz(:,i)+xyz(:,i)*ext_partial(i)
    enddo
- 
+
    if (sum(mol_dipm_delta)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm_delta")
       print'(3es21.14)', mol_dipm_delta
    end if
- 
+
    if (sum(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
       print'(3es21.14)', mol_dipm_delta-mol_dipm
    end if
- 
+
 end subroutine test_dipm_shell_h2p
- 
+
 subroutine test_dipm_shell_co2(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -198,22 +202,22 @@ subroutine test_dipm_shell_co2(error)
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy  = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
-   real(wp), allocatable :: partial(:), delta_partial(:)
-   real(wp) :: delta_dipm_xyz(3,nat),delta_qm_xyz(6,nat)
+   real(wp), allocatable :: partial(:), ext_partial(:)
+   real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat)
    integer :: i,j
- 
+
    real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+   &0.0000,0.00000,-1.0000000,&
+   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/8,8,6/)
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
- 
+
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    calc%save_integrals = .true.
-   
+
    allocate(pproc)
    allocate(xtbml_param)
    allocate(pparam)
@@ -224,8 +228,8 @@ subroutine test_dipm_shell_co2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
-   
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
    call res%dict%get_entry("dipm_A_x", tmp_array)
    dipm_xyz(1, :) = tmp_array
    call res%dict%get_entry("dipm_A_y", tmp_array)
@@ -234,46 +238,46 @@ subroutine test_dipm_shell_co2(error)
    dipm_xyz(3, :) = tmp_array
    call res%dict%get_entry("q_A", partial)
    mol_dipm = 0.0_wp
-   
-   call res%dict%get_entry("delta_dipm_A_x", tmp_array)
-   delta_dipm_xyz(1, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_y", tmp_array)
-   delta_dipm_xyz(2, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_z", tmp_array)
-   delta_dipm_xyz(3, :) = tmp_array
-   call res%dict%get_entry("delta_q_A", delta_partial)
+
+   call res%dict%get_entry("ext_dipm_A_x", tmp_array)
+   ext_dipm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_y", tmp_array)
+   ext_dipm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_z", tmp_array)
+   ext_dipm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_q_A", ext_partial)
 
    do i= 1,nat
       do j = 1,3
          mol_dipm(j) = mol_dipm(j)+ dipm_xyz(j,i)+mol%xyz(j,i)*partial(i)
       enddo
    enddo
- 
+
    if (norm2(mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm")
       print'(3es21.14)', mol_dipm
    end if
- 
+
    do i= 1,nat
       do j = 1, 3
-         mol_dipm_delta(j) = mol_dipm_delta(j) + delta_dipm_xyz(j,i)+mol%xyz(j,i)*delta_partial(i)
+         mol_dipm_delta(j) = mol_dipm_delta(j) + ext_dipm_xyz(j,i)+mol%xyz(j,i)*ext_partial(i)
       enddo
    enddo
- 
+
    if (norm2(mol_dipm_delta)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm_delta")
       print'(3es21.14)', mol_dipm_delta
    end if
- 
+
    if (norm2(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
       print'(3es21.14)', mol_dipm_delta-mol_dipm
    end if
- 
+
 end subroutine test_dipm_shell_co2
- 
+
 subroutine test_qp_shell_benz(error)
- 
+
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
    type(context_type) :: ctx
@@ -285,37 +289,37 @@ subroutine test_qp_shell_benz(error)
    type(post_processing_list), allocatable :: pproc
    type(xtbml_features_record), allocatable :: xtbml_param
    type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record 
+   class(serde_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
-   real(wp), allocatable :: partial(:), delta_partial(:)
-   real(wp) :: delta_dipm_xyz(3,nat),delta_qm_xyz(6,nat),mol_qm(6),delta_mol_qm(6)
+   real(wp), allocatable :: partial(:), ext_partial(:)
+   real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat),mol_qm(6),ext_mol_qm(6)
    integer :: i,j
- 
+
    real(wp), parameter :: xyz(3, nat) = reshape((/&
-      &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
-      &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
-      &3.14559996373466,        0.73409173401801,        0.00008724271521,&
-      &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
-      &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
-      &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
-      &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
-      &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
-      &4.22591259698321,        0.73408789322206,        0.00025398801936,&
-      &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
-      &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
-      &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-      &/),shape=(/3,nat/))
+   &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
+   &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
+   &3.14559996373466,        0.73409173401801,        0.00008724271521,&
+   &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
+   &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
+   &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
+   &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
+   &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
+   &4.22591259698321,        0.73408789322206,        0.00025398801936,&
+   &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
+   &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
+   &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
+   &/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
- 
+
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
    mol_qm = 0.0_wp
-   delta_mol_qm = 0.0_wp
-   delta_qm_xyz = 0.0_wp
-   delta_dipm_xyz = 0.0_wp
+   ext_mol_qm = 0.0_wp
+   ext_qm_xyz = 0.0_wp
+   ext_dipm_xyz = 0.0_wp
 
    dipm_xyz = 0.0_wp
    qm_xyz = 0.0_wp
@@ -334,7 +338,7 @@ subroutine test_qp_shell_benz(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("dipm_A_x", tmp_array)
    dipm_xyz(1, :) = tmp_array
@@ -344,19 +348,19 @@ subroutine test_qp_shell_benz(error)
    dipm_xyz(3, :) = tmp_array
    call res%dict%get_entry("q_A", partial)
 
-   
-   call res%dict%get_entry("delta_dipm_A_x", tmp_array)
-   delta_dipm_xyz(1, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_y", tmp_array)
-   delta_dipm_xyz(2, :) = tmp_array
-   call res%dict%get_entry("delta_dipm_A_z", tmp_array)
-   delta_dipm_xyz(3, :) = tmp_array
-   call res%dict%get_entry("delta_q_A", delta_partial)
-   
+
+   call res%dict%get_entry("ext_dipm_A_x", tmp_array)
+   ext_dipm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_y", tmp_array)
+   ext_dipm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_z", tmp_array)
+   ext_dipm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_q_A", ext_partial)
+
    deallocate(tmp_array)
    call res%dict%get_entry("qm_A_xx", tmp_array)
    qm_xyz(1, :) = tmp_array
-   deallocate(tmp_array) 
+   deallocate(tmp_array)
    call res%dict%get_entry("qm_A_xy", tmp_array)
    qm_xyz(2, :) = tmp_array
    deallocate(tmp_array)
@@ -373,23 +377,23 @@ subroutine test_qp_shell_benz(error)
    qm_xyz(6, :) = tmp_array
 
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xx", tmp_array)
-   delta_qm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xx", tmp_array)
+   ext_qm_xyz(1, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xy", tmp_array)
-   delta_qm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xy", tmp_array)
+   ext_qm_xyz(2, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_yy", tmp_array)
-   delta_qm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_yy", tmp_array)
+   ext_qm_xyz(3, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xz", tmp_array)
-   delta_qm_xyz(4, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xz", tmp_array)
+   ext_qm_xyz(4, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_yz", tmp_array)
-   delta_qm_xyz(5, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_yz", tmp_array)
+   ext_qm_xyz(5, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_zz", tmp_array)
-   delta_qm_xyz(6, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_zz", tmp_array)
+   ext_qm_xyz(6, :) = tmp_array
 
    do i= 1,nat
       do j = 1,3
@@ -399,27 +403,27 @@ subroutine test_qp_shell_benz(error)
    mol_dipm_delta = 0.0_wp
    do i= 1,nat
       do j =1,3
-         mol_dipm_delta(j) = mol_dipm_delta(j) + delta_dipm_xyz(j,i)+mol%xyz(j,i)*delta_partial(i)
+         mol_dipm_delta(j) = mol_dipm_delta(j) + ext_dipm_xyz(j,i)+mol%xyz(j,i)*ext_partial(i)
       enddo
    enddo
- 
+
    if (norm2(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
       print'(3es21.14)', norm2(mol_dipm_delta-mol_dipm)
    end if
- 
- 
-   call compute_traceless_mol_qm(mol%nat,mol%xyz,partial,dipm_xyz,qm_xyz,mol_qm)
- 
- 
-   call compute_traceless_mol_qm(mol%nat,mol%xyz,delta_partial,delta_dipm_xyz,delta_qm_xyz,delta_mol_qm)
 
-   if (norm2(mol_qm-delta_mol_qm)  > thr2) then
+
+   call compute_traceless_mol_qm(mol%nat,mol%xyz,partial,dipm_xyz,qm_xyz,mol_qm)
+
+
+   call compute_traceless_mol_qm(mol%nat,mol%xyz,ext_partial,ext_dipm_xyz,ext_qm_xyz,ext_mol_qm)
+
+   if (norm2(mol_qm-ext_mol_qm)  > thr2) then
       call test_failed(error, "Molecular quadrupole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_qm-delta_mol_qm)
+      print'(3es21.14)', norm2(mol_qm-ext_mol_qm)
    end if
 end subroutine test_qp_shell_benz
- 
+
 subroutine test_qp_shell_benz_high_a(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -437,36 +441,36 @@ subroutine test_qp_shell_benz_high_a(error)
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
-   real(wp), allocatable :: partial(:), delta_partial(:)
-   real(wp) :: delta_dipm_xyz(3,nat),delta_qm_xyz(6,nat),mol_qm(6),delta_mol_qm(6)
+   real(wp), allocatable :: partial(:), ext_partial(:)
+   real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat),mol_qm(6),ext_mol_qm(6)
    integer :: i,j
- 
+
    real(wp), parameter :: xyz(3, nat) = reshape((/&
-      &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
-      &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
-      &3.14559996373466,        0.73409173401801,        0.00008724271521,&
-      &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
-      &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
-      &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
-      &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
-      &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
-      &4.22591259698321,        0.73408789322206,        0.00025398801936,&
-      &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
-      &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
-      &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-      &/),shape=(/3,nat/))
+   &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
+   &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
+   &3.14559996373466,        0.73409173401801,        0.00008724271521,&
+   &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
+   &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
+   &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
+   &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
+   &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
+   &4.22591259698321,        0.73408789322206,        0.00025398801936,&
+   &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
+   &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
+   &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
+   &/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
- 
+
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
    mol_qm = 0.0_wp
-   delta_mol_qm = 0.0_wp
-   delta_qm_xyz = 0.0_wp
-   delta_dipm_xyz = 0.0_wp
+   ext_mol_qm = 0.0_wp
+   ext_qm_xyz = 0.0_wp
+   ext_dipm_xyz = 0.0_wp
 
    dipm_xyz = 0.0_wp
    qm_xyz = 0.0_wp
-   
+
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -480,8 +484,8 @@ subroutine test_qp_shell_benz_high_a(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
-   
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
    call res%dict%get_entry("dipm_A_x", tmp_array)
    dipm_xyz(1, :) = tmp_array
    call res%dict%get_entry("dipm_A_y", tmp_array)
@@ -489,22 +493,22 @@ subroutine test_qp_shell_benz_high_a(error)
    call res%dict%get_entry("dipm_A_z", tmp_array)
    dipm_xyz(3, :) = tmp_array
    call res%dict%get_entry("q_A", partial)
-   
+
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_dipm_A_x_1000.00", tmp_array)
-   delta_dipm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_x_1000.00", tmp_array)
+   ext_dipm_xyz(1, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_dipm_A_y_1000.00", tmp_array)
-   delta_dipm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_dipm_A_y_1000.00", tmp_array)
+   ext_dipm_xyz(2, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_dipm_A_z_1000.00", tmp_array)
-   delta_dipm_xyz(3, :) = tmp_array
-   call res%dict%get_entry("delta_q_A_1000.00", delta_partial)
+   call res%dict%get_entry("ext_dipm_A_z_1000.00", tmp_array)
+   ext_dipm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_q_A_1000.00", ext_partial)
 
    deallocate(tmp_array)
    call res%dict%get_entry("qm_A_xx", tmp_array)
    qm_xyz(1, :) = tmp_array
-   deallocate(tmp_array) 
+   deallocate(tmp_array)
    call res%dict%get_entry("qm_A_xy", tmp_array)
    qm_xyz(2, :) = tmp_array
    deallocate(tmp_array)
@@ -521,46 +525,46 @@ subroutine test_qp_shell_benz_high_a(error)
    qm_xyz(6, :) = tmp_array
 
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xx_1000.00", tmp_array)
-   delta_qm_xyz(1, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xx_1000.00", tmp_array)
+   ext_qm_xyz(1, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xy_1000.00", tmp_array)
-   delta_qm_xyz(2, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xy_1000.00", tmp_array)
+   ext_qm_xyz(2, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_yy_1000.00", tmp_array)
-   delta_qm_xyz(3, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_yy_1000.00", tmp_array)
+   ext_qm_xyz(3, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_xz_1000.00", tmp_array)
-   delta_qm_xyz(4, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_xz_1000.00", tmp_array)
+   ext_qm_xyz(4, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_yz_1000.00", tmp_array)
-   delta_qm_xyz(5, :) = tmp_array
+   call res%dict%get_entry("ext_qm_A_yz_1000.00", tmp_array)
+   ext_qm_xyz(5, :) = tmp_array
    deallocate(tmp_array)
-   call res%dict%get_entry("delta_qm_A_zz_1000.00", tmp_array)
-   delta_qm_xyz(6, :) = tmp_array
-  
+   call res%dict%get_entry("ext_qm_A_zz_1000.00", tmp_array)
+   ext_qm_xyz(6, :) = tmp_array
+
    do i= 1,nat
       do j = 1,3
          mol_dipm(j) = mol_dipm(j)+dipm_xyz(j,i)+ mol%xyz(j,i)*partial(i)
       enddo
    enddo
-   mol_dipm_delta = sum(delta_dipm_xyz,dim=2)
+   mol_dipm_delta = sum(ext_dipm_xyz,dim=2)
    if (norm2(mol_dipm_delta-mol_dipm)  > thr2) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
       print'(3es21.14)', norm2(mol_dipm_delta-mol_dipm)
    end if
- 
+
    call compute_traceless_mol_qm(mol%nat,mol%xyz,partial,dipm_xyz,qm_xyz,mol_qm)
-   
-   delta_mol_qm = sum(delta_qm_xyz, dim=2)
-   
-   if (norm2(mol_qm-delta_mol_qm)  > thr2) then
+
+   ext_mol_qm = sum(ext_qm_xyz, dim=2)
+
+   if (norm2(mol_qm-ext_mol_qm)  > thr2) then
       call test_failed(error, "Molecular quadrupole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_qm-delta_mol_qm)
+      print'(3es21.14)', norm2(mol_qm-ext_mol_qm)
    end if
 end subroutine test_qp_shell_benz_high_a
- 
- 
+
+
 subroutine test_rotation_co2(error)
    type(context_type) :: ctx
    type(structure_type) :: mol
@@ -574,15 +578,15 @@ subroutine test_rotation_co2(error)
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
    real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
- 
+   &0.0000,0.00000,-1.0000000,&
+   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
    real(wp) :: rot_matrix(3,3),xyz_rot(3,nat),energy, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
- 
+
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -599,27 +603,27 @@ subroutine test_rotation_co2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=3, results=res, post_process=pproc) 
-   
- 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=3, results=res, post_process=pproc)
+
+
    rot_matrix = (reshape((/&
-      &1.0_wp,0.0_wp,0.0_wp,&
-      &0.0_wp,0.52532_wp,-0.85090352453_wp,&
-      &0.0_wp,0.85090352453_wp,0.52532_wp/),shape=(/3,3/)))
+   &1.0_wp,0.0_wp,0.0_wp,&
+   &0.0_wp,0.52532_wp,-0.85090352453_wp,&
+   &0.0_wp,0.85090352453_wp,0.52532_wp/),shape=(/3,3/)))
    call gemm(rot_matrix,xyz,xyz_rot)
- 
+
    call new(mol,num,xyz_rot*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc) 
-  
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc)
+
    if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
       call test_failed(error, "Rotational invariance is not respected.")
    end if
- 
+
 end subroutine
 
 subroutine test_translation_co2(error)
@@ -635,15 +639,15 @@ subroutine test_translation_co2(error)
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
    real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
- 
+   &0.0000,0.00000,-1.0000000,&
+   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
    real(wp) :: energy = 0.0_wp, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
- 
+
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -660,26 +664,26 @@ subroutine test_translation_co2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
-   
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
    xyz_trans = xyz(:,:)
- 
+
    do i = 1,nat
       xyz_trans(1,i) = xyz_trans(1,i) +5.0_wp
    enddo
- 
+
    call new(mol,num,xyz_trans*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc) 
-  
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc)
+
    if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
       call test_failed(error, "Translational invariance is not respected.")
    end if
- 
+
 end subroutine
 
 subroutine test_orbital_energy_ref(error)
@@ -696,9 +700,9 @@ subroutine test_orbital_energy_ref(error)
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
    real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
-      &0.0000,0.00000,-1.0000000,&
-      &0.000000,0.000000,0.000000/),shape=(/3,nat/))
-   
+   &0.0000,0.00000,-1.0000000,&
+   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+
    integer, parameter :: num(nat) = (/8,8,6/)
    type(results_type) :: res, res_
    real(wp) :: energy = 0.0_wp
@@ -708,23 +712,30 @@ subroutine test_orbital_energy_ref(error)
 
    open(newunit=io, status="scratch")
    write(io, '(a)') &
-         "response = [ 0.0062028389576145, 0.0062028389576144, 0.0063838431541046 ]", &
-         "gap = [ 15.3845686374721939, 15.3845686374722046, 18.9729226332611205 ]", &
-         "chem_pot = [ -7.9908971673281757, -7.9908971673281775, -9.2638252661395164 ]", &
-         "HOAO_a = [ -15.6831814860642726, -15.6831814860642798, -18.7502865827700731 ]", &
-         "LUAO_a = [ -0.2986128485920787, -0.2986128485920716, 0.2226360504910403 ]", &
-         "HOAO_b = [ -15.6831814860642726, -15.6831814860642798, -18.7502865827700766 ]", &
-         "LUAO_b = [ -0.2986128485920787, -0.2986128485920752, 0.2226360504910438 ]",&
-         "delta_gap = [ 17.1166010883161341, 17.1166010883161377, 16.5806877968880713 ]", &
-         "delta_chem_pot = [ -8.6053161397371660, -8.6053161397371660, -8.4152069453862683 ]", &
-         "delta_HOAO = [ -17.1636166838952349, -17.1636166838952349, -16.7055508438303022 ]", &
-         "delta_LUAO = [ -0.0470155955790990, -0.0470155955790972, -0.1248630469422327 ]", &
+      "response_alpha = [ 0.1337835451437173, 0.1337835451437157, 1.6307951377273491 ]", &
+      "gap_alpha = [ 0.0095881103175756, 0.0095881103175756, 0.0011085237545836 ]", &
+      "chem_pot_alpha = [ -0.9622382191942670, -0.9622382191942677, -0.8758044318869692 ]", &
+      "HOAO_alpha = [ -0.9670322743530548, -0.9670322743530555, -0.8763586937642610 ]", &
+      "LUAO_alpha = [ -0.9574441640354792, -0.9574441640354798, -0.8752501700096774 ]", &
+      "response_beta = [ 1.2449917888491431, 1.2449917888491182, 0.0059865937960335 ]", &
+      "gap_beta = [ 0.0806953599842188, 0.0806953599842184, 19.4997052573882037 ]", &
+      "chem_pot_beta = [ -15.1513328627176183, -15.1513328627176254, -8.6913073970860637 ]", &
+      "HOAO_beta = [ -15.1916805427097277, -15.1916805427097348, -18.4411600257801638 ]", &
+      "LUAO_beta = [ -15.1109851827255088, -15.1109851827255159, 1.0585452316080382 ]", &
+      "ext_gap_alpha = [ 0.0054951699014186, 0.0054951699014186, 0.0067615787201293 ]", &
+      "ext_chem_pot_alpha = [ -0.9205182203755125, -0.9205182203755127, -0.9334269287974830 ]", &
+      "ext_HOAO_alpha = [ -0.9232658053262217, -0.9232658053262219, -0.9368077181575476 ]", &
+      "ext_LUAO_alpha = [ -0.9177706354248032, -0.9177706354248034, -0.9300461394374184 ]", &
+      "ext_gap_beta = [ 9.4593893126801003, 9.4593893126801003, 6.5604665198186094 ]", &
+      "ext_chem_pot_beta = [ -12.9537156502782160, -12.9537156502782196, -13.9314158798429979 ]", &
+      "ext_HOAO_beta = [ -17.6834103066182671, -17.6834103066182706, -17.2116491397523035 ]", &
+      "ext_LUAO_beta = [ -8.2240209939381650, -8.2240209939381685, -10.6511826199336923 ]", &
       ""
    rewind io
    call dict_ref%load(io, error)
    close(io)
 
-   call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
+   call new(mol,num,xyz*aatoau,uhf=2,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
@@ -735,8 +746,8 @@ subroutine test_orbital_energy_ref(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
-   
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+
    if (.not.(compare_dict(res%dict, dict_ref, thr2))) then
       call test_failed(error, "Comparing the orbital energy values with a reference failed")
    end if
@@ -763,12 +774,12 @@ function compare_dict(lhs, rhs, thr_) result(equal)
    end if
 
    do i = 1, lhs%get_n_entries()
-      
+
       call lhs%get_entry(i, array1)
       if (allocated(array1)) then
          call rhs%get_entry(i, array1_)
          if (allocated(array1_)) then
-            
+
             if (any(abs(array1-array1_)  > thr_)) then
                call lhs%get_label(i, label)
                write(*,*) "Entry ", label, " is diverging"
@@ -776,7 +787,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
                return
             end if
             continue
-         else 
+         else
             return
          end if
       end if
@@ -785,13 +796,13 @@ function compare_dict(lhs, rhs, thr_) result(equal)
       if (allocated(array2)) then
          call rhs%get_entry(i, array2_)
          if (allocated(array2_)) then
-            if (any(abs(array2-array2_)  > thr_)) then 
+            if (any(abs(array2-array2_)  > thr_)) then
                call lhs%get_label(i, label)
                write(*,*) "Entry ", label, " is diverging"
                return
             endif
             continue
-         else 
+         else
             return
          end if
       end if
@@ -806,7 +817,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
                return
             endif
             continue
-         else 
+         else
             return
          end if
       end if
@@ -825,7 +836,7 @@ subroutine test_xtbml_param_load(error)
    real(wp) :: a_array(2)
    type(toml_array), pointer :: array
    a_array =  [1.2, 1.0]
-  
+
    table_post_proc= toml_table()
    call add_table(table_post_proc, "xtbml", table_xtbml)
    call set_value(table_xtbml, "geometry", .true.)
@@ -836,27 +847,27 @@ subroutine test_xtbml_param_load(error)
    call add_array(table_xtbml, "a", array)
    call set_value(array, a_array)
    call set_value(table_xtbml, "tensorial-output", .true.)
-   
+
    call param%load(table_post_proc, error)
    associate(record => param%list(1)%record)
-   select type(record)
-   type is (xtbml_features_record)
-      call check(error, record%xtbml_geometry, .true.)
-      if (allocated(error)) return
-      call check(error, record%xtbml_density, .true.)
-      if (allocated(error)) return
-      call check(error, record%xtbml_orbital_energy, .true.)
-      if (allocated(error)) return
-      call check(error, record%xtbml_energy, .false.)
-      if (allocated(error)) return
-      call check(error, record%xtbml_convolution, .true.)
-      if (allocated(error)) return
-      call check(error, size(record%xtbml_a), 2)
-      if (allocated(error)) return
-      call check(error, record%xtbml_tensor, .true.)
-      if (allocated(error)) return   
-   end select
-end associate
+      select type(record)
+         type is (xtbml_features_record)
+         call check(error, record%xtbml_geometry, .true.)
+         if (allocated(error)) return
+         call check(error, record%xtbml_density, .true.)
+         if (allocated(error)) return
+         call check(error, record%xtbml_orbital_energy, .true.)
+         if (allocated(error)) return
+         call check(error, record%xtbml_energy, .false.)
+         if (allocated(error)) return
+         call check(error, record%xtbml_convolution, .true.)
+         if (allocated(error)) return
+         call check(error, size(record%xtbml_a), 2)
+         if (allocated(error)) return
+         call check(error, record%xtbml_tensor, .true.)
+         if (allocated(error)) return
+      end select
+   end associate
 end subroutine
 
 subroutine test_xtbml_param_bad_inp(error)
@@ -867,7 +878,7 @@ subroutine test_xtbml_param_bad_inp(error)
    real(wp) :: a_array(2)
    type(toml_array), pointer :: array
    a_array =  [1.2, 1.0]
-  
+
    table_post_proc = toml_table()
    call add_table(table_post_proc, "xtbml-", xtbml_)
    call param%load(table_post_proc, error)
@@ -945,7 +956,7 @@ subroutine test_xtbml_param_bad_inp(error)
    call set_value(xtbml, "convolution", .true.)
    call set_value(xtbml, "a", "Str")
    call param%load(table_post_proc, error)
-   
+
    if (allocated(error)) then
       deallocate(error)
    else
@@ -955,7 +966,7 @@ subroutine test_xtbml_param_bad_inp(error)
 
    call set_value(xtbml, "a", 1.0)
    call param%load(table_post_proc, error)
-   
+
 end subroutine
 
 subroutine test_xtbml_param_dump(error)
@@ -965,7 +976,7 @@ subroutine test_xtbml_param_dump(error)
    type(toml_table) :: new_table
    type(xtbml_features_record) :: param
    type(toml_key), allocatable :: list(:)
-   
+
 
    table_post_proc = toml_table()
    call add_table(table_post_proc, "xtbml", table_xtbml)
@@ -979,7 +990,7 @@ subroutine test_xtbml_param_dump(error)
    call param%load(table_post_proc, error)
    if (allocated(error)) return
 
-    
+
 
    new_table = toml_table()
    call param%dump(new_table, error)
@@ -1004,14 +1015,14 @@ subroutine test_xtbml_param_dump(error)
    call check(error, size(param%xtbml_a), 1)
    if (allocated(error)) return
    call check(error, param%xtbml_tensor, .true.)
-   if (allocated(error)) return  
+   if (allocated(error)) return
 
 end subroutine
 
 
 
 subroutine test_energy_sum_up_gfn2(error)
- 
+
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
    type(context_type) :: ctx
@@ -1023,31 +1034,44 @@ subroutine test_energy_sum_up_gfn2(error)
    type(post_processing_list), allocatable :: pproc
    type(xtbml_features_record), allocatable :: xtbml_param
    type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record 
+   class(serde_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
    real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
    integer :: i,j
    character(len=:), allocatable :: label1
- 
+
    real(wp), parameter :: xyz(3, nat) = reshape((/&
-      &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
-      &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
-      &3.14559996373466,        0.73409173401801,        0.00008724271521,&
-      &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
-      &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
-      &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
-      &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
-      &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
-      &4.22591259698321,        0.73408789322206,        0.00025398801936,&
-      &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
-      &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
-      &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-      &/),shape=(/3,nat/))
+   &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
+   &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
+   &3.14559996373466,        0.73409173401801,        0.00008724271521,&
+   &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
+   &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
+   &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
+   &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
+   &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
+   &4.22591259698321,        0.73408789322206,        0.00025398801936,&
+   &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
+   &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
+   &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
+   &/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
+
    call new_gfn2_calculator(calc, mol, error)
+
+   block
+      class(container_type), allocatable :: cont
+      type(spin_polarization), allocatable :: spin
+      real(wp), allocatable :: wll(:, :, :)
+      allocate(spin)
+      call get_spin_constants(wll, mol, calc%bas)
+      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
+      call move_alloc(spin, cont)
+      call calc%push_back(cont)
+   end block
+
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -1056,9 +1080,9 @@ subroutine test_energy_sum_up_gfn2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
-   call res%dict%get_entry("E_tot", tmp_array) 
+   call res%dict%get_entry("E_tot", tmp_array)
    sum_energy = sum_energy + sum(tmp_array)
    print'(3es21.14)', abs(sum_energy-energy)
    if (abs(sum_energy-energy)  > thr) then
@@ -1086,7 +1110,7 @@ subroutine test_energy_sum_up_gfn2(error)
 end subroutine test_energy_sum_up_gfn2
 
 subroutine test_energy_sum_up_gfn1(error)
- 
+
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
    type(context_type) :: ctx
@@ -1098,26 +1122,26 @@ subroutine test_energy_sum_up_gfn1(error)
    type(post_processing_list), allocatable :: pproc
    type(xtbml_features_record), allocatable :: xtbml_param
    type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record 
+   class(serde_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
    real(wp) :: energy = 1.0_wp, sum_energy = 0.0_wp
    integer :: i,j
- 
+
    real(wp), parameter :: xyz(3, nat) = reshape((/&
-      &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
-      &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
-      &3.14559996373466,        0.73409173401801,        0.00008724271521,&
-      &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
-      &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
-      &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
-      &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
-      &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
-      &4.22591259698321,        0.73408789322206,        0.00025398801936,&
-      &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
-      &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
-      &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-      &/),shape=(/3,nat/))
+   &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
+   &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
+   &3.14559996373466,        0.73409173401801,        0.00008724271521,&
+   &2.45340597395333,        1.93314591537421,       -0.00086301044874,&
+   &1.06895328716368,        1.93321130458200,       -0.00141386731889,&
+   &0.37663958202671,        0.73422879200405,       -0.00090929198808,&
+   &0.52864276199175,       -1.40035288735680,        0.00049380958906,&
+   &2.99337903563419,       -1.40047547903112,        0.00121759015506,&
+   &4.22591259698321,        0.73408789322206,        0.00025398801936,&
+   &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
+   &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
+   &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
+   &/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
@@ -1130,11 +1154,11 @@ subroutine test_energy_sum_up_gfn1(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
-   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc) 
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
-   call res%dict%get_entry("E_tot", tmp_array) 
+   call res%dict%get_entry("E_tot", tmp_array)
    sum_energy = sum_energy + sum(tmp_array)
-   
+
 
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
@@ -1145,18 +1169,78 @@ subroutine test_energy_sum_up_gfn1(error)
 
    sum_energy = 0.0_wp
    do i = 1, res%dict%get_n_entries()
-      call res%dict%get_entry(i, tmp_array) 
+      call res%dict%get_entry(i, tmp_array)
       sum_energy = sum_energy + sum(tmp_array)
       deallocate(tmp_array)
    end do
-   
-   
+
+
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
       print'(3es21.14)', abs(sum_energy-energy)
    end if
 
 end subroutine test_energy_sum_up_gfn1
+
+subroutine test_high_spin(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(integral_type) :: ints
+   type(results_type) :: res
+   type(post_processing_list), allocatable :: pproc
+   type(xtbml_features_record), allocatable :: xtbml_param
+   type(post_processing_param_list), allocatable :: pparam
+   class(serde_record), allocatable :: tmp_record
+   integer, parameter :: nat=3
+   real(wp), allocatable :: tmp_array(:)
+   real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
+   integer :: i,j
+   character(len=:), allocatable :: label1
+
+   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+   &0.0000,0.00000,-1.0000000,&
+   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+   integer, parameter :: num(nat) = (/8,8,6/)
+
+   call new(mol,num,xyz*aatoau,uhf=2,charge=0.0_wp)
+
+   call new_gfn2_calculator(calc, mol, error)
+
+   block
+      class(container_type), allocatable :: cont
+      type(spin_polarization), allocatable :: spin
+      real(wp), allocatable :: wll(:, :, :)
+      allocate(spin)
+      call get_spin_constants(wll, mol, calc%bas)
+      call new_spin_polarization(spin, mol, wll, calc%bas%nsh_id)
+      call move_alloc(spin, cont)
+      call calc%push_back(cont)
+   end block
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
+   allocate(pproc)
+   allocate(xtbml_param)
+   allocate(pparam)
+   xtbml_param%xtbml_density = .true.
+   xtbml_param%xtbml_orbital_energy = .true.
+   xtbml_param%xtbml_convolution = .true.
+   call move_alloc(xtbml_param, tmp_record)
+   call pparam%push(tmp_record)
+   call add_post_processing(pproc, pparam)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
+      !19 features per spin channel => 38
+      !9 features for orbital energy => 18
+      ! total 56
+   if (res%dict%get_n_entries() /= 56) then
+      call test_failed(error, "Wrong number of features")
+   end if
+
+end subroutine test_high_spin
 
 subroutine test_orbital_energy_hp(error)
    !> Error handling
@@ -1188,7 +1272,7 @@ subroutine test_orbital_energy_hp(error)
    call add_post_processing(pproc, pparam)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
-   call res%dict%get_entry("HOAO_a", mulliken_shell)
+   call res%dict%get_entry("HOAO", mulliken_shell)
    if (sum(mulliken_shell) > -10.0e10_wp) then
       call test_failed(error, "HOAO is occupied")
       print'(3es21.14)', mulliken_shell
@@ -1226,14 +1310,13 @@ subroutine test_orbital_energy_he(error)
    call add_post_processing(pproc, pparam)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
-   call res%dict%get_entry("LUAO_a", mulliken_shell)
+   call res%dict%get_entry("LUAO", mulliken_shell)
    if (sum(mulliken_shell) < 10.0e10_wp) then
       call test_failed(error, "LUAO is occupied")
       print'(3es21.14)', mulliken_shell
    end if
 
 end subroutine test_orbital_energy_he
-
 !this function is copied from the xtb codebase
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    integer :: n,i,l,k,j
@@ -1273,7 +1356,6 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    enddo
    mol_qm = tma+tmb+tmc
 end subroutine
-
 !> this function returns the linear index of a matrix element
 pure elemental integer function lin(i1,i2)
    integer,intent(in) :: i1,i2
@@ -1283,5 +1365,25 @@ pure elemental integer function lin(i1,i2)
    lin=idum2+idum1*(idum1-1)/2
    return
 end function lin
+
+subroutine get_spin_constants(wll, mol, bas)
+   real(wp), allocatable, intent(out) :: wll(:, :, :)
+   type(structure_type), intent(in) :: mol
+   type(basis_type), intent(in) :: bas
+
+   integer :: izp, ish, jsh, il, jl
+
+   allocate(wll(bas%nsh, bas%nsh, mol%nid), source=0.0_wp)
+
+   do izp = 1, mol%nid
+      do ish = 1, bas%nsh_id(izp)
+         il = bas%cgto(ish, izp)%ang
+         do jsh = 1, bas%nsh_id(izp)
+            jl = bas%cgto(jsh, izp)%ang
+            wll(jsh, ish, izp) = get_spin_constant(jl, il, mol%num(izp))
+         end do
+      end do
+   end do
+end subroutine get_spin_constants
 
 end module

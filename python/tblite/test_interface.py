@@ -488,13 +488,31 @@ def test_xtbml_api():
     res = calc.singlepoint()
     dict_ = res.dict()
     cn = dict_.get("post-processing-dict")
-    cn = cn.get("CN")
+    cn = cn.get("CN_A")
     assert len(cn) == numbers.size
 
     dict_xtbml = res.dict()
     dict_xtbml = dict_xtbml.get("post-processing-dict")
-    assert len(dict_xtbml.keys()) == 40
+    assert len(dict_xtbml.keys()) == 38
     
+    toml_inp = ["[post-processing.xtbml] \n",
+                "geometry = false \n",
+                "density = true \n",
+                "orbital = true \n",
+                "energy = false \n", 
+                "convolution = true\n",
+                "a = [1.0, 1.2]\n",
+                "tensorial-output = true"]
+    
+    with open("xtbml.toml", "w") as f:
+        f.writelines(toml_inp)
+        
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml.toml")
+    
+    res = calc.singlepoint()
+    dict_ = res.get("post-processing-dict")
+    assert dict_.get("CN_A") == False
 
 def test_solvation_gfn2_cpcm():
     numbers, positions = get_crcp2()
