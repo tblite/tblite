@@ -58,17 +58,21 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
    type(wavefunction_type), intent(in) :: wfn
-   !> integral container for dipole and quadrupole integrals for CAMMs
-   type(integral_type) :: integrals
-   !> Single-point calculator conatiner
+   !> integral container
+   type(integral_type), intent(in) :: integrals
+   !> calculator instance
    type(xtb_calculator), intent(in) :: calc
+   !> Cache list for storing caches of various interactions
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
-   type(container_cache), intent(inout) :: cache_list(:)
+   !> Print level
+   integer, intent(in) :: prlevel
+   !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
    real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
    real(kind=wp), allocatable :: focc_(:, :)
-   integer :: prlevel, nspin, i, j
+   integer :: nspin, i, j
    real(kind=wp) :: nel_
    real(wp), allocatable :: pmat(:, :, :)
 
