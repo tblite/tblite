@@ -122,7 +122,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    end if
 
    if (nspin > 1) then
-      spin_label = ["_alpha", "_beta"]
+      spin_label = [character(len=6) :: "_alpha", "_beta"]
    else
       spin_label = [""]
    end if
@@ -192,7 +192,7 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
    nspin = size(self%chempot, 2)
    call self%allocate_extended(mol%nat, convolution%n_a)
    if (nspin > 1) then
-      spin_label = ["_alpha", "_beta"]
+      spin_label = [character(len=6) :: "_alpha", "_beta"]
    else
       spin_label = [""]
    end if
