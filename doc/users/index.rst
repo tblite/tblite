@@ -11,4 +11,4 @@ The following packages are currently using or in the process of integrating *tbl
    dftbplus
    qcxms
    ase
-
+   qcschema
