@@ -1,9 +1,6 @@
 Atomistic features based on Mulliken partitioning
 =================================================
 
-
-
-
 Based on the electronic structure defined by the implemented xTB Hamiltonians in ``tblite``, 
 we can compute atomistic properties that can be used for example in ML models or in general as chemical descriptors.
 
@@ -16,7 +13,7 @@ Currently, we feature the so-called ``xtbml`` properties, which can be organized
 The details about the implemented properties can be found in the according sections.
 We introduce the properties, with the equations defining them, and what key is used to store them in the output dictionary.
 
-To capture non-local effects, we use a convolution kernel based on the coordination number of the sourunding atoms.
+To capture non-local effects, we use a convolution kernel based on the coordination number of the surrounding atoms.
 The convolution kernel is defined as a function of the distance between the atoms, and a scaling parameter ``a``.
 The convolution kernel is defined as:
 
@@ -46,11 +43,11 @@ The ``xtbml`` properties can be computed using CLI in the ``run`` mode.:
    tblite run --post-processing xtbml coord.xyz
 
 This will return a ``toml`` file with the computed properties named ``post_processing.toml``.
-In TOML files the data is stored in key value pairs, the keys are defined in the detail sections of the properties.
+In TOML files, the data is stored in key value pairs, the keys are defined in the detailed sections of the properties.
 The values are returned as floating point arrays, since the properties are computed per atom.
 
 Additionally, the properties can be computed using the ``xtbml_xyz`` post-processing string.
-This means that the dipole are returned as three entries in the result dictionary, suffixed by ``_x``, ``_y``, and ``_z``.
+This means that the dipole moments are returned as three entries in the result dictionary, suffixed by ``_x``, ``_y``, and ``_z``.
 The quadrupole moments are returned as six entries, with the entries suffixed by ``_xx``, ``_xy``, ``_xz``, ``_yy``, ``_yz``, and ``_zz``.
 Of course, this breaks the rotation invariance of the properties, but can be useful for some applications.
 

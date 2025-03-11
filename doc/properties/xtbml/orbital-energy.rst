@@ -24,7 +24,7 @@ where :math:`\Delta = 0.5 \text{ eV}` is a damping factor to avoid division by z
 .. note:: 
    For calculations with unpaired electrons, the properties are available for the alpha and beta spin channel separately.
    Without spin polarization, ``tblite`` does not provide two sets of density matrices and occupation vectors.
-   In that case we define occupation vectors that match the number of unpaired electrons using integer occupations.
+   In that case, we define occupation vectors that match the number of unpaired electrons using integer occupations.
    When using spin-polarized Hamiltonians, we use the occupation vectors and orbital energies from solving the UHF equations.
    In both cases the properties are computed for the alpha and beta spin channel separately.
    In this case all properties are available with the suffix ``_alpha`` and ``_beta`` for the alpha and beta spin channel, respectively.

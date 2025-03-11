@@ -15,7 +15,7 @@ The following properties are available:
    ``p_p``         Mulliken population p-shell     :math:`p_p = \sum_{\mu \in p \in A}^{N_{\text{BF}}}\sum_{\nu}^{N_{\text{BF}}}P_{\mu \nu} S_{\mu\nu}`
    ``p_d``         Mulliken population d-shell     :math:`p_d = \sum_{\mu \in d \in A}^{N_{\text{BF}}}\sum_{\nu}^{N_{\text{BF}}}P_{\mu \nu} S_{\mu\nu}`   
    ``dipm_s``      dipole moment s-shell           :math:`\mu_s = |\boldsymbol{\mu}_s| =\sqrt{\sum_{\alpha \in \:(x,y,z)}\left( \sum_{\kappa\in s \in A}\sum_{\lambda} P_{\kappa\lambda} \left( \alpha_A S_{\lambda\kappa} - D^\alpha_{\lambda\kappa}\right) \right)^2}`
-                                                   |br|  with the dipole moment integral: :math:`\text{} D^\alpha_{\lambda\kappa} = \left\langle \psi_\lambda |\alpha| \psi_\kappa\right\rangle` 
+                                                   |br|  with the dipole moment integral: :math:`D^\alpha_{\lambda\kappa} = \left\langle \psi_\lambda |\alpha| \psi_\kappa\right\rangle` 
    ``dipm_p``      dipole moment p-shell           :math:`\mu_p = |\boldsymbol{\mu}_p| =\sqrt{\sum_{\alpha \in \:(x,y,z)}\left( \sum_{\kappa\in p \in A}\sum_{\lambda} P_{\kappa\lambda} \left( \alpha_A S_{\lambda\kappa} - D^\alpha_{\lambda\kappa}\right) \right)^2}` 
    ``dipm_d``      dipole moment d-shell           :math:`\mu_d = |\boldsymbol{\mu}_d| =\sqrt{\sum_{\alpha \in \:(x,y,z)}\left( \sum_{\kappa\in d \in A}\sum_{\lambda} P_{\kappa\lambda} \left( \alpha_A S_{\lambda\kappa} - D^\alpha_{\lambda\kappa}\right) \right)^2}` 
    ``qm_s``        quadrupole moment s-shell       :math:`\Theta_s = ||\boldsymbol{\Theta}_s|| = \sqrt{ \sum_{\alpha\beta \:\in\:(xx,xy,xz,yy,yz,zz)}2\left(\Theta^{\alpha\beta}_{s}-\delta_{\alpha\beta}\Theta^{\alpha\beta}_{l}\right)^2 }` a_ b_

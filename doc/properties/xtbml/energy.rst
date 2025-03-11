@@ -2,7 +2,7 @@ Energy-based atomistic properties
 =================================
 
 The energy-based properties are based on the energy terms of the xTB Hamiltonian.
-Also here an atomistic partitioning is used to compute the properties.
+An atomistic partitioning is used to compute the properties.
 By exposing all terms of the energy term, a ML model could combine those terms to build a better fitting model.
 The following energy terms are computed:
 
