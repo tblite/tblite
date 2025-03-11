@@ -38,7 +38,7 @@ program tester
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
    use test_solvation_born, only : collect_solvation_born
-   use test_solvation_cpcm, only : collect_solvation_cpcm
+   use test_solvation_ddx, only : collect_solvation_ddx
    use test_solvation_surface, only : collect_solvation_surface
    use test_solvation_cds, only: collect_solvation_cds
    use test_solvation_shift, only: collect_solvation_shift
@@ -61,7 +61,7 @@ program tester
       new_testsuite("repulsion", collect_repulsion), &
       new_testsuite("ncoord", collect_ncoord), &
       new_testsuite("solvation-born", collect_solvation_born), &
-      new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
+      new_testsuite("solvation-ddx", collect_solvation_ddx), &
       new_testsuite("solvation-surface", collect_solvation_surface), &
       new_testsuite("solvation-cds", collect_solvation_cds), &
       new_testsuite("solvation-shift", collect_solvation_shift), &

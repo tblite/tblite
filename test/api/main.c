@@ -2928,7 +2928,7 @@ int test_uninitialized_solvation()
     error = tblite_new_error();
 
     //check if it fails when mol is not associated
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 0.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0);
     if (!tblite_check(error))
         goto unexpected;
     show(error);
@@ -2951,9 +2951,9 @@ unexpected:
     return 1;
 }
 
-int test_solvation_cpcm_eps()
+int test_solvation_ddx_eps()
 {
-    printf("Start test: CPCM Solvation\n");
+    printf("Start test: ddX Solvation\n");
     tblite_error error = NULL;
     tblite_context ctx = NULL;
     tblite_structure mol = NULL;
@@ -2975,7 +2975,7 @@ int test_solvation_cpcm_eps()
     if (!calc)
         goto err;
 
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 7.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0);
     if (tblite_check(error))
         goto err;
 
@@ -3014,6 +3014,7 @@ err:
         printf("[Fatal] %s\n", message);
     }
 
+      
     tblite_delete(error);
     tblite_delete(ctx);
     tblite_delete(mol);
@@ -3484,7 +3485,7 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
-    stat += test_solvation_cpcm_eps();
+    stat += test_solvation_ddx_eps();
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();

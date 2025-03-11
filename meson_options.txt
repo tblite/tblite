@@ -59,3 +59,11 @@ option(
   value: 'python3',
   description: 'Python version to link against.',
 )
+
+option(
+  'ddx',
+  type: 'boolean',
+  value: true,
+  yield: true,
+  description: 'use ddX solvation software package',
+)
