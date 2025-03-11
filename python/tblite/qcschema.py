@@ -61,11 +61,11 @@ Supported keywords are:
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
- alpb-solvation      ALPB implicit solvation              Solvent name, solution state (optional)
- gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
- cpcm-solvation      CPCM implicit solvation              Epsilon
- gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
+ ddx-solvation       ddX implicit solvation               Epsilon
  gb-solvation        GB implicit solvation                Epsilon, Born kernel
+ gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
+ gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
+ alpb-solvation      ALPB implicit solvation              Solvent name, solution state (optional)
 =================== ==================================== =========================================
 """
 
