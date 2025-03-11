@@ -556,13 +556,13 @@ def test_xtbml_api():
     assert len(dict_.keys()) == 129
     
 
-def test_solvation_gfn2_cpcm():
-    """Test CPCM solvation with GFN2-xTB"""
+def test_solvation_gfn2_ddx():
+    """Test (ddX) CPCM solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", 7.0)
+    calc.add("ddx-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.43287176929, abs=THR)

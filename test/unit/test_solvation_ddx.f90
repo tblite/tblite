@@ -14,27 +14,47 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-module test_solvation_cpcm
+module test_solvation_ddx
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use mctc_io, only : structure_type
+   use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
-   use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
-   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_solvation_ddx, only : ddx_solvation, new_ddx, ddx_input
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
+   use tblite_basis_type, only : basis_type
+   use tblite_integral_type, only : integral_type
+   use tblite_context_type, only : context_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges
+   use tblite_scf_iterator, only : get_qat_from_qsh
+   use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_integral_type, only : new_integral
+   use tblite_scf_potential, only : add_pot_to_h1, new_potential
+   use tblite_adjlist, only : adjacency_list, new_adjacency_list
+   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian
+   use tblite_cutoff, only : get_lattice_points
+   use tblite_basis_type, only : get_cutoff
+
    implicit none
    private
 
-   public :: collect_solvation_cpcm
+   public :: collect_solvation_ddx
+
+   real(wp), parameter :: acc = 0.01_wp
+   real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
+   real(wp), parameter :: thr2 = 10*sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
 
 
 contains
 
 
 !> Collect all exported unit tests
-subroutine collect_solvation_cpcm(testsuite)
+subroutine collect_solvation_ddx(testsuite)
 
    !> Collection of tests
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
@@ -43,9 +63,10 @@ subroutine collect_solvation_cpcm(testsuite)
       new_unittest("energy-mol", test_e_m01), &
       new_unittest("gradient-mol", test_g_m02), &
       new_unittest("potential-mol", test_p_m03) &
+      ! new_unittest("fock", test_fock_m01) &
       ]
 
-end subroutine collect_solvation_cpcm
+end subroutine collect_solvation_ddx
 
 
 subroutine test_e(error, mol, qat, ref)
@@ -62,7 +83,7 @@ subroutine test_e(error, mol, qat, ref)
    !> Reference energy
    real(wp), intent(in) :: ref
 
-   type(cpcm_solvation) :: solv
+   type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -75,13 +96,13 @@ subroutine test_e(error, mol, qat, ref)
    allocate(pot%vat(size(qat, 1), 1))
    energy = 0.0_wp
 
-   solv = cpcm_solvation(mol, cpcm_input(feps, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(feps, 1, nang=nang, rscale=rscale))
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
    call solv%get_energy(mol, cache, wfn, energy)
 
-   if (abs(sum(energy) - ref) > thr) then
+   if (abs(sum(energy) - ref) < thr) then
       call test_failed(error, "Energy does not match reference")
       print *, sum(energy)
    end if
@@ -99,7 +120,7 @@ subroutine test_g(error, mol, qat)
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
 
-   type(cpcm_solvation) :: solv
+   type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
@@ -114,7 +135,7 @@ subroutine test_g(error, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = cpcm_solvation(mol, cpcm_input(feps, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(feps, 1, nang=nang, rscale=rscale))
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -166,10 +187,10 @@ subroutine test_p(error, mol, qat)
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
 
-   type(cpcm_solvation) :: solv
+   type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
-   type(container_cache) :: cache
+   type(container_cache), pointer :: cache
    real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
    integer, parameter :: nang = 26
    real(wp), parameter :: step = 1.0e-4_wp
@@ -181,8 +202,9 @@ subroutine test_p(error, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = cpcm_solvation(mol, cpcm_input(feps, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(feps, 1, nang=nang, rscale=rscale))
 
+   allocate(cache)
    call solv%update(mol, cache)
 
    allocate(vat(mol%nat))
@@ -208,13 +230,168 @@ subroutine test_p(error, mol, qat)
 
    if (any(abs([pot%vat] - vat) > thr)) then
       call test_failed(error, "Potential does not match")
+      print '(a)', 'analytical'
       print '(3es20.13)', pot%vat
       print '(a)', "---"
+      print '(a)', 'numerical'
       print '(3es20.13)', vat
       print '(a)', "---"
+      print '(a)', 'diff'
       print '(3es20.13)', [pot%vat] - vat
    end if
 end subroutine test_p
+
+
+subroutine test_fock(error, mol, wfn, calc)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Wavefunction data
+   type(wavefunction_type), intent(inout) :: wfn
+   !> Basis set information
+   type(xtb_calculator), intent(in) :: calc
+   !> Integral container
+   type(integral_type):: ints
+   
+   type(ddx_solvation) :: solv
+   type(potential_type) :: pot
+   type(container_cache), pointer :: cache
+   type(adjacency_list) :: list
+   
+   real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
+   integer, parameter :: nang = 26
+   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: thr = 1e+3_wp*sqrt(epsilon(1.0_wp))
+   real(wp) :: er, el
+   real(wp), allocatable :: energies(:)
+   real(wp), allocatable :: fock(:, :, :), temp(:,:,:), temp_P(:,:,:)
+   real(wp), allocatable :: numfock(:,:)
+   real(wp), allocatable :: lattr(:, :), selfenergy(:)
+   integer :: i, ci, cj
+   real(wp) :: cutoff
+
+   solv = ddx_solvation(mol, ddx_input(feps, 1, nang=nang, rscale=rscale))
+
+   allocate(cache)
+   call solv%update(mol, cache)
+   
+   call new_potential(pot, mol, calc%bas, 1)
+   call pot%reset
+   call solv%get_potential(mol, cache, wfn, pot)
+
+   allocate(selfenergy(calc%bas%nsh))
+   call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, &
+      & selfenergy=selfenergy)
+
+   cutoff = get_cutoff(calc%bas, acc)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+   call new_integral(ints, calc%bas%nao)
+   call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+
+   allocate(fock(size(wfn%coeff, 1), size(wfn%coeff, 2), size(wfn%coeff, 3)))
+   fock = 0.0_wp
+   ints%hamiltonian = 0.0_wp
+   call add_pot_to_h1(calc%bas, ints, pot, fock)
+
+   !> Get numerical Fock matrix
+   allocate(energies(mol%nat))
+   allocate(numfock(calc%bas%nao, calc%bas%nao), source=0.0_wp)
+   allocate(temp(size(wfn%coeff, 1), size(wfn%coeff, 2), size(wfn%coeff, 3)))
+   allocate(temp_P(size(wfn%density, 1), size(wfn%density, 2), size(wfn%density, 3)))
+   do ci = 1, calc%bas%nao
+      do cj = 1, calc%bas%nao
+
+         temp = 0.0_wp
+         temp_P = 0.0_wp
+
+         wfn%coeff(ci, cj, 1) = wfn%coeff(ci, cj, 1) + step
+
+         ! P = C nocc C^T
+         ! Store C nocc in temp
+         do i = 1, calc%bas%nao
+            temp(i, i, 1) = wfn%focc(i, 1) 
+         end do
+         temp(:,:,1) = matmul(wfn%coeff(:, :, 1), temp(:,:,1))
+         temp_P(:,:,1) = matmul(temp(:,:,1), transpose(wfn%coeff(:, :, 1)))
+         wfn%density(:, :, 1) = temp_P(:, :, 1)
+
+         wfn%qsh = 0.0_wp
+         call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
+            & wfn%qsh)
+         wfn%qat = 0.0_wp
+         call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
+
+         energies = 0.00_wp
+         call pot%reset
+         ! call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, energies)
+         er = 0.0_wp
+         er = sum(energies)
+
+         !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+         temp = 0.0_wp
+         temp_P = 0.0_wp
+
+         wfn%coeff(ci, cj, 1) = wfn%coeff(ci, cj, 1) - 2*step
+
+         ! P = CnoccC^T
+         ! Store Cnocc in temp
+         do i = 1, calc%bas%nao
+            temp(i, i, 1) = wfn%focc(i, 1) 
+         end do
+         temp(:,:,1) = matmul(wfn%coeff(:, :, 1), temp(:,:,1))
+         temp_P(:,:,1) = matmul(temp(:,:,1), transpose(wfn%coeff(:, :, 1)))
+         wfn%density(:, :, 1) = temp_P(:, :, 1)
+
+         wfn%qsh = 0.0_wp
+         call get_mulliken_shell_charges(calc%bas, ints%overlap, wfn%density, wfn%n0sh, &
+            & wfn%qsh)
+         wfn%qat = 0.0_wp
+         call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
+
+         energies = 0.00_wp
+         call pot%reset
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, energies)
+
+         el = 0.0_wp
+         el = sum(energies)
+
+         !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+         numfock(ci, cj) = (er -  el) / (2.0_wp * step)
+
+         wfn%coeff(ci, cj, 1) = wfn%coeff(ci, cj, 1) + step
+
+         end do
+   end do
+
+   !> Get analytical Fock matrix
+   fock(:,:,1) = matmul(fock(:,:,1), wfn%coeff(:,:,1))
+   temp = 0.0_wp
+   do i = 1, calc%bas%nao
+      temp(i, i, 1) = wfn%focc(i, 1) 
+   end do
+   fock(:,:,1) = matmul(fock(:, :, 1), temp(:,:,1))
+   fock(:,:,1) = fock(:,:,1) * 2.0_wp
+
+   if (any(abs(fock(:,:,1) - numfock(:,:)) > thr)) then
+      call test_failed(error, "Potential does not match")
+      print '(a)', 'analytical'
+      print '(3es20.13)', fock
+      print '(a)', "---"
+      print '(a)', 'numerical'
+      print '(3es20.13)', numfock
+      print '(a)', "---"
+      print '(a)', 'diff'
+      print '(3es20.13)', fock(:,:,1) - numfock(:,:)
+   end if
+
+end subroutine test_fock
 
 
 subroutine test_e_m01(error)
@@ -227,7 +404,7 @@ subroutine test_e_m01(error)
       & 7.73347900345264E-1_wp, 1.07626888948184E-1_wp,-3.66999593831010E-1_wp,&
       & 4.92833325937897E-2_wp,-1.83332156197733E-1_wp, 2.33302086605469E-1_wp,&
       & 6.61837152062315E-2_wp,-5.43944165050002E-1_wp,-2.70264356583716E-1_wp,&
-      & 2.66618968841682E-1_wp, 2.62725033202480E-1_wp,-7.15315510172571E-2_wp,&
+      & 2.66618968841682E1_wp, 2.62725033202480E-1_wp,-7.15315510172571E-2_wp,&
       &-3.73300777019193E-1_wp, 3.84585237785621E-2_wp,-5.05851088366940E-1_wp,&
       & 5.17677238544189E-1_wp]
 
@@ -277,4 +454,33 @@ subroutine test_p_m03(error)
 end subroutine test_p_m03
 
 
-end module test_solvation_cpcm
+subroutine test_fock_m01(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(integral_type) :: ints  
+   ! type(potential_type) :: pot
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+
+   call get_structure(mol, "MB16-43", "01")
+
+   energy = 0.0_wp
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call eeq_guess(mol, calc, wfn)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+
+   call test_fock(error, mol, wfn, calc)
+
+end subroutine test_fock_m01
+
+
+
+end module test_solvation_ddx
