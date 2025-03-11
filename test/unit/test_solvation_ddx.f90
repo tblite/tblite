@@ -93,12 +93,13 @@ subroutine test_e(error, mol, qat, ref)
    real(wp) :: energy(mol%nat)
 
    wfn%qat = reshape(qat, [size(qat), 1])
-   allocate(pot%vat(size(qat, 1), 1))
+   allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
    energy = 0.0_wp
 
    solv = ddx_solvation(mol, ddx_input(feps, 1, nang=nang, rscale=rscale))
 
    call solv%update(mol, cache)
+
    call solv%get_potential(mol, cache, wfn, pot)
    call solv%get_energy(mol, cache, wfn, energy)
 
