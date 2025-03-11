@@ -280,7 +280,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    type(ddx_cache), pointer :: ptr
 
    call taint(cache, ptr)
- 
+
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
@@ -295,7 +295,6 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call solve(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
-
 
    !> Add solvation energy to total energy
    energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
@@ -321,7 +320,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    real(wp), allocatable :: pot_tmp(:,:)
 
    call taint(cache, ptr)
-   
+
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
@@ -341,6 +340,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+
    ! Allocate memory to intermediately store ddX potential 
    allocate(ptr%ddx_pot(size(pot%vat, 1)), source=0.0_wp)
    ! Contract with the Coulomb matrix
@@ -350,7 +350,6 @@ subroutine get_potential(self, mol, cache, wfn, pot)
  
    ! Add potential to overall potential for new SCF step 
    pot%vat(:,1) = pot%vat(:,1)  + ptr%ddx_pot(:)
-
    deallocate(ptr%ddx_pot) 
 
 end subroutine get_potential
@@ -457,144 +456,5 @@ subroutine get_coulomb_matrix(xyz, ccav, jmat)
    end do
 
 end subroutine get_coulomb_matrix
-
-
-
-! %%%%%%%%%% The following routines are not needed anymore since ddX has there own %%%%%%%%%
-
-!> Routine to compute the psi vector
-!subroutine get_psi(charge, psi)
-!   real(wp), intent(in) :: charge(:)
-!   real(wp), intent(out) :: psi(:, :)
-!
-!   integer :: iat
-!   real(wp), parameter :: fac = sqrt(4.0_wp*pi) 
-!
-!   psi(:,:) = 0.0_wp
-!
-!   do iat = 1, size(charge)
-!      psi(1, iat) = fac*charge(iat)
-!   end do
-!
-!end subroutine get_psi
-
-!> Routine to compute the potential vector
-!subroutine get_phi(charge, jmat, phi)
-!   real(wp), intent(in) :: charge(:)
-!   real(wp), intent(in) :: jmat(:, :)
-!   real(wp), intent(out) :: phi(:)
-!
-!   phi(:) = 0.0_wp
-!
-!   call gemv(jmat, charge, phi)
-!
-!end subroutine get_phi
-
-
-!subroutine get_zeta(self, keps, zeta)
-!   type(ddx_cache), intent(in) :: self
-!   real(wp), intent(in) :: keps
-!   real(wp), intent(out) :: zeta(self%ddx%constants%ncav)
-
-!   integer :: iat, its, ii
-
-!   zeta = 0.0_wp
-
-!   ii = 0
-!   do iat = 1, self%ddx%params%nsph
-!      do its = 1, self%ddx%params%ngrid
-!         if (self%ddx%constants%ui(its, iat) > 0.0_wp) then
-!            ii = ii + 1
-!            zeta(ii) = self%ddx%constants%wgrid(its) &
-!               & * self%ddx%constants%ui(its, iat) &
-!               & * dot_product(self%ddx%constants%vgrid(:, its), self%ddx_state%s(:, iat))
-!         end if
-!      end do
-!   end do
-
-! end subroutine get_zeta
-
-! What's this? 
-subroutine write_solvation_file()
-
-end subroutine write_solvation_file
-
-
-
-
-!**************************************************************
-!********************* Dev Routines ***************************
-!**************************************************************
-
-subroutine write_vector(vector, name, unit)
-   implicit none
-   real(wp),intent(in) :: vector(:)
-   character(len=*),intent(in),optional :: name
-   integer, intent(in),optional :: unit
-   integer :: d
-   integer :: i, j, k, l, istep, iunit
-
-   d = size(vector, dim=1)
-
-   if (present(unit)) then
-       iunit = unit
-   else
-       iunit = output_unit
-   end if
-
-   if (present(name)) write(iunit,'(/,"vector:",1x,a)') name
-
-   do j = 1, d
-      write(iunit, '(i6)', advance='no') j
-      write(iunit, '(1x,f15.8)', advance='no') vector(j)
-      write(iunit, '(a)')
-   end do
-
-end subroutine write_vector
-
-
-subroutine write_2d_matrix(matrix, name, unit, step)
-   implicit none
-   real(wp),intent(in) :: matrix(:, :)
-   character(len=*),intent(in),optional :: name
-   integer, intent(in),optional :: unit
-   integer, intent(in),optional :: step
-   integer :: d1, d2
-   integer :: i, j, k, l, istep, iunit
-
-   d1 = size(matrix, dim=1)
-   d2 = size(matrix, dim=2)
-
-   if (present(unit)) then
-       iunit = unit
-   else
-       iunit = output_unit
-   end if
-
-   if (present(step)) then
-       istep = step
-   else
-       istep = 5
-   end if
-
-   if (present(name)) write(iunit,'(/,"matrix:",1x,a)') name
-
-   do i = 1, d2, istep
-      l = min(i+istep-1,d2)
-      write(iunit,'(6x)',advance='no')
-      do k = i, l
-         write(iunit,'(6x,i12,3x)',advance='no') k
-      end do
-      write(iunit,'(a)')
-      do j = 1, d1
-         write(iunit,'(i6)',advance='no') j
-         do k = i, l
-            write(iunit,'(1x,e20.8)',advance='no') matrix(j,k)
-         end do
-         write(iunit,'(a)')
-      end do
-   end do
-
-end subroutine write_2d_matrix
 
 end module tblite_solvation_ddx

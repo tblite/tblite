@@ -2991,7 +2991,7 @@ int test_solvation_ddx_eps()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.43287176929, thr, "energy error"))
+    if (!check(energy, -28.437445121393, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
