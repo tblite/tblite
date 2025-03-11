@@ -27,8 +27,7 @@ If multiple ``a`` values are provided, the value of a is added to the dictionary
 .. important::
 
     The properties are computed for each atom in the order of the input geometry.
-    The properties are stored in the output file in the same order.
-    Which means that the properties are not permutation invariant as returned by the toml file.
+    The properties are stored in the output file in the same order, which means that the properties are not permutation invariant as returned by the toml file.
     This can be achieved by sorting the properties according to a specific key.
 
 How to compute properties
