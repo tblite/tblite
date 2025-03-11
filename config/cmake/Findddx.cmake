@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(_lib "ddX")
+set(_lib "ddx")
 set(_pkg "DDX")
-set(_url "https://github.com/ddsolvation/ddX")
+set(_url "https://github.com/ddsolvation/ddx")
 set(_rev "HEAD")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
