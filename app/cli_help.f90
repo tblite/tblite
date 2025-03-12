@@ -132,11 +132,12 @@ module tblite_cli_help
       "                           Solvent is specified by dielectric constant or the solvent name."//nl//&
       "      --gb <real>/<name>   Use generalized Born solvation model (GB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --cpcm <real>/<name> Use conductor-like polarizable continuum solvation model (CPCM)."//nl//&
+      "      --cosmo <real>/<name> "//nl//&
+      "                           Use conductor-like screening model (COSMO)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --pcm <real>/<name>  Use polarizable continuum solvation model (CPCM)."//nl//&
+      "      --pcm <real>/<name>  Use polarizable continuum solvation model (PCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --lpb <real>/<name>  Use linearized Poisson-Boltzmann solvation model (CPCM)."//nl//&
+      "      --lpb <real>/<name>  Use linearized Poisson-Boltzmann solvation model (LPB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
       "      --born-kernel <name> Specify Born kernel to use with ALPB, GBSA or GB solvation model."//nl//&
       "                           Possible options are p16 (default for ALPB) and still (default for GB/GBSA)."//nl//&
