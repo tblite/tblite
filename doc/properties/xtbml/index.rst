@@ -20,6 +20,10 @@ The convolution kernel is defined as a function of the distance between the atom
 
   f_{\text{log}}(R_A,R_B) = \frac{1}{1+\exp\left(\frac{-16a\cdot4(R_{A,\text{cov}}+R_{B,\text{cov}})}{3R_{AB}}-1\right)}
 
+We refer to the properties computed using this convolution as "extended" properties. 
+Such extended versions of properties are available for the geometry-, density- and orbital-energy-based properties.
+The dictionary keys for those properties start with ``ext_``.
+
 By default :math:`a = 1.0`, but it can be adjusted by the user, through a ``toml`` input file.
 If multiple ``a`` values are provided, the value of a is added to the dictionary key, e.g. ``ext_CN_A_1.2``.
 
