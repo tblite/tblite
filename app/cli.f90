@@ -376,12 +376,12 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cpcm" , "--cosmo", "--pcm", "--lpb")
+      case("--cosmo", "--pcm", "--lpb")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
-         if (arg == "--cpcm" .or. arg == "--cosmo") then
+         if (arg == "--cosmo") then
             ddx_model = 1
          else if (arg == "--pcm") then
             ddx_model = 2
