@@ -15,7 +15,6 @@ We introduce the properties, with the equations defining them, and what key is u
 
 To capture non-local effects, we use a convolution kernel based on the coordination number of the surrounding atoms.
 The convolution kernel is defined as a function of the distance between the atoms, and a scaling parameter ``a``.
-The convolution kernel is defined as:
 
 .. math:: 
 
@@ -78,7 +77,7 @@ Similar to the ``xtbml`` and ``xtbml_xyz`` post-processing strings, we can use t
 The properties are written to the ``post_processing.toml`` file again.
 
 
-1. Using the Python API
+3. Using the Python API
 
 The properties can be computed using the Python API.
 Similar to the CLI, the properties can be computed using the ``xtbml`` or ``xtbml_xyz`` post-processing strings or by providing a ``toml`` file as input.
