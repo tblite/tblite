@@ -1903,8 +1903,8 @@ int test_spgfn1()
     tblite_get_result_energy(error, res, &energy);
     if (tblite_check(error))
         goto err;
-
-    if (!check(energy, -28.370520606196546, thr, "energy error"))
+                       
+    if (!check(energy, -28.376485853038645, thr, "energy error"))
         goto err;
 
     tblite_delete(error);

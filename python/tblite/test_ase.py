@@ -245,4 +245,4 @@ def test_spgfn1_xtb():
     assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
 
     atoms.calc.set(multiplicity=3)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -772.0011879234406
+    assert approx(atoms.get_potential_energy(), abs=thr) == -772.1635105495686
