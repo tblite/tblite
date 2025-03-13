@@ -72,6 +72,7 @@ subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
    real(wp) :: total_dfermi, dfermifunct, fermifunct, change_fermi
    integer, parameter :: max_cycle = 200
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: sqrttiny = sqrt(tiny(1.0_wp))
    integer :: ncycle, iao
 
    e_fermi = 0.5*(emo(max(homo, 1))+emo(min(homo+1, size(emo))))
@@ -93,7 +94,7 @@ subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
          total_number = total_number + fermifunct
          total_dfermi = total_dfermi + dfermifunct
       end do
-      if (total_dfermi > 1e-80_wp) then
+      if (total_dfermi > sqrttiny) then
           change_fermi = (occt-total_number)/total_dfermi
       else
           change_fermi = 0.0_wp
