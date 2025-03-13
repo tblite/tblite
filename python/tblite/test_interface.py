@@ -538,7 +538,11 @@ def test_xtbml_api():
     
     res = calc.singlepoint()
     dict_ = res.get("post-processing-dict")
-    assert dict_.get("CN_A") == False
+    
+    assert dict_.get("CN_A") == None
+    
+    assert len(dict_.keys()) == 129
+    
 
 def test_solvation_gfn2_cpcm():
     """Test CPCM solvation with GFN2-xTB"""

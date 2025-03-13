@@ -588,7 +588,7 @@ class Calculator(Structure):
             )
         elif ".toml" in interaction:
             library.post_processing_push_back(
-                self._ctx, self._calc, self._post_processing[interaction]
+                self._ctx, self._calc, interaction
             )
         else:
             raise TBLiteValueError(
