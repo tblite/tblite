@@ -58,6 +58,9 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
+if(NOT TARGET "ddX::ddX")
+  find_package("ddX" REQUIRED)
+endif()
 
 set(
   lib-deps
@@ -68,6 +71,7 @@ set(
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
   "s-dftd3::s-dftd3"
+  "ddX::ddX"
 )
 
 # Collect source of the project

@@ -49,14 +49,14 @@ enum tblite_solvation_param{
     tblite_solvation_gbsa_gfn2 = 22,
 };
 
-/// Create new CPCM implicit solvation container using internal parameters
+/// Create new ddx implicit solvation container using internal parameters
 ///
 /// @param error: Error handle
 /// @param mol: Molecular structure data
 /// @param eps: epsilon value for solvent
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_cpcm_solvation_epsilon(tblite_error error,
+tblite_new_ddx_solvation_epsilon(tblite_error error,
                                   tblite_structure mol,
                                   double eps);
 

@@ -56,7 +56,7 @@ Supported keywords are:
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
  alpb-solvation      ALPB implicit solvation              Epsilon or solvent
- cpcm-solvation      CPCM implicit solvation              Epsilon or solvent
+ ddx-solvation       ddX implicit solvation               Epsilon or solvent
 =================== ==================================== =====================
 """
 
