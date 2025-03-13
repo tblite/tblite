@@ -93,14 +93,11 @@ An example is shown below:
   from tblite.interface import Calculator
   import numpy as np
 
-  calc= Calculator(
-        method='GFN2-xTB',
-        numbers=np.array([1,1]),
-        positions=np.array([
-            [0.0,0.0,0.0,
-            0.0,0.0,1.0]
-            ]),
-        )
+  calc = Calculator(
+      method="GFN2-xTB",
+      numbers=np.array([1, 1]),
+      positions=np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+  )
   calc.add('xtbml')
   #calc.add('xtbml_xyz') with tensorial output
   #calc.add('xtbml.toml') use toml as input
