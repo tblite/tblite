@@ -539,7 +539,7 @@ def test_xtbml_api():
     res = calc.singlepoint()
     dict_ = res.get("post-processing-dict")
     
-    assert dict_.get("CN_A") == None
+    assert dict_.get("CN_A") is None
     
     assert len(dict_.keys()) == 129
     
