@@ -25,7 +25,7 @@ module tblite_solvation_cm5
    use mctc_env, only: error_type, fatal_error
    use mctc_env, only: wp
    use mctc_io,only: structure_type
-   use tblite_data_atomicrad, only: get_atomic_rad
+   use mctc_data_atomicrad, only: get_atomic_rad
    use mctc_io_convert, only: aatoau, kcaltoau
    implicit none
    private
