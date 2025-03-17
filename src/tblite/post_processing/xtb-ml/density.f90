@@ -707,43 +707,6 @@ subroutine comp_norm_3(dipm, qm, dipm_norm, qm_norm)
 
 end subroutine
 
-!> Compute the norm for dipole and quadrupole moments
-subroutine comp_norm(ndim, dipm, qm, dipm_norm, qm_norm)
-   !> Dipole moment
-   real(wp), intent(in) :: dipm(:, :, :)
-   !> Quadrupole moment
-   real(wp), intent(in) :: qm(:, :, :)
-   !> Dipole moment norm
-   real(wp), intent(out) :: dipm_norm(:, :)
-   !> Quadrupole moment norm
-   real(wp), intent(out) :: qm_norm(:, :)
-
-   real(wp), allocatable :: r(:), r2(:)
-   integer :: i, ndim, spin
-   ndim = size(dipm, 2)
-
-   allocate(r(ndim), source = 0.0_wp)
-   allocate(r2(ndim), source = 0.0_wp)
-   do spin = 1, size(dipm, 3)
-      r = 0.0_wp
-      r2 = 0.0_wp  
-      do i = 1, ndim
-         r2(i) = dipm(1, i, spin)**2 + dipm(2, i, spin)**2 + dipm(3, i, spin)**2
-      end do
-      r = sqrt(r2)
-
-      dipm_norm(:, spin) = r(:)
-
-      do i = 1, ndim
-         r2(i) = qm(1, i, spin)**2 + 2.0_wp * qm(2, i, spin)**2 + qm(3, i, spin)**2 + &
-               2.0_wp * qm(4, i, spin)**2 + 2.0_wp * qm(5, i, spin)**2 + qm(6, i, spin)**2
-      end do
-      r = sqrt(r2)
-      qm_norm(:, spin) = r(:)
-   end do
-
-end subroutine
-
 !> Compute extended quadrupole moment only due to nuclear effects
 ! all effects due to the electrons are set to 0, only the distribution of positive charges is left
 subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
