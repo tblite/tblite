@@ -23,7 +23,7 @@
 module tblite_xtb_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use mctc_ncoord, only : ncoord_type, new_ncoord
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -147,7 +147,7 @@ subroutine new_xtb_calculator(calc, mol, param, error)
    if (allocated(error)) return
 
    call add_basis(calc, mol, param, irc)
-   call add_ncoord(calc, mol, param)
+   call add_ncoord(calc, mol, param, error)
    call add_hamiltonian(calc, mol, param, irc)
    call add_repulsion(calc, mol, param, irc)
    call add_halogen(calc, mol, param, irc)
@@ -204,16 +204,21 @@ subroutine add_basis(calc, mol, param, irc)
 end subroutine add_basis
 
 
-subroutine add_ncoord(calc, mol, param)
+subroutine add_ncoord(calc, mol, param, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Parametrization records
    type(param_record), intent(in) :: param
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: cn_count_type
 
    if (allocated(param%hamiltonian%cn)) then
-      call new_ncoord(calc%ncoord, mol, cn_type=param%hamiltonian%cn)
+      call get_cn_count_value(param%hamiltonian%cn, cn_count_type, error)
+      call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count_type)
    end if
 end subroutine add_ncoord
 
@@ -366,6 +371,33 @@ subroutine add_coulomb(calc, mol, param, irc)
    end if
 
 end subroutine add_coulomb
+
+
+subroutine get_cn_count_value(cn_count_name, cn_count_type, error)
+   !> Type of coordination number counting function
+   character(len=*), intent(in) :: cn_count_name
+   !> Parametrization records
+   integer, intent(out) :: cn_count_type
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   select case(cn_count_name)
+   case default
+      call fatal_error(error, "Unknown coordination number counting function: "//cn_count_name)
+      return
+   case("exp")
+      cn_count_type = cn_count%exp
+   case("dexp")
+      cn_count_type = cn_count%dexp
+   case("erf")
+      cn_count_type = cn_count%erf
+   case("erf_en")
+      cn_count_type = cn_count%erf_en
+   case("dftd4")
+      cn_count_type = cn_count%dftd4
+   end select
+
+end subroutine get_cn_count_value
 
 
 subroutine get_average(average_type, averager)

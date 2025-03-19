@@ -21,7 +21,7 @@
 module tblite_disp_d3
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_container_cache, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
@@ -86,7 +86,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    grad = present(gradient).and.present(sigma)
 
    allocate(cn(mol%nat))
-   call new_ncoord(ncoord, mol, "exp", cutoff=self%cutoff%cn, rcov=self%model%rcov)
+   call new_ncoord(ncoord, mol, cn_count%exp, cutoff=self%cutoff%cn, rcov=self%model%rcov)
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
    call ncoord%get_coordination_number(mol, lattr, cn)
 

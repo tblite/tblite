@@ -22,7 +22,7 @@ module tblite_xtb_gfn1
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
-   use mctc_ncoord, only : new_ncoord
+   use mctc_ncoord, only : new_ncoord, cn_count
    use mctc_data_paulingen, only : get_pauling_en
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
@@ -610,7 +610,7 @@ subroutine add_ncoord(calc, mol)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
 
-   call new_ncoord(calc%ncoord, mol, cn_type="exp")
+   call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%exp)
 end subroutine add_ncoord
 
 subroutine add_repulsion(calc, mol)

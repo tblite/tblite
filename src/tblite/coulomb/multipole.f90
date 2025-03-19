@@ -23,7 +23,7 @@ module tblite_coulomb_multipole
    use mctc_io, only : structure_type
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
@@ -131,7 +131,7 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    self%rad = rad
    self%valence_cn = vcn
 
-   call new_ncoord(self%ncoord, mol, "dexp")
+   call new_ncoord(self%ncoord, mol, cn_count%dexp)
 end subroutine new_damped_multipole
 
 

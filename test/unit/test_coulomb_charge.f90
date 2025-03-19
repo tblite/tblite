@@ -19,7 +19,7 @@ module test_coulomb_charge
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type, new
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -452,7 +452,7 @@ subroutine get_charges_effceh(wfn, mol, nshell)
    allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
 
    ! Get electronegativity-weighted coordination number 
-   call new_ncoord(ncoord_en, mol, "erf_en", &
+   call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
       & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
    call ncoord_en%get_coordination_number(mol, lattr, cn_en, dcn_endr, dcn_endL)
