@@ -19,7 +19,7 @@ module test_hamiltonian
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
@@ -134,7 +134,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    allocate(cn(mol%nat), rcov(mol%nid))
    rcov(:) = get_covalent_rad(mol%num)
-   call new_ncoord(ncoord, mol, "dexp", cutoff=cn_cutoff, rcov=rcov)
+   call new_ncoord(ncoord, mol, cn_count%dexp, cutoff=cn_cutoff, rcov=rcov)
    call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
    call ncoord%get_coordination_number(mol, lattr, cn)
 

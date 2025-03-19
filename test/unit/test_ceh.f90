@@ -19,7 +19,7 @@ module test_ceh
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
    & test_failed
    use mctc_io, only : structure_type, new
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mctc_data_paulingen, only : get_pauling_en
    use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
@@ -295,8 +295,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
-      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, cn_count%erf, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
       call ncoord_en%get_coordination_number(mol, lattr, cn_en)
@@ -351,8 +351,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
-      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, cn_count%erf, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
       call ncoord_en%get_coordination_number(mol, lattr, cn_en)
@@ -415,8 +415,8 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, "erf", cutoff=cn_cutoff, rcov=rcov)
-      call new_ncoord(ncoord_en, mol, "erf_en", cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord, mol, cn_count%erf, cutoff=cn_cutoff, rcov=rcov)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, cutoff=cn_cutoff, rcov=rcov)
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
       call ncoord_en%get_coordination_number(mol, lattr, cn_en)

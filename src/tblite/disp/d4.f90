@@ -22,7 +22,7 @@ module tblite_disp_d4
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use mctc_ncoord, only : new_ncoord, ncoord_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use dftd4, only : d4_model, damping_param, rational_damping_param, realspace_cutoff, &
       & get_coordination_number, new_d4_model
    use dftd4_model, only : d4_ref
@@ -104,7 +104,7 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%cn)) allocate(ptr%cn(mol%nat))
    if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
    if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
-   call new_ncoord(ncoord, mol, "dftd4", cutoff=self%cutoff%cn, &
+   call new_ncoord(ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
       & rcov=self%model%rcov, en=self%model%en)
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
    call ncoord%get_coordination_number(mol, lattr, ptr%cn, ptr%dcndr, ptr%dcndL)
