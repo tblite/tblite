@@ -33,7 +33,8 @@ module tblite_api_solvation
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
       & solvent_data, get_solvent_data, solvation_type, new_solvation, solution_state, &
-      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel
+      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel, &
+      & ddx_solvation_model
    use tblite_api_utils, only: c_f_character
    implicit none
    private
@@ -57,13 +58,14 @@ module tblite_api_solvation
 contains
 
 
-function new_ddx_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
+function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    & bind(C, name=namespace//"new_ddx_solvation_epsilon")
    type(c_ptr), value :: verr
    type(vp_error), pointer :: err
    type(c_ptr), value :: vmol
    type(vp_structure), pointer :: mol
    real(kind=c_double), value :: eps
+   integer(c_int), value :: model
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
@@ -82,7 +84,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%ddx = ddx_input(eps, 1)
+   solvmodel%ddx = ddx_input(eps, model)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    

@@ -1,0 +1,8 @@
+[wrap-file]
+directory = json-fortran-8.2.5
+
+source_url = https://github.com/jacobwilliams/json-fortran/archive/refs/tags/8.2.5.tar.gz
+source_filename = 8.2.5.tar.gz
+source_hash = 16eec827f64340c226ba9a8463f001901d469bc400a1e88b849f258f9ef0d100
+
+patch_directory = json-fortran-8.2.5
