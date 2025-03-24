@@ -25,7 +25,7 @@ module tblite_solvation
    use mctc_env, only : error_type, fatal_error
    use mctc_io, only : structure_type
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input, born_kernel
-   use tblite_solvation_ddx, only : ddx_solvation, new_ddx, ddx_input
+   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
    use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solution_state
    use tblite_solvation_data, only : solvent_data, get_solvent_data
@@ -38,7 +38,7 @@ module tblite_solvation
    private
 
    public :: alpb_solvation, new_alpb, alpb_input, born_kernel
-   public :: ddx_solvation, new_ddx, ddx_input
+   public :: ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
    public :: cds_solvation, new_cds, cds_input
    public :: shift_solvation, new_shift, shift_input
    public :: solvent_data, get_solvent_data

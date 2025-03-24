@@ -557,7 +557,7 @@ def test_xtbml_api():
     
 
 def test_solvation_gfn2_ddx():
-    """Test (ddX) CPCM solvation with GFN2-xTB"""
+    """Test (ddX) COSMO solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
