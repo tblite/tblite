@@ -14,10 +14,10 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/lapack/sygvd.f90
-!> Provides an inverface to symmetric divide-and-conquer solver
+!> @file tblite/lapack/gpusolver/sygvd.F90
+!> Provides an inverface to symmetric divide-and-conquer solver from cuSOLVER via GAMBITS library
 
-!> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems
+!> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems cuSOLVER implementation
 module tblite_cusolver_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error, wp
    use tblite_output_format, only : format_string
@@ -28,7 +28,7 @@ module tblite_cusolver_sygvd
 
    public :: new_sygvd_gpu
 
-
+#ifdef USE_CUDA
    interface
       type(c_ptr) function cusolver_setup_dp(ndim, coeff_return) bind(C, name="cuSolverSetupDP")
          use iso_c_binding
@@ -158,5 +158,62 @@ subroutine get_density_matrix(self, focc, coeff, pmat)
    call cusolve_get_density(self%ptr, coeff, focc, pmat);
    
 end subroutine get_density_matrix
+
+#else
+      !> Wrapper class for solving symmetric general eigenvalue problems
+   type, public, extends(solver_type) :: sygvd_cusolver
+      private
+   contains
+      procedure :: solve_sp
+      procedure :: solve_dp
+      procedure :: delete
+      procedure :: get_density_matrix
+   end type sygvd_cusolver
+
+contains
+
+subroutine new_sygvd_gpu(self, ndim, return_coeff)
+   type(sygvd_cusolver), intent(out) :: self
+   integer, intent(in) :: ndim
+   logical, intent(in), optional :: return_coeff
+     
+end subroutine new_sygvd_gpu
+
+subroutine solve_sp(self, hmat, smat, eval, error)
+   class(sygvd_cusolver), intent(inout) :: self
+   real(sp), contiguous, intent(inout) :: hmat(:, :)
+   real(sp), contiguous, intent(in) :: smat(:, :)
+   real(sp), contiguous, intent(inout) :: eval(:)
+   type(error_type), allocatable, intent(out) :: error
+   
+   call fatal_error(error, "This tblite build does not support GPU acceleration. Rebuild from source with gpu support.")
+
+end subroutine solve_sp
+
+subroutine solve_dp(self, hmat, smat, eval, error)
+   class(sygvd_cusolver), intent(inout) :: self
+   real(c_double), contiguous, intent(inout) :: hmat(:, :)
+   real(c_double), contiguous, intent(in) :: smat(:, :)
+   real(c_double), contiguous, intent(inout) :: eval(:)
+   type(error_type), allocatable, intent(out) :: error
+
+   call fatal_error(error, "This tblite build does not support GPU acceleration. Rebuild from source with gpu support.")
+
+end subroutine solve_dp
+
+subroutine delete(self)
+   class(sygvd_cusolver) :: self
+  
+
+end subroutine delete
+
+subroutine get_density_matrix(self, focc, coeff, pmat)
+   class(sygvd_cusolver) :: self
+   real(wp), intent(in) :: focc(:)
+   real(wp), contiguous, intent(in) :: coeff(:, :)
+   real(wp), contiguous, intent(out) :: pmat(:, :)
+   
+end subroutine get_density_matrix
+#endif
 
 end module tblite_cusolver_sygvd

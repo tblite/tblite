@@ -313,7 +313,6 @@ subroutine get_density(wfn, solver, ints, ts, error)
          end do
 
          if (.not.solver%purification_success) then 
-            write(*,*) "Oops that failed."
             call get_density_from_coeff(wfn, solver, ints, ts, error)
          end if
       else

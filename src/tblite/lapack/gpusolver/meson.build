@@ -1,3 +1,3 @@
 srcs += files(
-    'sygvd.f90',
+    'sygvd.F90',
 )

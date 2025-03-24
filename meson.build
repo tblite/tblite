@@ -27,7 +27,7 @@ project(
 )
 install = not (meson.is_subproject() and get_option('default_library') == 'static')
 has_cc = add_languages('c', required: get_option('api') or get_option('python'), native: false)
-
+gpu = get_option('gpu')
 # General configuration information
 lib_deps = []
 inc_dirs = []

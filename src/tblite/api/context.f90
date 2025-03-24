@@ -177,21 +177,29 @@ end subroutine set_context_verbosity_api
 
 subroutine set_context_solver_api(vctx, solver) &
    & bind(C, name=namespace//"set_context_solver")
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-integer(c_int), value :: solver
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   integer(c_int), value :: solver
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "set_context_solver"
+   if (debug) print '("[Info]", 1x, a)', "set_context_solver"
 
-if (c_associated(vctx)) then
-   call c_f_pointer(vctx, ctx)
-   if (solver < 10 .and. solver /= 42) then
-      ctx%ptr%ctxsolver = lapack_solver(solver)
-   else 
-      ctx%ptr%ctxsolver = purification_solver_context(solver-10)
+   if (c_associated(vctx)) then
+      call c_f_pointer(vctx, ctx)
+      select case(solver)
+      case(1,2,3)
+         ctx%ptr%ctxsolver = lapack_solver(solver)
+      case(12,14,22)
+         ctx%ptr%ctxsolver = purification_solver_context(solver-10)
+      case default
+         allocate(error)
+         error%message = "Invalid solver type"
+         call ctx%ptr%set_error(error)
+         return
+      end select
+   
    end if
-end if
-end subroutine set_context_solver_api
+   end subroutine set_context_solver_api
 
 
 !> Delete context object

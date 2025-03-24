@@ -84,7 +84,8 @@ subroutine run_main(config, error)
 
    ctx%terminal = context_terminal(config%color)
    if (allocated(config%purification_solver)) then
-      ctx%ctxsolver = purification_solver_context(config%purification_solver, config%purification_precision_, config%purification_runmode_)
+      ctx%ctxsolver = purification_solver_context(config%purification_solver, &
+      config%purification_precision_, config%purification_runmode_)
    else
       ctx%ctxsolver = lapack_solver(config%solver)
    end if
@@ -324,7 +325,7 @@ subroutine run_main(config, error)
       end if
    end if
 
-   call ctx%delete_solver()
+   !call ctx%delete_solver()
 end subroutine run_main
 
 

@@ -22,6 +22,7 @@ set(
   "coulomb-multipole"
   "coulomb-thirdorder"
   "double-dictionary"
+  "density-matrix-purification"
   "fit"
   "gfn1-xtb"
   "gfn2-xtb"

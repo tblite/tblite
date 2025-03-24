@@ -146,10 +146,14 @@ tomlf_dep = dependency(
 )
 lib_deps += tomlf_dep
 
+if (gpu)
+  add_project_arguments(['-DUSE_CUDA'], language: 'fortran')
+endif
+
 gambits_dep = dependency(
   'gambits',
   version: '>=0.0.0',
   fallback: ['gambits','gambits_dep'],
-  default_options: ['default_library=static','gpu=true'],
+  default_options: ['default_library=static','api_fortran=true'],
 )
 lib_deps += gambits_dep

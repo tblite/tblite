@@ -14,21 +14,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-add_subdirectory("gpusolver")
-
 
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/getrf.f90"
-  "${dir}/getri.f90"
-  "${dir}/getrs.f90"
-  "${dir}/potrf.f90"
-  "${dir}/solver.f90"
-  "${dir}/sygst.f90"
-  "${dir}/sygvd.f90"
-  "${dir}/sygvr.f90"
+  "${dir}/gambits-purification.f90"
+  "${dir}/type.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

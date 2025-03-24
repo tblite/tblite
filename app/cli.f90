@@ -480,10 +480,10 @@ subroutine get_run_arguments(config, list, start, error)
             config%solver = lapack_algorithm%gvd_cusolver
          case("gvr")
             config%solver = lapack_algorithm%gvr
-         case("tc2")
+         case("tc2","sp2")
             allocate(config%purification_solver)
             config%purification_solver = purification_type%tc2
-         case("tc2-accel")
+         case("tc2-accel","sp2-accel")
             allocate(config%purification_solver)
             config%purification_solver = purification_type%tc2accel    
          case("trs4")

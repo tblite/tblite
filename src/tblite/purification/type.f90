@@ -2,7 +2,8 @@ module tblite_purification_solver_context
    use mctc_env, only : sp, dp, error_type, fatal_error
     use tblite_context_solver, only: context_solver
     use tblite_scf_solver, only: solver_type
-    use tblite_purification_solver, only: purification_solver, new_purification, purification_runmode, purification_precision, purification_type
+    use tblite_purification_solver, only: purification_solver, new_purification
+    use tblite_purification_solver, only: purification_runmode, purification_precision, purification_type
     use iso_c_binding
     implicit none
     private

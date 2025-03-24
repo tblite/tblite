@@ -452,6 +452,7 @@ class Calculator(Structure):
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
         "verbosity": library.set_calculator_verbosity,
+        "solver": library.set_context_solver,
     }
     _getter = {
         "angular-momenta": library.get_calculator_angular_momenta,

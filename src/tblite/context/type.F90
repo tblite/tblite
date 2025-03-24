@@ -35,6 +35,8 @@ module tblite_context_type
 
    !> Calculation context type for error handling and output messages
    type, public :: context_type
+      !> switch to allow the reuse of the context solver, for MD/CREST etc
+      logical :: reuse_solver = .false.
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context
@@ -158,7 +160,6 @@ subroutine delete_solver(self)
    !class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      write(*,*) "Allocated solver"
       call self%ctxsolver%delete(self%solver)
       if (allocated(self%solver)) deallocate(self%solver)
    end if

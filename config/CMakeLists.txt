@@ -19,6 +19,12 @@ option(BUILD_SHARED_LIBS "Whether the libraries built should be shared" FALSE)
 option(WITH_API "Enable export of C-API" TRUE)
 option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" TRUE)
 option(WITH_TESTS "Enable compilation of unit tests" TRUE)
+option(GPU "Compile with GPU capability" FALSE)
+
+if(GPU)
+  add_compile_definitions(USE_CUDA)
+endif()
+
 if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   set(
     "${PROJECT_NAME}-dependency-method"

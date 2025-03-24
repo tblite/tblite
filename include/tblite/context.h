@@ -44,10 +44,12 @@ typedef enum {
    TBLITE_SOLVER_SYGVR = 2,
    /// cuSolver SYGVD
    TBLITE_SOLVER_CUSOLVER_SYGVD = 3,
-   /// TC2 purification
-   TBLITE_SOLVER_TC2 = 12,
+   /// SP2 purification
+   TBLITE_SOLVER_SP2 = 12,
    ///TRS4 purification
-   TBLITE_SOLVER_TRS4 = 14,  
+   TBLITE_SOLVER_TRS4 = 14,
+   /// accelerated SP2 purification
+   TBLITE_SOLVER_SP2_ACCEL = 22, 
 } tblite_solver;
 
 /// Define callback function for use in custom logger

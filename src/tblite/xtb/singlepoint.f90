@@ -371,7 +371,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%set_error(error)
    end if
    call ctx%solver%reset()
-   call ctx%delete_solver()
+   if (.not. ctx%reuse_solver) call ctx%delete_solver()
 
 end subroutine xtb_singlepoint
 
