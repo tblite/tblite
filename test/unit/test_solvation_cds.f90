@@ -161,7 +161,6 @@ subroutine test_g(error, mol, input, qat, method)
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
-   type(cds_input) :: tmpinput
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -217,7 +216,7 @@ subroutine test_g(error, mol, input, qat, method)
 end subroutine test_g
 
 
-subroutine test_g_nonscf(error, mol, input, qat, method)
+subroutine test_g_nonscf(error, mol, input, method)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -228,20 +227,15 @@ subroutine test_g_nonscf(error, mol, input, qat, method)
    !> Solvation model input
    type(cds_input), intent(in) :: input
 
-   !> Atomic partial charges
-   real(wp), intent(in) :: qat(:)
-
    !> Method for parameter selection
    character(len=*), intent(in), optional :: method
 
    type(cds_solvation) :: solv
    type(cds_input), allocatable :: scratch_input
-   type(wavefunction_type) :: wfn
-   type(potential_type) :: pot
    type(container_cache) :: cache
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
-   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
    integer :: ii, ic
 
    scratch_input = input
@@ -424,7 +418,7 @@ subroutine test_g_sasa(error)
 
    if (allocated(error)) return
 
-   call test_g_nonscf(error, mol, input, qat)
+   call test_g_nonscf(error, mol, input)
 
 end subroutine test_g_sasa
 
@@ -808,18 +802,11 @@ subroutine test_g_cds_nonscf(error)
    type(structure_type) :: mol
    type(solvent_data) :: solvent
    type(cds_input) :: input
-   real(wp), parameter :: qat(*) = [&
-      &-1.57321098180703E-1_wp, 1.65233008998668E-1_wp, 3.22320267782066E-1_wp, &
-      & 3.63564544135336E-2_wp, 4.85639267214320E-2_wp,-3.59203277893926E-1_wp, &
-      &-1.93841260011383E-1_wp,-3.86495230324447E-1_wp, 3.10104147485353E-1_wp, &
-      & 8.34907519580185E-2_wp,-3.62672063405622E-1_wp, 3.64143595819311E-1_wp, &
-      & 3.34640678947868E-1_wp,-4.69881543486815E-1_wp,-1.89222615863620E-1_wp, &
-      & 4.53784257040286E-1_wp]
 
    call get_structure(mol, "MB16-43", "07")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_g_nonscf(error, mol, input, qat, method='gfn2')
+   call test_g_nonscf(error, mol, input, method='gfn2')
 
 end subroutine test_g_cds_nonscf
 

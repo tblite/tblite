@@ -158,7 +158,7 @@ subroutine compute_bornr(nat, xyz, list, vdwr, rho, svdw, c1, obc, &
 
    integer :: iat
    real(wp) :: br, dpsi, svdwi, vdwri, s1, v1, s2, arg, arg2
-   real(wp) :: th, ch, alpi, beti, gami
+   real(wp) :: th, ch
 
    call compute_psi(nat, xyz, list, vdwr, rho, brad, brdr)
 
@@ -218,7 +218,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
    real(wp) :: vec(3), r, rhoi, rhoj
    real(wp) :: gi, gj, ap, am, lnab, rhab, ab, dgi, dgj
    real(wp) :: drjj(3)
-   real(wp) :: rh1, rhr1, r24, rh2, r1, aprh1, r12
+   real(wp) :: rh1, rhr1, r24, r1, aprh1, r12
    real(wp) :: rvdwi, rvdwj
    logical :: ijov, jiov
 

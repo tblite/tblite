@@ -285,7 +285,7 @@ contains
       real(wp), allocatable :: lattr(:, :), cn(:), cn_en(:), rcov(:), en(:)
       real(wp), allocatable :: selfenergy(:)
       real(wp) :: cutoff
-      integer :: ii, jj
+      integer :: ii
 
       call make_basis(bas, mol, 6)
 
@@ -465,9 +465,8 @@ contains
       type(context_type) :: ctx
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
-      real(wp), allocatable :: cn(:), cn_en(:)
+      real(wp), allocatable :: cn(:)
       real(wp), parameter :: accuracy = 1e-8_wp
-      real(wp), allocatable :: lattr(:, :)
       integer :: i
       allocate(cn(mol%nat))
 

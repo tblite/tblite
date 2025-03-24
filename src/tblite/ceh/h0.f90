@@ -114,7 +114,6 @@ contains
       integer  :: iat, ish, jat, jsh, k, iao, jao, ij, iaosh, jaosh
       real(wp) :: hij, rr, r2, vec(3), dtmpj(3)
       real(wp), allocatable :: stmp(:), dtmpi(:, :), block_overlap(:,:)
-      integer :: kl, l
 
       overlap(:, :) = 0.0_wp
       dpint(:, :, :) = 0.0_wp

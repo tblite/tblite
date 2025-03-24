@@ -208,7 +208,7 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
    real(wp) :: energy(mol%nat), sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
    type(wavefunction_type) :: wfn
 

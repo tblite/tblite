@@ -52,7 +52,6 @@ subroutine test_h2_wbo(error)
    real(kind=wp), allocatable :: xyz(:, :)
    character(len=:), allocatable :: wbo_label
    integer, parameter :: atoms(2) =  [1, 1]
-   integer :: i, j
    allocate(xyz(3, n_atoms))
    xyz = reshape([&
       &+0.00000000_wp, +0.000000000_wp, +0.472429040_wp,&
@@ -145,11 +144,9 @@ subroutine test_timer_print(error)
    type(post_processing_list) :: pproc
    type(results_type) :: res
    real(kind=wp) :: energy
-   real(kind=wp), allocatable :: wbo(:, :), wbo_exp(:, :)
    real(kind=wp), allocatable :: xyz(:, :)
    character(len=:), allocatable :: wbo_label
    integer, parameter :: atoms(2) =  [1, 1]
-   integer :: i, j
    allocate(xyz(3, n_atoms))
    xyz = reshape([&
       &+0.00000000_wp, +0.000000000_wp, +0.472429040_wp,&
@@ -172,7 +169,6 @@ subroutine test_molmom_dipm_param(error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_table), pointer :: table_multipole
    type(toml_table) :: table_post_proc
-   type(toml_table), pointer :: new_table
    type(molecular_multipole_record) :: param
    table_post_proc = toml_table()
    call add_table(table_post_proc, "molecular-multipole", table_multipole)
@@ -194,7 +190,6 @@ subroutine test_molmom_qp_param(error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_table), pointer :: table_multipole
    type(toml_table) :: table_post_proc
-   type(toml_table), pointer :: new_table
    type(molecular_multipole_record) :: param
   
    table_post_proc = toml_table()
@@ -243,8 +238,6 @@ subroutine test_pproc_load_param(error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_table), pointer ::  table_entries
    type(toml_table) :: table_multipole
-   type(toml_table) :: new_table
-   type(toml_key), allocatable :: list(:)
    type(post_processing_param_list) :: param
   
    table_multipole = toml_table()

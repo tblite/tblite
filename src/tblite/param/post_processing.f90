@@ -112,7 +112,6 @@ subroutine dump_to_toml(self, table, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer :: ii
-   type(toml_table), pointer :: child
 
    do ii = 1, self%get_n_records()
       associate(rec => self%list(ii)%record)

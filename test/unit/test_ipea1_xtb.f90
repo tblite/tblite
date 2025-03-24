@@ -433,11 +433,13 @@ subroutine test_s_mb03(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    real(wp) :: energy
-   real(wp), allocatable :: gradient(:, :), sigma(:, :), numsigma(:, :)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
+   real(wp), allocatable :: sigma(:, :), numsigma(:, :)
 
    call get_structure(mol, "MB16-43", "03")
 
-   allocate(gradient(3, mol%nat), sigma(3, 3), numsigma(3, 3))
+   allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
+   allocate(sigma(3, 3), numsigma(3, 3))
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
@@ -446,6 +448,17 @@ subroutine test_s_mb03(error)
    if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
+
+   call numdiff_grad(ctx, mol, calc, wfn, numgrad)
+   
+   if (any(abs(gradient - numgrad) > thr2)) then
+      call test_failed(error, "Nuclear derivatives do not match")
+      print'(3es21.14)', gradient
+      print'("---")'
+      print'(3es21.14)', numgrad
+      print'("---")'
+      print'(3es21.14)', gradient-numgrad
+   end if
 
    call numdiff_sigma(ctx, mol, calc, wfn, numsigma)
 

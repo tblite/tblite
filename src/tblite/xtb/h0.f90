@@ -194,7 +194,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
 
    integer :: iat, jat, izp, jzp, itr, k, img, inl
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dtmpj(3), qtmpj(6)
+   real(wp) :: rr, r2, vec(3), hij, shpoly, dtmpj(3), qtmpj(6)
    real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
 
    overlap(:, :) = 0.0_wp
@@ -362,7 +362,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, dG(3), hscale, hs
+   real(wp) :: rr, r2, vec(3), hij, dG(3), hscale, hs
    real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
    real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)

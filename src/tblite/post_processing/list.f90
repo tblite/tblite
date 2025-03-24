@@ -77,25 +77,24 @@ subroutine print_timer(self, prlevel, ctx)
 end subroutine
 
 subroutine pack_res(self, mol, res)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type), intent(in) :: mol
    type(results_type), intent(inout) :: res
-   integer :: i, n
-   real(wp), allocatable :: tmp_array(:)
-   character(len=:), allocatable :: tmp_label
+   ! integer :: i, n
+   ! real(wp), allocatable :: tmp_array(:)
+   ! character(len=:), allocatable :: tmp_label
 
    !allocate(res%dict)
    res%dict = self%dict
 end subroutine
 
 subroutine print_csv(self, mol)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type) :: mol
-   integer :: n, i, out, j, nat
-   character(len=:), allocatable :: tmp_label
-   real(wp), allocatable :: tmp_array(:, :), array(:)
-   integer, allocatable :: z_array(:)
-
+   ! integer :: n, i, out, j, nat
+   ! character(len=:), allocatable :: tmp_label
+   ! real(wp), allocatable :: tmp_array(:, :), array(:)
+   ! integer, allocatable :: z_array(:)
 
 end subroutine
 
@@ -189,9 +188,8 @@ subroutine add_post_processing_cli(self, config, error)
    case default
       block
          type(toml_table), allocatable :: table
-         integer :: io, stat
+         integer :: io
          type(toml_error), allocatable :: t_error
-         type(param_record) :: record
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")
