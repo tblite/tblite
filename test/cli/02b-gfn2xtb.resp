@@ -1,0 +1,8 @@
+$ORIGIN/02-trp-xao.mol
+--method
+gfn2
+--etemp
+200
+--grad
+--guess
+ceh

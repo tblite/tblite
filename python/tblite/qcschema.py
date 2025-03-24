@@ -109,7 +109,10 @@ def get_error(
             "energy": 0.0,
             "gradient": np.zeros(input_data.molecule.geometry.shape),
             "hessian": np.zeros(
-                (input_data.molecule.geometry.size, input_data.molecule.geometry.size)
+                (
+                    input_data.molecule.geometry.size,
+                    input_data.molecule.geometry.size,
+                )
             ),
             "properties": {},
         }[input_data.driver],
@@ -151,11 +154,16 @@ def run_schema(
         input_data = qcel.models.AtomicInput(**input_data)
 
     if input_data.driver not in SUPPORTED_DRIVERS:
+        driver_name = (
+            input_data.driver.name
+            if hasattr(input_data.driver, "name")
+            else str(input_data.driver)
+        )
         return get_error(
             input_data,
             qcel.models.ComputeError(
                 error_type="input_error",
-                error_message=f"Driver '{input_data.driver}' is not supported by tblite.",
+                error_message=f"Driver '{driver_name}' is not supported by tblite.",
             ),
         )
 
@@ -178,14 +186,18 @@ def run_schema(
         )
 
     keywords = {
-        key: value for key, value in input_data.keywords.items() if key in Calculator._setter
+        key: value
+        for key, value in input_data.keywords.items()
+        if key in Calculator._setter
     }
     interaction = {
         key: value
         for key, value in input_data.keywords.items()
         if key in Calculator._interaction
     }
-    unknown_keywords = set(input_data.keywords) - set(keywords) - set(interaction)
+    unknown_keywords = (
+        set(input_data.keywords) - set(keywords) - set(interaction)
+    )
     if unknown_keywords:
         return get_error(
             input_data,
@@ -223,7 +235,9 @@ def run_schema(
             calcinfo_nbasis=result["norbitals"],
             calcinfo_nmo=result["norbitals"],
             scf_dipole_moment=result["dipole"],
-            scf_quadrupole_moment=result["quadrupole"][[0, 1, 3, 1, 2, 4, 3, 4, 5]],
+            scf_quadrupole_moment=result["quadrupole"][
+                [0, 1, 3, 1, 2, 4, 3, 4, 5]
+            ],
             scf_total_energy=result["energy"],
             scf_total_gradient=result["gradient"],
         )

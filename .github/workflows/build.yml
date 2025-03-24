@@ -106,7 +106,7 @@ jobs:
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install -y gcc-${{ env.GCC_V}} gfortran-${{ env.GCC_V }}
+        sudo apt-get install -y gcc-${{ env.GCC_V}} gfortran-${{ env.GCC_V }} liblapack-dev
         sudo update-alternatives \
           --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100 \
           --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }} \
@@ -129,7 +129,7 @@ jobs:
 
     - name: Install fpm
       if: ${{ matrix.build == 'fpm' }}
-      uses: fortran-lang/setup-fpm@v5
+      uses: fortran-lang/setup-fpm@v7  # fpm 0.11.0
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -286,12 +286,12 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         gcc_v: [12]
-        python_v: ['3.7', '3.8', '3.9']
+        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
         include:
         - os: macos-latest
           gcc_v: 12
-          python_v: '3.9'
+          python_v: '3.12'
 
     env:
       FC: gfortran
@@ -328,11 +328,14 @@ jobs:
 
     - name: Install GCC (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') }}
-      run: >-
-        sudo update-alternatives
-        --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100
-        --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }}
-        --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install -y libblas-dev liblapack-dev
+        sudo update-alternatives \
+          --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100 \
+          --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }} \
+          --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ env.GCC_V }}
 
     - name: Install meson and test dependencies
       run: pip3 install ${{ env.PIP_EXTRAS }}

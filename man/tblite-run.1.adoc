@@ -56,24 +56,34 @@ Supported geometry input formats are:
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
 
-*--alpb* _real_|_string_ [_string_]::
+*--alpb* _string_::
      Use analytical linearized Poisson-Boltzmann (ALPB) solvation model.
-     Solvent is specified by dielectric constant or solvent name.
-     For named solvents, uses parametrized ALPB with CDS and empirical shift.
-     For unnamed solvents (dielectric constant), uses non-empirical ALPB.
-     Optional solution state correction: gsolv (default), bar1mol, reference.
+     Solvent is specified by the solvent name.
+     Uses parametrized ALPB with CDS and empirical shift.
 
-*--gbsa* _real_|_string_ [_string_]::
+*--gbsa* _string_::
      Use generalized Born solvation model (GBSA).
+     Solvent is specified by the solvent name.
+     Uses parametrized GB with CDS and empirical shift.
+
+*--gbe* _real_|_string_::
+     Use generalized Born with finite epsilion (GBSA) solvation model.
+     Solvent is specified by dielectric constant or the solvent name.
+
+*--gb* _real_|_string_::
+     Use generalized Born solvation model (GB).
      Solvent is specified by dielectric constant or solvent name.
-     For named solvents, uses parametrized GBSA with CDS and empirical shift.
-     For unnamed solvents (dielectric constant), uses non-empirical GBSA.
-     Optional solution state correction: gsolv (default), bar1mol, reference.
 
 *--cpcm* _real_|_string_::
-     Use conductor-like polarizable continuum solvation model (CPCM).
+     Use polarizable continuum solvation model (CPCM).
      Solvent is specified by dielectric constant or solvent name.
-     **Important**: This feature is not stable and results are subject to change.
+
+*--born-kernel* _string_::
+     Specify Born kernel to use with ALPB, GBSA or GB solvation model.
+     Possible options are _p16_ (default for ALPB) and _still_ (default for GB/GBSA).
+
+*--solv-state* _string_::
+     Solution state correction: _gsolv_ (default), _bar1mol_, _reference_.
 
 *--spin-polarized*::
      Use spin-polarized Hamiltonian with colinear spins.

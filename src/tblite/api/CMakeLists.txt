@@ -25,6 +25,7 @@ list(
   "${dir}/error.f90"
   "${dir}/param.f90"
   "${dir}/result.f90"
+  "${dir}/solvation.f90"
   "${dir}/structure.f90"
   "${dir}/table.f90"
   "${dir}/utils.f90"

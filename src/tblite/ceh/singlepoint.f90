@@ -96,7 +96,7 @@ contains
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
 
-      integer :: i, prlevel
+      integer :: prlevel
 
       ! coordination number related arrays
       real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
@@ -163,7 +163,6 @@ contains
 
       ! Get Hamiltonian and integrals
       call new_integral(ints, calc%bas%nao)
-      ints%quadrupole = 0.0_wp
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
       call timer%pop
@@ -179,6 +178,7 @@ contains
          call calc%interactions%get_potential(mol, icache, wfn, pot)
          call timer%pop
       endif
+
       ! Add potential due to Coulomb
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
@@ -190,7 +190,7 @@ contains
          call timer%pop
       end if
 
-      ! Add effective Hamiltonian to wavefunction
+      ! Add effective Hamiltonian to potential
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
       call timer%push("diagonalization")

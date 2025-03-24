@@ -23,6 +23,10 @@ jobs:
       uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: assets/ci/build-env.yaml
+    - name: Install LAPACK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y liblapack-dev
     - run: |
         meson setup _build
         meson dist -C _build --no-tests --include-subprojects
@@ -47,6 +51,10 @@ jobs:
         create-args: >-
           meson-python
           python-build
+    - name: Install LAPACK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y liblapack-dev
     - name: Reorganize repository
       run: |
         git config user.email ""
@@ -69,13 +77,18 @@ jobs:
       matrix:
         os:
         - ubuntu-latest
+        # macos-13
         - macos-latest
-        python: ['39', '310', '311', '312'] # only Python versions before EOL, so no 3.7
-        # TODO: Add Python 3.12 support
-        include:
+        # windows-latest
+        python: ['38', '39', '310', '311', '312', '313']
+        exclude:
           - os: ubuntu-latest
-            python: '38' # Python 3.8 is not supported on 'macos-latest'
-            # see also: https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md
+            python: '38'
+          - os: macos-latest
+            python: '38'
+        include: 
+          - os: ubuntu-22.04
+            python: '38'
 
     defaults:
       run:
@@ -89,7 +102,7 @@ jobs:
 
       # Install 'cibuildwheel' as the driver for building wheels
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.20.0
+        run: python -m pip install cibuildwheel==2.21.1
 
       # Download the source distribution from above
       - name: Download sdist
@@ -102,8 +115,9 @@ jobs:
         run: python -m cibuildwheel --output-dir . *.tar.gz
         env:
           CIBW_PLAT: ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
-          CIBW_ARCHS_MACOS: arm64
-          CIBW_ARCHS_LINUX: x86_64
+          CIBW_CONFIG_SETTINGS: setup-args="-Dtblite:openmp=false"
+          CIBW_ARCHS: auto64
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
           CIBW_BUILD: "*${{ matrix.python }}-*"
           # MM: Package installation (yum install ...) works differently on musllinux
           CIBW_SKIP: "*musllinux*"
@@ -114,7 +128,6 @@ jobs:
           # MM: 'openblas' from brew requires gcc@14, using a different version for building leads to delocation errors
           # MM: gcc@14 needs macOS14
           CIBW_BEFORE_ALL_MACOS: |
-            brew uninstall gcc@11
             brew uninstall gcc@12
             brew uninstall gcc@13
             brew autoremove

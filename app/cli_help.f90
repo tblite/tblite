@@ -112,6 +112,7 @@ module tblite_cli_help
       "      --method <name>      Parametrization of the xTB Hamiltonian to use"//nl//&
       "                           Available methods: gfn1, gfn2, ipea1 (Default: gfn2)"//nl//&
       "      --param <file>       Parametrization file to use for calculation"//nl//&
+      "      --acc <real>         Convergence criterion for SCF (Default: 1.0)"//nl//&
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
@@ -121,20 +122,21 @@ module tblite_cli_help
       "                           gvd (default), and gvr"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                           Homogeneous electric field in V/Å."//nl//&
-      "      --alpb <name>/<real> [<name>]"//nl//&
-      "                           Use analytical linearized Poisson-Boltzmann (ALPB) solvation model."//nl//&
+      "      --alpb <name>        Use analytical linearized Poisson-Boltzmann (ALPB) solvation model."//nl//&
+      "                           Solvent is specified by the solvent name."//nl//&
+      "                           Uses parametrized ALPB with CDS and empirical shift."//nl//&
+      "      --gbsa <name>        Use generalized Born solvation model (GBSA)."//nl//&
+      "                           Solvent is specified by the solvent name."//nl//&
+      "                           Uses parametrized GB with CDS and empirical shift."//nl//&
+      "      --gbe <real>/<name>  Use generalized Born for finite epsilion (GBE) solvation model."//nl//&
+      "                           Solvent is specified by dielectric constant or the solvent name."//nl//&
+      "      --gb <real>/<name>   Use generalized Born solvation model (GB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "                           For named solvents, uses parametrized ALPB with CDS and empirical shift."//nl//&
-      "                           For unnamed solvents (dielectric constant), uses non-empirical ALPB."//nl//&
-      "                           Optional solution state correction: gsolv (default), bar1mol, reference."//nl//& 
-      "      --gbsa <name>/<real> [<name>]"//nl//&
-      "                           Use generalized Born solvation model (GBSA)."//nl//&
+      "      --cpcm <real>/<name> Use polarizable continuum solvation model (CPCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "                           For named solvents, uses parametrized GBSA with CDS and empirical shift."//nl//&
-      "                           For unnamed solvents (dielectric constant), uses non-empirical GBSA."//nl//&
-      "                           Optional solution state correction: gsolv (default), bar1mol, reference."//nl//& 
-      "      --cpcm <name>/<real> Use polarizable continuum solvation model (CPCM)."//nl//&
-      "                           Solvent is specified by dielectric constant or solvent name."//nl//&
+      "      --born-kernel <name> Specify Born kernel to use with ALPB, GBSA or GB solvation model."//nl//&
+      "                           Possible options are p16 (default for ALPB) and still (default for GB/GBSA)."//nl//&
+      "      --solv-state <name>  Solution state correction: gsolv (default), bar1mol, reference."//nl//& 
       "      --spin-polarized     Use spin-polarized xTB Hamiltonian"//nl//&
       "      --post-processing <file>"//nl//&
       "                           Add post processing methods to the calculation"//nl//&
