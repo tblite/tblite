@@ -133,7 +133,9 @@ module tblite_cli_help
       "      --gb <real>/<name>   Use generalized Born solvation model (GB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
       "      --cosmo <real>/<name> "//nl//&
-      "                           Use conductor-like screening model (COSMO)."//nl//&
+      "                           Use conductor-like screening solvation model (COSMO)."//nl//&
+      "                           Solvent is specified by dielectric constant or solvent name."//nl//&
+      "      --cpcm <real>/<name> Use conductor-like polarizable continuum solvation model (CPCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
       "      --pcm <real>/<name>  Use polarizable continuum solvation model (PCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&

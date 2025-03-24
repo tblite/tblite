@@ -38,7 +38,13 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
     find_dependency("dftd4")
   endif()
 
+<<<<<<< Updated upstream
    if(NOT TARGET "ddx::ddx")
       find_dependency("ddx")
    endif()
+=======
+  if(NOT TARGET "ddX::ddX")
+    find_dependency("ddX")
+  endif()
+>>>>>>> Stashed changes
 endif()

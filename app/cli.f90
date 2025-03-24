@@ -25,7 +25,8 @@ module tblite_cli
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
+      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel, &
+      & ddx_solvation_model
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -252,6 +253,7 @@ subroutine get_run_arguments(config, list, start, error)
    logical, allocatable :: alpb
    integer :: ddx_model
    integer, allocatable :: kernel, sol_state
+   real(wp) :: kappa = 0.0_wp
    type(solvent_data), allocatable :: solvent
 
    iarg = start
@@ -376,17 +378,19 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cosmo", "--pcm", "--lpb")
+      case("--cosmo", "--cpcm", "--pcm", "--lpb")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
          end if
          if (arg == "--cosmo") then
-            ddx_model = 1
+            ddx_model = ddx_solvation_model%cosmo
+         else if (arg == "--cpcm") then
+            ddx_model = ddx_solvation_model%cpcm
          else if (arg == "--pcm") then
-            ddx_model = 2
+            ddx_model = ddx_solvation_model%pcm
          else if (arg == "--lpb") then
-            ddx_model = 3
+            ddx_model = ddx_solvation_model%lpb
          else 
             call fatal_error(error, "Unknown ddX solvation model '"//arg//"' specified")
             exit
@@ -407,6 +411,16 @@ subroutine get_run_arguments(config, list, start, error)
             solvent_not_found = .true.
             call get_argument_as_real(arg, solvent%eps, error)
          end if
+         if (allocated(error)) exit
+
+      case("--kappa")
+         if (ddx_model /= ddx_solvation_model%lpb) then
+            write(output_unit, '(a)') "---WARNING: Kappa is only needed for LPB solvation model,&
+               & input will be ignored.---"
+         end if
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, kappa, error)
          if (allocated(error)) exit
 
       case("--gb", "--gbe")
@@ -585,11 +599,11 @@ subroutine get_run_arguments(config, list, start, error)
       else
          ! ddX solvation model
          if (sol_state /= solution_state%gsolv) then 
-            call fatal_error(error, "Solution state shift not supported for CPCM")
+            call fatal_error(error, "Solution state shift not supported for ddX solvation")
             return
          end if
          allocate(config%solvation)
-         config%solvation%ddx = ddx_input(solvent%eps, ddx_model)
+         config%solvation%ddx = ddx_input(solvent%eps, ddx_model, kappa=kappa)
       end if
    end if
 

@@ -509,7 +509,7 @@ def test_post_processing_api():
 
 
 def test_solvation_gfn2_ddx():
-    """Test (ddX) CPCM solvation with GFN2-xTB"""
+    """Test (ddX) COSMO solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
@@ -517,7 +517,6 @@ def test_solvation_gfn2_ddx():
     calc.add("ddx-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
-
     assert energy == approx(-28.43287176929)
 
 

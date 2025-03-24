@@ -2928,7 +2928,7 @@ int test_uninitialized_solvation()
     error = tblite_new_error();
 
     //check if it fails when mol is not associated
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_ddx_solvation_cosmo);
     if (!tblite_check(error))
         goto unexpected;
     show(error);
@@ -2975,7 +2975,7 @@ int test_solvation_ddx_eps()
     if (!calc)
         goto err;
 
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_ddx_solvation_cosmo);
     if (tblite_check(error))
         goto err;
 

@@ -553,7 +553,7 @@ class Calculator(Structure):
          spin-polarization   Spin polarization           Scaling factor
          alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
          gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
-         ddx-solvation       ddX implicit solvation      Epsilon
+         ddx-solvation       ddX implicit solvation      Epsilon, model, kappa (if model=LPB)
          gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
          gb-solvation        GB implicit solvation       Epsilon, Born kernel
         =================== =========================== =========================================

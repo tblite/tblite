@@ -24,7 +24,7 @@ module tblite_solvation_ddx
    use mctc_io_constants, only : pi
    use tblite_blas, only : dot, gemv
    use tblite_container_cache, only : container_cache
-   use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
+   use tblite_mesh_lebedev, only : grid_size
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -33,13 +33,7 @@ module tblite_solvation_ddx
 
    use omp_lib, only : omp_get_max_threads
 
-   use iso_fortran_env, only : output_unit
-
-   use tblite_disp_d4, only: get_eeq_charges
-
-
-   use ddx, only: ddx_type, ddx_error_type, check_error, ddinit, ddx_state_type, allocate_state
-   use ddx, only: ddrun
+   use ddx, only: ddx_type, ddx_error_type, check_error, ddinit, ddx_state_type, allocate_state, ddrun
    use ddx, only: setup, fill_guess, solve, fill_guess_adjoint, solve_adjoint, solvation_force_terms
    use ddx_core, only: ddx_electrostatics_type
    use ddx_multipolar_solutes, only: multipole_electrostatics, multipole_force_terms, multipole_psi
@@ -48,7 +42,27 @@ module tblite_solvation_ddx
    implicit none
    private
 
-   public :: ddx_solvation, new_ddx, ddx_input, ddx_cache
+   public :: ddx_solvation, new_ddx, ddx_input, ddx_cache, ddx_solvation_model
+
+
+   !> Possible solvation models to be used within the dd framework
+   type :: enum_ddx_solvation_model
+      ! COSMO and CPCM temporary defined as 11 and 12 to get correct keps in the first step
+      ! Labels are dumbed to 1 before passing the model input to the ddX routine,
+      ! where both models are handeled the same way
+      !> Conductor like screening model
+      integer :: cosmo = 11
+      !> Conductor-like polarizable continuum model
+      integer :: cpcm = 12
+      !> Polarizable continuum model
+      integer :: pcm = 2
+      !> Linearized Poisson-Boltzmann model
+      integer :: lpb = 3
+   end type enum_ddx_solvation_model
+
+   !> Actual enumerator for the dd solvation models
+   type(enum_ddx_solvation_model), parameter :: ddx_solvation_model = enum_ddx_solvation_model()
+
 
 
    !> Input for ddX solvation
@@ -56,7 +70,7 @@ module tblite_solvation_ddx
       !> Dielectric constant
       real(wp) :: dielectric_const
       !> ddx model
-      integer :: ddx_model = 1
+      integer :: ddx_model = ddx_solvation_model%cosmo
       !> Scaling of van-der-Waals radii
       real(wp) :: rscale = 1.0_wp
       !> Accuracy for iterative solver
@@ -64,18 +78,20 @@ module tblite_solvation_ddx
       !> Regularization parameter
       real(wp) :: eta = 1.0_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(12)
+      integer :: nang = grid_size(14)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
       real(wp), allocatable :: rvdw(:)
       !> Number of OMP threads
       integer :: nproc = 1
+      !> Debye-Hückel screening length (only used for LPB)
+      real(wp) :: kappa = 0.0_wp
    end type ddx_input
 
    !> Definition of polarizable continuum model
    type, extends(solvation_type) :: ddx_solvation
-      ! !> ddX instance
+      !> ddX instance
       type(ddx_input) :: ddx_input
       !> Dielectric function
       real(wp) :: keps
@@ -123,8 +139,6 @@ module tblite_solvation_ddx
       real(wp), allocatable :: force(:, :)
    end type ddx_cache
 
-   real(wp), parameter :: alpha_alpb = 0.571412_wp
-
 contains
 
 !> Create new electric field container
@@ -139,15 +153,21 @@ subroutine new_ddx(self, mol, input, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer :: iat, izp
+   real(wp) :: keps_param 
 
    ! Set label
-   if (input%ddx_model == 1) then
-      self%label = "ddcpcm/ddcosmo solvation model"
-   else if (input%ddx_model == 2) then
+   if (input%ddx_model == ddx_solvation_model%cosmo) then
+      self%label = "ddcosmo solvation model"
+   else if (input%ddx_model == ddx_solvation_model%cpcm) then
+      self%label = "ddcpcm solvation model"
+   else if (input%ddx_model == ddx_solvation_model%pcm) then
       self%label = "ddpcm solvation model"
-   else if (input%ddx_model == 3) then
+      else if (input%ddx_model == ddx_solvation_model%lpb) then
       self%label = "ddlpb solvation model"
    end if
+
+   ! Set model 
+   self%ddx_input%ddx_model = input%ddx_model
 
    ! Get number of OMP threads
    self%ddx_input%nproc = omp_get_max_threads()
@@ -166,14 +186,18 @@ subroutine new_ddx(self, mol, input, error)
 
    ! Calculate Epsilon and keps
    self%dielectric_const = input%dielectric_const
-   ! self%keps = -(1.0_wp/self%dielectric_const - 1.0_wp) / (1.0_wp + alpha_alpb)
-   ! self%keps = 1 !(self%dielectric_const - 1.0_wp) / (self%dielectric_const + 0.5_wp)
-   
-   if (input%ddx_model == 1) then
-      self%keps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + 0.5_wp)
+   if (input%ddx_model == ddx_solvation_model%cosmo) then
+      keps_param = 0.5_wp
+      self%keps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + keps_param)
+   else if (input%ddx_model == ddx_solvation_model%cpcm) then
+      keps_param = 0.0_wp
+      self%keps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + keps_param)
    else 
       self%keps = 1.0_wp
    end if
+
+   ! Get Debye-Hückel screening length (only used for LPB)
+   self%ddx_input%kappa = input%kappa
 
 end subroutine new_ddx
 
@@ -188,7 +212,7 @@ function create_ddx(mol, input) result(self)
    !> Error handling
    type(error_type), allocatable :: error
 
-   !> Create new instance of the solvation model
+   ! Create new instance of the solvation model
    call new_ddx(self, mol, input, error)
    if (allocated(error)) then
       call fatal_error(error)
@@ -203,13 +227,15 @@ subroutine update(self, mol, cache)
    class(ddx_solvation), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
+
+   integer :: model
+
    call taint(cache, ptr)
 
-   !> Electrostatics at the cavity points
+   ! Electrostatics at the cavity points
    ! Electric potential
    ptr%ddx_electrostatics%do_phi = .true.
    ! Electric field
@@ -217,50 +243,54 @@ subroutine update(self, mol, cache)
    ! Electric field gradient
    ptr%ddx_electrostatics%do_g = .true.
 
+   ! Put COSMO and CPCM label back to 1 
+   if (self%ddx_input%ddx_model == ddx_solvation_model%cosmo .or. &
+      & self%ddx_input%ddx_model == ddx_solvation_model%cpcm) then
+      model = 1
+   else
+      model = self%ddx_input%ddx_model
+   end if
 
-
-   ! initialize ddx
-   call ddinit(self%ddx_input%ddx_model, mol%nat, mol%xyz, self%rvdw, self%dielectric_const, ptr%ddx, &
-      & ptr%ddx_error, force=1, &
-      & ngrid=self%ddx_input%nang, lmax=self%ddx_input%lmax, &
-      & nproc=self%ddx_input%nproc , eta=self%ddx_input%eta)
+   call ddinit(model, mol%nat, mol%xyz, &
+      & self%rvdw, self%dielectric_const, ptr%ddx, &
+      & ptr%ddx_error, force=1, ngrid=self%ddx_input%nang, &
+      & lmax=self%ddx_input%lmax, nproc=self%ddx_input%nproc, &
+      & eta=self%ddx_input%eta, kappa=self%ddx_input%kappa)
    call check_error(ptr%ddx_error)
 
-
-   ! Allocate forces
-   if (allocated(ptr%force)) then
-      deallocate(ptr%force)
-   end if
-   allocate(ptr%force(3, mol%nat))
-
-   ! Initialize ddx_state
-   call allocate_state(ptr%ddx%params, ptr%ddx%constants,  &
+   call allocate_state(ptr%ddx%params, ptr%ddx%constants, &
       ptr%ddx_state, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   ! Allocate and get coulomb matrix
+   if (allocated(ptr%multipoles)) then
+      deallocate(ptr%multipoles)
+   end if
+   allocate(ptr%multipoles(1, mol%nat), source=0.0_wp)
+
    if (allocated(ptr%jmat)) then
       deallocate(ptr%jmat)
    end if
    allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp)
    call get_coulomb_matrix(mol%xyz, ptr%ddx%constants%ccav, ptr%jmat)
 
-   ! Allocate multipoles
-   if (allocated(ptr%multipoles)) then
-      deallocate(ptr%multipoles)
+   if (allocated(ptr%force)) then
+      deallocate(ptr%force)
    end if
-   allocate(ptr%multipoles(1, mol%nat))
+   allocate(ptr%force(3, mol%nat), source=0.0_wp)
 
+   if (allocated(ptr%ddx_pot)) then
+      deallocate(ptr%ddx_pot)
+   end if
+   allocate(ptr%ddx_pot(mol%nat), source=0.0_wp)
 
    call fill_guess(ptr%ddx%params, ptr%ddx%constants, &
          & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
-   
+
    call fill_guess_adjoint(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   
 end subroutine update
 
 !> Get electric field energy
@@ -273,13 +303,14 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    type(wavefunction_type), intent(in) :: wfn
    !> Solvation free energy
    real(wp), intent(inout) :: energies(:)
-   real(wp), external :: ddot
-
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
 
-   call taint(cache, ptr)
+   call view(cache, ptr)
+
+   ! Recalculate the solution of the ddX system with the new charges after diagonalization
+   ! This solution cannot be reused in the potential due to intermediate mixing
 
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
@@ -296,9 +327,13 @@ subroutine get_energy(self, mol, cache, wfn, energies)
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   !> Add solvation energy to total energy
-   energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
- 
+   ! Add solvation energy to total energy
+   if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
+      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,2) * ptr%ddx_state%psi, 1)
+   else
+      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
+   end if
+
 end subroutine get_energy
 
 !> Get electric field potential
@@ -311,15 +346,14 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(wavefunction_type), intent(in) :: wfn
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
-
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
 
-   !> Temporary variable to store ddX potential befor adding it to the total potential
-   real(wp), allocatable :: pot_tmp(:,:)
+   call view(cache, ptr)
 
-   call taint(cache, ptr)
+   ! Solution of the ddX system (direct and adjoint) with the mixed charges
+   ! This solution cannot be reused in the energy calculation due to intermediate diagonalization
 
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
@@ -340,17 +374,21 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-
-   ! Allocate memory to intermediately store ddX potential 
-   allocate(ptr%ddx_pot(size(pot%vat, 1)), source=0.0_wp)
+   ! call ddrun(ptr%ddx, ptr%ddx_state,ptr%ddx_electrostatics,&
+   !    & ptr%ddx_state%psi, 1e-10_wp, energies, ptr%ddx_error, ptr%force)
+   
    ! Contract with the Coulomb matrix
+   ptr%ddx_pot = 0.0_wp
    call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t') 
    ! Scale with 0.5 and keps, and get second contribution to potential
-   ptr%ddx_pot(:) = 0.5_wp * self%keps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
+   if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
+      ptr%ddx_pot(:) = 0.5_wp * self%keps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%x_lpb(1, :, 1))
+   else
+      ptr%ddx_pot(:) = 0.5_wp * self%keps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
+   end if
  
    ! Add potential to overall potential for new SCF step 
-   pot%vat(:,1) = pot%vat(:,1)  + ptr%ddx_pot(:)
-   deallocate(ptr%ddx_pot) 
+   pot%vat(:,1) = pot%vat(:,1) + ptr%ddx_pot(:)
 
 end subroutine get_potential
 
@@ -372,7 +410,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    type(ddx_cache), pointer :: ptr
    
    call view(cache, ptr)
-
    
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, ptr%force, ptr%ddx_error)
