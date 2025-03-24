@@ -65,7 +65,7 @@ set(EXAMPLES OFF CACHE BOOL "Disable ddx examples" FORCE)
 if(NOT TARGET "ddx::ddx")
   find_package("ddx" REQUIRED)
 endif()
-
+  
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
