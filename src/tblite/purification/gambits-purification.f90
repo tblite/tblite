@@ -137,159 +137,157 @@ module tblite_purification_solver
 
    contains
 
-   subroutine reset(self)
-      class(purification_solver) :: self
-      self%trans = .false.
-      self%purification_success = .true.
-      call ResetLib(self%solver_ptr)
-   end subroutine
+subroutine reset(self)
+   class(purification_solver) :: self
+   self%trans = .false.
+   self%purification_success = .true.
+   call ResetLib(self%solver_ptr)
+end subroutine
    
 
-   function got_transform(self) result(trans)
-      class(purification_solver) :: self
-      logical :: trans
-      trans = self%trans;
-   end function
+function got_transform(self) result(trans)
+   class(purification_solver) :: self
+   logical :: trans
+   trans = self%trans;
+end function
 
-   subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
-      type(purification_solver) :: self
-      integer(c_size_t) :: type_, run_, prec_
-      integer :: ndim
-      integer(c_size_t), optional :: maxiter
-      real(c_double), optional :: thresh
-      self%type = type_
-      self%precision = prec_
-      self%runmode = run_
+subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
+   type(purification_solver) :: self
+   integer(c_size_t) :: type_, run_, prec_
+   integer :: ndim
+   integer(c_size_t), optional :: maxiter
+   real(c_double), optional :: thresh
+   self%type = type_
+   self%precision = prec_
+   self%runmode = run_
 
-      !use LAPACK for molecules smaller than 750 basis functions
-      select case(run_)
-      case(purification_runmode%cpu)
+   !use LAPACK for molecules smaller than 750 basis functions
+   select case(run_)
+   case(purification_runmode%cpu)
+      block
+         type(sygvd_solver), allocatable :: tmp
+         allocate(tmp) 
+         call new_sygvd(tmp, ndim)
+         call move_alloc(tmp, self%lapack_solv)
+      end block
+   case(purification_runmode%gpu)
+      block
+         type(sygvd_cusolver), allocatable :: tmp
+         allocate(tmp) 
+         call new_sygvd_gpu(tmp, ndim, .true.)
+         call move_alloc(tmp, self%lapack_solv)
+      end block
+   case(purification_runmode%default)
+      if (ndim < 750) then
          block
             type(sygvd_solver), allocatable :: tmp
             allocate(tmp) 
             call new_sygvd(tmp, ndim)
             call move_alloc(tmp, self%lapack_solv)
          end block
-      case(purification_runmode%gpu)
+      else
          block
             type(sygvd_cusolver), allocatable :: tmp
             allocate(tmp) 
             call new_sygvd_gpu(tmp, ndim, .true.)
             call move_alloc(tmp, self%lapack_solv)
          end block
-      case(purification_runmode%default)
-         if (ndim < 750) then
-            block
-               type(sygvd_solver), allocatable :: tmp
-               allocate(tmp) 
-               call new_sygvd(tmp, ndim)
-               call move_alloc(tmp, self%lapack_solv)
-            end block
-         else
-            block
-               type(sygvd_cusolver), allocatable :: tmp
-               allocate(tmp) 
-               call new_sygvd_gpu(tmp, ndim, .true.)
-               call move_alloc(tmp, self%lapack_solv)
-            end block
-            end if
-      end select
-
-
+         end if
+   end select
       
-      
-      if (present(maxiter)) self%maxiter = maxiter
-      if (present(thresh)) self%thresh = thresh
-      call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
-      self%solver_ptr =  PurifyFockSetup(self%ctx%ptr, int(ndim, kind=c_size_t), &
-      self%type, self%runmode, self%precision)
-   end subroutine
+   if (present(maxiter)) self%maxiter = maxiter
+   if (present(thresh)) self%thresh = thresh
+   call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
+   self%solver_ptr =  PurifyFockSetup(self%ctx%ptr, int(ndim, kind=c_size_t), &
+   self%type, self%runmode, self%precision)
+end subroutine
 
-   subroutine solve_sp(self, hmat, smat, eval, error)
+subroutine solve_sp(self, hmat, smat, eval, error)
+   class(purification_solver), intent(inout) :: self
+   real(sp), contiguous, intent(inout) :: hmat(:, :)
+   real(sp), contiguous, intent(in) :: smat(:, :)
+   real(sp), contiguous, intent(inout) :: eval(:)
+   type(error_type), allocatable, intent(out) :: error
+end subroutine
+
+
+
+subroutine solve_dp(self, hmat, smat, eval, error)
+   class(purification_solver), intent(inout) :: self
+   real(dp), contiguous, intent(inout) :: hmat(:, :)
+   real(dp), contiguous, intent(in) :: smat(:, :)
+   real(dp), contiguous, intent(inout) :: eval(:)
+   real(c_double), allocatable, target :: tmp(:, :)
+   type(error_type), allocatable, intent(out) :: error
+   character(len=:), allocatable :: error_msg
+   if (self%ctx%failed()) then
+      call self%ctx%get_error(error_msg)
+      call fatal_error(error, error_msg)
+   end if
+   call self%lapack_solv%solve(hmat, smat, eval, error)
+   allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
+   tmp = hmat
+   if (self%purification_success) call SetTransformationMatrix(self%ctx%ptr, self%solver_ptr, tmp)
+   self%trans = .true.
+end subroutine solve_dp
+
+subroutine purify_dp(self, hmat, smat, dens, nel, error)
       class(purification_solver), intent(inout) :: self
-      real(sp), contiguous, intent(inout) :: hmat(:, :)
-      real(sp), contiguous, intent(in) :: smat(:, :)
-      real(sp), contiguous, intent(inout) :: eval(:)
-      type(error_type), allocatable, intent(out) :: error
-   end subroutine
-
-
-
-   subroutine solve_dp(self, hmat, smat, eval, error)
-      class(purification_solver), intent(inout) :: self
-      real(dp), contiguous, intent(inout) :: hmat(:, :)
-      real(dp), contiguous, intent(in) :: smat(:, :)
-      real(dp), contiguous, intent(inout) :: eval(:)
-      real(c_double), allocatable, target :: tmp(:, :)
+      real(c_double), contiguous, intent(inout)  :: hmat(:, :)
+      real(c_double), contiguous, intent(in) :: smat(:, :)
+      real(c_double), contiguous, intent(inout) :: dens(:, :)
+      real(c_double) :: nel
+      integer(kind=4) :: info
       type(error_type), allocatable, intent(out) :: error
       character(len=:), allocatable :: error_msg
+
+      self%iscf = self%iscf +1
+      info = 42
+      call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2, info)
+      if (info /= 0) self%purification_success = .false.
       if (self%ctx%failed()) then
          call self%ctx%get_error(error_msg)
          call fatal_error(error, error_msg)
       end if
-      call self%lapack_solv%solve(hmat, smat, eval, error)
-      allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
-      tmp = hmat
-      if (self%purification_success) call SetTransformationMatrix(self%ctx%ptr, self%solver_ptr, tmp)
-      self%trans = .true.
-   end subroutine solve_dp
-
-   subroutine purify_dp(self, hmat, smat, dens, nel, error)
-        class(purification_solver), intent(inout) :: self
-        real(c_double), contiguous, intent(inout)  :: hmat(:, :)
-        real(c_double), contiguous, intent(in) :: smat(:, :)
-        real(c_double), contiguous, intent(inout) :: dens(:, :)
-        real(c_double) :: nel
-        integer(kind=4) :: info
-        type(error_type), allocatable, intent(out) :: error
-        character(len=:), allocatable :: error_msg
-
-         self%iscf = self%iscf +1
-         info = 42
-         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2, info)
-         if (info /= 0) self%purification_success = .false.
-         if (self%ctx%failed()) then
-            call self%ctx%get_error(error_msg)
-            call fatal_error(error, error_msg)
-         end if
          
-    end subroutine purify_dp
+end subroutine purify_dp
 
-    subroutine delete(self)
-      class(purification_solver) :: self
-      call self%lapack_solv%delete() 
-      deallocate(self%lapack_solv)
-      call self%ctx%delete()
-      call DeletePointer(self%solver_ptr)
-      self%solver_ptr = c_null_ptr
-    end subroutine
+subroutine delete(self)
+   class(purification_solver) :: self
+   call self%lapack_solv%delete() 
+   deallocate(self%lapack_solv)
+   call self%ctx%delete()
+   call DeletePointer(self%solver_ptr)
+   self%solver_ptr = c_null_ptr
+end subroutine
 
-    subroutine get_density_matrix(self, focc, coeff, pmat)
-      class(purification_solver) :: self
-      real(wp), intent(in) :: focc(:)
-      real(wp), contiguous, intent(in) :: coeff(:, :)
-      real(wp), contiguous, intent(out) :: pmat(:, :)
+subroutine get_density_matrix(self, focc, coeff, pmat)
+   class(purification_solver) :: self
+   real(wp), intent(in) :: focc(:)
+   real(wp), contiguous, intent(in) :: coeff(:, :)
+   real(wp), contiguous, intent(out) :: pmat(:, :)
    
-      real(wp), allocatable :: scratch(:, :)
-      integer :: iao, jao
-      call self%lapack_solv%get_density_matrix(focc, coeff, pmat)
-   end subroutine get_density_matrix
+   real(wp), allocatable :: scratch(:, :)
+   integer :: iao, jao
+   call self%lapack_solv%get_density_matrix(focc, coeff, pmat)
+end subroutine get_density_matrix
 
 
-   subroutine get_energy_w_density_matrix(self, wfn, wdensity)
-      class(purification_solver) :: self
-      type(wavefunction_type), intent(inout) :: wfn
-      real(wp) :: wdensity(:,:,:)
-      real(wp), allocatable :: tmp(:)
-      integer :: spin
-      if (self%purification_success) then
-         do spin = 1, wfn%nspin
-            call GetEnergyWDensityAO(self%ctx%ptr, self%solver_ptr, wfn%coeff(:, :, spin), wfn%density(:, :, spin), wdensity(:, :, spin))         
-         end do
-      else
-         call self%lapack_solv%get_energy_w_density_matrix(wfn, wdensity)
-      end if
-   end subroutine
+subroutine get_energy_w_density_matrix(self, wfn, wdensity)
+   class(purification_solver) :: self
+   type(wavefunction_type), intent(inout) :: wfn
+   real(wp) :: wdensity(:, :, :)
+   real(wp), allocatable :: tmp(:)
+   integer :: spin
+   if (self%purification_success) then
+      do spin = 1, wfn%nspin
+         call GetEnergyWDensityAO(self%ctx%ptr, self%solver_ptr, wfn%coeff(:, :, spin), wfn%density(:, :, spin),&
+          wdensity(:, :, spin))         
+      end do
+   else
+      call self%lapack_solv%get_energy_w_density_matrix(wfn, wdensity)
+   end if
+end subroutine
 
 
 end module

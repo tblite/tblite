@@ -73,6 +73,7 @@ jobs:
     env:
       FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
       CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
+      CXX: ${{ matrix.compiler == 'intel' && 'icpc' || 'g++' }}
       GCC_V: ${{ matrix.version }}
       PYTHON_V: 3.9
 
