@@ -49,7 +49,8 @@ subroutine collect_ipea1_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
-      new_unittest("gradient-mol", test_g_mb02) &
+      new_unittest("gradient-mol", test_g_mb02), &
+      new_unittest("numgrad-mol", test_g_mb03) &
       !new_unittest("virial-mol", test_s_mb03) &
       ]
 
@@ -67,7 +68,10 @@ subroutine numdiff_grad(ctx, mol, calc, wfn, numgrad)
    real(wp) :: er, el
    type(structure_type) :: moli
    type(wavefunction_type) :: wfni
-   real(wp), parameter :: step = 1.0e-9_wp
+
+   ! Step size is square root of SCF convergence threshold
+   ! (SCF energy convergence threshold is 1e-6 * acc)
+   real(wp), parameter :: step = 1.0e-4_wp
 
    do iat = 1, mol%nat
       do ic = 1, 3
@@ -98,7 +102,7 @@ subroutine numdiff_sigma(ctx, mol, calc, wfn, numsigma)
    real(wp) :: er, el, eps(3, 3)
    type(structure_type) :: moli
    type(wavefunction_type) :: wfni
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
 
@@ -412,7 +416,7 @@ subroutine test_g_mb02(error)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
    if (any(abs(gradient - ref) > 10*thr2)) then
-      call test_failed(error, "Gradient of energy does not match")
+      call test_failed(error, "Gradient of energy does not match (xTB)")
       print'(3es21.14)', gradient
       print'("---")'
       print'(3es21.14)', ref
@@ -421,6 +425,46 @@ subroutine test_g_mb02(error)
    end if
 
 end subroutine test_g_mb02
+
+
+subroutine test_g_mb03(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :), sigma(:, :)
+
+   call get_structure(mol, "MB16-43", "03")
+
+   allocate(gradient(3, mol%nat), numgrad(3, mol%nat), sigma(3, 3))
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   numgrad(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call new_ipea1_calculator(calc, mol, error)
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call numdiff_grad(ctx, mol, calc, wfn, numgrad)
+
+   if (any(abs(gradient - numgrad) > thr2)) then
+      call test_failed(error, "Gradient of energy does not match (numerical)")
+      print'(3es21.14)', gradient
+      print'("---")'
+      print'(3es21.14)', numgrad
+      print'("---")'
+      print'(3es21.14)', gradient-numgrad
+   end if
+
+end subroutine test_g_mb03
 
 
 subroutine test_s_mb03(error)
@@ -433,13 +477,12 @@ subroutine test_s_mb03(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    real(wp) :: energy
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
+   real(wp), allocatable :: gradient(:, :)
    real(wp), allocatable :: sigma(:, :), numsigma(:, :)
 
    call get_structure(mol, "MB16-43", "03")
 
-   allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
-   allocate(sigma(3, 3), numsigma(3, 3))
+   allocate(gradient(3, mol%nat), sigma(3, 3), numsigma(3, 3))
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
@@ -449,17 +492,7 @@ subroutine test_s_mb03(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
 
-   call numdiff_grad(ctx, mol, calc, wfn, numgrad)
-   
-   if (any(abs(gradient - numgrad) > thr2)) then
-      call test_failed(error, "Nuclear derivatives do not match")
-      print'(3es21.14)', gradient
-      print'("---")'
-      print'(3es21.14)', numgrad
-      print'("---")'
-      print'(3es21.14)', gradient-numgrad
-   end if
-
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    call numdiff_sigma(ctx, mol, calc, wfn, numsigma)
 
    if (any(abs(sigma - numsigma) > thr2)) then
