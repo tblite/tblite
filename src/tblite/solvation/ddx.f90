@@ -63,8 +63,7 @@ module tblite_solvation_ddx
    !> Actual enumerator for the dd solvation models
    type(enum_ddx_solvation_model), parameter :: ddx_solvation_model = enum_ddx_solvation_model()
 
-
-
+   
    !> Input for ddX solvation
    type :: ddx_input
       !> Dielectric constant
@@ -76,9 +75,9 @@ module tblite_solvation_ddx
       !> Accuracy for iterative solver
       real(wp) :: conv = 1.0e-10_wp
       !> Regularization parameter
-      real(wp) :: eta = 1.0_wp
+      real(wp) :: eta = 0.1_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(14)
+      integer :: nang = grid_size(1)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
@@ -173,8 +172,7 @@ subroutine new_ddx(self, mol, input, error)
    self%ddx_input%nproc = omp_get_max_threads()
 
    ! Get radii for all atoms
-   allocate(self%rvdw(mol%nat))
-   self%rvdw(mol%nat) = 0.0_wp
+   allocate(self%rvdw(mol%nat), source=0.0_wp)
    if (allocated(input%rvdw)) then
       self%rvdw(:) = input%rscale * input%rvdw(mol%id)
    else
@@ -329,7 +327,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    ! Add solvation energy to total energy
    if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
-      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,2) * ptr%ddx_state%psi, 1)
+      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,1) * ptr%ddx_state%psi, 1)
    else
       energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
    end if
@@ -349,6 +347,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
+
+   real(wp) :: energies
 
    call view(cache, ptr)
 
@@ -373,9 +373,6 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
-
-   ! call ddrun(ptr%ddx, ptr%ddx_state,ptr%ddx_electrostatics,&
-   !    & ptr%ddx_state%psi, 1e-10_wp, energies, ptr%ddx_error, ptr%force)
    
    ! Contract with the Coulomb matrix
    ptr%ddx_pot = 0.0_wp
