@@ -27,7 +27,7 @@ module tblite_api_container
    use tblite_api_context, only : vp_context
    use tblite_api_structure, only : vp_structure
    use tblite_basis, only : basis_type
-   use tblite_container, only : container_type, container_list
+   use tblite_container, only : container_type
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_spin, only : spin_polarization, new_spin_polarization
@@ -186,5 +186,6 @@ subroutine delete_container_api(vcont) &
       vcont = c_null_ptr
    end if
 end subroutine delete_container_api
+
 
 end module tblite_api_container

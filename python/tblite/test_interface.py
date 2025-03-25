@@ -569,29 +569,6 @@ def test_solvation_gfn1_gbe():
 
     assert energy == approx(-28.43674134364)
     
-    calc = Calculator("GFN2-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
-    calc.add("gbsa-solvation", "water")
-
-    energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.439916755536)
-
-    calc = Calculator("GFN2-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
-    calc.add("gbsa-solvation", 7.0)
-
-    energy = calc.singlepoint().get("energy")
-
-    assert energy == approx(-28.43677095356)
-    
-    calc = Calculator("GFN1-xTB", numbers, positions)
-    calc.set("accuracy", 1.0)
-    calc.add("alpb-solvation", "ethanol", "reference")
-
-    energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.354559810599)
-
-
 
 def test_solvation_gfn2_gbsa():
     """Test GBSA solvation with GFN2-xTB"""

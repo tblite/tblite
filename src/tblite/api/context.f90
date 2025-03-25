@@ -73,7 +73,7 @@ module tblite_api_context
    end type callback_logger
 
 
-   logical, parameter :: debug = .true.
+   logical, parameter :: debug = .false.
 
 
 contains
@@ -212,7 +212,7 @@ subroutine delete_context_api(vctx) &
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
-      !call ctx%ptr%delete_solver()
+      call ctx%ptr%delete_solver()
       deallocate(ctx)
       vctx = c_null_ptr
    end if

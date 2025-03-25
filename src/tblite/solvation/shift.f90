@@ -156,6 +156,7 @@ subroutine new_shift(self, input)
 
    !> State shift
    real(wp) :: stateshift
+
    self%label = label
    stateshift = get_stateshift(input%state, input%temperature, input%rho, input%molar_mass)
    self%total_shift = input%gshift + stateshift 
@@ -167,6 +168,7 @@ function create_shift(input) result(self)
    type(shift_solvation) :: self
    !> Input for solvation shift
    type(shift_input), intent(in) :: input
+
    call new_shift(self, input)
 end function create_shift
 
