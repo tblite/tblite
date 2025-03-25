@@ -243,14 +243,11 @@ module tblite_purification_solver
         integer(kind=4) :: info
         type(error_type), allocatable, intent(out) :: error
         character(len=:), allocatable :: error_msg
-        character(len=:), allocatable :: msg
 
          self%iscf = self%iscf +1
          info = 42
          call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2, info)
          if (info /= 0) self%purification_success = .false.
-         call self%ctx%get_message(msg)
-         write(*,*) msg
          if (self%ctx%failed()) then
             call self%ctx%get_error(error_msg)
             call fatal_error(error, error_msg)

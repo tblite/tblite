@@ -253,7 +253,7 @@ subroutine get_run_arguments(config, list, start, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: iarg, narg, sol_state
+   integer :: iarg, narg
    logical :: getopts
    character(len=:), allocatable :: arg
    logical :: solvent_not_found, parametrized_solvation
