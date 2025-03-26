@@ -68,11 +68,11 @@ set(
   "OpenMP::OpenMP_Fortran"
   "LAPACK::LAPACK"
   "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
+  "ddx::ddx"
   "toml-f::toml-f"
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
   "s-dftd3::s-dftd3"
-  "ddx::ddx"
 )
 
 # Collect source of the project
@@ -111,16 +111,33 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
+# Determine the ddx include directory:
+if(EXISTS "${CMAKE_BINARY_DIR}/subprojects/ddx/src")
+  # ddx is built as a subproject
+  set(DDX_INCLUDE_DIR "${CMAKE_BINARY_DIR}/subprojects/ddx/src")
+else()
+  # Otherwise, assume the ddx modules are installed in ${CMAKE_CURRENT_SOURCE_DIR}/include/ddx
+  # (Adjust this path as needed for your installation)
+  set(DDX_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/ddx")
+endif()
+
+# Create an INTERFACE target to propagate ddx include directories.
 add_library(ddx_includes INTERFACE)
-install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
 target_include_directories(ddx_includes
   INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/subprojects/ddx/src>
+    $<BUILD_INTERFACE:${DDX_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:include/ddx>
 )
-install(DIRECTORY "${CMAKE_BINARY_DIR}/subprojects/ddx/src/"
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
-        FILES_MATCHING PATTERN "*.mod")
+
+# Install the ddx Fortran module files only if the subproject build directory exists.
+if(EXISTS "${CMAKE_BINARY_DIR}/subprojects/ddx/src")
+  install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/subprojects/ddx/src/"
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
+          FILES_MATCHING PATTERN "*.mod")
+endif()
+
+# Link the ddx_includes target to your tblite library target.
 target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
 
 # Add example application
