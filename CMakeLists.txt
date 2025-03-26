@@ -111,28 +111,16 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
-# Query the ddx target for its Fortran module directory.
-get_target_property(DDX_MODULE_DIR ddx Fortran_MODULE_DIRECTORY)
-if(NOT DDX_MODULE_DIR)
-  # Fall back to the expected default if the property is not set.
-  set(DDX_MODULE_DIR "${CMAKE_BINARY_DIR}/subprojects/ddx/src")
-endif()
-message(STATUS "ddx Fortran module directory: ${DDX_MODULE_DIR}")
-
-# Create an INTERFACE target to propagate ddx’s include directory.
 add_library(ddx_includes INTERFACE)
+install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
 target_include_directories(ddx_includes
   INTERFACE
-    $<BUILD_INTERFACE:${DDX_MODULE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/ddx-build/src>
     $<INSTALL_INTERFACE:include/ddx>
 )
-
-# Install the ddx Fortran module files.
-install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
-install(DIRECTORY "${DDX_MODULE_DIR}/"
+install(DIRECTORY "${CMAKE_BINARY_DIR}/_deps/ddx-build/src/"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
         FILES_MATCHING PATTERN "*.mod")
-
 target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
 
 # Add example application
