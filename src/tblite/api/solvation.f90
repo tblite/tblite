@@ -31,15 +31,16 @@ module tblite_api_solvation
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
+   use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
       & solvent_data, get_solvent_data, solvation_type, new_solvation, solution_state, &
-      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel
+      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel, &
+      & ddx_solvation_model
    use tblite_api_utils, only: c_f_character
    implicit none
    private
 
    public :: new_gb_solvation_epsilon_api, new_alpb_solvation_solvent_api, &
-      & new_cpcm_solvation_epsilon_api
+      & new_ddx_solvation_epsilon_api
 
    enum, bind(c)
       enumerator :: &
@@ -57,20 +58,22 @@ module tblite_api_solvation
 contains
 
 
-function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
-   & bind(C, name=namespace//"new_cpcm_solvation_epsilon")
+function new_ddx_solvation_epsilon_api(verr, vmol, eps, model, kappa) result(vcont) &
+   & bind(C, name=namespace//"new_ddx_solvation_epsilon")
    type(c_ptr), value :: verr
    type(vp_error), pointer :: err
    type(c_ptr), value :: vmol
    type(vp_structure), pointer :: mol
    real(kind=c_double), value :: eps
+   integer(c_int), value :: model
+   real(kind=c_double), value :: kappa
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
 
-   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation_epsilon"
+   if (debug) print '("[Info]", 1x, a)', "new_ddx_solvation_epsilon"
    vcont = c_null_ptr
 
    if (.not.c_associated(verr)) return
@@ -82,7 +85,7 @@ function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%cpcm = cpcm_input(eps)
+   solvmodel%ddx = ddx_input(eps, model, kappa=kappa)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    
@@ -90,7 +93,7 @@ function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
    call move_alloc(solv, cont%ptr)
    
    vcont = c_loc(cont)
-end function new_cpcm_solvation_epsilon_api
+end function new_ddx_solvation_epsilon_api
 
 function new_gb_solvation_epsilon_api(verr, vmol, eps, version, born_type) result(vcont) &
    & bind(C, name=namespace//"new_gb_solvation_epsilon")

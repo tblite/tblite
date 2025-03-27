@@ -146,3 +146,12 @@ tomlf_dep = dependency(
   default_options: ['default_library=static'],
 )
 lib_deps += tomlf_dep
+
+# Create ddX library as subproject
+ddx_dep = dependency(
+  'ddx',
+  version: '>=0.1.0',
+  fallback: ['ddx', 'ddx_dep'],
+  default_options: ['default_library=static'],
+)
+lib_deps += ddx_dep

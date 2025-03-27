@@ -74,8 +74,9 @@ Supported geometry input formats are:
      Use generalized Born solvation model (GB).
      Solvent is specified by dielectric constant or solvent name.
 
-*--cpcm* _real_|_string_::
-     Use polarizable continuum solvation model (CPCM).
+*--ddx* _real_|_string_::
+     Use solvation models based on domain decomposition.
+     Method can either be COSMO (1), CPCM (2), PCM (3), or LPB (4)
      Solvent is specified by dielectric constant or solvent name.
 
 *--born-kernel* _string_::

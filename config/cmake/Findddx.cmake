@@ -14,17 +14,29 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('data')
+set(_lib "ddx")
+set(_pkg "DDX")
+set(_url "https://github.com/ddsolvation/ddx")
+set(_rev "HEAD")
 
-srcs += files(
-  'alpb.f90',
-  'born.f90',
-  'cds.f90',
-  'cm5.f90',
-  'ddx.f90',
-  'data.f90',
-  'input.f90',
-  'shift.f90',
-  'surface.f90',
-  'type.f90',
-)
+if(NOT DEFINED "${_pkg}_FIND_METHOD")
+  if(DEFINED "${PROJECT_NAME}-dependency-method")
+    set("${_pkg}_FIND_METHOD" "${${PROJECT_NAME}-dependency-method}")
+  else()
+    set("${_pkg}_FIND_METHOD" "cmake" "pkgconf" "subproject" "fetch")
+  endif()
+  set("_${_pkg}_FIND_METHOD")
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
+
+tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "${_rev}")
+
+if(DEFINED "_${_pkg}_FIND_METHOD")
+  unset("${_pkg}_FIND_METHOD")
+  unset("_${_pkg}_FIND_METHOD")
+endif()
+unset(_lib)
+unset(_pkg)
+unset(_url)
+unset(_rev)
