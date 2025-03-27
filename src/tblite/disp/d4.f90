@@ -209,7 +209,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
 
-   if ( self%model%ncoup == mol%nat ) then
+   if ( self%model%ncoup > 1 ) then
+      ! Dispersion energy with pairwise weighting
       !$omp parallel do schedule(runtime) default(none),  &
       !$omp reduction(+:energies) shared(self, mol, ptr) &
       !$omp private(iat, jat, izp, jzp, iref, jref)
@@ -226,6 +227,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
          end do
       end do
    else
+      ! Dispersion energy with atom-wise weighting
       call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1), alpha=0.5_wp)
       ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%gwvec(:, :, 1)
       energies(:) = energies + sum(ptr%vvec(:, :, 1), 1)
@@ -256,8 +258,9 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%vvec, &
       & ptr%dgwdq)
 
-   if ( self%model%ncoup == mol%nat ) then
-      allocate(tmp_vat(mol%nat))
+   if ( self%model%ncoup > 1 ) then
+      ! Dispersion energy with pairwise weighting
+      allocate(tmp_vat(mol%nat), source=0.0_wp)
       !$omp parallel do schedule(runtime) default(none),  &
       !$omp reduction(+:tmp_vat) shared(self, mol, ptr) &
       !$omp private(iat, jat, izp, jzp, iref, jref)
@@ -275,6 +278,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       end do
       pot%vat(:, 1) = tmp_vat
    else
+      ! Dispersion energy with atom-wise weighting
       call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1))
       ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%dgwdq(:, :, 1)
       pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec(:, :, 1), 1)
