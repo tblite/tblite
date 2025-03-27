@@ -1,4 +1,2 @@
-[wrap-git]
-directory = test-drive
-url = https://github.com/fortran-lang/test-drive.git
-revision = v0.4.0
+[wrap-redirect]
+filename = toml-f/subprojects/test-drive.wrap

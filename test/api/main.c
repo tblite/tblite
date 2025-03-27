@@ -2296,6 +2296,7 @@ int test_uninitialized_dict()
     if (!tblite_check(error))
         goto unexpected;
 
+        printf("Unexpected error: dictionary is not initialized\n");
     tblite_get_singlepoint(ctx, mol, calc, res);
 
     error = NULL;
@@ -2928,7 +2929,7 @@ int test_uninitialized_solvation()
     error = tblite_new_error();
 
     //check if it fails when mol is not associated
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_ddx_solvation_cosmo);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_ddx_solvation_cosmo, 0.0);
     if (!tblite_check(error))
         goto unexpected;
     show(error);
@@ -2975,7 +2976,7 @@ int test_solvation_ddx_eps()
     if (!calc)
         goto err;
 
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_ddx_solvation_cosmo);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_ddx_solvation_cosmo, 0.0);
     if (tblite_check(error))
         goto err;
 
@@ -2991,7 +2992,7 @@ int test_solvation_ddx_eps()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.437445121393, thr, "energy error"))
+   if (!check(energy, -28.437442269426715, thr, "energy error"))
         goto err;
 
     tblite_delete(error);

@@ -415,8 +415,8 @@ subroutine get_run_arguments(config, list, start, error)
 
       case("--kappa")
          if (ddx_model /= ddx_solvation_model%lpb) then
-            write(output_unit, '(a)') "---WARNING: Kappa is only needed for LPB solvation model,&
-               & input will be ignored.---"
+            call fatal_error(error, "Kappa is only needed for LPB solvation model")
+            exit
          end if
          iarg = iarg + 1
          call list%get(iarg, arg)

@@ -50,10 +50,10 @@ enum tblite_solvation_param{
 };
 
 enum tblite_ddx_solvation_model{
-    tblite_ddx_solvation_cosmo = 1,
-    tblite_ddx_solvation_cpcm = 2,
-    tblite_ddx_solvation_pcm = 3,
-    tblite_ddx_solvation_lpb = 4
+    tblite_ddx_solvation_cosmo = 11,
+    tblite_ddx_solvation_cpcm = 12,
+    tblite_ddx_solvation_pcm = 2,
+    tblite_ddx_solvation_lpb = 3
 };
 
 /// Create new ddx implicit solvation container using internal parameters
@@ -61,13 +61,15 @@ enum tblite_ddx_solvation_model{
 /// @param error: Error handle
 /// @param mol: Molecular structure data
 /// @param eps: epsilon value for solvent
-/// @param model: type of solvation model to use (COSMO=1, CPCM=2, PCM=3, LPB=4)
+/// @param model: type of solvation model to use (COSMO=11, CPCM=12, PCM=2, LPB=3)
+/// @param kappa: dielectric constant of solvent (only used in LPB)
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_epsilon(tblite_error error,
-                                  tblite_structure mol,
-                                  double eps,
-                                  int model);
+                                 tblite_structure mol,
+                                 double eps,
+                                 int model,
+                                 double kappa);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
