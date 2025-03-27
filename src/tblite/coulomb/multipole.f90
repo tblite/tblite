@@ -19,7 +19,7 @@
 
 !> Anisotropic second-order electrostatics using a damped multipole expansion
 module tblite_coulomb_multipole
-   use mctc_env, only : wp
+   use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
@@ -95,7 +95,7 @@ contains
 
 !> Create a new anisotropic electrostatics container
 subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
-      & shift, kexp, rmax, rad, vcn)
+      & shift, kexp, rmax, rad, vcn, error)
    !> Instance of the multipole container
    type(damped_multipole), intent(out) :: self
    !> Molecular structure data
@@ -118,6 +118,8 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    real(wp), intent(in) :: rad(:)
    !> Valence coordination number
    real(wp), intent(in) :: vcn(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    self%label = label
    self%kdmp3 = kdmp3
@@ -131,7 +133,7 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    self%rad = rad
    self%valence_cn = vcn
 
-   call new_ncoord(self%ncoord, mol, cn_count%dexp)
+   call new_ncoord(self%ncoord, mol, cn_count%dexp, error=error)
 end subroutine new_damped_multipole
 
 

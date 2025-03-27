@@ -16,8 +16,8 @@
 
 set(_lib "dftd4")
 set(_pkg "DFTD4")
-set(_url "https://github.com/dftd4/dftd4")
-set(_rev "v3.7.0")
+set(_url "https://github.com/thfroitzheim/dftd4")
+set(_rev "ncoord")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")

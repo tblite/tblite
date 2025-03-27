@@ -50,11 +50,12 @@ module test_coulomb_charge
    end interface
 
    abstract interface
-      subroutine charge_maker(wfn, mol, nshell)
-         import :: wavefunction_type, structure_type
+      subroutine charge_maker(wfn, mol, nshell, error)
+         import :: wavefunction_type, structure_type, error_type
          class(wavefunction_type), intent(inout) :: wfn
          type(structure_type), intent(in) :: mol
          integer, optional, intent(in) :: nshell(:)
+         type(error_type), allocatable, intent(out) :: error
       end subroutine charge_maker
    end interface
 
@@ -420,7 +421,7 @@ end subroutine make_coulomb_g2
 
 
 !> Procedure to create CN based effective charges and gradients from CEH
-subroutine get_charges_effceh(wfn, mol, nshell)
+subroutine get_charges_effceh(wfn, mol, nshell, error)
 
    !> New wavefunction object
    class(wavefunction_type), intent(inout) :: wfn
@@ -430,6 +431,9 @@ subroutine get_charges_effceh(wfn, mol, nshell)
 
    !> Return shell-resolved charges
    integer, optional, intent(in) :: nshell(:)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), parameter :: ceh_cov_radii(20) = 0.5 * [&
    &  2.4040551903_wp,  1.8947380542_wp,  3.4227634078_wp,  3.5225408137_wp, &
@@ -453,7 +457,8 @@ subroutine get_charges_effceh(wfn, mol, nshell)
 
    ! Get electronegativity-weighted coordination number 
    call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
-      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num), error=error)
+   if (allocated(error)) return
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
    call ncoord_en%get_coordination_number(mol, lattr, cn_en, dcn_endr, dcn_endL)
 
@@ -639,12 +644,14 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
          call potr%reset
          call potl%reset
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potr)
 
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
          
@@ -657,7 +664,8 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
       end do
    end do
 
-   call get_charges(wfn, mol, coulomb%nshell)
+   call get_charges(wfn, mol, coulomb%nshell, error)
+   if (allocated(error)) return
    call coulomb%update(mol, cache)
    call coulomb%get_potential(mol, cache, wfn, potl)
    call coulomb%get_potential_gradient(mol, cache, wfn, potl)
@@ -805,14 +813,16 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potr)
 
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
          eps(jc, ic) = eps(jc, ic) + step
@@ -826,7 +836,8 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
       end do
    end do
 
-   call get_charges(wfn, mol, coulomb%nshell)
+   call get_charges(wfn, mol, coulomb%nshell, error)
+   if (allocated(error)) return
    call coulomb%update(mol, cache)
    call coulomb%get_potential(mol, cache, wfn, potl)
    call coulomb%get_potential_gradient(mol, cache, wfn, potl)

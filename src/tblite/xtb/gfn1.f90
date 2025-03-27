@@ -531,10 +531,12 @@ subroutine new_gfn1_calculator(calc, mol, error)
    end if
 
    call add_basis(calc, mol)
-   call add_ncoord(calc, mol)
+   call add_ncoord(calc, mol, error)
+   if (allocated(error)) return
    call add_hamiltonian(calc, mol)
    call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol)
+   call add_dispersion(calc, mol, error)
+   if (allocated(error)) return
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
 
@@ -591,26 +593,30 @@ subroutine add_hamiltonian(calc, mol)
    call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn1_h0spec(mol))
 end subroutine add_hamiltonian
 
-subroutine add_dispersion(calc, mol)
+subroutine add_dispersion(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d3_dispersion), allocatable :: tmp
 
    allocate(tmp)
-   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
+   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error)
    call move_alloc(tmp, calc%dispersion)
 end subroutine add_dispersion
 
-subroutine add_ncoord(calc, mol)
+subroutine add_ncoord(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
-   call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%exp)
+   call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%exp, error=error)
 end subroutine add_ncoord
 
 subroutine add_repulsion(calc, mol)
@@ -923,7 +929,7 @@ subroutine export_gfn1_param(param)
       &2017, 13, 1989-2009. DOI: 10.1021/acs.jctc.7b00118"
 
    associate(par => param%hamiltonian)
-      par%cn = "exp"
+      par%cn = cn_count%exp
       par%enscale = enscale
       par%wexp = 0.0_wp
       par%lmax = 2

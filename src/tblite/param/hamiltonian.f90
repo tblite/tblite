@@ -21,6 +21,7 @@
 module tblite_param_hamiltonian
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : symbol_length
+   use mctc_ncoord, only : get_cn_count_id, get_cn_count_string
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, get_value, set_value, add_table
    implicit none
@@ -37,7 +38,7 @@ module tblite_param_hamiltonian
    !> Hamiltonian parametrization record
    type, public, extends(serde_record) :: hamiltonian_record
       character(len=symbol_length), allocatable :: sym(:)
-      character(len=:), allocatable :: cn
+      integer :: cn
       real(wp), allocatable :: kpair(:, :)
       real(wp) :: ksh(0:4, 0:4)
       real(wp) :: kpol
@@ -82,6 +83,7 @@ subroutine load_from_toml(self, table, error)
 
    type(toml_table), pointer :: child
    integer :: stat
+   character(len=:), allocatable :: tmp_cn
 
    call get_value(table, k_xtb, child, requested=.false.)
    if (.not.associated(child)) then
@@ -89,11 +91,14 @@ subroutine load_from_toml(self, table, error)
       return
    end if
 
-   call get_value(child, k_cn, self%cn, stat=stat)
+   ! Read string version of CN type and convert to integer
+   call get_value(child, k_cn, tmp_cn, stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Invalid entry for CN type in Hamiltonian")
       return
    end if
+   self%cn = get_cn_count_id(tmp_cn)
+   if (allocated(error)) return   
 
    call get_value(child, k_wexp, self%wexp, stat=stat)
    if (stat /= 0) then
@@ -227,7 +232,8 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_wexp, self%wexp)
    call set_value(child, k_kpol, self%kpol)
    call set_value(child, k_enscale, self%enscale)
-   if (allocated(self%cn)) call set_value(child, k_cn, self%cn)
+   ! Convert CN type to string
+   call set_value(child, k_cn, get_cn_count_string(self%cn))
    call add_table(child, k_shell, sub)
    do l = 0, self%lmax
       call set_value(sub, repeat(k_ang(l), 2), self%ksh(l, l))
