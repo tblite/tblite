@@ -56,7 +56,7 @@ subroutine collect_solvation_ddx(testsuite)
       new_unittest("energy-mol-pcm", test_e_pcm_m01), &
       ! new_unittest("energy-mol-lpb", test_e_lpb_m01), &
       new_unittest("gradient-mol-num-cosmo", test_g_num_cosmo_m02), &
-      ! new_unittest("gradient-mol-cosmo", test_g_cosmo_m02), &
+      ! new_unittest("gradient-mol-cosmo", test_g_cosmo_m02) &
       new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
       ! new_unittest("gradient-mol-lpb", test_g_lpb_m02), &
       new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
@@ -92,7 +92,7 @@ subroutine test_e(error, model, mol, qat, ref, kappa)
    type(potential_type) :: pot
    type(container_cache) :: cache
    real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
-   integer, parameter :: nang = 110
+   integer, parameter :: nang = 302
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp) :: energy(mol%nat)
 
@@ -107,7 +107,6 @@ subroutine test_e(error, model, mol, qat, ref, kappa)
    end if
 
    call solv%update(mol, cache)
-
    call solv%get_potential(mol, cache, wfn, pot)
    call solv%get_energy(mol, cache, wfn, energy)
 
@@ -140,7 +139,7 @@ subroutine test_g_num(error, model, mol, qat, kappa)
    type(potential_type) :: pot
    type(container_cache) :: cache
    real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
-   integer, parameter :: nang = 26
+   integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
@@ -218,8 +217,8 @@ subroutine test_g(error, model, mol, qat, ref, kappa)
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
-   real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
-   integer, parameter :: nang = 26
+   real(wp), parameter :: feps = 78.0_wp, rscale = 1.0_wp
+   integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
@@ -229,11 +228,14 @@ subroutine test_g(error, model, mol, qat, ref, kappa)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
+
    if (present(kappa)) then
       solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale, kappa=kappa))
    else
       solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
    end if
+
+   allocate(gradient(3, mol%nat))
 
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
@@ -276,7 +278,7 @@ subroutine test_p(error, model, mol, qat, kappa)
    type(potential_type) :: pot
    type(container_cache), allocatable :: cache
    real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
-   integer, parameter :: nang = 26
+   integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = 1e+3_wp*sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: vat(:)
