@@ -922,8 +922,10 @@ contains
       end if
 
       call add_ceh_basis(calc, mol)
-      call add_ncoord(calc, mol)
-      call add_ncoord_en(calc, mol)
+      call add_ncoord(calc, mol, error)
+      if(allocated(error)) return
+      call add_ncoord_en(calc, mol, error)
+      if(allocated(error)) return
       call add_hamiltonian(calc, mol)
       call add_coulomb(calc, mol)
 
@@ -965,25 +967,29 @@ contains
    end subroutine add_ceh_basis
 
 
-   subroutine add_ncoord(calc, mol)
+   subroutine add_ncoord(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+      
       call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%erf, &
-         & rcov=ceh_cov_radii(mol%num))
+         & rcov=ceh_cov_radii(mol%num), error=error)
    end subroutine add_ncoord
 
 
-   subroutine add_ncoord_en(calc, mol)
+   subroutine add_ncoord_en(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error    
 
       call new_ncoord(calc%ncoord_en, mol, cn_count_type=cn_count%erf_en, &
-         & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+         & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num), error=error)
    end subroutine add_ncoord_en
 
 

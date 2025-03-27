@@ -36,10 +36,11 @@ module test_coulomb_multipole
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 
    abstract interface
-      subroutine multipole_maker(multipole, mol)
-         import :: damped_multipole, structure_type
+      subroutine multipole_maker(multipole, mol, error)
+         import :: damped_multipole, structure_type, error_type
          type(damped_multipole), intent(out) :: multipole
          type(structure_type), intent(in) :: mol
+         type(error_type), allocatable, intent(out) :: error
       end subroutine multipole_maker
    end interface
 
@@ -102,13 +103,16 @@ end subroutine collect_coulomb_multipole
 
 
 !> Factory to create electrostatic objects based on GFN2-xTB values
-subroutine make_multipole2(multipole, mol)
+subroutine make_multipole2(multipole, mol, error)
 
    !> New electrostatic object
    type(damped_multipole), intent(out) :: multipole
 
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), parameter :: kdmp3 = 3.0_wp, kdmp5 = 3.0_wp
    real(wp), parameter :: shift = 1.2_wp, kexp = 4.0_wp, rmax = 5.0_wp
@@ -138,7 +142,7 @@ subroutine make_multipole2(multipole, mol)
    vcn = p_vcn(mol%num)
 
    call new_damped_multipole(multipole, mol, kdmp3, kdmp5, dkernel, qkernel, &
-      & shift, kexp, rmax, rad, vcn)
+      & shift, kexp, rmax, rad, vcn, error)
 
 end subroutine make_multipole2
 
@@ -221,7 +225,8 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call taint(cache, ccache)
    call ccache%update(mol)
-   call make_multipole(multipole, mol)
+   call make_multipole(multipole, mol, error)
+   if(allocated(error)) return
    call multipole%update(mol, cache)
    call multipole%get_energy(mol, cache, wfn, energy)
 
@@ -271,7 +276,8 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call taint(cache, ccache)
    call ccache%update(mol)
-   call make_multipole(multipole, mol)
+   call make_multipole(multipole, mol, error)
+   if(allocated(error)) return
    if (any(mol%periodic)) deallocate(multipole%ncoord)
 
    do iat = 1, mol%nat
@@ -347,7 +353,8 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call taint(cache, ccache)
    call ccache%update(mol)
-   call make_multipole(multipole, mol)
+   call make_multipole(multipole, mol, error)
+   if(allocated(error)) return
    deallocate(multipole%ncoord)
 
    eps(:, :) = unity
@@ -436,7 +443,8 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
    call taint(cache, ccache)
    call ccache%update(mol)
-   call make_multipole(multipole, mol)
+   call make_multipole(multipole, mol, error)
+   if(allocated(error)) return
    call pot%reset
 
    call multipole%update(mol, cache)

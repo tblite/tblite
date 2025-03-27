@@ -148,11 +148,14 @@ subroutine new_xtb_calculator(calc, mol, param, error)
 
    call add_basis(calc, mol, param, irc)
    call add_ncoord(calc, mol, param, error)
+   if (allocated(error)) return
    call add_hamiltonian(calc, mol, param, irc)
    call add_repulsion(calc, mol, param, irc)
    call add_halogen(calc, mol, param, irc)
-   call add_dispersion(calc, mol, param)
-   call add_coulomb(calc, mol, param, irc)
+   call add_dispersion(calc, mol, param, error)
+   if (allocated(error)) return
+   call add_coulomb(calc, mol, param, irc, error)
+   if (allocated(error)) return
 
    calc%method = "custom"
 
@@ -216,10 +219,7 @@ subroutine add_ncoord(calc, mol, param, error)
 
    integer :: cn_count_type
 
-   if (allocated(param%hamiltonian%cn)) then
-      call get_cn_count_value(param%hamiltonian%cn, cn_count_type, error)
-      call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count_type)
-   end if
+   call new_ncoord(calc%ncoord, mol, cn_count_type=param%hamiltonian%cn, error=error)
 end subroutine add_ncoord
 
 
@@ -237,13 +237,15 @@ subroutine add_hamiltonian(calc, mol, param, irc)
 end subroutine add_hamiltonian
 
 
-subroutine add_dispersion(calc, mol, param)
+subroutine add_dispersion(calc, mol, param, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Parametrization records
    type(param_record), intent(in) :: param
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d4_dispersion), allocatable :: d4
    type(d3_dispersion), allocatable :: d3
@@ -252,11 +254,13 @@ subroutine add_dispersion(calc, mol, param)
    associate(par => param%dispersion)
       if (par%d3) then
          allocate(d3)
-         call new_d3_dispersion(d3, mol, s6=par%s6, s8=par%s8, a1=par%a1, a2=par%a2, s9=par%s9)
+         call new_d3_dispersion(d3, mol, s6=par%s6, s8=par%s8, &
+            & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
          call move_alloc(d3, calc%dispersion)
       else
          allocate(d4)
-         call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, a1=par%a1, a2=par%a2, s9=par%s9)
+         call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
+            & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
          call move_alloc(d4, calc%dispersion)
       end if
    end associate
@@ -306,7 +310,7 @@ subroutine add_halogen(calc, mol, param, irc)
    end associate
 end subroutine add_halogen
 
-subroutine add_coulomb(calc, mol, param, irc)
+subroutine add_coulomb(calc, mol, param, irc, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
@@ -315,6 +319,8 @@ subroutine add_coulomb(calc, mol, param, irc)
    type(param_record), intent(in) :: param
    !> Record identifiers
    integer, intent(in) :: irc(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
    real(wp), allocatable :: dkernel(:), qkernel(:), rad(:), vcn(:)
@@ -366,38 +372,11 @@ subroutine add_coulomb(calc, mol, param, irc)
       vcn = param%record(irc)%mpvcn
       associate(par => param%multipole)
          call new_damped_multipole(calc%coulomb%aes2, mol, par%dmp3, par%dmp5, &
-            & dkernel, qkernel, par%shift, par%kexp, par%rmax, rad, vcn)
+            & dkernel, qkernel, par%shift, par%kexp, par%rmax, rad, vcn, error)
       end associate
    end if
 
 end subroutine add_coulomb
-
-
-subroutine get_cn_count_value(cn_count_name, cn_count_type, error)
-   !> Type of coordination number counting function
-   character(len=*), intent(in) :: cn_count_name
-   !> Parametrization records
-   integer, intent(out) :: cn_count_type
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   select case(cn_count_name)
-   case default
-      call fatal_error(error, "Unknown coordination number counting function: "//cn_count_name)
-      return
-   case("exp")
-      cn_count_type = cn_count%exp
-   case("dexp")
-      cn_count_type = cn_count%dexp
-   case("erf")
-      cn_count_type = cn_count%erf
-   case("erf_en")
-      cn_count_type = cn_count%erf_en
-   case("dftd4")
-      cn_count_type = cn_count%dftd4
-   end select
-
-end subroutine get_cn_count_value
 
 
 subroutine get_average(average_type, averager)

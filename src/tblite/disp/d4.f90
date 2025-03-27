@@ -19,12 +19,13 @@
 
 !> Generally applicable charge-dependent London-dispersion correction, DFT-D4.
 module tblite_disp_d4
-   use mctc_env, only : wp
+   use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
-   use dftd4, only : d4_model, damping_param, rational_damping_param, realspace_cutoff, &
-      & get_coordination_number, new_d4_model
+   use dftd4, only : dispersion_model, d4_model, d4s_model, &
+      & damping_param, rational_damping_param, realspace_cutoff, &
+      & new_d4_model, new_d4s_model
    use dftd4_model, only : d4_ref
    use dftd4_charge, only : get_eeq_charges => get_charges
    use tblite_blas, only : dot, gemv
@@ -37,17 +38,19 @@ module tblite_disp_d4
    implicit none
    private
 
-   public :: new_d4_dispersion, get_eeq_charges
+   public :: new_d4_dispersion, new_d4s_dispersion, get_eeq_charges
 
 
    !> Container for self-consistent D4 dispersion interactions
    type, public, extends(dispersion_type) :: d4_dispersion
       !> Instance of the actual D4 dispersion model
-      type(d4_model) :: model
+      class(dispersion_model), allocatable :: model
       !> Rational damping parameters
       type(rational_damping_param) :: param
       !> Selected real space cutoffs for this instance
       type(realspace_cutoff) :: cutoff
+      !> Coordination number instance
+      class(ncoord_type), allocatable :: ncoord
    contains
       !> Update dispersion cache
       procedure :: update
@@ -63,25 +66,69 @@ module tblite_disp_d4
       procedure :: get_gradient
    end type d4_dispersion
 
-   character(len=*), parameter :: label = "self-consistent DFT-D4 dispersion"
+   character(len=*), parameter :: label_D4 = "self-consistent DFT-D4 dispersion"
+   character(len=*), parameter :: label_D4S = "self-consistent DFT-D4S dispersion"
 
 
 contains
 
 
 !> Create a new instance of a self-consistent D4 dispersion correction
-subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9)
+subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    !> Instance of the dispersion correction
    type(d4_dispersion), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Damping parameters
    real(wp), intent(in) :: s6, s8, a1, a2, s9
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
-   self%label = label
-   call new_d4_model(self%model, mol, ref=d4_ref%gfn2)
+   type(d4_model), allocatable :: tmp
+
+   self%label = label_D4
+
+   ! Create a new instance of the D4 model
+   allocate(tmp)
+   call new_d4_model(error, tmp, mol, ref=d4_ref%gfn2)
+   if(allocated(error)) return
+   call move_alloc(tmp, self%model)
+
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2)
    self%cutoff = realspace_cutoff(disp3=25.0_wp, disp2=50.0_wp)
+
+   call new_ncoord(self%ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
+      & rcov=self%model%rcov, en=self%model%en, error=error)
 end subroutine new_d4_dispersion
+
+
+!> Create a new instance of a self-consistent D4S dispersion correction
+subroutine new_d4s_dispersion(self, mol, s6, s8, a1, a2, s9, error)
+   !> Instance of the dispersion correction
+   type(d4_dispersion), intent(out) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Damping parameters
+   real(wp), intent(in) :: s6, s8, a1, a2, s9
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(d4s_model), allocatable :: tmp
+
+   self%label = label_D4S
+
+   ! Create a new instance of the D4S model
+   allocate(tmp)
+   call new_d4s_model(error, tmp, mol, ref=d4_ref%gfn2)
+   if(allocated(error)) return
+   call move_alloc(tmp, self%model)
+
+   self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2)
+   self%cutoff = realspace_cutoff(disp3=25.0_wp, disp2=50.0_wp)
+
+   call new_ncoord(self%ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
+      & rcov=self%model%rcov, en=self%model%en, error=error)
+end subroutine new_d4s_dispersion
 
 
 !> Update dispersion cache
@@ -96,7 +143,6 @@ subroutine update(self, mol, cache)
    real(wp), allocatable :: lattr(:, :)
    type(dispersion_cache), pointer :: ptr
    integer :: mref
-   class(ncoord_type), allocatable :: ncoord
 
    call taint(cache, ptr)
    mref = maxval(self%model%ref)
@@ -104,15 +150,14 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%cn)) allocate(ptr%cn(mol%nat))
    if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
    if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
-   call new_ncoord(ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
-      & rcov=self%model%rcov, en=self%model%en)
+
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
-   call ncoord%get_coordination_number(mol, lattr, ptr%cn, ptr%dcndr, ptr%dcndL)
+   call self%ncoord%get_coordination_number(mol, lattr, ptr%cn, ptr%dcndr, ptr%dcndL)
 
    if (.not.allocated(ptr%dispmat)) allocate(ptr%dispmat(mref, mol%nat, mref, mol%nat))
-   if (.not.allocated(ptr%vvec)) allocate(ptr%vvec(mref, mol%nat))
-   if (.not.allocated(ptr%gwvec)) allocate(ptr%gwvec(mref, mol%nat))
-   if (.not.allocated(ptr%dgwdq)) allocate(ptr%dgwdq(mref, mol%nat))
+   if (.not.allocated(ptr%vvec)) allocate(ptr%vvec(mref, mol%nat, self%model%ncoup))
+   if (.not.allocated(ptr%gwvec)) allocate(ptr%gwvec(mref, mol%nat, self%model%ncoup))
+   if (.not.allocated(ptr%dgwdq)) allocate(ptr%dgwdq(mref, mol%nat, self%model%ncoup))
 
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
    call get_dispersion_matrix(mol, self%model, self%param, lattr, self%cutoff%disp2, &
@@ -158,14 +203,34 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    real(wp), intent(inout) :: energies(:)
 
    type(dispersion_cache), pointer :: ptr
+   integer :: iat, jat, izp, jzp, iref, jref
 
    call view(cache, ptr)
 
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
 
-   call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec, alpha=0.5_wp)
-   ptr%vvec(:, :) = ptr%vvec * ptr%gwvec
-   energies(:) = energies + sum(ptr%vvec, 1)
+   if ( self%model%ncoup == mol%nat ) then
+      !$omp parallel do schedule(runtime) default(none),  &
+      !$omp reduction(+:energies) shared(self, mol, ptr) &
+      !$omp private(iat, jat, izp, jzp, iref, jref)
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         do jat = 1, mol%nat
+            jzp = mol%id(jat)
+            do iref = 1, self%model%ref(izp)
+               do jref = 1, self%model%ref(jzp)
+                  energies(iat) = energies(iat) + 0.5_wp * ptr%dispmat(iref, iat, jref, jat) * &
+                     & ptr%gwvec(iref, iat, jat) * ptr%gwvec(jref, jat, iat)
+               end do
+            end do
+         end do
+      end do
+   else
+      call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1), alpha=0.5_wp)
+      ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%gwvec(:, :, 1)
+      energies(:) = energies + sum(ptr%vvec(:, :, 1), 1)
+   end if
+
 end subroutine get_energy
 
 
@@ -183,15 +248,38 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(potential_type), intent(inout) :: pot
 
    type(dispersion_cache), pointer :: ptr
+   integer :: iat, jat, izp, jzp, iref, jref
+   real(wp), allocatable :: tmp_vat(:)
 
    call view(cache, ptr)
 
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%vvec, &
       & ptr%dgwdq)
 
-   call gemv(ptr%dispmat, ptr%gwvec, ptr%vvec)
-   ptr%vvec(:, :) = ptr%vvec * ptr%dgwdq
-   pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec, 1)
+   if ( self%model%ncoup == mol%nat ) then
+      allocate(tmp_vat(mol%nat))
+      !$omp parallel do schedule(runtime) default(none),  &
+      !$omp reduction(+:tmp_vat) shared(self, mol, ptr) &
+      !$omp private(iat, jat, izp, jzp, iref, jref)
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         do jat = 1, mol%nat
+            jzp = mol%id(jat)
+            do iref = 1, self%model%ref(izp)
+               do jref = 1, self%model%ref(jzp)
+                  tmp_vat(iat) = tmp_vat(iat) + ptr%dispmat(iref, iat, jref, jat) * &
+                     & ptr%dgwdq(iref, iat, jat) * ptr%gwvec(jref, jat, iat) 
+               end do
+            end do
+         end do
+      end do
+      pot%vat(:, 1) = tmp_vat
+   else
+      call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1))
+      ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%dgwdq(:, :, 1)
+      pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec(:, :, 1), 1)
+   end if
+
 end subroutine get_potential
 
 
@@ -211,7 +299,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    integer :: mref
-   real(wp), allocatable :: gwvec(:, :), gwdcn(:, :), gwdq(:, :)
+   real(wp), allocatable :: gwvec(:, :, :), gwdcn(:, :, :), gwdq(:, :, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :), dc6dq(:, :)
    real(wp), allocatable :: dEdcn(:), dEdq(:), energies(:)
    real(wp), allocatable :: lattr(:, :)
@@ -220,7 +308,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call view(cache, ptr)
    mref = maxval(self%model%ref)
 
-   allocate(gwvec(mref, mol%nat), gwdcn(mref, mol%nat), gwdq(mref, mol%nat))
+   allocate(gwvec(mref, mol%nat, self%model%ncoup), gwdcn(mref, mol%nat, self%model%ncoup), &
+      &  gwdq(mref, mol%nat, self%model%ncoup))
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), gwvec, gwdcn, gwdq)
 
    allocate(c6(mol%nat, mol%nat), dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
@@ -244,7 +333,7 @@ subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, r4r2, dispmat)
    !> Damping parameters
    type(rational_damping_param), intent(in) :: param
    !> Instance of the dispersion model
-   type(d4_model), intent(in) :: disp
+   class(dispersion_model), intent(in) :: disp
    !> Lattice points
    real(wp), intent(in) :: trans(:, :)
    !> Real space cutoff
@@ -300,7 +389,7 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energies, gradi
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Dispersion model
-   type(d4_model), intent(in) :: disp
+   class(dispersion_model), intent(in) :: disp
    !> Damping parameters
    class(damping_param), intent(in) :: param
    !> Realspace cutoffs
@@ -317,7 +406,7 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energies, gradi
    logical :: grad
    integer :: mref
    real(wp), allocatable :: qat(:)
-   real(wp), allocatable :: gwvec(:, :), gwdcn(:, :), gwdq(:, :)
+   real(wp), allocatable :: gwvec(:, :, :), gwdcn(:, :, :), gwdq(:, :, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :), dc6dq(:, :)
    real(wp), allocatable :: dEdcn(:), dEdq(:)
    real(wp), allocatable :: lattr(:, :)
@@ -325,9 +414,9 @@ subroutine get_dispersion_nonsc(mol, disp, param, cutoff, cache, energies, gradi
    mref = maxval(disp%ref)
    grad = present(gradient).and.present(sigma)
 
-   allocate(gwvec(mref, mol%nat), qat(mol%nat), c6(mol%nat, mol%nat))
+   allocate(gwvec(mref, mol%nat, disp%ncoup), qat(mol%nat), c6(mol%nat, mol%nat))
    if (grad) then
-      allocate(gwdcn(mref, mol%nat), gwdq(mref, mol%nat), &
+      allocate(gwdcn(mref, mol%nat, disp%ncoup), gwdq(mref, mol%nat, disp%ncoup), &
          & dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
    end if
    qat(:) = 0.0_wp

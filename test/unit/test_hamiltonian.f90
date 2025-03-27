@@ -134,7 +134,8 @@ subroutine test_hamiltonian_mol(error, mol, ref)
 
    allocate(cn(mol%nat), rcov(mol%nid))
    rcov(:) = get_covalent_rad(mol%num)
-   call new_ncoord(ncoord, mol, cn_count%dexp, cutoff=cn_cutoff, rcov=rcov)
+   call new_ncoord(ncoord, mol, cn_count%dexp, cutoff=cn_cutoff, rcov=rcov, error=error)
+   if (allocated(error)) return
    call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
    call ncoord%get_coordination_number(mol, lattr, cn)
 
