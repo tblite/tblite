@@ -77,7 +77,7 @@ module tblite_solvation_ddx
       !> Regularization parameter
       real(wp) :: eta = 0.1_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(14)
+      integer :: nang = grid_size(1)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
@@ -86,6 +86,21 @@ module tblite_solvation_ddx
       integer :: nproc = 1
       !> Debye-Hückel screening length (only used for LPB)
       real(wp) :: kappa = 0.0_wp
+      !> Shift of the characteristic function 
+      ! (default value depends on the model, for COSMO/CPCM it is -1)
+      real(wp) :: shift = -1.0_wp
+      !> Maximum number of iterations for the iterative solver
+      integer :: max_iter = 100
+      !> Number of extrapolation points for the Jacobi/DIIS solver
+      integer :: jacobi_ndiis = 20
+      !> Maximal degree of multipole spherical harmonics
+      integer :: pm = 8
+      !> Maximal degree of local spherical harmonics
+      integer :: pl = 8
+      !> Handling of the sparse matrices 
+      integer :: incore = 0
+      !> 1 to use FMM acceleration and 0 otherwise
+      integer :: enable_fmm = 1
    end type ddx_input
 
    !> Definition of polarizable continuum model
@@ -197,6 +212,27 @@ subroutine new_ddx(self, mol, input, error)
    ! Get Debye-Hückel screening length (only used for LPB)
    self%ddx_input%kappa = input%kappa
 
+   ! Initialize the shift depending on the model: ddCOSMO/ddCPCM has an internal shift, 
+   ! ddPCM and ddLPB have a symmetric shift
+   if (input%ddx_model == ddx_solvation_model%cosmo .or. &
+      & input%ddx_model == ddx_solvation_model%cpcm) then
+      self%ddx_input%shift = -1.0_wp
+   else 
+      self%ddx_input%shift = 0.0_wp
+   end if
+
+   ! Initialize the rest of the input
+   self%ddx_input%conv = input%conv
+   self%ddx_input%eta = input%eta
+   self%ddx_input%nang = input%nang
+   self%ddx_input%lmax = input%lmax
+   self%ddx_input%max_iter = input%max_iter
+   self%ddx_input%jacobi_ndiis = input%jacobi_ndiis
+   self%ddx_input%pm = input%pm
+   self%ddx_input%pl = input%pl
+   self%ddx_input%incore = input%incore
+   self%ddx_input%enable_fmm = input%enable_fmm
+
 end subroutine new_ddx
 
 !> Type constructor for ddX splvation
@@ -253,7 +289,11 @@ subroutine update(self, mol, cache)
       & self%rvdw, self%dielectric_const, ptr%ddx, &
       & ptr%ddx_error, force=1, ngrid=self%ddx_input%nang, &
       & lmax=self%ddx_input%lmax, nproc=self%ddx_input%nproc, &
-      & eta=self%ddx_input%eta, kappa=self%ddx_input%kappa)
+      & eta=self%ddx_input%eta, kappa=self%ddx_input%kappa, &
+      & shift=self%ddx_input%shift, maxiter=self%ddx_input%max_iter, &
+      & jacobi_ndiis=self%ddx_input%jacobi_ndiis, pm=self%ddx_input%pm, &
+      & pl=self%ddx_input%pl, incore=self%ddx_input%incore, &
+      & enable_fmm=self%ddx_input%enable_fmm)
    call check_error(ptr%ddx_error)
 
    call allocate_state(ptr%ddx%params, ptr%ddx%constants, &
