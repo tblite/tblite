@@ -58,7 +58,7 @@ module tblite_api_solvation
 contains
 
 
-function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
+function new_ddx_solvation_epsilon_api(verr, vmol, eps, model, kappa) result(vcont) &
    & bind(C, name=namespace//"new_ddx_solvation_epsilon")
    type(c_ptr), value :: verr
    type(vp_error), pointer :: err
@@ -66,6 +66,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    type(vp_structure), pointer :: mol
    real(kind=c_double), value :: eps
    integer(c_int), value :: model
+   real(kind=c_double), value :: kappa
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
@@ -84,7 +85,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%ddx = ddx_input(eps, model)
+   solvmodel%ddx = ddx_input(eps, model, kappa=kappa)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    

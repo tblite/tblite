@@ -63,7 +63,7 @@ module tblite_solvation_ddx
    !> Actual enumerator for the dd solvation models
    type(enum_ddx_solvation_model), parameter :: ddx_solvation_model = enum_ddx_solvation_model()
 
-   
+
    !> Input for ddX solvation
    type :: ddx_input
       !> Dielectric constant
@@ -77,7 +77,7 @@ module tblite_solvation_ddx
       !> Regularization parameter
       real(wp) :: eta = 0.1_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(1)
+      integer :: nang = grid_size(14)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
@@ -182,7 +182,7 @@ subroutine new_ddx(self, mol, input, error)
       end do
    end if
 
-   ! Calculate Epsilon and keps
+   ! Calculate epsilon and keps
    self%dielectric_const = input%dielectric_const
    if (input%ddx_model == ddx_solvation_model%cosmo) then
       keps_param = 0.5_wp
@@ -313,7 +313,6 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
-
    call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
    
    call setup(ptr%ddx%params,ptr%ddx%constants, &
@@ -348,8 +347,6 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
 
-   real(wp) :: energies
-
    call view(cache, ptr)
 
    ! Solution of the ddX system (direct and adjoint) with the mixed charges
@@ -358,7 +355,6 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
-
    call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
 
    call setup(ptr%ddx%params,ptr%ddx%constants, &
@@ -373,7 +369,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
-   
+
    ! Contract with the Coulomb matrix
    ptr%ddx_pot = 0.0_wp
    call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t') 
