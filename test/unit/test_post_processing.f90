@@ -1,4 +1,4 @@
-module tblite_test_post_processing
+module test_post_processing
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
@@ -83,7 +83,6 @@ subroutine test_h2_wbo(error)
          print'("---")'
          print'(3es21.14)', wbo_exp
    end if
-   
 
    mol%charge = 0.0_wp
    mol%uhf = 0
@@ -133,7 +132,7 @@ subroutine test_h2_wbo(error)
          print'(3es21.14)', wbo_exp
    end if
 
-end subroutine
+end subroutine test_h2_wbo
 
 subroutine test_timer_print(error)
    type(error_type), allocatable, intent(out) :: error
@@ -166,7 +165,8 @@ subroutine test_timer_print(error)
    energy = 0.0_wp
    
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=3)
-end subroutine
+
+end subroutine test_timer_print
 
 subroutine test_molmom_dipm_param(error)
    type(error_type), allocatable, intent(out) :: error
@@ -187,8 +187,7 @@ subroutine test_molmom_dipm_param(error)
    
    call param%load(table_post_proc, error)
    
-
-end subroutine
+end subroutine test_molmom_dipm_param
 
 subroutine test_molmom_qp_param(error)
    type(error_type), allocatable, intent(out) :: error
@@ -204,7 +203,7 @@ subroutine test_molmom_qp_param(error)
    
    call param%load(table_post_proc, error)
    
-end subroutine
+end subroutine test_molmom_qp_param
 
 subroutine test_molmom_dump_param(error)
    type(error_type), allocatable, intent(out) :: error
@@ -237,7 +236,7 @@ subroutine test_molmom_dump_param(error)
    call check(error, size(list), 2)
    if (allocated(error)) return
    
-end subroutine
+end subroutine test_molmom_dump_param
 
 subroutine test_pproc_load_param(error)
    type(error_type), allocatable, intent(out) :: error
@@ -253,7 +252,7 @@ subroutine test_pproc_load_param(error)
    call set_value(table_entries, "quadrupole", .false.)
    call param%load(table_multipole, error)
 
-end subroutine
+end subroutine test_pproc_load_param
 
 subroutine test_pproc_dump_param(error)
    type(error_type), allocatable, intent(out) :: error
@@ -279,7 +278,7 @@ subroutine test_pproc_dump_param(error)
    call child%get_keys(list)
    call check(error, size(list), 2)
    if (allocated(error)) return
-end subroutine
+end subroutine test_pproc_dump_param
 
 
-end module
+end module test_post_processing

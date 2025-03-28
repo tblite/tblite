@@ -21,6 +21,7 @@ set(
   "coulomb-charge"
   "coulomb-multipole"
   "coulomb-thirdorder"
+  "dispersion"
   "double-dictionary"
   "fit"
   "gfn1-xtb"

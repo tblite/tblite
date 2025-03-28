@@ -29,7 +29,7 @@ module tblite_param_dispersion
    public :: count
 
 
-   character(len=*), parameter :: k_d3 = "d3", k_d4 = "d4", k_sc = "sc", &
+   character(len=*), parameter :: k_d3 = "d3", k_d4 = "d4", k_sc = "sc", k_smooth="smooth", &
       & k_s6 = "s6", k_s8 = "s8", k_s9 = "s9", k_a1 = "a1", k_a2 = "a2"
 
    !> Parametrization record specifying the dispersion model
@@ -48,6 +48,8 @@ module tblite_param_dispersion
       logical :: d3
       !> Use selfconsistent DFT-D4 type dispersion
       logical :: sc
+      !> Use smoothed DFT-D4S type dispersion
+      logical :: smooth
    contains
       generic :: load => load_from_array
       generic :: dump => dump_to_array
@@ -109,6 +111,11 @@ subroutine load_from_toml(self, table, error)
          call fatal_error(error, "Cannot read self-consistency for D4 dispersion")
          return
       end if
+      call get_value(child, k_smooth, self%smooth, .false., stat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Cannot read smoothing for D4S dispersion")
+         return
+      end if
    end if
 
    call get_value(child, k_s6, self%s6, 1.0_wp, stat=stat)
@@ -151,7 +158,10 @@ subroutine dump_to_toml(self, table, error)
    type(toml_table), pointer :: child
 
    call add_table(table, merge(k_d3, k_d4, self%d3), child)
-   if (.not.self%d3) call set_value(child, k_sc, self%sc)
+   if (.not.self%d3) then 
+      call set_value(child, k_sc, self%sc)
+      call set_value(child, k_smooth, self%smooth)
+   end if
 
    call set_value(child, k_s6, self%s6)
    call set_value(child, k_s8, self%s8)
