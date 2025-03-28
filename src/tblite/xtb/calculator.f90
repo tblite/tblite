@@ -35,7 +35,7 @@ module tblite_xtb_calculator
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
-      & d3_dispersion, new_d3_dispersion
+      & new_d4s_dispersion, d3_dispersion, new_d3_dispersion
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
@@ -259,8 +259,13 @@ subroutine add_dispersion(calc, mol, param, error)
          call move_alloc(d3, calc%dispersion)
       else
          allocate(d4)
-         call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
-            & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+         if (par%smooth) then 
+            call new_d4s_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+         else
+            call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+         end if
          call move_alloc(d4, calc%dispersion)
       end if
    end associate

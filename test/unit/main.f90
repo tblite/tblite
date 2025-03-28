@@ -26,6 +26,7 @@ program tester
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
    use test_double_dictionary, only : collect_double_dictionary
+   use test_dispersion, only : collect_dispersion
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
@@ -36,6 +37,7 @@ program tester
    use test_ipea1_xtb, only : collect_ipea1_xtb
    use test_npy, only : collect_npy
    use test_npz, only : collect_npz
+   use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
@@ -80,6 +82,7 @@ program tester
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("wavefunction-restart", collect_wavefunction_restart), &
+      new_testsuite("dispersion", collect_dispersion), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
       new_testsuite("ceh", collect_ceh), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &

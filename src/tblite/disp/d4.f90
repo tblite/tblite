@@ -276,7 +276,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
             end do
          end do
       end do
-      pot%vat(:, 1) = tmp_vat
+      pot%vat(:, 1) = pot%vat(:, 1) + tmp_vat
    else
       ! Dispersion energy with atom-wise weighting
       call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1))

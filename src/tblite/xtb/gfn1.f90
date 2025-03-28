@@ -957,6 +957,7 @@ subroutine export_gfn1_param(param)
       par%s9 = s9
       par%sc = .false.
       par%d3 = .true.
+      par%smooth = .false.
    end associate
 
    allocate(param%repulsion)
