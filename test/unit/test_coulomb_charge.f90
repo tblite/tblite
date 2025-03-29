@@ -502,11 +502,10 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    !> Test threshold
    real(wp), intent(in), optional :: thr_in
 
-   integer :: iat, ic
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
-   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
+   real(wp) :: energy(mol%nat), sigma(3, 3)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp) :: thr_
    type(wavefunction_type) :: wfn
 

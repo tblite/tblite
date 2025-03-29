@@ -165,9 +165,8 @@ subroutine new_domain_decomposition(self, input, rvdw, wang, grid)
    real(wp), intent(in) :: rvdw(:)
    real(wp), intent(in) :: wang(:), grid(:, :)
 
-   integer :: iat, jat, i, ii, lnl, l, ind, m, igrid, inear, jnear
-   integer :: istatus
-   real(wp) :: fac, fl, ffl, fnorm, d2, r2, v(3), vv, t, xt, swthr
+   integer :: i, l, ind, m
+   real(wp) :: fl, ffl, fnorm
 
    real(wp), allocatable :: vcos(:), vsin(:), vplm(:)
 
@@ -1215,7 +1214,7 @@ pure subroutine fdokb(self, iat, sigma, xi, basloc, dbsloc, vplm, vcos, vsin, fx
    integer :: ig, ji, jat, l, ind, m, jk, kat
    logical :: proc
    real(wp) :: vvji, tji, xji, oji, t, fac, fl, f1, f2, beta, di, tlow, thigh
-   real(wp) :: b, g1, g2, vvjk, tjk, f, xjk
+   real(wp) :: b, g1, g2, vvjk, tjk, xjk
    real(wp) :: vji(3), sji(3), alp(3), vb(3), vjk(3), sjk(3), vc(3)
 
 
@@ -1368,7 +1367,7 @@ pure subroutine calcv(self, first, iat, pot, sigma, basloc, vplm, vcos, vsin)
 
    integer :: its, ij, jat
    real(wp) :: vij(3), sij(3)
-   real(wp) :: vvij2, vvij, tij, xij, oij, stslm, stslm2, stslm3
+   real(wp) :: vvij2, vvij, tij, xij, oij
 
    ! initialize
    pot(:) = 0.0_wp
@@ -1514,7 +1513,7 @@ subroutine jacobi_diis(self, n, lprint, diis_max, norm, tol, rhs, x, &
    !> Format: real(wp) function u_norm(n, x)
    procedure(hnorm), optional :: u_norm
 
-   integer :: it, nmat, istatus, lenb
+   integer :: it, nmat, lenb
    real(wp) :: rms_norm, max_norm, tol_max
    logical :: dodiis
 
@@ -1850,7 +1849,7 @@ subroutine lx(self, n, x, y)
    real(wp), intent(in) :: x(:, :) ! [self%nylm, self%nat]
    real(wp), intent(inout) :: y(:, :) ! [self%nylm, self%nat]
 
-   integer :: iat, istatus
+   integer :: iat
    real(wp), allocatable :: pot(:), vplm(:), basloc(:), vcos(:), vsin(:)
 
    ! allocate workspaces
@@ -1891,7 +1890,7 @@ subroutine lstarx(self, n, x, y)
    real(wp), intent(in) :: x(:, :) ! [self%nylm, self%nat]
    real(wp), intent(inout) :: y(:, :) ! [self%nylm, self%nat]
 
-   integer :: iat, ig, istatus
+   integer :: iat, ig
    real(wp), allocatable :: xi(:, :), vplm(:), basloc(:), vcos(:), vsin(:)
 
    ! allocate workspaces
@@ -1957,7 +1956,7 @@ real(wp) function hnorm(self, n, x)
    type(domain_decomposition), intent(in) :: self
    integer, intent(in) :: n
    real(wp), intent(in) :: x(:, :) ! [self%nylm, self%nat]
-   integer :: iat, istatus
+   integer :: iat
    real(wp) :: vrms, vmax
    real(wp), allocatable :: u(:)
 
@@ -2014,11 +2013,11 @@ subroutine solve_cosmo_direct(self, cart, phi, glm, sigma, restart)
    !> Initial guess is provided on sigma
    logical, intent(in) :: restart
 
-   integer :: iat, istatus, n_iter, info, c1, c2, cr
-   real(wp) :: tol, r_norm
+   integer :: iat, istatus, n_iter
+   real(wp) :: tol
    logical :: ok
 
-   real(wp), allocatable  :: g(:, :), rhs(:, :), work(:, :)
+   real(wp), allocatable  :: g(:, :), rhs(:, :)
 
    ! parameters for the solver and matvec routine
    tol     = self%conv
@@ -2108,11 +2107,9 @@ subroutine solve_cosmo_adjoint(self, psi, sigma, restart, accuracy)
    !> Overwrite accuracy
    real(wp), intent(in), optional :: accuracy
 
-   integer :: iat, istatus, n_iter, info, c1, c2, cr
-   real(wp) :: tol, r_norm
+   integer :: iat, n_iter
+   real(wp) :: tol
    logical :: ok
-
-   real(wp), allocatable  :: g(:, :), rhs(:, :), work(:, :)
 
    ! parameters for the solver and matvec routine
    if (present(accuracy)) then
@@ -2152,10 +2149,9 @@ subroutine get_deriv(self, keps, phi, sigma, s, gradient)
    real(wp), intent(in) :: s(:, :)
    real(wp), intent(inout) :: gradient(:, :)
 
-   integer :: iat, ig, ii, c1, c2, cr
-   real(wp) :: fep
+   integer :: iat, ig, ii
 
-   real(wp), allocatable :: xi(:, :), phiexp(:, :), zeta(:), ef(:, :)
+   real(wp), allocatable :: xi(:, :), phiexp(:, :)
    real(wp), allocatable :: basloc(:), dbsloc(:, :), vplm(:), vcos(:), vsin(:)
 
    allocate (xi(self%ngrid, self%nat), phiexp(self%ngrid, self%nat))

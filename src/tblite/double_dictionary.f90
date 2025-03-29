@@ -98,7 +98,6 @@ contains
 
 function equal_record(lhs, rhs) result(equal)
    class(double_record), intent(in) :: lhs, rhs
-   integer :: i
    logical :: equal
    equal = .false.
 
@@ -344,7 +343,6 @@ end subroutine
 subroutine remove_entry_label(self, label)
    class(double_dictionary_type) :: self
    character(len=*) :: label
-   type(double_dictionary_type) :: tmp
    integer :: it 
    it = return_label_index(self, label)
    if (it /= 0) then
@@ -380,7 +378,7 @@ end subroutine
 subroutine copy_record(to, from)
    class(double_record), intent(inout) :: to
    type(double_record), intent(in) :: from
-   integer :: n_entries, it, i
+
    if (allocated(to%label)) deallocate(to%label)
    to%label = from%label
    if (allocated(from%array1)) to%array1 = from%array1

@@ -69,7 +69,6 @@ subroutine run_main(config, error)
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, unit, nspin
-   logical :: exist
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)

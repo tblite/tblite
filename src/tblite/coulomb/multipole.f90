@@ -877,7 +877,7 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
 
    integer :: itr
    real(wp) :: fac, vec(3), g2, gv, expk, alp2, sink, cosk, dpiqj, qidpj
-   real(wp) :: mikmjk, gtmp(3), qpiqj, qiqpj, dpiv, dpjv
+   real(wp) :: qpiqj, qiqpj, dpiv, dpjv
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp
@@ -934,7 +934,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
 
    integer :: itr, k
    real(wp) :: vec(3), r1, r2, g1, g3, g5, g7, fdmp3, fdmp5, ddmp3, ddmp5, dpiqj, qidpj
-   real(wp) :: atmp, alp2, arg, arg2, erft, expt, e1, e2, e3, tabc(3, 3, 3), tab(3, 3)
+   real(wp) :: alp2, arg, arg2, erft, expt, e1, e2, e3, tabc(3, 3, 3), tab(3, 3)
    real(wp) :: dpidpj, dpiv, dpjv, edd, eq, g_sd(3), g_dd(3), g_sq(3)
 
    de = 0.0_wp

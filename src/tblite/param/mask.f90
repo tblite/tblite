@@ -276,8 +276,6 @@ subroutine read_atom_mask(table, key, mask, default, error)
    logical, intent(in) :: default
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: stat
-
    call get_value(table, key, mask, default)
 end subroutine read_atom_mask
 
@@ -290,7 +288,7 @@ subroutine read_shell_mask(table, key, mask, default, error)
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_array), pointer :: array
-   integer :: ii, stat
+   integer :: ii
 
    call get_value(table, key, array, requested=.false.)
    if (associated(array)) then

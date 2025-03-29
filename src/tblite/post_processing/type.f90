@@ -106,7 +106,7 @@ subroutine collect_containers_caches(rcache, ccache, hcache, dcache, icache, cal
    type(container_cache), allocatable, intent(inout) :: rcache, ccache, hcache, dcache, icache
    type(container_cache), allocatable, intent(inout) :: cache_list(:)
    type(xtb_calculator), intent(in) :: calc
-   integer :: index, i
+
    allocate(cache_list(5))
    if (allocated(calc%repulsion)) call move_alloc(rcache%raw, cache_list(1)%raw)
    if (allocated(calc%coulomb)) call move_alloc(ccache%raw, cache_list(2)%raw)

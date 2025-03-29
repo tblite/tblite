@@ -38,7 +38,7 @@ end subroutine collect_double_dictionary
 subroutine test_removal_index(error)
    type(error_type), allocatable, intent(out) :: error
    character(len=:), allocatable :: label1, label2
-   real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+   real(wp), allocatable :: array1(:), array3(:, :, :)
 
    type(double_dictionary_type) :: dict, ini_dict
 
@@ -51,7 +51,7 @@ subroutine test_removal_index(error)
    call check(error, dict%get_n_entries(), 2)
    if (allocated(error)) return
    call dict%get_label(1, label1)
-   call dict%get_label(2,label2)
+   call dict%get_label(2, label2)
    call check(error, (label1 == "test1"))
    if (allocated(error)) return
    call check(error, (label2 == "test3"))
@@ -501,7 +501,6 @@ end subroutine
 subroutine test_update_entries_label(error)
    type(error_type), allocatable, intent(out) :: error
    type(double_dictionary_type) :: dict1, dict2, dict3 
-   character(len=:), allocatable :: label1, label2
    real(wp), allocatable :: array(:), array1(:), array2(:, :), array3(:, :, :)
    call fill_test_dict(dict1)
    allocate(array(1), source= 0.0_wp)

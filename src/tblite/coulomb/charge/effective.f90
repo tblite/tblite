@@ -429,7 +429,7 @@ subroutine get_amat_rec_3d(rij, vol, alp, qpc, trans, amat)
    real(wp), intent(out) :: amat
 
    integer :: itr
-   real(wp) :: fac, vec(3), g2, tmp, gv, expk, cosk
+   real(wp) :: fac, vec(3), g2, gv, expk, cosk
 
    amat = 0.0_wp
    fac = 4*pi/vol
