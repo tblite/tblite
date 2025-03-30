@@ -62,11 +62,11 @@ class TBLite(ase.calculators.calculator.Calculator):
      mixer_damping            0.4               Damping parameter for self-consistent mixer
      electric_field           None              Uniform electric field vector (in V/A)
      spin_polarization        None              Spin polarization (scaling factor)
-     alpb-solvation           None              Solvent name, solution state (optional)
-     gbsa-solvation           None              Solvent name, solution state (optional)
-     cpcm-solvation           None              Epsilon
-     gbe-solvation            None              Epsilon, Born kernel
-     gb-solvation             None              Epsilon, Born kernel
+     alpb_solvation           None              Solvent name, solution state (optional)
+     gbsa_solvation           None              Solvent name, solution state (optional)
+     cpcm_solvation           None              Epsilon
+     gbe_solvation            None              Epsilon, Born kernel
+     gb_solvation             None              Epsilon, Born kernel
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
     ======================== ================= ====================================================
@@ -186,11 +186,11 @@ class TBLite(ase.calculators.calculator.Calculator):
             "method" in changed_parameters
             or "electric_field" in changed_parameters
             or "spin_polarization" in changed_parameters
-            or "alpb-solvation" in changed_parameters
-            or "gbsa-solvation" in changed_parameters
-            or "cpcm-solvation" in changed_parameters
-            or "gbe-solvation" in changed_parameters
-            or "gb-solvation" in changed_parameters
+            or "alpb_solvation" in changed_parameters
+            or "gbsa_solvation" in changed_parameters
+            or "cpcm_solvation" in changed_parameters
+            or "gbe_solvation" in changed_parameters
+            or "gb_solvation" in changed_parameters
         ):
             self._xtb = None
             self._res = None
@@ -378,7 +378,6 @@ class TBLite(ase.calculators.calculator.Calculator):
             raise ase.calculators.calculator.CalculationFailed(str(e)) from e
 
         # These properties are garanteed to exist for all implemented calculators
-        print( self._res.get("energy") , Hartree)
         self.results["energy"] = self._res.get("energy") * Hartree
         self.results["free_energy"] = self.results["energy"]
         self.results["forces"] = -self._res.get("gradient") * Hartree / Bohr
