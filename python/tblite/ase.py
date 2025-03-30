@@ -62,6 +62,11 @@ class TBLite(ase.calculators.calculator.Calculator):
      mixer_damping            0.4               Damping parameter for self-consistent mixer
      electric_field           None              Uniform electric field vector (in V/A)
      spin_polarization        None              Spin polarization (scaling factor)
+     alpb-solvation           None              Solvent name, solution state (optional)
+     gbsa-solvation           None              Solvent name, solution state (optional)
+     cpcm-solvation           None              Epsilon
+     gbe-solvation            None              Epsilon, Born kernel
+     gb-solvation             None              Epsilon, Born kernel
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
     ======================== ================= ====================================================
@@ -123,6 +128,11 @@ class TBLite(ase.calculators.calculator.Calculator):
         "mixer_damping": 0.4,
         "electric_field": None,
         "spin_polarization": None,
+        "alpb_solvation": None,
+        "gbsa_solvation": None,
+        "cpcm_solvation": None,
+        "gbe_solvation": None,
+        "gb_solvation": None,
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
@@ -176,6 +186,11 @@ class TBLite(ase.calculators.calculator.Calculator):
             "method" in changed_parameters
             or "electric_field" in changed_parameters
             or "spin_polarization" in changed_parameters
+            or "alpb-solvation" in changed_parameters
+            or "gbsa-solvation" in changed_parameters
+            or "cpcm-solvation" in changed_parameters
+            or "gbe-solvation" in changed_parameters
+            or "gb-solvation" in changed_parameters
         ):
             self._xtb = None
             self._res = None
@@ -293,6 +308,22 @@ class TBLite(ase.calculators.calculator.Calculator):
                 )
             if self.parameters.spin_polarization is not None:
                 calc.add("spin-polarization", self.parameters.spin_polarization)
+            if self.parameters.alpb_solvation is not None:
+                if isinstance(self.parameters.alpb_solvation, (tuple, list)):
+                    calc.add("alpb-solvation", *self.parameters.alpb_solvation)
+                else:
+                    calc.add("alpb-solvation", self.parameters.alpb_solvation)
+            if self.parameters.gbsa_solvation is not None:
+                if isinstance(self.parameters.gbsa_solvation, (tuple, list)):
+                    calc.add("gbsa-solvation", *self.parameters.gbsa_solvation)
+                else:
+                    calc.add("gbsa-solvation", self.parameters.gbsa_solvation)
+            if self.parameters.cpcm_solvation is not None:
+                calc.add("cpcm-solvation", self.parameters.cpcm_solvation)
+            if self.parameters.gbe_solvation is not None:
+                calc.add("gbe-solvation", *self.parameters.gbe_solvation)
+            if self.parameters.gb_solvation is not None:
+                calc.add("gb-solvation", *self.parameters.gb_solvation)
 
         except RuntimeError as e:
             raise ase.calculators.calculator.InputError(str(e)) from e
@@ -347,6 +378,7 @@ class TBLite(ase.calculators.calculator.Calculator):
             raise ase.calculators.calculator.CalculationFailed(str(e)) from e
 
         # These properties are garanteed to exist for all implemented calculators
+        print( self._res.get("energy") , Hartree)
         self.results["energy"] = self._res.get("energy") * Hartree
         self.results["free_energy"] = self.results["energy"]
         self.results["forces"] = -self._res.get("gradient") * Hartree / Bohr

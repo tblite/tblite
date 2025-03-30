@@ -205,8 +205,8 @@ def test_gfn1_xtb_3d():
     assert approx(atoms.get_stress(), abs=thr) == stress
 
 
-def test_spgfn1_xtb():
-    thr = 5.0e-6
+def get_crcp2():
+    """Get structure for CrCP2"""
 
     atoms = Atoms(
         symbols="CrC5H5C3HCHCH3",
@@ -238,6 +238,16 @@ def test_spgfn1_xtb():
         ),
     )
 
+    return atoms
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_spgfn1_xtb():
+    """Test ASE interface to spGFN1-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
     atoms.calc = TBLite(method="GFN1-xTB")
     assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
 
@@ -246,3 +256,108 @@ def test_spgfn1_xtb():
 
     atoms.calc.set(multiplicity=3)
     assert approx(atoms.get_potential_energy(), abs=thr) == -772.1635105495686
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn2_xtb_cpcm():
+    """Test CPCM solvation with GFN2-xTB"""
+    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN2-xTB")
+    atoms.calc.set(accuracy=0.1)
+
+    atoms.calc.set(cpcm_solvation=7.0)
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.6978494954839
+                                                            
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn2_xtb_alpb():
+    """Test ALPB solvation with GFN2-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN2-xTB")
+    atoms.calc.set(accuracy=1.0)
+
+    atoms.calc.set(alpb_solvation="ethanol")
+    assert approx(atoms.get_potential_energy(), abs=thr) == -774.1242966319087
+
+    atoms.calc.set(alpb_solvation=("ethanol", "bar1mol"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -774.0418125853236
+
+    atoms.calc.set(alpb_solvation=("ethanol", "reference"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.9688203669275
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn1_xtb_alpb():
+    """Test ALPB solvation with GFN1-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN1-xTB")
+    atoms.calc.set(accuracy=1.0)
+
+    atoms.calc.set(alpb_solvation="dmf")
+    print(atoms.get_potential_energy())
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.7287431921513
+
+    atoms.calc.set(alpb_solvation=("dmf", "bar1mol"))
+    print(atoms.get_potential_energy())
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.6462591455721
+
+    atoms.calc.set(alpb_solvation=("dmf", "reference"))
+    print(atoms.get_potential_energy())
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.5803670939658
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn1_xtb_gbe():
+    """Test GBE solvation with GFN1-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN1-xTB")
+    atoms.calc.set(accuracy=1.0)
+
+    atoms.calc.set(gbe_solvation=(7.0, "p16"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4434811395378
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn2_xtb_gbsa():
+    """Test GBSA solvation with GFN2-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN2-xTB")
+    atoms.calc.set(accuracy=1.0)
+
+    atoms.calc.set(gbsa_solvation="water")
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8895533357601
+
+    atoms.calc.set(gbsa_solvation=("water", "gsolv"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8895533357601
+
+    atoms.calc.set(gbsa_solvation=("water", "bar1mol"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8070696428758
+
+
+@pytest.mark.skipif(ase is None, reason="requires ase")
+def test_solvation_gfn2_xtb_gb():
+    """Test GB solvation with GFN2-xTB"""
+    thr = 5.0e-6
+
+    atoms = get_crcp2()
+
+    atoms.calc = TBLite(method="GFN2-xTB")
+    atoms.calc.set(accuracy=1.0)
+
+    atoms.calc.set(gb_solvation=(7.0, "still"))
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8038793721613
