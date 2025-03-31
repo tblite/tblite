@@ -35,6 +35,8 @@ module tblite_context_type
 
    !> Calculation context type for error handling and output messages
    type, public :: context_type
+      !> switch to allow the reuse of the context solver, for MD/CREST etc
+      logical :: reuse_solver = .false.
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context
@@ -44,9 +46,11 @@ module tblite_context_type
       !> Optional logger to be used for writing messages
       class(context_logger), allocatable :: io
       !> Optional factory for creating electronic solvers
-      class(context_solver), allocatable :: solver
+      class(context_solver), allocatable :: ctxsolver
       !> Color support for output
       type(context_terminal) :: terminal = context_terminal()
+      !> Solver instance moved here to keep MD overhead low
+      class(solver_type), allocatable :: solver
    contains
       !> Write a message to the output
       procedure :: message
@@ -130,37 +134,40 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, solver, ndim)
+subroutine new_solver(self, ndim)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
    !> New electronic solver
-   class(solver_type), allocatable, intent(out) :: solver
+   !class(solver_type), allocatable, intent(out) :: solver
    !> Dimension of the eigenvalue problem
    integer, intent(in) :: ndim
 
-   if (.not.allocated(self%solver)) then
-      self%solver = lapack_solver()
+   if (.not.allocated(self%ctxsolver)) then
+      self%ctxsolver = lapack_solver()
    end if
-
-   call self%solver%new(solver, ndim)
+   if (.not.allocated(self%solver)) then
+      call self%ctxsolver%new(self%solver, ndim)
+   end if
 end subroutine new_solver
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self, solver)
+subroutine delete_solver(self)
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
    !> Electronic solver instance
-   class(solver_type), allocatable, intent(inout) :: solver
+   !class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%solver%delete(solver)
+      call self%ctxsolver%delete(self%solver)
+      if (allocated(self%solver)) deallocate(self%solver)
    end if
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
-   if (allocated(solver)) deallocate(solver)
+
+   if (allocated(self%ctxsolver)) deallocate(self%ctxsolver)
 end subroutine delete_solver
 
 

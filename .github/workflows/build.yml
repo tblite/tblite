@@ -73,6 +73,7 @@ jobs:
     env:
       FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
       CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
+      CXX: ${{ matrix.compiler == 'intel' && 'icpc' || 'g++' }}
       GCC_V: ${{ matrix.version }}
       PYTHON_V: 3.9
 
@@ -106,7 +107,7 @@ jobs:
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install -y gcc-${{ env.GCC_V}} gfortran-${{ env.GCC_V }} liblapack-dev
+        sudo apt-get install -y gcc-${{ env.GCC_V}} gfortran-${{ env.GCC_V }} liblapack-dev libstdc++-${{ env.GCC_V }}-dev
         sudo update-alternatives \
           --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_V }} 100 \
           --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ env.GCC_V }} \

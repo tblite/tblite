@@ -19,7 +19,7 @@
 module tblite_post_processing_bond_orders
    use mctc_env, only : wp
    use tblite_post_processing_type, only : post_processing_type
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
@@ -32,6 +32,7 @@ module tblite_post_processing_bond_orders
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_timer, only : timer_type, format_time
    use tblite_output_format, only : format_string
+   use tblite_scf_solver , only : solver_type
    implicit none
    private
 
@@ -91,8 +92,9 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
             end if
          end do
       end do
+      !call ctx%new_solver(solver, calc%bas%nao)
       do j = 1, 2
-         call get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
+         call ctx%solver%get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
       end do
       call get_mayer_bond_orders_uhf(calc%bas, integrals%overlap, pmat, wbo)
       wbo_2d = 2*wbo(:, :, 1)

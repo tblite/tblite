@@ -47,6 +47,7 @@ program tester
    use test_xtb_param, only : collect_xtb_param
    use test_double_dictionary, only : collect_double_dictionary
    use tblite_test_post_processing, only : collect_post_processing
+   use test_density_matrix_purification, only : collect_DMP
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
@@ -82,6 +83,7 @@ program tester
       new_testsuite("gfn2-xtb", collect_gfn2_xtb), &
       new_testsuite("xtb-external", collect_xtb_external), &
       new_testsuite("spin", collect_spin), &
+      new_testsuite("density-matrix-purification", collect_DMP), &
       new_testsuite("xtb-param", collect_xtb_param) &
       ]
 

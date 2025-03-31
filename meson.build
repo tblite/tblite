@@ -27,7 +27,7 @@ project(
 )
 install = not (meson.is_subproject() and get_option('default_library') == 'static')
 has_cc = add_languages('c', required: get_option('api') or get_option('python'), native: false)
-
+gpu = get_option('gpu')
 # General configuration information
 lib_deps = []
 inc_dirs = []
@@ -37,6 +37,7 @@ subdir('config')
 srcs = []
 subdir('src')
 
+add_project_link_arguments(['-lstdc++'],language: 'fortran')
 # Library target
 tblite_lib = library(
   meson.project_name(),
@@ -45,6 +46,7 @@ tblite_lib = library(
   dependencies: lib_deps,
   include_directories: inc_dirs,
   install: install,
+  link_language: 'fortran',
 )
 
 # Export dependency for other projects and test suite

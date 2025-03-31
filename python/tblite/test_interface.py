@@ -568,7 +568,7 @@ def test_solvation_gfn1_gbe():
     energy = calc.singlepoint().get("energy")
 
     assert energy == approx(-28.43674134364)
-
+    
 
 def test_solvation_gfn2_gbsa():
     """Test GBSA solvation with GFN2-xTB"""
