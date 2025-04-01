@@ -23,8 +23,6 @@ CFFI generated wrappers.
 from typing import Any, List, Optional, Union
 
 import numpy as np
-from typing import Any, Optional
-
 from . import library
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
