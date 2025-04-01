@@ -256,7 +256,6 @@ def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
     atomic_result = run_schema(atomic_input)
 
     assert atomic_result.success
-    print(atomic_result.return_result)
     assert pytest.approx(atomic_result.return_result) == return_result
 
 
@@ -351,7 +350,6 @@ def test_qcschema_solvation(atomic_input_solvation: AtomicInput, return_result_s
     atomic_result = run_schema(atomic_input_solvation)
 
     assert atomic_result.success
-    print(atomic_result.return_result)
     assert pytest.approx(atomic_result.return_result) == return_result_solvation
 
 
