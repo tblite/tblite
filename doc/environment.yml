@@ -15,6 +15,7 @@ dependencies:
   - numpy
   - qcelemental
   # extra dependencies for notebooks
+  - ipython
   - polars
   # build dependencies
   - c-compiler
