@@ -266,7 +266,7 @@ def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
       {"gbe-solvation": [7.0, "p16"]},
       {"gb-solvation": [7.0, "still"]},
    ])
-def solvation(request) -> str:
+def solvation(request) -> dict:
     """Solvation fixture."""
     return request.param
 
