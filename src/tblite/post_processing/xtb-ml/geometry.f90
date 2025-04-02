@@ -16,18 +16,17 @@
 !> @file tblite/post-processing/xtb-ml/geometry.f90
 !> Geometry based xtbml features
 module tblite_xtbml_geometry_based
-   use mctc_env, only : wp
-   use tblite_xtbml_feature_type, only : xtbml_feature_type
-   use mctc_env, only : wp
-   use tblite_wavefunction_type, only : wavefunction_type
+   use, intrinsic :: iso_fortran_env, only : error_unit
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
    use tblite_integral_type, only : integral_type
-   use tblite_container, only : container_cache
-   use tblite_context , only : context_type
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
    use tblite_output_format, only : format_string
+   use tblite_container, only : container_cache
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_xtbml_feature_type, only : xtbml_feature_type
    implicit none
    private
 
@@ -44,7 +43,7 @@ module tblite_xtbml_geometry_based
       procedure :: compute_features
       procedure :: compute_extended
       procedure :: setup
-   end type
+   end type xtbml_geometry_features_type
 
 contains
 
@@ -58,7 +57,7 @@ subroutine setup(self)
    allocate(self%dict_ext)
    if (allocated(self%cn_atom)) deallocate(self%cn_atom)
    if (allocated(self%ext_cn)) deallocate(self%ext_cn)
-end subroutine
+end subroutine setup
 
 !> Compute geometry-based features
 subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
@@ -74,18 +73,24 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    type(xtb_calculator), intent(in) :: calc
    !> Cache list for storing caches of various interactions
    type(container_cache), intent(inout) :: cache_list(:)
-   type(exp_ncoord_type) :: ncoord_exp
+
+   class(ncoord_type), allocatable :: ncoord
+   type(error_type), allocatable :: error
 
    self%n_features = self%n_features + features
 
    allocate(self%cn_atom(mol%nat))
+   call new_ncoord(ncoord, mol, cn_count%exp, error)
+   if(allocated(error)) then
+      write(error_unit, '("[Error]:", 1x, a)') error%message
+      error stop
+   end if
 
-   call new_exp_ncoord(ncoord_exp, mol)
-   call ncoord_exp%get_cn(mol, self%cn_atom)
+   call ncoord%get_cn(mol, self%cn_atom)
 
    call self%dict%add_entry("CN_A", self%cn_atom)
 
-end subroutine
+end subroutine compute_features
 
 subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
    !> Instance of feature container
@@ -114,7 +119,7 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
       if (tmp_label .eq. "ext_CN_A_1.00") tmp_label = "ext_CN"
       call self%dict_ext%add_entry(tmp_label, self%ext_cn(:, j))
    end do
-end subroutine
+end subroutine compute_extended
 
 subroutine get_ext_cn(cn, xyz, ext_cn, conv)
    !> Coordinated number
@@ -144,5 +149,6 @@ subroutine get_ext_cn(cn, xyz, ext_cn, conv)
       end do
    end do
    !$omp end parallel do
-end subroutine
+end subroutine get_ext_cn
+
 end module tblite_xtbml_geometry_based

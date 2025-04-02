@@ -17,18 +17,15 @@
 !> Desnity based fetaures using Mulliken partitioning
 module tblite_xtbml_density_based
    use mctc_env, only : wp
-   use tblite_xtbml_feature_type, only : xtbml_feature_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
-   use tblite_integral_type, only : integral_type
    use tblite_container, only : container_cache
-   use tblite_context , only : context_type
-   use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
-   use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
+   use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_xtbml_feature_type, only : xtbml_feature_type
    implicit none
    private
    character(len=*), parameter :: label = "density-based features"
@@ -78,7 +75,7 @@ module tblite_xtbml_density_based
       procedure, private :: allocate
       procedure, private :: allocate_extended
       procedure :: setup
-   end type
+   end type xtbml_density_features_type
 
 contains
 
@@ -89,7 +86,7 @@ subroutine setup(self)
    allocate(self%dict)
    if (allocated(self%dict_ext)) deallocate(self%dict_ext)
    allocate(self%dict_ext)
-end subroutine
+end subroutine setup
 
 subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    !> Instance of the feature container
@@ -130,9 +127,9 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    do spin = 1, nspin
       self%partial_charge_atom(:, spin) = -self%partial_charge_atom(:, spin)+z/nspin
    end do
-   !dipole moments shellwise and then atomwise
+   ! dipole moments shellwise and then atomwise
    call get_mulliken_shell_multipoles(calc%bas, integrals%dipole, wfn%density, self%dipm_shell_xyz)
-   !quadrupole moments shellwise and then atomwise
+   ! quadrupole moments shellwise and then atomwise
    call get_mulliken_shell_multipoles(calc%bas, integrals%quadrupole, wfn%density, &
    & self%qm_shell_xyz)
    ! get atomic dipole moments from wavefunctin object
@@ -200,7 +197,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
          end if
       end associate
    end do
-end subroutine
+end subroutine compute_features
 
 !> get the screened nuclear charge for each atom
 ! which means the nuclear charge minus the core charge
@@ -280,7 +277,7 @@ subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh)
          nsh = nsh + 1
       end if
    end do
-end subroutine
+end subroutine resolve_shellwise
 
 !> separate a vector of properties for all shells into separate arrays for each shell type, for tensorial properties
 subroutine resolve_xyz_shell(mult_xyz, array, at2nsh)
@@ -331,7 +328,7 @@ subroutine resolve_xyz_shell(mult_xyz, array, at2nsh)
          nsh = nsh + 1
       end if
    end do
-end subroutine
+end subroutine resolve_xyz_shell
 
 subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution) 
    !> Instance of feature container
@@ -466,7 +463,7 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
          end do
       end associate
    end do
-end subroutine
+end subroutine compute_extended
 
 !> Allocate features
 subroutine allocate(self, nsh, nat, nspin)
@@ -490,7 +487,7 @@ subroutine allocate(self, nsh, nat, nspin)
    allocate(self%dipm_atom_xyz(3, nat, nspin), source=0.0_wp)
    allocate(self%qm_shell_xyz(6, nsh, nspin), source=0.0_wp)
    allocate(self%qm_atom_xyz(6, nat, nspin), source=0.0_wp)
-end subroutine
+end subroutine allocate
    
 !> Allocate extended features
 subroutine allocate_extended(self, nsh, nat, n_a)
@@ -519,7 +516,7 @@ subroutine allocate_extended(self, nsh, nat, n_a)
    allocate(self%ext_dipm_Z_xyz(3, nat, n_a), source=0.0_wp)
    allocate(self%ext_qm_Z_xyz(6, nat, n_a), source=0.0_wp)
 
-end subroutine
+end subroutine allocate_extended
 
 !> Compute shellwise mulliken charges
 subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
@@ -546,7 +543,7 @@ subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
       end do
    end do
 
-end subroutine
+end subroutine mulliken_shellwise
 
 !> Compute the extended atomic partial charges
 subroutine get_ext_partial_charge(atom_partial, xyz, conv, ext_partial)
@@ -576,7 +573,7 @@ subroutine get_ext_partial_charge(atom_partial, xyz, conv, ext_partial)
       enddo
    enddo
 
-end subroutine
+end subroutine get_ext_partial_charge
 
 !> summing up the mulliken charges to get atomic charges
 subroutine sum_up_mulliken(ash, mull_shell, mull_at)
@@ -594,7 +591,7 @@ subroutine sum_up_mulliken(ash, mull_shell, mull_at)
       mull_at(ash(i), :) = mull_at(ash(i), :) + mull_shell(i, :)
    end do
 
-end subroutine
+end subroutine sum_up_mulliken
 
 !> Compute the norm for extended dipole and quadrupole moments
 subroutine get_ext_mm(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
@@ -672,7 +669,7 @@ subroutine get_ext_mm(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
 
    call remove_trac_qp(ext_qp, qp_part)
 
-end subroutine
+end subroutine get_ext_mm
 
 !> Compute the norm for extended dipole and quadrupole moments
 subroutine comp_norm_3(dipm, qm, dipm_norm, qm_norm)
@@ -705,7 +702,7 @@ subroutine comp_norm_3(dipm, qm, dipm_norm, qm_norm)
    r = sqrt(r2)
    qm_norm(:, :) = r(:, :)
 
-end subroutine
+end subroutine comp_norm_3
 
 !> Compute extended quadrupole moment only due to nuclear effects
 ! all effects due to the electrons are set to 0, only the distribution of positive charges is left
@@ -772,7 +769,7 @@ subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
 
    call remove_trac_qp(ext_qp, qp_part)
 
-end subroutine
+end subroutine get_ext_mm_Z
 
 !> Compute extended quadrupole moment only due to electronic effects
 subroutine get_ext_mm_p(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp) ! the sign of q was changed to respect the charge of the electrons
@@ -844,7 +841,7 @@ subroutine get_ext_mm_p(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp) ! the sign
 
    call remove_trac_qp(ext_qp, qp_part)
 
-end subroutine
+end subroutine get_ext_mm_p
 
 !> Remove the trace of the quadrupole moment
 subroutine remove_trac_qp(qp_matrix, qp_part)
@@ -865,6 +862,6 @@ subroutine remove_trac_qp(qp_matrix, qp_part)
       qp_matrix(6, i, :) = qp_matrix(6, i, :) - tii
       qp_matrix(:, i, :) = qp_matrix(:, i, :) + qp_part(:, i, :)
    end do
-end subroutine
+end subroutine remove_trac_qp
 
 end module tblite_xtbml_density_based

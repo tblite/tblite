@@ -4,16 +4,15 @@ module test_post_processing
       & test_failed
    use mctc_io, only : structure_type, new
    use tblite_context_type, only : context_type
+   use tblite_param_molecular_moments, only:  molecular_multipole_record
+   use tblite_param_post_processing, only : post_processing_param_list
+   use tblite_post_processing_list, only : post_processing_list, add_post_processing
+   use tblite_results, only : results_type
+   use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_post_processing_list, only : post_processing_list, add_post_processing
-   use tblite_results, only : results_type
-   use tblite_param, only : param_record
-   use tblite_toml, only : toml_table, add_table, toml_value, set_value, toml_key, get_value
-   use tblite_param_molecular_moments, only:  molecular_multipole_record
-   use tblite_param_post_processing, only : post_processing_param_list
    implicit none
    private
 

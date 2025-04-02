@@ -16,26 +16,20 @@
 !> @file tblite/post-processing/xtb-ml/energy.f90
 !> Energy-based features
 module tblite_xtbml_energy_features
-   use mctc_env, only : wp
-   use mctc_io_convert, only : autoev
-   use tblite_xtbml_feature_type, only : xtbml_feature_type
-   use tblite_wavefunction_type, only : wavefunction_type
+   use, intrinsic :: iso_fortran_env, only : error_unit
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
-   use tblite_integral_type, only : integral_type
    use tblite_basis_type, only : basis_type
-   use tblite_container, only : container_cache
-   use tblite_context , only : context_type
-   use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
-   use tblite_container, only : container_type
-   use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_repulsion, only : tb_repulsion
-   use tblite_xtb_coulomb, only : tb_coulomb
-   use tblite_scf_iterator, only : get_electronic_energy, reduce
    use tblite_disp_d3, only : d3_dispersion, new_d3_dispersion
-   use tblite_classical_halogen, only : halogen_correction
    use tblite_disp_d4, only : d4_dispersion, new_d4_dispersion
+   use tblite_container, only : container_type, container_cache
+   use tblite_integral_type, only : integral_type
+   use tblite_scf_iterator, only : get_electronic_energy, reduce
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_coulomb, only : tb_coulomb
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_xtbml_feature_type, only : xtbml_feature_type
    implicit none
    private
    character(len=*), parameter :: label = "energy-based features"
@@ -45,9 +39,10 @@ module tblite_xtbml_energy_features
       procedure :: compute_features
       procedure :: compute_extended
       procedure :: setup
-   end type
+   end type xtbml_energy_features_type
 
 contains
+
 !> Setup energy-based features
 subroutine setup(self)
    class(xtbml_energy_features_type) :: self
@@ -56,7 +51,8 @@ subroutine setup(self)
    allocate(self%dict)
    if (allocated(self%dict_ext)) deallocate(self%dict_ext)
    allocate(self%dict_ext)
-end subroutine
+end subroutine setup
+
 !> Compute energy-based features! all contributions to the molecular energy are computed here, and stored in the feature container
 subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    !> Instance of feature container
@@ -74,6 +70,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    type(container_cache), allocatable :: cache
    type(d3_dispersion), allocatable :: d3
    type(d4_dispersion), allocatable :: d4
+   type(error_type), allocatable :: error
    class(container_type), allocatable :: cont
    real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:)
    integer :: i
@@ -149,7 +146,12 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
             call cont%get_engrad(mol, cache, e_disp_tot)
 
             allocate(d3)
-            call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
+            call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
+               & a2=cont%param%a2, s9=cont%param%s9, error=error)
+            if(allocated(error)) then
+               write(error_unit, '("[Error]:", 1x, a)') error%message
+               error stop
+            end if
             call d3%update(mol, cache)
             call d3%get_engrad(mol, cache, e_disp_ATM)
             call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
@@ -162,7 +164,12 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
             call cont%get_energy(mol, cache, wfn, e_disp_tot)
 
             allocate(d4)
-            call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, a2=cont%param%a2, s9=cont%param%s9)
+            call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
+               & a2=cont%param%a2, s9=cont%param%s9, error=error)
+            if(allocated(error)) then
+               write(error_unit, '("[Error]:", 1x, a)') error%message
+               error stop
+            end if
             call d4%update(mol, cache)
             call d4%get_engrad(mol, cache, e_disp_ATM)
             call self%dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
@@ -189,7 +196,8 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    call self%dict%add_entry("E_tot", tot_energy)
    call self%dict%add_entry("w_tot", tot_energy/sum(tot_energy))
 
-end subroutine
+end subroutine compute_features
+
 !> Compute extended energy-based features, empty for now
 subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
    !> Instance of feature container
@@ -206,6 +214,6 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
    type(container_cache), intent(inout) :: cache_list(:)
    !> Convolution container
    type(xtbml_convolution_type), intent(in) :: convolution
-end subroutine
+end subroutine compute_extended
 
-   end module
+end module tblite_xtbml_energy_features

@@ -17,18 +17,16 @@
 !> Orbital energy based xtbml features
 module tblite_xtbml_orbital_energy
    use mctc_env, only : wp
-   use mctc_io_convert, only : autoev
-   use tblite_xtbml_feature_type, only : xtbml_feature_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
-   use tblite_integral_type, only : integral_type
-   use tblite_xtb_calculator, only : xtb_calculator
+   use mctc_io_convert, only : autoev
    use tblite_container, only : container_cache
-   use tblite_context , only : context_type
-   use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
+   use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtbml_atomic_frontier, only : atomic_frontier_orbitals
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_xtbml_feature_type, only : xtbml_feature_type
    implicit none
    private
    character(len=*), parameter :: label = "orbital energy-based features"
@@ -49,7 +47,7 @@ module tblite_xtbml_orbital_energy
       procedure, private :: allocate
       procedure, private :: allocate_extended
       procedure :: setup
-   end type
+   end type xtbml_orbital_features_type
 
 contains
 
@@ -61,7 +59,7 @@ subroutine setup(self)
    allocate(self%dict)
    if (allocated(self%dict_ext)) deallocate(self%dict_ext)
    allocate(self%dict_ext)
-end subroutine
+end subroutine setup
 
 !> Allocate memory for the features
 subroutine allocate(self, nat, nspin)
@@ -78,7 +76,7 @@ subroutine allocate(self, nat, nspin)
    allocate(self%ehoao(nat), source=0.0_wp)
    allocate(self%eluao(nat), source=0.0_wp)
 
-end subroutine
+end subroutine allocate
 
 !> Allocate memory for the extended features
 subroutine allocate_extended(self, nat, n_a)
@@ -94,7 +92,7 @@ subroutine allocate_extended(self, nat, n_a)
    allocate(self%ext_eluao(nat, n_a), source=0.0_wp)
    allocate(self%ext_ehoao(nat, n_a), source=0.0_wp)
 
-end subroutine
+end subroutine allocate_extended
 
 subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    !> Instance of feature container
@@ -167,7 +165,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
          call dict%add_entry(trim("LUAO"//spin_label(spin)), self%eluao)
       end associate
    end do
-end subroutine
+end subroutine compute_features
 
 subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
    !> Instance of feature container
@@ -221,7 +219,7 @@ subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolu
          end do
       end associate
    end do
-end subroutine
+end subroutine compute_extended
 
 subroutine get_beta(kernel, cn, beta)
    intrinsic :: sum
@@ -249,7 +247,7 @@ subroutine get_beta(kernel, cn, beta)
       end do
    end do
    
-end subroutine
+end subroutine get_beta
 
 !> Get the extended chemical potential
 subroutine get_chem_pot_ext(beta, chempot, chempot_ext)
@@ -269,7 +267,7 @@ subroutine get_chem_pot_ext(beta, chempot, chempot_ext)
          end do
       end do
    end do
-end subroutine
+end subroutine get_chem_pot_ext
 
 !> Get the extended energy gap
 subroutine get_e_gap_ext(beta, e_gap, e_gap_ext)
@@ -290,7 +288,7 @@ subroutine get_e_gap_ext(beta, e_gap, e_gap_ext)
       end do
    end do
    
-end subroutine
+end subroutine get_e_gap_ext
 
 !> Compute the extended HOAO 
 subroutine get_ehoao_ext(chempot_ext, e_gap_ext, ehoao_ext)
@@ -306,7 +304,7 @@ subroutine get_ehoao_ext(chempot_ext, e_gap_ext, ehoao_ext)
          ehoao_ext(a, k) = chempot_ext(a, k) - e_gap_ext(a, k) / 2.0_wp
       end do
    end do
-end subroutine
+end subroutine get_ehoao_ext
 
 !> Compute the extended LUAO
 subroutine get_eluao_ext(chempot_ext, e_gap_ext, eluao_ext)
@@ -322,6 +320,6 @@ subroutine get_eluao_ext(chempot_ext, e_gap_ext, eluao_ext)
          eluao_ext(a, k) = chempot_ext(a, k) + e_gap_ext(a, k) / 2.0_wp
       end do
    end do
-end subroutine
+end subroutine get_eluao_ext
 
-end module
+end module tblite_xtbml_orbital_energy

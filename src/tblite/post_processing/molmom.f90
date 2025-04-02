@@ -18,21 +18,20 @@
 !> Implements the calculation of molecular moments as post processing methods.
 module tblite_post_processing_molecular_moments
    use mctc_env, only : wp
-   use tblite_post_processing_type, only : post_processing_type
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_results, only : results_type
-   use tblite_integral_type, only : integral_type
    use tblite_container, only : container_cache
-   use tblite_results, only : results_type
    use tblite_context, only : context_type
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_timer, only : timer_type, format_time
+   use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, get_molecular_quadrupole_moment
    use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_post_processing_type, only : post_processing_type
+   use tblite_results, only : results_type
+   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, get_molecular_quadrupole_moment
    implicit none
    private
 
@@ -43,7 +42,7 @@ module tblite_post_processing_molecular_moments
    contains
       procedure :: compute
       procedure :: print_timer
-   end type
+   end type molecular_moments
 
    character(len=27), parameter :: label = "Molecular Multipole Moments"
    type(timer_type) :: timer
@@ -59,7 +58,7 @@ subroutine new_molecular_moments(new_molmom_type, param)
    new_molmom_type%comp_dipm = param%moldipm
    new_molmom_type%comp_qm = param%molqp
 
-end subroutine
+end subroutine new_molecular_moments
 
 subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
    class(molecular_moments),intent(inout) :: self
@@ -95,7 +94,7 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
       call timer%pop()
    end if
    call timer%pop()
-end subroutine
+end subroutine compute
 
 subroutine print_timer(self, prlevel, ctx)
    !> Instance of the interaction container
@@ -121,6 +120,6 @@ subroutine print_timer(self, prlevel, ctx)
       end do
       call ctx%message("")
    end if
-end subroutine
+end subroutine print_timer
 
-end module
+end module tblite_post_processing_molecular_moments
