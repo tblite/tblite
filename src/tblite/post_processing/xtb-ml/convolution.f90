@@ -39,7 +39,7 @@ module tblite_xtbml_convolution
       procedure, private :: get_rcov
       procedure, private :: compute_cn
       procedure :: info
-   end type
+   end type xtbml_convolution_type
    character(len=*), parameter :: label = "CN-based convolution"
 
 
@@ -48,7 +48,7 @@ contains
 subroutine setup(self)
    class(xtbml_convolution_type), intent(inout) :: self
    self%label = label
-end subroutine
+end subroutine setup
 
 !> Compute values of the convolution kernel
 subroutine compute_kernel(self, mol)
@@ -61,7 +61,7 @@ subroutine compute_kernel(self, mol)
    call self%populate_kernel(mol%id, mol%xyz)
    call self%compute_cn(mol)
 
-end subroutine
+end subroutine compute_kernel
 
 !> Compute the CN
 subroutine compute_cn(self, mol)
@@ -77,7 +77,7 @@ subroutine compute_cn(self, mol)
       call new_exp_ncoord(ncoord_exp, mol, rcov=self%rcov*self%a(i))
       call ncoord_exp%get_cn(mol, self%cn(:, i))
    end do
-end subroutine
+end subroutine compute_cn
 
 !> Get the covalent radii
 subroutine get_rcov(self, mol)
@@ -90,7 +90,7 @@ subroutine get_rcov(self, mol)
    end if
    allocate (self%rcov(mol%nid), source=0.0_wp)
    self%rcov(:) = get_covalent_rad(mol%num)
-end subroutine
+end subroutine get_rcov
 
 !> Populate the kernel
 subroutine populate_kernel(self, at, xyz)
@@ -151,7 +151,7 @@ subroutine inv_cn(self, a, b, at, xyz, dampening_fact, result)
 
    result = 1.0_wp/exp_count(k1, r, rco)
 
-end subroutine
+end subroutine inv_cn
 
 !> Exponential counting function from D3
 pure elemental function exp_count(k, r, r0) result(count)

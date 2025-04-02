@@ -17,24 +17,23 @@
 !> File to collect all xtbml features
 module tblite_post_processing_xtbml_features
    use mctc_env, only : wp
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtbml_geometry_based, only : xtbml_geometry_features_type
-   use tblite_xtbml_density_based, only : xtbml_density_features_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_results, only : results_type
-   use tblite_integral_type, only : integral_type
    use tblite_container, only : container_cache
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
-   use tblite_xtbml_energy_features, only : xtbml_energy_features_type
-   use tblite_timer, only : timer_type, format_time
-   use tblite_output_format, only : format_string
-   use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_post_processing_type, only : post_processing_type
+   use tblite_integral_type, only : integral_type
    use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_post_processing_type, only : post_processing_type
+   use tblite_output_format, only : format_string
+   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
+   use tblite_xtbml_density_based, only : xtbml_density_features_type
+   use tblite_xtbml_energy_features, only : xtbml_energy_features_type
+   use tblite_xtbml_geometry_based, only : xtbml_geometry_features_type
+   use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
    implicit none
    private
    public :: xtbml_type, new_xtbml_features
@@ -48,7 +47,7 @@ module tblite_post_processing_xtbml_features
       procedure :: compute
       procedure :: info
       procedure :: print_timer
-   end type
+   end type xtbml_type
    character(len=*), parameter :: label = "  xtbml features:"
    type(timer_type) :: timer
 contains
@@ -91,7 +90,7 @@ subroutine new_xtbml_features(new_xtbml_model, param)
       call new_xtbml_model%conv%setup()
    end if
 
-end subroutine
+end subroutine new_xtbml_features
 
 subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
    class(xtbml_type),intent(inout) :: self
@@ -191,7 +190,7 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
       end if
    end if
    call timer%pop()
-end subroutine
+end subroutine compute
 
 pure function info(self, verbosity, indent) result(str)
    !> Instance of the interaction container
@@ -244,8 +243,6 @@ subroutine print_timer(self, prlevel, ctx)
    & "geometry", "density", "orbital energy", "energy", "geometry convolution", &
       "density convolution", "orbital energy convolution"]
 
-
-
    if (prlevel > 2) then
       call ctx%message("ML features timing details:")
       ttime = timer%get("total")
@@ -258,6 +255,6 @@ subroutine print_timer(self, prlevel, ctx)
       end do
       call ctx%message("")
    end if
-end subroutine
+end subroutine print_timer
 
 end module tblite_post_processing_xtbml_features
