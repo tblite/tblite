@@ -1,34 +1,31 @@
-module tblite_test_xtbml
+module test_xtbml
    use mctc_env, only : wp
+   use mctc_env_error, only : fatal_error
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
    & test_failed
-   use mctc_env_error, only : fatal_error
-   use mctc_io_structure, only : new
    use mctc_io, only : structure_type
-   use mstore, only : get_structure
+   use mctc_io_convert, only : aatoau
+   use mctc_io_structure, only : new
+   use tblite_basis_type, only : basis_type
+   use tblite_blas, only : gemm
+   use tblite_container, only : container_type
    use tblite_context_type, only : context_type
-   use tblite_basis_type
+   use tblite_data_spin, only : get_spin_constant
+   use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_integral_type, only : integral_type
+   use tblite_param_post_processing, only : post_processing_param_list
+   use tblite_param_serde, only : serde_record
+   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
+   use tblite_results, only : results_type
+   use tblite_spin, only : spin_polarization, new_spin_polarization
+   use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, toml_array, add_array
    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
-   use tblite_integral_type, only : integral_type, new_integral
-   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
-   & get_hamiltonian_gradient
-   use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_h0, only : get_hamiltonian
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use mctc_io_convert, only : aatoau
-   use tblite_post_processing_list, only : add_post_processing, post_processing_list
-   use tblite_param_post_processing, only : post_processing_param_list
-   use tblite_param_xtbml_features, only : xtbml_features_record
-   use tblite_results, only : results_type
-   use tblite_param_serde, only : serde_record
-   use tblite_blas, only : gemm
-   use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_container, only : container_type
-   use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_data_spin, only : get_spin_constant
-   use tblite_toml, only : toml_table, add_table, toml_value, set_value, toml_key, get_value, toml_array,add_array
    implicit none
    private
    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
@@ -624,7 +621,7 @@ subroutine test_rotation_co2(error)
       call test_failed(error, "Rotational invariance is not respected.")
    end if
 
-end subroutine
+end subroutine test_rotation_co2
 
 subroutine test_translation_co2(error)
    type(context_type) :: ctx
@@ -684,7 +681,7 @@ subroutine test_translation_co2(error)
       call test_failed(error, "Translational invariance is not respected.")
    end if
 
-end subroutine
+end subroutine test_translation_co2
 
 subroutine test_orbital_energy_ref(error)
    type(context_type) :: ctx
@@ -751,7 +748,7 @@ subroutine test_orbital_energy_ref(error)
    if (.not.(compare_dict(res%dict, dict_ref, thr2))) then
       call test_failed(error, "Comparing the orbital energy values with a reference failed")
    end if
-end subroutine
+end subroutine test_orbital_energy_ref
 
 function compare_dict(lhs, rhs, thr_) result(equal)
    type(double_dictionary_type), intent(in) :: lhs, rhs
@@ -825,7 +822,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
 
    equal = .true.
 
-end function
+end function compare_dict
 
 subroutine test_xtbml_param_load(error)
    type(error_type), allocatable, intent(out) :: error
@@ -868,7 +865,7 @@ subroutine test_xtbml_param_load(error)
          if (allocated(error)) return
       end select
    end associate
-end subroutine
+end subroutine test_xtbml_param_load
 
 subroutine test_xtbml_param_bad_inp(error)
    type(error_type), allocatable, intent(out) :: error
@@ -967,7 +964,7 @@ subroutine test_xtbml_param_bad_inp(error)
    call set_value(xtbml, "a", 1.0)
    call param%load(table_post_proc, error)
 
-end subroutine
+end subroutine test_xtbml_param_bad_inp
 
 subroutine test_xtbml_param_dump(error)
    type(error_type), allocatable, intent(out) :: error
@@ -1017,8 +1014,7 @@ subroutine test_xtbml_param_dump(error)
    call check(error, param%xtbml_tensor, .true.)
    if (allocated(error)) return
 
-end subroutine
-
+end subroutine test_xtbml_param_dump
 
 
 subroutine test_energy_sum_up_gfn2(error)
@@ -1317,6 +1313,7 @@ subroutine test_orbital_energy_he(error)
    end if
 
 end subroutine test_orbital_energy_he
+
 !this function is copied from the xtb codebase
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    integer :: n,i,l,k,j
@@ -1356,6 +1353,7 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    enddo
    mol_qm = tma+tmb+tmc
 end subroutine
+
 !> this function returns the linear index of a matrix element
 pure elemental integer function lin(i1,i2)
    integer,intent(in) :: i1,i2
@@ -1386,4 +1384,4 @@ subroutine get_spin_constants(wll, mol, bas)
    end do
 end subroutine get_spin_constants
 
-end module
+end module test_xtbml

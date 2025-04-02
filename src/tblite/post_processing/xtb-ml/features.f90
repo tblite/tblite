@@ -17,14 +17,14 @@
 !> Abstract base class for xtb based features
 module tblite_xtbml_feature_type
    use mctc_env, only : wp
-   use tblite_wavefunction_type, only : wavefunction_type
    use mctc_io, only : structure_type
-   use tblite_integral_type, only : integral_type
    use tblite_container, only : container_cache
    use tblite_context , only : context_type
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_integral_type, only : integral_type
+   use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -58,7 +58,8 @@ module tblite_xtbml_feature_type
          type(xtb_calculator), intent(in) :: calc
          !> Cache list for storing caches of various interactions
          type(container_cache), intent(inout) :: cache_list(:)
-      end subroutine
+      end subroutine compute_features
+
       subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
          import :: wp, wavefunction_type, structure_type, integral_type, xtb_calculator,&
          & container_cache, context_type, xtbml_feature_type, xtbml_convolution_type
@@ -76,7 +77,7 @@ module tblite_xtbml_feature_type
          type(container_cache), intent(inout) :: cache_list(:)
          !> Convolution container
          type(xtbml_convolution_type), intent(in) :: convolution
-      end subroutine
+      end subroutine compute_extended
 
    end interface
 
@@ -85,7 +86,7 @@ contains
 subroutine setup(self)
    class(xtbml_feature_type) :: self
    self%label = label
-end subroutine
+end subroutine setup
 
 function get_n_features(self) result(n)
    class(xtbml_feature_type) :: self
@@ -93,7 +94,7 @@ function get_n_features(self) result(n)
 
    n = self%dict%get_n_entries()
    n = n + self%dict_ext%get_n_entries()
-end function
+end function get_n_features
 
 pure function info(self, verbosity, indent) result(str)
    !> Instance of the interaction container
@@ -112,5 +113,4 @@ pure function info(self, verbosity, indent) result(str)
    end if
 end function info
 
-
-end module
+end module tblite_xtbml_feature_type

@@ -17,11 +17,7 @@
 
 !> compute atomic response function and effective H-L gap
 module tblite_xtbml_atomic_frontier
-   use mctc_io_convert, only : autoev
-   use tblite_timer, only : timer_type, format_time
-   use tblite_context, only : context_type
    use mctc_env, only : wp, sp
-   use tblite_output_format, only : format_string
    implicit none
    private
    public :: atomic_frontier_orbitals

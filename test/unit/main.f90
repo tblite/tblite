@@ -20,20 +20,22 @@ program tester
    use mctc_env, only : get_argument
    use mctc_env_testing, only : run_testsuite, new_testsuite, testsuite_type, &
       & select_suite, run_selected
+   use test_ceh, only : collect_ceh
    use test_cgto_ortho, only : collect_cgto_ortho
    use test_coulomb_charge, only : collect_coulomb_charge
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
+   use test_double_dictionary, only : collect_double_dictionary
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
-   use test_ceh, only : collect_ceh
    use test_hamiltonian, only : collect_hamiltonian
    use test_halogen, only : collect_halogen
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
    use test_ncoord, only : collect_ncoord
+   use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
    use test_spin, only : collect_spin
@@ -45,9 +47,7 @@ program tester
    use test_tagged_io, only : collect_tagged_io
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
-   use test_double_dictionary, only : collect_double_dictionary
-   use tblite_test_post_processing, only : collect_post_processing
-   use tblite_test_xtbml, only : collect_xtbml
+   use test_xtbml, only : collect_xtbml
    implicit none
    integer :: stat, is
    character(len=:), allocatable :: suite_name, test_name
