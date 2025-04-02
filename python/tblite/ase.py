@@ -383,6 +383,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         self.results["forces"] = -self._res.get("gradient") * Hartree / Bohr
         self.results["charges"] = self._res.get("charges")
         self.results["dipole"] = self._res.get("dipole") * Bohr
+        self.results["bond-orders"] = self._res.get("bond-orders")
         # stress tensor is only returned for periodic systems
         if self.atoms.pbc.any():
             _stress = (

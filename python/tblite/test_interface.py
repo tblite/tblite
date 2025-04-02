@@ -507,6 +507,42 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
+def test_xtbml_api():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml")
+    res = calc.singlepoint()
+    dict_ = res.dict()
+    cn = dict_.get("post-processing-dict")
+    cn = cn.get("CN_A")
+    assert len(cn) == numbers.size
+
+    dict_xtbml = res.dict()
+    dict_xtbml = dict_xtbml.get("post-processing-dict")
+    assert len(dict_xtbml.keys()) == 38
+    
+    toml_inp = ["[post-processing.xtbml] \n",
+                "geometry = false \n",
+                "density = true \n",
+                "orbital = true \n",
+                "energy = false \n", 
+                "convolution = true\n",
+                "a = [1.0, 1.2]\n",
+                "tensorial-output = true"]
+    
+    with open("xtbml.toml", "w") as f:
+        f.writelines(toml_inp)
+        
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml.toml")
+    
+    res = calc.singlepoint()
+    dict_ = res.get("post-processing-dict")
+    
+    assert dict_.get("CN_A") is None
+    
+    assert len(dict_.keys()) == 129
+    
 
 def test_solvation_gfn2_cpcm():
     """Test CPCM solvation with GFN2-xTB"""
@@ -619,6 +655,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
+    
 
 
 def test_result_setter():
