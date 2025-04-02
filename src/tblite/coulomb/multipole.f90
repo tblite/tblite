@@ -133,7 +133,7 @@ subroutine new_damped_multipole(self, mol, kdmp3, kdmp5, dkernel, qkernel, &
    self%rad = rad
    self%valence_cn = vcn
 
-   call new_ncoord(self%ncoord, mol, cn_count%dexp, error=error)
+   call new_ncoord(self%ncoord, mol, cn_count%dexp, error)
 end subroutine new_damped_multipole
 
 

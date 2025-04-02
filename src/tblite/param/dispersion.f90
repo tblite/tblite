@@ -29,8 +29,9 @@ module tblite_param_dispersion
    public :: count
 
 
-   character(len=*), parameter :: k_d3 = "d3", k_d4 = "d4", k_sc = "sc", k_smooth="smooth", &
-      & k_s6 = "s6", k_s8 = "s8", k_s9 = "s9", k_a1 = "a1", k_a2 = "a2"
+   character(len=*), parameter :: k_d3 = "d3", k_d4 = "d4", k_sc = "sc", &
+      & k_smooth = "smooth", k_s6 = "s6", k_s8 = "s8", k_s9 = "s9", &
+      & k_a1 = "a1", k_a2 = "a2"
 
    !> Parametrization record specifying the dispersion model
    type, public, extends(serde_record) :: dispersion_record

@@ -65,8 +65,8 @@ subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    call new_d3_model(self%model, mol)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2, alp=14.0_wp)
    self%cutoff = realspace_cutoff(cn=25.0_wp, disp3=25.0_wp, disp2=50.0_wp)
-   call new_ncoord(self%ncoord, mol, cn_count%exp, &
-      & cutoff=self%cutoff%cn, rcov=self%model%rcov, error=error)
+   call new_ncoord(self%ncoord, mol, cn_count%exp, error, &
+      & cutoff=self%cutoff%cn, rcov=self%model%rcov)
 end subroutine new_d3_dispersion
 
 !> Evaluate non-selfconsistent part of the dispersion correction

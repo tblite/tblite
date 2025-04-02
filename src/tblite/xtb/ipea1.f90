@@ -920,7 +920,7 @@ subroutine export_ipea1_param(param)
       &2017, 8, 4879. DOI: 10.1039/c7sc00601b"
 
    associate(par => param%hamiltonian)
-      par%cn = cn_count%exp
+      par%cn = "exp"
       par%enscale = enscale
       par%wexp = 0.0_wp
       par%lmax = 2

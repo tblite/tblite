@@ -66,8 +66,8 @@ module tblite_disp_d4
       procedure :: get_gradient
    end type d4_dispersion
 
-   character(len=*), parameter :: label_D4 = "self-consistent DFT-D4 dispersion"
-   character(len=*), parameter :: label_D4S = "self-consistent DFT-D4S dispersion"
+   character(len=*), parameter :: label_d4 = "self-consistent DFT-D4 dispersion"
+   character(len=*), parameter :: label_d4s = "self-consistent DFT-D4S dispersion"
 
 
 contains
@@ -86,7 +86,7 @@ subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9, error)
 
    type(d4_model), allocatable :: tmp
 
-   self%label = label_D4
+   self%label = label_d4
 
    ! Create a new instance of the D4 model
    allocate(tmp)
@@ -97,8 +97,8 @@ subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2)
    self%cutoff = realspace_cutoff(disp3=25.0_wp, disp2=50.0_wp)
 
-   call new_ncoord(self%ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
-      & rcov=self%model%rcov, en=self%model%en, error=error)
+   call new_ncoord(self%ncoord, mol, cn_count%dftd4, error, &
+      & cutoff=self%cutoff%cn, rcov=self%model%rcov, en=self%model%en)
 end subroutine new_d4_dispersion
 
 
@@ -115,7 +115,7 @@ subroutine new_d4s_dispersion(self, mol, s6, s8, a1, a2, s9, error)
 
    type(d4s_model), allocatable :: tmp
 
-   self%label = label_D4S
+   self%label = label_d4s
 
    ! Create a new instance of the D4S model
    allocate(tmp)
@@ -126,8 +126,8 @@ subroutine new_d4s_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2)
    self%cutoff = realspace_cutoff(disp3=25.0_wp, disp2=50.0_wp)
 
-   call new_ncoord(self%ncoord, mol, cn_count%dftd4, cutoff=self%cutoff%cn, &
-      & rcov=self%model%rcov, en=self%model%en, error=error)
+   call new_ncoord(self%ncoord, mol, cn_count%dftd4, error, &
+      & cutoff=self%cutoff%cn, rcov=self%model%rcov, en=self%model%en)
 end subroutine new_d4s_dispersion
 
 
@@ -209,7 +209,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
 
-   if ( self%model%ncoup > 1 ) then
+   if (self%model%ncoup > 1) then
       ! Dispersion energy with pairwise weighting
       !$omp parallel do schedule(runtime) default(none),  &
       !$omp reduction(+:energies) shared(self, mol, ptr) &
@@ -258,7 +258,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%vvec, &
       & ptr%dgwdq)
 
-   if ( self%model%ncoup > 1 ) then
+   if (self%model%ncoup > 1) then
       ! Dispersion energy with pairwise weighting
       allocate(tmp_vat(mol%nat), source=0.0_wp)
       !$omp parallel do schedule(runtime) default(none),  &

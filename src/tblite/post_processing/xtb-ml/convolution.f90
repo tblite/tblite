@@ -14,7 +14,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/post-processing/xtb-ml/convolution.f90
-!>Convolution of the density features
+!> Convolution of the density features
 module tblite_xtbml_convolution
    use, intrinsic :: iso_fortran_env, only : error_unit
    use mctc_env, only : wp, error_type

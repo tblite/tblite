@@ -929,7 +929,7 @@ subroutine export_gfn1_param(param)
       &2017, 13, 1989-2009. DOI: 10.1021/acs.jctc.7b00118"
 
    associate(par => param%hamiltonian)
-      par%cn = cn_count%exp
+      par%cn = "exp"
       par%enscale = enscale
       par%wexp = 0.0_wp
       par%lmax = 2
