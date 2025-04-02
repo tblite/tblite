@@ -113,7 +113,7 @@ subroutine load_from_toml(self, table, error)
       end if
       call get_value(child, k_smooth, self%smooth, .false., stat=stat)
       if (stat /= 0) then
-         call fatal_error(error, "Cannot read smoothing for D4S dispersion")
+         call fatal_error(error, "Cannot read smoothing for dispersion (D4S)")
          return
       end if
    end if
