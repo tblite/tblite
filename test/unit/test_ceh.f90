@@ -295,11 +295,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, cn_count%erf, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord, mol, cn_count%erf, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
-      call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
@@ -355,11 +355,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, cn_count%erf, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord, mol, cn_count%erf, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
-      call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
@@ -423,11 +423,11 @@ contains
       ! test with the standard Pyykko radii and Pauling EN (not as in CEH parametrization)
       rcov(:) = get_covalent_rad(mol%num)
       en(:) = get_pauling_en(mol%num)
-      call new_ncoord(ncoord, mol, cn_count%erf, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord, mol, cn_count%erf, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
-      call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
-         & cutoff=cn_cutoff, rcov=rcov, error=error)
+      call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
+         & cutoff=cn_cutoff, rcov=rcov)
       if (allocated(error)) return
       call get_lattice_points(mol%periodic, mol%lattice, cn_cutoff, lattr)
       call ncoord%get_coordination_number(mol, lattr, cn)
@@ -578,7 +578,7 @@ contains
 
       integer, parameter :: nsh = 22
       real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & 3.47146858519381_wp,     -4.35870279866614E-01_wp, -5.8999616375307806E-01_wp, &
+      & 3.47146858519381E-00_wp, -4.35870279866614E-01_wp, -5.8999616375307806E-01_wp, &
       & 5.07577833416763E-02_wp, -3.63354240235948E-01_wp, -1.8456541144073824E-01_wp, &
       & 9.62240909632790E-02_wp, -3.63356385871318E-01_wp, -1.8459106004014270E-01_wp, &
       & 9.62177622670393E-02_wp, -3.63388268461152E-01_wp, -1.8459960442278944E-01_wp, &

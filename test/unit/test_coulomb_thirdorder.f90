@@ -299,8 +299,8 @@ subroutine get_charges_effceh(wfn, mol, nshell, error)
    allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
 
    ! Get electronegativity-weighted coordination number
-   call new_ncoord(ncoord_en, mol, cn_count%erf_en, &
-      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num), error=error)
+   call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
+      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    if (allocated(error)) return
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
    call ncoord_en%get_coordination_number(mol, lattr, cn_en, dcn_endr, dcn_endL)

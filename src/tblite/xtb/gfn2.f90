@@ -910,7 +910,7 @@ subroutine export_gfn2_param(param)
       &2019, 15, 1652-1671. DOI: 10.1021/acs.jctc.8b01176"
 
    associate(par => param%hamiltonian)
-      par%cn = cn_count%dexp
+      par%cn = "dexp"
       par%enscale = enscale
       par%wexp = wexp
       par%lmax = 2

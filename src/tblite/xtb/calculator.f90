@@ -23,7 +23,7 @@
 module tblite_xtb_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count, get_cn_count_id
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -219,7 +219,10 @@ subroutine add_ncoord(calc, mol, param, error)
 
    integer :: cn_count_type
 
-   call new_ncoord(calc%ncoord, mol, cn_count_type=param%hamiltonian%cn, error=error)
+   if (allocated(param%hamiltonian%cn)) then
+      cn_count_type = get_cn_count_id(param%hamiltonian%cn)
+      call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count_type, error=error)
+   end if
 end subroutine add_ncoord
 
 

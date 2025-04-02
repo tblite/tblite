@@ -976,7 +976,7 @@ contains
       type(error_type), allocatable, intent(out) :: error
       
       call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%erf, &
-         & rcov=ceh_cov_radii(mol%num), error=error)
+         & error=error, rcov=ceh_cov_radii(mol%num))
    end subroutine add_ncoord
 
 
@@ -989,7 +989,7 @@ contains
       type(error_type), allocatable, intent(out) :: error    
 
       call new_ncoord(calc%ncoord_en, mol, cn_count_type=cn_count%erf_en, &
-         & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num), error=error)
+         & error=error, rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    end subroutine add_ncoord_en
 
 
