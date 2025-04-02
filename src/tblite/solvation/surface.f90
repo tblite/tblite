@@ -73,7 +73,7 @@ subroutine new_surface_integrator(self, num, rad, probe, nang, offset, smoothing
    !> Smooting function parameter
    real(wp), intent(in), optional :: smoothing
 
-   integer :: iat, izp, ij, iang, ierr, nat
+   integer :: iat, izp, iang, ierr, nat
    real(wp) :: r, w, w3
 
    nat = size(num)
@@ -169,7 +169,7 @@ subroutine compute_surface(nat, xyz, list, vdwsa, &
    !> Surface area for each atom, including surface tension
    real(wp), intent(out) :: surface(:)
 
-   integer :: iat, jat, ip, nno, ino
+   integer :: iat, ip, nno, ino
    real(wp) :: rsas, sasai, xyza(3), xyzp(3), sasap, wr, wsa
 
    surface(:) = 0.0_wp
@@ -310,7 +310,7 @@ pure subroutine compute_w_sp(nat, nnlists, trj2, vdwsa, xyza, xyzp, ah0, ah1, ah
 
    integer  :: img, jat
    real(wp) :: tj(3), tj2, sqtj
-   real(wp) :: uj, uj3, ah3uj2
+   real(wp) :: uj, ah3uj2
    real(wp) :: sasaij, dsasaij
 
    sasap = 1.0_wp
@@ -355,7 +355,7 @@ pure subroutine compute_w_spg(nat, nnlists, trj2, vdwsa, xyza, xyzp, ah0, ah1, a
 
    integer  :: img, jat
    real(wp) :: tj(3), tj2, sqtj
-   real(wp) :: uj, uj3, ah3uj2
+   real(wp) :: uj, ah3uj2
    real(wp) :: sasaij, dsasaij
 
    nni = 0

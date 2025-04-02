@@ -44,6 +44,7 @@ set(
   "xtb-param"
   "xtb-external"
   "ceh"
+  "xtbml"
 )
 set(
   test-srcs

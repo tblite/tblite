@@ -129,7 +129,7 @@ subroutine test_generic(error, mol, make_repulsion, ref)
    type(tb_repulsion) :: rep
    type(container_cache) :: cache
    real(wp) :: energy(mol%nat), sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 1.0e-6_wp
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))

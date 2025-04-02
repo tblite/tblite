@@ -652,7 +652,6 @@ type(c_ptr), value :: vctx
 type(vp_context), pointer :: ctx
 type(c_ptr), value :: vparam
 type(vp_param), pointer :: param
-character(len=:), allocatable :: config_str
 type(error_type), allocatable :: error
 
 if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"

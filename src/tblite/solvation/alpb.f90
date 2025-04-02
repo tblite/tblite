@@ -439,7 +439,7 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
    real(wp), intent(inout) :: Amat(:, :)
 
    integer :: iat, jat
-   real(wp) :: r1, ab, arg, eab, fgb, dfgb, bp, vec(3)
+   real(wp) :: r1, ab, arg, fgb, dfgb, bp, vec(3)
 
    ! omp parallel do default(none) shared(Amat, ntpair, ppind, ddpair, brad, keps) &
    ! omp private(kk, iat, jat, r1, ab, arg, fgb, dfgb)
@@ -487,8 +487,8 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
 
-   integer :: iat, jat, kk
-   real(wp) :: vec(3), r2, r1, ab, arg1, arg16, qq, fgb, fgb2, dfgb, dfgb2, egb
+   integer :: iat, jat
+   real(wp) :: vec(3), r2, r1, ab, arg1, arg16, qq, fgb, dfgb, dfgb2, egb
    real(wp) :: dEdbri, dEdbrj, dG(3), ap, bp, dS(3, 3)
    real(wp), allocatable :: dEdbr(:)
 
@@ -567,13 +567,12 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
    !> Interaction matrix
    real(wp), intent(inout) :: Amat(:, :)
 
-   integer  :: i, j, nnj
-   integer  :: kk
+   integer  :: i, j
    real(wp), parameter :: a13=1.0_wp/3.0_wp
    real(wp), parameter :: a4=0.25_wp
    real(wp), parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-   real(wp) :: aa, vec(3), r1, r2, gg, arg, bp
-   real(wp) :: dd, expd, fgb, fgb2, dfgb
+   real(wp) :: aa, vec(3), r1, r2, bp
+   real(wp) :: dd, expd, fgb2, dfgb
 
    do i = 1, nat
       do j = 1, i - 1
@@ -617,14 +616,11 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
 
-   integer :: i, j, k, nnj
-   integer :: kk
+   integer :: i, j
    real(wp), parameter :: a13=1._wp/3._wp
    real(wp), parameter :: a4=0.25_wp
-   real(wp) :: aa, r2, fgb, fgb2, br3
-   real(wp) :: qq, dd, expd, dfgb, dfgb2, dfgb3, egb, ap, bp, qfg
-   real(wp) :: gg, expa
-   real(wp) :: r0vdw, r01, r02, ar02
+   real(wp) :: aa, r2, fgb2
+   real(wp) :: qq, dd, expd, dfgb, dfgb2, dfgb3, egb, ap, bp
    real(wp) :: grddbi, grddbj
    real(wp) :: dr(3), r1, vec(3)
    real(wp), allocatable :: grddb(:)

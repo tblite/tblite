@@ -23,7 +23,6 @@ CFFI generated wrappers.
 from typing import Any, List, Optional, Union
 
 import numpy as np
-
 from . import library
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -286,6 +285,7 @@ class Result:
          density-matrix         norb, norb [2, norb, norb]        e
          natoms                 scalar                            unitless
          norbitals              scalar                            unitless
+         post-processing-dict   dependes on the key               /
         ====================== ================================= ==============
 
         Notes
@@ -473,8 +473,10 @@ class Calculator(Structure):
         "gb-solvation": library.new_gb_solvation,
     }
     _post_processing = {
-        "bond-orders": "bond-orders",
-        "molecular-multipoles": "molmom",
+        "bond-orders" : "bond-orders",
+        "molecular-multipoles" : "molmom",
+        "xtbml" : "xtbml",
+        "xtbml_xyz" : "xtbml_xyz"
     }
 
     def __init__(
@@ -584,7 +586,7 @@ class Calculator(Structure):
             )
         elif ".toml" in interaction:
             library.post_processing_push_back(
-                self._ctx, self._calc, self._post_processing[interaction]
+                self._ctx, self._calc, interaction
             )
         else:
             raise TBLiteValueError(
@@ -614,6 +616,7 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         return self._getter[attribute](self._ctx, self._calc)
+        
 
     def singlepoint(
         self, res: Optional[Result] = None, copy: bool = False
@@ -634,7 +637,6 @@ class Calculator(Structure):
 
         _res = Result(res) if copy or res is None else res
         library.get_singlepoint(self._ctx, self._mol, self._calc, _res._res)
-
         return _res
 
 

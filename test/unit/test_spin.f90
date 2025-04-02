@@ -190,11 +190,8 @@ subroutine test_e_crcp2(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   type(context_type) :: ctx
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
-   class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    real(wp), parameter :: ref1 = -28.376485853038645_wp, ref0 = -28.3496138337329_wp
@@ -216,11 +213,8 @@ subroutine test_g_p10(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   type(context_type) :: ctx
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
-   class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    real(wp), parameter :: eref = -11.539671328635730_wp, gref(3, 8) = reshape([&
@@ -254,11 +248,8 @@ subroutine test_g_crcp2(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   type(context_type) :: ctx
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(wavefunction_type) :: wfn
-   class(container_type), allocatable :: cont
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
    real(wp), parameter :: eref = -28.471439648669477_wp, gref(3, 21) = reshape([&

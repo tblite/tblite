@@ -71,7 +71,7 @@ subroutine wrap_spotrf(amat, info, uplo)
    real(sp), intent(inout) :: amat(:, :)
    integer, intent(out) :: info
    character(len=1), intent(in), optional :: uplo
-   integer :: m, n, lda
+   integer :: n, lda
    character(len=1) :: ula
 
    ula = 'u'
@@ -85,7 +85,7 @@ subroutine wrap_dpotrf(amat, info, uplo)
    real(dp), intent(inout) :: amat(:, :)
    integer, intent(out) :: info
    character(len=1), intent(in), optional :: uplo
-   integer :: m, n, lda
+   integer :: n, lda
    character(len=1) :: ula
 
    ula = 'u'

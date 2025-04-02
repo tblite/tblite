@@ -1735,7 +1735,7 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: stat, i, j, k
+   integer :: i, j, k
    real(wp) :: r2
    real(wp) :: overlap(msao(cgtoi%ang), msao(cgtoj%ang)), overlap_diat(msao(cgtoi%ang), msao(cgtoj%ang)), &
    & sl(msao(cgtoj%ang), msao(cgtoi%ang)), sr(msao(cgtoj%ang), msao(cgtoi%ang)), &
@@ -2203,7 +2203,7 @@ subroutine test_overlap_diat_grad_pf(error)
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3)
    real(wp) :: ksig, kpi, kdel
-   integer :: stat, i
+   integer :: stat
 
    call slater_to_gauss(ng, 5, 1, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 2.0_wp, cgtoj, .true., stat)

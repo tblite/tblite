@@ -1030,6 +1030,9 @@ contains
       !> Instance of the Hamiltonian specification
       type(ceh_h0spec) :: self
 
+      ! No member variables to initialize
+      self = ceh_h0spec()
+
    end function new_ceh_h0spec
 
 
@@ -1194,8 +1197,6 @@ contains
       type(basis_type), intent(in) :: bas
       !> Polynomial parameters for distant dependent scaleing
       real(wp), intent(out) :: shpoly(:, :)
-
-      integer :: isp, izp, ish
 
       shpoly(:, :) = 0.0_wp
 

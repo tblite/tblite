@@ -74,8 +74,8 @@ module tblite_container_list
    end interface
 
 
-   !> List of container chach instances
-   type :: cache_list
+   !> List of container cache instances
+   type, public :: cache_list
       !> Actual cache instances
       type(container_cache), allocatable :: list(:)
    end type cache_list

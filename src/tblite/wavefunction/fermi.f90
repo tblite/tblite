@@ -36,7 +36,7 @@ subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi)
    real(wp), intent(out) :: focc(:)
    real(wp), intent(out) :: e_fermi
 
-   real(wp) :: etmp, stmp
+   real(wp) :: etmp
 
    e_fermi = 0.0_wp
 

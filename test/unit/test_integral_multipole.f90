@@ -218,7 +218,7 @@ subroutine test_dipole_grad_ss(error)
    integer :: stat, i, j
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3), r2, zero(3)
-   real(wp) :: overlap(1, 1), doverlapi(3, 1, 1), doverlapj(3, 1, 1)
+   real(wp) :: overlap(1, 1), doverlapi(3, 1, 1)
    real(wp) :: dipole(3, 1, 1), ddipolei(3, 3, 1, 1), ddipolej(3, 3, 1, 1)
    real(wp) :: quadrupole(6, 1, 1), dquadrupolei(3, 6, 1, 1), dquadrupolej(3, 6, 1, 1)
    real(wp) :: sr(1, 1), sl(1, 1), dr(3, 1, 1), dl(3, 1, 1), qr(6, 1, 1), ql(6, 1, 1)

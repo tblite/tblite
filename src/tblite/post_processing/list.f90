@@ -25,7 +25,6 @@ module tblite_post_processing_list
    use tblite_param_serde, only : serde_record
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_context, only : context_type
-   use tblite_container, only : container_list
    use tblite_timer, only : timer_type, format_time
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_container_cache, only : container_cache
@@ -36,6 +35,8 @@ module tblite_post_processing_list
    use tblite_post_processing_bond_orders, only : new_wbo, wiberg_bond_orders
    use tblite_post_processing_molecular_moments, only : new_molecular_moments, molecular_moments
    use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_post_processing_xtbml_features, only : xtbml_type, new_xtbml_features
    implicit none
    private
 
@@ -77,26 +78,16 @@ subroutine print_timer(self, prlevel, ctx)
 end subroutine
 
 subroutine pack_res(self, mol, res)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type), intent(in) :: mol
    type(results_type), intent(inout) :: res
-   integer :: i, n
-   real(wp), allocatable :: tmp_array(:)
-   character(len=:), allocatable :: tmp_label
 
-   !allocate(res%dict)
    res%dict = self%dict
 end subroutine
 
 subroutine print_csv(self, mol)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type) :: mol
-   integer :: n, i, out, j, nat
-   character(len=:), allocatable :: tmp_label
-   real(wp), allocatable :: tmp_array(:, :), array(:)
-   integer, allocatable :: z_array(:)
-
-
 end subroutine
 
 subroutine compute(self, mol, wfn, int, calc, c_list, ctx, prlevel)
@@ -156,6 +147,15 @@ subroutine add_post_processing_param(self, param)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
+      type is (xtbml_features_record)
+         block
+            type(xtbml_type), allocatable :: tmp
+            class(post_processing_type), allocatable :: proc
+            allocate(tmp)
+            call new_xtbml_features(tmp, par)
+            call move_alloc(tmp, proc)
+            call self%push(proc)
+         end block
       end select
    end do
 end subroutine
@@ -186,12 +186,29 @@ subroutine add_post_processing_cli(self, config, error)
          call move_alloc(molmom_tmp, tmp)
          call param%push(tmp)
       end block
+   case("xtbml")
+      block 
+          type(xtbml_features_record), allocatable :: ml_param
+          class(serde_record), allocatable :: cont
+          allocate(ml_param)
+          call ml_param%populate_default_param(.false.)
+          call move_alloc(ml_param, cont)
+          call param%push(cont)
+      end block
+   case("xtbml-xyz","xtbml_xyz")
+    block 
+      type(xtbml_features_record), allocatable :: ml_param
+      class(serde_record), allocatable :: cont 
+      allocate(ml_param)
+      call ml_param%populate_default_param(.true.)
+      call move_alloc(ml_param, cont)
+      call param%push(cont) 
+   end block
    case default
       block
          type(toml_table), allocatable :: table
-         integer :: io, stat
+         integer :: io
          type(toml_error), allocatable :: t_error
-         type(param_record) :: record
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")

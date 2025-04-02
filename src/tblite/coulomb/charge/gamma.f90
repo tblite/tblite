@@ -71,7 +71,7 @@ subroutine new_gamma_coulomb(self, mol, hubbard, nshell)
    integer, intent(in), optional :: nshell(:)
 
    integer :: mshell
-   integer :: isp, jsp, ish, jsh, ind, iat
+   integer :: isp, ish, ind, iat
 
    self%label = label
    self%shell_resolved = present(nshell)
@@ -319,7 +319,7 @@ subroutine get_amat_dir_3d(rij, ui, uj, alp, trans, amat)
    real(wp), intent(out) :: amat
 
    integer :: itr
-   real(wp) :: vec(3), r1, tmp, fcut
+   real(wp) :: vec(3), r1, tmp
 
    amat = 0.0_wp
 
@@ -348,7 +348,7 @@ subroutine get_amat_rec_3d(rij, vol, alp, trans, amat)
    real(wp), intent(out) :: amat
 
    integer :: itr
-   real(wp) :: fac, vec(3), g2, tmp, gv, expk, cosk
+   real(wp) :: fac, vec(3), g2, gv, expk, cosk
 
    amat = 0.0_wp
    fac = 4*pi/vol
@@ -622,7 +622,7 @@ subroutine get_damat_dir_3d(rij, ui, uj, alp, trans, dg, ds)
    real(wp), intent(out) :: ds(3, 3)
 
    integer :: itr
-   real(wp) :: vec(3), r1, r2, gtmp, atmp, alp2, fcut, dcut
+   real(wp) :: vec(3), r1, r2, gtmp, atmp, alp2
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp

@@ -45,10 +45,9 @@ subroutine fit_main(config, error)
    type(error_type), allocatable, intent(out) :: error
 
    type(fit_settings), target :: set
-   type(param_record) :: param
    type(context_type) :: ctx
    integer :: stat, npar
-   real(wp), allocatable :: array(:), p(:)
+   real(wp), allocatable :: array(:)
    class(*), pointer :: handle
    real(wp), parameter :: conv = 1.0e-5_wp
 
@@ -123,10 +122,8 @@ function eval(n, x, h, error) result(f)
    type(error_type), allocatable, intent(out) :: error
    real(wp) :: f
 
-   type(param_record) :: param
    integer :: stat
    real(wp), allocatable :: actual(:), reference(:)
-   real(wp), allocatable :: p(:)
 
    f = huge(0.0_wp)
 
