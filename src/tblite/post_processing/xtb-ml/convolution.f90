@@ -16,10 +16,11 @@
 !> @file tblite/post-processing/xtb-ml/convolution.f90
 !>Convolution of the density features
 module tblite_xtbml_convolution
-   use mctc_env, only : wp
+   use, intrinsic :: iso_fortran_env, only : error_unit
+   use mctc_env, only : wp, error_type
+   use mctc_data_covrad, only : get_covalent_rad
    use mctc_io, only : structure_type
-   use tblite_ncoord_exp, only : exp_ncoord_type, new_exp_ncoord
-   use tblite_data_covrad, only : get_covalent_rad
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
 
    implicit none
    private
@@ -69,13 +70,21 @@ subroutine compute_cn(self, mol)
    class(xtbml_convolution_type) :: self
    !> Molecular structure data
    type(structure_type) :: mol
-   type(exp_ncoord_type) :: ncoord_exp
+
+   class(ncoord_type), allocatable :: ncoord
+   type(error_type), allocatable :: error
    integer :: i, n_a
+
    n_a = size(self%a)
    allocate(self%cn(mol%nat, n_a), source=0.0_wp)
    do i = 1, n_a
-      call new_exp_ncoord(ncoord_exp, mol, rcov=self%rcov*self%a(i))
-      call ncoord_exp%get_cn(mol, self%cn(:, i))
+      call new_ncoord(ncoord, mol, cn_count%exp, error, rcov=self%rcov*self%a(i))
+      if(allocated(error)) then
+         write(error_unit, '("[Error]:", 1x, a)') error%message
+         error stop
+      end if
+   
+      call ncoord%get_cn(mol, self%cn(:, i))
    end do
 end subroutine compute_cn
 
