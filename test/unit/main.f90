@@ -35,6 +35,7 @@ program tester
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
+   use test_ncoord, only : collect_ncoord
    use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
