@@ -149,18 +149,18 @@ subroutine inv_cn(self, a, b, at, xyz, dampening_fact, result)
 
    rco = dampening_fact*(self%rcov(at(a)) + self%rcov(at(b)))
 
-   result = 1.0_wp/exp_count(k1, r, rco)
+   result = inv_exp_count(k1, r, rco)
 
 end subroutine inv_cn
 
-!> Exponential counting function from D3
-pure elemental function exp_count(k, r, r0) result(count)
+!> Inversed exponential counting function from D3
+pure elemental function inv_exp_count(k, r, r0) result(count)
    real(wp), intent(in) :: k
    real(wp), intent(in) :: r
    real(wp), intent(in) :: r0
    real(wp) :: count
-   count = 1.0_wp/(1.0_wp + exp(-k*(r0/r - 1.0_wp)))
-end function exp_count
+   count = 1.0_wp + exp(-k*(r0/r - 1.0_wp))
+end function inv_exp_count
 
 !> Information on the container
 pure function info(self, verbosity, indent) result(str)
