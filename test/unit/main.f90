@@ -26,6 +26,7 @@ program tester
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
    use test_double_dictionary, only : collect_double_dictionary
+   use test_dispersion, only : collect_dispersion
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
@@ -34,7 +35,6 @@ program tester
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_ipea1_xtb, only : collect_ipea1_xtb
-   use test_ncoord, only : collect_ncoord
    use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
@@ -60,7 +60,6 @@ program tester
       new_testsuite("tagged-io", collect_tagged_io), &
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
-      new_testsuite("ncoord", collect_ncoord), &
       new_testsuite("solvation-born", collect_solvation_born), &
       new_testsuite("solvation-cpcm", collect_solvation_cpcm), &
       new_testsuite("solvation-surface", collect_solvation_surface), &
@@ -77,6 +76,7 @@ program tester
       new_testsuite("integral-multipole", collect_integral_multipole), &
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("halogen", collect_halogen), &
+      new_testsuite("dispersion", collect_dispersion), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
       new_testsuite("ceh", collect_ceh), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
