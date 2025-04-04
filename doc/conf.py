@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 _dir = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(_dir, "..", "python"))
+
 import tblite
 
 project = "tblite"
@@ -32,6 +32,7 @@ release = version
 
 extensions = [
     "breathe",
+    "nbsphinx",
     "sphinx_design",
     "sphinx.ext.autosummary",
     "sphinx.ext.autodoc",
@@ -65,8 +66,6 @@ c_id_attributes = [
     "TBLITE_API_ENTRY",
     "TBLITE_API_CALL",
 ]
-
-autodoc_mock_imports = ["tblite.library", "numpy", "ase"]
 
 templates_path = ["_templates"]
 source_suffix = [".rst"]
