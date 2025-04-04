@@ -115,9 +115,12 @@ subroutine populate_kernel(self, at, xyz)
    do k = 1, n_a
       do i = 1, nat
          do j = 1, nat
-            if (i == j) cycle
-            call inv_cn(self, i, j, at, xyz, self%a(k), result)
-            self%kernel(i, j, k) = result
+            if (i /= j) then
+               call inv_cn(self, i, j, at, xyz, self%a(k), result)
+               self%kernel(i, j, k) = result
+            else
+               self%kernel(i, j, k) = 1.0_wp
+            end if
          end do
       end do
    end do
