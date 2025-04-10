@@ -519,7 +519,7 @@ subroutine allocate_extended(self, nsh, nat, n_a)
 end subroutine allocate_extended
 
 !> Compute shellwise mulliken charges
-subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
+subroutine mulliken_shellwise(ao2shell, p, s, qsh)
    !> AO to shell mapping
    integer, intent(in) :: ao2shell(:)
    !> Overlap matrix
@@ -527,21 +527,37 @@ subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
    !> Density matrix
    real(wp), intent(in) :: p(:, :, :)
    !> Shellwise mulliken charges
-   real(wp), intent(out) :: charges_shell(:, :)
+   real(wp), intent(out) :: qsh(:, :)
    integer ::  mu, nu, nao, spin
+   real(wp) :: pao
+   
+   ! Thread-private array for reduction
+   real(wp), allocatable :: qsh_local(:, :)
+
    nao = size(p, 1)
 
-   charges_shell = 0.0_wp
-   !$omp parallel do default(none) reduction(+:charges_shell)&
-   !$omp private(mu, nu, spin) shared(nao, ao2shell, p, s)
+   qsh = 0.0_wp
+   !$omp parallel default(none) &
+   !$omp private(mu, nu, spin, pao, qsh_local) &
+   !$omp shared(nao, ao2shell, p, s, qsh)
+   allocate(qsh_local, source = qsh)
+   !$omp do schedule(runtime) collapse(2)
    do spin = 1, size(p, 3)
       do mu = 1, nao
+         pao = 0.0_wp 
          do nu = 1, nao
-            !$omp atomic
-            charges_shell(ao2shell(mu), spin) = charges_shell(ao2shell(mu), spin) + p(mu, nu, spin)*s(nu, mu)
+            pao = pao + p(mu, nu, spin) * s(nu, mu)
          end do
+         qsh_local(ao2shell(mu), spin) = qsh_local(ao2shell(mu), spin) &
+            & + pao 
       end do
    end do
+   !$omp end do
+   !$omp critical
+   qsh(:, :) = qsh(:, :) + qsh_local(:, :)
+   !$omp end critical
+   deallocate(qsh_local)
+   !$omp end parallel
 
 end subroutine mulliken_shellwise
 
@@ -557,19 +573,22 @@ subroutine get_ext_partial_charge(atom_partial, xyz, conv, ext_partial)
    real(wp), intent(out) :: ext_partial(:, :)
    integer :: a, b, k
    integer :: nat, n_a
+   real(wp) :: tmp
 
    nat = size(atom_partial)
    n_a = size(conv%a)
    ext_partial = 0.0_wp
 
-   !$omp parallel do default(none) collapse(2)&
-   !$omp private(a, b, k) shared(ext_partial, nat, n_a, conv, atom_partial)
+   !$omp parallel do default(none) schedule(static) collapse(2) &
+   !$omp private(a, b, k, tmp) &
+   !$omp shared(ext_partial, nat, n_a, conv, atom_partial)
    do k = 1, n_a
       do a = 1, nat
+         tmp = 0.0_wp 
          do b = 1, nat
-            !$omp atomic
-            ext_partial(a, k) = ext_partial(a, k) + atom_partial(b) / (conv%kernel(a, b, k) * (conv%cn(b, k)+1))
+            tmp = tmp + atom_partial(b) / (conv%kernel(a, b, k) * (conv%cn(b, k) + 1.0_wp))
          enddo
+         ext_partial(a, k) = tmp
       enddo
    enddo
 
@@ -612,7 +631,7 @@ subroutine get_ext_mm(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
    !> delta quadrupole moment
    real(wp), intent(out) :: ext_qp(:, :, :)
    integer :: a, b, k, n_a, nat
-   real(wp) :: result 
+   real(wp) :: result, tmp
    real(wp), allocatable :: r_ab(:), qp_part(:, :, :)
    n_a = size(conv%a)
    nat = size(at)
@@ -625,44 +644,38 @@ subroutine get_ext_mm(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
    qp_part = 0.0_wp
 
 
-   !$omp parallel do default(none) collapse(2)&
-   !$omp private(a, b, k, result, r_ab) shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q, qp_part, dipm, qp)
+   !$omp parallel do schedule(static) default(none) collapse(2) &
+   !$omp private(a, b, k, result, r_ab, tmp) & 
+   !$omp shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q, qp_part, dipm, qp)
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-
             result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
+            tmp = 1.0_wp / (result * (conv%cn(b, k) + 1.0_wp))
 
-            ext_dipm(:, a, k) = ext_dipm(:, a, k) + (dipm(:, b) - r_ab(:) * q(b)) / (result * (conv%cn(b, k) + one))
+            ext_dipm(:, a, k) = ext_dipm(:, a, k) + (dipm(:, b) - r_ab(:) * q(b)) * tmp
+
             !sorting of qp xx,xy,yy,xz,yz,zz
-            !$omp atomic
-            ext_qp(1, a, k) = ext_qp(1, a, k) + &
-               (1.5_wp * (-one * (r_ab(1)*dipm(1, b) + r_ab(1) * dipm(1, b)) + r_ab(1)*r_ab(1) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(2, a, k) = ext_qp(2, a, k) + &
-               (1.5_wp * (-one * (r_ab(1)*dipm(2, b) + r_ab(2) * dipm(1, b)) + r_ab(1) * r_ab(2) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(3, a, k) = ext_qp(3, a, k) + &
-               (1.5_wp * (-one * (r_ab(2) * dipm(2, b) + r_ab(2) * dipm(2, b)) + r_ab(2) * r_ab(2) * q(b))) / &
-               (result*(conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(4, a, k) = ext_qp(4, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(1, b) + r_ab(1) * dipm(3, b)) + r_ab(1) * r_ab(3) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(5, a, k) = ext_qp(5, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(2, b) + r_ab(2) * dipm(3, b)) + r_ab(2) * r_ab(3) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(6, a, k) = ext_qp(6, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(3, b) + r_ab(3) * dipm(3, b)) + r_ab(3) * r_ab(3) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
+            ext_qp(1, a, k) = ext_qp(1, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(1) * dipm(1, b) + r_ab(1) * dipm(1, b)) + r_ab(1)*r_ab(1) * q(b)) 
 
-            qp_part(:, a, k) = qp_part(:, a, k) + &
-               qp(:, b) / (result * (conv%cn(b, k) + one))
+            ext_qp(2, a, k) = ext_qp(2, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(1) * dipm(2, b) + r_ab(2) * dipm(1, b)) + r_ab(1) * r_ab(2) * q(b))
+
+            ext_qp(3, a, k) = ext_qp(3, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(2) * dipm(2, b) + r_ab(2) * dipm(2, b)) + r_ab(2) * r_ab(2) * q(b))
+
+            ext_qp(4, a, k) = ext_qp(4, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(1, b) + r_ab(1) * dipm(3, b)) + r_ab(1) * r_ab(3) * q(b))
+
+            ext_qp(5, a, k) = ext_qp(5, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(2, b) + r_ab(2) * dipm(3, b)) + r_ab(2) * r_ab(3) * q(b))
+
+            ext_qp(6, a, k) = ext_qp(6, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(3, b) + r_ab(3) * dipm(3, b)) + r_ab(3) * r_ab(3) * q(b))
+
+            qp_part(:, a, k) = qp_part(:, a, k) + tmp * qp(:, b)
          end do
       end do
    end do
@@ -724,7 +737,7 @@ subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
    !> delta quadrupole moment
    real(wp), intent(out) :: ext_qp(:, :, :)
    integer :: a, b, k, n_a, nat
-   real(wp) :: result 
+   real(wp) :: result, tmp
    real(wp), allocatable :: r_ab(:), qp_part(:, :, :)
    n_a = size(conv%a)
    nat = size(at)
@@ -736,33 +749,36 @@ subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
    ext_qp = 0.0_wp
    qp_part = 0.0_wp
 
-   !$omp parallel do default(none) collapse(2)&
-   !$omp private(a, b, k, result, r_ab) shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q)
+   !$omp parallel do schedule(static) default(none) collapse(2)&
+   !$omp private(a, b, k, result, r_ab, tmp) &
+   !$omp shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q)
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
             result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
-            ext_dipm(:, a, k) = ext_dipm(:, a, k) + (-r_ab(:)*q(b))/(result*(conv%cn(b, k) + one))
+            tmp = 1.0_wp / (result * (conv%cn(b, k) + 1.0_wp))
+
+            ext_dipm(:, a, k) = ext_dipm(:, a, k) -r_ab(:) * q(b) * tmp
+
             !sorting of qp xx,xy,yy,xz,yz,zz
-            !$omp atomic
             ext_qp(1, a, k) = ext_qp(1, a, k) + &
-               (1.5_wp * (r_ab(1) * r_ab(1) * q(b))) / (result * (conv%cn(b, k) + one))
-            !$omp atomic
+               1.5_wp * tmp * (r_ab(1) * r_ab(1) * q(b)) 
+            
             ext_qp(2, a, k) = ext_qp(2, a, k) + &
-               (1.5_wp * (r_ab(1) * r_ab(2) * q(b))) / (result * (conv%cn(b, k) + one))
-            !$omp atomic
+               1.5_wp * tmp * (r_ab(1) * r_ab(2) * q(b))
+            
             ext_qp(3, a, k) = ext_qp(3, a, k) + &
-               (1.5_wp * (r_ab(2) * r_ab(2) * q(b))) / (result * (conv%cn(b, k) + one))
-            !$omp atomic
+               1.5_wp * tmp * (r_ab(2) * r_ab(2) * q(b))
+
             ext_qp(4, a, k) = ext_qp(4, a, k) + &
-               (1.5_wp * (r_ab(1) * r_ab(3) * q(b))) / (result * (conv%cn(b, k) + one))
-            !$omp atomic
+               1.5_wp * tmp * (r_ab(1) * r_ab(3) * q(b))
+
             ext_qp(5, a, k) = ext_qp(5, a, k) + &
-               (1.5_wp * (r_ab(2) * r_ab(3) * q(b))) / (result * (conv%cn(b, k) + one))
-            !$omp atomic
+               1.5_wp * tmp * (r_ab(2) * r_ab(3) * q(b))
+
             ext_qp(6, a, k) = ext_qp(6, a, k) + &
-               (1.5_wp * (r_ab(3) * r_ab(3) * q(b))) / (result * (conv%cn(b, k) + one))
+               1.5_wp * tmp * (r_ab(3) * r_ab(3) * q(b))
          end do
       end do
    end do
@@ -790,7 +806,7 @@ subroutine get_ext_mm_p(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp) ! the sign
    !> delta quadrupole moment
    real(wp), intent(out) :: ext_qp(:, :, :)
    integer :: a, b, k, n_a, nat
-   real(wp) :: result 
+   real(wp) :: result, tmp
    real(wp), allocatable :: r_ab(:), qp_part(:, :, :)
    n_a = size(conv%a)
    nat = size(at)
@@ -801,40 +817,38 @@ subroutine get_ext_mm_p(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp) ! the sign
    ext_dipm = 0.0_wp
    ext_qp = 0.0_wp
    qp_part = 0.0_wp
-   !$omp parallel do default(none) collapse(2)&
-   !$omp private(a, b, k, result, r_ab) shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q, dipm, qp, qp_part)
+   !$omp parallel do schedule(static) default(none) collapse(2) &
+   !$omp private(a, b, k, result, r_ab, tmp) &
+   !$omp shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q, dipm, qp, qp_part)
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
             result = conv%kernel(a, b, k)
             r_ab = xyz(:, a) - xyz(:, b)
-            ext_dipm(:, a, k) = ext_dipm(:, a, k) + &
-               (dipm(:, b) + r_ab(:) * q(b)) / (result * (conv%cn(b, k) + one))
+            tmp = 1.0_wp / (result * (conv%cn(b, k) + 1.0_wp))
+
+            ext_dipm(:, a, k) = ext_dipm(:, a, k) + tmp * (dipm(:, b) + r_ab(:) * q(b))
+
             !sorting of qp xx,xy,yy,xz,yz,zz
-            ext_qp(1, a, k) = ext_qp(1, a, k) + &
-               (1.5_wp * (-one * (r_ab(1)*dipm(1, b) + r_ab(1) * dipm(1, b)) - r_ab(1) * r_ab(1) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(2, a, k) = ext_qp(2, a, k) + &
-               (1.5_wp * (-one * (r_ab(1) * dipm(2, b) + r_ab(2)*dipm(1, b)) - r_ab(1) * r_ab(2) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(3, a, k) = ext_qp(3, a, k) + &
-               (1.5_wp * (-one * (r_ab(2) * dipm(2, b) + r_ab(2) * dipm(2, b)) - r_ab(2) * r_ab(2) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(4, a, k) = ext_qp(4, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(1, b) + r_ab(1) * dipm(3, b)) - r_ab(1) * r_ab(3) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(5, a, k) = ext_qp(5, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(2, b) + r_ab(2) * dipm(3, b)) - r_ab(2) * r_ab(3) * q(b))) / &
-               (result * (conv%cn(b, k) + one))
-            !$omp atomic
-            ext_qp(6, a, k) = ext_qp(6, a, k) + &
-               (1.5_wp * (-one * (r_ab(3) * dipm(3, b) + r_ab(3) * dipm(3, b)) - r_ab(3) * r_ab(3) * q(b))) / &
-               (result*(conv%cn(b, k) + one))
-            qp_part(:, a, k) = qp_part(:, a, k) + qp(:, b) / (result * (conv%cn(b, k) + one))
+            ext_qp(1, a, k) = ext_qp(1, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(1) * dipm(1, b) + r_ab(1) * dipm(1, b)) - r_ab(1) * r_ab(1) * q(b))
+
+            ext_qp(2, a, k) = ext_qp(2, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(1) * dipm(2, b) + r_ab(2) * dipm(1, b)) - r_ab(1) * r_ab(2) * q(b))
+
+            ext_qp(3, a, k) = ext_qp(3, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(2) * dipm(2, b) + r_ab(2) * dipm(2, b)) - r_ab(2) * r_ab(2) * q(b))
+
+            ext_qp(4, a, k) = ext_qp(4, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(1, b) + r_ab(1) * dipm(3, b)) - r_ab(1) * r_ab(3) * q(b))
+
+            ext_qp(5, a, k) = ext_qp(5, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(2, b) + r_ab(2) * dipm(3, b)) - r_ab(2) * r_ab(3) * q(b))
+
+            ext_qp(6, a, k) = ext_qp(6, a, k) + 1.5_wp * tmp * &
+               ( - (r_ab(3) * dipm(3, b) + r_ab(3) * dipm(3, b)) - r_ab(3) * r_ab(3) * q(b))
+
+            qp_part(:, a, k) = qp_part(:, a, k) + tmp * qp(:, b)
          end do
       end do
    end do

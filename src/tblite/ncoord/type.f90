@@ -158,12 +158,17 @@ contains
       integer :: iat, jat, izp, jzp, itr
       real(wp) :: r2, r1, rij(3), countf, cutoff2
 
+      ! Thread-private array for reduction
+      real(wp), allocatable :: cn_local(:)
+   
       cn(:) = 0.0_wp
       cutoff2 = cutoff**2
 
-      !$omp parallel do schedule(runtime) default(none) reduction(+:cn) &
-      !$omp shared(self, mol, trans, cutoff2) &
-      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf)
+      !$omp parallel default(none) &
+      !$omp shared(self, mol, trans, cutoff2, cn) &
+      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf, cn_local)
+      allocate(cn_local, source=cn)
+      !$omp do schedule(runtime)
       do iat = 1, mol%nat
          izp = mol%id(iat)
          do jat = 1, iat
@@ -177,14 +182,20 @@ contains
 
                countf = self%ncoord_count(mol, izp, jzp, r1)
 
-               cn(iat) = cn(iat) + countf
+               cn_local(iat) = cn_local(iat) + countf
                if (iat /= jat) then
-                  cn(jat) = cn(jat) + countf * self%directed_factor
+                  cn_local(jat) = cn_local(jat) + countf * self%directed_factor
                end if
 
             end do
          end do
       end do
+      !$omp end do
+      !$omp critical (ncoord_)
+      cn(:) = cn(:) + cn_local(:)
+      !$omp end critical (ncoord_)
+      deallocate(cn_local)
+      !$omp end parallel
 
    end subroutine ncoord
 
@@ -207,15 +218,23 @@ contains
       integer :: iat, jat, izp, jzp, itr
       real(wp) :: r2, r1, rij(3), countf, countd(3), sigma(3, 3), cutoff2
 
+      ! Thread-private arrays for reduction
+      real(wp), allocatable :: cn_local(:)
+      real(wp), allocatable :: dcndr_local(:, :, :), dcndL_local(:, :, :)
+
       cn(:) = 0.0_wp
       dcndr(:, :, :) = 0.0_wp
       dcndL(:, :, :) = 0.0_wp
       cutoff2 = cutoff**2
 
-      !$omp parallel do schedule(runtime) default(none) &
-      !$omp reduction(+:cn, dcndr, dcndL) shared(mol, trans, cutoff2) &
-      !$omp shared(self) &
-      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf, countd, sigma)
+      !$omp parallel default(none) &
+      !$omp shared(self, mol, trans, cutoff2, cn, dcndr, dcndL) &
+      !$omp private(jat, itr, izp, jzp, r2, rij, r1, countf, countd) &
+      !$omp private(sigma, cn_local, dcndr_local, dcndL_local)
+      allocate(cn_local, source=cn)
+      allocate(dcndr_local, source=dcndr)
+      allocate(dcndL_local, source=dcndL)
+      !$omp do schedule(runtime)
       do iat = 1, mol%nat
          izp = mol%id(iat)
          do jat = 1, iat
@@ -230,26 +249,34 @@ contains
                countf = self%ncoord_count(mol, izp, jzp, r1)
                countd = self%ncoord_dcount(mol, izp, jzp, r1) * rij/r1
 
-               cn(iat) = cn(iat) + countf
+               cn_local(iat) = cn_local(iat) + countf
                if (iat /= jat) then
-                  cn(jat) = cn(jat) + countf * self%directed_factor
+                  cn_local(jat) = cn_local(jat) + countf * self%directed_factor
                end if
 
-               dcndr(:, iat, iat) = dcndr(:, iat, iat) + countd
-               dcndr(:, jat, jat) = dcndr(:, jat, jat) - countd * self%directed_factor
-               dcndr(:, iat, jat) = dcndr(:, iat, jat) + countd * self%directed_factor
-               dcndr(:, jat, iat) = dcndr(:, jat, iat) - countd
+               dcndr_local(:, iat, iat) = dcndr_local(:, iat, iat) + countd
+               dcndr_local(:, jat, jat) = dcndr_local(:, jat, jat) - countd * self%directed_factor
+               dcndr_local(:, iat, jat) = dcndr_local(:, iat, jat) + countd * self%directed_factor
+               dcndr_local(:, jat, iat) = dcndr_local(:, jat, iat) - countd
 
                sigma = spread(countd, 1, 3) * spread(rij, 2, 3)
 
-               dcndL(:, :, iat) = dcndL(:, :, iat) + sigma
+               dcndL_local(:, :, iat) = dcndL_local(:, :, iat) + sigma
                if (iat /= jat) then
-                  dcndL(:, :, jat) = dcndL(:, :, jat) + sigma * self%directed_factor
+                  dcndL_local(:, :, jat) = dcndL_local(:, :, jat) + sigma * self%directed_factor
                end if
 
             end do
          end do
       end do
+      !$omp end do
+      !$omp critical (ncoord_d_)
+      cn(:) = cn(:) + cn_local(:)
+      dcndr(:, :, :) = dcndr(:, :, :) + dcndr_local(:, :, :)
+      dcndL(:, :, :) = dcndL(:, :, :) + dcndL_local(:, :, :)
+      !$omp end critical (ncoord_d_)
+      deallocate(cn_local, dcndr_local, dcndL_local)
+      !$omp end parallel
 
    end subroutine ncoord_d
 

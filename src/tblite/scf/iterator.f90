@@ -146,15 +146,29 @@ subroutine get_electronic_energy(h0, density, energies)
 
    integer :: iao, jao, spin
 
-   !$omp parallel do collapse(3) schedule(runtime) default(none) &
-   !$omp reduction(+:energies) shared(h0, density) private(spin, iao, jao)
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: energies_local(:)
+
+   !$omp parallel default(none) &
+   !$omp shared(h0, density, energies) &
+   !$omp private(spin, iao, jao, energies_local)
+   allocate(energies_local(size(energies, 1)), source=0.0_wp)
+   !$omp do schedule(runtime) collapse(3)
    do spin = 1, size(density, 3)
       do iao = 1, size(density, 2)
          do jao = 1, size(density, 1)
-            energies(iao) = energies(iao) + h0(jao, iao) * density(jao, iao, spin)
+            energies_local(iao) = energies_local(iao) + &
+               & h0(jao, iao) * density(jao, iao, spin)
          end do
       end do
    end do
+   !$omp end do
+   !$omp critical
+   energies(:) = energies(:) + energies_local(:)
+   !$omp end critical
+   deallocate(energies_local)
+   !$omp end parallel
 end subroutine get_electronic_energy
 
 
@@ -176,16 +190,29 @@ subroutine get_qat_from_qsh(bas, qsh, qat)
    real(wp), intent(in) :: qsh(:, :)
    real(wp), intent(out) :: qat(:, :)
 
-   integer :: ish, ispin
+   integer :: iat, ish, ispin
+
+   ! Thread-private arrays for reduction
+   real(wp), allocatable :: qat_local(:, :)
 
    qat(:, :) = 0.0_wp
-   !$omp parallel do schedule(runtime) collapse(2) default(none) &
-   !$omp reduction(+:qat) shared(bas, qsh) private(ish)
+   !$omp parallel default(none) &
+   !$omp shared(bas, qat, qsh) &
+   !$omp private(iat, ish, ispin, qat_local)
+   allocate(qat_local, source=qat)
+   !$omp do schedule(runtime) collapse(2) 
    do ispin = 1, size(qsh, 2)
       do ish = 1, size(qsh, 1)
-         qat(bas%sh2at(ish), ispin) = qat(bas%sh2at(ish), ispin) + qsh(ish, ispin)
+         iat = bas%sh2at(ish)
+         qat_local(iat, ispin) = qat_local(iat, ispin) + qsh(ish, ispin)
       end do
    end do
+   !$omp end do
+   !$omp critical
+   qat(:, :) = qat(:, :) + qat_local(:, :)
+   !$omp end critical
+   deallocate(qat_local)
+   !$omp end parallel
 end subroutine get_qat_from_qsh
 
 

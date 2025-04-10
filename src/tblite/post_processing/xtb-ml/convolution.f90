@@ -109,7 +109,7 @@ subroutine populate_kernel(self, at, xyz)
    end if
    allocate (self%kernel(nat, nat, n_a), source=0.0_wp)
 
-   !$omp parallel do default(none) collapse(2) &
+   !$omp parallel do schedule(static) default(none) collapse(3) &
    !$omp shared(self, nat, at, xyz, n_a) &
    !$omp private(result, i, j, k)
    do k = 1, n_a
