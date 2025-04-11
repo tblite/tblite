@@ -749,7 +749,7 @@ subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
    ext_qp = 0.0_wp
    qp_part = 0.0_wp
 
-   !$omp parallel do schedule(static) default(none) collapse(2)&
+   !$omp parallel do schedule(static) default(none) collapse(2) &
    !$omp private(a, b, k, result, r_ab, tmp) &
    !$omp shared(ext_dipm, ext_qp, nat, n_a, conv, xyz, q)
    do k = 1, n_a
@@ -759,11 +759,11 @@ subroutine get_ext_mm_Z(q, dipm, qp, at, xyz, conv, ext_dipm, ext_qp)
             r_ab = xyz(:, a) - xyz(:, b)
             tmp = 1.0_wp / (result * (conv%cn(b, k) + 1.0_wp))
 
-            ext_dipm(:, a, k) = ext_dipm(:, a, k) -r_ab(:) * q(b) * tmp
+            ext_dipm(:, a, k) = ext_dipm(:, a, k) - r_ab(:) * q(b) * tmp
 
             !sorting of qp xx,xy,yy,xz,yz,zz
             ext_qp(1, a, k) = ext_qp(1, a, k) + &
-               1.5_wp * tmp * (r_ab(1) * r_ab(1) * q(b)) 
+               1.5_wp * tmp * (r_ab(1) * r_ab(1) * q(b))
             
             ext_qp(2, a, k) = ext_qp(2, a, k) + &
                1.5_wp * tmp * (r_ab(1) * r_ab(2) * q(b))

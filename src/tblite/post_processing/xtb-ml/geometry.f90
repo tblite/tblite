@@ -128,7 +128,7 @@ subroutine get_ext_cn(cn, xyz, ext_cn, conv)
    nat = size(cn)
 
    ext_cn = 0.0_wp
-   !$omp parallel do schedule(static) default(none) collapse(2)&
+   !$omp parallel do schedule(static) default(none) collapse(2) &
    !$omp shared(nat, conv, cn, ext_cn)&
    !$omp private(i, j , k, result)
    do k = 1, conv%n_a
