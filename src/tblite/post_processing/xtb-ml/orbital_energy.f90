@@ -264,6 +264,7 @@ subroutine get_chem_pot_ext(beta, chempot, chempot_ext)
    !$omp shared(beta, chempot, chempot_ext) private(a, b, k, tmp)
    do k = 1, size(beta, 3)
       do a = 1, size(chempot, 1)
+         tmp = 0.0_wp
          do b = 1, size(chempot, 1)
             tmp = tmp + beta(a, b, k) * chempot(b)
          end do
