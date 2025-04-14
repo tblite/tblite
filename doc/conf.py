@@ -32,7 +32,7 @@ release = version
 
 extensions = [
     "breathe",
-    "nbsphinx",
+    "myst_nb",
     "sphinx_design",
     "sphinx.ext.autosummary",
     "sphinx.ext.autodoc",
@@ -55,6 +55,13 @@ breathe_domain_by_extension = {
 breathe_show_include = True
 
 bibtex_bibfiles = ["_static/references.bib"]
+
+jupyter_execute_notebooks = "force"
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+    "colon_fence",
+]
 
 autosummary_generate = True
 

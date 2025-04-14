@@ -5,7 +5,7 @@ channels:
 dependencies:
   # documentation dependencies
   - breathe
-  - nbsphinx
+  - myst-nb
   - sphinx-book-theme
   - sphinx-design
   - sphinxcontrib-bibtex
