@@ -77,7 +77,7 @@ module tblite_solvation_ddx
       !> Regularization parameter
       real(wp) :: eta = 0.1_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(1)
+      integer :: nang = grid_size(14)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
