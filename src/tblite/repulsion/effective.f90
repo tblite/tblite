@@ -154,11 +154,18 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE
 
+   ! Thread-private array for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: energies_local(:)
+
    cutoff2 = cutoff**2
 
-   !$omp parallel do default(none) schedule(runtime) reduction(+:energies) &
-   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff) &
-   !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, dE)
+   !$omp parallel default(none) &
+   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff, energies) &
+   !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, dE, &
+   !$omp& energies_local)
+   allocate(energies_local(size(energies, 1)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       do jat = 1, iat
@@ -173,13 +180,19 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
             exa = exp(-alpha(jzp, izp)*r1k)
             r1r = r1**rexp(jzp, izp)
             dE = zeff(jzp, izp) * exa/r1r
-            energies(iat) = energies(iat) + 0.5_wp * dE
+            energies_local(iat) = energies_local(iat) + 0.5_wp * dE
             if (iat /= jat) then
-               energies(jat) = energies(jat) + 0.5_wp * dE
+               energies_local(jat) = energies_local(jat) + 0.5_wp * dE
             end if
          end do
       end do
    end do
+   !$omp end do
+   !$omp critical (get_repulsion_energy_)
+   energies(:) = energies(:) + energies_local(:)
+   !$omp end critical (get_repulsion_energy_)
+   deallocate(energies_local)
+   !$omp end parallel
 
 end subroutine get_repulsion_energy
 
@@ -210,11 +223,22 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE, dG(3), dS(3, 3)
 
+   ! Thread-private array for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: energies_local(:)
+   real(wp), allocatable :: gradient_local(:, :), sigma_local(:, :)
+
    cutoff2 = cutoff**2
 
-   !$omp parallel do default(none) schedule(runtime) reduction(+:energies, gradient, sigma) &
-   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff) &
-   !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, dE, dG, dS)
+   !$omp parallel default(none) &
+   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff, & 
+   !$omp& energies, gradient, sigma) &
+   !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, &
+   !$omp& dE, dG, dS, energies_local, gradient_local, sigma_local)
+   allocate(energies_local(size(energies, 1)), source=0.0_wp)
+   allocate(gradient_local(size(gradient, 1), size(gradient, 2)), source=0.0_wp)
+   allocate(sigma_local(size(sigma, 1), size(sigma, 2)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       do jat = 1, iat
@@ -231,18 +255,28 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
             dE = zeff(jzp, izp) * exa/r1r
             dG = -(alpha(jzp, izp)*r1k*kexp(jzp, izp) + rexp(jzp, izp)) * dE * rij/r2
             dS = spread(dG, 1, 3) * spread(rij, 2, 3)
-            energies(iat) = energies(iat) + 0.5_wp * dE
+            energies_local(iat) = energies_local(iat) + 0.5_wp * dE
             if (iat /= jat) then
-               energies(jat) = energies(jat) + 0.5_wp * dE
-               gradient(:, iat) = gradient(:, iat) + dG
-               gradient(:, jat) = gradient(:, jat) - dG
-               sigma(:, :) = sigma + dS
+               energies_local(jat) = energies_local(jat) + 0.5_wp * dE
+               gradient_local(:, iat) = gradient_local(:, iat) + dG
+               gradient_local(:, jat) = gradient_local(:, jat) - dG
+               sigma_local(:, :) = sigma_local + dS
             else
-               sigma(:, :) = sigma + 0.5_wp * dS
+               sigma_local(:, :) = sigma_local + 0.5_wp * dS
             end if
          end do
       end do
    end do
+   !$omp end do
+   !$omp critical (get_repulsion_derivs_)
+   energies(:) = energies(:) + energies_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   sigma(:, :) = sigma(:, :) + sigma_local(:, :)
+   !$omp end critical (get_repulsion_derivs_)
+   deallocate(energies_local)
+   deallocate(gradient_local)
+   deallocate(sigma_local)
+   !$omp end parallel
 
 end subroutine get_repulsion_derivs
 

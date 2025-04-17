@@ -258,9 +258,16 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), r1, r1g, gam, tmp
 
-   !$omp parallel do default(none) schedule(runtime) &
+   ! Thread-private array for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: amat_local(:, :)
+
+   !$omp parallel default(none) &
    !$omp shared(amat, mol, nshell, offset, hubbard, gexp) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, r1, r1g, tmp)
+   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, &
+   !$omp& vec, r1, r1g, tmp, amat_local)
+   allocate(amat_local(size(amat, 1), size(amat, 2)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -274,25 +281,26 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
             do jsh = 1, nshell(jat)
                gam = hubbard(jsh, ish, jzp, izp)
                tmp = 1.0_wp/(r1g + gam**(-gexp))**(1.0_wp/gexp)
-               !$omp atomic
-               amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + tmp
-               !$omp atomic
-               amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + tmp
+               amat_local(jj+jsh, ii+ish) = amat_local(jj+jsh, ii+ish) + tmp
+               amat_local(ii+ish, jj+jsh) = amat_local(ii+ish, jj+jsh) + tmp
             end do
          end do
       end do
       do ish = 1, nshell(iat)
          do jsh = 1, ish-1
             gam = hubbard(jsh, ish, izp, izp)
-            !$omp atomic
-            amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + gam
-            !$omp atomic
-            amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + gam
+            amat_local(ii+jsh, ii+ish) = amat_local(ii+jsh, ii+ish) + gam
+            amat_local(ii+ish, ii+jsh) = amat_local(ii+ish, ii+jsh) + gam
          end do
-         !$omp atomic
-         amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + hubbard(ish, ish, izp, izp)
+         amat_local(ii+ish, ii+ish) = amat_local(ii+ish, ii+ish) + hubbard(ish, ish, izp, izp)
       end do
    end do
+   !$omp end do
+   !$omp critical (get_amat_0d_)
+   amat(:, :) = amat(:, :) + amat_local(:, :)
+   !$omp end critical (get_amat_0d_)
+   deallocate(amat_local)
+   !$omp end parallel
 
 end subroutine get_amat_0d
 
@@ -321,13 +329,21 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
    real(wp) :: vec(3), gam, wsw, dtmp, rtmp, vol, aval
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
+   ! Thread-private array for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: amat_local(:, :)
+
    vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
-   !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, rcut) &
-   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, wsw, vec, dtmp, rtmp, aval)
+   !$omp parallel default(none) &
+   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, &
+   !$omp& alpha, vol, rcut, amat) &
+   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, &
+   !$omp& wsw, vec, dtmp, rtmp, aval, amat_local)
+   allocate(amat_local(size(amat, 1), size(amat, 2)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -343,10 +359,8 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
                   gam = hubbard(jsh, ish, jzp, izp)
                   call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
                   aval = (dtmp + rtmp) * wsw
-                  !$omp atomic
-                  amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
-                  !$omp atomic
-                  amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
+                  amat_local(jj+jsh, ii+ish) = amat_local(jj+jsh, ii+ish) + aval
+                  amat_local(ii+ish, jj+jsh) = amat_local(ii+ish, jj+jsh) + aval
                end do
             end do
          end do
@@ -362,20 +376,23 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
                gam = hubbard(jsh, ish, izp, izp)
                call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
                aval = (dtmp + rtmp + gam) * wsw
-               !$omp atomic
-               amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
-               !$omp atomic
-               amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
+               amat_local(ii+jsh, ii+ish) = amat_local(ii+jsh, ii+ish) + aval
+               amat_local(ii+ish, ii+jsh) = amat_local(ii+ish, ii+jsh) + aval
             end do
             gam = hubbard(ish, ish, izp, izp)
             call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
             aval = (dtmp + rtmp + gam) * wsw
-            !$omp atomic
-            amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
+            amat_local(ii+ish, ii+ish) = amat_local(ii+ish, ii+ish) + aval
          end do
       end do
 
    end do
+   !$omp end do
+   !$omp critical (get_amat_3d_)
+   amat(:, :) = amat(:, :) + amat_local(:, :)
+   !$omp end critical (get_amat_3d_)
+   deallocate(amat_local)
+   !$omp end parallel
 
 end subroutine get_amat_3d
 
@@ -547,6 +564,8 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), r1, gam, arg, dtmp, dG(3), dS(3, 3)
+
+   ! Thread-private array for reduction
    real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
 
    atrace(:, :) = 0.0_wp
@@ -586,10 +605,11 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
          end do
       end do
    end do
+   !$omp end do
    !$omp critical (get_damat_0d_)
-   atrace(:, :) = atrace + itrace
-   dadr(:, :, :) = dadr + didr
-   dadL(:, :, :) = dadL + didL
+   atrace(:, :) = atrace(:, :) + itrace(:, :)
+   dadr(:, :, :) = dadr(:, :, :) + didr(:, :, :)
+   dadL(:, :, :) = dadL(:, :, :) + didL(:, :, :)
    !$omp end critical (get_damat_0d_)
    deallocate(didL, didr, itrace)
    !$omp end parallel
@@ -627,8 +647,10 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
    real(wp) :: vol, gam, wsw, vec(3), dG(3), dS(3, 3)
    real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3)
-   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+
+   ! Thread-private array for reduction
+   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
 
    atrace(:, :) = 0.0_wp
    dadr(:, :, :) = 0.0_wp
@@ -692,10 +714,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
          end do
       end do
    end do
+   !$omp end do
    !$omp critical (get_damat_3d_)
-   atrace(:, :) = atrace + itrace
-   dadr(:, :, :) = dadr + didr
-   dadL(:, :, :) = dadL + didL
+   atrace(:, :) = atrace(:, :) + itrace(:, :)
+   dadr(:, :, :) = dadr(:, :, :) + didr(:, :, :)
+   dadL(:, :, :) = dadL(:, :, :) + didL(:, :, :)
    !$omp end critical (get_damat_3d_)
    deallocate(didL, didr, itrace) 
    !$omp end parallel
