@@ -25,7 +25,7 @@ module tblite_disp
    use mctc_env, only : wp
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_d3, only : d3_dispersion, new_d3_dispersion
-   use tblite_disp_d4, only : d4_dispersion, new_d4_dispersion
+   use tblite_disp_d4, only : d4_dispersion, new_d4_dispersion, new_d4s_dispersion
    use tblite_disp_type, only : dispersion_type
    implicit none
    public
