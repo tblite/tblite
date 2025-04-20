@@ -52,6 +52,18 @@ jobs:
         - os: ubuntu-latest
           build: meson
           build-type: debug
+          compiler: gnu
+          version: 13
+
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          version: 14
+
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
           compiler: intel
           version: 2021.2.0
 

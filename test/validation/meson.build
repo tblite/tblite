@@ -48,6 +48,7 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
         tblite_exe,
         files(t/'@0@-xtb.json'.format(m)),
         files(t/'coord'),
+        '--no-restart',
         '--method', m,
         '--grad', '@0@-@1@.txt'.format(m, t),
         t.contains('+') ? ['--charge', '+1'] : [],
