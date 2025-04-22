@@ -21,6 +21,7 @@ list(
   "${dir}/fermi.f90"
   "${dir}/guess.f90"
   "${dir}/mulliken.f90"
+  "${dir}/restart.f90"
   "${dir}/spin.f90"
   "${dir}/type.f90"
 )

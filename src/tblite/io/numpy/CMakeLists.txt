@@ -14,11 +14,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-srcs += files(
-  'fermi.f90',
-  'guess.f90',
-  'mulliken.f90',
-  'restart.f90',
-  'spin.f90',
-  'type.f90',
+set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+
+list(
+  APPEND srcs
+  "${dir}/constants.f90"
+  "${dir}/crc32.f90"
+  "${dir}/load.f90"
+  "${dir}/loadz.f90"
+  "${dir}/save.f90"
+  "${dir}/savez.f90"
+  "${dir}/utils.f90"
 )
+
+set(srcs "${srcs}" PARENT_SCOPE)
