@@ -34,8 +34,7 @@ module tblite_io_numpy_crc32
       module procedure crc32_hash_rdp_r1
    end interface crc32_hash
 
-   integer(i4), parameter :: crc_stub(256) = 0
-   integer(i4), parameter :: crc_table(0:255) = transfer([ &
+   integer(i4), parameter :: crc_table(0:255) = (/ &
       & int(z'00000000', kind=i4), int(z'77073096', kind=i4), int(z'ee0e612c', kind=i4), int(z'990951ba', kind=i4), &
       & int(z'076dc419', kind=i4), int(z'706af48f', kind=i4), int(z'e963a535', kind=i4), int(z'9e6495a3', kind=i4), &
       & int(z'0edb8832', kind=i4), int(z'79dcb8a4', kind=i4), int(z'e0d5e91e', kind=i4), int(z'97d2d988', kind=i4), &
@@ -99,8 +98,8 @@ module tblite_io_numpy_crc32
       & int(z'bdbdf21c', kind=i4), int(z'cabac28a', kind=i4), int(z'53b39330', kind=i4), int(z'24b4a3a6', kind=i4), &
       & int(z'bad03605', kind=i4), int(z'cdd70693', kind=i4), int(z'54de5729', kind=i4), int(z'23d967bf', kind=i4), &
       & int(z'b3667a2e', kind=i4), int(z'c4614ab8', kind=i4), int(z'5d681b02', kind=i4), int(z'2a6f2b94', kind=i4), &
-      & int(z'b40bbe37', kind=i4), int(z'c30c8ea1', kind=i4), int(z'5a05df1b', kind=i4), int(z'2d02ef8d', kind=i4)],&
-      & crc_stub)
+      & int(z'b40bbe37', kind=i4), int(z'c30c8ea1', kind=i4), int(z'5a05df1b', kind=i4), int(z'2d02ef8d', kind=i4)  &
+      /)
 
 contains
 
