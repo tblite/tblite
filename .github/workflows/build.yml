@@ -71,8 +71,7 @@ jobs:
           build-type: debug
           compiler: intel
           version: none
-          toolchain:
-          - {compiler: intel-classic, version: '2021.10'}
+          toolchain: {compiler: intel-classic, version: '2021.10'}
 
         - os: ubuntu-latest
           build: fpm
