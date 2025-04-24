@@ -30,7 +30,7 @@ jobs:
         build-type: [debug]
         compiler: [gnu]
         version: [12]
-        toolchain: none
+        toolchain: [none]
 
         include:
         - os: ubuntu-latest
