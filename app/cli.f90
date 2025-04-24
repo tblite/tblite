@@ -72,6 +72,8 @@ module tblite_cli
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
       character(len=:), allocatable :: post_processing
+      !> Input for post processing container
+      character(len=:), allocatable :: post_proc_output
       !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
       !> Maximum number of iterations for SCF
@@ -565,6 +567,10 @@ subroutine get_run_arguments(config, list, start, error)
          write(output_unit, '(a)') help_text_run
          error stop
       end if
+   end if
+
+   if (allocated(config%post_processing) .and. .not.allocated(config%post_proc_output)) then
+      config%post_proc_output = "tblite-data.npz"
    end if
 
    if (allocated(solvent)) then

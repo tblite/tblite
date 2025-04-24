@@ -25,6 +25,7 @@ list(
   "${dir}/save.f90"
   "${dir}/savez.f90"
   "${dir}/utils.f90"
+  "${dir}/zip.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

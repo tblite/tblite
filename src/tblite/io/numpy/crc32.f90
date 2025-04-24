@@ -14,8 +14,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/io/numpy/load.f90
-!> Provides npy input routines
+!> @file tblite/io/numpy/crc32.f90
+!> Provide crc32 hashing function
 
 !> Implementation of cyclic redundancy check hashing function,
 !> used to check the integrity of data in zip files.

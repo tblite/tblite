@@ -3,6 +3,7 @@ module test_double_dictionary
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_io_numpy, only : save_npz
    implicit none
    private
 
@@ -28,8 +29,8 @@ subroutine collect_double_dictionary(testsuite)
       new_unittest("compare index and label lookup", test_equivalence_index_label_lookup), &
       new_unittest("initialize labels", test_initialize_labels), &
       new_unittest("update entries", test_update_entries_label), &
-      new_unittest("read in toml-structured file", test_read_in_toml), &
-      new_unittest("write toml-structured output and read in again", test_write_read_toml), &
+      new_unittest("read in npz file", test_read_in_npz), &
+      new_unittest("write npz output and read in again", test_write_read_npz), &
       new_unittest("check equal operator", test_equal_operator), &
       new_unittest("check equal operator for two different dicts", test_equal_operator_different_dict) &
       ]
@@ -497,6 +498,73 @@ subroutine test_addition_operator(error)
 end subroutine
 
 
+subroutine test_read_in_npz(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict1, dict2
+   character(len=*), parameter :: filename = ".read-ddict.npz"
+
+   real(wp), allocatable :: input1(:), input2(:, :), input3(:, :, :)
+   real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+   allocate(input1(4), source = 1.0_wp)
+   allocate(input2(4, 6), source = 2.0_wp)
+   allocate(input3(4, 6, 9), source = 0.0_wp)
+
+   call delete_file(filename)
+   call save_npz(filename, "tblite0_r1_a", input1)
+   call save_npz(filename, "tblite0_r2_b", input2)
+   call save_npz(filename, "tblite0_r3_c", input3)
+
+   call dict2%load(filename, error)
+   call delete_file(filename)
+   if (allocated(error)) return
+
+   call dict2%get_entry("a", array1)
+   call check(error, allocated(array1), "First entry not allocated")
+   if (allocated(error)) return
+   call dict2%get_entry("b", array2)
+   call check(error, allocated(array2), "Second entry not allocated")
+   if (allocated(error)) return
+   call dict2%get_entry("c", array3)
+   call check(error, allocated(array3), "Third entry not allocated")
+   if (allocated(error)) return
+
+   call check(error, sum(array1 - input1), 0.0_wp)
+   if (allocated(error)) return
+   call check(error, sum(array2 - input2), 0.0_wp)
+   if (allocated(error)) return
+   call check(error, sum(array3 - input3), 0.0_wp)
+   if (allocated(error)) return
+end subroutine test_read_in_npz
+
+
+subroutine test_write_read_npz(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(double_dictionary_type) :: dict1, dict2
+   character(len=*), parameter :: filename = ".read-write-ddict.npz"
+   real(wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+
+   call fill_test_dict(dict1)
+
+   call dict1%dump(filename, error)
+   if (allocated(error)) return
+
+   call dict2%load(filename, error)
+   call delete_file(filename)
+   if (allocated(error)) return
+
+   call dict2%get_entry("test1", array1)
+   call check(error, allocated(array1), "First entry not allocated")
+   if (allocated(error)) return
+   call dict2%get_entry("test2", array2)
+   call check(error, allocated(array2), "Second entry not allocated")
+   if (allocated(error)) return
+   call dict2%get_entry("test3", array3)
+   call check(error, allocated(array3), "Third entry not allocated")
+   if (allocated(error)) return
+
+   call check(error, dict1 == dict2)
+end subroutine test_write_read_npz
+
 
 subroutine test_update_entries_label(error)
    type(error_type), allocatable, intent(out) :: error
@@ -552,79 +620,6 @@ subroutine test_update_entries_label(error)
    call dict3%get_entry("test3", array2)
    call check(error, (size(array3, dim=1) == 3))
    if (allocated(error)) return
-end subroutine
-
-subroutine test_write_read_toml(error)
-   type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict, dict1
-   integer :: io = 42
-
-   call fill_test_dict(dict)
-   open(newunit=io, status="scratch")
-   call dict%dump(io, error)
-   rewind io
-   dict = double_dictionary_type(record=null())
-   call fill_test_dict_1d_array(dict)
-   call dict1%load(2, error)
-   if (.not.(allocated(error))) then 
-      allocate(error)
-      error%message = "Non-existent unit was opened"
-      return
-   end if
-   deallocate(error)
-   call dict1%load(io, error)
-   close(io)
-   call check(error, (dict == dict1)) 
-
-   call dict%dump("test.toml", error)
-   dict1 = double_dictionary_type(record=null())
-   call dict1%load("test.tom", error)
-   if (.not.(allocated(error))) then 
-      allocate(error)
-      error%message = "Non-existent file was opened"
-      return
-   end if
-   deallocate(error)
-   call dict1%load("test.toml", error)
-   call delete_file("test.toml")
-
-   call check(error, (dict == dict1))
-
-end subroutine
-
-subroutine test_read_in_toml(error)
-   type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict
-   integer :: io
-
-   open(newunit=io, status="scratch")
-   write(io, '(a)') &
-      "levels = [ -1.3970922000000002E+01, -1.0063292000000001E+01 ]", &
-      "slater = [ 2.0964320000000001E+00, 1.8000000000000000E+00 ]", &
-      ""
-   rewind io
-
-   call dict%load(io, error)
-   close(io)
-   
-   call check(error, (dict%get_n_entries() == 2))
-
-   open(newunit=io, status="scratch")
-   write(io, '(a)') &
-      "levels = [ -1.3970922000000002E+01, -1.0063292000000001E+01 ]", &
-      "slater = [ 2.0964320000000001E+00, 1.8000000000000000E+00 ", &
-      ""
-   rewind io
-
-   call dict%load(io, error)
-   close(io)
-   if (.not.(allocated(error))) then 
-      allocate(error)
-      error%message = "Faulty toml unit was parsed"
-      return
-   end if
-   deallocate(error)
-   
 end subroutine
 
 subroutine test_equal_operator(error)

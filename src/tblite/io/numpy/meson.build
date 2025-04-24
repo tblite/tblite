@@ -22,4 +22,5 @@ srcs += files(
   'save.f90',
   'savez.f90',
   'utils.f90',
+  'zip.f90',
 )
