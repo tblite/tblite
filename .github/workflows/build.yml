@@ -38,10 +38,10 @@ jobs:
           compiler: gnu
           version: 10
 
-        - os: ubuntu-latest
-          build: meson
-          build-type: debug
-          compiler: gnu
+        - os: [ubuntu-latest]
+          build: [meson]
+          build-type: [debug]
+          compiler: [gnu]
           version: [11, 13, 14]
 
         - os: ubuntu-latest
