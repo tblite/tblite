@@ -74,6 +74,20 @@ jobs:
           toolchain: {compiler: intel-classic, version: '2021.10'}
 
         - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: intel
+          version: none
+          toolchain: {compiler: intel, version: '2024.1'}
+
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: intel
+          version: none
+          toolchain: {compiler: intel, version: '2025.1'}
+
+        - os: ubuntu-latest
           build: fpm
           compiler: gnu
           version: 12
