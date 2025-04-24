@@ -24,6 +24,8 @@ module tblite_double_dictionary
    use mctc_env, only : error_type, fatal_error
    use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
    use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
+   use tblite_io_numpy, only : save_npz, load_npz
+   use tblite_io_numpy_zip, only : zip_file, list_zip_file
    implicit none
    private
 
@@ -81,23 +83,24 @@ module tblite_double_dictionary
       procedure :: remove_entry_index
       generic, public :: get_index => return_label_index
       procedure :: return_label_index
-      procedure :: dump_to_toml
       procedure :: dump_to_file
-      procedure :: dump_to_unit
-      generic, public :: dump => dump_to_file, dump_to_toml, dump_to_unit
+      generic, public :: dump => dump_to_file
       generic, public :: operator(==) => equal_dict
       procedure :: equal_dict
-      generic, public :: load => load_from_file, load_from_unit, load_from_toml
-      procedure :: load_from_toml
+      generic, public :: load => load_from_file
       procedure :: load_from_file
-      procedure :: load_from_unit
 
    end type double_dictionary_type
 
 contains
 
-function equal_record(lhs, rhs) result(equal)
-   class(double_record), intent(in) :: lhs, rhs
+!> Check if two double records are equal
+pure function equal_record(lhs, rhs) result(equal)
+   !> First record to compare
+   class(double_record), intent(in) :: lhs
+   !> Second record to compare
+   class(double_record), intent(in) :: rhs
+   !> Result of the comparison
    logical :: equal
    equal = .false.
 
@@ -106,178 +109,116 @@ function equal_record(lhs, rhs) result(equal)
    end if
 
    if (allocated(lhs%array1) .and. allocated(rhs%array1)) then
-      if (all(lhs%array1 == rhs%array1)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
+      equal = all(lhs%array1 == rhs%array1)
+      return
+   end if
       
    if (allocated(lhs%array2) .and. allocated(rhs%array2)) then
-      if (all(lhs%array2 == rhs%array2)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
-
-   if (allocated(lhs%array3) .and. allocated(rhs%array3)) then
-      if (all(lhs%array3 == rhs%array3)) then
-         equal = .true.
-         return
-      else
-         return
-      end if 
-   endif
-
-end function
-
-
-function equal_dict(lhs, rhs) result(equal)
-   class(double_dictionary_type), intent(in) :: lhs, rhs
-   integer :: i
-   logical :: equal
-   equal = .false.
-
-   if (lhs%get_n_entries() /= rhs%get_n_entries()) then
+      equal = all(lhs%array2 == rhs%array2)
       return
    end if
 
-   do i = 1, lhs%get_n_entries()
+   if (allocated(lhs%array3) .and. allocated(rhs%array3)) then
+      equal = all(lhs%array3 == rhs%array3)
+      return
+   end if
+
+end function equal_record
+
+
+!> Check if two double dictionaries are equal
+pure function equal_dict(lhs, rhs) result(equal)
+   !> First dictionary to compare
+   class(double_dictionary_type), intent(in) :: lhs
+   !> Second dictionary to compare
+   class(double_dictionary_type), intent(in) :: rhs
+   !> Result of the comparison
+   logical :: equal
+
+   integer :: i
+   equal = .false.
+
+   if (lhs%n /= rhs%n) then
+      return
+   end if
+
+   do i = 1, lhs%n
       if (.not.(lhs%record(i) == rhs%record(i))) return
    end do
 
    equal = .true.
-end function
+end function equal_dict
 
 !> Read double dictionary data from file
-subroutine load_from_file(self, file, error)
+subroutine load_from_file(self, filename, error)
    !> Instance of the parametrization data
    class(double_dictionary_type), intent(inout) :: self
    !> File name
-   character(len=*), intent(in) :: file
+   character(len=*), intent(in) :: filename
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: unit
+   integer :: io, stat, irec, it
    logical :: exist
+   type(zip_file) :: zip
+   character(len=:), allocatable :: msg, label
+   character(len=*), parameter :: prefix = "tblite0_"
 
-   inquire(file=file, exist=exist)
-   if (.not.exist) then
-     call fatal_error(error, "Could not find toml file '"//file//"'")
-     return
-   end if
-
-   open(file=file, newunit=unit)
-   call self%load(unit, error)
-   close(unit)
-end subroutine load_from_file
-
-
-!> Read double_dictionary data from file
-subroutine load_from_unit(self, unit, error)
-   !> Instance of the double dictionary data
-   class(double_dictionary_type), intent(inout) :: self
-   !> File name
-   integer, intent(in) :: unit
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(toml_error), allocatable :: parse_error
-   type(toml_table), allocatable :: table
-
-   call toml_parse(table, unit, parse_error)
-
-   if (allocated(parse_error)) then
-      allocate(error)
-      call move_alloc(parse_error%message, error%message)
+   inquire(file=filename, exist=exist)
+   if (.not. exist) then
+      call fatal_error(error, "File '"//filename//"' does not exist")
       return
    end if
 
-   call self%load(table, error)
-   if (allocated(error)) return
+   open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
+   call list_zip_file(io, filename, zip, stat, msg)
+   close(io)
+   if (stat /= 0) then
+      if (.not.allocated(msg)) msg = "Failed to read zip file '"//filename//"'"
+      call fatal_error(error, msg)
+      return
+   end if
 
-end subroutine load_from_unit
+   if (.not.allocated(zip%records)) then
+      call fatal_error(error, "No records found in file '"//filename//"'")
+      return
+   end if
 
-subroutine load_from_toml(self, table, error)
-   use tblite_toml, only : len
-   !iterate over entries and dump to toml
-   class(double_dictionary_type) :: self
-   !> toml table to add entries to
-   type(toml_table), intent(inout) :: table
-   type(toml_key), allocatable :: list_keys(:)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-   
-   type(toml_array), pointer :: array
-   real(kind=wp), allocatable :: array1(:)
-
-   integer :: i, stat
-
-   call table%get_keys(list_keys)
-
-   do i = 1, size(list_keys)
-      call get_value(table, list_keys(i), array, stat=stat)
-      if (stat /= 0) then
-         call fatal_error(error, "Cannot read entry for array")
-         return
-      end if
-      if (allocated(array1)) deallocate(array1)
-      allocate(array1(len(array)))
-      call get_value(array, array1)
-      call self%add_entry(list_keys(i)%key, array1)
-   end do
-end subroutine
-
-subroutine dump_to_toml(self, table, error)
-   !iterate over entries and dump to toml
-   class(double_dictionary_type) :: self
-   !> toml table to add entries to
-   type(toml_table), intent(inout) :: table
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-   type(toml_array), pointer :: array
-   real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
-
-   integer :: i, stat, j
-   do i = 1, self%get_n_entries()
-      call add_array(table, self%record(i)%label, array)
-
-      if (allocated(array1)) deallocate(array1)
-      call self%get_entry(i, array1)
-      if (allocated(array1)) then
-         do j = 1, size(array1)
-            call set_value(array, j, array1(j), stat=stat)
-         end do
-         cycle
-      end if
-
-      call self%get_entry(i, array2)
-      if (allocated(array2)) then
-         array1 = reshape(array2, [size(array2, 1)*size(array2, 2)])
-         deallocate(array2)
-         do j = 1, size(array1)
-            call set_value(array, j, array1(j), stat=stat)
-         end do
-         cycle
-      end if
-
-      call self%get_entry(i, array3)
-      if (allocated(array3)) then
-         array1 = reshape(array3, [size(array3, 1)*size(array3, 2)*size(array3, 3)])
-         do j = 1, size(array1)
-            call set_value(array, j, array1(j), stat=stat)
-         end do
-         deallocate(array3)
-         cycle
-      end if
+   do irec = 1, size(zip%records)
+      associate(path => zip%records(irec)%path)
+         if (len(path) < len(prefix) + 3 + 4) then
+            call fatal_error(error, "File '"//filename//"::"//path// &
+               & "' does not match expected format")
+            exit
+         end if
+         label = path(len(prefix) + 3 + 1:len(path) - 4)
+         select case(path(:len(prefix) + 3))
+         case default
+            call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
+            exit
+         case (prefix//"r1_")
+            call self%push(label, it)
+            call load_npz(filename, prefix//"r1_"//label, self%record(it)%array1, stat, msg)
+         case (prefix//"r2_")
+            call self%push(label, it)
+            call load_npz(filename, prefix//"r2_"//label, self%record(it)%array2, stat, msg)
+         case (prefix//"r3_")
+            call self%push(label, it)
+            call load_npz(filename, prefix//"r3_"//label, self%record(it)%array3, stat, msg)
+         end select
+         if (stat /= 0) then
+            if (.not.allocated(msg)) then
+               msg = "Failed to load file '"//filename//"::"//path//"'"
+            end if
+            call fatal_error(error, msg)
+            exit
+         end if
+      end associate
    end do
 
-   deallocate(array1)
-end subroutine
+end subroutine load_from_file
 
+!> Write double dictionary data to file
 subroutine dump_to_file(self, file, error)
    !> Instance of the parametrization data
    class(double_dictionary_type), intent(in) :: self
@@ -286,87 +227,92 @@ subroutine dump_to_file(self, file, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: unit
+   character(len=*), parameter :: prefix = "tblite0_"
 
-   open(file=file, newunit=unit)
-   call self%dump(unit, error)
-   close(unit)
+   integer :: it, stat, io
+   logical :: exist
+   real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
+   character(len=:), allocatable :: msg
+
+
+   inquire(file=file, exist=exist)
+   if (exist) then
+      open(file=file, newunit=io)
+      close(io, status='delete')
+   end if
+
+   do it = 1, self%n
+      associate(record => self%record(it))
+         if (allocated(record%array1)) then
+            call save_npz(file, prefix//"r1_"//record%label, record%array1, stat, msg)
+            if (stat /= 0) exit
+            cycle
+         end if
+
+         if (allocated(record%array2)) then
+            call save_npz(file, prefix//"r2_"//record%label, record%array2, stat, msg)
+            if (stat /= 0) exit
+            cycle
+         end if
+
+         if (allocated(record%array3)) then
+            call save_npz(file, prefix//"r3_"//record%label, record%array3, stat, msg)
+            if (stat /= 0) exit
+            cycle
+         end if
+      end associate
+   end do
+
    if (allocated(error)) return
-
 end subroutine dump_to_file
 
 
-!> Write double dictionary data to file
-subroutine dump_to_unit(self, unit, error)
-   !> Instance of the parametrization data
-   class(double_dictionary_type), intent(in) :: self
-   !> Formatted unit
-   integer, intent(in) :: unit
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(toml_table) :: table
-   type(toml_error), allocatable :: ser_error
-
-   table = toml_table()
-
-   call self%dump(table, error)
-
-   call toml_dump(table, unit, ser_error)
-   if (allocated(ser_error)) then
-      call fatal_error(error, ser_error%message)
-   end if
-
-end subroutine dump_to_unit
-
-subroutine remove_entry_index(self, index)
-   class(double_dictionary_type) :: self
-   integer :: index, old_n, i, it
-   type(double_dictionary_type) :: tmp
+pure subroutine remove_entry_index(self, index)
+   class(double_dictionary_type), intent(inout) :: self
+   integer, intent(in) :: index
+   integer :: old_n, i, it
+   type(double_record), allocatable :: tmp(:)
 
    if (index > self%n) return
-   tmp = self
+   call move_alloc(self%record, tmp)
    old_n = self%n
    self%n = self%n - 1
    
-   deallocate(self%record)
    allocate(self%record(self%n))
    it = 1
    do i = 1, old_n
       if (i == index) cycle
-      self%record(it) = tmp%record(i)
+      call move_record(tmp(i), self%record(it))
       it = it + 1
    end do
  
-end subroutine
+end subroutine remove_entry_index
 
-subroutine remove_entry_label(self, label)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
+pure subroutine remove_entry_label(self, label)
+   class(double_dictionary_type), intent(inout) :: self
+   character(len=*), intent(in) :: label
    integer :: it 
    it = return_label_index(self, label)
    if (it /= 0) then
       call self%remove_entry_index(it) 
-   else
-      return
    end if
-end subroutine 
+end subroutine remove_entry_label
 
-function get_n_entries(self) result(n)
-   class(double_dictionary_type) :: self
+pure function get_n_entries(self) result(n)
+   class(double_dictionary_type), intent(in) :: self
    integer :: n
    n = self%n
-end function
+end function get_n_entries
 
-subroutine copy(to, from)
+pure subroutine copy(to, from)
    class(double_dictionary_type), intent(inout) :: to
    type(double_dictionary_type), intent(in) :: from
    integer :: n_entries, i
    to%n = from%n
    if (allocated(to%record)) deallocate(to%record)
-   if (from%get_n_entries() > 0) then 
+   if (from%n > 0) then 
       allocate(to%record(size(from%record)))
-      n_entries = from%get_n_entries()
+      n_entries = from%n
 
       do i = 1, n_entries
          to%record(i) = from%record(i)
@@ -375,7 +321,26 @@ subroutine copy(to, from)
 
 end subroutine
 
-subroutine copy_record(to, from)
+pure subroutine move_record(from, to)
+   class(double_record), intent(inout) :: to
+   type(double_record), intent(inout) :: from
+
+   call move_alloc(from%label, to%label)
+   if (allocated(to%array1)) deallocate(to%array1)
+   if (allocated(from%array1)) then
+      call move_alloc(from%array1, to%array1)
+   end if
+   if (allocated(to%array2)) deallocate(to%array2)
+   if (allocated(from%array2)) then
+      call move_alloc(from%array2, to%array2)
+   end if
+   if (allocated(to%array3)) deallocate(to%array3)
+   if (allocated(from%array3)) then
+      call move_alloc(from%array3, to%array3)
+   end if
+end subroutine move_record
+
+pure subroutine copy_record(to, from)
    class(double_record), intent(inout) :: to
    type(double_record), intent(in) :: from
 
@@ -386,7 +351,7 @@ subroutine copy_record(to, from)
    if (allocated(from%array3)) to%array3 = from%array3
 end subroutine
 
-subroutine concatenate_overwrite(self, dict2)
+pure subroutine concatenate_overwrite(self, dict2)
    class(double_dictionary_type), intent(inout) :: self
    type(double_dictionary_type), intent(in) :: dict2
    type(double_dictionary_type) :: tmp_dict
@@ -395,14 +360,15 @@ subroutine concatenate_overwrite(self, dict2)
 
 end subroutine
 
-function combine_dict(self, dict2) result(new_dict)
+pure function combine_dict(self, dict2) result(new_dict)
    class(double_dictionary_type), intent(in) :: self
    type(double_dictionary_type), intent(in) :: dict2
    type(double_dictionary_type) :: new_dict
+
    integer :: it, i, n_entries
    new_dict = self
    associate(dict => dict2)
-      n_entries = dict%get_n_entries()
+      n_entries = dict%n
       do i = 1, n_entries
          call new_dict%push(dict%record(i)%label, it)
          new_dict%record(it) = dict%record(i)
@@ -411,10 +377,11 @@ function combine_dict(self, dict2) result(new_dict)
 
 end function
 
-subroutine update_1d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:)
+pure subroutine update_1d(self, label, array)
+   class(double_dictionary_type), intent(inout) :: self
+   character(len=*), intent(in) :: label
+   real(wp), intent(in) :: array(:)
+
    integer :: it
 
    it = return_label_index(self, label)
@@ -430,10 +397,10 @@ subroutine update_1d(self, label, array)
    end if
 end subroutine
 
-subroutine update_2d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:, :)
+pure subroutine update_2d(self, label, array)
+   class(double_dictionary_type), intent(inout) :: self
+   character(len=*), intent(in) :: label
+   real(wp), intent(in) :: array(:, :)
    integer :: it
 
    it = return_label_index(self, label)
@@ -449,10 +416,10 @@ subroutine update_2d(self, label, array)
    end if
 end subroutine
 
-subroutine update_3d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:, :, :)
+pure subroutine update_3d(self, label, array)
+   class(double_dictionary_type), intent(inout) :: self
+   character(len=*), intent(in) :: label
+   real(wp), intent(in) :: array(:, :, :)
    integer :: it
 
    it = return_label_index(self, label)
@@ -463,116 +430,130 @@ subroutine update_3d(self, label, array)
          if (allocated(record%array3)) deallocate(record%array3)
          record%array3 = array
       end associate
-   else
-      return
    end if
-end subroutine
+end subroutine update_3d
 
-subroutine get_label(self, index, label)
-   class(double_dictionary_type) :: self
-   integer :: index
-   character(len=:), allocatable :: label
+!> Get the label of a given index
+pure subroutine get_label(self, index, label)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Index of the label in the dictionary
+   integer, intent(in) :: index
+   !> Label to be returned
+   character(len=:), allocatable, intent(out) :: label
 
    if (index > self%n) return
-   if (allocated(label)) deallocate(label)
 
    label = self%record(index)%label
-end subroutine
+end subroutine get_label
 
-subroutine get_1d_label(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp), allocatable :: array(:)
+!> Get a 1D array from the dictionary
+pure subroutine get_1d_label(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 1D array to be returned
+   real(wp), allocatable, intent(out) :: array(:)
    integer :: it
    it = return_label_index(self, label)
    if (it == 0) return
    call self%get_entry(it, array)
 
-end subroutine
+end subroutine get_1d_label
 
-subroutine get_2d_label(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp), allocatable :: array(:,:)
+!> Get a 2D array from the dictionary
+pure subroutine get_2d_label(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 2D array to be returned
+   real(wp), allocatable, intent(out) :: array(:,:)
    integer :: it
    it = return_label_index(self, label)
    if (it == 0) return
    call self%get_entry(it, array)
+end subroutine get_2d_label
 
-end subroutine
-
-subroutine get_3d_label(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp), allocatable :: array(:, :, :)
+!> Get a 3D array from the dictionary
+pure subroutine get_3d_label(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 3D array to be returned
+   real(wp), allocatable, intent(out) :: array(:, :, :)
    integer :: it
    it = return_label_index(self, label)
    if (it == 0) return
    call self%get_entry(it, array)
+end subroutine get_3d_label
 
-end subroutine
-
-subroutine get_1d_index(self, index, array)
-   class(double_dictionary_type) :: self
-   integer :: index
-   real(wp), allocatable :: array(:)
+!> Get a 1D array from the dictionary
+pure subroutine get_1d_index(self, index, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Index of the array in the dictionary
+   integer, intent(in) :: index
+   !> 1D array to be returned
+   real(wp), allocatable, intent(out) :: array(:)
 
    if (index > self%n) return
    if (index <= 0) return
    associate(rec => self%record(index))
       if (allocated(rec%array1)) then
-         if (allocated(array)) deallocate(array)
-         allocate(array(size(rec%array1, dim = 1)))
          array = rec%array1
-      else
-         return
       end if
    end associate
 
-end subroutine
+end subroutine get_1d_index
 
-subroutine get_2d_index(self, index, array)
-   class(double_dictionary_type) :: self
-   integer :: index
-   real(wp), allocatable :: array(:,:)
+!> Get a 2D array from the dictionary
+pure subroutine get_2d_index(self, index, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Index of the array in the dictionary
+   integer, intent(in) :: index
+   !> 2D array to be returned
+   real(wp), allocatable, intent(out) :: array(:,:)
 
    if (index > self%n) return
    if (index <= 0) return
    associate(rec => self%record(index))
       if (allocated(rec%array2)) then
-         if (allocated(array)) deallocate(array)
-         allocate(array(size(rec%array2, dim = 1), size(rec%array2, dim = 2)))
          array = rec%array2
-      else
-         return
       end if
    end associate
 
-end subroutine
+end subroutine get_2d_index
 
-subroutine get_3d_index(self, index, array)
-   class(double_dictionary_type) :: self
-   integer :: index
-   real(wp), allocatable :: array(:, :, :)
+!> Get a 3D array from the dictionary
+pure subroutine get_3d_index(self, index, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(in) :: self
+   !> Index of the array in the dictionary
+   integer, intent(in) :: index
+   !> 3D array to be returned
+   real(wp), allocatable, intent(out) :: array(:, :, :)
 
    if (index > self%n) return
    if (index <= 0) return
    associate(rec => self%record(index))
       if (allocated(rec%array3)) then
-         if (allocated(array)) deallocate(array)
-         allocate(array(size(rec%array3, dim = 1), size(rec%array3, dim = 2), size(rec%array3, dim=3)))
          array = rec%array3
-      else
-         return
       end if
    end associate
 
-end subroutine
+end subroutine get_3d_index
 
-subroutine push(self, label, it)
+!> Add a new entry to the dictionary
+pure subroutine push(self, label, it)
+   !> Instance of the double dictionary
    class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
    character(len=*), intent(in) :: label
-
+   !> Index of the label in the dictionary
    integer, intent(out) :: it
 
    if (.not.allocated(self%record)) call resize(self%record)
@@ -585,115 +566,148 @@ subroutine push(self, label, it)
 
       self%n = self%n + 1
       it = self%n
-      self%record(it) = double_record(label=label)
+      self%record(it)%label = label
    end if
 end subroutine push
 
-subroutine ini_label(self,label)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
+!> Initialize a label in the dictionary
+pure subroutine ini_label(self, label)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
    integer :: it
 
    call self%push(label, it)
-end subroutine
+end subroutine ini_label
 
-subroutine ini_1d(self, label, ndim1)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   integer :: ndim1
-   integer :: it
-
-   call self%push(label, it)
-
-   associate(record => self%record(it))
-      allocate(record%array1(ndim1), source = 0.0_wp)
-   end associate
-end subroutine
-
-subroutine ini_2d(self, label, ndim1, ndim2)
-
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   integer :: ndim1, ndim2
-
+!> Initialize a 1D array in the dictionary
+pure subroutine ini_1d(self, label, ndim1)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> Dimensions of the 1D array
+   integer, intent(in) :: ndim1
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
-      allocate(record%array2(ndim1, ndim2), source = 0.0_wp)
+      allocate(record%array1(ndim1), source=0.0_wp)
    end associate
-end subroutine
+end subroutine ini_1d
 
-subroutine ini_3d(self, label, ndim1, ndim2, ndim3)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   integer :: ndim1, ndim2, ndim3
+!> Initialize a 2D array in the dictionary
+pure subroutine ini_2d(self, label, ndim1, ndim2)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> Dimensions of the 2D array
+   integer, intent(in) :: ndim1, ndim2
+
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
-      allocate(record%array3(ndim1, ndim2, ndim3), source = 0.0_wp)
+      allocate(record%array2(ndim1, ndim2), source=0.0_wp)
    end associate
-end subroutine
+end subroutine ini_2d
 
-subroutine add_1d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:)
+!> Initialize a 3D array in the dictionary
+pure subroutine ini_3d(self, label, ndim1, ndim2, ndim3)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> Dimensions of the 3D array
+   integer, intent(in) :: ndim1, ndim2, ndim3
+   integer :: it
+
+   call self%push(label, it)
+
+   associate(record => self%record(it))
+      allocate(record%array3(ndim1, ndim2, ndim3), source=0.0_wp)
+   end associate
+end subroutine ini_3d
+
+!> Add a 1D array to the dictionary
+pure subroutine add_1d(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 1D array to be added
+   real(wp), intent(in) :: array(:)
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
       record%array1 = array
+      if (allocated(record%array2)) deallocate(record%array2)
+      if (allocated(record%array3)) deallocate(record%array3)
    end associate
-end subroutine
+end subroutine add_1d
 
-subroutine add_2d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:,:)
+!> Add a 2D array to the dictionary
+pure subroutine add_2d(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 2D array to be added
+   real(wp), intent(in) :: array(:,:)
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
       record%array2 = array
+      if (allocated(record%array1)) deallocate(record%array1)
+      if (allocated(record%array3)) deallocate(record%array3)
    end associate
 
-end subroutine
+end subroutine add_2d
 
-subroutine add_3d(self, label, array)
-   class(double_dictionary_type) :: self
-   character(len=*) :: label
-   real(wp) :: array(:, :, :)
+!> Add a 3D array to the dictionary
+pure subroutine add_3d(self, label, array)
+   !> Instance of the double dictionary
+   class(double_dictionary_type), intent(inout) :: self
+   !> Label for the array
+   character(len=*), intent(in) :: label
+   !> 3D array to be added
+   real(wp), intent(in) :: array(:, :, :)
    integer :: it
 
    call self%push(label, it)
 
    associate(record => self%record(it))
       record%array3 = array
+      if (allocated(record%array1)) deallocate(record%array1)
+      if (allocated(record%array2)) deallocate(record%array2)
    end associate
-end subroutine
+end subroutine add_3d
 
-
-function return_label_index(self, label) result(it)
+!> Find the index of a label in the dictionary
+pure function return_label_index(self, label) result(it)
    class(double_dictionary_type), intent(in) :: self
    character(len=*), intent(in) :: label
    integer :: it
    it = 0
    if (self%n <= 0) return
    it = find(self%record(:self%n), label)
-   if (it == 0) return
-
 end function return_label_index
 
-
+!> Find the index of a label in the dictionary
 pure function find(record, label) result(pos)
+   !> List of double arrays
    type(double_record), intent(in) :: record(:)
+   !> Label to search for
    character(len=*), intent(in) :: label
+   !> Position of the label in the list
    integer :: pos
 
    integer :: i
@@ -711,7 +725,7 @@ pure function find(record, label) result(pos)
 
 end function find
 
-   !> Reallocate list of double arrays
+!> Reallocate list of double arrays
 pure subroutine resize(var, n)
    !> Instance of the array to be resized
    type(double_record), allocatable, intent(inout) :: var(:)
@@ -719,7 +733,7 @@ pure subroutine resize(var, n)
    integer, intent(in), optional :: n
 
    type(double_record), allocatable :: tmp(:)
-   integer :: this_size, new_size
+   integer :: this_size, new_size, it
    integer, parameter :: initial_size = 20
 
    if (allocated(var)) then
@@ -739,7 +753,9 @@ pure subroutine resize(var, n)
 
    if (allocated(tmp)) then
       this_size = min(size(tmp, 1), size(var, 1))
-      var(:this_size) = tmp(:this_size)
+      do it = 1, this_size
+         call move_record(tmp(it), var(it))
+      end do
       deallocate(tmp)
    end if
 
