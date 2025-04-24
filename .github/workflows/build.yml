@@ -30,8 +30,7 @@ jobs:
         build-type: [debug]
         compiler: [gnu]
         version: [12]
-        toolchain:
-        - none
+        toolchain: none
 
         include:
         - os: ubuntu-latest
@@ -39,32 +38,28 @@ jobs:
           build-type: coverage
           compiler: gnu
           version: 10
-          toolchain:
-          - none
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
           build-type: debug
           compiler: gnu
           version: 11
-          toolchain:
-          - none
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
           build-type: debug
           compiler: gnu
           version: 13
-          toolchain:
-          - none
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
           build-type: debug
           compiler: gnu
           version: 14
-          toolchain:
-          - none
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
@@ -91,8 +86,7 @@ jobs:
           build: fpm
           compiler: gnu
           version: 12
-          toolchain:
-          - none
+          toolchain: none
 
         # - os: windows-latest
         #   build: meson
