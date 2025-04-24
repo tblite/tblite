@@ -302,6 +302,11 @@ subroutine run_main(config, error)
       if (allocated(error)) return
    end if
 
+   if (allocated(post_proc) .and. allocated(config%post_proc_output)) then
+      call results%dict%dump(config%post_proc_output, error)
+      if (allocated(error)) return
+   end if
+
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
       call post_proc%dict%get_entry("molecular-dipole", dpmom)
