@@ -47,19 +47,7 @@ jobs:
           build: meson
           build-type: debug
           compiler: gnu
-          version: 11
-
-        - os: ubuntu-latest
-          build: meson
-          build-type: debug
-          compiler: gnu
-          version: 13
-
-        - os: ubuntu-latest
-          build: meson
-          build-type: debug
-          compiler: gnu
-          version: 14
+          version: [11, 13, 14]
 
         - os: ubuntu-latest
           build: meson
