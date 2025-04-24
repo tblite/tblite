@@ -66,21 +66,21 @@ jobs:
           build-type: debug
           compiler: intel
           version: none
-          toolchain: {compiler: intel-classic, version: '2021.10'}
+          toolchain: {compiler: intel-classic, version: '2021.10', mkl_version: '2021.2.0'}
 
         - os: ubuntu-latest
           build: meson
           build-type: debug
           compiler: intel
           version: none
-          toolchain: {compiler: intel, version: '2024.1'}
+          toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1'}
 
         - os: ubuntu-latest
           build: meson
           build-type: debug
           compiler: intel
           version: none
-          toolchain: {compiler: intel, version: '2025.1'}
+          toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1'}
 
         - os: ubuntu-latest
           build: fpm
@@ -173,7 +173,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /opt/intel/oneapi
-        key: install-${{ matrix.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.os }}
+        key: install-${{ matrix.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.toolchain.mkl_version }}-${{ matrix.os }}
 
     - name: Install Intel (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && contains(matrix.compiler, 'intel') && steps.cache-install.outputs.cache-hit != 'true' }}
@@ -185,7 +185,7 @@ jobs:
     - name: Install Intel MKL
       if: ${{ contains(matrix.os, 'ubuntu') && contains(matrix.compiler, 'intel') && steps.cache-install.outputs.cache-hit != 'true' }}
       run: |
-        sudo apt-get install intel-oneapi-mkl-${{ matrix.toolchain.version }} intel-oneapi-mkl-devel-${{ matrix.toolchain.version }}
+        sudo apt-get install intel-oneapi-mkl-${{ matrix.toolchain.mkl_version }} intel-oneapi-mkl-devel-${{ matrix.toolchain.mkl_version }}
 
     - name: Setup Intel oneAPI environment
       if: ${{ matrix.compiler == 'intel' }}
