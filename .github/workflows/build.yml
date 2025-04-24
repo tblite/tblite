@@ -97,7 +97,6 @@ jobs:
       GCC_V: ${{ matrix.version }}
       PYTHON_V: 3.9
 
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
