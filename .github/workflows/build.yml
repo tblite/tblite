@@ -99,8 +99,6 @@ jobs:
         shell: ${{ matrix.shell || 'bash' }}
 
     env:
-      FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
-      CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
       GCC_V: ${{ matrix.version }}
       PYTHON_V: 3.9
 
@@ -192,6 +190,25 @@ jobs:
       run: |
         source /opt/intel/oneapi/setvars.sh --force
         printenv >> $GITHUB_ENV
+
+    - name: Setup environment for Fortran and C compilers
+      run: |
+        if [ ! -n "$FC" ]; then
+          if [ "${{ matrix.compiler }}" = "gnu" ]; then
+            FC="gfortran"
+            CC="gcc"
+          elif [ "${{ matrix.compiler }}" = "intel" ]; then
+            if [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
+              FC="ifx"
+              CC="icx"
+            elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
+              FC="ifort"
+              CC="icc"
+            fi
+          fi
+          echo "FC=$FC" >> $GITHUB_ENV
+          echo "CC=$CC" >> $GITHUB_ENV
+        fi
 
     - name: Install build and test dependencies
       if: ${{ ! contains(matrix.os, 'windows') }}
