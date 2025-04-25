@@ -202,7 +202,6 @@ jobs:
               FC="ifx"
               CC="icx"
             elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
-              ls /opt/intel/oneapi/
               find /opt/intel/oneapi/ -name 'ifort'
               FC="ifort"
               CC="icc"
