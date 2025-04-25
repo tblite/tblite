@@ -54,12 +54,12 @@ jobs:
         #   version: 13
         #   toolchain: none
 
-        # - os: ubuntu-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gnu
-        #   version: 14
-        #   toolchain: none
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          version: 14
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
