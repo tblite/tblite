@@ -167,7 +167,7 @@ jobs:
         sudo mkdir -p /opt/intel
         sudo chown $USER /opt/intel
 
-    - name: Cache Intel install
+    - name: Cache Intel installation
       if: ${{ matrix.compiler == 'intel' }}
       id: cache-install
       uses: actions/cache@v4
@@ -175,7 +175,7 @@ jobs:
         path: /opt/intel/oneapi
         key: install-${{ matrix.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.toolchain.mkl_version }}-${{ matrix.os }}
 
-    - name: Install Intel (Linux)
+    - name: Install Intel Compiler (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && contains(matrix.compiler, 'intel') && steps.cache-install.outputs.cache-hit != 'true' }}
       uses: fortran-lang/setup-fortran@v1
       with:
