@@ -25,34 +25,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # os: [ubuntu-latest, macos-latest]
-        # build: [meson, cmake]
-        # build-type: [debug]
-        # compiler: [gnu]
-        # version: [12]
-        # toolchain: [none]
+        os: [ubuntu-latest, macos-latest]
+        build: [meson, cmake]
+        build-type: [debug]
+        compiler: [gnu]
+        version: [12]
+        toolchain: [none]
 
         include:
-        # - os: ubuntu-latest
-        #   build: meson
-        #   build-type: coverage
-        #   compiler: gnu
-        #   version: 10
-        #   toolchain: none
+        - os: ubuntu-latest
+          build: meson
+          build-type: coverage
+          compiler: gnu
+          version: 10
+          toolchain: none
 
-        # - os: ubuntu-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gnu
-        #   version: 11
-        #   toolchain: none
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          version: 11
+          toolchain: none
 
-        # - os: ubuntu-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gnu
-        #   version: 13
-        #   toolchain: none
+        - os: ubuntu-latest
+          build: meson
+          build-type: debug
+          compiler: gnu
+          version: 13
+          toolchain: none
 
         - os: ubuntu-latest
           build: meson
@@ -82,11 +82,11 @@ jobs:
           version: none
           toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1'}
 
-        # - os: ubuntu-latest
-        #   build: fpm
-        #   compiler: gnu
-        #   version: 12
-        #   toolchain: none
+        - os: ubuntu-latest
+          build: fpm
+          compiler: gnu
+          version: 12
+          toolchain: none
 
         # - os: windows-latest
         #   build: meson
