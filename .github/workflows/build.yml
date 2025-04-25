@@ -66,7 +66,7 @@ jobs:
           build-type: debug
           compiler: intel
           version: none
-          toolchain: {compiler: intel-classic, version: '2021.10', mkl_version: '2021.2.0'}
+          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0'}
 
         - os: ubuntu-latest
           build: meson
@@ -99,8 +99,6 @@ jobs:
         shell: ${{ matrix.shell || 'bash' }}
 
     env:
-      FC: ${{ matrix.compiler == 'intel' && 'ifort' || 'gfortran' }}
-      CC: ${{ matrix.compiler == 'intel' && 'icc' || 'gcc' }}
       GCC_V: ${{ matrix.version }}
       PYTHON_V: 3.9
 
@@ -167,7 +165,7 @@ jobs:
         sudo mkdir -p /opt/intel
         sudo chown $USER /opt/intel
 
-    - name: Cache Intel install
+    - name: Cache Intel installation
       if: ${{ matrix.compiler == 'intel' }}
       id: cache-install
       uses: actions/cache@v4
@@ -175,7 +173,7 @@ jobs:
         path: /opt/intel/oneapi
         key: install-${{ matrix.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.toolchain.mkl_version }}-${{ matrix.os }}
 
-    - name: Install Intel (Linux)
+    - name: Install Intel Compiler (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && contains(matrix.compiler, 'intel') && steps.cache-install.outputs.cache-hit != 'true' }}
       uses: fortran-lang/setup-fortran@v1
       with:
@@ -192,6 +190,25 @@ jobs:
       run: |
         source /opt/intel/oneapi/setvars.sh --force
         printenv >> $GITHUB_ENV
+
+    - name: Setup environment for Fortran and C compilers
+      run: |
+        if [ ! -n "$FC" ]; then
+          if [ "${{ matrix.compiler }}" = "gnu" ]; then
+            FC="gfortran"
+            CC="gcc"
+          elif [ "${{ matrix.compiler }}" = "intel" ]; then
+            if [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
+              FC="ifx"
+              CC="icx"
+            elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
+              FC="ifort"
+              CC="icc"
+            fi
+          fi
+          echo "FC=$FC" >> $GITHUB_ENV
+          echo "CC=$CC" >> $GITHUB_ENV
+        fi
 
     - name: Install build and test dependencies
       if: ${{ ! contains(matrix.os, 'windows') }}
