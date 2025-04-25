@@ -1854,14 +1854,28 @@ subroutine test_overlap_diat_grad_ss_z(error)
    call slater_to_gauss(ng, 2, 0, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 1, 0, 2.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -1910,14 +1924,28 @@ subroutine test_overlap_diat_grad_sp_z(error)
    call slater_to_gauss(ng, 4, 0, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 3, 1, 2.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -1966,14 +1994,28 @@ subroutine test_overlap_diat_grad_pp_z(error)
    call slater_to_gauss(ng, 3, 1, 1.5_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 2, 1, 1.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2023,14 +2065,28 @@ subroutine test_overlap_diat_grad_sd_z(error)
    call slater_to_gauss(ng, 4, 0, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 3, 2, 1.8_wp, cgtoj, .true., stat)
 
-   ! Vector along the z-axis to test the ill-defined gradient
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
 
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.5_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the z-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2079,14 +2135,28 @@ subroutine test_overlap_diat_grad_pd_z(error)
    call slater_to_gauss(ng, 4, 1, 1.5_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 3, 2, 1.5_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2135,14 +2205,28 @@ subroutine test_overlap_diat_grad_dd_z(error)
    call slater_to_gauss(ng, 4, 2, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 3, 2, 1.3_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2191,14 +2275,28 @@ subroutine test_overlap_diat_grad_sf_z(error)
    call slater_to_gauss(ng, 5, 0, 2.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 1.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2248,14 +2346,28 @@ subroutine test_overlap_diat_grad_pf_z(error)
    call slater_to_gauss(ng, 5, 1, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 2.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2304,14 +2416,28 @@ subroutine test_overlap_diat_grad_df_z(error)
    call slater_to_gauss(ng, 5, 2, 1.3_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 1.4_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
@@ -2360,14 +2486,28 @@ subroutine test_overlap_diat_grad_ff_z(error)
    call slater_to_gauss(ng, 5, 3, 1.6_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 1.0_wp, cgtoj, .true., stat)
 
+   ksig = 0.1_wp
+   kpi = 0.2_wp
+   kdel = 0.5_wp
+
+   ! Vector along the x-axis to test the ill-defined gradient
+   vec(1) = 0.5_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
+   ! Vector along the y-axis to test the ill-defined gradient
+   vec(1) = 0.0_wp
+   vec(2) = 0.5_wp
+   vec(3) = 0.0_wp
+
+   call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
+
    ! Vector along the z-axis to test the ill-defined gradient
    vec(1) = 0.0_wp
    vec(2) = 0.0_wp
    vec(3) = 0.5_wp
-
-   ksig = 0.1_wp
-   kpi = 0.2_wp
-   kdel = 0.5_wp
 
    call test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
