@@ -1511,7 +1511,8 @@ subroutine test_overlap_grad_ss(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
    r2 = sum(vec**2)
 
    call overlap_grad_cgto(cgtoi, cgtoj, r2, vec, 100.0_wp, overlap, doverlapj)
@@ -1563,7 +1564,8 @@ subroutine test_overlap_grad_pp(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
    r2 = sum(vec**2)
 
    call overlap_grad_cgto(cgtoi, cgtoj, r2, vec, 100.0_wp, overlap, doverlapj)
@@ -1623,7 +1625,8 @@ subroutine test_overlap_grad_dd(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
    r2 = sum(vec**2)
 
    call overlap_grad_cgto(cgtoi, cgtoj, r2, vec, 100.0_wp, overlap, doverlapj)
@@ -1683,7 +1686,8 @@ subroutine test_overlap_grad_ff(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
    r2 = sum(vec**2)
 
    call overlap_grad_cgto(cgtoi, cgtoj, r2, vec, 100.0_wp, overlap, doverlapj)
@@ -1824,7 +1828,8 @@ subroutine test_overlap_diat_grad_ss(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -1879,7 +1884,8 @@ subroutine test_overlap_diat_grad_sp(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -1934,7 +1940,8 @@ subroutine test_overlap_diat_grad_pp(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -1990,7 +1997,8 @@ subroutine test_overlap_diat_grad_sd(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2045,7 +2053,8 @@ subroutine test_overlap_diat_grad_pd(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2100,7 +2109,8 @@ subroutine test_overlap_diat_grad_dd(error)
 
    ! Randomly oriented vector of length 0.7
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.7_wp
+   vec = vec - 0.5_wp
+   vec = 0.7_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2126,9 +2136,9 @@ subroutine test_overlap_diat_grad_dd_z(error)
    call slater_to_gauss(ng, 3, 2, 1.3_wp, cgtoj, .true., stat)
 
    ! Vector along the z-axis to test the ill-defined gradient
-   vec(1) = -4.2738582800000008E-005_wp
-   vec(2) = 1.9619373507000001E-004_wp
-   vec(3) = -5.1529538776373203_wp
+   vec(1) = 0.0_wp
+   vec(2) = 0.0_wp
+   vec(3) = 0.5_wp
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2155,7 +2165,8 @@ subroutine test_overlap_diat_grad_sf(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2211,7 +2222,8 @@ subroutine test_overlap_diat_grad_pf(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2266,7 +2278,8 @@ subroutine test_overlap_diat_grad_df(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
@@ -2321,10 +2334,8 @@ subroutine test_overlap_diat_grad_ff(error)
 
    ! Randomly oriented vector of length 0.5
    call random_number(vec)
-   vec = (vec - 0.5_wp)*(sum(vec**2))*0.5_wp
-   vec(1) = 0.0_wp
-   vec(2) = 0.0_wp   
-   vec(3) = 0.1_wp
+   vec = vec - 0.5_wp
+   vec = 0.5_wp * vec / sqrt(sum(vec**2))
 
    ksig = 0.1_wp
    kpi = 0.2_wp
