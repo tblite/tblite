@@ -17,6 +17,10 @@ dependencies:
   # extra dependencies for notebooks
   - ipython
   - polars
+  - pyberny
+  - altair
+  - mdanalysis
+  - nglview
   # build dependencies
   - c-compiler
   - fortran-compiler
