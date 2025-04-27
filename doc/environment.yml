@@ -15,12 +15,11 @@ dependencies:
   - numpy
   - qcelemental
   # extra dependencies for notebooks
+  - altair
+  - chemiscope
   - ipython
   - polars
   - pyberny
-  - altair
-  - mdanalysis
-  - nglview
   # build dependencies
   - c-compiler
   - fortran-compiler
