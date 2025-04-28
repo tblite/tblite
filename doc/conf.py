@@ -32,6 +32,7 @@ release = version
 
 extensions = [
     "breathe",
+    "chemiscope.sphinx",
     "myst_nb",
     "sphinx_design",
     "sphinx.ext.autosummary",
