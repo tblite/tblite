@@ -1,4 +1,5 @@
 run
+--no-restart
 $ORIGIN/06-ammonia.tmol
 --method
 gfn1

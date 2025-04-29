@@ -60,6 +60,10 @@ module tblite_cli
       character(len=:), allocatable :: param
       !> Guess for SCF calculation
       character(len=:), allocatable :: guess
+      !> Restart from previous calculation
+      logical :: restart = .false.
+      !> Restart file
+      character(len=:), allocatable :: restart_file
       !> Create JSON dump
       logical :: json = .false.
       !> File for output of JSON dump
@@ -336,6 +340,23 @@ subroutine get_run_arguments(config, list, start, error)
       case("--guess")
          iarg = iarg + 1
          call list%get(iarg, config%guess)
+
+      case("--restart")
+         iarg = iarg + 1
+         config%restart = .true.
+         config%restart_file = "tblite-restart.npz"
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%restart_file)
+         end if
+
+      case("--no-restart")
+         config%restart = .false.
 
       case("--solv-state")
          iarg = iarg + 1

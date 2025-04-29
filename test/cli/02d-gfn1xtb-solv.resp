@@ -1,4 +1,5 @@
 $ORIGIN/02-trp-xao.mol
+--no-restart
 --method
 gfn1
 --gbsa

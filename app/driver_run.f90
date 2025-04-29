@@ -34,7 +34,7 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, shell_partition
+      & sad_guess, eeq_guess, shell_partition, load_wavefunction, save_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -69,6 +69,7 @@ subroutine run_main(config, error)
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
    integer :: unpaired, charge, unit, nspin
+   logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
@@ -152,9 +153,26 @@ subroutine run_main(config, error)
 
    if (allocated(config%max_iter)) calc%max_iter = config%max_iter
 
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+   use_guess = .true.
+   restart_exist = .false.
+   if (config%restart) restart_exist = exists(config%restart_file)
+   if (restart_exist) then
+      call load_wavefunction(wfn, config%restart_file, error, &
+         & nat=mol%nat, nsh=calc%bas%nsh, nao=calc%bas%nao, nspin=nspin)
+      if (allocated(error)) then
+         call warn(ctx, error%message)
+         deallocate(error)
+         call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+      else
+         call info(ctx, "Restarting from wavefunction '"//config%restart_file//"'")
+         use_guess = .false.
+      end if
+      wfn%kt = config%etemp * kt
+   else
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, config%etemp * kt)
+   end if
 
-   if (config%guess == "ceh") then
+   if (use_guess .and. config%guess == "ceh") then
       call new_ceh_calculator(calc_ceh, mol, error)
       if (allocated(error)) return
       call new_wavefunction(wfn_ceh, mol%nat, calc_ceh%bas%nsh, calc_ceh%bas%nao, 1, config%etemp_guess * kt)
@@ -166,7 +184,7 @@ subroutine run_main(config, error)
          cont = electric_field(config%efield*vatoau)
          call calc%push_back(cont)
       end block
-      if (config%guess == "ceh") then
+      if (use_guess .and. config%guess == "ceh") then
          block
          class(container_type), allocatable :: cont
          cont = electric_field(config%efield*vatoau)
@@ -175,26 +193,28 @@ subroutine run_main(config, error)
       end if
    end if
 
-   select case(config%guess)
-   case default
-      call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
-   case("sad")
-      call sad_guess(mol, calc, wfn)
-   case("eeq")
-      call eeq_guess(mol, calc, wfn)
-   case("ceh")
-      call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
-      if (ctx%failed()) then
-         call fatal(ctx, "CEH singlepoint calculation failed")
-         do while(ctx%failed())
-            call ctx%get_error(error)
-            write(error_unit, '("->", 1x, a)') error%message
-         end do
-         error stop
-      end if
-      wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
-      call shell_partition(mol, calc, wfn)
-   end select
+   if (use_guess) then
+      select case(config%guess)
+      case default
+         call fatal_error(error, "Unknown starting guess '"//config%guess//"' requested")
+      case("sad")
+         call sad_guess(mol, calc, wfn)
+      case("eeq")
+         call eeq_guess(mol, calc, wfn)
+      case("ceh")
+         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
+         if (ctx%failed()) then
+            call fatal(ctx, "CEH singlepoint calculation failed")
+            do while(ctx%failed())
+               call ctx%get_error(error)
+               write(error_unit, '("->", 1x, a)') error%message
+            end do
+            error stop
+         end if
+         wfn%qat(:, 1) = wfn_ceh%qat(:, 1)
+         call shell_partition(mol, calc, wfn)
+      end select
+   end if
    if (allocated(error)) return
 
    if (config%spin_polarized) then
@@ -274,6 +294,12 @@ subroutine run_main(config, error)
          write(error_unit, '("->", 1x, a)') error%message
       end do
       error stop
+   end if
+
+   if (allocated(config%restart_file)) then
+      call info(ctx, "Writing wavefunction information to '"//config%restart_file//"'")
+      call save_wavefunction(wfn, config%restart_file, error)
+      if (allocated(error)) return
    end if
 
    if (config%verbosity > 2) then

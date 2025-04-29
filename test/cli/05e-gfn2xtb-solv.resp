@@ -3,5 +3,6 @@ $ORIGIN/05-met-xbf.qchem
 gfn2
 --gb
 thf
+--no-restart
 --grad
 --verbose

@@ -116,6 +116,10 @@ module tblite_cli_help
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --restart [<file>]   Restart calculation from previous run"//nl//&
+      "                           File name for restart file is optional,"//nl//&
+      "                           (Default: tblite-restart.npz)"//nl//&
+      "      --no-restart         Do not restart calculation from previous run"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&

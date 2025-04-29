@@ -50,6 +50,13 @@ Supported geometry input formats are:
      Guess for the initial populations, possible options:
      _sad_ (default), _eeq_, and _ceh_.
 
+*--restart* [_string_]::
+     Restart calculation from previous run.
+     Provide the name of the restart file (default 'tblite-restart.npz')
+
+*--no-restart*::
+     Do not restart from previous run.
+
 *--etemp-guess* _real_::
      Electronic temperature for ceh-guess in Kelvin (default: 4000K).
 
