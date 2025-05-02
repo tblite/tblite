@@ -14,4 +14,4 @@ dependencies:
   - ase
   - qcelemental
   - matplotlib-base
-  - meson
+  - meson==1.7.2
