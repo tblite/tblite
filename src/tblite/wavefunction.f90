@@ -28,7 +28,7 @@ module tblite_wavefunction
    use tblite_wavefunction_restart, only : load_wavefunction, save_wavefunction
    use tblite_wavefunction_spin, only : magnet_to_updown, updown_to_magnet
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
-      & get_density_matrix, get_alpha_beta_occupation
+      & get_alpha_beta_occupation
    implicit none
    public
 

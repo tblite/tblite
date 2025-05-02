@@ -82,7 +82,7 @@ subroutine run_main(config, error)
    class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
-   ctx%solver = lapack_solver(config%solver)
+   ctx%ctxsolver = lapack_solver(config%solver)
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then

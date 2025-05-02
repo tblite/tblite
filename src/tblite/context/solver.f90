@@ -19,6 +19,7 @@
 
 !> Abstract base class for an electronic solver
 module tblite_context_solver
+   use mctc_env, only : wp
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -36,14 +37,16 @@ module tblite_context_solver
 
    abstract interface
       !> Create new electronic solver
-      subroutine new(self, solver, ndim)
-         import :: context_solver, solver_type
+      subroutine new(self, solver, ndim, acc)
+         import :: context_solver, solver_type, wp
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
          !> New electronic solver
          class(solver_type), allocatable, intent(out) :: solver
          !> Dimension of the eigenvalue problem
          integer, intent(in) :: ndim
+         !> Convergence threshold for the electronic solver
+         real(wp), intent(in), optional :: acc 
       end subroutine new
 
       !> Delete electronic solver instance

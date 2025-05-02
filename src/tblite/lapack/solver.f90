@@ -19,6 +19,7 @@
 
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
+   use mctc_env, only : wp
    use tblite_context_solver, only : context_solver
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
@@ -57,13 +58,15 @@ contains
 
 
 !> Create new electronic solver
-subroutine new(self, solver, ndim)
+subroutine new(self, solver, ndim, acc)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> New electronic solver
    class(solver_type), allocatable, intent(out) :: solver
    !> Dimension of the eigenvalue problem
    integer, intent(in) :: ndim
+   !> Convergence threshold for the electronic solver
+   real(wp), intent(in), optional :: acc
 
    select case(self%algorithm)
    case(lapack_algorithm%gvd)
@@ -91,7 +94,9 @@ subroutine delete(self, solver)
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
 
-   if (allocated(solver)) deallocate(solver)
+   if (allocated(solver)) then
+      call solver%delete()
+   end if 
 end subroutine delete
 
 
