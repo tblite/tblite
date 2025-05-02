@@ -27,6 +27,7 @@ module tblite_post_processing_bond_orders
    use tblite_output_format, only : format_string
    use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
+   use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
@@ -65,6 +66,8 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(container_cache), intent(inout) :: cache_list(:)
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
+   !> Solver instance
+   class(solver_type), allocatable :: solver
    !> Print level
    integer, intent(in) :: prlevel
    !> Dictionary for storing results
@@ -94,9 +97,11 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
             end if
          end do
       end do
+      call ctx%new_solver(solver, calc%bas%nao)
       do j = 1, 2
-         call ctx%solver%get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
+         call solver%get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
       end do
+      call ctx%delete_solver(solver)
       call get_mayer_bond_orders_uhf(calc%bas, integrals%overlap, pmat, wbo)
       wbo_2d = 2*wbo(:, :, 1)
       call dict%add_entry("bond-orders", wbo_2d)

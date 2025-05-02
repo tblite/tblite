@@ -88,11 +88,13 @@ end subroutine new
 
 
 !> Delete electronic solver instance
-subroutine delete(self, solver)
+subroutine delete(self, solver, delete_ctxsolver)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
+   !> Delete the context solver
+   logical, intent(in), optional :: delete_ctxsolver
 
    if (allocated(solver)) then
       call solver%delete()

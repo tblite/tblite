@@ -50,12 +50,14 @@ module tblite_context_solver
       end subroutine new
 
       !> Delete electronic solver instance
-      subroutine delete(self, solver)
+      subroutine delete(self, solver, delete_ctxsolver)
          import :: context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
          !> Electronic solver instance
          class(solver_type), allocatable, intent(inout) :: solver
+         !> Delete the context solver
+         logical, intent(in), optional :: delete_ctxsolver
       end subroutine delete
    end interface
 

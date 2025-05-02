@@ -196,10 +196,10 @@ contains
 
       call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
-      call ctx%new_solver(calc%bas%nao)
+      call ctx%new_solver(solver, calc%bas%nao)
 
       ! Get the density matrix
-      call ctx%solver%get_density(wfn, ints, elec_entropy, error)
+      call solver%get_density(wfn, ints, elec_entropy, error)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
@@ -236,7 +236,7 @@ contains
             call ctx%message("")
          end if
       end block
-      if (.not. ctx%reuse_solver) call ctx%delete_solver()
+      call ctx%delete_solver(solver)
    end subroutine ceh_singlepoint
 
 end module tblite_ceh_singlepoint

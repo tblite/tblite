@@ -106,6 +106,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(timer_type) :: timer
    type(error_type), allocatable :: error
    type(scf_info) :: info
+   class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
    type(container_cache), allocatable :: cache_list(:)
    
@@ -122,7 +123,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    econv = 1.e-6_wp*accuracy
    pconv = 2.e-5_wp*accuracy
 
-   call ctx%new_solver(calc%bas%nao, econv)
+   call ctx%new_solver(solver, calc%bas%nao, econv)
 
    grad = present(gradient) .and. present(sigma)
 
@@ -247,7 +248,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
-      call next_scf(iscf, mol, calc%bas, wfn, ctx%solver, mixer, info, &
+      call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
       econverged = abs(sum(eelec) - elast) < econv
@@ -285,7 +286,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    if (ctx%failed()) then 
-      if (.not. ctx%reuse_solver) call ctx%delete_solver()
+      call ctx%delete_solver(solver)
       return
    end if
 
@@ -313,7 +314,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       dEdcn(:) = 0.0_wp
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
-      call ctx%solver%get_energy_w_density_matrix(wfn, wdensity)
+      call solver%get_energy_w_density_matrix(wfn, wdensity)
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
@@ -377,8 +378,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
       call ctx%set_error(error)
    end if
-   call ctx%solver%reset()
-   if (.not. ctx%reuse_solver) call ctx%delete_solver()
+   
+   call ctx%delete_solver(solver)
 
 end subroutine xtb_singlepoint
 
