@@ -29,8 +29,7 @@ if fc_id == 'gcc'
     '-Wno-maybe-uninitialized',
     language: 'fortran',
   )
-  message('GCC version: ' + fc.version())
-  if fc.version().contains('9.')
+  if fc.version().version_compare('<10')
     message('GNU Fortran version < 10.0 is not fully supported. Please use a newer version if you can.') 
     add_project_arguments(
       '-fno-range-check',
