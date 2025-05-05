@@ -29,6 +29,14 @@ if fc_id == 'gcc'
     '-Wno-maybe-uninitialized',
     language: 'fortran',
   )
+  message('GCC version: ' + fc.version())
+  if fc.version().contains('9.')
+    message('GNU Fortran version < 10.0 is not fully supported. Please use a newer version if you can.') 
+    add_project_arguments(
+      '-fno-range-check',
+      language: 'fortran',
+    )
+  endif
 elif fc_id == 'intel' or fc_id == 'intel-llvm'
   add_project_arguments(
     '-traceback',
