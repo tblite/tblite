@@ -1,5 +1,5 @@
 [build-system]
-requires = ["meson-python", "cffi", "setuptools"]
+requires = ["meson-python < 1.8.0", "cffi", "setuptools"]
 build-backend = "mesonpy"
 
 [project]
