@@ -25,7 +25,7 @@ For details on building the Python API checkout the
 Example
 -------
 
-The calculator can be used like other ASE calculators with by attaching it to an atoms object.
+The calculator can be used like other ASE calculators by attaching it to an atoms object.
 
 >>> from ase.build import molecule
 >>> from tblite.ase import TBLite
