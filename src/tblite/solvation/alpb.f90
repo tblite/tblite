@@ -426,7 +426,7 @@ subroutine view(cache, ptr)
 end subroutine view
 
 
-subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
+subroutine add_born_mat_p16(nat, xyz, keps, brad, amat)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -436,20 +436,21 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
    !> Born radii
    real(wp), intent(in) :: brad(:)
    !> Interaction matrix
-   real(wp), intent(inout) :: Amat(:, :)
+   real(wp), intent(inout) :: amat(:, :)
 
    integer :: iat, jat
    real(wp) :: r1, ab, arg, fgb, dfgb, bp, vec(3)
 
-   ! omp parallel do default(none) shared(Amat, ntpair, ppind, ddpair, brad, keps) &
-   ! omp private(kk, iat, jat, r1, ab, arg, fgb, dfgb)
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(amat, brad, keps, nat, xyz) &
+   !$omp private(iat, jat, r1, ab, arg, fgb, dfgb, vec, bp)
    do iat = 1, nat
       do jat = 1, iat - 1
          vec(:) = xyz(:, iat) - xyz(:, jat)
          r1 = norm2(vec)
 
          ab = sqrt(brad(iat) * brad(jat))
-         arg = ab / (ab + zetaP16o16*r1) ! ab / (1 + ζR/(16·ab))
+         arg = ab / (ab + zetaP16o16 * r1) ! ab / (1 + ζR/(16·ab))
          arg = arg * arg ! ab / (1 + ζR/(16·ab))²
          arg = arg * arg ! ab / (1 + ζR/(16·ab))⁴
          arg = arg * arg ! ab / (1 + ζR/(16·ab))⁸
@@ -457,12 +458,12 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
          fgb = r1 + ab*arg
          dfgb = 1.0_wp / fgb
 
-         Amat(iat, jat) = keps*dfgb + Amat(iat, jat)
-         Amat(jat, iat) = keps*dfgb + Amat(jat, iat)
+         amat(iat, jat) = keps*dfgb + amat(iat, jat)
+         amat(jat, iat) = keps*dfgb + amat(jat, iat)
       enddo
       ! self-energy part
       bp = 1.0_wp/brad(iat)
-      Amat(iat, iat) = Amat(iat, iat) + keps*bp
+      amat(iat, iat) = amat(iat, iat) + keps*bp
    enddo
 
 end subroutine add_born_mat_p16
@@ -489,19 +490,26 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
 
    integer :: iat, jat
    real(wp) :: vec(3), r2, r1, ab, arg1, arg16, qq, fgb, dfgb, dfgb2, egb
-   real(wp) :: dEdbri, dEdbrj, dG(3), ap, bp, dS(3, 3)
+   real(wp) :: dEdbri, dEdbrj, dG(3), ap, bp
    real(wp), allocatable :: dEdbr(:)
+
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: gradient_local(:, :), dEdbr_local(:)
 
    allocate(dEdbr(nat), source = 0.0_wp )
 
-   egb = 0._wp
-   dEdbr(:) = 0._wp
+   egb = 0.0_wp
+   dEdbr(:) = 0.0_wp
 
    ! GB energy and gradient
-   ! omp parallel do default(none) reduction(+:egb, gradient, dEdbr) &
-   ! omp private(iat, jat, vec, r1, r2, ab, arg1, arg16, fgb, dfgb, dfgb2, ap, &
-   ! omp& bp, qq, dEdbri, dEdbrj, dG, dS) &
-   ! omp shared(keps, qat, ntpair, ddpair, ppind, brad)
+   !$omp parallel default(none) reduction(+:egb) &
+   !$omp private(iat, jat, vec, r1, r2, ab, arg1, arg16, fgb, dfgb, dfgb2, ap, &
+   !$omp& bp, qq, dEdbri, dEdbrj, dG, gradient_local, dEdbr_local) &
+   !$omp shared(keps, qat, nat, brad, xyz, gradient, dEdbr)
+   allocate(gradient_local(3, nat), source = 0.0_wp)
+   allocate(dEdbr_local(nat), source = 0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, nat
       do jat = 1, iat - 1
          vec(:) = xyz(:, iat) - xyz(:, jat)
@@ -526,15 +534,15 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
          ! (1 - ζ/(1 + Rζ/(16 ab))^17)/(R + ab/(1 + Rζ/(16 ab))¹⁶)²
          ap = (1.0_wp - zetaP16 * arg1 * arg16) * dfgb2
          dG(:) = ap * vec * keps / r1 * qq
-         gradient(:, iat) = gradient(:, iat) - dG
-         gradient(:, jat) = gradient(:, jat) + dG
+         gradient_local(:, iat) = gradient_local(:, iat) - dG
+         gradient_local(:, jat) = gradient_local(:, jat) + dG
 
          ! -(Rζ/(2·ab²·(1 + Rζ/(16·ab))¹⁷) + 1/(2·ab·(1 + Rζ/(16·ab))¹⁶))/(R + ab/(1 + Rζ/(16·ab))¹⁶)²
          bp = -0.5_wp*(r1 * zetaP16 / ab * arg1 + 1.0_wp) / ab * arg16 * dfgb2
          dEdbri = brad(jat) * bp * keps * qq
          dEdbrj = brad(iat) * bp * keps * qq
-         dEdbr(iat) = dEdbr(iat) + dEdbri
-         dEdbr(jat) = dEdbr(jat) + dEdbrj
+         dEdbr_local(iat) = dEdbr_local(iat) + dEdbri
+         dEdbr_local(jat) = dEdbr_local(jat) + dEdbrj
 
       end do
 
@@ -543,9 +551,16 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
       qq = qat(iat)*bp
       egb = egb + 0.5_wp*qat(iat)*qq*keps
       dEdbri = -0.5_wp*keps*qq*bp
-      dEdbr(iat) = dEdbr(iat) + dEdbri*qat(iat)
-      !gradient = gradient + brdr(:, :, i) * dEdbri*qat(i)
+      dEdbr_local(iat) = dEdbr_local(iat) + dEdbri*qat(iat)
+
    enddo
+   !$omp end do
+   !$omp critical (add_born_deriv_p16_)
+   dEdbr(:) = dEdbr(:) + dEdbr_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   !$omp end critical (add_born_deriv_p16_)
+   deallocate(gradient_local, dEdbr_local)
+   !$omp end parallel
 
    ! contract with the Born radii derivatives
    call gemv(brdr, dEdbr, gradient, beta=1.0_wp)
@@ -555,7 +570,7 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
 end subroutine add_born_deriv_p16
 
 
-pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
+subroutine add_born_mat_still(nat, xyz, keps, brad, amat)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -565,33 +580,36 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
    !> Born radii
    real(wp), intent(in) :: brad(:)
    !> Interaction matrix
-   real(wp), intent(inout) :: Amat(:, :)
+   real(wp), intent(inout) :: amat(:, :)
 
-   integer  :: i, j
+   integer  :: iat, jat
    real(wp), parameter :: a13=1.0_wp/3.0_wp
    real(wp), parameter :: a4=0.25_wp
    real(wp), parameter :: sqrt2pi = sqrt(2.0_wp/pi)
    real(wp) :: aa, vec(3), r1, r2, bp
    real(wp) :: dd, expd, fgb2, dfgb
 
-   do i = 1, nat
-      do j = 1, i - 1
-         vec(:) = xyz(:, i) - xyz(:, j)
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(amat, brad, keps, nat, xyz) &
+   !$omp private(iat, jat, vec, aa, dd, bp, expd, r1, r2, fgb2, dfgb)
+   do iat = 1, nat
+      do jat = 1, iat - 1
+         vec(:) = xyz(:, iat) - xyz(:, jat)
          r1 = norm2(vec)
          r2 = r1*r1
 
-         aa = brad(i)*brad(j)
+         aa = brad(iat)*brad(jat)
          dd = a4*r2/aa
          expd = exp(-dd)
          fgb2 = r2+aa*expd
          dfgb = 1.0_wp/sqrt(fgb2)
-         Amat(i, j) = keps*dfgb + Amat(i, j)
-         Amat(j, i) = keps*dfgb + Amat(j, i)
+         amat(iat, jat) = keps*dfgb + amat(iat, jat)
+         amat(jat, iat) = keps*dfgb + amat(jat, iat)
       enddo
 
       ! self-energy part
-      bp = 1._wp/brad(i)
-      Amat(i, i) = Amat(i, i) + keps*bp
+      bp = 1._wp/brad(iat)
+      amat(iat, iat) = amat(iat, iat) + keps*bp
    enddo
 
 end subroutine add_born_mat_still
@@ -616,7 +634,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
 
-   integer :: i, j
+   integer :: iat, jat
    real(wp), parameter :: a13=1._wp/3._wp
    real(wp), parameter :: a4=0.25_wp
    real(wp) :: aa, r2, fgb2
@@ -625,23 +643,34 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    real(wp) :: dr(3), r1, vec(3)
    real(wp), allocatable :: grddb(:)
 
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: gradient_local(:, :), grddb_local(:)
+
    allocate(grddb(nat), source = 0.0_wp )
 
    egb = 0._wp
    grddb(:) = 0._wp
 
    ! GB energy and gradient
-
    ! compute energy and fgb direct and radii derivatives
-   do i = 1, nat
-      do j = 1, i - 1
-         vec(:) = xyz(:, i) - xyz(:, j)
+   ! GB energy and gradient
+   !$omp parallel default(none) reduction(+:egb) &
+   !$omp private(iat, jat, vec, r1, r2, fgb2, dfgb, dfgb2, dfgb3, aa, ap, dd, &
+   !$omp& bp, qq, expd, dr, grddbi, grddbj, gradient_local, grddb_local) &
+   !$omp shared(keps, qat, nat, brad, xyz, gradient, grddb)
+   allocate(gradient_local(3, nat), source = 0.0_wp)
+   allocate(grddb_local(nat), source = 0.0_wp)
+   !$omp do schedule(runtime)
+   do iat = 1, nat
+      do jat = 1, iat - 1
+         vec(:) = xyz(:, iat) - xyz(:, jat)
          r1 = norm2(vec)
          r2 = r1*r1
 
          ! dielectric scaling of the charges
-         qq = qat(i)*qat(j)
-         aa = brad(i)*brad(j)
+         qq = qat(iat)*qat(jat)
+         aa = brad(iat)*brad(jat)
          dd = a4*r2/aa
          expd = exp(-dd)
          fgb2 = r2+aa*expd
@@ -651,26 +680,33 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
 
          egb = egb + qq*keps*dfgb
 
-         ap = (1._wp-a4*expd)*dfgb3
+         ap = (1.0_wp - a4 * expd) * dfgb3
          dr = ap*vec
-         gradient(:, i) = gradient(:, i) - dr*qq
-         gradient(:, j) = gradient(:, j) + dr*qq
+         gradient_local(:, iat) = gradient_local(:, iat) - dr*qq
+         gradient_local(:, jat) = gradient_local(:, jat) + dr*qq
 
          bp = -0.5_wp*expd*(1._wp+dd)*dfgb3
-         grddbi = brad(j)*bp
-         grddbj = brad(i)*bp
-         grddb(i) = grddb(i) + grddbi*qq
-         grddb(j) = grddb(j) + grddbj*qq
+         grddbi = brad(jat)*bp
+         grddbj = brad(iat)*bp
+         grddb_local(iat) = grddb_local(iat) + grddbi*qq
+         grddb_local(jat) = grddb_local(jat) + grddbj*qq
 
       enddo
 
       ! self-energy part
-      bp = 1._wp/brad(i)
-      qq = qat(i)*bp
-      egb = egb + 0.5_wp*qat(i)*qq*keps
+      bp = 1.0_wp / brad(iat)
+      qq = qat(iat) * bp
+      egb = egb + 0.5_wp*qat(iat)*qq*keps
       grddbi = -0.5_wp*keps*qq*bp
-      grddb(i) = grddb(i) + grddbi*qat(i)
+      grddb_local(iat) = grddb_local(iat) + grddbi*qat(iat)
    enddo
+   !$omp end do
+   !$omp critical (add_born_deriv_still_)
+   grddb(:) = grddb(:) + grddb_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   !$omp end critical (add_born_deriv_still_)
+   deallocate(gradient_local, grddb_local)
+   !$omp end parallel
 
    ! contract with the Born radii derivatives
    call gemv(brdr, grddb, gradient, beta=1.0_wp)

@@ -128,17 +128,17 @@ subroutine get_ext_cn(cn, xyz, ext_cn, conv)
    nat = size(cn)
 
    ext_cn = 0.0_wp
-   !$omp parallel do default(none) collapse(2)&
+   !$omp parallel do schedule(static) default(none) collapse(2) &
    !$omp shared(nat, conv, cn, ext_cn)&
    !$omp private(i, j , k, result)
    do k = 1, conv%n_a
       do i = 1, nat
+         result = 0.0_wp
          do j = 1, nat
             if (i == j) cycle
-            result = cn(j)/conv%kernel(i, j, k)
-            !$omp atomic
-            ext_cn(i, k) = ext_cn(i, k) + result
+            result = result + cn(j)/conv%kernel(i, j, k)
          end do
+         ext_cn(i, k) = ext_cn(i, k) + result
       end do
    end do
    !$omp end parallel do

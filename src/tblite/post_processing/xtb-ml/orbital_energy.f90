@@ -237,12 +237,12 @@ subroutine get_beta(kernel, cn, beta)
 
    nat = size(kernel, 1)
    n_a = size(kernel, 3)
-   !$omp parallel do default(none) schedule(runtime) &
+   !$omp parallel do default(none) schedule(static) collapse(3) &
    !$omp shared(kernel, cn, beta, n_a, nat) private(a, b, k)
    do k = 1, n_a
       do a = 1, nat
          do b = 1, nat
-            beta(a, b, k) = 1.0_wp/(kernel(a, b, k) *(cn(a, k) +1.0_wp)) 
+            beta(a, b, k) = 1.0_wp/(kernel(a, b, k) * (cn(a, k) + 1.0_wp)) 
          end do
       end do
    end do
@@ -258,13 +258,17 @@ subroutine get_chem_pot_ext(beta, chempot, chempot_ext)
    !> Extended chemical potential
    real(wp), intent(out) :: chempot_ext(:, :)
    integer :: a, b, k
-   !$omp parallel do default(none) schedule(runtime) reduction(+:chempot_ext) &
-   !$omp shared(beta, chempot) private(a, b, k)
+   real(wp) :: tmp
+
+   !$omp parallel do default(none) schedule(static) collapse(2) &
+   !$omp shared(beta, chempot, chempot_ext) private(a, b, k, tmp)
    do k = 1, size(beta, 3)
       do a = 1, size(chempot, 1)
+         tmp = 0.0_wp
          do b = 1, size(chempot, 1)
-            chempot_ext(a, k) = chempot_ext(a, k) + beta(a, b, k) * chempot(b)
+            tmp = tmp + beta(a, b, k) * chempot(b)
          end do
+         chempot_ext(a, k) = tmp
       end do
    end do
 end subroutine get_chem_pot_ext
@@ -278,13 +282,17 @@ subroutine get_e_gap_ext(beta, e_gap, e_gap_ext)
    !> Extended energy gap
    real(wp), intent(out) :: e_gap_ext(:, :)
    integer :: a, b, k
-   !$omp parallel do default(none) schedule(runtime) reduction(+:e_gap_ext) &
-   !$omp shared(beta, e_gap) private(a, b, k)
+   real(wp) :: tmp
+
+   !$omp parallel do default(none) schedule(static) collapse(2) &
+   !$omp shared(beta, e_gap, e_gap_ext) private(a, b, k, tmp)
    do k = 1, size(beta, 3)
       do a = 1, size(e_gap)
+         tmp = 0.0_wp
          do b = 1, size(e_gap)
-            e_gap_ext(a, k) = e_gap_ext(a, k) + beta(a, b, k) * e_gap(b)
+            tmp = tmp + beta(a, b, k) * e_gap(b)
          end do
+         e_gap_ext(a, k) = tmp
       end do
    end do
    
@@ -299,6 +307,9 @@ subroutine get_ehoao_ext(chempot_ext, e_gap_ext, ehoao_ext)
    !> extended HOAO
    real(wp), intent(out) :: ehoao_ext(:, :)
    integer :: a, k
+
+   !$omp parallel do default(none) schedule(static) collapse(2) &
+   !$omp shared(ehoao_ext, e_gap_ext, chempot_ext) private(a, k)
    do k = 1, size(chempot_ext, 2)
       do a = 1, size(chempot_ext, 1)
          ehoao_ext(a, k) = chempot_ext(a, k) - e_gap_ext(a, k) / 2.0_wp
@@ -315,6 +326,9 @@ subroutine get_eluao_ext(chempot_ext, e_gap_ext, eluao_ext)
    !> extended LUAO
    real(wp), intent(out) :: eluao_ext(:, :)
    integer :: a, k
+
+   !$omp parallel do default(none) schedule(static) collapse(2) &
+   !$omp shared(eluao_ext, e_gap_ext, chempot_ext) private(a, k)
    do k = 1, size(chempot_ext, 2)
       do a = 1, size(chempot_ext, 1)
          eluao_ext(a, k) = chempot_ext(a, k) + e_gap_ext(a, k) / 2.0_wp

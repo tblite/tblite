@@ -369,6 +369,10 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    real(wp), allocatable :: dstmp(:, :), ddtmpi(:, :, :), dqtmpi(:, :, :)
    real(wp), allocatable :: ddtmpj(:, :, :), dqtmpj(:, :, :)
 
+   ! Thread-private array for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: dEdcn_local(:), gradient_local(:, :), sigma_local(:, :)
+
    nspin = size(pmat, 3)
 
    allocate(stmp(msao(bas%maxl)**2), dstmp(3, msao(bas%maxl)**2), &
@@ -376,12 +380,18 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       & qtmp(6, msao(bas%maxl)**2), dqtmpi(3, 6, msao(bas%maxl)**2), &
       & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2))
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
-   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list, nspin) &
+   !$omp parallel default(none) &
+   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list, nspin, &
+   !$omp& dEdcn, gradient, sigma) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, spin, &
    !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, &
    !$omp& dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img, &
-   !$omp& hs, shpolyi, shpolyj, shpoly, dshpoly, dsv)
+   !$omp& hs, shpolyi, shpolyj, shpoly, dshpoly, dsv, &
+   !$omp& dEdcn_local, gradient_local, sigma_local)
+   allocate(dEdcn_local(size(dEdcn)), source=0.0_wp) 
+   allocate(gradient_local(size(gradient, 1), size(gradient, 2)), source=0.0_wp)
+   allocate(sigma_local(size(sigma, 1), size(sigma, 2)), source=0.0_wp)
+   !$omp do schedule(runtime) 
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -445,11 +455,11 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                      dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, 1) * stmp(ij)
                   end do
                end do
-               dEdcn(iat) = dEdcn(iat) + dcni
-               dEdcn(jat) = dEdcn(jat) + dcnj
-               gradient(:, iat) = gradient(:, iat) + dG
-               gradient(:, jat) = gradient(:, jat) - dG
-               sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
+               dEdcn_local(iat) = dEdcn_local(iat) + dcni
+               dEdcn_local(jat) = dEdcn_local(jat) + dcnj
+               gradient_local(:, iat) = gradient_local(:, iat) + dG
+               gradient_local(:, jat) = gradient_local(:, jat) - dG
+               sigma_local(:, :) = sigma_local(:, :) + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
                   + spread(dG, 1, 3) * spread(vec, 2, 3))
 
             end do
@@ -457,10 +467,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
       end do
    end do
+   !$omp end do
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn) &
-   !$omp shared(mol, bas, dsedcn, pmat, nspin) &
-   !$omp private(iat, izp, jzp, is, ish, ii, iao, dcni, dhdcni, spin)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -471,9 +480,17 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
          do iao = 1, msao(bas%cgto(ish, izp)%ang)
             dcni = dcni + dhdcni * pmat(ii+iao, ii+iao, 1)
          end do
-         dEdcn(iat) = dEdcn(iat) + dcni
+         dEdcn_local(iat) = dEdcn_local(iat) + dcni
       end do
    end do
+   !$omp end do
+   !$omp critical (get_hamiltonian_gradient_)
+   dEdcn(:) = dEdcn(:) + dEdcn_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   sigma(:, :) = sigma(:, :) + sigma_local(:, :)
+   !$omp end critical (get_hamiltonian_gradient_)
+   deallocate(dEdcn_local, gradient_local, sigma_local)
+   !$omp end parallel
 
 end subroutine get_hamiltonian_gradient
 
