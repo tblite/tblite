@@ -19,14 +19,14 @@
 
 !> Semiclassical DFT-D3 dispersion correction
 module tblite_disp_d3
-   use mctc_env, only : wp
+   use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_container_cache, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
    use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
-   use dftd3_ncoord, only : get_coordination_number, add_coordination_number_derivs
    implicit none
    private
 
@@ -35,9 +35,14 @@ module tblite_disp_d3
 
    !> Container for DFT-D3 type dispersion correction
    type, public, extends(dispersion_type) :: d3_dispersion
+      !> Instance of the actual D3 dispersion model
       type(d3_model) :: model
+      !> Rational damping parameters
       type(rational_damping_param) :: param
+      !> Selected real space cutoffs for this instance
       type(realspace_cutoff) :: cutoff
+       !> Coordination number instance
+      class(ncoord_type), allocatable :: ncoord
    contains
       procedure :: get_engrad
    end type d3_dispersion
@@ -46,17 +51,22 @@ module tblite_disp_d3
 
 contains
 
-subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9)
+subroutine new_d3_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    !> Instance of the dispersion correction
    type(d3_dispersion), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Damping parameters
    real(wp), intent(in) :: s6, s8, a1, a2, s9
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    self%label = label
    call new_d3_model(self%model, mol)
    self%param = rational_damping_param(s6=s6, s8=s8, s9=s9, a1=a1, a2=a2, alp=14.0_wp)
    self%cutoff = realspace_cutoff(cn=25.0_wp, disp3=25.0_wp, disp2=50.0_wp)
+   call new_ncoord(self%ncoord, mol, cn_count%exp, error, &
+      & cutoff=self%cutoff%cn, rcov=self%model%rcov)
 end subroutine new_d3_dispersion
 
 !> Evaluate non-selfconsistent part of the dispersion correction
@@ -86,7 +96,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    allocate(cn(mol%nat))
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
-   call get_coordination_number(mol, lattr, self%cutoff%cn, self%model%rcov, cn)
+   call self%ncoord%get_coordination_number(mol, lattr, cn)
 
    allocate(gwvec(mref, mol%nat))
    if (grad) allocate(gwdcn(mref, mol%nat))
@@ -108,8 +118,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    call self%param%get_dispersion3(mol, lattr, self%cutoff%disp3, self%model%rvdw, &
       & self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma)
    if (grad) then
-      call add_coordination_number_derivs(mol, lattr, self%cutoff%cn, self%model%rcov, &
-         & dEdcn, gradient, sigma)
+      call self%ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
    end if
 end subroutine get_engrad
 
