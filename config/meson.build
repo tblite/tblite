@@ -30,7 +30,7 @@ if fc_id == 'gcc'
     language: 'fortran',
   )
   if fc.version().version_compare('<10')
-    message('GNU Fortran version < 10.0 is not fully supported. Please use a newer version if you can.') 
+    message('tblite it not tested with GNU Fortran < 10, functionality might be impacted. The build automatically adds ‘-fno-range-check’ for compatibility. Please upgrade to a newer compiler version if possible.') 
     add_project_arguments(
       '-fno-range-check',
       language: 'fortran',
