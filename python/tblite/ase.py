@@ -99,7 +99,7 @@ class TBLite(ase.calculators.calculator.Calculator):
     ASE calculator for using xTB Hamiltonians from the tblite library.
     Supported properties by this calculator are:
 
-    - *energy* (free_energy): The total energy of the system (in eV)
+    - *energy* (*free_energy*): The total energy of the system (in eV)
     - *energies*: The atom-partitioned energy of the system (in eV)
     - *forces*: The derivative of the energy with respect to the atomic positions (in eV/Ang)
     - *stress*: The derivative of the energy with respect to cell deformations (PBC only, in eV/Ang³)
@@ -332,7 +332,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         system_changes: List[str] = ase.calculators.calculator.all_changes,
     ) -> None:
         """
-        Perform actual calculation with by calling the TBLite API
+        Perform actual calculation by calling the TBLite API
 
         Example
         -------
