@@ -96,7 +96,7 @@ module tblite_purification_solver
    end type
 
    interface
-      type(c_ptr) function PurifyFockSetup(ctx, nmo, type, run, prec) bind(C, name="PurifyFockSetup")
+      type(c_ptr) function SetupPurification(ctx, nmo, type, run, prec) bind(C, name="SetupPurification")
          use iso_c_binding
          type(c_ptr), value :: ctx
          integer(c_size_t), value, intent(in) :: nmo
@@ -108,14 +108,13 @@ module tblite_purification_solver
          type(c_ptr), value :: ptr
          real(c_double),  intent(in) :: X(*)
       end subroutine
-      subroutine GetDensityAO(ctx, ptr, Fock, Dens, elnum, info) bind(C, name="GetDensityAO")
+      subroutine GetDensityAO(ctx, ptr, Fock, Dens, elnum) bind(C, name="GetDensityAO")
          use iso_c_binding
          type(c_ptr), value :: ctx
          type(c_ptr), value :: ptr
          real(c_double) :: Fock(*)
          real(c_double) :: Dens(*)
          real(c_double), value :: elnum
-         integer(kind=4) :: info
       end subroutine
       subroutine GetEnergyWDensityAO(ctx, ptr, Fock, Dens, WDens) bind(C, name="GetEnergyWDensityAO")
          use iso_c_binding
@@ -125,7 +124,7 @@ module tblite_purification_solver
          real(c_double) :: Dens(*)
          real(c_double) :: WDens(*)
       end subroutine
-      subroutine DeletePointer(ptr) bind(C, name="DeletePointer")
+      subroutine DeletePurification(ptr) bind(C, name="DeletePurification")
          use iso_c_binding
          type(c_ptr), value :: ptr
       end subroutine
@@ -194,11 +193,11 @@ subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
          end block
          end if
    end select
-      
+    
    if (present(maxiter)) self%maxiter = maxiter
    if (present(thresh)) self%thresh = thresh
    call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
-   self%solver_ptr =  PurifyFockSetup(self%ctx%ptr, int(ndim, kind=c_size_t), &
+   self%solver_ptr = SetupPurification(self%ctx%ptr, int(ndim, kind=c_size_t), &
    self%type, self%runmode, self%precision)
 end subroutine
 
@@ -237,17 +236,15 @@ subroutine purify_dp(self, hmat, smat, dens, nel, error)
       real(c_double), contiguous, intent(in) :: smat(:, :)
       real(c_double), contiguous, intent(inout) :: dens(:, :)
       real(c_double) :: nel
-      integer(kind=4) :: info
       type(error_type), allocatable, intent(out) :: error
       character(len=:), allocatable :: error_msg
-
+      character(len=:), allocatable :: msg
       self%iscf = self%iscf +1
-      info = 42
-      call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2, info)
-      if (info /= 0) self%purification_success = .false.
+      call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2)
       if (self%ctx%failed()) then
          call self%ctx%get_error(error_msg)
-         call fatal_error(error, error_msg)
+         write(*,*) error_msg
+         self%purification_success = .false.
       end if
          
 end subroutine purify_dp
@@ -257,7 +254,7 @@ subroutine delete(self)
    call self%lapack_solv%delete() 
    deallocate(self%lapack_solv)
    call self%ctx%delete()
-   call DeletePointer(self%solver_ptr)
+   call DeletePurification(self%solver_ptr)
    self%solver_ptr = c_null_ptr
 end subroutine
 
