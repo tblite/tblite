@@ -28,7 +28,7 @@ module tblite_post_processing_bond_orders
    use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
