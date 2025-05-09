@@ -32,6 +32,8 @@ set(
   "integral-multipole"
   "ipea1-xtb"
   "ncoord"
+  "npy"
+  "npz"
   "post-processing"
   "repulsion"
   "slater-expansion"
@@ -42,9 +44,11 @@ set(
   "solvation-cds"
   "solvation-shift"
   "tagged-io"
+  "wavefunction-restart"
   "xtb-param"
   "xtb-external"
   "ceh"
+  "xtbml"
 )
 set(
   test-srcs

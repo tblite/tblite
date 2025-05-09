@@ -18,21 +18,19 @@
 !> Implements the calculation of Wiberg-Mayer bond orders as post processing method.
 module tblite_post_processing_bond_orders
    use mctc_env, only : wp
-   use tblite_post_processing_type, only : post_processing_type
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_results, only : results_type
-   use tblite_integral_type, only : integral_type
    use tblite_container, only : container_cache
-   use tblite_results, only : results_type
    use tblite_context, only : context_type
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_double_dictionary, only : double_dictionary_type
-   use tblite_timer, only : timer_type, format_time
+   use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
-   use tblite_scf_solver , only : solver_type
+   use tblite_post_processing_type, only : post_processing_type
+   use tblite_results, only : results_type
+   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
+   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
@@ -42,7 +40,7 @@ module tblite_post_processing_bond_orders
    contains
       procedure :: compute
       procedure :: print_timer
-   end type
+   end type wiberg_bond_orders
 
    character(len=24), parameter :: label = "Mayer-Wiberg bond orders"
    type(timer_type) :: timer
@@ -51,7 +49,7 @@ contains
 subroutine new_wbo(new_wbo_type)
    type(wiberg_bond_orders), intent(inout) :: new_wbo_type
    new_wbo_type%label = label
-end subroutine
+end subroutine new_wbo
 
 subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
    class(wiberg_bond_orders),intent(inout) :: self
@@ -59,17 +57,21 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
    type(wavefunction_type), intent(in) :: wfn
-   !> integral container for dipole and quadrupole integrals for CAMMs
-   type(integral_type) :: integrals
-   !> Single-point calculator conatiner
+   !> integral container
+   type(integral_type), intent(in) :: integrals
+   !> calculator instance
    type(xtb_calculator), intent(in) :: calc
+   !> Cache list for storing caches of various interactions
+   type(container_cache), intent(inout) :: cache_list(:)
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
-   type(container_cache), intent(inout) :: cache_list(:)
+   !> Print level
+   integer, intent(in) :: prlevel
+   !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
    real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
    real(kind=wp), allocatable :: focc_(:, :)
-   integer :: prlevel, nspin, i, j
+   integer :: nspin, i, j
    real(kind=wp) :: nel_
    real(wp), allocatable :: pmat(:, :, :)
 
@@ -112,7 +114,7 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
 
    
    call timer%pop()
-end subroutine
+end subroutine compute
 
 subroutine print_timer(self, prlevel, ctx)
    !> Instance of the interaction container
@@ -135,6 +137,6 @@ subroutine print_timer(self, prlevel, ctx)
       end do
       call ctx%message("")
    end if
-end subroutine
+end subroutine print_timer
 
-end module
+end module tblite_post_processing_bond_orders

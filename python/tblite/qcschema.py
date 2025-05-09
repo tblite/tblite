@@ -43,9 +43,9 @@ The model support the following methods:
 
 Supported keywords are:
 
-=================== ==================================== =====================
+=================== ==================================== =========================================
  name                description                          default
-=================== ==================================== =====================
+=================== ==================================== =========================================
  accuracy            Numerical thresholds for SCC         float (1.0)
  guess               Initial guess for wavefunction       integer (0 == SAD)
  max-iter            Maximum number of SCC iterations     integer (250)
@@ -55,9 +55,12 @@ Supported keywords are:
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
- alpb-solvation      ALPB implicit solvation              Epsilon or solvent
- cpcm-solvation      CPCM implicit solvation              Epsilon or solvent
-=================== ==================================== =====================
+ alpb-solvation      ALPB implicit solvation              Solvent name, solution state (optional)
+ gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
+ cpcm-solvation      CPCM implicit solvation              Epsilon
+ gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
+ gb-solvation        GB implicit solvation                Epsilon, Born kernel
+=================== ==================================== =========================================
 """
 
 from io import StringIO

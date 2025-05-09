@@ -487,7 +487,7 @@ pure subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    !> Diatomic-frame-scaled overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l, ic, mapi, mapj
+   integer :: ip, jp, mli, mlj, l, mapi, mapj
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, grad(3), pre
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: ds3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))

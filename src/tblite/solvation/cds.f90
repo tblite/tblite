@@ -227,7 +227,6 @@ subroutine update(self, mol, cache)
    type(container_cache), intent(inout) :: cache
 
    type(cds_cache), pointer :: ptr
-   real(wp) :: adet
 
    call taint(cache, ptr)
 

@@ -46,6 +46,8 @@ tests = [
   'integral-multipole',
   'ipea1-xtb',
   'ncoord',
+  'npy',
+  'npz',
   'post-processing',
   'repulsion',
   'slater-expansion',
@@ -56,8 +58,10 @@ tests = [
   'solvation-cds',
   'solvation-shift',
   'tagged-io',
+  'wavefunction-restart',
   'xtb-param',
   'xtb-external',
+  'xtbml',
 ]
 
 test_srcs = files(

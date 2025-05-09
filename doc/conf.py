@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 _dir = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(_dir, "..", "python"))
+
 import tblite
 
 project = "tblite"
@@ -32,6 +32,8 @@ release = version
 
 extensions = [
     "breathe",
+    "chemiscope.sphinx",
+    "myst_nb",
     "sphinx_design",
     "sphinx.ext.autosummary",
     "sphinx.ext.autodoc",
@@ -55,6 +57,13 @@ breathe_show_include = True
 
 bibtex_bibfiles = ["_static/references.bib"]
 
+jupyter_execute_notebooks = "force"
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+    "colon_fence",
+]
+
 autosummary_generate = True
 
 napoleon_google_docstring = False
@@ -65,8 +74,6 @@ c_id_attributes = [
     "TBLITE_API_ENTRY",
     "TBLITE_API_CALL",
 ]
-
-autodoc_mock_imports = ["tblite.library", "numpy", "ase"]
 
 templates_path = ["_templates"]
 source_suffix = [".rst"]

@@ -162,7 +162,6 @@ subroutine make_coulomb_o1(coulomb, mol, shell)
       & 1.500000_wp, 1.000000_wp, 0.829312_wp, 0.732923_wp, 1.116963_wp] 
    
    real(wp), allocatable :: hubbard_derivs(:, :)
-   integer :: isp, izp, ish, il
    type(onsite_thirdorder), allocatable :: tmp
 
    allocate(tmp)
@@ -346,11 +345,10 @@ subroutine test_generic(error, mol, qat, qsh, make_coulomb, ref, thr_in)
    !> Test threshold
    real(wp), intent(in), optional :: thr_in
 
-   integer :: iat, ic
    class(coulomb_type), allocatable :: coulomb
    type(container_cache) :: cache
-   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :), lattr(:, :)
+   real(wp) :: energy(mol%nat), sigma(3, 3)
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp) :: thr_
    type(wavefunction_type) :: wfn
 

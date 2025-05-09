@@ -116,6 +116,10 @@ module tblite_cli_help
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --restart [<file>]   Restart calculation from previous run"//nl//&
+      "                           File name for restart file is optional,"//nl//&
+      "                           (Default: tblite-restart.npz)"//nl//&
+      "      --no-restart         Do not restart calculation from previous run"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
@@ -145,7 +149,8 @@ module tblite_cli_help
       "      --post-processing <name>"//nl//&
       "                           Add post processing methods to the calculation,"//nl//&
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
-      "                           Options: molmom (molecular multipole moments)"//nl//& 
+      "                           Options: molmom (molecular multipole moments)"//nl//&
+      "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
       "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
       "                           Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&

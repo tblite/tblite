@@ -442,7 +442,7 @@ function new_param_h0spec(mol, param, irc) result(self)
    !> Instance of the Hamiltonian specification
    type(param_h0spec) :: self
 
-   integer :: isp, jsp, il, jl, ir, ish
+   integer :: isp, il, ir, ish
    integer :: ang_idx(0:4)
 
    self%param => param

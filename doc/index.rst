@@ -16,6 +16,7 @@ The *tblite* project aims to provide an efficent and uniform interface to the (e
 
    Installation <installation>
    Tutorials <tutorial/index>
+   Properties <properties/index>
    Integrations <users/index>
    Specification <spec/index>
    API <api/index>

@@ -903,34 +903,10 @@ subroutine get_reference_occ(self, mol, bas, refocc)
 end subroutine get_reference_occ
 
 
-subroutine get_hubbard_derivs(mol, bas, hubbard_derivs)
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Basis set information
-   type(basis_type), intent(in) :: bas
-   !> Shell resolved Hubbard derivatives
-   real(wp), allocatable, intent(out) :: hubbard_derivs(:, :)
-
-   real(wp), parameter :: shell_hubbard_derivs(0:2) = [1.0_wp, 0.5_wp, 0.25_wp]
-
-   integer :: isp, izp, ish, il
-
-   allocate(hubbard_derivs(maxval(bas%nsh_id), mol%nid))
-   hubbard_derivs(:, :) = 0.0_wp
-   do isp = 1, mol%nid
-      izp = mol%num(isp)
-      do ish = 1, bas%nsh_id(isp)
-         il = bas%cgto(ish, isp)%ang
-         hubbard_derivs(ish, isp) = p_hubbard_derivs(izp) * shell_hubbard_derivs(il)
-      end do
-   end do
-end subroutine get_hubbard_derivs
-
-
 subroutine export_ipea1_param(param)
    type(param_record), intent(out) :: param
 
-   integer :: izp, jzp, i, il, jl
+   integer :: izp, jzp, il, jl
 
    param%version = 1
    param%name = "IPEA1-xTB"

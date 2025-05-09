@@ -194,7 +194,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
 
    integer :: iat, jat, izp, jzp, itr, k, img, inl
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, shpoly, dtmpj(3), qtmpj(6)
+   real(wp) :: rr, r2, vec(3), hij, shpoly, dtmpj(3), qtmpj(6)
    real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
 
    overlap(:, :) = 0.0_wp
@@ -288,27 +288,22 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
    end do
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, trans, cutoff2, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, izp, itr, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
-   !$omp private(r2, vec, stmp, dtmpi, qtmpi, hij, shpoly, rr)
+   !$omp shared(mol, bas, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
+   !$omp private(iat, izp, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
+   !$omp private(vec, stmp, dtmpi, qtmpi, hij)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
       vec(:) = 0.0_wp
-      r2 = 0.0_wp
-      rr = sqrt(sqrt(r2) / (h0%rad(izp) + h0%rad(izp)))
       do ish = 1, bas%nsh_id(izp)
          ii = bas%iao_sh(is+ish)
          do jsh = 1, bas%nsh_id(izp)
             jj = bas%iao_sh(is+jsh)
             call multipole_cgto(bas%cgto(jsh, izp), bas%cgto(ish, izp), &
-               & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
+               & 0.0_wp, vec, bas%intcut, stmp, dtmpi, qtmpi)
 
-            shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-               * (1.0_wp + h0%shpoly(jsh, izp)*rr)
-
-            hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh)) &
-               * shpoly
+            ! shpoly is always 1.0, because rr is always 0.0
+            hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(is+jsh))
 
             nao = msao(bas%cgto(jsh, izp)%ang)
             do iao = 1, msao(bas%cgto(ish, izp)%ang)
@@ -367,7 +362,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), cutoff2, hij, dG(3), hscale, hs
+   real(wp) :: rr, r2, vec(3), hij, dG(3), hscale, hs
    real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
    real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)

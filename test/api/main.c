@@ -2921,6 +2921,145 @@ int test_post_processing_api()
     return 1;
 }
 
+int test_xtbml_api()
+{
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    tblite_double_dictionary dict = NULL;
+    tblite_table table = NULL;
+    tblite_table table_extra = NULL;
+    tblite_table bottom = NULL;
+    tblite_param param = NULL;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_push_back_post_processing_str(ctx, calc, "xtbml");
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    dict = tblite_get_post_processing_dict(error, res);
+    if (!dict)
+        goto err;
+
+    int n_dict_entries = 0;
+    n_dict_entries = tblite_get_n_entries_dict(error, dict);
+    if (!check_int(n_dict_entries, 38, "Check number of entries in dict, double addition of wbo")) {
+        goto err;
+    }
+
+    double CN_array[21];
+    tblite_get_array_entry_label(error, dict, "CN_A", CN_array);
+    if (tblite_check(error))
+        goto err;
+
+
+    bottom = tblite_new_table(NULL);
+    table_extra = tblite_new_table(NULL);
+    table = tblite_new_table(NULL);
+    param = tblite_new_param();
+    
+    tblite_export_gfn1_param(error, param);
+    if (tblite_check(error))
+        goto err;
+    tblite_dump_param(error, param, table);
+
+    table_extra = tblite_table_add_table(error, table, "post-processing"); 
+    if (tblite_check(error))
+        goto err;
+    bottom = tblite_table_add_table(error, table_extra, "xtbml");
+    if (tblite_check(error))
+        goto err;
+    bool bo = true;
+    tblite_table_set_bool(error, bottom, "geometry", &bo, 0);
+    tblite_table_set_bool(error, bottom, "density", &bo, 0);
+    tblite_table_set_bool(error, bottom, "orbital", &bo, 0);
+    tblite_table_set_bool(error, bottom, "energy", &bo, 0);
+    tblite_table_set_bool(error, bottom, "convolution", &bo, 0);
+    tblite_table_set_bool(error, bottom, "tensorial-output", &bo, 0);
+
+    tblite_delete(param);
+    param = tblite_new_param();
+    tblite_load_param(error, param, table);
+    tblite_delete(calc);
+    tblite_delete(dict);
+
+    calc = tblite_new_gfn1_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_push_back_post_processing_param(ctx, calc, param);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_delete(res);
+    res = tblite_new_result();
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    dict = tblite_get_post_processing_dict(error, res);
+    if (!dict)
+        goto err;
+
+    n_dict_entries = 0;
+    n_dict_entries = tblite_get_n_entries_dict(error, dict);
+    if (!check_int(n_dict_entries, 101, "Check number of entries in dict, double addition of wbo")) {
+        goto err;
+    }
+    
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    tblite_delete(dict);
+    tblite_delete(param);
+    tblite_delete(table);
+    tblite_delete(bottom);
+    tblite_delete(table_extra);
+    return 0;
+    err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    tblite_delete(dict);
+    tblite_delete(param);
+    tblite_delete(table);
+    return 1;
+}
+
 int test_uninitialized_solvation()
 {
     printf("Start test: Uninitialized Solvation\n");
@@ -3711,6 +3850,6 @@ int main(void)
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
-    stat += test_context_solver_api();
+    stat += test_xtbml_api();
     return stat;
 }

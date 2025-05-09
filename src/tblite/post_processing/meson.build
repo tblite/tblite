@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-#subdir('xtb-ml')
+subdir('xtb-ml')
 
 srcs += files(
   'list.f90',

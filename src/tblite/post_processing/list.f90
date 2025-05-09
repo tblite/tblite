@@ -18,24 +18,23 @@
 !> Implements post processing conatiner list, collcting post processing methods.
 module tblite_post_processing_list
    use mctc_env, only : wp, error_type, fatal_error
-   use tblite_post_processing_type, only : post_processing_type
-   use tblite_param_post_processing, only : post_processing_param_list
-   use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
-   use tblite_param, only : param_record
-   use tblite_param_serde, only : serde_record
-   use tblite_wavefunction_type, only : wavefunction_type
+   use mctc_io, only : structure_type
    use tblite_context, only : context_type
-   use tblite_container, only : container_list
-   use tblite_timer, only : timer_type, format_time
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_container_cache, only : container_cache
    use tblite_double_dictionary, only : double_dictionary_type
-   use mctc_io, only : structure_type
    use tblite_integral_type, only : integral_type
-   use tblite_results, only : results_type
+   use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_param_post_processing, only : post_processing_param_list
+   use tblite_param_serde, only : serde_record
+   use tblite_param_xtbml_features, only : xtbml_features_record
    use tblite_post_processing_bond_orders, only : new_wbo, wiberg_bond_orders
    use tblite_post_processing_molecular_moments, only : new_molecular_moments, molecular_moments
-   use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_post_processing_type, only : post_processing_type
+   use tblite_post_processing_xtbml_features, only : xtbml_type, new_xtbml_features
+   use tblite_results, only : results_type
+   use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
@@ -43,7 +42,7 @@ module tblite_post_processing_list
 
    type :: post_processing_record
       class(post_processing_type), allocatable :: pproc
-   end type
+   end type post_processing_record
 
    type, public :: post_processing_list
       type(post_processing_record), allocatable :: list(:)
@@ -56,12 +55,12 @@ module tblite_post_processing_list
       procedure :: info
       procedure :: print_timer
       procedure :: push
-   end type
+   end type post_processing_list
 
    interface add_post_processing
       procedure :: add_post_processing_param
       procedure :: add_post_processing_cli
-   end interface
+   end interface add_post_processing
    logical :: print_csv_bool =.false.
 contains
 
@@ -74,30 +73,20 @@ subroutine print_timer(self, prlevel, ctx)
    do i = 1, self%n
       call self%list(i)%pproc%print_timer(prlevel, ctx)
    end do
-end subroutine
+end subroutine print_timer
 
 subroutine pack_res(self, mol, res)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type), intent(in) :: mol
    type(results_type), intent(inout) :: res
-   integer :: i, n
-   real(wp), allocatable :: tmp_array(:)
-   character(len=:), allocatable :: tmp_label
 
-   !allocate(res%dict)
    res%dict = self%dict
-end subroutine
+end subroutine pack_res
 
 subroutine print_csv(self, mol)
-   class(post_processing_list),intent(in) :: self
+   class(post_processing_list), intent(in) :: self
    type(structure_type) :: mol
-   integer :: n, i, out, j, nat
-   character(len=:), allocatable :: tmp_label
-   real(wp), allocatable :: tmp_array(:, :), array(:)
-   integer, allocatable :: z_array(:)
-
-
-end subroutine
+end subroutine print_csv
 
 subroutine compute(self, mol, wfn, int, calc, c_list, ctx, prlevel)
    class(post_processing_list) :: self
@@ -117,7 +106,7 @@ subroutine compute(self, mol, wfn, int, calc, c_list, ctx, prlevel)
    do i = 1, self%n
       call self%list(i)%pproc%compute(mol, wfn, int, calc, c_list, ctx, prlevel, self%dict)
    end do
-end subroutine
+end subroutine compute
 
 pure function info(self, verbosity, indent) result(str)
    !> Instance of the interaction container
@@ -156,9 +145,18 @@ subroutine add_post_processing_param(self, param)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
+      type is (xtbml_features_record)
+         block
+            type(xtbml_type), allocatable :: tmp
+            class(post_processing_type), allocatable :: proc
+            allocate(tmp)
+            call new_xtbml_features(tmp, par)
+            call move_alloc(tmp, proc)
+            call self%push(proc)
+         end block
       end select
    end do
-end subroutine
+end subroutine add_post_processing_param
 
 subroutine add_post_processing_cli(self, config, error)
    class(post_processing_list), intent(inout) :: self
@@ -186,12 +184,29 @@ subroutine add_post_processing_cli(self, config, error)
          call move_alloc(molmom_tmp, tmp)
          call param%push(tmp)
       end block
+   case("xtbml")
+      block 
+          type(xtbml_features_record), allocatable :: ml_param
+          class(serde_record), allocatable :: cont
+          allocate(ml_param)
+          call ml_param%populate_default_param(.false.)
+          call move_alloc(ml_param, cont)
+          call param%push(cont)
+      end block
+   case("xtbml-xyz","xtbml_xyz")
+    block 
+      type(xtbml_features_record), allocatable :: ml_param
+      class(serde_record), allocatable :: cont 
+      allocate(ml_param)
+      call ml_param%populate_default_param(.true.)
+      call move_alloc(ml_param, cont)
+      call param%push(cont) 
+   end block
    case default
       block
          type(toml_table), allocatable :: table
-         integer :: io, stat
+         integer :: io
          type(toml_error), allocatable :: t_error
-         type(param_record) :: record
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")
@@ -216,7 +231,7 @@ subroutine add_post_processing_cli(self, config, error)
       end block   
    end select
    call add_post_processing(self, param)
-end subroutine
+end subroutine add_post_processing_cli
 
 subroutine push(self, record)
    class(post_processing_list), intent(inout) :: self
@@ -242,7 +257,7 @@ function is_duplicate(self, record) result(duplicate)
    do i = 1, self%n
       if (record%label == self%list(i)%pproc%label) duplicate = .true.
    end do
-end function
+end function is_duplicate
 
 subroutine resize(list, n)
    !> Instance of the array to be resized
@@ -278,4 +293,5 @@ subroutine resize(list, n)
    end if
 
 end subroutine resize
-end module
+
+end module tblite_post_processing_list

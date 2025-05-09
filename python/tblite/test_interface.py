@@ -507,6 +507,42 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
+def test_xtbml_api():
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml")
+    res = calc.singlepoint()
+    dict_ = res.dict()
+    cn = dict_.get("post-processing-dict")
+    cn = cn.get("CN_A")
+    assert len(cn) == numbers.size
+
+    dict_xtbml = res.dict()
+    dict_xtbml = dict_xtbml.get("post-processing-dict")
+    assert len(dict_xtbml.keys()) == 38
+    
+    toml_inp = ["[post-processing.xtbml] \n",
+                "geometry = false \n",
+                "density = true \n",
+                "orbital = true \n",
+                "energy = false \n", 
+                "convolution = true\n",
+                "a = [1.0, 1.2]\n",
+                "tensorial-output = true"]
+    
+    with open("xtbml.toml", "w") as f:
+        f.writelines(toml_inp)
+        
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.add("xtbml.toml")
+    
+    res = calc.singlepoint()
+    dict_ = res.get("post-processing-dict")
+    
+    assert dict_.get("CN_A") is None
+    
+    assert len(dict_.keys()) == 129
+    
 
 def test_solvation_gfn2_cpcm():
     """Test CPCM solvation with GFN2-xTB"""
@@ -517,8 +553,7 @@ def test_solvation_gfn2_cpcm():
     calc.add("cpcm-solvation", 7.0)
 
     energy = calc.singlepoint().get("energy")
-
-    assert energy == approx(-28.43287176929)
+    assert energy == approx(-28.43287176929, abs=THR)
 
 
 def test_solvation_gfn2_alpb():
@@ -530,7 +565,7 @@ def test_solvation_gfn2_alpb():
     calc.add("alpb-solvation", "ethanol")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.448543412625)
+    assert energy == approx(-28.448543424860, abs=THR)
 
 
 def test_solvation_gfn2_alpb_bar1mol():
@@ -542,7 +577,7 @@ def test_solvation_gfn2_alpb_bar1mol():
     calc.add("alpb-solvation", "ethanol", "bar1mol")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.445512179798)
+    assert energy == approx(-28.445512192034, abs=THR)
 
 
 def test_solvation_gfn2_alpb_reference():
@@ -554,21 +589,20 @@ def test_solvation_gfn2_alpb_reference():
     calc.add("alpb-solvation", "ethanol", "reference")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.442829765226)
+    assert energy == approx(-28.442829777462, abs=THR)
 
 
 def test_solvation_gfn1_gbe():
     """Test GBE solvation with GFN1-xTB"""
     numbers, positions = get_crcp2()
 
-    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc = Calculator("GFN1-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
     calc.add("gbe-solvation", 7.0, "p16")
 
     energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.35002525960, abs=THR)
 
-    assert energy == approx(-28.43674134364)
-    
 
 def test_solvation_gfn2_gbsa():
     """Test GBSA solvation with GFN2-xTB"""
@@ -579,7 +613,7 @@ def test_solvation_gfn2_gbsa():
     calc.add("gbsa-solvation", "water")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.439916755536)
+    assert energy == approx(-28.439916768534, abs=THR)
 
 
 def test_solvation_gfn2_gb():
@@ -591,9 +625,7 @@ def test_solvation_gfn2_gb():
     calc.add("gb-solvation", 7.0, "still")
 
     energy = calc.singlepoint().get("energy")
-
-    assert energy == approx(-28.43677095356)
-
+    assert energy == approx(-28.43676829542, abs=THR) 
 
 def test_solvation_gfn1_alpb():
     """Test ALPB solvation with GFN1-xTB"""
@@ -604,7 +636,7 @@ def test_solvation_gfn1_alpb():
     calc.add("alpb-solvation", "ethanol", "reference")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.354559810599)
+    assert energy == approx(-28.3545598426876, abs=THR)
 
 
 def test_result_getter():
@@ -623,6 +655,7 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
+    
 
 
 def test_result_setter():

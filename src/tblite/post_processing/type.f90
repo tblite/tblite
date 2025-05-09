@@ -18,18 +18,16 @@
 !> Implements post processing container abstract class, and the collection of computing caches.
 module tblite_post_processing_type
    use mctc_env, only : wp
-   use tblite_double_dictionary, only : double_dictionary_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_results, only : results_type
-   use tblite_integral_type, only : integral_type
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_results, only : results_type
-   use tblite_context, only : context_type
-   use tblite_container, only : container_list
-   use tblite_timer, only : timer_type, format_time
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_container_cache, only : container_cache
+   use tblite_context, only : context_type
+   use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_integral_type, only : integral_type
+   use tblite_results, only : results_type
+   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
    public :: post_processing_type, collect_containers_caches
@@ -38,12 +36,11 @@ module tblite_post_processing_type
       character(len=:), allocatable :: label
 
    contains
-      !setup container
+      !> Setup container
       procedure(compute), deferred :: compute
       procedure :: info
       procedure :: print_timer
-      !print toml could be possible
-   end type
+   end type  post_processing_type
 
    type(timer_type) :: timer
    abstract interface
@@ -56,19 +53,20 @@ module tblite_post_processing_type
       !> Wavefunction strcuture data
       type(wavefunction_type), intent(in) :: wfn
       !> integral container
-      type(integral_type) :: integrals
+      type(integral_type), intent(in) :: integrals
       !> calculator instance
       type(xtb_calculator), intent(in) :: calc
+      !> Cache list for storing caches of various interactions
+      type(container_cache), intent(inout) :: cache_list(:)
       !> Context container for writing to stdout
       type(context_type), intent(inout) :: ctx
-
-      type(container_cache), intent(inout) :: cache_list(:)
-      integer :: prlevel
+      !> Print level
+      integer, intent(in) :: prlevel
+      !> Dictionary for storing results
       type(double_dictionary_type), intent(inout) :: dict
-      end subroutine
+      end subroutine compute
    end interface
 contains
-
 
 
 pure function info(self, verbosity, indent) result(str)
@@ -91,7 +89,9 @@ end function info
 subroutine print_timer(self, prlevel, ctx)
    !> Instance of the interaction container
    class(post_processing_type), intent(in) :: self
+   !> Print level
    integer :: prlevel
+   !> Context container for writing to stdout
    type(context_type) :: ctx
    real(wp) :: ttime
 
@@ -100,19 +100,19 @@ subroutine print_timer(self, prlevel, ctx)
       call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
       call ctx%message("")
    end if
-end subroutine
+end subroutine print_timer
 
 subroutine collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
    type(container_cache), allocatable, intent(inout) :: rcache, ccache, hcache, dcache, icache
    type(container_cache), allocatable, intent(inout) :: cache_list(:)
    type(xtb_calculator), intent(in) :: calc
-   integer :: index, i
+
    allocate(cache_list(5))
    if (allocated(calc%repulsion)) call move_alloc(rcache%raw, cache_list(1)%raw)
    if (allocated(calc%coulomb)) call move_alloc(ccache%raw, cache_list(2)%raw)
    if (allocated(calc%halogen)) call move_alloc(hcache%raw, cache_list(3)%raw)
    if (allocated(calc%dispersion)) call move_alloc(dcache%raw, cache_list(4)%raw)
    if (allocated(calc%interactions)) call move_alloc(icache%raw, cache_list(5)%raw)
-end subroutine
+end subroutine collect_containers_caches
 
 end module tblite_post_processing_type

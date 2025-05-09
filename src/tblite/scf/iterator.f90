@@ -39,13 +39,14 @@ module tblite_scf_iterator
    implicit none
    private
 
-   public :: next_scf, get_mixer_dimension, get_density, get_qat_from_qsh
+   public :: next_scf, get_mixer_dimension, get_electronic_energy, reduce
+   public :: get_density, get_qat_from_qsh
 
 contains
 
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
-      & interactions, ints, pot, cache, dcache, icache, &
+      & interactions, ints, pot, ccache, dcache, icache, &
       & energies, error)
    !> Current iteration count
    integer, intent(inout) :: iscf
@@ -73,11 +74,11 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Density dependent potential shifts
    type(potential_type), intent(inout) :: pot
    !> Restart data for coulombic interactions
-   type(container_cache), intent(inout) :: cache
+   type(container_cache), intent(inout), optional :: ccache
    !> Restart data for dispersion interactions
-   type(container_cache), intent(inout) :: dcache
+   type(container_cache), intent(inout), optional :: dcache
    !> Restart data for interaction containers
-   type(container_cache), intent(inout) :: icache
+   type(container_cache), intent(inout), optional :: icache
 
    !> Self-consistent energy
    real(wp), intent(inout) :: energies(:)
@@ -96,13 +97,13 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    iscf = iscf + 1
    call pot%reset
-   if (present(coulomb)) then
-      call coulomb%get_potential(mol, cache, wfn, pot)
+   if (present(coulomb) .and. present(ccache)) then
+      call coulomb%get_potential(mol, ccache, wfn, pot)
    end if
-   if (present(dispersion)) then
+   if (present(dispersion) .and. present(dcache)) then
       call dispersion%get_potential(mol, dcache, wfn, pot)
    end if
-   if (present(interactions)) then
+   if (present(interactions) .and. present(icache)) then
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
@@ -128,13 +129,13 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    energies(:) = ts / size(energies)
    call reduce(energies, eao, bas%ao2at)
-   if (present(coulomb)) then
-      call coulomb%get_energy(mol, cache, wfn, energies)
+   if (present(coulomb) .and. present(ccache)) then
+      call coulomb%get_energy(mol, ccache, wfn, energies)
    end if
-   if (present(dispersion)) then
+   if (present(dispersion) .and. present(dcache)) then
       call dispersion%get_energy(mol, dcache, wfn, energies)
    end if
-   if (present(interactions)) then
+   if (present(interactions) .and. present(icache)) then
       call interactions%get_energy(mol, icache, wfn, energies)
    end if
 end subroutine next_scf
