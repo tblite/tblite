@@ -14,15 +14,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-math = cc.find_library('m')
+set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
-test(
-  'C-API',
-  executable(
-    '@0@-capi-tester'.format(meson.project_name()),
-    sources: files('main.c'),
-    dependencies: [tblite_dep, math],
-    link_language: 'c',
-  ),
-  suite: 'api',
+list(
+  APPEND srcs
+  "${dir}/sygvd.F90"
 )
+
+set(srcs "${srcs}" PARENT_SCOPE)
