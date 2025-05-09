@@ -442,7 +442,7 @@ subroutine test_g_mb03(error)
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), numgrad(:, :), sigma(:, :)
 
-   ctx%solver = lapack_solver(lapack_algorithm%gvr)
+   ctx%ctxsolver = lapack_solver(lapack_algorithm%gvr)
    call get_structure(mol, "MB16-43", "03")
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat), sigma(3, 3))
