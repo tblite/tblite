@@ -37,7 +37,7 @@ module tblite_xtb_singlepoint
       & get_mixer_dimension, potential_type, new_potential
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
+   use tblite_wavefunction, only : wavefunction_type, &
       & get_alpha_beta_occupation, &
       & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
@@ -123,7 +123,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    econv = 1.e-6_wp*accuracy
    pconv = 2.e-5_wp*accuracy
 
-   call ctx%new_solver(solver, calc%bas%nao)
+   call ctx%new_solver(solver, calc%bas%nao, econv)
 
    grad = present(gradient) .and. present(sigma)
 
@@ -285,8 +285,10 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
-   call ctx%delete_solver(solver)
-   if (ctx%failed()) return
+   if (ctx%failed()) then 
+      call ctx%delete_solver(solver)
+      return
+   end if
 
    if (grad) then
       if (allocated(calc%coulomb)) then
@@ -312,10 +314,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       dEdcn(:) = 0.0_wp
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
-      do spin = 1, wfn%nspin
-         tmp = wfn%focc(:, spin) * wfn%emo(:, spin)
-         call get_density_matrix(tmp, wfn%coeff(:, :, spin), wdensity(:, :, spin))
-      end do
+      call solver%get_energy_w_density_matrix(wfn, wdensity)
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
@@ -379,7 +378,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
       call ctx%set_error(error)
    end if
-
+   
+   call ctx%delete_solver(solver)
 
 end subroutine xtb_singlepoint
 

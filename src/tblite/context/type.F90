@@ -24,7 +24,7 @@
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use iso_fortran_env, only : output_unit
-   use mctc_env, only : error_type
+   use mctc_env, only : error_type, wp
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
@@ -35,6 +35,8 @@ module tblite_context_type
 
    !> Calculation context type for error handling and output messages
    type, public :: context_type
+      !> switch to allow the reuse of the context solver, for MD/CREST etc
+      logical :: reuse_solver = .false.
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context
@@ -130,7 +132,7 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, solver, ndim)
+subroutine new_solver(self, solver, ndim, acc)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
@@ -138,12 +140,15 @@ subroutine new_solver(self, solver, ndim)
    class(solver_type), allocatable, intent(out) :: solver
    !> Dimension of the eigenvalue problem
    integer, intent(in) :: ndim
+   !> Convergence threshold for the electronic solver
+   real(wp), intent(in), optional :: acc
 
    if (.not.allocated(self%solver)) then
       self%solver = lapack_solver()
    end if
-
-   call self%solver%new(solver, ndim)
+   if (.not.allocated(solver)) then
+      call self%solver%new(solver, ndim, acc)
+   end if
 end subroutine new_solver
 
 
@@ -155,7 +160,7 @@ subroutine delete_solver(self, solver)
    class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%solver%delete(solver)
+      call self%solver%delete(solver, self%reuse_solver)
    end if
 #if WITH_MKL 
    call mkl_free_buffers()
