@@ -584,7 +584,7 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    end do
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha) private(iat, rr, k)
+   !$omp shared(amat_dd, amat_sq, mol, vol, alpha) private(iat, rr, k)
    do iat = 1, mol%nat
       ! dipole-dipole selfenergy: -2/3·α³/sqrt(π) Σ(i) μ²(i)
       rr = -2.0_wp/3.0_wp * alpha**3 / sqrtpi
@@ -752,10 +752,19 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
    real(wp) :: r1, r2, vec(3), rr, fdmp3, fdmp5, g1, g3, g5, g7, dG(3), dS(3, 3)
    real(wp) :: ddmp3, ddmp5, fddr, eq, edd, dpidpj, dpiv, dpjv, dpiqj, qidpj
 
-   !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
-   !$omp shared(mol, kdmp3, kdmp5, rad, qat, dpat, qpat) &
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: dEdr_local(:), gradient_local(:, :), sigma_local(:, :)
+
+   !$omp parallel default(none) &
+   !$omp shared(mol, kdmp3, kdmp5, rad, qat, dpat, qpat, dEdr, gradient, sigma) &
    !$omp private(iat, jat, r1, r2, vec, rr, fdmp3, fdmp5, g1, g3, g5, g7, dG, dS, &
-   !$omp& ddmp3, ddmp5, fddr, eq, edd, dpidpj, dpiv, dpjv, dpiqj, qidpj)
+   !$omp& ddmp3, ddmp5, fddr, eq, edd, dpidpj, dpiv, dpjv, dpiqj, qidpj, &
+   !$omp& dEdr_local, gradient_local, sigma_local)
+   allocate(dEdr_local(size(dEdr, 1)), source=0.0_wp)
+   allocate(gradient_local(size(gradient, 1), size(gradient, 2)), source=0.0_wp)
+   allocate(sigma_local(size(sigma, 1), size(sigma, 2)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       do jat = 1, iat - 1
          rr = 0.5_wp*(rad(iat)+rad(jat))
@@ -780,11 +789,11 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
          ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
             & + spread(dG, 1, 3) * spread(vec, 2, 3))
 
-         dEdr(iat) = dEdr(iat) + fddr
-         dEdr(jat) = dEdr(jat) + fddr
-         gradient(:, iat) = gradient(:, iat) + dG
-         gradient(:, jat) = gradient(:, jat) - dG
-         sigma(:, :) = sigma + dS
+         dEdr_local(iat) = dEdr_local(iat) + fddr
+         dEdr_local(jat) = dEdr_local(jat) + fddr
+         gradient_local(:, iat) = gradient_local(:, iat) + dG
+         gradient_local(:, jat) = gradient_local(:, jat) - dG
+         sigma_local(:, :) = sigma_local + dS
 
          dpidpj = dot_product(dpat(:, jat), dpat(:, iat))
          dpiv = dot_product(dpat(:, iat), vec)
@@ -797,11 +806,11 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
          ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dg, 2, 3) &
             & + spread(dg, 1, 3) * spread(vec, 2, 3))
 
-         dEdr(iat) = dEdr(iat) + fddr
-         dEdr(jat) = dEdr(jat) + fddr
-         gradient(:, iat) = gradient(:, iat) + dg
-         gradient(:, jat) = gradient(:, jat) - dg
-         sigma(:, :) = sigma + ds
+         dEdr_local(iat) = dEdr_local(iat) + fddr
+         dEdr_local(jat) = dEdr_local(jat) + fddr
+         gradient_local(:, iat) = gradient_local(:, iat) + dg
+         gradient_local(:, jat) = gradient_local(:, jat) - dg
+         sigma_local(:, :) = sigma_local + ds
 
          eq = &
             & + 2*(qat(jat)*qpat(2,iat) + qpat(2,jat)*qat(iat))*vec(1)*vec(2) &
@@ -824,13 +833,23 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
          ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
             & + spread(dG, 1, 3) * spread(vec, 2, 3))
 
-         dEdr(iat) = dEdr(iat) + fddr
-         dEdr(jat) = dEdr(jat) + fddr
-         gradient(:, iat) = gradient(:, iat) + dg
-         gradient(:, jat) = gradient(:, jat) - dg
-         sigma(:, :) = sigma + ds
+         dEdr_local(iat) = dEdr_local(iat) + fddr
+         dEdr_local(jat) = dEdr_local(jat) + fddr
+         gradient_local(:, iat) = gradient_local(:, iat) + dg
+         gradient_local(:, jat) = gradient_local(:, jat) - dg
+         sigma_local(:, :) = sigma_local + ds
       end do
    end do
+   !$omp end do
+   !$omp critical (get_multipole_gradient_0d_)
+   dEdr(:) = dEdr(:) + dEdr_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   sigma(:, :) = sigma(:, :) + sigma_local(:, :)
+   !$omp end critical (get_multipole_gradient_0d_)
+   deallocate(dEdr_local)
+   deallocate(gradient_local)
+   deallocate(sigma_local)
+   !$omp end parallel
 end subroutine get_multipole_gradient_0d
 
 !> Evaluate multipole derivatives under 3D periodic boundary conditions
@@ -866,13 +885,23 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    real(wp) :: wsw, vol, rr, dE, dEd
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: dEdr_local(:), gradient_local(:, :), sigma_local(:, :)
+
    vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
-   !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
-   !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
-   !$omp private(iat, jat, dE, dG, dS, wsw, img, vec, rr, dEd, dGd, dGr, dSd, dSr)
+   !$omp parallel default(none) &
+   !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat, &
+   !$omp& dEdr, gradient, sigma) &
+   !$omp private(iat, jat, dE, dG, dS, wsw, img, vec, rr, dEd, dGd, dGr, dSd, dSr, &
+   !$omp& dEdr_local, gradient_local, sigma_local)
+   allocate(dEdr_local(size(dEdr, 1)), source=0.0_wp)
+   allocate(gradient_local(size(gradient, 1), size(gradient, 2)), source=0.0_wp)
+   allocate(sigma_local(size(sigma, 1), size(sigma, 2)), source=0.0_wp)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       do jat = 1, iat - 1
          dE = 0.0_wp
@@ -891,17 +920,16 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
             dG = dG + (dGd + dGr) * wsw
             dS = dS + (dSd + dSr) * wsw
          end do
-         dEdr(iat) = dEdr(iat) + dE
-         dEdr(jat) = dEdr(jat) + dE
-         gradient(:, iat) = gradient(:, iat) + dG
-         gradient(:, jat) = gradient(:, jat) - dG
-         sigma = sigma + dS
+         dEdr_local(iat) = dEdr_local(iat) + dE
+         dEdr_local(jat) = dEdr_local(jat) + dE
+         gradient_local(:, iat) = gradient_local(:, iat) + dG
+         gradient_local(:, jat) = gradient_local(:, jat) - dG
+         sigma_local = sigma_local + dS
       end do
    end do
+   !$omp end do
 
-   !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, sigma) &
-   !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
-   !$omp private(iat, jat, dE, dG, dS, wsw, img, vec, rr, dEd, dGd, dGr, dSd, dSr)
+   !$omp do schedule(runtime)
    do iat = 1, mol%nat
       dE = 0.0_wp
       dS(:, :) = 0.0_wp
@@ -917,9 +945,19 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
          dE = dE + dEd * wsw
          dS = dS + (dSd + dSr) * wsw
       end do
-      dEdr(iat) = dEdr(iat) + dE
-      sigma = sigma + 0.5_wp * dS
+      dEdr_local(iat) = dEdr_local(iat) + dE
+      sigma_local = sigma_local + 0.5_wp * dS
    end do
+   !$omp end do
+   !$omp critical (get_multipole_gradient_3d_)
+   dEdr(:) = dEdr(:) + dEdr_local(:)
+   gradient(:, :) = gradient(:, :) + gradient_local(:, :)
+   sigma(:, :) = sigma(:, :) + sigma_local(:, :)
+   !$omp end critical (get_multipole_gradient_3d_)
+   deallocate(dEdr_local)
+   deallocate(gradient_local)
+   deallocate(sigma_local)
+   !$omp end parallel
 end subroutine get_multipole_gradient_3d
 
 pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, trans, dg, ds)

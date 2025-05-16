@@ -46,10 +46,11 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    real(wp), intent(out) :: ehoao(:)
    !> lowest virt. atomic orbital
    real(wp), intent(out) :: eluao(:)
+
    integer :: i, j, k, jj, kk, m
    real(wp), allocatable :: po(:,:), pv(:,:)
    real(wp) :: occ, tmp, tmp2, ps, virt, tmp3, weight
-   !occupation cutoff for fractional occupation, below this threshold orbitals are not considered
+   ! occupation cutoff for fractional occupation, below this threshold orbitals are not considered
    real(wp), parameter :: occ_cutoff = 0.0001_wp
    ! theshold below which we consider the sum or virtual/ocuupied orbitals as zero
    real(wp), parameter :: zero_cutoff = 1.0e-12_wp
@@ -59,25 +60,25 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    real(wp), parameter :: epsilon = 1.0e-14_wp
    integer :: nat, nao
 
+   ! Thread-private arrays for reduction
+   real(wp), allocatable :: ptmp_local(:, :)
+   real(wp), allocatable :: response_local(:), egap_local(:), chempot_local(:)
+
    nat = size(response)
    nao = size(focc)
-
-   response = 0.0_wp
-   egap = 0.0_wp
-   chempot = 0.0_wp
-   ehoao = 0.0_wp
-   eluao = 0.0_wp
 
    !allocate temp arrays
    allocate(po(nat, nao), source=0.0_wp)
    allocate(pv(nat, nao), source=0.0_wp)
 
    ! we collect occ & virt separately (and allow for fractional occupation)
-   !$omp parallel do default(private) schedule(runtime) reduction(+:po)&
-   !$omp shared(aoat, nao, S, C, focc) &
-   !$omp private(ps, occ, jj, kk, j, i, k)
+   !$omp parallel default(none) &
+   !$omp shared(aoat, nao, nat, S, C, focc, po, pv) &
+   !$omp private(ps, occ, virt, jj, kk, j, i, k, ptmp_local)
+   allocate(ptmp_local(nat, nao), source=0.0_wp)
+   !$omp do schedule(runtime) 
    do i = 1, nao
-      ! occ part
+      ! occupied part
       occ = focc(i)
       if (occ .gt. occ_cutoff) then
          do j = 1, nao
@@ -85,19 +86,23 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
             do k = 1, j - 1
                kk = aoat(k)
                ps = s(k, j) * C(j, i) * C(k, i) * occ
-               po(kk, i) = po(kk, i) + ps
-               po(jj, i) = po(jj, i) + ps
+               ptmp_local(kk, i) = ptmp_local(kk, i) + ps
+               ptmp_local(jj, i) = ptmp_local(jj, i) + ps
             end do
             ps = s(j, j) * C(j, i) * C(j, i) * occ
-            po(jj, i) = po(jj, i) + ps
+            ptmp_local(jj, i) = ptmp_local(jj, i) + ps
          end do
       end if
    end do
+   !$omp end do
+   !$omp critical (atomic_frontier_orbitals_)
+   po(:, :) = po(:, :) + ptmp_local(:, :)
+   !$omp end critical (atomic_frontier_orbitals_)
 
-   !$omp parallel do default(private) schedule(runtime) reduction(+:pv)&
-   !$omp shared(aoat, nao, s, C, focc) &
-   !$omp private(ps, jj, kk, virt, j, i, k)
+   ptmp_local(:, :) = 0.0_wp
+   !$omp do schedule(runtime)
    do i = 1, nao
+      ! virtual part
       virt = (1.0_wp - focc(i))
       if (virt .gt. occ_cutoff) then
          do j = 1, nao
@@ -105,14 +110,18 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
             do k = 1, j - 1
                kk = aoat(k)
                ps = s(k, j) * C(j, i) * C(k, i) * virt
-               pv(kk, i) = pv(kk, i) + ps
-               pv(jj, i) = pv(jj, i) + ps
+               ptmp_local(kk, i) = ptmp_local(kk, i) + ps
+               ptmp_local(jj, i) = ptmp_local(jj, i) + ps
             end do
             ps = s(j, j)*C(j, i)*C(j, i)*virt
-            pv(jj, i) = pv(jj, i) + ps
+            ptmp_local(jj, i) = ptmp_local(jj, i) + ps
          end do
       end if
    end do
+   !$omp critical (atomic_frontier_orbitals_)
+   pv(:, :) = pv(:, :) + ptmp_local(:, :)
+   !$omp end critical (atomic_frontier_orbitals_)
+   !$omp end parallel
 
    ! now accumulate the atomic H-L gaps and Fermi levels (we approximate it as 0.5*(eH + eL))
    ! we make use of an atomic response-type weightinhg:
@@ -120,14 +129,18 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    ! here wA_ai is the variable "response" computed as: wA_ai=  [p_i p_a / ( (e_a - e_i)**2 + damp**2) ]/ [\sum_ia p_j p_b / ((e_b - e_j)**2 + damp**2)]
    ! the "p"s are the MO densities, for gaps we accumulate the regularized inverse and later on invert it again
 
-   response = 0.0_wp
-   chempot = 0.0_wp
-   egap = 0.0_wp
+   response(:) = 0.0_wp
+   egap(:) = 0.0_wp
+   chempot(:) = 0.0_wp
    ! go through occ (including fractionally occupied)
-   !$omp parallel do default(private) reduction(+:response,chempot,egap)&
-   !$omp shared(eps, nao, focc, po, pv, nat) &
-   !$omp private(occ, virt, tmp, tmp2, tmp3)&
-   !$omp private(weight, i, j, m)
+   !$omp parallel default(none) & 
+   !$omp shared(eps, nao, focc, po, pv, nat, response, egap, chempot) &
+   !$omp private(occ, virt, tmp, tmp2, tmp3, weight, i, j, m, & 
+   !$omp& response_local, egap_local, chempot_local)
+   allocate(response_local, source=response)
+   allocate(egap_local, source=egap)
+   allocate(chempot_local, source=chempot)
+   !$omp do schedule(runtime)
    do i = 1, nao
       occ = focc(i)
       if (occ .gt. occ_cutoff) then
@@ -141,21 +154,30 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
                ! compute atomic response
                do m = 1, nat
                   weight = po(m, i) * pv(m, j) * tmp
-                  response(m) = response(m) + weight
-                  chempot(m) = chempot(m) + tmp2 * weight
-                  egap(m) = egap(m) + weight * tmp3
+                  response_local(m) = response_local(m) + weight
+                  chempot_local(m) = chempot_local(m) + tmp2 * weight
+                  egap_local(m) = egap_local(m) + weight * tmp3
                end do ! at
             end if ! if virt
          end do !  virt
       end if ! if occ
    end do ! occ
-   !$omp end parallel do
+   !$omp end do
+   !$omp critical (atomic_frontier_orbitals_)
+   response(:) = response(:) + response_local(:)
+   egap(:) = egap(:) + egap_local(:)
+   chempot(:) = chempot(:) + chempot_local(:)
+   !$omp end critical (atomic_frontier_orbitals_)
+   deallocate(response_local, egap_local, chempot_local)
+   !$omp end parallel
 
-   ehoao = 0.0_wp
-   eluao = 0.0_wp
+   ehoao(:) = 0.0_wp
+   eluao(:) = 0.0_wp
 
    ! now get the atomic frontier orbitals
-   tmp = 0.0_wp
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(eps, focc, nat, nao, po, pv, response, egap, chempot, ehoao, eluao) &
+   !$omp private(m, j, occ, virt, tmp, tmp2, tmp3, weight)
    do m = 1, nat
       egap(m) = egap(m)/(response(m)+epsilon)
       egap(m) = 1.0_wp / (egap(m)+epsilon) - damp
@@ -205,6 +227,7 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
          end do !  occ
       end if
    end do
+   !$omp end parallel do
 
 end subroutine atomic_frontier_orbitals
 end module

@@ -385,7 +385,7 @@ subroutine get_coulomb_matrix(xyz, ccav, jmat)
    real(wp) :: vec(3), d2, d
 
    jmat(:, :) = 0.0_wp
-   !$omp parallel do default(none) schedule(runtime) collapse(2) &
+   !$omp parallel do default(none) schedule(static) collapse(2) &
    !$omp shared(ccav, xyz, jmat) private(ic, j, vec, d2, d)
    do ic = 1, size(ccav, 2)
       do j = 1, size(xyz, 2)
@@ -442,10 +442,16 @@ subroutine efld(nsrc, src, csrc, ntrg, ctrg, ef)
    real(wp) :: vec(3), r2, rr, r3, f
    real(wp), parameter :: zero=0.0_wp
 
+   ! Thread-private arrays for reduction
+   ! Set to 0 explicitly as the shared variants are potentially non-zero (inout)
+   real(wp), allocatable :: ef_local(:, :)
+
    ef(:, :) = 0.0_wp
-   !$omp parallel do default(none) schedule(runtime) collapse(2) &
-   !$omp reduction(+:ef) shared(ntrg, nsrc, ctrg, csrc, src) &
-   !$omp private(j, i, f, vec, r2, rr, r3)
+   !$omp parallel default(none) &
+   !$omp shared(ntrg, nsrc, ctrg, csrc, src, ef) &
+   !$omp private(j, i, f, vec, r2, rr, r3, ef_local)
+   allocate(ef_local(size(ef, 1), size(ef, 2)), source=0.0_wp)
+   !$omp do schedule(static) collapse(2)
    do j = 1, ntrg
       do i = 1, nsrc
          vec(:) = ctrg(:, j) - csrc(:, i)
@@ -453,9 +459,15 @@ subroutine efld(nsrc, src, csrc, ntrg, ctrg, ef)
          rr = sqrt(r2)
          r3 = r2*rr
          f = src(i)/r3
-         ef(:, j) = ef(:, j) + f*vec
+         ef_local(:, j) = ef_local(:, j) + f*vec
       end do
    end do
+   !$omp end do 
+   !$omp critical (efld_)
+   ef(:, :) = ef(:, :) + ef_local(:, :)
+   !$omp end critical (efld_)
+   deallocate(ef_local)
+   !$omp end parallel
 
 end subroutine efld
 
