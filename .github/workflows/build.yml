@@ -150,15 +150,19 @@ jobs:
           if [ "${{ matrix.toolchain.compiler }}" = "gcc" ]; then
             FC="gfortran"
             CC="gcc"
+            CXX="g++"
           elif [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
             FC="ifx"
             CC="icx"
+            CXX="icpx"
           elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
             FC="ifort"
             CC="icc"
+            CXX="icpc"
           fi
           echo "FC=$FC" >> $GITHUB_ENV
           echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
         fi
 
     - name: Install build and test dependencies

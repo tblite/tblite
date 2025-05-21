@@ -79,9 +79,8 @@ contains
       real(wp) :: dipole(3)
       ! Integral container
       type(integral_type) :: ints
-      ! Electronic solver
-      class(solver_type), allocatable :: solver
-      ! Adjacency list
+      !> Electronic solver
+      !> Adjacency list
       type(adjacency_list) :: list
       ! Potential type
       type(potential_type) :: pot
@@ -196,10 +195,10 @@ contains
 
       call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
-      call ctx%new_solver(solver, calc%bas%nao)
+      call ctx%new_solver(calc%bas%nao)
 
       ! Get the density matrix
-      call get_density(wfn, solver, ints, elec_entropy, error)
+      call get_density(wfn, ctx%solver, ints, elec_entropy, error)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
@@ -236,6 +235,8 @@ contains
             call ctx%message("")
          end if
       end block
+
+      call ctx%delete_solver()
 
    end subroutine ceh_singlepoint
 
