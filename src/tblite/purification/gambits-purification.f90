@@ -239,8 +239,22 @@ subroutine purify_dp(self, hmat, smat, dens, nel, error)
       type(error_type), allocatable, intent(out) :: error
       character(len=:), allocatable :: error_msg
       character(len=:), allocatable :: msg
+      real(c_double), allocatable :: tmp(:, :)
+      real(c_double) :: nel1
       self%iscf = self%iscf +1
-      call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2)
+      if (mod(int(nel), 2) /= 0) then
+         nel1 = ceiling(nel/2)
+         allocate(tmp(size(dens, dim=1), size(dens, dim=2)), source=0.0_c_double)
+         write(*,*) "UKS case"
+         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel1)
+         dens = tmp
+         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel-nel1)
+         dens = dens + tmp
+      else
+         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2)
+         dens = 2 * dens 
+      end if
+      
       if (self%ctx%failed()) then
          call self%ctx%get_error(error_msg)
          write(*,*) error_msg
