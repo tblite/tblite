@@ -29,6 +29,13 @@ if fc_id == 'gcc'
     '-Wno-maybe-uninitialized',
     language: 'fortran',
   )
+  if fc.version().version_compare('<10')
+    message('tblite it not tested with GNU Fortran < 10, functionality might be impacted. The build automatically adds ‘-fno-range-check’ for compatibility. Please upgrade to a newer compiler version if possible.') 
+    add_project_arguments(
+      '-fno-range-check',
+      language: 'fortran',
+    )
+  endif
 elif fc_id == 'intel' or fc_id == 'intel-llvm'
   add_project_arguments(
     '-traceback',
