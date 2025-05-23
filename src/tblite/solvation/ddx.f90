@@ -77,7 +77,7 @@ module tblite_solvation_ddx
       !> Regularization parameter
       real(wp) :: eta = 0.1_wp
       !> Number of grid points for each atom
-      integer :: nang = grid_size(14)
+      integer :: nang = grid_size(8)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
       !> Van-der-Waals radii for all species
@@ -443,6 +443,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    type(ddx_cache), pointer :: ptr
    
    call view(cache, ptr)
+
+   ptr%force = 0.0_wp
    
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, ptr%force, ptr%ddx_error)
