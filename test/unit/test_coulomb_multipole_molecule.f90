@@ -14,7 +14,7 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-module test_coulomb_multipole
+module test_coulomb_multipole_molecule
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
@@ -29,7 +29,7 @@ module test_coulomb_multipole
    implicit none
    private
 
-   public :: collect_coulomb_multipole
+   public :: collect_coulomb_multipole_molecule
 
    real(wp), parameter :: cutoff = 25.0_wp
    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
@@ -74,7 +74,7 @@ contains
 
 
 !> Collect all exported unit tests
-subroutine collect_coulomb_multipole(testsuite)
+subroutine collect_coulomb_multipole_molecule(testsuite)
 
    !> Collection of tests
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
@@ -85,20 +85,24 @@ subroutine collect_coulomb_multipole(testsuite)
       new_unittest("energy-pbc", test_e_effective_co2), &
       new_unittest("energy-pbc-qp", test_e_effective_co2_qp), &
       new_unittest("energy-pbc-dp", test_e_effective_co2_dp), &
-      !new_unittest("energy-sc", test_e_effective_co2_sc), &
-      !new_unittest("energy-sc-qp", test_e_effective_co2_sc_qp), &
-      !new_unittest("energy-sc-dp", test_e_effective_co2_sc_dp), &
+      new_unittest("energy-sc", test_e_effective_co2_sc), &
+      new_unittest("energy-sc-qp", test_e_effective_co2_sc_qp), &
+      new_unittest("energy-sc-dp", test_e_effective_co2_sc_dp), &
       new_unittest("gradient-1", test_g_effective_m03), &
       new_unittest("gradient-2", test_g_effective_m04), &
       new_unittest("gradient-pbc", test_g_effective_urea), &
+      new_unittest("gradient-pbc-qp", test_g_effective_urea_qp), &
+      new_unittest("gradient-pbc-dp", test_g_effective_urea_dp), &
       new_unittest("sigma-1", test_s_effective_m05), &
       new_unittest("sigma-2", test_s_effective_m06), &
-      !new_unittest("sigma-pbc", test_s_effective_oxacb), &
+      new_unittest("sigma-pbc", test_s_effective_oxacb), &
+      new_unittest("sigma-pbc-qp", test_s_effective_oxacb_qp), &
+      new_unittest("sigma-pbc-dp", test_s_effective_oxacb_dp), &
       new_unittest("potential-1", test_v_effective_m07), &
       new_unittest("potential-2", test_v_effective_m08) &
       ]
 
-end subroutine collect_coulomb_multipole
+end subroutine collect_coulomb_multipole_molecule
 
 
 !> Factory to create electrostatic objects based on GFN2-xTB values
@@ -872,6 +876,94 @@ subroutine test_g_effective_urea(error)
 end subroutine test_g_effective_urea
 
 
+subroutine test_g_effective_urea_dp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(16) = 0.0_wp
+   real(wp), parameter :: dpat(3, 16) = reshape([&
+      & 8.94827368009637E-2_wp, 8.94995909146529E-2_wp, 7.30634961756909E-2_wp, &
+      & 8.95014203078334E-2_wp,-8.94859532646144E-2_wp,-7.30378298851327E-2_wp, &
+      &-8.94873352015873E-2_wp,-8.95044727986339E-2_wp, 7.30601341120621E-2_wp, &
+      &-8.95090716572443E-2_wp, 8.94905477532190E-2_wp,-7.30362173059338E-2_wp, &
+      &-9.01917250610402E-3_wp,-9.00201247838739E-3_wp,-1.47850060857521E-1_wp, &
+      &-9.00995133125046E-3_wp, 9.02740339798291E-3_wp, 1.47848725725542E-1_wp, &
+      & 9.01739468689571E-3_wp, 9.00092652137544E-3_wp,-1.47851490297087E-1_wp, &
+      & 9.00924018813641E-3_wp,-9.02542526993692E-3_wp, 1.47850396429899E-1_wp, &
+      & 3.58533790400338E-6_wp, 1.76804223012015E-5_wp, 7.90811791429655E-2_wp, &
+      & 1.90955806626401E-5_wp, 1.99177597125356E-6_wp,-7.93788543388031E-2_wp, &
+      &-4.56180855347671E-2_wp,-4.55680071125238E-2_wp, 5.92409368467603E-2_wp, &
+      &-4.56101826239023E-2_wp, 4.56639049054392E-2_wp,-5.91934296227654E-2_wp, &
+      & 4.55978078230863E-2_wp, 4.55693703731601E-2_wp, 5.92330972112299E-2_wp, &
+      & 4.56164302678149E-2_wp,-4.56412184067195E-2_wp,-5.91891814963370E-2_wp, &
+      & 6.11781066870311E-6_wp, 9.15928265940359E-7_wp,-2.04395992132628E-1_wp, &
+      & 1.78950595055862E-6_wp,-4.23972317385840E-6_wp, 2.04360605943730E-1_wp],&
+      & shape(dpat))
+   real(wp), parameter :: qpat(6, 16) = 0.0_wp
+
+   call get_structure(mol, "X23", "urea")
+   call test_numgrad(error, mol, qat, dpat, qpat, make_multipole2)
+
+end subroutine test_g_effective_urea_dp
+
+
+subroutine test_g_effective_urea_qp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(16) = [&
+      & 2.14480738661017E-1_wp, 2.14527495272549E-1_wp, 2.14471598997661E-1_wp, &
+      & 2.14516468108033E-1_wp, 2.45821990520972E-1_wp, 2.45784832080333E-1_wp, &
+      & 2.45806360746891E-1_wp, 2.45774007559891E-1_wp, 3.19474245000812E-1_wp, &
+      & 3.19579496746895E-1_wp,-2.94626505330352E-1_wp,-2.94543754718096E-1_wp, &
+      &-2.94659848864979E-1_wp,-2.94567600483171E-1_wp,-6.50780911474268E-1_wp, &
+      &-6.51058612824167E-1_wp]
+   real(wp), parameter :: dpat(3, 16) = 0.0_wp
+   real(wp), parameter :: qpat(6, 16) = reshape([&
+      &-1.23698956475140E-2_wp, 1.79751870775559E-2_wp,-1.23691904599371E-2_wp, &
+      & 4.67729267242994E-3_wp, 4.68004166312949E-3_wp, 2.47390861074511E-2_wp, &
+      &-1.23654488813711E-2_wp,-1.79817963662729E-2_wp,-1.23706010436822E-2_wp, &
+      &-4.69179866811513E-3_wp, 4.68829261745078E-3_wp, 2.47360499250533E-2_wp, &
+      &-1.23743195999797E-2_wp, 1.79683161428587E-2_wp,-1.23718141043582E-2_wp, &
+      &-4.68144974224393E-3_wp,-4.68203929764922E-3_wp, 2.47461337043379E-2_wp, &
+      &-1.23715411335551E-2_wp,-1.79777626390457E-2_wp,-1.23696001364202E-2_wp, &
+      & 4.69398264928409E-3_wp,-4.69414370569245E-3_wp, 2.47411412699752E-2_wp, &
+      &-7.32193778340168E-3_wp, 3.45599884203983E-2_wp,-7.32434931893968E-3_wp, &
+      &-6.43942937553289E-3_wp,-6.44505606234306E-3_wp, 1.46462871023413E-2_wp, &
+      &-7.32508525229408E-3_wp,-3.45618871061652E-2_wp,-7.32335313431533E-3_wp, &
+      & 6.45162772813276E-3_wp,-6.44644470074471E-3_wp, 1.46484383866092E-2_wp, &
+      &-7.32905564328019E-3_wp, 3.45586433766952E-2_wp,-7.32543310737930E-3_wp, &
+      & 6.44113915814194E-3_wp, 6.44697435437880E-3_wp, 1.46544887506594E-2_wp, &
+      &-7.32605090318348E-3_wp,-3.45610747417528E-2_wp,-7.32899993430305E-3_wp, &
+      &-6.45372642877205E-3_wp, 6.44746289062807E-3_wp, 1.46550508374864E-2_wp, &
+      & 1.11951790334487E-1_wp,-4.02377811299945E-1_wp, 1.12018181924718E-1_wp, &
+      &-1.04989650284058E-6_wp,-1.61793643693583E-5_wp,-2.23969972259205E-1_wp, &
+      & 1.11996170927313E-1_wp, 4.02383573647660E-1_wp, 1.11929776104217E-1_wp, &
+      & 1.69716696800307E-5_wp, 3.87072152745758E-6_wp,-2.23925947031530E-1_wp, &
+      & 3.55892547851532E-2_wp,-1.40674101590403E-3_wp, 3.55796422243525E-2_wp, &
+      &-4.51437869371043E-2_wp,-4.51403945941909E-2_wp,-7.11688970095042E-2_wp, &
+      & 3.56007063955610E-2_wp, 1.39242785502690E-3_wp, 3.56047482812895E-2_wp, &
+      & 4.51288756967405E-2_wp,-4.51327168181670E-2_wp,-7.12054546768490E-2_wp, &
+      & 3.55791799999949E-2_wp,-1.38863474463774E-3_wp, 3.55709732649653E-2_wp, &
+      & 4.51424181512024E-2_wp, 4.51358771366434E-2_wp,-7.11501532649592E-2_wp, &
+      & 3.55872643357090E-2_wp, 1.37913694676448E-3_wp, 3.56010570423592E-2_wp, &
+      &-4.51277501739264E-2_wp, 4.51338445551804E-2_wp,-7.11883213780670E-2_wp, &
+      &-2.34031908350780E-2_wp,-5.97048165007334E-2_wp,-2.34051674127262E-2_wp, &
+      &-1.53933429016999E-6_wp, 9.26688498685427E-7_wp, 4.68083582478040E-2_wp, &
+      &-2.34383117547964E-2_wp, 5.96710054013645E-2_wp,-2.34363320491785E-2_wp, &
+      &-2.13796886588954E-6_wp,-2.36716531036422E-6_wp, 4.68746438039748E-2_wp],&
+      & shape(qpat))
+
+   call get_structure(mol, "X23", "urea")
+   call test_numgrad(error, mol, qat, dpat, qpat, make_multipole2)
+
+end subroutine test_g_effective_urea_qp
+
+
 subroutine test_s_effective_m05(error)
 
    !> Error handling
@@ -1088,6 +1180,94 @@ subroutine test_s_effective_oxacb(error)
 end subroutine test_s_effective_oxacb
 
 
+subroutine test_s_effective_oxacb_dp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(16) = 0.0_wp
+   real(wp), parameter :: dpat(3, 16) = reshape([&
+      & 4.09688027943853E-2_wp, 8.33483477302867E-3_wp,-1.09648576234461E-2_wp, &
+      &-4.09474996408295E-2_wp, 8.30233124676478E-3_wp, 1.09874908009843E-2_wp, &
+      &-4.09278272213102E-2_wp,-8.32793028126641E-3_wp, 1.09615760238990E-2_wp, &
+      & 4.11086171124463E-2_wp,-8.39441030068160E-3_wp,-1.05971938523367E-2_wp, &
+      & 5.96300641349022E-2_wp,-4.34579903309867E-2_wp, 6.26025852647896E-2_wp, &
+      &-5.98049356163273E-2_wp,-4.34306642465664E-2_wp,-6.22704459500676E-2_wp, &
+      &-6.00922329406000E-2_wp, 4.36215944530855E-2_wp,-6.21183058238615E-2_wp, &
+      & 5.93589247389314E-2_wp, 4.37917586457069E-2_wp, 6.24175529675174E-2_wp, &
+      &-9.47993007577910E-2_wp,-9.21933679240633E-2_wp, 1.41162420287618E-1_wp, &
+      & 9.47847920056643E-2_wp,-9.22795166591021E-2_wp,-1.41330245385699E-1_wp, &
+      & 9.47957155116519E-2_wp, 9.20217761595336E-2_wp,-1.41075167719715E-1_wp, &
+      &-9.47612703050034E-2_wp, 9.20970946041004E-2_wp, 1.41174078870679E-1_wp, &
+      & 3.07186908919029E-3_wp, 9.78091090173267E-2_wp,-1.59405890565398E-1_wp, &
+      &-2.89501267712337E-3_wp, 9.81266227352185E-2_wp, 1.59671635941258E-1_wp, &
+      &-3.07984597314511E-3_wp,-9.78272060157212E-2_wp, 1.59285689458381E-1_wp, &
+      & 3.45622260398958E-3_wp,-9.78261483786836E-2_wp,-1.59383710436135E-1_wp],&
+      & shape(dpat))
+   real(wp), parameter :: qpat(6, 16) = 0.0_wp
+
+   call get_structure(mol, "X23", "oxacb")
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
+
+end subroutine test_s_effective_oxacb_dp
+
+
+subroutine test_s_effective_oxacb_qp(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(16) = [&
+      & 3.83148728601709E-1_wp, 3.83118715934305E-1_wp, 3.83080191213008E-1_wp, &
+      & 3.82184417033339E-1_wp, 3.47311885772574E-1_wp, 3.45281176165792E-1_wp, &
+      & 3.47791244554054E-1_wp, 3.47952947802927E-1_wp,-3.92870149599810E-1_wp, &
+      &-3.92136115450962E-1_wp,-3.93531741241129E-1_wp,-3.92928999213039E-1_wp, &
+      &-3.37416498051037E-1_wp,-3.36550419758369E-1_wp,-3.37512222809576E-1_wp, &
+      &-3.36923160953788E-1_wp]
+   real(wp), parameter :: dpat(3, 16) = 0.0_wp
+   real(wp), parameter :: qpat(6, 16) = reshape([&
+      & 6.56379864949194E-2_wp,-5.73520679256482E-4_wp,-3.52084956587255E-2_wp, &
+      & 7.71130683289638E-3_wp,-1.49139358369174E-2_wp,-3.04294908361939E-2_wp, &
+      & 6.54814038446620E-2_wp, 5.17836513451199E-4_wp,-3.51478340536698E-2_wp, &
+      & 7.70830546882409E-3_wp, 1.49356522560081E-2_wp,-3.03335697909922E-2_wp, &
+      & 6.55759132522838E-2_wp,-5.57374828410120E-4_wp,-3.51772230507483E-2_wp, &
+      & 7.71886247591620E-3_wp,-1.49101894592223E-2_wp,-3.03986902015354E-2_wp, &
+      & 6.44858926966245E-2_wp, 6.21105139273002E-4_wp,-3.60657223374486E-2_wp, &
+      & 8.53829013403492E-3_wp, 1.44562000883513E-2_wp,-2.84201703591760E-2_wp, &
+      &-2.16992043497083E-1_wp,-6.14525993351003E-2_wp, 2.61869112357575E-1_wp, &
+      & 7.43403756029076E-2_wp, 3.29057424398825E-1_wp,-4.48770688604918E-2_wp, &
+      &-2.17253885199018E-1_wp, 6.16371296152827E-2_wp, 2.61441601565784E-1_wp, &
+      & 7.36098779877098E-2_wp,-3.29050085539625E-1_wp,-4.41877163667672E-2_wp, &
+      &-2.17095729603948E-1_wp,-6.13633493424920E-2_wp, 2.61949523181417E-1_wp, &
+      & 7.41593953178476E-2_wp, 3.29100144825087E-1_wp,-4.48537935774700E-2_wp, &
+      &-2.16773170522421E-1_wp, 6.14170456026348E-2_wp, 2.61763772584928E-1_wp, &
+      & 7.44868464063092E-2_wp,-3.29037954066144E-1_wp,-4.49906020625066E-2_wp, &
+      &-7.84671583301996E-2_wp,-2.93177074689629E-3_wp, 9.45239916587787E-2_wp, &
+      &-1.35552573154701E-3_wp, 1.17958224427535E-1_wp,-1.60568333285798E-2_wp, &
+      &-7.86660963425362E-2_wp, 3.27173353036481E-3_wp, 9.46888561547714E-2_wp, &
+      &-1.70110485836640E-3_wp,-1.18041188489037E-1_wp,-1.60227598122358E-2_wp, &
+      &-7.83224933313823E-2_wp,-2.95614679715344E-3_wp, 9.43219272902749E-2_wp, &
+      &-1.39062937509669E-3_wp, 1.17927803395099E-1_wp,-1.59994339588925E-2_wp, &
+      &-7.84941989805875E-2_wp, 2.98202100370017E-3_wp, 9.44901433808538E-2_wp, &
+      &-1.32436849481419E-3_wp,-1.18022315802278E-1_wp,-1.59959444002657E-2_wp, &
+      &-4.89935283276599E-3_wp,-1.35938726283863E-2_wp, 8.75281455685861E-3_wp, &
+      & 1.70009780794440E-2_wp, 1.14577178485397E-2_wp,-3.85346172409284E-3_wp, &
+      &-4.97349323995833E-3_wp, 1.37313962587995E-2_wp, 8.85061916230923E-3_wp, &
+      & 1.71435461297655E-2_wp,-1.12771254648400E-2_wp,-3.87712592235134E-3_wp, &
+      &-4.80233859626600E-3_wp,-1.36263939310827E-2_wp, 8.80915005635918E-3_wp, &
+      & 1.70027332793215E-2_wp, 1.14775835735027E-2_wp,-4.00681146009285E-3_wp, &
+      &-4.69609623172096E-3_wp, 1.35220039889045E-2_wp, 8.69541313382693E-3_wp, &
+      & 1.69993038311265E-2_wp,-1.13773019767008E-2_wp,-3.99931690210575E-3_wp],&
+      & shape(qpat))
+
+   call get_structure(mol, "X23", "oxacb")
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
+
+end subroutine test_s_effective_oxacb_qp
+
+
 subroutine test_v_effective_m07(error)
 
    !> Error handling
@@ -1232,10 +1412,10 @@ subroutine test_v_effective_m08(error)
 end subroutine test_v_effective_m08
 
 
-end module test_coulomb_multipole
+end module test_coulomb_multipole_molecule
 
 
-submodule (test_coulomb_multipole) test_supercell_scaling
+submodule (test_coulomb_multipole_molecule) test_supercell_scaling
    implicit none
 
 
@@ -1286,8 +1466,8 @@ submodule (test_coulomb_multipole) test_supercell_scaling
       & -1.18646463864190E-01_wp,  1.18587233297690E-01_wp,  1.19626167010667E-04_wp],&
       & shape(qpat1))
 
-   real(wp), parameter :: e02 = 1.5016169607148633E-2_wp, e11 = -3.5486703953320990E-3_wp, &
-      & e01 = 1.5706712259423678E-2_wp - e02 - e11
+   real(wp), parameter :: e02 = 1.4993662450212409E-002_wp, e11 = -3.1002528157942346E-003_wp, &
+      & e01 = 1.6132638572634486E-002_wp - e02 - e11
 
 contains
 

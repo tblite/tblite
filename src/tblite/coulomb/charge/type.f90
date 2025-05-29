@@ -21,9 +21,11 @@
 module tblite_coulomb_charge_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_constants, only : pi
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
+   use tblite_coulomb_ewald, only : get_energy_ewald_3d, get_potential_ewald_3d
    use tblite_coulomb_type, only : coulomb_type
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -39,6 +41,8 @@ module tblite_coulomb_charge_type
       integer, allocatable :: nshell(:)
       !> Index offset for each shell
       integer, allocatable :: offset(:)
+      !> Ewald summation is used as pairwise interaction
+      logical :: ewald_matrix = .true.
    contains
       !> Update container cache
       procedure :: update
@@ -107,6 +111,7 @@ subroutine update(self, mol, cache)
    type(container_cache), intent(inout) :: cache
 
    type(coulomb_cache), pointer :: ptr
+   real(wp) :: vol
 
    call taint(cache, ptr)
    call ptr%update(mol)
@@ -119,7 +124,6 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%vvec)) then
       allocate(ptr%vvec(sum(self%nshell)))
    end if
-
 end subroutine update
 
 
@@ -136,8 +140,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    !> Electrostatic energy
    real(wp), intent(inout) :: energies(:)
 
-   integer :: iat, ii, ish
    type(coulomb_cache), pointer :: ptr
+   integer :: iat, ii, ish
 
    call view(cache, ptr)
 
@@ -155,6 +159,10 @@ subroutine get_energy(self, mol, cache, wfn, energies)
          ii = self%offset(iat)
          energies(iat) = energies(iat) + ptr%vvec(iat) * wfn%qat(iat, 1)
       end do
+   end if
+
+   if (any(mol%periodic) .and. .not.self%ewald_matrix) then
+      call get_energy_ewald_3d(mol, ptr%alpha, ptr%vol, ptr%rtrans, wfn%qat(:, 1), energies)
    end if
 end subroutine get_energy
 
@@ -182,6 +190,10 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       call symv(ptr%amat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
    end if
 
+   if (any(mol%periodic) .and. .not.self%ewald_matrix) then
+      call get_potential_ewald_3d(mol, ptr%alpha, ptr%vol, ptr%rtrans, &
+         & wfn%qat(:, 1), pot%vat(:, 1))
+   end if
 end subroutine get_potential
 
 
