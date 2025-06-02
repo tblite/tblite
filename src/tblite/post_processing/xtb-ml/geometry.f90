@@ -16,12 +16,13 @@
 !> @file tblite/post-processing/xtb-ml/geometry.f90
 !> Geometry based xtbml features
 module tblite_xtbml_geometry_based
-   use mctc_env, only : wp
+   use, intrinsic :: iso_fortran_env, only : error_unit
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
-   use tblite_container, only : container_cache
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
    use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
-   use tblite_ncoord_exp, only : new_exp_ncoord, exp_ncoord_type
+   use tblite_container, only : container_cache
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtbml_convolution, only : xtbml_convolution_type
@@ -72,14 +73,20 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    type(xtb_calculator), intent(in) :: calc
    !> Cache list for storing caches of various interactions
    type(container_cache), intent(inout) :: cache_list(:)
-   type(exp_ncoord_type) :: ncoord_exp
+
+   class(ncoord_type), allocatable :: ncoord
+   type(error_type), allocatable :: error
 
    self%n_features = self%n_features + features
 
    allocate(self%cn_atom(mol%nat))
+   call new_ncoord(ncoord, mol, cn_count%exp, error)
+   if(allocated(error)) then
+      write(error_unit, '("[Error]:", 1x, a)') error%message
+      error stop
+   end if
 
-   call new_exp_ncoord(ncoord_exp, mol)
-   call ncoord_exp%get_cn(mol, self%cn_atom)
+   call ncoord%get_cn(mol, self%cn_atom)
 
    call self%dict%add_entry("CN_A", self%cn_atom)
 

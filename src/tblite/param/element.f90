@@ -21,7 +21,7 @@
 module tblite_param_element
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number, symbol_length
-   use tblite_data_paulingen, only : get_pauling_en
+   use mctc_data_paulingen, only : get_pauling_en
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, toml_array, get_value, set_value, add_array, len
    implicit none
