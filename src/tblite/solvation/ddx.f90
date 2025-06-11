@@ -47,7 +47,7 @@ module tblite_solvation_ddx
 
    !> Possible solvation models to be used within the dd framework
    type :: enum_ddx_solvation_model
-      ! COSMO and CPCM temporary defined as 11 and 12 to get correct keps in the first step
+      ! COSMO and CPCM temporary defined as 11 and 12 to get correct feps in the first step
       ! Labels are dumbed to 1 before passing the model input to the ddX routine,
       ! where both models are handeled the same way
       !> Conductor like screening model
@@ -76,7 +76,7 @@ module tblite_solvation_ddx
       real(wp) :: conv = 1.0e-10_wp
       !> Regularization parameter
       real(wp) :: eta = 0.1_wp
-      !> Number of grid points for each atom
+      !> Number of grid points for each atom (=110)
       integer :: nang = grid_size(8)
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
@@ -108,7 +108,7 @@ module tblite_solvation_ddx
       !> ddX instance
       type(ddx_input) :: ddx_input
       !> Dielectric function
-      real(wp) :: keps
+      real(wp) :: feps
       !> Dielctric constant
       real(wp) :: dielectric_const
       !> Van-der-Waal radii for all atoms
@@ -167,7 +167,7 @@ subroutine new_ddx(self, mol, input, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer :: iat, izp
-   real(wp) :: keps_param 
+   real(wp) :: feps_param 
 
    ! Set label
    if (input%ddx_model == ddx_solvation_model%cosmo) then
@@ -197,16 +197,16 @@ subroutine new_ddx(self, mol, input, error)
       end do
    end if
 
-   ! Calculate epsilon and keps
+   ! Calculate epsilon and feps
    self%dielectric_const = input%dielectric_const
    if (input%ddx_model == ddx_solvation_model%cosmo) then
-      keps_param = 0.5_wp
-      self%keps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + keps_param)
+      feps_param = 0.5_wp
+      self%feps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + feps_param)
    else if (input%ddx_model == ddx_solvation_model%cpcm) then
-      keps_param = 0.0_wp
-      self%keps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + keps_param)
+      feps_param = 0.0_wp
+      self%feps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + feps_param)
    else 
-      self%keps = 1.0_wp
+      self%feps = 1.0_wp
    end if
 
    ! Get Debye-Hückel screening length (only used for LPB)
@@ -366,9 +366,9 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    ! Add solvation energy to total energy
    if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
-      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,1) * ptr%ddx_state%psi, 1)
+      energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,1) * ptr%ddx_state%psi, 1)
    else
-      energies(:) = energies + self%keps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
+      energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
    end if
 
 end subroutine get_energy
@@ -413,11 +413,11 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    ! Contract with the Coulomb matrix
    ptr%ddx_pot = 0.0_wp
    call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t') 
-   ! Scale with 0.5 and keps, and get second contribution to potential
+   ! Scale with 0.5 and feps, and get second contribution to potential
    if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
-      ptr%ddx_pot(:) = 0.5_wp * self%keps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%x_lpb(1, :, 1))
+      ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%x_lpb(1, :, 1))
    else
-      ptr%ddx_pot(:) = 0.5_wp * self%keps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
+      ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
    end if
  
    ! Add potential to overall potential for new SCF step 
@@ -445,7 +445,25 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call view(cache, ptr)
 
    ptr%force = 0.0_wp
-   
+
+   ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
+   call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
+   call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
+
+   call setup(ptr%ddx%params,ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
+      & ptr%ddx_state%psi, ptr%ddx_error)
+   call check_error(ptr%ddx_error)
+
+   call solve(ptr%ddx%params, ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+   call check_error(ptr%ddx_error)
+
+   call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+   call check_error(ptr%ddx_error)
+
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, ptr%force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
@@ -455,7 +473,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call check_error(ptr%ddx_error)
 
    ! Calculate the gradient of the solvation energy
-   ptr%force = self%keps * ptr%force 
+   ptr%force = self%feps * ptr%force 
 
    ! Add the gradient of the solvation energy to the total gradient
    gradient =  gradient + ptr%force
