@@ -27,6 +27,7 @@ module tblite_io_numpy_load
    private
 
    public :: load_npy
+   public :: get_npy_descriptor
 
    interface load_npy
       module procedure load_npy_i4_r1
@@ -95,7 +96,7 @@ subroutine load_npy_i4_r1(reader, array, iostat, iomsg)
        character(len=:), allocatable :: this_type
        integer, allocatable :: vshape(:)
 
-       call get_descriptor(reader, this_type, vshape, stat, msg)
+       call get_npy_descriptor(reader, this_type, vshape, stat, msg)
        if (stat /= 0) exit catch
 
        if (this_type /= vtype) then
@@ -166,7 +167,7 @@ subroutine load_npy_rdp_r1(reader, array, iostat, iomsg)
        character(len=:), allocatable :: this_type
        integer, allocatable :: vshape(:)
 
-       call get_descriptor(reader, this_type, vshape, stat, msg)
+       call get_npy_descriptor(reader, this_type, vshape, stat, msg)
        if (stat /= 0) exit catch
 
        if (this_type /= vtype) then
@@ -237,7 +238,7 @@ subroutine load_npy_rdp_r2(reader, array, iostat, iomsg)
        character(len=:), allocatable :: this_type
        integer, allocatable :: vshape(:)
 
-       call get_descriptor(reader, this_type, vshape, stat, msg)
+       call get_npy_descriptor(reader, this_type, vshape, stat, msg)
        if (stat /= 0) exit catch
 
        if (this_type /= vtype) then
@@ -308,7 +309,7 @@ subroutine load_npy_rdp_r3(reader, array, iostat, iomsg)
        character(len=:), allocatable :: this_type
        integer, allocatable :: vshape(:)
 
-       call get_descriptor(reader , this_type, vshape, stat, msg)
+       call get_npy_descriptor(reader , this_type, vshape, stat, msg)
        if (stat /= 0) exit catch
 
        if (this_type /= vtype) then
@@ -337,7 +338,7 @@ subroutine load_npy_rdp_r3(reader, array, iostat, iomsg)
 end subroutine load_npy_rdp_r3
 
 !> Read the npy header from a binary file and retrieve the descriptor string.
-subroutine get_descriptor(reader, vtype, vshape, stat, msg)
+subroutine get_npy_descriptor(reader, vtype, vshape, stat, msg)
    !> Reader for the binary file
    type(reader_type), intent(inout) :: reader
    !> Type of data saved in npy file
@@ -402,7 +403,7 @@ subroutine get_descriptor(reader, vtype, vshape, stat, msg)
    if (.not.fortran_order) then
        vshape = [(vshape(i), i = size(vshape), 1, -1)]
    end if
-end subroutine get_descriptor
+end subroutine get_npy_descriptor
 
 
 !> Parse the first eight bytes of the npy header to verify the data

@@ -22,7 +22,7 @@ module tblite_io_numpy_loadz
    use mctc_env, only : dp, i2, i4
    use tblite_io_numpy_constants, only : type_rdp, type_i4, &
       & zip_global_sig, zip_local_sig, zip_footer_sig, zip_min_version
-   use tblite_io_numpy_load, only : load_npy
+   use tblite_io_numpy_load, only : load_npy, get_npy_descriptor
    use tblite_io_numpy_utils, only : reader_type, new_reader, delete_reader
    use tblite_io_numpy_crc32, only : crc32_hash
    use tblite_output_format, only : format_string
@@ -30,6 +30,7 @@ module tblite_io_numpy_loadz
    private
 
    public :: load_npz
+   public :: get_npz_descriptor
 
    !> Interface for loading npz files
    interface load_npz
@@ -42,6 +43,37 @@ module tblite_io_numpy_loadz
    character(len=*), parameter :: nl = achar(10)
 
 contains
+
+!> Get numpy array descriptor from a npz file
+subroutine get_npz_descriptor(filename, varname, vtype, vshape, iostat, iomsg)
+   !> Filename of the npz file
+   character(len=*), intent(in) :: filename
+   !> Name of the variable to load
+   character(len=*), intent(in) :: varname
+   !> Variable type of the numpy array
+   character(len=:), allocatable, intent(out) :: vtype
+   !> Variable shape of the numpy array
+   integer, allocatable, intent(out) :: vshape(:)
+   !> Status of the read operation
+   integer, intent(out), optional :: iostat
+   !> Error message in case of failure
+   character(len=:), allocatable, intent(out), optional :: iomsg
+
+   integer :: stat
+   character(len=:), allocatable :: msg
+   character(len=1), allocatable :: buffer(:)
+   type(reader_type) :: reader
+
+   call load_npz_buffer(filename, varname, buffer, stat, msg)
+   if (stat == 0) then
+      call new_reader(reader, buffer, filename//"::"//varname//".npy")
+      call get_npy_descriptor(reader, vtype, vshape, stat, msg)
+      call delete_reader(reader)
+   end if
+
+   call handle_iostat(stat, msg, filename//"::"//varname//".npy", iostat)
+   if (present(iomsg).and.allocated(msg).and.stat /= 0) call move_alloc(msg, iomsg)
+end subroutine get_npz_descriptor
 
 !> Load a numpy array from a npz file
 subroutine load_npz_i4_r1(filename, varname, array, iostat, iomsg)
@@ -202,7 +234,7 @@ subroutine load_npz_buffer(filename, varname, buffer, stat, msg)
       if (stat == 0) then
          read(io, iostat=stat) buffer
          msg = "Failed to read data from '"//filename//"::"//path//"'"
-      end if	
+      end if
 
       if (stat == 0 .and. varname//".npy" == path) then
          exist = .true.
