@@ -19,6 +19,7 @@
 
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
+   use mctc_env, only : wp
    use tblite_context_solver, only : context_solver
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
@@ -57,27 +58,31 @@ contains
 
 
 !> Create new electronic solver
-subroutine new(self, solver, ndim)
+subroutine new(self, solver, overlap, nel, kt)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> New electronic solver
    class(solver_type), allocatable, intent(out) :: solver
-   !> Dimension of the eigenvalue problem
-   integer, intent(in) :: ndim
+   !> Overlap matrix
+   real(wp), intent(in) :: overlap(:, :)
+   !> Number of electrons per spin channel
+   real(wp), intent(in) :: nel(:)
+   !> Electronic temperature
+   real(wp), intent(in) :: kt
 
    select case(self%algorithm)
    case(lapack_algorithm%gvd)
       block
          type(sygvd_solver), allocatable :: tmp
          allocate(tmp)
-         call new_sygvd(tmp, ndim)
+         call new_sygvd(tmp, overlap, nel, kt)
          call move_alloc(tmp, solver)
       end block
    case(lapack_algorithm%gvr)
       block
          type(sygvr_solver), allocatable :: tmp
          allocate(tmp)
-         call new_sygvr(tmp, ndim)
+         call new_sygvr(tmp, overlap, nel, kt)
          call move_alloc(tmp, solver)
       end block
    end select
@@ -91,7 +96,10 @@ subroutine delete(self, solver)
    !> Electronic solver instance
    class(solver_type), allocatable, intent(inout) :: solver
 
-   if (allocated(solver)) deallocate(solver)
+   if (allocated(solver)) then
+      call solver%delete()
+      deallocate(solver)
+   end if
 end subroutine delete
 
 

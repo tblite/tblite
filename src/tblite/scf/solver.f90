@@ -19,36 +19,47 @@
 
 !> Declaration of the abstract base class for electronic solvers
 module tblite_scf_solver
-   use mctc_env, only : sp, dp, error_type
+   use mctc_env, only : sp, dp, wp, error_type
+   use tblite_blas, only : gemm
    implicit none
    private
 
    !> Abstract base class for electronic solvers
    type, public, abstract :: solver_type
+      !> Electronic temperature
+      real(wp) :: kt
+      !> Number of electrons per spin channel
+      real(wp), allocatable :: nel(:)
    contains
-      generic :: solve => solve_sp, solve_dp
-      procedure(solve_sp), deferred :: solve_sp
-      procedure(solve_dp), deferred :: solve_dp
+      procedure(get_density), deferred :: get_density
+      procedure(get_density), deferred :: get_wdensity
+      procedure(delete), deferred :: delete
    end type solver_type
 
    abstract interface
-      subroutine solve_sp(self, hmat, smat, eval, error)
-         import :: solver_type, error_type, sp
+      subroutine get_density(self, hmat, smat, eval, focc, density, error)
+         import :: wp, solver_type, error_type
+         !> Solver for the general eigenvalue problem
          class(solver_type), intent(inout) :: self
-         real(sp), contiguous, intent(inout) :: hmat(:, :)
-         real(sp), contiguous, intent(in) :: smat(:, :)
-         real(sp), contiguous, intent(inout) :: eval(:)
+         !> Overlap matrix
+         real(wp), contiguous, intent(in) :: smat(:, :)
+         !> Hamiltonian matrix, can contains eigenvectors on output
+         real(wp), contiguous, intent(inout) :: hmat(:, :, :)
+         !> Eigenvalues
+         real(wp), contiguous, intent(inout) :: eval(:, :)
+         !> Occupation numbers
+         real(wp), contiguous, intent(inout) :: focc(:, :)
+         !> Density matrix
+         real(wp), contiguous, intent(inout) :: density(:, :, :)
+         !> Error handling
          type(error_type), allocatable, intent(out) :: error
-      end subroutine solve_sp
-      subroutine solve_dp(self, hmat, smat, eval, error)
-         import :: solver_type, error_type, dp
-         class(solver_type), intent(inout) :: self
-         real(dp), contiguous, intent(inout) :: hmat(:, :)
-         real(dp), contiguous, intent(in) :: smat(:, :)
-         real(dp), contiguous, intent(inout) :: eval(:)
-         type(error_type), allocatable, intent(out) :: error
-      end subroutine solve_dp
-   end interface
+      end subroutine get_density
 
+      subroutine delete(self)
+         import :: solver_type
+         !> Solver for the general eigenvalue problem
+         class(solver_type), intent(inout) :: self
+      end subroutine delete
+   end interface
 
 end module tblite_scf_solver

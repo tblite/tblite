@@ -195,7 +195,6 @@ subroutine test_kt_mismatch(error)
 
    call save_npz(filename, prefix//"kt", [wfn%kt, wfn%kt])
 
-   call save_npz(filename, prefix//"homo", wfn%homo)
    call save_npz(filename, prefix//"nel", wfn%nel)
    call save_npz(filename, prefix//"n0at", wfn%n0at)
    call save_npz(filename, prefix//"n0sh", wfn%n0sh)
@@ -228,7 +227,6 @@ subroutine test_dipole_mismatch(error)
 
    call save_npz(filename, prefix//"kt", [wfn%kt])
 
-   call save_npz(filename, prefix//"homo", wfn%homo)
    call save_npz(filename, prefix//"nel", wfn%nel)
    call save_npz(filename, prefix//"n0at", wfn%n0at)
    call save_npz(filename, prefix//"n0sh", wfn%n0sh)
@@ -261,7 +259,6 @@ subroutine test_quadrupole_mismatch(error)
 
    call save_npz(filename, prefix//"kt", [wfn%kt])
 
-   call save_npz(filename, prefix//"homo", wfn%homo)
    call save_npz(filename, prefix//"nel", wfn%nel)
    call save_npz(filename, prefix//"n0at", wfn%n0at)
    call save_npz(filename, prefix//"n0sh", wfn%n0sh)
@@ -294,7 +291,6 @@ subroutine test_load_error(error)
 
    call save_npz(filename, prefix//"kt", [1, 1, 1])
 
-   call save_npz(filename, prefix//"homo", wfn%homo)
    call save_npz(filename, prefix//"nel", wfn%nel)
    call save_npz(filename, prefix//"n0at", wfn%n0at)
    call save_npz(filename, prefix//"n0sh", wfn%n0sh)

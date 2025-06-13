@@ -108,7 +108,6 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    !> Cache list for storing caches of various interactions
    type(container_cache), intent(inout) :: cache_list(:)
 
-   real(wp) :: focc_(2, size(wfn%focc, dim=1))
    integer :: i, j, nspin, spin
    real(wp) :: nel_
    character(len=6), allocatable :: spin_label(:)
@@ -127,24 +126,6 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    call self%allocate(mol%nat, nspin)
    self%label = label
 
-   focc_ = 0.0_wp
-   if (wfn%nuhf > 0) then
-      do j = 1,2
-         nel_ = wfn%nel(j)
-         do i = 1, size(wfn%focc)
-            if (nel_ > 1.0_wp) then
-               focc_(j, i) = 1.0_wp
-               nel_ = nel_ - 1.0_wp
-            else
-               focc_(j, i) = nel_
-               exit
-            end if
-         end do
-      end do
-   else
-      focc_(1, :) = wfn%focc(:, 1) / 2.0_wp
-      focc_(2, :) = wfn%focc(:, 1) / 2.0_wp
-   end if
    do spin = 1, nspin
       if (wfn%nspin > 1) then
          call atomic_frontier_orbitals(wfn%focc(:, spin), wfn%emo(:, spin)*autoev, &
@@ -152,7 +133,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
             self%response, self%egap(:, spin), self%chempot(:, spin), self%ehoao, &
             self%eluao)
       else
-         call atomic_frontier_orbitals(focc_(spin, :), wfn%emo(:, 1)*autoev, &
+         call atomic_frontier_orbitals(wfn%focc(:, spin), wfn%emo(:, 1)*autoev, &
             calc%bas%ao2at, wfn%coeff(:, :, 1), integrals%overlap(:, :), &
             self%response, self%egap(:, spin), self%chempot(:, spin), self%ehoao, &
             self%eluao)

@@ -20,6 +20,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
+  "${dir}/diag.f90"
   "${dir}/info.f90"
   "${dir}/iterator.f90"
   "${dir}/mixer.f90"

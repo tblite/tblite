@@ -15,9 +15,9 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module tblite_lapack_sygvr
-   use mctc_env, only : sp, dp, error_type, fatal_error
+   use mctc_env, only : sp, dp, wp, error_type, fatal_error
    use tblite_output_format, only : format_string
-   use tblite_scf_solver, only : solver_type
+   use tblite_scf_diag, only : diag_solver_type
    use tblite_lapack_sygst, only : wrap_sygst
    use tblite_lapack_potrf, only : wrap_potrf
    use tblite_blas_level3, only : wrap_trsm
@@ -88,7 +88,7 @@ module tblite_lapack_sygvr
    end interface lapack_syevr
 
 
-   type, public, extends(solver_type) :: sygvr_solver
+   type, public, extends(diag_solver_type) :: sygvr_solver
       private
       integer :: n = 0
       integer, allocatable :: iwork(:)
@@ -106,10 +106,14 @@ module tblite_lapack_sygvr
 
 contains
 
-subroutine new_sygvr(self, ndim)
+subroutine new_sygvr(self, overlap, nel, kt)
    type(sygvr_solver), intent(out) :: self
-   integer, intent(in) :: ndim
-   self%n = ndim
+   real(wp), intent(in) :: overlap(:, :)
+   real(wp), intent(in) :: nel(:)
+   real(wp), intent(in) :: kt
+   self%n = size(overlap, 1)
+   self%nel = nel
+   self%kt = kt
 end subroutine new_sygvr
 
 subroutine solve_sp(self, hmat, smat, eval, error)
