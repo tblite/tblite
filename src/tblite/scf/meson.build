@@ -17,6 +17,7 @@
 subdir('mixer')
 
 srcs += files(
+  'diag.f90',
   'info.f90',
   'iterator.f90',
   'mixer.f90',

@@ -37,8 +37,6 @@ module tblite_wavefunction_type
       real(wp) :: nuhf = 0.0_wp
       !> Number of spin channels
       integer :: nspin = 1
-      !> Index of the highest occupied molecular orbitals
-      integer, allocatable :: homo(:)
       !> Number of electrons
       real(wp), allocatable :: nel(:)
       !> Reference occupation number for each atom, shape: [nat]
@@ -92,7 +90,6 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
    self%nspin = nspin
    self%kt = kt
 
-   allocate(self%homo(max(2, nspin)))
    allocate(self%nel(max(2, nspin)))
 
    allocate(self%n0at(nat))
@@ -101,7 +98,7 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
    allocate(self%density(nao, nao, nspin))
    allocate(self%coeff(nao, nao, nspin))
    allocate(self%emo(nao, nspin))
-   allocate(self%focc(nao, nspin))
+   allocate(self%focc(nao, max(2, nspin)))
 
    allocate(self%qat(nat, nspin))
    allocate(self%qsh(nsh, nspin))

@@ -19,9 +19,9 @@
 
 !> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems
 module tblite_lapack_sygvd
-   use mctc_env, only : sp, dp, error_type, fatal_error
+   use mctc_env, only : sp, dp, wp, error_type, fatal_error
    use tblite_output_format, only : format_string
-   use tblite_scf_solver, only : solver_type
+   use tblite_scf_diag, only : diag_solver_type
    implicit none
    private
 
@@ -69,7 +69,7 @@ module tblite_lapack_sygvd
 
 
    !> Wrapper class for solving symmetric general eigenvalue problems
-   type, public, extends(solver_type) :: sygvd_solver
+   type, public, extends(diag_solver_type) :: sygvd_solver
       private
       integer :: n = 0
       integer, allocatable :: iwork(:)
@@ -84,10 +84,14 @@ module tblite_lapack_sygvd
 
 contains
 
-subroutine new_sygvd(self, ndim)
+subroutine new_sygvd(self, overlap, nel, kt)
    type(sygvd_solver), intent(out) :: self
-   integer, intent(in) :: ndim
-   self%n = ndim
+   real(wp), intent(in) :: overlap(:, :)
+   real(wp), intent(in) :: nel(:)
+   real(wp), intent(in) :: kt
+   self%n = size(overlap, 1)
+   self%nel = nel
+   self%kt = kt
 end subroutine new_sygvd
 
 subroutine solve_sp(self, hmat, smat, eval, error)

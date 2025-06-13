@@ -56,9 +56,6 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
    call load_npz(filename, prefix//"kt", kt, stat, msg)
 
    if (stat == 0) then
-      call load_npz(filename, prefix//"homo", wfn%homo, stat, msg)
-   end if
-   if (stat == 0) then
       call load_npz(filename, prefix//"nel", wfn%nel, stat, msg)
    end if
    if (stat == 0) then
@@ -128,8 +125,7 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
 
    nspin_sizes = [size(wfn%density, 3), size(wfn%coeff, 3), size(wfn%emo, 2), size(wfn%focc, 2)]
    if (present(nspin)) nspin_sizes = [nspin, nspin_sizes]
-   if (any(nspin_sizes(1) /= nspin_sizes) .or. (size(wfn%nel) /= size(wfn%homo) &
-      & .and. all(size(wfn%nel) /= [2, nspin_sizes(1)]))) then
+   if (any(nspin_sizes(1) /= nspin_sizes) .or. (all(size(wfn%nel) /= [2, nspin_sizes(1)]))) then
       call fatal_error(error, "Dimension mismatch in '"//filename//&
          & "' for number of spin channels")
       return
@@ -176,9 +172,6 @@ subroutine save_wavefunction(wfn, filename, error)
 
    call save_npz(filename, prefix//"kt", [wfn%kt], stat, msg)
 
-   if (stat == 0) then
-      call save_npz(filename, prefix//"homo", wfn%homo, stat, msg)
-   end if
    if (stat == 0) then
       call save_npz(filename, prefix//"nel", wfn%nel, stat, msg)
    end if

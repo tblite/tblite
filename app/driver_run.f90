@@ -303,7 +303,7 @@ subroutine run_main(config, error)
    end if
 
    if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
+      call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
       call post_proc%dict%get_entry("molecular-dipole", dpmom)
       call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
       

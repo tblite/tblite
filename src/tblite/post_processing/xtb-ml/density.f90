@@ -104,7 +104,7 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    character(len=20), allocatable :: tmp_labels(:)
    real(wp), allocatable :: tmp_s_array(:), tmp_p_array(:), tmp_d_array(:), tmp_array(:, :)
    real(wp) :: z(mol%nat)
-   integer :: i, mu, nspin, spin
+   integer :: i, nspin, spin
    character(len=6), allocatable :: spin_label(:)
 
    nspin = wfn%nspin

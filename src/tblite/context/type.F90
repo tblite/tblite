@@ -24,7 +24,7 @@
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use iso_fortran_env, only : output_unit
-   use mctc_env, only : error_type
+   use mctc_env, only : wp, error_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
@@ -130,20 +130,24 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, solver, ndim)
+subroutine new_solver(self, solver, overlap, nel, kt)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
    !> New electronic solver
    class(solver_type), allocatable, intent(out) :: solver
-   !> Dimension of the eigenvalue problem
-   integer, intent(in) :: ndim
+   !> Overlap matrix
+   real(wp), intent(in) :: overlap(:, :)
+   !> Number of electrons per spin channel
+   real(wp), intent(in) :: nel(:)
+   !> Electronic temperature
+   real(wp), intent(in) :: kt
 
    if (.not.allocated(self%solver)) then
       self%solver = lapack_solver()
    end if
 
-   call self%solver%new(solver, ndim)
+   call self%solver%new(solver, overlap, nel, kt)
 end subroutine new_solver
 
 
