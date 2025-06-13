@@ -150,6 +150,9 @@ module tblite_cli_help
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
       "                           Options: molmom (molecular multipole moments)"//nl//&
       "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
+      "      --post-processing-output <file>"//nl//&
+      "                           Output file for post processing results in npz format."//nl//&
+      "                           (default: tblite-data.npz)"//nl//&
       "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
       "                           Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&

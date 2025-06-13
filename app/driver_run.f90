@@ -266,18 +266,22 @@ subroutine run_main(config, error)
    wbo_label = "bond-orders"
    allocate(post_proc)
    call add_post_processing(post_proc, wbo_label, error)
+   if (allocated(error)) return
 
    if (config%verbosity > 2) then
       molmom_label = "molmom"
       call add_post_processing(post_proc, molmom_label, error)
+      if (allocated(error)) return
    end if
 
    if (allocated(config%post_processing)) then
       call add_post_processing(post_proc, config%post_processing, error)
+      if (allocated(error)) return
    end if
 
    if (allocated(param%post_proc)) then
       call add_post_processing(post_proc, param%post_proc)
+      if (allocated(error)) return
    end if
 
    if (config%verbosity > 0) then
@@ -299,6 +303,11 @@ subroutine run_main(config, error)
    if (allocated(config%restart_file)) then
       call info(ctx, "Writing wavefunction information to '"//config%restart_file//"'")
       call save_wavefunction(wfn, config%restart_file, error)
+      if (allocated(error)) return
+   end if
+
+   if (allocated(post_proc) .and. allocated(config%post_proc_output)) then
+      call results%dict%dump(config%post_proc_output, error)
       if (allocated(error)) return
    end if
 
