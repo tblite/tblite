@@ -510,9 +510,9 @@ subroutine test_read_in_npz(error)
    allocate(input3(4, 6, 9), source = 0.0_wp)
 
    call delete_file(filename)
-   call save_npz(filename, "tblite0_r1_a", input1)
-   call save_npz(filename, "tblite0_r2_b", input2)
-   call save_npz(filename, "tblite0_r3_c", input3)
+   call save_npz(filename, "tblite0_a", input1)
+   call save_npz(filename, "tblite0_b", input2)
+   call save_npz(filename, "tblite0_c", input3)
 
    call dict2%load(filename, error)
    call delete_file(filename)

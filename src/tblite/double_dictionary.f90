@@ -25,6 +25,7 @@ module tblite_double_dictionary
    use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
    use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
    use tblite_io_numpy, only : save_npz, load_npz
+   use tblite_io_numpy_loadz, only : get_npz_descriptor
    use tblite_io_numpy_zip, only : zip_file, list_zip_file
    implicit none
    private
@@ -159,9 +160,10 @@ subroutine load_from_file(self, filename, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer :: io, stat, irec, it
+   integer, allocatable :: vshape(:)
    logical :: exist
    type(zip_file) :: zip
-   character(len=:), allocatable :: msg, label
+   character(len=:), allocatable :: msg, label, vtype
    character(len=*), parameter :: prefix = "tblite0_"
 
    inquire(file=filename, exist=exist)
@@ -186,26 +188,33 @@ subroutine load_from_file(self, filename, error)
 
    do irec = 1, size(zip%records)
       associate(path => zip%records(irec)%path)
-         if (len(path) < len(prefix) + 3 + 4) then
+         if (len(path) < len(prefix) + 4) then
             call fatal_error(error, "File '"//filename//"::"//path// &
                & "' does not match expected format")
             exit
          end if
-         label = path(len(prefix) + 3 + 1:len(path) - 4)
-         select case(path(:len(prefix) + 3))
-         case default
+         label = path(len(prefix) + 1:len(path) - 4)
+         if (path(:len(prefix)) /= prefix) then
             call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
             exit
-         case (prefix//"r1_")
-            call self%push(label, it)
-            call load_npz(filename, prefix//"r1_"//label, self%record(it)%array1, stat, msg)
-         case (prefix//"r2_")
-            call self%push(label, it)
-            call load_npz(filename, prefix//"r2_"//label, self%record(it)%array2, stat, msg)
-         case (prefix//"r3_")
-            call self%push(label, it)
-            call load_npz(filename, prefix//"r3_"//label, self%record(it)%array3, stat, msg)
-         end select
+         end if
+         call get_npz_descriptor(filename, prefix//label, vtype, vshape, stat, msg)
+         if (stat == 0 .and. allocated(vshape)) then
+            select case(size(vshape))
+            case default
+               call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
+               exit
+            case (1)
+               call self%push(label, it)
+               call load_npz(filename, prefix//label, self%record(it)%array1, stat, msg)
+            case (2)
+               call self%push(label, it)
+               call load_npz(filename, prefix//label, self%record(it)%array2, stat, msg)
+            case (3)
+               call self%push(label, it)
+               call load_npz(filename, prefix//label, self%record(it)%array3, stat, msg)
+            end select
+         end if
          if (stat /= 0) then
             if (.not.allocated(msg)) then
                msg = "Failed to load file '"//filename//"::"//path//"'"
@@ -244,26 +253,30 @@ subroutine dump_to_file(self, file, error)
    do it = 1, self%n
       associate(record => self%record(it))
          if (allocated(record%array1)) then
-            call save_npz(file, prefix//"r1_"//record%label, record%array1, stat, msg)
+            call save_npz(file, prefix//record%label, record%array1, stat, msg)
             if (stat /= 0) exit
             cycle
          end if
 
          if (allocated(record%array2)) then
-            call save_npz(file, prefix//"r2_"//record%label, record%array2, stat, msg)
+            call save_npz(file, prefix//record%label, record%array2, stat, msg)
             if (stat /= 0) exit
             cycle
          end if
 
          if (allocated(record%array3)) then
-            call save_npz(file, prefix//"r3_"//record%label, record%array3, stat, msg)
+            call save_npz(file, prefix//record%label, record%array3, stat, msg)
             if (stat /= 0) exit
             cycle
          end if
       end associate
    end do
-
-   if (allocated(error)) return
+   if (stat /= 0) then
+      if (.not.allocated(msg)) then
+         msg = "Failed to write file '"//file//"'"
+      end if
+      call fatal_error(error, msg)
+   end if
 end subroutine dump_to_file
 
 
