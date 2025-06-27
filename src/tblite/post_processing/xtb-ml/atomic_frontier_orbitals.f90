@@ -207,4 +207,5 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
    end do
 
 end subroutine atomic_frontier_orbitals
-end module
+
+end module tblite_xtbml_atomic_frontier

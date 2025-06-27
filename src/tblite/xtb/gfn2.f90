@@ -22,15 +22,15 @@ module tblite_xtb_gfn2
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
+   use mctc_ncoord, only : new_ncoord, cn_count
+   use mctc_data_paulingen, only : get_pauling_en
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & arithmetic_average, coulomb_kernel
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
-   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d4_dispersion, new_d4_dispersion
-   use tblite_ncoord, only : new_ncoord
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator
@@ -582,11 +582,14 @@ subroutine new_gfn2_calculator(calc, mol, error)
    end if
 
    call add_basis(calc, mol)
-   call add_ncoord(calc, mol)
+   call add_ncoord(calc, mol, error)
+   if (allocated(error)) return
    call add_hamiltonian(calc, mol)
    call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol)
-   call add_coulomb(calc, mol)
+   call add_dispersion(calc, mol, error)
+   if (allocated(error)) return
+   call add_coulomb(calc, mol, error)
+   if (allocated(error)) return
 
    calc%method = "gfn2"
 
@@ -617,13 +620,15 @@ subroutine add_basis(calc, mol)
 
 end subroutine add_basis
 
-subroutine add_ncoord(calc, mol)
+subroutine add_ncoord(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
-   call new_ncoord(calc%ncoord, mol, cn_type="gfn")
+   call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%dexp, error=error)
 end subroutine add_ncoord
 
 subroutine add_hamiltonian(calc, mol)
@@ -635,16 +640,18 @@ subroutine add_hamiltonian(calc, mol)
    call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn2_h0spec(mol))
 end subroutine add_hamiltonian
 
-subroutine add_dispersion(calc, mol)
+subroutine add_dispersion(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d4_dispersion), allocatable :: tmp
 
    allocate(tmp)
-   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
+   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error)
    call move_alloc(tmp, calc%dispersion)
 end subroutine add_dispersion
 
@@ -662,11 +669,13 @@ subroutine add_repulsion(calc, mol)
    call new_repulsion(calc%repulsion, mol, alpha, zeff, rep_kexp, rep_kexp_light, rep_rexp)
 end subroutine add_repulsion
 
-subroutine add_coulomb(calc, mol)
+subroutine add_coulomb(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
    real(wp), allocatable :: dkernel(:), qkernel(:), rad(:), vcn(:)
@@ -689,7 +698,7 @@ subroutine add_coulomb(calc, mol)
    rad = p_rad(mol%num)
    vcn = p_vcn(mol%num)
    call new_damped_multipole(calc%coulomb%aes2, mol, mp_dmp3, mp_dmp5, dkernel, qkernel, &
-      & mp_shift, mp_kexp, mp_rmax, rad, vcn)
+      & mp_shift, mp_kexp, mp_rmax, rad, vcn, error)
 
 end subroutine add_coulomb
 
@@ -901,7 +910,7 @@ subroutine export_gfn2_param(param)
       &2019, 15, 1652-1671. DOI: 10.1021/acs.jctc.8b01176"
 
    associate(par => param%hamiltonian)
-      par%cn = "gfn"
+      par%cn = "dexp"
       par%enscale = enscale
       par%wexp = wexp
       par%lmax = 2
@@ -924,6 +933,7 @@ subroutine export_gfn2_param(param)
       par%s9 = s9
       par%sc = .true.
       par%d3 = .false.
+      par%smooth = .false.
    end associate
 
    allocate(param%repulsion)
