@@ -176,22 +176,27 @@ end subroutine get_density_matrix
 
 #else
       !> Wrapper class for solving symmetric general eigenvalue problems
-   type, public, extends(solver_type) :: sygvd_cusolver
+   type, public, extends(diag_solver_type) :: sygvd_cusolver
       private
    contains
       procedure :: solve_sp
       procedure :: solve_dp
       procedure :: delete
-      procedure :: get_density_matrix
    end type sygvd_cusolver
 
 contains
-
-subroutine new_sygvd_gpu(self, ndim, return_coeff)
+subroutine new_sygvd_gpu(self, overlap, nel, kt, ptr, return_coeff)
+   !> New instance of a solver for symmetric general eigenvalue problems
    type(sygvd_cusolver), intent(out) :: self
-   integer, intent(in) :: ndim
-   logical, intent(in), optional :: return_coeff
-     
+   real(wp), intent(in) :: overlap(:, :)
+   real(wp), intent(in) :: nel(:)
+   real(wp), intent(in) :: kt
+   !> Pointer to the C++ solver instance
+   type(c_ptr), intent(inout) :: ptr
+   !> Whether to return coefficients in the eigenvalue problem or store them on the GPU
+   logical, intent(in), optional :: return_coeff 
+   
+  
 end subroutine new_sygvd_gpu
 
 subroutine solve_sp(self, hmat, smat, eval, error)
@@ -216,19 +221,15 @@ subroutine solve_dp(self, hmat, smat, eval, error)
 
 end subroutine solve_dp
 
-subroutine delete(self)
-   class(sygvd_cusolver) :: self
-  
+subroutine delete(self, ptr)
+   !> Instance of solver class
+   class(sygvd_cusolver), intent(inout) :: self
+   !> Pointer to the C++ solver instance
+   type(c_ptr), intent(inout), optional :: ptr
+   
 
 end subroutine delete
 
-subroutine get_density_matrix(self, focc, coeff, pmat)
-   class(sygvd_cusolver) :: self
-   real(wp), intent(in) :: focc(:)
-   real(wp), contiguous, intent(in) :: coeff(:, :)
-   real(wp), contiguous, intent(out) :: pmat(:, :)
-   
-end subroutine get_density_matrix
 #endif
 
 end module tblite_cusolver_sygvd

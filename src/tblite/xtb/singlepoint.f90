@@ -311,7 +311,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
-      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
+      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin), source=wfn%density)
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
