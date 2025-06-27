@@ -79,9 +79,8 @@ contains
       real(wp) :: dipole(3)
       ! Integral container
       type(integral_type) :: ints
-      ! Electronic solver
-      class(solver_type), allocatable :: solver
-      ! Adjacency list
+      !> Electronic solver
+      !> Adjacency list
       type(adjacency_list) :: list
       ! Potential type
       type(potential_type) :: pot
@@ -96,7 +95,7 @@ contains
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
-
+      class(solver_type), allocatable :: solver
       integer :: prlevel
 
       ! coordination number related arrays
@@ -236,6 +235,8 @@ contains
             call ctx%message("")
          end if
       end block
+
+      call ctx%delete_solver(solver)
 
    end subroutine ceh_singlepoint
 
