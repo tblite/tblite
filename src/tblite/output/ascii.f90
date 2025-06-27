@@ -35,34 +35,36 @@ module tblite_output_ascii
 contains
 
 
-subroutine ascii_levels(unit, verbosity, homo, emo, focc, range)
+subroutine ascii_levels(unit, verbosity, emo, focc, range)
    integer, intent(in) :: unit
    integer, intent(in) :: verbosity
-   integer, intent(in) :: homo(:)
    real(wp), intent(in) :: emo(:, :)
    real(wp), intent(in) :: focc(:, :)
    integer, intent(in) :: range
 
    character(len=*), parameter :: hlfmt = '(a21, f21.7, 1x, "Eh", f18.4, 1x, "eV")'
-   integer :: nao, maxorb, minorb, iorb, spin
-   real(wp) :: gap
+   integer :: nao, maxorb, minorb, iorb, spin, homo
+   real(wp) :: gap, nel
 
    do spin = 1, size(emo, 2)
+   nel = sum(focc(:, spin))
+   homo = floor(nel)
+   homo = merge(homo+1, homo, mod(nel, 1.0_wp) > 0.5_wp)
    nao = size(emo, 1)
-   minorb = max(homo(spin) - (range+1), 1)
-   maxorb = min(homo(spin) +  range, nao)
-   gap = emo(min(homo(spin)+1, nao), spin) - emo(max(homo(spin), 1), spin)
+   minorb = max(homo - (range+1), 1)
+   maxorb = min(homo +  range, nao)
+   gap = emo(min(homo+1, nao), spin) - emo(max(homo, 1), spin)
 
    write(unit, '(66("-"))')
    write(unit, '(a7, a14, a21, a21)') "#", "Occupation", "Energy/Eh", "Energy/eV"
    write(unit, '(66("-"))')
    if (minorb > 1) then
-      call write_line(1, focc(:, spin), emo(:, spin), homo(spin))
+      call write_line(1, focc(:, spin), emo(:, spin), homo)
       if (minorb > 2) &
          write(unit, '(a7, a14, a21, a21)') "...", "...", "...", "..."
    endif
    do iorb = minorb, maxorb
-      call write_line(iorb, focc(:, spin), emo(:, spin), homo(spin))
+      call write_line(iorb, focc(:, spin), emo(:, spin), homo)
    enddo
    if (maxorb < nao) then
       if (maxorb < nao-1) then
@@ -72,7 +74,7 @@ subroutine ascii_levels(unit, verbosity, homo, emo, focc, range)
             write(unit, '(a7, a14, a21, a21)') "...", "", "...", "..."
          endif
       endif
-      call write_line(nao, focc(:, spin), emo(:, spin), homo(spin))
+      call write_line(nao, focc(:, spin), emo(:, spin), homo)
    endif
    write(unit, '(66("-"))')
    write(unit, hlfmt) "HL-Gap", gap, gap*autoev

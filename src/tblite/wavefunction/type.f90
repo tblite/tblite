@@ -24,7 +24,7 @@ module tblite_wavefunction_type
    implicit none
    private
 
-   public :: new_wavefunction
+   public :: new_wavefunction, get_density_matrix
    public :: get_alpha_beta_occupation
 
    !> Tight-binding wavefunction
@@ -37,8 +37,6 @@ module tblite_wavefunction_type
       real(wp) :: nuhf = 0.0_wp
       !> Number of spin channels
       integer :: nspin = 1
-      !> Index of the highest occupied molecular orbitals
-      integer, allocatable :: homo(:)
       !> Number of electrons
       real(wp), allocatable :: nel(:)
       !> Reference occupation number for each atom, shape: [nat]
@@ -92,7 +90,6 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
    self%nspin = nspin
    self%kt = kt
 
-   allocate(self%homo(max(2, nspin)))
    allocate(self%nel(max(2, nspin)))
 
    allocate(self%n0at(nat))
@@ -101,7 +98,7 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
    allocate(self%density(nao, nao, nspin))
    allocate(self%coeff(nao, nao, nspin))
    allocate(self%emo(nao, nspin))
-   allocate(self%focc(nao, nspin))
+   allocate(self%focc(nao, max(2, nspin)))
 
    allocate(self%qat(nat, nspin))
    allocate(self%qsh(nsh, nspin))
@@ -132,6 +129,25 @@ subroutine new_wavefunction(self, nat, nsh, nao, nspin, kt, grad)
    self%dpat(:, :, :) = 0.0_wp
    self%qpat(:, :, :) = 0.0_wp
 end subroutine new_wavefunction
+
+subroutine get_density_matrix(focc, coeff, pmat)
+   real(wp), intent(in) :: focc(:)
+   real(wp), contiguous, intent(in) :: coeff(:, :)
+   real(wp), contiguous, intent(out) :: pmat(:, :)
+
+   real(wp), allocatable :: scratch(:, :)
+   integer :: iao, jao
+
+   allocate(scratch(size(pmat, 1), size(pmat, 2)))
+   !$omp parallel do collapse(2) default(none) schedule(runtime) &
+   !$omp shared(scratch, coeff, focc, pmat) private(iao, jao)
+   do iao = 1, size(pmat, 1)
+      do jao = 1, size(pmat, 2)
+         scratch(jao, iao) = coeff(jao, iao) * focc(iao)
+      end do
+   end do
+   call gemm(scratch, coeff, pmat, transb='t')
+end subroutine get_density_matrix
 
 !> Split an real occupation number into alpha and beta space.
 !>

@@ -214,12 +214,8 @@ subroutine add_post_processing_cli(self, config, error)
          call toml_parse(table, io, t_error)
          close(io)
          if (allocated(t_error)) then
-            allocate(error)
-            call move_alloc(t_error%message, error%message)
+            call fatal_error(error, "Could not parse TOML file due to "//t_error%message)
             return
-         end if
-         if (allocated(error)) then
-            call fatal_error(error, "File name provided could not be parsed as a toml table")
          end if
          call get_value(table, "post-processing", child, requested=.false.)
          if (associated(child)) then

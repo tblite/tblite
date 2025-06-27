@@ -19,6 +19,7 @@
 
 !> Abstract base class for an electronic solver
 module tblite_context_solver
+   use mctc_env, only : wp
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -36,14 +37,18 @@ module tblite_context_solver
 
    abstract interface
       !> Create new electronic solver
-      subroutine new(self, solver, ndim)
-         import :: context_solver, solver_type
+      subroutine new(self, solver, overlap, nel, kt)
+         import :: wp, context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
          !> New electronic solver
          class(solver_type), allocatable, intent(out) :: solver
-         !> Dimension of the eigenvalue problem
-         integer, intent(in) :: ndim
+         !> Overlap matrix
+         real(wp), intent(in) :: overlap(:, :)
+         !> Electronic temperature
+         real(wp), intent(in) :: kt
+         !> Number of electrons per spin channel
+         real(wp), intent(in) :: nel(:)
       end subroutine new
 
       !> Delete electronic solver instance
@@ -55,5 +60,6 @@ module tblite_context_solver
          class(solver_type), allocatable, intent(inout) :: solver
       end subroutine delete
    end interface
+
 
 end module tblite_context_solver

@@ -21,6 +21,7 @@
 module tblite_cusolver_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error, wp
    use tblite_output_format, only : format_string
+   use tblite_scf_diag, only : diag_solver_type
    use tblite_scf_solver, only : solver_type
    use iso_c_binding
    implicit none
@@ -71,7 +72,7 @@ module tblite_cusolver_sygvd
 
 
    !> Wrapper class for solving symmetric general eigenvalue problems
-   type, public, extends(solver_type) :: sygvd_cusolver
+   type, public, extends(diag_solver_type) :: sygvd_cusolver
       private
       integer(c_size_t) :: n = 0
       type(c_ptr) :: ptr = c_null_ptr
@@ -85,11 +86,16 @@ module tblite_cusolver_sygvd
 
 contains
 
-subroutine new_sygvd_gpu(self, ndim, return_coeff)
+subroutine new_sygvd_gpu(self, overlap, nel, kt, ptr, return_coeff)
+   !> New instance of a solver for symmetric general eigenvalue problems
    type(sygvd_cusolver), intent(out) :: self
-   integer, intent(in) :: ndim
-   logical, intent(in), optional :: return_coeff
-   self%n = ndim
+   real(wp), intent(in) :: overlap(:, :)
+   real(wp), intent(in) :: nel(:)
+   real(wp), intent(in) :: kt
+   !> Pointer to the C++ solver instance
+   type(c_ptr), intent(inout) :: ptr
+   !> Whether to return coefficients in the eigenvalue problem or store them on the GPU
+   logical, intent(in), optional :: return_coeff 
    
    if (present(return_coeff)) then
       if (return_coeff) then
@@ -99,6 +105,12 @@ subroutine new_sygvd_gpu(self, ndim, return_coeff)
       end if
    end if
    
+   self%n = size(overlap, 1)
+   self%nel = nel
+   self%kt = kt
+
+   if (.not.c_associated(ptr)) ptr = cusolver_setup_dp(self%n, self%return_coeff)
+   self%ptr = ptr   
   
 end subroutine new_sygvd_gpu
 
@@ -109,7 +121,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    real(sp), contiguous, intent(inout) :: eval(:)
    type(error_type), allocatable, intent(out) :: error
    integer :: info = 0
-   if (.not.c_associated(self%ptr))  self%ptr = cusolver_setup_sp(self%n, self%return_coeff)
+   
 
    call cusolve_sp(self%ptr, hmat, smat, eval, info)
 
@@ -125,17 +137,20 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    type(error_type), allocatable, intent(out) :: error
    integer :: info = 0
 
-   if (.not.c_associated(self%ptr))  self%ptr = cusolver_setup_dp(self%n, self%return_coeff)
-
    call cusolve_dp(self%ptr, hmat, smat, eval, info)
    
    call handle_info(error, info)
 
 end subroutine solve_dp
 
-subroutine delete(self)
-   class(sygvd_cusolver) :: self
-   call delete_ptr(self%ptr)
+subroutine delete(self, ptr)
+   !> Instance of solver class
+   class(sygvd_cusolver), intent(inout) :: self
+   !> Pointer to the C++ solver instance
+   type(c_ptr), intent(inout), optional :: ptr
+   
+   if (present(ptr)) call delete_ptr(ptr)
+   self%ptr = c_null_ptr
 
 end subroutine delete
 
@@ -150,11 +165,11 @@ subroutine handle_info(error, info)
 end subroutine handle_info
 
 subroutine get_density_matrix(self, focc, coeff, pmat)
-   class(sygvd_cusolver) :: self
+   class(sygvd_cusolver), intent(inout) :: self
    real(wp), intent(in) :: focc(:)
    real(wp), contiguous, intent(in) :: coeff(:, :)
    real(wp), contiguous, intent(out) :: pmat(:, :)
-
+   
    call cusolve_get_density(self%ptr, coeff, focc, pmat);
    
 end subroutine get_density_matrix

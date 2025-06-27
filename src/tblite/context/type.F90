@@ -24,7 +24,7 @@
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use iso_fortran_env, only : output_unit
-   use mctc_env, only : error_type
+   use mctc_env, only : wp, error_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
@@ -35,8 +35,6 @@ module tblite_context_type
 
    !> Calculation context type for error handling and output messages
    type, public :: context_type
-      !> switch to allow the reuse of the context solver, for MD/CREST etc
-      logical :: reuse_solver = .false.
       !> Default output unit for this context
       integer :: unit = output_unit
       !> Default verbosity for procedures using this context
@@ -46,11 +44,9 @@ module tblite_context_type
       !> Optional logger to be used for writing messages
       class(context_logger), allocatable :: io
       !> Optional factory for creating electronic solvers
-      class(context_solver), allocatable :: ctxsolver
+      class(context_solver), allocatable :: solver
       !> Color support for output
       type(context_terminal) :: terminal = context_terminal()
-      !> Solver instance moved here to keep MD overhead low
-      class(solver_type), allocatable :: solver
    contains
       !> Write a message to the output
       procedure :: message
@@ -134,40 +130,41 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, ndim)
+subroutine new_solver(self, solver, overlap, nel, kt)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
    !> New electronic solver
-   !class(solver_type), allocatable, intent(out) :: solver
-   !> Dimension of the eigenvalue problem
-   integer, intent(in) :: ndim
+   class(solver_type), allocatable, intent(out) :: solver
+   !> Overlap matrix
+   real(wp), intent(in) :: overlap(:, :)
+   !> Number of electrons per spin channel
+   real(wp), intent(in) :: nel(:)
+   !> Electronic temperature
+   real(wp), intent(in) :: kt
 
-   if (.not.allocated(self%ctxsolver)) then
-      self%ctxsolver = lapack_solver()
-   end if
    if (.not.allocated(self%solver)) then
-      call self%ctxsolver%new(self%solver, ndim)
+      self%solver = lapack_solver()
    end if
+
+   call self%solver%new(solver, overlap, nel, kt)
 end subroutine new_solver
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self)
+subroutine delete_solver(self, solver)
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
    !> Electronic solver instance
-   !class(solver_type), allocatable, intent(inout) :: solver
+   class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%ctxsolver%delete(self%solver)
-      if (allocated(self%solver)) deallocate(self%solver)
+      call self%solver%delete(solver)
    end if
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
-
-   if (allocated(self%ctxsolver)) deallocate(self%ctxsolver)
+   if (allocated(solver)) deallocate(solver)
 end subroutine delete_solver
 
 

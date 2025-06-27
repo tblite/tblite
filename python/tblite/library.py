@@ -353,12 +353,12 @@ def get_orbital_occupations(res) -> np.ndarray:
     """Retrieve orbital occupations from result container"""
     _norb = get_number_of_orbitals(res)
     _nspin = get_number_of_spins(res)
-    _occ = np.zeros((_nspin, _norb))
+    _occ = np.zeros((2, _norb))
     error_check(lib.tblite_get_result_orbital_occupations)(
         res, ffi.cast("double*", _occ.ctypes.data)
     )
     if _nspin == 1:
-        return np.squeeze(_occ, axis=0)
+        return np.sum(_occ, axis=0)
     return _occ
 
 

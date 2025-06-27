@@ -26,7 +26,7 @@ module tblite_api_context
    use tblite_lapack_solver, only : lapack_solver
    use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character
-   use tblite_purification_solver_context, only : purification_solver_context
+   use tblite_purification_solver_context, only : purification_solver_context, dmp_input
    implicit none
    private
 
@@ -181,6 +181,7 @@ subroutine set_context_solver_api(vctx, solver) &
    type(vp_context), pointer :: ctx
    integer(c_int), value :: solver
    type(error_type), allocatable :: error
+   type(dmp_input) :: dmp_inp
 
    if (debug) print '("[Info]", 1x, a)', "set_context_solver"
 
@@ -188,9 +189,10 @@ subroutine set_context_solver_api(vctx, solver) &
       call c_f_pointer(vctx, ctx)
       select case(solver)
       case(1,2,3)
-         ctx%ptr%ctxsolver = lapack_solver(solver)
+         ctx%ptr%solver = lapack_solver(solver)
       case(12,14,22)
-         ctx%ptr%ctxsolver = purification_solver_context(solver-10)
+         dmp_inp%type = solver - 10 
+         ctx%ptr%solver = purification_solver_context(dmp_inp)
       case default
          allocate(error)
          error%message = "Invalid solver type"
@@ -212,7 +214,6 @@ subroutine delete_context_api(vctx) &
 
    if (c_associated(vctx)) then
       call c_f_pointer(vctx, ctx)
-      call ctx%ptr%delete_solver()
       deallocate(ctx)
       vctx = c_null_ptr
    end if

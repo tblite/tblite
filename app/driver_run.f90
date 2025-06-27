@@ -83,11 +83,10 @@ subroutine run_main(config, error)
    class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
-   if (allocated(config%purification_solver)) then
-      ctx%ctxsolver = purification_solver_context(config%purification_solver, &
-      config%purification_precision_, config%purification_runmode_)
+   if (allocated(config%dmp_input)) then
+      ctx%solver = purification_solver_context(config%dmp_input)
    else
-      ctx%ctxsolver = lapack_solver(config%solver)
+      ctx%solver = lapack_solver(config%solver)
    end if
    
    if (config%input == "-") then
@@ -272,18 +271,22 @@ subroutine run_main(config, error)
    wbo_label = "bond-orders"
    allocate(post_proc)
    call add_post_processing(post_proc, wbo_label, error)
+   if (allocated(error)) return
 
    if (config%verbosity > 2) then
       molmom_label = "molmom"
       call add_post_processing(post_proc, molmom_label, error)
+      if (allocated(error)) return
    end if
 
    if (allocated(config%post_processing)) then
       call add_post_processing(post_proc, config%post_processing, error)
+      if (allocated(error)) return
    end if
 
    if (allocated(param%post_proc)) then
       call add_post_processing(post_proc, param%post_proc)
+      if (allocated(error)) return
    end if
 
    if (config%verbosity > 0) then
@@ -308,8 +311,13 @@ subroutine run_main(config, error)
       if (allocated(error)) return
    end if
 
+   if (allocated(post_proc) .and. allocated(config%post_proc_output)) then
+      call results%dict%dump(config%post_proc_output, error)
+      if (allocated(error)) return
+   end if
+
    if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%homo, wfn%emo, wfn%focc, 7)
+      call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
       call post_proc%dict%get_entry("molecular-dipole", dpmom)
       call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
       

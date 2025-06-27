@@ -71,27 +71,32 @@ module tblite_purification_solver
    type(enum_purification_type), parameter :: purification_type = enum_purification_type()
    type(enum_runmode), parameter :: purification_runmode = enum_runmode()
 
-
-    type, public, extends(solver_type) :: purification_solver
+   type, public :: dmp_input
+      !> Type/Algorithm of purification
+      integer(c_size_t) :: type = purification_type%tc2 
+      !> Numerical precision of the DMP solver
       integer(c_size_t) :: precision = purification_precision%mixed
-      integer(c_size_t) :: type = purification_type%tc2
+      !> Run mode of the solver, default is to switch to GPU for ndim > 750
       integer(c_size_t) :: runmode = purification_runmode%default
+   end type
+
+   type, public, extends(solver_type) :: purification_solver
+      type(dmp_input) :: input
       real(c_double) :: thresh = 5.0e-07_c_double
       type(c_ptr) :: solver_ptr
       integer(c_size_t) :: maxiter = 100
       integer :: iscf = 0
       class(solver_type), allocatable :: lapack_solv
-      logical :: trans = .false.
+      logical :: transform = .false.
       logical :: purification_success = .true.
       type(gambits_context_type) :: ctx 
+      !> Pointer to the C++ SYGVD instance
+      type(c_ptr) :: sygvd_ptr = c_null_ptr
    contains
-      procedure :: solve_sp
-      procedure :: solve_dp
-      procedure :: purify_dp
+      procedure :: get_density
+      procedure :: get_wdensity
       procedure :: got_transform
       procedure :: delete
-      procedure :: get_density_matrix
-      procedure :: get_energy_w_density_matrix
       procedure :: reset
    end type
 
@@ -138,7 +143,7 @@ module tblite_purification_solver
 
 subroutine reset(self)
    class(purification_solver) :: self
-   self%trans = .false.
+   self%transform = .false.
    self%purification_success = .true.
    call ResetLib(self%solver_ptr)
 end subroutine
@@ -147,33 +152,44 @@ end subroutine
 function got_transform(self) result(trans)
    class(purification_solver) :: self
    logical :: trans
-   trans = self%trans;
+   trans = self%transform;
 end function
 
-subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
-   type(purification_solver) :: self
-   integer(c_size_t) :: type_, run_, prec_
-   integer :: ndim
+subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr, maxiter, thresh)
+   !> Create a new purification solver instance
+   type(purification_solver), intent(inout) :: self
+   !> Overlap matrix
+   real(wp), contiguous, intent(in) :: overlap(:, :)
+   !> Number of electrons
+   real(wp), contiguous, intent(in) :: nel(:)
+   !> kt Term
+   real(wp), intent(in) :: kt
+   !> Type of purification, runmode and precision
+   type(dmp_input), intent(in) :: dmp_inp
+   !> Pointer to the C++ DMP instance
+   type(c_ptr), intent(inout) :: dmp_ptr
+   !> Pointer to the C++ SGVD instance
+   type(c_ptr), intent(inout) :: gvd_ptr
    integer(c_size_t), optional :: maxiter
    real(c_double), optional :: thresh
-   self%type = type_
-   self%precision = prec_
-   self%runmode = run_
+   integer :: ndim
+   ndim = size(overlap, dim=1)
+   self%input = dmp_inp
 
    !use LAPACK for molecules smaller than 750 basis functions
-   select case(run_)
+   select case(dmp_inp%runmode)
    case(purification_runmode%cpu)
       block
          type(sygvd_solver), allocatable :: tmp
          allocate(tmp) 
-         call new_sygvd(tmp, ndim)
+         call new_sygvd(tmp, overlap, nel, kt)
          call move_alloc(tmp, self%lapack_solv)
       end block
    case(purification_runmode%gpu)
       block
          type(sygvd_cusolver), allocatable :: tmp
          allocate(tmp) 
-         call new_sygvd_gpu(tmp, ndim, .true.)
+         call new_sygvd_gpu(tmp, overlap, nel, kt, gvd_ptr, .true.)
          call move_alloc(tmp, self%lapack_solv)
       end block
    case(purification_runmode%default)
@@ -181,14 +197,14 @@ subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
          block
             type(sygvd_solver), allocatable :: tmp
             allocate(tmp) 
-            call new_sygvd(tmp, ndim)
+            call new_sygvd(tmp, overlap, nel, kt)
             call move_alloc(tmp, self%lapack_solv)
          end block
       else
          block
             type(sygvd_cusolver), allocatable :: tmp
             allocate(tmp) 
-            call new_sygvd_gpu(tmp, ndim, .true.)
+            call new_sygvd_gpu(tmp, overlap, nel, kt, gvd_ptr, .true.)
             call move_alloc(tmp, self%lapack_solv)
          end block
          end if
@@ -197,106 +213,130 @@ subroutine new_purification(self, type_, run_, prec_, ndim, maxiter, thresh)
    if (present(maxiter)) self%maxiter = maxiter
    if (present(thresh)) self%thresh = thresh
    call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
-   self%solver_ptr = SetupPurification(self%ctx%ptr, int(ndim, kind=c_size_t), &
-   self%type, self%runmode, self%precision)
+   if (.not. c_associated(dmp_ptr)) then
+      dmp_ptr = SetupPurification(self%ctx%ptr, int(ndim, kind=c_size_t), self%input%type, self%input%runmode, self%input%precision)
+   end if
+   self%nel = nel
+   self%solver_ptr = dmp_ptr
+   self%kt = 0.0_wp
+   if (c_associated(gvd_ptr)) self%sygvd_ptr = gvd_ptr
+   
 end subroutine
 
-subroutine solve_sp(self, hmat, smat, eval, error)
+subroutine get_density(self, hmat, smat, eval, focc, density, error)
    class(purification_solver), intent(inout) :: self
-   real(sp), contiguous, intent(inout) :: hmat(:, :)
-   real(sp), contiguous, intent(in) :: smat(:, :)
-   real(sp), contiguous, intent(inout) :: eval(:)
-   type(error_type), allocatable, intent(out) :: error
-end subroutine
-
-
-
-subroutine solve_dp(self, hmat, smat, eval, error)
-   class(purification_solver), intent(inout) :: self
-   real(dp), contiguous, intent(inout) :: hmat(:, :)
-   real(dp), contiguous, intent(in) :: smat(:, :)
-   real(dp), contiguous, intent(inout) :: eval(:)
-   real(c_double), allocatable, target :: tmp(:, :)
+   !> Overlap matrix
+   real(wp), contiguous, intent(in) :: smat(:, :)
+   !> Hamiltonian matrix, can contains eigenvectors on output
+   real(wp), contiguous, intent(inout) :: hmat(:, :, :)
+   !> Eigenvalues
+   real(wp), contiguous, intent(inout) :: eval(:, :)
+   !> Occupation numbers
+   real(wp), contiguous, intent(inout) :: focc(:, :)
+   !> Density matrix
+   real(wp), contiguous, intent(inout) :: density(:, :, :)
+   !> Error handling
    type(error_type), allocatable, intent(out) :: error
    character(len=:), allocatable :: error_msg
-   if (self%ctx%failed()) then
-      call self%ctx%get_error(error_msg)
-      call fatal_error(error, error_msg)
-   end if
-   call self%lapack_solv%solve(hmat, smat, eval, error)
-   allocate(tmp(size(hmat, dim=1), size(hmat, dim=2)), source=0.0_c_double)
-   tmp = hmat
-   if (self%purification_success) call SetTransformationMatrix(self%ctx%ptr, self%solver_ptr, tmp)
-   self%trans = .true.
-end subroutine solve_dp
+   real(c_double), allocatable, target :: tmp(:, :, :)
+   real(c_double) :: nel, nel1
+   integer :: nspin, spin
 
-subroutine purify_dp(self, hmat, smat, dens, nel, error)
-      class(purification_solver), intent(inout) :: self
-      real(c_double), contiguous, intent(inout)  :: hmat(:, :)
-      real(c_double), contiguous, intent(in) :: smat(:, :)
-      real(c_double), contiguous, intent(inout) :: dens(:, :)
-      real(c_double) :: nel
-      type(error_type), allocatable, intent(out) :: error
-      character(len=:), allocatable :: error_msg
-      character(len=:), allocatable :: msg
-      real(c_double), allocatable :: tmp(:, :)
-      real(c_double) :: nel1
-      self%iscf = self%iscf +1
-      if (mod(int(nel), 2) /= 0) then
-         nel1 = ceiling(nel/2)
-         allocate(tmp(size(dens, dim=1), size(dens, dim=2)), source=0.0_c_double)
-         write(*,*) "UKS case"
-         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel1)
-         dens = tmp
-         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel-nel1)
-         dens = dens + tmp
-      else
-         call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, dens, nel/2)
-         dens = 2 * dens 
-      end if
-      
+   nspin = size(hmat, dim=3)
+
+   if (.not. self%transform .or. (.not. self%purification_success)) then
       if (self%ctx%failed()) then
          call self%ctx%get_error(error_msg)
-         write(*,*) error_msg
-         self%purification_success = .false.
+         call fatal_error(error, error_msg)
       end if
-         
-end subroutine purify_dp
+      call self%lapack_solv%get_density(hmat, smat, eval, focc, density, error)
+      allocate(tmp(size(hmat, dim=1), size(hmat, dim=2), 1), source=0.0_c_double)
+      tmp = hmat
+      if (self%purification_success) call SetTransformationMatrix(self%ctx%ptr, self%solver_ptr, tmp)
+      self%transform = .true.
+   else
+      select case(nspin)
+      case(1)
+         nel = sum(self%nel)
+         if (mod(int(nel), 2) /= 0) then
+            nel1 = ceiling(nel/2)
+            allocate(tmp(size(density, dim=1), size(density, dim=2), nspin), source=0.0_c_double)
+            call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel1)
+            density = tmp
+            call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, tmp, nel-nel1)
+            density = density + tmp
+         else
+            call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, density(:, :, 1), nel/2)
+            density = 2 * density 
+         end if
+      case(2)
+         do spin = 1, nspin
+            nel = self%nel(spin)
+            call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, density(:, :, spin), nel)
+         end do
+      end select   
+   end if
 
-subroutine delete(self)
-   class(purification_solver) :: self
-   call self%lapack_solv%delete() 
-   deallocate(self%lapack_solv)
-   call self%ctx%delete()
-   call DeletePurification(self%solver_ptr)
-   self%solver_ptr = c_null_ptr
+   if (self%ctx%failed()) then
+      call self%ctx%get_error(error_msg)
+      write(*,*) error_msg
+      self%purification_success = .false.
+   end if
+
 end subroutine
 
-subroutine get_density_matrix(self, focc, coeff, pmat)
-   class(purification_solver) :: self
-   real(wp), intent(in) :: focc(:)
-   real(wp), contiguous, intent(in) :: coeff(:, :)
-   real(wp), contiguous, intent(out) :: pmat(:, :)
+subroutine delete(self, ptr)
+   class(purification_solver), intent(inout) :: self
+   !> Pointer to the C++ solver instance
+   type(c_ptr), intent(inout), optional :: ptr
+
+   if (present(ptr)) then
+      if (.not.c_associated(self%solver_ptr)) return
+      if (c_associated(ptr)) call DeletePurification(ptr)
+      if (c_associated(self%sygvd_ptr)) call self%lapack_solv%delete(self%sygvd_ptr)
+ 
+   else
+      call ResetLib(self%solver_ptr)
+      call self%lapack_solv%delete() 
+   end if
+
+   self%sygvd_ptr = c_null_ptr
+   self%solver_ptr = c_null_ptr
+   if (allocated(self%lapack_solv)) deallocate(self%lapack_solv)
    
-   real(wp), allocatable :: scratch(:, :)
-   integer :: iao, jao
-   call self%lapack_solv%get_density_matrix(focc, coeff, pmat)
-end subroutine get_density_matrix
+   call self%ctx%delete()
+   
+end subroutine
 
 
-subroutine get_energy_w_density_matrix(self, wfn, wdensity)
-   class(purification_solver) :: self
-   type(wavefunction_type), intent(inout) :: wfn
-   real(wp) :: wdensity(:, :, :)
-   real(wp), allocatable :: tmp(:)
+subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
+   class(purification_solver), intent(inout) :: self
+   !> Overlap matrix
+   real(wp), contiguous, intent(in) :: smat(:, :)
+   !> Hamiltonian matrix, can contains eigenvectors on output
+   real(wp), contiguous, intent(inout) :: hmat(:, :, :)
+   !> Eigenvalues
+   real(wp), contiguous, intent(inout) :: eval(:, :)
+   !> Occupation numbers
+   real(wp), contiguous, intent(inout) :: focc(:, :)
+   !> Density matrix
+   real(wp), contiguous, intent(inout) :: density(:, :, :)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(c_double), allocatable, target :: tmp(:, :, :)
+   
    integer :: spin
+
+   tmp = density
+
    if (self%purification_success) then
-      do spin = 1, wfn%nspin
-         call GetEnergyWDensityAO(self%ctx%ptr, self%solver_ptr, wfn%coeff(:, :, spin), wfn%density(:, :, spin),&
-          wdensity(:, :, spin))         
+      do spin = 1, size(hmat, dim=3)
+         call GetEnergyWDensityAO(self%ctx%ptr, self%solver_ptr, hmat(:, :, spin), tmp(:, :, spin),&
+          density(:, :, spin))         
       end do
    else
-      call self%lapack_solv%get_energy_w_density_matrix(wfn, wdensity)
+      call self%lapack_solv%get_wdensity(hmat, smat, eval, focc, density, error)
    end if
 end subroutine
 

@@ -112,6 +112,17 @@ Supported geometry input formats are:
      Evaluates analytical gradient,
      results are stored in _file_ (default: tblite.txt)
 
+*--post-processing* _file_|_name_::
+     Add post processing methods to the calculation either by using a toml file as input
+     or by specifying the post-processing step name directly.
+     Mayer-Wiberg bond orders are computed by default.
+     - molmom (molecular multipole moments)
+     - xtbml (atomistic properties based on Mulliken partitioning)
+
+*--post-processing-output* _file_::
+     Output file for post processing results in npz format.
+     (default: tblite-data.npz)
+
 *--json* [_file_]::
      Dump results as JSON output to _file_ (default: tblite.json)
 

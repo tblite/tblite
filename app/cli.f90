@@ -24,7 +24,8 @@ module tblite_cli
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
-   use tblite_purification_solver_context, only : purification_type, purification_precision, purification_runmode
+   use tblite_purification_solver_context, only : dmp_input, purification_type, &
+      & purification_runmode, purification_precision
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
@@ -74,6 +75,8 @@ module tblite_cli
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
       character(len=:), allocatable :: post_processing
+      !> Input for post processing container
+      character(len=:), allocatable :: post_proc_output
       !> Numerical accuracy for self-consistent iterations
       real(wp) :: accuracy = 1.0_wp
       !> Maximum number of iterations for SCF
@@ -89,11 +92,7 @@ module tblite_cli
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
       !> Purifcation solver
-      integer(c_size_t), allocatable :: purification_solver
-      !> Purification precision
-      integer(c_size_t) :: purification_precision_ = purification_precision%mixed
-      !> Purification runmode
-      integer(c_size_t) :: purification_runmode_ = purification_runmode%default
+      type(dmp_input), allocatable :: dmp_input
    end type run_config
 
    !> Configuration for evaluating tight binding model on input structure
@@ -521,17 +520,17 @@ subroutine get_run_arguments(config, list, start, error)
          case("gvr")
             config%solver = lapack_algorithm%gvr
          case("tc2","sp2")
-            allocate(config%purification_solver)
-            config%purification_solver = purification_type%tc2
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%tc2
          case("tc2-accel","sp2-accel")
-            allocate(config%purification_solver)
-            config%purification_solver = purification_type%tc2accel    
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%tc2accel    
          case("trs4")
-            allocate(config%purification_solver)
-            config%purification_solver = purification_type%trs4
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%trs4
          case("mcweeney")
-            allocate(config%purification_solver)
-            config%purification_solver = purification_type%mcweeney
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%mcweeney
          end select
 
       case("--purification-runmode")
@@ -544,11 +543,11 @@ subroutine get_run_arguments(config, list, start, error)
 
          select case(arg)
          case("gpu")
-            config%purification_runmode_ = purification_runmode%gpu
+            config%dmp_input%runmode = purification_runmode%gpu
          case("cpu")
-            config%purification_runmode_ = purification_runmode%cpu
+            config%dmp_input%runmode= purification_runmode%cpu
          case default
-            config%purification_runmode_ = purification_runmode%default
+            config%dmp_input%runmode= purification_runmode%default
          end select
 
       case("--purification-precision")
@@ -561,13 +560,13 @@ subroutine get_run_arguments(config, list, start, error)
 
          select case(arg)
          case("double")
-            config%purification_precision_ = purification_precision%double
+            config%dmp_input%precision = purification_precision%double
          case("single")
-            config%purification_precision_ = purification_precision%single
+            config%dmp_input%precision = purification_precision%single
          case ("approx")
-            config%purification_precision_ = purification_precision%approx
+            config%dmp_input%precision = purification_precision%approx
          case default
-            config%purification_precision_ = purification_precision%mixed
+            config%dmp_input%precision = purification_precision%mixed
          end select
 
 
@@ -625,6 +624,10 @@ subroutine get_run_arguments(config, list, start, error)
          write(output_unit, '(a)') help_text_run
          error stop
       end if
+   end if
+
+   if (allocated(config%post_processing) .and. .not.allocated(config%post_proc_output)) then
+      config%post_proc_output = "tblite-data.npz"
    end if
 
    if (allocated(solvent)) then

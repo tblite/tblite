@@ -32,7 +32,7 @@ module tblite_ceh_singlepoint
    & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
    & get_mulliken_atomic_multipoles
-   use tblite_scf_iterator, only: get_density, get_qat_from_qsh
+   use tblite_scf_iterator, only: next_density, get_qat_from_qsh
    use tblite_scf, only: new_potential, potential_type 
    use tblite_container, only : container_cache
    use tblite_scf_potential, only: add_pot_to_h1
@@ -95,7 +95,7 @@ contains
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
-
+      class(solver_type), allocatable :: solver
       integer :: prlevel
 
       ! coordination number related arrays
@@ -195,10 +195,10 @@ contains
 
       call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
-      call ctx%new_solver(calc%bas%nao)
+      call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
 
       ! Get the density matrix
-      call get_density(wfn, ctx%solver, ints, elec_entropy, error)
+      call next_density(wfn, solver, ints, elec_entropy, error)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
@@ -236,7 +236,7 @@ contains
          end if
       end block
 
-      call ctx%delete_solver()
+      call ctx%delete_solver(solver)
 
    end subroutine ceh_singlepoint
 

@@ -15,7 +15,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/io/numpy/crc32.f90
-!> Provides crc checksum for zip file support in npz format
+!> Provide crc32 hashing function
 
 !> Implementation of cyclic redundancy check hashing function,
 !> used to check the integrity of data in zip files.

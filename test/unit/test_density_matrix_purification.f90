@@ -12,7 +12,7 @@ module test_density_matrix_purification
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_lapack_solver, only : lapack_solver
    use tblite_purification_solver_context, only : purification_solver_context, purification_type, &
-      purification_runmode, purification_precision
+      purification_runmode, purification_precision, dmp_input
    use mctc_io, only : structure_type
 
    implicit none
@@ -55,20 +55,20 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
-
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -82,20 +82,21 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -109,6 +110,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -119,14 +121,15 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
+      
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -149,6 +152,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -159,14 +163,15 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
+      
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -189,20 +194,21 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%trs4, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%trs4
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -216,20 +222,22 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%trs4, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%trs4
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
+      
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -243,6 +251,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -253,14 +262,14 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%trs4, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%trs4
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -283,6 +292,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -293,14 +303,14 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%trs4, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%trs4
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -323,20 +333,21 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2accel, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2accel
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -350,20 +361,21 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
 
       call get_structure(mol, "MB16-43", "01")
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2accel, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2accel
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
@@ -377,6 +389,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -387,14 +400,14 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn2_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2accel, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2accel
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -417,6 +430,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp), allocatable :: gvd_grad(:,:), dmp_grad(:,:), sigma(:, :)
       real(wp) :: gvd_energy = 0.0_wp
@@ -427,14 +441,14 @@ contains
       allocate(dmp_grad(3, mol%nat), source=1.0_wp)
       allocate(sigma(3, 3), source=0.0_wp)
       call new_gfn1_calculator(calc, mol, error)
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, gvd_grad, sigma, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2accel, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2accel
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, dmp_grad, sigma, verbosity=0)
 
@@ -457,6 +471,7 @@ contains
       type(xtb_calculator) :: calc
       type(wavefunction_type) :: wfn
       type(context_type) :: ctx
+      type(dmp_input) :: inp
 
       real(wp) :: gvd_energy = 0.0_wp
       real(wp) :: dmp_energy = 0.0_wp
@@ -466,14 +481,14 @@ contains
       mol%charge = 0
       call new_gfn2_calculator(calc, mol, error)
       
-      ctx%ctxsolver = lapack_solver(1)
+      ctx%solver = lapack_solver(1)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, gvd_energy, verbosity=0)
 
-      call ctx%delete_solver()
-
-      ctx%ctxsolver = purification_solver_context(purification_type%tc2accel, purification_runmode%cpu, &
-         purification_precision%double)
+      inp%type = purification_type%tc2accel
+      inp%runmode = purification_runmode%cpu
+      inp%precision = purification_precision%double
+      ctx%solver = purification_solver_context(inp)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
       call xtb_singlepoint(ctx, mol, calc, wfn, acc, dmp_energy, verbosity=0)
 
