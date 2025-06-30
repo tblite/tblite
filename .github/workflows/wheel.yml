@@ -61,7 +61,7 @@ jobs:
         git config user.name "dummy"
         git subtree add --prefix python/subprojects/tblite . HEAD
     - run: |
-        python -m build python/ --sdist --outdir . -n --config-setting setup-args="-Dtblite:gpu=false"
+        python -m build python/ --sdist --outdir . -n --config-setting setup-args="-Dtblite:gambits:gpu=false"
     - uses: actions/upload-artifact@v4
       with:
         name: tblite-python-sdist
