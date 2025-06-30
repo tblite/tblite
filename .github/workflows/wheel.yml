@@ -118,7 +118,7 @@ jobs:
           CIBW_SKIP: "*musllinux*"
           # Control verbosity of the 'pip wheel' output
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel atlas-devel
+          CIBW_BEFORE_ALL_LINUX: yum install -y openblas-devel
           # Delete all other (=/= gcc-14) GCC versions to avoid conflicts in delocation of the wheel
           # MM: 'openblas' from brew requires gcc@14, using a different version for building leads to delocation errors
           # MM: gcc@14 needs macOS14
