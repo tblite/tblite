@@ -306,21 +306,9 @@ subroutine next_density(wfn, solver, ints, ts, error)
    type(error_type), allocatable, intent(out) :: error
    integer :: spin
    ts = 0.0_wp
-   select type(solver)
-   type is (purification_solver)
-      if (solver%got_transform() .and. solver%purification_success) then
-         call solver%get_density(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wfn%density, error)
-         
-
-         if (.not.solver%purification_success) then 
-            call get_density_from_coeff(wfn, solver, ints, ts, error)
-         end if
-      else
-         call get_density_from_coeff(wfn, solver, ints, ts, error)
-      end if
-   class default
-      call get_density_from_coeff(wfn, solver, ints, ts, error)
-   end select
+   
+   call get_density_from_coeff(wfn, solver, ints, ts, error)
+   
 
 end subroutine next_density
 
@@ -336,10 +324,10 @@ subroutine get_density_from_coeff(wfn, solver, ints, ts, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp) :: e_fermi = 0.0_wp, stmp(2)
+   real(wp) :: stmp(2)
    real(wp), allocatable :: focc(:)
    integer :: spin
-
+   stmp = 0.0_wp
    call solver%get_density(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wfn%density, error)
    do spin = 1, 2
       call get_electronic_entropy(wfn%focc(:, spin), wfn%kt, stmp(spin))
