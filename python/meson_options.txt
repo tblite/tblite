@@ -21,3 +21,11 @@ option(
   description: 'Python version to link against.',
 )
 
+option(
+  'lapack',
+  type: 'combo',
+  value: 'auto',
+  yield: true,
+  choices: ['auto', 'mkl', 'mkl-rt', 'openblas', 'netlib', 'custom'],
+  description : 'linear algebra backend',
+)
