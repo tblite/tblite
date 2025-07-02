@@ -15,6 +15,9 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 math = cc.find_library('m')
+if cc.get_id() == 'gcc' or cc.get_id() == 'cc'
+  math += cc.find_library('gfortran')
+endif
 
 test(
   'C-API',
