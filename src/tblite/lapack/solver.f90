@@ -20,9 +20,11 @@
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
    use mctc_env, only : wp
+   use iso_c_binding, only : c_ptr, c_null_ptr, c_associated, c_size_t
    use tblite_context_solver, only : context_solver
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
+   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -36,6 +38,8 @@ module tblite_lapack_solver
       integer :: gvd = 1
       !> Relatively robust solver
       integer :: gvr = 2
+      !> Divide-and-conquer solver cuSolver implementation
+      integer :: gvd_cusolver = 3 
    end type enum_lapack
 
    !> Actual enumerator of possible solvers
@@ -46,6 +50,10 @@ module tblite_lapack_solver
    type, public, extends(context_solver) :: lapack_solver
       !> Selected electronic solver algorithm
       integer :: algorithm = lapack_algorithm%gvd
+      !> Pointer to store the C++ solver instance
+      type(c_ptr) :: ptr = c_null_ptr
+      !> Reuse the solver instance
+      logical :: reuse = .false.
    contains
       !> Create new instance of electronic solver
       procedure :: new
@@ -70,6 +78,9 @@ subroutine new(self, solver, overlap, nel, kt)
    !> Electronic temperature
    real(wp), intent(in) :: kt
 
+   integer(c_size_t) :: ndim
+   ndim = size(overlap, 1)
+
    select case(self%algorithm)
    case(lapack_algorithm%gvd)
       block
@@ -85,6 +96,13 @@ subroutine new(self, solver, overlap, nel, kt)
          call new_sygvr(tmp, overlap, nel, kt)
          call move_alloc(tmp, solver)
       end block
+   case(lapack_algorithm%gvd_cusolver)
+      block
+         type(sygvd_cusolver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvd_gpu(tmp, overlap, nel, kt, self%ptr)
+         call move_alloc(tmp, solver)
+      end block
    end select
 end subroutine new
 
@@ -97,7 +115,11 @@ subroutine delete(self, solver)
    class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(solver)) then
-      call solver%delete()
+      if (self%reuse .and. c_associated(self%ptr)) then
+         call solver%delete()
+      else
+         call solver%delete(self%ptr) 
+      end if
       deallocate(solver)
    end if
 end subroutine delete

@@ -37,7 +37,7 @@ module tblite_xtb_singlepoint
       & get_mixer_dimension, potential_type, new_potential
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
+   use tblite_wavefunction, only : wavefunction_type, &
       & get_alpha_beta_occupation, &
       & magnet_to_updown, updown_to_magnet
    use tblite_xtb_calculator, only : xtb_calculator
@@ -105,9 +105,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(timer_type) :: timer
    type(error_type), allocatable :: error
    type(scf_info) :: info
-   class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
    type(container_cache), allocatable :: cache_list(:)
+   class(solver_type), allocatable :: solver
    
    integer :: iscf, spin
 
@@ -311,8 +311,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
-
-      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
+      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin), source=wfn%density)
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
@@ -380,7 +379,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
       call ctx%set_error(error)
    end if
-
 
 end subroutine xtb_singlepoint
 
