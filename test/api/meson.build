@@ -16,7 +16,7 @@
 
 math = cc.find_library('m')
 if cc.get_id() == 'gcc' or cc.get_id() == 'cc'
-  math += cc.find_library('gfortran')
+  gfort = cc.find_library('gfortran')
 endif
 
 test(
@@ -24,7 +24,7 @@ test(
   executable(
     '@0@-capi-tester'.format(meson.project_name()),
     sources: files('main.c'),
-    dependencies: [tblite_dep, math],
+    dependencies: [tblite_dep, math, gfort],
     link_language: 'c',
   ),
   suite: 'api',
