@@ -50,7 +50,7 @@ jobs:
 
         - os: ubuntu-latest
           build-type: debug
-          toolchain: {compiler: intel-classic, version: '2022.2', mkl_version: '2022.2.0', build: meson}
+          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
 
         - os: ubuntu-latest
           build-type: debug
@@ -200,7 +200,7 @@ jobs:
     - name: Build library (fpm)
       if: ${{ matrix.toolchain.build == 'fpm' }}
       run: |
-        export FPM_CXXFLAGS="-DW_MKL -std=c++17"
+        export FPM_CXXFLAGS="-DNETLIB_HEADER -std=c++17"
         echo "FPM_CXXFLAGS=$FPM_CXXFLAGS" >> $GITHUB_ENV
         fpm --version
         fpm build
