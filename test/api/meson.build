@@ -17,7 +17,7 @@
 math = cc.find_library('m')
 if cc.get_id() == 'gcc' or cc.get_id() == 'cc'
   gfort = cc.find_library('gfortran')
-endif
+
 
 test(
   'C-API',
@@ -29,3 +29,16 @@ test(
   ),
   suite: 'api',
 )
+else
+  test(
+    'C-API',
+    executable(
+      '@0@-capi-tester'.format(meson.project_name()),
+      sources: files('main.c'),
+      dependencies: [tblite_dep, math],
+      link_language: 'c',
+    ),
+    suite: 'api',
+  )
+
+endif

@@ -130,12 +130,10 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, solver, overlap, nel, kt)
+subroutine new_solver(self, overlap, nel, kt)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
-   !> New electronic solver
-   class(solver_type), allocatable, intent(out) :: solver
    !> Overlap matrix
    real(wp), intent(in) :: overlap(:, :)
    !> Number of electrons per spin channel
@@ -147,24 +145,21 @@ subroutine new_solver(self, solver, overlap, nel, kt)
       self%solver = lapack_solver()
    end if
 
-   call self%solver%new(solver, overlap, nel, kt)
+   call self%solver%new(overlap, nel, kt)
 end subroutine new_solver
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self, solver)
+subroutine delete_solver(self)
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
-   !> Electronic solver instance
-   class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%solver%delete(solver)
+      call self%solver%delete()
    end if
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
-   if (allocated(solver)) deallocate(solver)
 end subroutine delete_solver
 
 

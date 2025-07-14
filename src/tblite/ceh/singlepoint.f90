@@ -36,7 +36,6 @@ module tblite_ceh_singlepoint
    use tblite_scf, only: new_potential, potential_type 
    use tblite_container, only : container_cache
    use tblite_scf_potential, only: add_pot_to_h1
-   use tblite_scf_solver, only : solver_type
    use tblite_blas, only : gemv
    use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
    use tblite_ceh_ceh, only : get_effective_qat
@@ -79,7 +78,6 @@ contains
       real(wp) :: dipole(3)
       ! Integral container
       type(integral_type) :: ints
-      !> Electronic solver
       !> Adjacency list
       type(adjacency_list) :: list
       ! Potential type
@@ -95,7 +93,6 @@ contains
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
-      class(solver_type), allocatable :: solver
       integer :: prlevel
 
       ! coordination number related arrays
@@ -195,10 +192,10 @@ contains
 
       call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
-      call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
+      call ctx%new_solver(ints%overlap, wfn%nel, wfn%kt)
 
       ! Get the density matrix
-      call next_density(wfn, solver, ints, elec_entropy, error)
+      call next_density(wfn, ctx%solver%solver, ints, elec_entropy, error)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
@@ -236,7 +233,7 @@ contains
          end if
       end block
 
-      call ctx%delete_solver(solver)
+      call ctx%delete_solver()
 
    end subroutine ceh_singlepoint
 

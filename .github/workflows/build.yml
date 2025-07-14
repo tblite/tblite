@@ -136,6 +136,8 @@ jobs:
     - name: Install Intel MKL
       if: ${{ contains(matrix.os, 'ubuntu') && contains(matrix.toolchain.compiler, 'intel') && steps.cache-install.outputs.cache-hit != 'true' }}
       run: |
+        sudo apt-get install -y gcc-12 gfortran-12 g++-12
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-12 --slave /usr/bin/gcov gcov /usr/bin/gcov-12 --slave /usr/bin/g++ g++ /usr/bin/g++-12
         sudo apt-get install intel-oneapi-mkl-${{ matrix.toolchain.mkl_version }} intel-oneapi-mkl-devel-${{ matrix.toolchain.mkl_version }}
 
     - name: Setup Intel oneAPI environment
@@ -198,6 +200,8 @@ jobs:
     - name: Build library (fpm)
       if: ${{ matrix.toolchain.build == 'fpm' }}
       run: |
+        export FPM_CXXFLAGS="-DW_MKL -std=c++17"
+        echo "FPM_CXXFLAGS=$FPM_CXXFLAGS" >> $GITHUB_ENV
         fpm --version
         fpm build
 

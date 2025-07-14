@@ -40,6 +40,7 @@ module tblite_lapack_solver
       integer :: gvr = 2
       !> Divide-and-conquer solver cuSolver implementation
       integer :: gvd_cusolver = 3 
+      
    end type enum_lapack
 
    !> Actual enumerator of possible solvers
@@ -52,25 +53,33 @@ module tblite_lapack_solver
       integer :: algorithm = lapack_algorithm%gvd
       !> Pointer to store the C++ solver instance
       type(c_ptr) :: ptr = c_null_ptr
-      !> Reuse the solver instance
-      logical :: reuse = .false.
-   contains
+      contains
       !> Create new instance of electronic solver
       procedure :: new
       !> Delete an electronic solver instance
       procedure :: delete
    end type lapack_solver
 
+   interface lapack_solver
+      procedure :: new_lapack_solver
+   end interface lapack_solver
 
 contains
 
+type(lapack_solver) function new_lapack_solver(algorithm)
+   
+   !> Selected electronic solver algorithm
+   integer, intent(in), optional :: algorithm
+   write(*,*) "Creating new LAPACK solver with algorithm: "
+   if (present(algorithm)) new_lapack_solver%algorithm = algorithm
+   
+end function new_lapack_solver
+
 
 !> Create new electronic solver
-subroutine new(self, solver, overlap, nel, kt)
+subroutine new(self, overlap, nel, kt)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
-   !> New electronic solver
-   class(solver_type), allocatable, intent(out) :: solver
    !> Overlap matrix
    real(wp), intent(in) :: overlap(:, :)
    !> Number of electrons per spin channel
@@ -78,49 +87,51 @@ subroutine new(self, solver, overlap, nel, kt)
    !> Electronic temperature
    real(wp), intent(in) :: kt
 
-   integer(c_size_t) :: ndim
-   ndim = size(overlap, 1)
 
-   select case(self%algorithm)
-   case(lapack_algorithm%gvd)
-      block
-         type(sygvd_solver), allocatable :: tmp
-         allocate(tmp)
-         call new_sygvd(tmp, overlap, nel, kt)
-         call move_alloc(tmp, solver)
-      end block
-   case(lapack_algorithm%gvr)
-      block
-         type(sygvr_solver), allocatable :: tmp
-         allocate(tmp)
-         call new_sygvr(tmp, overlap, nel, kt)
-         call move_alloc(tmp, solver)
-      end block
-   case(lapack_algorithm%gvd_cusolver)
-      block
-         type(sygvd_cusolver), allocatable :: tmp
-         allocate(tmp)
-         call new_sygvd_gpu(tmp, overlap, nel, kt, self%ptr)
-         call move_alloc(tmp, solver)
-      end block
-   end select
+   if (self%ndim /= size(overlap, 1) .or. .not.(self%reuse)) then
+      self%ndim = size(overlap, 1)
+      if (allocated(self%solver)) call self%delete()
+      select case(self%algorithm)
+      case(lapack_algorithm%gvd)
+         block
+            type(sygvd_solver), allocatable :: tmp
+            allocate(tmp)
+            call new_sygvd(tmp, overlap, nel, kt)
+            call move_alloc(tmp, self%solver)
+         end block
+      case(lapack_algorithm%gvr)
+         block
+            type(sygvr_solver), allocatable :: tmp
+            allocate(tmp)
+            call new_sygvr(tmp, overlap, nel, kt)
+            call move_alloc(tmp, self%solver)
+         end block
+      case(lapack_algorithm%gvd_cusolver)
+         block
+           
+            type(sygvd_cusolver), allocatable :: tmp
+            allocate(tmp)
+            call new_sygvd_gpu(tmp, overlap, nel, kt, self%ptr)
+            call move_alloc(tmp, self%solver)
+         end block
+      end select
+   end if
 end subroutine new
 
 
 !> Delete electronic solver instance
-subroutine delete(self, solver)
+subroutine delete(self)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
-   !> Electronic solver instance
-   class(solver_type), allocatable, intent(inout) :: solver
+   
 
-   if (allocated(solver)) then
+   if (allocated(self%solver)) then
       if (self%reuse .and. c_associated(self%ptr)) then
-         call solver%delete()
+         call self%solver%delete()
       else
-         call solver%delete(self%ptr) 
+         call self%solver%delete(self%ptr) 
       end if
-      deallocate(solver)
+      deallocate(self%solver)
    end if
 end subroutine delete
 
