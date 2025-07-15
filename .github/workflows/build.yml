@@ -50,7 +50,7 @@ jobs:
 
         - os: ubuntu-latest
           build-type: debug
-          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
+          toolchain: {compiler: intel-classic, version: '2022.2', mkl_version: '2022.2.0', build: meson}
 
         - os: ubuntu-latest
           build-type: debug
