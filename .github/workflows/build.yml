@@ -241,6 +241,8 @@ jobs:
     - name: Run unit tests (ctest)
       if: ${{ matrix.toolchain.build == 'cmake' }}
       run: | #ctest --output-on-failure --parallel 2 -R '^tblite/'
+         cd ${{ env.BUILD_DIR }}
+         pwd
          test/unit/tblite-tester
       working-directory: ${{ env.BUILD_DIR }}
       env:
