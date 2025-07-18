@@ -345,8 +345,6 @@ subroutine run_main(config, error)
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
    end if
-
-   !call ctx%delete_solver()
 end subroutine run_main
 
 

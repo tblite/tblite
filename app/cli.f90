@@ -444,7 +444,6 @@ subroutine get_run_arguments(config, list, start, error)
          allocate(solvent)
          solvent = get_solvent_data(arg)
          if (solvent%eps <= 0.0_wp) then
-            solvent_not_found = .true. 
             call get_argument_as_real(arg, solvent%eps, error)
          end if
          if (allocated(error)) exit
@@ -528,9 +527,6 @@ subroutine get_run_arguments(config, list, start, error)
          case("trs4")
             allocate(config%dmp_input)
             config%dmp_input%type = purification_type%trs4
-         case("mcweeney")
-            allocate(config%dmp_input)
-            config%dmp_input%type = purification_type%mcweeney
          end select
 
       case("--purification-runmode")
@@ -563,8 +559,6 @@ subroutine get_run_arguments(config, list, start, error)
             config%dmp_input%precision = purification_precision%double
          case("single")
             config%dmp_input%precision = purification_precision%single
-         case ("approx")
-            config%dmp_input%precision = purification_precision%approx
          case default
             config%dmp_input%precision = purification_precision%mixed
          end select
