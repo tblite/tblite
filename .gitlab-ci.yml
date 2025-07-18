@@ -99,7 +99,8 @@ ubuntu-20.4-gcc-9-openblas:       # This job runs in the build stage, which runs
     - export CC=gcc CXX=g++
     - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
     - !reference [.meson_compile, script]
-    - meson test
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
   artifacts:
     when: on_failure
     paths:
@@ -128,8 +129,8 @@ ubuntu-20.4-intel-2023.2.0-mkl:       # This job runs in the build stage, which 
     - export CC=icc CXX=icpc
     - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
     - !reference [.meson_compile, script]
-    - meson test 
-    - cat meson-logs/testlog.txt
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
   
 
 ubuntu-20.4-intel-2023.2.0-openblas:       # This job runs in the build stage, which runs first.
@@ -154,8 +155,8 @@ ubuntu-20.4-intel-2023.2.0-openblas:       # This job runs in the build stage, w
     - export CC=icc CXX=icpc
     - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
     - !reference [.meson_compile, script]
-    - meson test 
-  
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
 
 ubuntu-20.4-gcc-9-mkl:       # This job runs in the build stage, which runs first.
   stage: build
@@ -175,8 +176,9 @@ ubuntu-20.4-gcc-9-mkl:       # This job runs in the build stage, which runs firs
     - export CC=gcc CXX=g++
     - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
     - !reference [.meson_compile, script]
-    - meson test
-    - cat meson-logs/testlog.txt
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
+   
   artifacts:
     when: on_failure
     paths:
@@ -202,7 +204,8 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas:       # This job runs in the build stage, wh
     - export CC=gcc CXX=g++
     - meson setup _build --buildtype=debug -Dlapack=openblas
     - !reference [.meson_compile, script]
-    - meson test
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
   artifacts:
     when: on_failure
     paths:
@@ -227,7 +230,8 @@ ubuntu-20.4-cu-11.8-intel-mkl:       # This job runs in the build stage, which r
     - export CC=icc CXX=icpc
     - meson setup _build --buildtype=debug -Dlapack=mkl
     - !reference [.meson_compile, script]
-    - meson test
+    - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+    - meson test -j 1
   artifacts:
     when: on_failure
     paths:
@@ -253,7 +257,7 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas-cmake:       # This job runs in the build sta
     - export CC=gcc CXX=g++
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
-    - ctest
+    - ctest --parallel 2
 
 ubuntu-20.4-cu-11.8-intel-mkl-cmake:       # This job runs in the build stage, which runs first.
   stage: build
@@ -274,4 +278,4 @@ ubuntu-20.4-cu-11.8-intel-mkl-cmake:       # This job runs in the build stage, w
     - export CC=icc CXX=icpc
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
-    - ctest
+    - ctest --parallel 2
