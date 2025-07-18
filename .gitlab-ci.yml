@@ -96,7 +96,7 @@ ubuntu-20.4-gcc-9-openblas:       # This job runs in the build stage, which runs
     - cpu
   script:
     - !reference [.cpu_prep, script]
-    - export CC=gcc CXX=g++
+    - export CC=gcc CXX=g++ FC=gfortran
     - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -126,7 +126,7 @@ ubuntu-20.4-intel-2023.2.0-mkl:       # This job runs in the build stage, which 
       - _build/meson-logs/*txt
   script:
     - !reference [.cpu_prep, script]
-    - export CC=icc CXX=icpc
+    - export CC=icc CXX=icpc FC=ifort
     - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -152,7 +152,7 @@ ubuntu-20.4-intel-2023.2.0-openblas:       # This job runs in the build stage, w
       - _build/meson-logs/*.txt
   script:
     - !reference [.cpu_prep, script]
-    - export CC=icc CXX=icpc
+    - export CC=icc CXX=icpc FC=ifort
     - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -173,7 +173,7 @@ ubuntu-20.4-gcc-9-mkl:       # This job runs in the build stage, which runs firs
     - cpu
   script:
     - !reference [.cpu_prep, script]
-    - export CC=gcc CXX=g++
+    - export CC=gcc CXX=g++ FC=gfortran
     - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -201,7 +201,7 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas:       # This job runs in the build stage, wh
   script:
     - !reference [.cpu_prep, script]
     - !reference [.gpu_prep, script]
-    - export CC=gcc CXX=g++
+    - export CC=gcc CXX=g++ FC=gfortran
     - meson setup _build --buildtype=debug -Dlapack=openblas
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -227,7 +227,7 @@ ubuntu-20.4-cu-11.8-intel-mkl:       # This job runs in the build stage, which r
   script:
     - !reference [.cpu_prep, script]
     - !reference [.gpu_prep, script]
-    - export CC=icc CXX=icpc
+    - export CC=icc CXX=icpc FC=ifort
     - meson setup _build --buildtype=debug -Dlapack=mkl
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -254,7 +254,7 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas-cmake:       # This job runs in the build sta
   script:
     - !reference [.cpu_prep, script]
     - !reference [.gpu_prep, script]
-    - export CC=gcc CXX=g++
+    - export CC=gcc CXX=g++ FC=gfortran
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
     - ctest --parallel 2
@@ -275,7 +275,7 @@ ubuntu-20.4-cu-11.8-intel-mkl-cmake:       # This job runs in the build stage, w
   script:
     - !reference [.cpu_prep, script]
     - !reference [.gpu_prep, script]
-    - export CC=icc CXX=icpc
+    - export CC=icc CXX=icpc FC=ifort
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
     - ctest --parallel 2
