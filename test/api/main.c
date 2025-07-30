@@ -620,6 +620,34 @@ int test_uninitialized_result(void)
 
     show(error);
 
+    tblite_load_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    show(error);
+
+    res = tblite_new_result();
+    tblite_load_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    tblite_delete(res);
+    show(error);
+
+    tblite_save_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    show(error);
+
+    res = tblite_new_result();
+    tblite_save_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    tblite_delete(res);
+    show(error);
+
     tblite_delete(error);
     tblite_delete(res);
     return 0;
@@ -3655,5 +3683,6 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
-    return stat;
+    printf("Test finished with %d errors.\n", stat);
+    return stat > 0 ? 1 : 0;
 }
