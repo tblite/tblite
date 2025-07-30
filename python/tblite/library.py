@@ -341,6 +341,16 @@ def get_orbital_occupations(res) -> np.ndarray:
     return _occ
 
 
+def load_wavefunction(res, filename: str) -> None:
+    _filename = ffi.new("char[]", filename.encode("ascii"))
+    error_check(lib.tblite_load_result_wavefunction)(res, _filename)
+
+
+def save_wavefunction(res, filename: str) -> None:
+    _filename = ffi.new("char[]", filename.encode("ascii"))
+    error_check(lib.tblite_save_result_wavefunction)(res, _filename)
+
+
 def _get_ao_matrix(getter, is_spin_dependent: bool):
     """Correctly set allocation for matrix objects before querying the getter"""
 

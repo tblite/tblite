@@ -243,3 +243,23 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
 TBLITE_API_ENTRY tblite_double_dictionary TBLITE_API_CALL
 tblite_get_post_processing_dict(tblite_error error,
                                 tblite_result res);
+
+/// Save wavefunction to file
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param filename: Name of the file to save the wavefunction to
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_save_result_wavefunction(tblite_error error,
+                                tblite_result res,
+                                const char* filename);
+
+/// Load wavefunction from file
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param filename: Name of the file to load the wavefunction from
+TBLITE_API_CALL void TBLITE_API_CALL
+tblite_load_result_wavefunction(tblite_error error,
+                                tblite_result res,
+                                const char* filename);

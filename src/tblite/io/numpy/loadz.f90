@@ -209,12 +209,13 @@ subroutine load_npz_buffer(filename, varname, buffer, stat, msg)
    integer(i4) :: nbytes, nbytes_compressed, crc_expected
    integer(i2) :: compression_method
    character(len=:), allocatable :: path
+   character(len=512) :: errmsg
    integer :: io
    logical :: exist
 
    exist = .false.
-   open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
-   if (stat /= 0) msg = "Failed to open file '"//filename//"'"
+   open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat, iomsg=errmsg)
+   if (stat /= 0) msg = "Failed to open file '"//filename//"': "//trim(errmsg)
    do while (stat == 0)
       read(io, iostat=stat) local_header
       if (stat /= 0) then
@@ -243,6 +244,7 @@ subroutine load_npz_buffer(filename, varname, buffer, stat, msg)
          exit
       end if
    end do
+   close(io)
 
    if (stat == 0 .and. .not.exist) then
       stat = 501
