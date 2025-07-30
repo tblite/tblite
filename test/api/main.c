@@ -620,6 +620,34 @@ int test_uninitialized_result(void)
 
     show(error);
 
+    tblite_load_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    show(error);
+
+    res = tblite_new_result();
+    tblite_load_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    tblite_delete(res);
+    show(error);
+
+    tblite_save_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    show(error);
+
+    res = tblite_new_result();
+    tblite_save_result_wavefunction(error, res, ".uninit.npz");
+    if (!tblite_check(error))
+        goto unexpected;
+
+    tblite_delete(res);
+    show(error);
+
     tblite_delete(error);
     tblite_delete(res);
     return 0;
@@ -1698,6 +1726,32 @@ int test_gfn1_co2(void)
 
     calc = tblite_new_gfn1_calculator(ctx, mol);
     if (!calc)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check(error))
+        goto err;
+
+    if (!check(energy, -46.203659007308, thr, "energy error"))
+        goto err;
+
+    tblite_save_result_wavefunction(error, res, ".test-co2-gfn1.npz");
+    if (tblite_check(error))
+        goto err;
+
+    tblite_delete(res);
+    res = tblite_new_result();
+
+    tblite_load_result_wavefunction(error, res, ".test-co2-gfn1.npz");
+    if (tblite_check(error))
+        goto err;
+
+    tblite_set_calculator_max_iter(ctx, calc, 3);
+    if (tblite_check(ctx))
         goto err;
 
     tblite_get_singlepoint(ctx, mol, calc, res);
@@ -3629,5 +3683,6 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
-    return stat;
+    printf("Test finished with %d errors.\n", stat);
+    return stat > 0 ? 1 : 0;
 }

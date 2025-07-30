@@ -22,9 +22,11 @@ module tblite_api_result
    use, intrinsic :: iso_c_binding
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_api_error, only : vp_error
+   use tblite_api_utils, only : c_f_character
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_wavefunction_restart, only : load_wavefunction, save_wavefunction
    use tblite_api_double_dictionary, only : vp_double_dictionary
    implicit none
    private
@@ -591,6 +593,53 @@ dict%ptr = res%results%dict
 
 vdict = c_loc(dict)
 end function get_post_processing_dict_api
+
+subroutine save_result_wavefunction_api(verror, vres, cfilename) &
+      & bind(C, name=namespace//"save_result_wavefunction")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   character(len=1, kind=c_char), intent(in) :: cfilename(*)
+   character(len=:), allocatable :: filename
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "save_result_wavefunction"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain wavefunction")
+      return
+   end if
+
+   call c_f_character(cfilename, filename)
+   call save_wavefunction(res%wfn, filename, error%ptr)
+end subroutine save_result_wavefunction_api
+
+subroutine load_result_wavefunction_api(verror, vres, cfilename) &
+      & bind(C, name=namespace//"load_result_wavefunction")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   character(len=1, kind=c_char), intent(in) :: cfilename(*)
+   character(len=:), allocatable :: filename
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "load_result_wavefunction"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      allocate(res%wfn)
+   end if
+
+   call c_f_character(cfilename, filename)
+   call load_wavefunction(res%wfn, filename, error%ptr)
+end subroutine load_result_wavefunction_api
 
 subroutine get_result(verror, vres, error, res, ok)
    type(c_ptr), intent(in) :: verror
