@@ -70,7 +70,6 @@ type(lapack_solver) function new_lapack_solver(algorithm)
    
    !> Selected electronic solver algorithm
    integer, intent(in), optional :: algorithm
-   write(*,*) "Creating new LAPACK solver with algorithm: "
    if (present(algorithm)) new_lapack_solver%algorithm = algorithm
    
 end function new_lapack_solver

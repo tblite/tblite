@@ -97,7 +97,7 @@ ubuntu-20.4-gcc-9-openblas:       # This job runs in the build stage, which runs
   script:
     - !reference [.cpu_prep, script]
     - export CC=gcc CXX=g++ FC=gfortran
-    - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
+    - meson setup _build --buildtype=debug -Dlapack=openblas
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
     - meson test -j 1
@@ -127,7 +127,7 @@ ubuntu-20.4-intel-2023.2.0-mkl:       # This job runs in the build stage, which 
   script:
     - !reference [.cpu_prep, script]
     - export CC=icc CXX=icpc FC=ifort
-    - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
+    - meson setup _build --buildtype=debug -Dlapack=mkl
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
     - meson test -j 1
@@ -153,7 +153,7 @@ ubuntu-20.4-intel-2023.2.0-openblas:       # This job runs in the build stage, w
   script:
     - !reference [.cpu_prep, script]
     - export CC=icc CXX=icpc FC=ifort
-    - meson setup _build --buildtype=debug -Dlapack=openblas -Dgpu=false
+    - meson setup _build --buildtype=debug -Dlapack=openblas
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
     - meson test -j 1
@@ -174,7 +174,7 @@ ubuntu-20.4-gcc-9-mkl:       # This job runs in the build stage, which runs firs
   script:
     - !reference [.cpu_prep, script]
     - export CC=gcc CXX=g++ FC=gfortran
-    - meson setup _build --buildtype=debug -Dlapack=mkl -Dgpu=false
+    - meson setup _build --buildtype=debug -Dlapack=mkl
     - !reference [.meson_compile, script]
     - export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
     - meson test -j 1
@@ -256,6 +256,7 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas-cmake:       # This job runs in the build sta
     - !reference [.gpu_prep, script]
     - export CC=gcc CXX=g++ FC=gfortran
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
+    
     - !reference [.cmake_compile, script]
     - ctest --parallel 2
 
