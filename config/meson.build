@@ -154,8 +154,8 @@ tomlf_dep = dependency(
   default_options: ['default_library=static'],
 )
 lib_deps += tomlf_dep
-
-if (gpu)
+has_nvcc = add_languages('cuda', native: false, required: gpu)
+if (has_nvcc == true)
   add_project_arguments(['-DUSE_CUDA'], language: 'fortran')
 endif
 
