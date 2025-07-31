@@ -22,6 +22,7 @@ dependencies:
   - pyberny
   # build dependencies
   - c-compiler
+  - cxx-compiler
   - fortran-compiler
   - libblas
   - liblapack
