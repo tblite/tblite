@@ -61,7 +61,7 @@ jobs:
         git config user.name "dummy"
         git subtree add --prefix python/subprojects/tblite . HEAD
     - run: |
-        python -m build python/ --sdist --outdir . -n --config-setting setup-args="-Dgambits:gpu=false" --config-setting setup-args="-Dlahva:gpu=false"
+        python -m build python/ --sdist --outdir . -n 
     - uses: actions/upload-artifact@v4
       with:
         name: tblite-python-sdist
@@ -110,7 +110,7 @@ jobs:
         run: python -m cibuildwheel --output-dir . *.tar.gz
         env:
           CIBW_PLAT: ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
-          CIBW_CONFIG_SETTINGS: setup-args="-Dtblite:openmp=false" setup-args="-Dgambits:gpu=false" setup-args="-Dlahva:gpu=false" setup-args="-Dtblite:lapack=openblas"
+          CIBW_CONFIG_SETTINGS: setup-args="-Dtblite:openmp=false" setup-args="-Dtblite:lapack=openblas"
           CIBW_ARCHS: auto64
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
           CIBW_BUILD: "*${{ matrix.python }}-*"
