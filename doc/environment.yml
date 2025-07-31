@@ -25,6 +25,7 @@ dependencies:
   - cxx-compiler
   - fortran-compiler
   - libblas
+  - libcblas
   - liblapack
   - meson !=1.8.0
   - ninja
