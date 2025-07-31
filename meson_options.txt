@@ -63,7 +63,7 @@ option(
 option(
   'gpu',
   type: 'option',
-  value: auto,
+  value: 'auto',
   yield: true,
 )
 
