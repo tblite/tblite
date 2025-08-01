@@ -8,7 +8,7 @@ From: ubuntu:20.04
         apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         wget \
-        curl git \
+        curl git gfortran \
         pip
 
     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb

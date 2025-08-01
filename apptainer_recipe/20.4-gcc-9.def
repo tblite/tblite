@@ -8,7 +8,7 @@ From: ubuntu:20.04
         apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         wget \
-        curl git \
+        curl git gfortran \
         pip
 
     # Install CUDA

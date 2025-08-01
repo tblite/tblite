@@ -256,7 +256,6 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas-cmake:       # This job runs in the build sta
     - !reference [.gpu_prep, script]
     - export CC=gcc CXX=g++ FC=gfortran
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
-    
     - !reference [.cmake_compile, script]
     - ctest --parallel 2
 
