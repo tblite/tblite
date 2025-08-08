@@ -172,9 +172,9 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    if (allocated(calc%interactions)) then
       call move_alloc(cache_list(5)%raw, cache%raw)
       associate(cont => calc%interactions)
+         call cont%get_energy(mol, cache, wfn, tmp_energy)
          call cont%update(mol, cache)
          call cont%get_engrad(mol, cache, tmp_energy)
-         call cont%get_energy(mol, cache, wfn, tmp_energy)
          call self%dict%add_entry(cont%info(0, ""), tmp_energy)
       end associate
    end if
