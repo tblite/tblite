@@ -64,7 +64,7 @@ module tblite_cusolver_sygvd
          real(c_double) :: focc(*)
          real(c_double) :: Density(*)
       end subroutine
-      subroutine delete_ptr(ptr) bind(C, name="GPUSolverDelete")
+      subroutine delete_cusolver_ptr(ptr) bind(C, name="GPUSolverDelete")
          use iso_c_binding
          type(c_ptr), value :: ptr
       end subroutine
@@ -149,7 +149,7 @@ subroutine delete(self, ptr)
    !> Pointer to the C++ solver instance
    type(c_ptr), intent(inout), optional :: ptr
    
-   if (present(ptr)) call delete_ptr(ptr)
+   if (present(ptr)) call delete_cusolver_ptr(ptr)
    self%ptr = c_null_ptr
 
 end subroutine delete

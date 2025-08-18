@@ -30,7 +30,7 @@ module tblite_purification_solver
     implicit none
     private
 
-    public :: new_purification
+    public :: new_purification, gambits_context_type, DeletePurification
 
     public :: purification_precision, purification_type, purification_runmode
 
@@ -82,7 +82,7 @@ module tblite_purification_solver
 
    type, public, extends(solver_type) :: purification_solver
       type(dmp_input) :: input
-      real(c_double) :: thresh = 5.0e-07_c_double
+      real(c_double) :: thresh = 5.0e-06_c_double
       type(c_ptr) :: solver_ptr
       integer(c_size_t) :: maxiter = 100
       integer :: iscf = 0
@@ -155,7 +155,7 @@ function got_transform(self) result(trans)
    trans = self%transform;
 end function
 
-subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr, maxiter, thresh)
+subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr)
    !> Create a new purification solver instance
    type(purification_solver), intent(inout) :: self
    !> Overlap matrix
@@ -170,13 +170,11 @@ subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr, m
    type(c_ptr), intent(inout) :: dmp_ptr
    !> Pointer to the C++ SGVD instance
    type(c_ptr), intent(inout) :: gvd_ptr
-   integer(c_size_t), optional :: maxiter
-   real(c_double), optional :: thresh
    integer :: ndim
    ndim = size(overlap, dim=1)
    self%input = dmp_inp
-
    !use LAPACK for molecules smaller than 750 basis functions
+   
    select case(dmp_inp%runmode)
    case(purification_runmode%cpu)
       block
@@ -209,12 +207,11 @@ subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr, m
          end block
          end if
    end select
-    
-   if (present(maxiter)) self%maxiter = maxiter
-   if (present(thresh)) self%thresh = thresh
    call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
    if (.not. c_associated(dmp_ptr)) then
       dmp_ptr = SetupPurification(self%ctx%ptr, int(ndim, kind=c_size_t), self%input%type, self%input%runmode, self%input%precision)
+   else
+      call ResetLib(dmp_ptr)
    end if
    self%nel = nel
    self%solver_ptr = dmp_ptr
@@ -281,6 +278,7 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
       call self%ctx%get_error(error_msg)
       write(*,*) error_msg
       self%purification_success = .false.
+      call self%lapack_solv%get_density(hmat, smat, eval, focc, density, error)
    end if
 
 end subroutine
@@ -294,17 +292,14 @@ subroutine delete(self, ptr)
       if (.not.c_associated(self%solver_ptr)) return
       if (c_associated(ptr)) call DeletePurification(ptr)
       if (c_associated(self%sygvd_ptr)) call self%lapack_solv%delete(self%sygvd_ptr)
- 
+      self%sygvd_ptr = c_null_ptr
+      self%solver_ptr = c_null_ptr
+      if (allocated(self%lapack_solv)) deallocate(self%lapack_solv)
    else
-      call ResetLib(self%solver_ptr)
-      call self%lapack_solv%delete() 
+      call self%reset()
+      
    end if
 
-   self%sygvd_ptr = c_null_ptr
-   self%solver_ptr = c_null_ptr
-   if (allocated(self%lapack_solv)) deallocate(self%lapack_solv)
-   
-   call self%ctx%delete()
    
 end subroutine
 
