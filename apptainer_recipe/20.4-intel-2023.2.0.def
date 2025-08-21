@@ -16,6 +16,7 @@ From: intel/oneapi-hpckit:2023.2-devel-ubuntu20.04
     # Clean up
     apt-get clean
     apt install -y libopenblas-dev liblapacke-dev --no-install-recommends
+    apt install -y gfortran
 
 %environment
     # Set up environment variables for CUDA
