@@ -150,9 +150,17 @@ end subroutine new_solver
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self)
+subroutine delete_solver(self, force)
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
+   !> Force deletion of the solver instance
+   logical, intent(in), optional :: force
+   logical :: reuse_prior
+
+   if (present(force)) then
+      reuse_prior = self%solver%reuse
+      self%solver%reuse = .false.
+   end if
 
    if (allocated(self%solver)) then
       call self%solver%delete()
@@ -160,6 +168,10 @@ subroutine delete_solver(self)
 #if WITH_MKL 
    call mkl_free_buffers()
 #endif
+
+   if (present(force)) then
+      self%solver%reuse = reuse_prior
+   end if
 end subroutine delete_solver
 
 
