@@ -35,12 +35,14 @@ module tblite_api_result
    public :: get_result_number_of_atoms_api, get_result_number_of_shells_api, &
       & get_result_number_of_spins_api, get_result_number_of_orbitals_api, &
       & get_result_energy_api, get_result_gradient_api, get_result_virial_api, &
-      & get_result_charges_api, get_result_dipole_api, get_result_quadrupole_api, &
+      & get_result_charges_api, get_result_shell_charges_api, get_result_dipole_api, get_result_quadrupole_api, &
       & get_result_orbital_energies_api, get_result_orbital_occupations_api, &
       & get_result_orbital_coefficients_api, get_result_energies_api, &
       & get_result_density_matrix_api, get_result_overlap_matrix_api, &
       & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
-      & get_post_processing_dict_api
+      & get_post_processing_dict_api, &
+      & get_result_atomic_dipoles_api, get_result_atomic_quadrupoles_api, &
+      & set_result_shell_charges_and_moments_guess_api
 
 
    !> Void pointer holding results of a calculation
@@ -55,6 +57,12 @@ module tblite_api_result
       type(wavefunction_type), allocatable :: wfn
       !> Additional results
       type(results_type), allocatable :: results
+      !> Optional Mulliken shell charges guess for restart [nsh, nspin]
+      real(wp), allocatable :: charges_guess_shell(:, :)
+      !> Optional atomic dipole guess [3, nat, nspin]
+      real(wp), allocatable :: dpat_guess(:, :, :)
+      !> Optional atomic quadrupole guess [6, nat, nspin]
+      real(wp), allocatable :: qmat_guess(:, :, :)
    end type vp_result
 
 
@@ -327,6 +335,29 @@ subroutine get_result_charges_api(verror, vres, charges) &
 end subroutine get_result_charges_api
 
 
+subroutine get_result_shell_charges_api(verror, vres, qsh) &
+      & bind(C, name=namespace//"get_result_shell_charges")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: qsh(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_shell_charges"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain shell charges")
+      return
+   end if
+
+   qsh(:size(res%wfn%qsh)) = reshape(res%wfn%qsh, [size(res%wfn%qsh)])
+end subroutine get_result_shell_charges_api
+
+
 subroutine get_result_dipole_api(verror, vres, dipole) &
       & bind(C, name=namespace//"get_result_dipole")
    type(c_ptr), value :: verror
@@ -569,6 +600,52 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
       & reshape(mbo_f, [size(mbo_f)])
 end subroutine get_result_bond_orders_api
 
+subroutine get_result_atomic_dipoles_api(verror, vres, dpat) &
+      & bind(C, name=namespace//"get_result_atomic_dipoles")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: dpat(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_atomic_dipoles"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain atomic dipoles")
+      return
+   end if
+
+   dpat(:size(res%wfn%dpat)) = &
+      & reshape(res%wfn%dpat, [size(res%wfn%dpat)])
+end subroutine get_result_atomic_dipoles_api
+
+subroutine get_result_atomic_quadrupoles_api(verror, vres, qmat) &
+      & bind(C, name=namespace//"get_result_atomic_quadrupoles")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: qmat(*)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_atomic_quadrupoles"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%wfn)) then
+      call fatal_error(error%ptr, "Result does not contain atomic quadrupoles")
+      return
+   end if
+
+   qmat(:size(res%wfn%qpat)) = &
+      & reshape(res%wfn%qpat, [size(res%wfn%qpat)])
+end subroutine get_result_atomic_quadrupoles_api
+
 function get_post_processing_dict_api(verror, vres) result(vdict) &
    & bind(C, name=namespace//"get_post_processing_dict")
 type(c_ptr), value :: verror
@@ -640,6 +717,141 @@ subroutine load_result_wavefunction_api(verror, vres, cfilename) &
    call c_f_character(cfilename, filename)
    call load_wavefunction(res%wfn, filename, error%ptr)
 end subroutine load_result_wavefunction_api
+
+!> Set shell charges together with atomic dipole and quadrupole moments
+subroutine set_result_shell_charges_and_moments_guess_api(verror, vres, qsh, nsh, dpat, nat, qmat, nat2) &
+      & bind(C, name=namespace//"set_result_shell_charges_and_moments_guess")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(in) :: qsh(*)
+   integer(c_int), value :: nsh
+   real(c_double), intent(in) :: dpat(*)
+   integer(c_int), value :: nat
+   real(c_double), intent(in) :: qmat(*)
+   integer(c_int), value :: nat2
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "set_result_shell_charges_and_moments_guess"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (nsh <= 0 .or. nat <= 0 .or. nat2 <= 0) then
+      call fatal_error(error%ptr, "Invalid dimensions for shell charges and moments guess")
+      return
+   end if
+   if (nat /= nat2) then
+      call fatal_error(error%ptr, "Mismatched atom counts for dipoles and quadrupoles")
+      return
+   end if
+
+   if (allocated(res%wfn)) then
+      deallocate(res%wfn)
+   end if
+   if (allocated(res%results)) then
+      deallocate(res%results)
+   end if
+
+   if (allocated(res%charges_guess_shell)) then
+      if (any(shape(res%charges_guess_shell) /= [nsh, 1])) then
+         deallocate(res%charges_guess_shell)
+      end if
+   end if
+   if (.not.allocated(res%charges_guess_shell)) then
+      allocate(res%charges_guess_shell(nsh, 1))
+   end if
+   res%charges_guess_shell(:, 1) = qsh(:nsh)
+
+   if (allocated(res%dpat_guess)) then
+      if (any(shape(res%dpat_guess) /= [3, nat, 1])) then
+         deallocate(res%dpat_guess)
+      end if
+   end if
+   if (.not.allocated(res%dpat_guess)) then
+      allocate(res%dpat_guess(3, nat, 1))
+   end if
+   res%dpat_guess(:, :, 1) = reshape(dpat(:3*nat), [3, nat])
+
+   if (allocated(res%qmat_guess)) then
+      if (any(shape(res%qmat_guess) /= [6, nat, 1])) then
+         deallocate(res%qmat_guess)
+      end if
+   end if
+   if (.not.allocated(res%qmat_guess)) then
+      allocate(res%qmat_guess(6, nat, 1))
+   end if
+   res%qmat_guess(:, :, 1) = reshape(qmat(:6*nat), [6, nat])
+end subroutine set_result_shell_charges_and_moments_guess_api
+
+!> Set shell charges together with atomic dipole and quadrupole moments (spin-resolved)
+subroutine set_result_shell_charges_and_moments_guess_spin_api(verror, vres, qsh, nsh, dpat, nat, qmat, nat2, nspin) &
+      & bind(C, name=namespace//"set_result_shell_charges_and_moments_guess_spin")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(in) :: qsh(*)
+   integer(c_int), value :: nsh
+   real(c_double), intent(in) :: dpat(*)
+   integer(c_int), value :: nat
+   real(c_double), intent(in) :: qmat(*)
+   integer(c_int), value :: nat2
+   integer(c_int), value :: nspin
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "set_result_shell_charges_and_moments_guess_spin"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (nsh <= 0 .or. nat <= 0 .or. nat2 <= 0 .or. nspin <= 0) then
+      call fatal_error(error%ptr, "Invalid dimensions for spin-resolved shell charges and moments guess")
+      return
+   end if
+   if (nat /= nat2) then
+      call fatal_error(error%ptr, "Mismatched atom counts for dipoles and quadrupoles")
+      return
+   end if
+
+   if (allocated(res%wfn)) then
+      deallocate(res%wfn)
+   end if
+   if (allocated(res%results)) then
+      deallocate(res%results)
+   end if
+
+   if (allocated(res%charges_guess_shell)) then
+      if (any(shape(res%charges_guess_shell) /= [nsh, nspin])) then
+         deallocate(res%charges_guess_shell)
+      end if
+   end if
+   if (.not.allocated(res%charges_guess_shell)) then
+      allocate(res%charges_guess_shell(nsh, nspin))
+   end if
+   res%charges_guess_shell(:, :) = reshape(qsh(:nsh*nspin), [nsh, nspin])
+
+   if (allocated(res%dpat_guess)) then
+      if (any(shape(res%dpat_guess) /= [3, nat, nspin])) then
+         deallocate(res%dpat_guess)
+      end if
+   end if
+   if (.not.allocated(res%dpat_guess)) then
+      allocate(res%dpat_guess(3, nat, nspin))
+   end if
+   res%dpat_guess(:, :, :) = reshape(dpat(:3*nat*nspin), [3, nat, nspin])
+
+   if (allocated(res%qmat_guess)) then
+      if (any(shape(res%qmat_guess) /= [6, nat, nspin])) then
+         deallocate(res%qmat_guess)
+      end if
+   end if
+   if (.not.allocated(res%qmat_guess)) then
+      allocate(res%qmat_guess(6, nat, nspin))
+   end if
+   res%qmat_guess(:, :, :) = reshape(qmat(:6*nat*nspin), [6, nat, nspin])
+end subroutine set_result_shell_charges_and_moments_guess_spin_api
 
 subroutine get_result(verror, vres, error, res, ok)
    type(c_ptr), intent(in) :: verror
