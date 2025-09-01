@@ -1248,6 +1248,152 @@ err:
     return 1;
 }
 
+int test_calc_restart_compressed(void)
+{
+    printf("Start test: calculator-restart (compressed shell charges + moments)\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res_full = NULL, res_guess = NULL;
+
+    const double thr = 5.0e-7;
+    int natoms = 0, nshells = 0, nspin = 0;
+    double energy_full, energy_restart;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res_full = tblite_new_result();
+
+    mol = get_structure_1(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    /* Full run */
+    tblite_get_singlepoint(ctx, mol, calc, res_full);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res_full, &energy_full);
+    if (tblite_check(error))
+        goto err;
+
+    /* Fetch sizes */
+    tblite_get_result_number_of_atoms(error, res_full, &natoms);
+    if (tblite_check(error))
+        goto err;
+    tblite_get_result_number_of_shells(error, res_full, &nshells);
+    if (tblite_check(error))
+        goto err;
+    tblite_get_result_number_of_spins(error, res_full, &nspin);
+    if (tblite_check(error))
+        goto err;
+
+    /* Only test closed-shell here */
+    if (nspin != 1) {
+        printf("[Fatal] compressed-restart test expects closed-shell (nspin=1)\n");
+        goto err;
+    }
+
+    /* Retrieve compressed data (qsh, dpat, qmat) */
+    double* qsh = (double*)malloc(sizeof(double) * nshells);
+    double* dpat = (double*)malloc(sizeof(double) * 3 * natoms);
+    double* qmat = (double*)malloc(sizeof(double) * 6 * natoms);
+    if (!qsh || !dpat || !qmat)
+        goto err;
+
+    /* Getters return [nspin][...] flattened; with nspin=1 this is contiguous */
+    double* qsh_all = (double*)malloc(sizeof(double) * nspin * nshells);
+    double* dpat_all = (double*)malloc(sizeof(double) * nspin * 3 * natoms);
+    double* qmat_all = (double*)malloc(sizeof(double) * nspin * 6 * natoms);
+    if (!qsh_all || !dpat_all || !qmat_all)
+        goto err;
+
+    tblite_get_result_shell_charges(error, res_full, qsh_all);
+    if (tblite_check(error))
+        goto err;
+    tblite_get_result_atomic_dipoles(error, res_full, dpat_all);
+    if (tblite_check(error))
+        goto err;
+    tblite_get_result_atomic_quadrupoles(error, res_full, qmat_all);
+    if (tblite_check(error))
+        goto err;
+
+    /* Extract first spin block (only spin=1 here) */
+    for (int i = 0; i < nshells; ++i)
+        qsh[i] = qsh_all[i];
+    for (int i = 0; i < 3 * natoms; ++i)
+        dpat[i] = dpat_all[i];
+    for (int i = 0; i < 6 * natoms; ++i)
+        qmat[i] = qmat_all[i];
+
+    /* Build restart guess */
+    res_guess = tblite_new_result();
+    tblite_set_result_shell_charges_and_moments_guess(error, res_guess, qsh, nshells, dpat, natoms, qmat, natoms);
+    if (tblite_check(error))
+        goto err;
+
+    /* Limit iterations to ensure we use the guess */
+    tblite_set_calculator_max_iter(ctx, calc, 3);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res_guess);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res_guess, &energy_restart);
+    if (tblite_check(error))
+        goto err;
+
+    if (!check(energy_restart, energy_full, thr, "energy error (compressed restart)"))
+        goto err;
+
+    free(qsh);
+    free(dpat);
+    free(qmat);
+    free(qsh_all);
+    free(dpat_all);
+    free(qmat_all);
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res_full);
+    tblite_delete(res_guess);
+    return 0;
+
+err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+    if (ctx && tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+    free(qsh);
+    free(dpat);
+    free(qmat);
+    free(qsh_all);
+    free(dpat_all);
+    free(qmat_all);
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res_full);
+    tblite_delete(res_guess);
+    return 1;
+}
+
 void example_callback(tblite_error error, char* msg, int len, void* udata)
 {
     printf("[callback] %.*s\n", len, msg);
@@ -3671,6 +3817,7 @@ int main(void)
     stat += test_gfn2_convergence();
     stat += test_spgfn1();
     stat += test_calc_restart();
+    stat += test_calc_restart_compressed();
     stat += test_callback();
     stat += test_dict_api();
     stat += test_post_processing_api();
