@@ -14,7 +14,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/post-processing/xtb-ml/density.f90
-!> Desnity based fetaures using Mulliken partitioning
+!> Desnity based features using Mulliken partitioning
 module tblite_xtbml_density_based
    use mctc_env, only : wp
    use mctc_io, only : structure_type
@@ -23,6 +23,7 @@ module tblite_xtbml_density_based
    use tblite_output_format, only : format_string
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_basis_type, only : basis_type
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtbml_convolution, only : xtbml_convolution_type
    use tblite_xtbml_feature_type, only : xtbml_feature_type
@@ -141,16 +142,16 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
    do spin = 1, nspin
       
       associate(dict => self%dict)
-         call resolve_shellwise(self%mulliken_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at)
+         call resolve_shellwise(self%mulliken_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas, mol%id)
          call dict%add_entry(trim("p_s"//spin_label(spin)), tmp_s_array)
          call dict%add_entry(trim("p_p"//spin_label(spin)), tmp_p_array)
          call dict%add_entry(trim("p_d"//spin_label(spin)), tmp_d_array)
-         call resolve_shellwise(self%dipm_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at)
+         call resolve_shellwise(self%dipm_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas, mol%id)
          call dict%add_entry(trim("dipm_s"//spin_label(spin)), tmp_s_array)
          call dict%add_entry(trim("dipm_p"//spin_label(spin)), tmp_p_array)
          call dict%add_entry(trim("dipm_d"//spin_label(spin)), tmp_d_array)
          if (self%return_xyz) then
-            call resolve_xyz_shell(self%dipm_shell_xyz(:, :, spin), tmp_array, calc%bas%nsh_at)
+            call resolve_xyz_shell(self%dipm_shell_xyz(:, :, spin), tmp_array, calc%bas, mol%id)
             tmp_labels = [ character(len=20) :: &
             &"dipm_s_x", "dipm_s_y", "dipm_s_z",&
             &"dipm_p_x", "dipm_p_y", "dipm_p_z",&
@@ -160,12 +161,12 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
                call dict%add_entry(trim(tmp_labels(i)//spin_label(spin)), tmp_array(:, i))
             end do
          end if
-         call resolve_shellwise(self%qm_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas%nsh_at)
+         call resolve_shellwise(self%qm_shell(:, spin), tmp_s_array, tmp_p_array, tmp_d_array, calc%bas, mol%id)
          call dict%add_entry(trim("qm_s"//spin_label(spin)), tmp_s_array)
          call dict%add_entry(trim("qm_p"//spin_label(spin)), tmp_p_array)
          call dict%add_entry(trim("qm_d"//spin_label(spin)), tmp_d_array)
          if (self%return_xyz) then
-            call resolve_xyz_shell(self%qm_shell_xyz(:, :, spin), tmp_array, calc%bas%nsh_at)
+            call resolve_xyz_shell(self%qm_shell_xyz(:, :, spin), tmp_array, calc%bas, mol%id)
             tmp_labels = [ character(len=20) :: "qm_s_xx", &
             & "qm_s_xy", "qm_s_yy", "qm_s_xz", "qm_s_yz", "qm_s_zz",&
             &"qm_p_xx", "qm_p_xy", "qm_p_yy", "qm_p_xz", "qm_p_yz", "qm_p_zz",&
@@ -243,7 +244,7 @@ contains
 end subroutine mol_set_nuclear_charge
 
 !> separate a vector of properties for all shells into separate arrays for each shell type
-subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh)
+subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, bas, id)
    !> array containing the shell properties
    real(wp), intent(in) :: shell_prop(:)
    !> array for s shell properties
@@ -252,81 +253,62 @@ subroutine resolve_shellwise(shell_prop, array_s, array_p, array_d, at2nsh)
    real(wp), allocatable, intent(out) :: array_p(:)
    !> array for d shell properties
    real(wp), allocatable, intent(out) :: array_d(:)
-   !> atom 2 number of shell mapping
-   integer, intent(in) :: at2nsh(:)
-   integer :: nsh, i, nat
+   !> basis information; atom 2 shell mapping and basis function angular momenta
+   type(basis_type), intent(in) :: bas
+   !> atom species id mapping
+   integer, intent(in) :: id(:)
+
+   integer :: nsh, i, j, nat
    nsh = 1
-   nat = size(at2nsh)
+   nat = size(bas%nsh_at)
    if (allocated(array_s)) deallocate(array_s)
    if (allocated(array_p)) deallocate(array_p)
    if (allocated(array_d)) deallocate(array_d)
    allocate(array_s(nat), array_p(nat), array_d(nat), source= 0.0_wp)
+
    !in this loop we are filling shellwise properties 
    do i = 1, nat
-      array_s(i) = shell_prop(nsh) !s shell always filled
-      nsh = nsh + 1
-      ! if s and p are filled
-      if (at2nsh(i) == 2) then
-         array_p(i) = shell_prop(nsh)
+      do j = 1, bas%nsh_at(i)
+         select case (bas%cgto(j,id(i))%ang)
+            case (0)
+               array_s(i) = shell_prop(nsh)
+            case (1)
+               array_p(i) = shell_prop(nsh)
+            case (2)
+               array_d(i) = shell_prop(nsh)
+         end select
          nsh = nsh + 1
-      ! if s, p and d are filled
-      elseif (at2nsh(i) == 3) then
-         array_p(i) = shell_prop(nsh)
-         nsh = nsh + 1
-         array_d(i) = shell_prop(nsh)
-         nsh = nsh + 1
-      end if
+      end do
    end do
 end subroutine resolve_shellwise
 
 !> separate a vector of properties for all shells into separate arrays for each shell type, for tensorial properties
-subroutine resolve_xyz_shell(mult_xyz, array, at2nsh)
+subroutine resolve_xyz_shell(mult_xyz, array, bas, id)
    !> array containing the tensorial shell properties
    real(wp), intent(in) :: mult_xyz(:, :)
    !> array for xyz shell properties
    real(wp), allocatable :: array(:, :)
-   !> atom 2 number of shell mapping
-   integer, intent(in) :: at2nsh(:)
-   integer :: j, k, nsh, id_tmp, nat, i
+   !> basis information; atom 2 shell mapping and basis function angular momenta
+   type(basis_type), intent(in) :: bas
+   !> atom species id mapping
+   integer, intent(in) :: id(:)
+   integer :: j, k, s, nsh, nat, i, l
    nsh = 1
-   nat = size(at2nsh)
+   nat = size(bas%nsh_at)
    ! we reuse array so if we have dipm we need 3 columns, if we have qm we need 6 columns
    if (allocated(array)) deallocate(array)
    allocate(array(nat, 3*size(mult_xyz, dim=1)), source = 0.0_wp)
 
    do k = 1, nat
-      ! id_tmp is used to keep track of the current index in the array
-      id_tmp = 1
-      j = 1
-      do i = id_tmp, (id_tmp + size(mult_xyz, dim=1) - 1)
-         array(k, i) = mult_xyz(j, nsh)
-         j = j + 1
+      do s = 1, bas%nsh_at(k)
+         j = 1
+         l = bas%cgto(s,id(k))%ang
+         do i = 1 + l*size(mult_xyz, dim=1), (l+1)*size(mult_xyz, dim=1)
+            array(k, i) = mult_xyz(j, nsh)
+            j = j + 1
+         end do
+         nsh = nsh + 1
       end do
-      nsh = nsh + 1
-      if (at2nsh(k) == 2) then
-         id_tmp = id_tmp + size(mult_xyz, dim=1)
-         j = 1
-         do i = id_tmp, id_tmp + size(mult_xyz, dim=1) - 1
-            array(k, i) = mult_xyz(j, nsh)
-            j = j + 1
-         end do
-         nsh = nsh + 1
-      elseif (at2nsh(k) == 3) then
-         id_tmp = id_tmp + size(mult_xyz, dim=1)
-         j = 1
-         do i = id_tmp, id_tmp + size(mult_xyz, dim=1) - 1
-            array(k, i) = mult_xyz(j, nsh)
-            j = j + 1
-         end do
-         nsh = nsh + 1
-         id_tmp = id_tmp + size(mult_xyz, dim=1)
-         j = 1
-         do i = id_tmp, id_tmp + size(mult_xyz, dim=1) - 1
-            array(k, i) = mult_xyz(j, nsh)
-            j = j + 1
-         end do
-         nsh = nsh + 1
-      end if
    end do
 end subroutine resolve_xyz_shell
 
@@ -538,7 +520,7 @@ subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
       do mu = 1, nao
          do nu = 1, nao
             !$omp atomic
-            charges_shell(ao2shell(mu), spin) = charges_shell(ao2shell(mu), spin) + p(mu, nu, spin)*s(nu, mu)
+            charges_shell(ao2shell(mu), spin) = charges_shell(ao2shell(mu), spin) + p(mu, nu, spin)*s(mu, nu)
          end do
       end do
    end do
