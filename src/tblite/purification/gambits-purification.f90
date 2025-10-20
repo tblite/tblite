@@ -82,7 +82,7 @@ module tblite_purification_solver
 
    type, public, extends(solver_type) :: purification_solver
       type(dmp_input) :: input
-      real(c_double) :: thresh = 5.0e-06_c_double
+      real(c_double) :: thresh = 5.0e-07_c_double
       type(c_ptr) :: solver_ptr
       integer(c_size_t) :: maxiter = 100
       integer :: iscf = 0
@@ -174,7 +174,7 @@ subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr)
    ndim = size(overlap, dim=1)
    self%input = dmp_inp
    !use LAPACK for molecules smaller than 750 basis functions
-   
+   if (.not. allocated(self%lapack_solv)) then
    select case(dmp_inp%runmode)
    case(purification_runmode%cpu)
       block
@@ -208,6 +208,8 @@ subroutine new_purification(self, overlap, nel, kt, dmp_inp, dmp_ptr, gvd_ptr)
          end if
    end select
    call self%ctx%setup(int(1, kind=c_size_t), self%maxiter, self%thresh)
+   end if
+   
    if (.not. c_associated(dmp_ptr)) then
       dmp_ptr = SetupPurification(self%ctx%ptr, int(ndim, kind=c_size_t), self%input%type, self%input%runmode, self%input%precision)
    else

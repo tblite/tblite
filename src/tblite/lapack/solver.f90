@@ -87,7 +87,6 @@ subroutine new(self, overlap, nel, kt)
    real(wp), intent(in) :: kt
 
 
-   if (self%ndim /= size(overlap, 1) .or. .not.(self%reuse)) then
       self%ndim = size(overlap, 1)
       if (allocated(self%solver)) call self%delete()
       select case(self%algorithm)
@@ -114,7 +113,6 @@ subroutine new(self, overlap, nel, kt)
             call move_alloc(tmp, self%solver)
          end block
       end select
-   end if
 end subroutine new
 
 
