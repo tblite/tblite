@@ -563,7 +563,8 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    
    if (allocated(res%charges_guess_shell)) then
       if (.not.allocated(res%dpat_guess) .or. .not.allocated(res%qmat_guess)) then
-         call fatal_error(error, "If shell charges are provided as guess, atomic dipoles (dpat) and quadrupoles (qmat) must also be provided")
+         call fatal_error(error, "If shell charges are provided as guess, atomic dipoles (dpat)"& 
+                                             & //"and quadrupoles (qmat) must also be provided")
          call ctx%ptr%set_error(error)
          return
       end if
