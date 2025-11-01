@@ -22,6 +22,7 @@ program tester
       & select_suite, run_selected
    use test_ceh, only : collect_ceh
    use test_cgto_ortho, only : collect_cgto_ortho
+   use test_compressed_restart_calculator, only : collect_compressed_restart_calculator
    use test_coulomb_charge, only : collect_coulomb_charge
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
@@ -83,6 +84,7 @@ program tester
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("wavefunction-restart", collect_wavefunction_restart), &
+      new_testsuite("compressed-restart-calculator", collect_compressed_restart_calculator), &
       new_testsuite("gfn1-xtb", collect_gfn1_xtb), &
       new_testsuite("ceh", collect_ceh), &
       new_testsuite("ipea1-xtb", collect_ipea1_xtb), &
