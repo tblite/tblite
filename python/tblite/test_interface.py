@@ -763,7 +763,7 @@ def test_numbers():
 
 def test_calc_restart_compressed_closed_shell():
     """Test compressed restart (qsh, dpat, qmat) for closed-shell system"""
-    numbers = np.array([6, 6, 7, 7, 1, 1, 1, 1, 1, 1, 8, 8], dtype=np.int32)
+    numbers = np.array([6, 6, 7, 7, 1, 1, 1, 1, 1, 1, 8, 8])
     positions = np.array([
         [-3.81469488143921, +0.09993441402912, 0.00000000000000],
         [+3.81469488143921, -0.09993441402912, 0.00000000000000],
@@ -777,7 +777,7 @@ def test_calc_restart_compressed_closed_shell():
         [+5.89039325714111, +0.02589114569128, 0.00000000000000],
         [-2.74426102638245, +2.16115570068359, 0.00000000000000],
         [+2.74426102638245, -2.16115570068359, 0.00000000000000],
-    ], dtype=float)
+    ])
 
     calc = Calculator("GFN2-xTB", numbers, positions)
 
@@ -803,11 +803,11 @@ def test_calc_restart_compressed_closed_shell():
 def test_calc_restart_compressed_spin_polarized():
     """Test compressed restart (qsh, dpat, qmat) for spin-polarized system"""
     # Use a small open-shell system (e.g., NO)
-    numbers = np.array([7, 8], dtype=np.int32)
+    numbers = np.array([7, 8])
     positions = np.array([
         [0.0, 0.0, -1.1],
         [0.0, 0.0, 1.1],
-    ], dtype=float)
+    ])
 
     # Enable spin polarization
     calc = Calculator("GFN2-xTB", numbers, positions, uhf=1)
