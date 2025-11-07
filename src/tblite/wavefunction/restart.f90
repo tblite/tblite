@@ -123,7 +123,7 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
       return
    end if
 
-   nspin_sizes = [size(wfn%density, 3), size(wfn%coeff, 3), size(wfn%emo, 2), size(wfn%focc, 2)]
+   nspin_sizes = [size(wfn%density, 3), size(wfn%coeff, 3), size(wfn%emo, 2)]
    if (present(nspin)) nspin_sizes = [nspin, nspin_sizes]
    if (any(nspin_sizes(1) /= nspin_sizes) .or. (all(size(wfn%nel) /= [2, nspin_sizes(1)]))) then
       call fatal_error(error, "Dimension mismatch in '"//filename//&

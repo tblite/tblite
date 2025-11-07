@@ -15,6 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 from logging import Logger
+from tempfile import NamedTemporaryFile
 
 import numpy as np
 from pytest import approx, raises
@@ -351,6 +352,17 @@ def test_gfn2_mindless():
     )
     calc = Calculator("GFN2-xTB", numbers, positions)
     res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-31.716158891203904, abs=THR)
+
+    res2 = Result()
+    with NamedTemporaryFile(suffix=".npz") as tmp:
+        res.save(tmp.name)
+        del res
+        res2.load(tmp.name)
+
+    calc.set("max-iter", 3)
+    res = calc.singlepoint(res2)
 
     assert res.get("energy") == approx(-31.716158891203904, abs=THR)
 

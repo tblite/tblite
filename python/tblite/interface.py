@@ -332,6 +332,32 @@ class Result:
 
         self._setter[attribute](self._res, value)
 
+    def save(self, filename: str) -> None:
+        """
+        Save the result container to a file. The format is compatible with the
+        npz format, which is used by the numpy library and can be read
+        by the numpy.load function.
+
+        Raises
+        ------
+        TBLiteRuntimeError
+            if the saving fails
+        """
+        library.save_wavefunction(self._res, filename)
+    
+    def load(self, filename: str) -> None:
+        """
+        Load a result container from a file. The format is compatible with the
+        npz format, which is used by the numpy library and can be written
+        by the numpy.savez function.
+
+        Raises
+        ------
+        TBLiteRuntimeError
+            if the loading fails
+        """
+        library.load_wavefunction(self._res, filename)
+
     def __getitem__(self, key: str) -> Any:
         return self.get(key)
 

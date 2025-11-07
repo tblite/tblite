@@ -19,6 +19,8 @@ module test_xtbml
    use tblite_param_xtbml_features, only : xtbml_features_record
    use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
+   use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, new_alpb, get_solvent_data, &
+      & cpcm_input, cpcm_solvation, new_cpcm
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, toml_array, add_array
    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
@@ -1063,6 +1065,20 @@ subroutine test_energy_sum_up_gfn2(error)
       call calc%push_back(cont)
    end block
 
+   block
+      class(container_type), allocatable :: cont
+      type(alpb_solvation), allocatable :: solv
+      type(alpb_input) :: alpb_inp
+      type(solvent_data), allocatable :: solvent
+      solvent = get_solvent_data("water")
+      alpb_inp = alpb_input(solvent%eps, solvent=solvent%solvent, &
+         kernel=1, alpb=.true.)
+      allocate(solv)
+      call new_alpb(solv, mol, alpb_inp,"gfn2")
+      call move_alloc(solv, cont)
+      call calc%push_back(cont)
+   end block
+
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -1071,6 +1087,7 @@ subroutine test_energy_sum_up_gfn2(error)
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
    call add_post_processing(pproc, pparam)
+
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("E_tot", tmp_array)
@@ -1144,6 +1161,18 @@ subroutine test_energy_sum_up_gfn1(error)
    xtbml_param%xtbml_energy = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
+
+   block
+      class(container_type), allocatable :: cont
+      type(cpcm_solvation), allocatable :: solv
+      type(cpcm_input) :: cpcm_inp
+      cpcm_inp = cpcm_input(4.0)
+      allocate(solv)
+      call new_cpcm(solv, mol, cpcm_inp, error)
+      call move_alloc(solv, cont)
+      call calc%push_back(cont)
+   end block
+
    call add_post_processing(pproc, pparam)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 

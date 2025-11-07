@@ -21,12 +21,13 @@ import sys
 _dir = os.path.abspath(os.path.dirname(__file__))
 
 import tblite
+from tblite.library import get_version
 
 project = "tblite"
 author = "Sebastian Ehlert"
 copyright = f"2021-2023, {author}"
 
-version = "0.4.0"
+version = "{}.{}.{}".format(*get_version())
 release = version
 
 
