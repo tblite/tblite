@@ -3851,5 +3851,6 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
+    stat += test_context_solver_api();
     return stat;
 }
