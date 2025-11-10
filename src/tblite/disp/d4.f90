@@ -27,7 +27,6 @@ module tblite_disp_d4
       & damping_param, rational_damping_param, realspace_cutoff, &
       & new_d4_model, new_d4s_model
    use dftd4_model, only : d4_ref
-   use dftd4_charge, only : get_eeq_charges => get_charges
    use tblite_blas, only : dot, gemv
    use tblite_container_cache, only : container_cache
    use tblite_disp_cache, only : dispersion_cache
@@ -38,7 +37,7 @@ module tblite_disp_d4
    implicit none
    private
 
-   public :: new_d4_dispersion, new_d4s_dispersion, get_eeq_charges
+   public :: new_d4_dispersion, new_d4s_dispersion
 
 
    !> Container for self-consistent D4 dispersion interactions

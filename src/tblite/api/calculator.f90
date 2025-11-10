@@ -30,7 +30,8 @@ module tblite_api_calculator
    use tblite_results, only : results_type
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
+      & sad_guess, eeq_guess, eeqbc_guess
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -54,7 +55,8 @@ module tblite_api_calculator
    enum, bind(c)
       enumerator :: &
          tblite_guess_sad = 0_c_int, &
-         tblite_guess_eeq = 1_c_int
+         tblite_guess_eeq = 1_c_int, &
+         tblite_guess_eeqbc = 2_c_int
    end enum
 
 
@@ -610,7 +612,9 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
       case default
          call sad_guess(mol, calc, wfn)
       case(tblite_guess_eeq)
-         call eeq_guess(mol, calc, wfn)
+         call eeq_guess(mol, calc, wfn, error)
+      case(tblite_guess_eeqbc)
+         call eeqbc_guess(mol, calc, wfn, error)
       end select
    end if
 end subroutine check_wavefunction

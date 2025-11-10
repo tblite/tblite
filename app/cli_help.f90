@@ -115,7 +115,7 @@ module tblite_cli_help
       "      --acc <real>         Convergence criterion for SCF (Default: 1.0)"//nl//&
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
-      "                           sad (default), eeq, ceh (Charge-Extended Hückel method)"//nl//&
+      "                           sad (default), eeq, eeqbc, ceh (Charge-Extended Hückel method)"//nl//&
       "      --restart [<file>]   Restart calculation from previous run"//nl//&
       "                           File name for restart file is optional,"//nl//&
       "                           (Default: tblite-restart.npz)"//nl//&
@@ -178,7 +178,7 @@ module tblite_cli_help
       "  -c, --charge <real>      Set charge to molecule, overwrites .CHRG file"//nl//&
       "      --spin <int>         Set number of unpaired electrons, overwrites .UHF file"//nl//&
       "      --method <name>      Guess for the initial populations, possible options:"//nl//&
-      "                           sad, eeq, ceh (Charge-Extended Hückel method, default)"//nl//&
+      "                           sad, eeq, eeqbc, ceh (Charge-Extended Hückel method, default)"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 4000K)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
       "                           gvd (default), and gvr"//nl//&

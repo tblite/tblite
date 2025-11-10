@@ -122,7 +122,7 @@ endif
 # Create the tool chain library as subproject
 mctc_dep = dependency(
   'mctc-lib',
-  version: '>=0.4.1',
+  version: '>=0.5.1',
   fallback: ['mctc-lib', 'mctc_dep'],
   default_options: ['default_library=static'],
 )
@@ -131,7 +131,7 @@ lib_deps += mctc_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: ['>=3.4.0', '<4'],
+  version: ['>=3.7.0'],
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -149,7 +149,7 @@ lib_deps += sdftd3_dep
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',
-  version: '>=0.4.0',
+  version: '>=0.4.3',
   fallback: ['toml-f', 'tomlf_dep'],
   default_options: ['default_library=static'],
 )
