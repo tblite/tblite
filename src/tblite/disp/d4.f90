@@ -26,7 +26,7 @@ module tblite_disp_d4
    use dftd4, only : dispersion_model, d4_model, d4s_model, &
       & damping_param, rational_damping_param, realspace_cutoff, &
       & new_d4_model, new_d4s_model
-   use dftd4_model, only : d4_ref
+   use dftd4_model, only : d4_qmod
    use tblite_blas, only : dot, gemv
    use tblite_container_cache, only : container_cache
    use tblite_disp_cache, only : dispersion_cache
@@ -89,7 +89,7 @@ subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9, error)
 
    ! Create a new instance of the D4 model
    allocate(tmp)
-   call new_d4_model(error, tmp, mol, ref=d4_ref%gfn2)
+   call new_d4_model(error, tmp, mol, qmod=d4_qmod%gfn2)
    if(allocated(error)) return
    call move_alloc(tmp, self%model)
 
@@ -118,7 +118,7 @@ subroutine new_d4s_dispersion(self, mol, s6, s8, a1, a2, s9, error)
 
    ! Create a new instance of the D4S model
    allocate(tmp)
-   call new_d4s_model(error, tmp, mol, ref=d4_ref%gfn2)
+   call new_d4s_model(error, tmp, mol, qmod=d4_qmod%gfn2)
    if(allocated(error)) return
    call move_alloc(tmp, self%model)
 

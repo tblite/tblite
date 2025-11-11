@@ -562,7 +562,8 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
    call check_results(res%results)
    
-   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
+   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
+      & calc%nspin, calc%guess, error)
    if (calc%post_proc%n == 0) then 
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, f_char, error)
@@ -571,8 +572,9 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
-   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
-   & gradient=res%gradient, sigma=res%sigma, results=res%results, post_process=calc%post_proc)
+   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
+      & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
+      & post_process=calc%post_proc)
 
 end subroutine get_singlepoint_api
 
@@ -587,13 +589,14 @@ subroutine check_results(res)
    end if
 end subroutine
 
-subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
+subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
    integer, intent(in) :: nspin
    integer, intent(in) :: guess
+   type(error_type), intent(out), allocatable :: error
 
    if (allocated(wfn)) then
       wfn%kt = etemp

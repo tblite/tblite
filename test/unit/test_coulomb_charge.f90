@@ -1202,16 +1202,6 @@ subroutine test_s_effective_pyrazine(error)
 
 end subroutine test_s_effective_pyrazine
 
-subroutine write_charges(mol)
-   use dftd4_charge, only : get_charges
-   type(structure_type) :: mol
-   real(wp), allocatable :: qat(:)
-   allocate(qat(mol%nat))
-   call get_charges(mol, qat)
-   write(*, '(3x,a)') "real(wp), parameter :: qat(*) = [&"
-   write(*, '(*(6x,"&",3(es20.14e1, "_wp":, ","),"&", /))', advance='no') qat
-   write(*, '(a)') "]"
-end subroutine
 
 subroutine test_e_effective_m07(error)
 
