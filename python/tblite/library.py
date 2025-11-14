@@ -125,7 +125,6 @@ def set_context_solver(ctx, solver : str):
         "sp2-accel": 22,
         "trs4" : 14
     }
-    _solver = int()
     try:
         _solver = solver_dict[solver]
     except KeyError:

@@ -29,7 +29,6 @@ module tblite_cli
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
-   use iso_c_binding
    implicit none
    private
 

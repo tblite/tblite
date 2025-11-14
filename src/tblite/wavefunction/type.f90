@@ -24,8 +24,8 @@ module tblite_wavefunction_type
    implicit none
    private
 
-   public :: new_wavefunction, get_density_matrix
-   public :: get_alpha_beta_occupation
+   public :: new_wavefunction
+   public :: get_density_matrix, get_alpha_beta_occupation
 
    !> Tight-binding wavefunction
    type, public :: wavefunction_type
@@ -148,6 +148,7 @@ subroutine get_density_matrix(focc, coeff, pmat)
    end do
    call gemm(scratch, coeff, pmat, transb='t')
 end subroutine get_density_matrix
+
 
 !> Split an real occupation number into alpha and beta space.
 !>

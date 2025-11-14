@@ -25,17 +25,16 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
+   use tblite_purification_solver, only : purification_solver 
+   use tblite_scf_mixer, only : mixer_type
+   use tblite_scf_info, only : scf_info
+   use tblite_scf_potential, only : potential_type, add_pot_to_h1
+   use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
       & get_mulliken_atomic_multipoles
    use tblite_xtb_coulomb, only : tb_coulomb
-   use tblite_scf_mixer, only : mixer_type
-   use tblite_scf_info, only : scf_info
-   use tblite_scf_potential, only : potential_type, add_pot_to_h1
-   use tblite_scf_solver, only : solver_type
-   use tblite_purification_solver, only : purification_solver 
-   use tblite_timer, only : timer_type, format_time
    implicit none
    private
 
@@ -88,7 +87,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    real(wp), allocatable :: eao(:)
    real(wp) :: ts
-   
+
    if (iscf > 0) then
       call mixer%next(error)
       if (allocated(error)) return
