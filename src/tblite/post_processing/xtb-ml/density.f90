@@ -14,7 +14,7 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/post-processing/xtb-ml/density.f90
-!> Desnity based features using Mulliken partitioning
+!> Density based features using Mulliken partitioning
 module tblite_xtbml_density_based
    use mctc_env, only : wp
    use mctc_io, only : structure_type
