@@ -558,6 +558,10 @@ subroutine get_run_arguments(config, list, start, error)
             config%dmp_input%precision = purification_precision%double
          case("single")
             config%dmp_input%precision = purification_precision%single
+         case("mixed")
+            config%dmp_input%precision = purification_precision%mixed
+         case("mixed-fp16")
+            config%dmp_input%precision = purification_precision%mixed_fp16
          case default
             config%dmp_input%precision = purification_precision%mixed
          end select

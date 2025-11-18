@@ -54,8 +54,8 @@ module tblite_purification_solver
         integer(c_size_t) :: double = 1
         !> full single precision
         integer(c_size_t) :: single = 2
-        !> approx FP64
-        integer(c_size_t) :: approx = 3
+        !> mixed precision with Ozaki-type FP16 splits
+        integer(c_size_t) :: mixed_fp16 = 3
     end type
 
     type enum_runmode

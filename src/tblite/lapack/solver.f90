@@ -86,7 +86,7 @@ subroutine new(self, overlap, nel, kt)
    !> Electronic temperature
    real(wp), intent(in) :: kt
 
-
+   if (self%ndim /= size(overlap, 1)) then
       self%ndim = size(overlap, 1)
       if (allocated(self%solver)) call self%delete()
       select case(self%algorithm)
@@ -106,13 +106,13 @@ subroutine new(self, overlap, nel, kt)
          end block
       case(lapack_algorithm%gvd_cusolver)
          block
-           
             type(sygvd_cusolver), allocatable :: tmp
             allocate(tmp)
             call new_sygvd_gpu(tmp, overlap, nel, kt, self%ptr)
             call move_alloc(tmp, self%solver)
          end block
       end select
+   end if
 end subroutine new
 
 
@@ -124,11 +124,17 @@ subroutine delete(self)
 
    if (allocated(self%solver)) then
       if (self%reuse .and. c_associated(self%ptr)) then
-         call self%solver%delete()
+         if (allocated(self%solver)) call self%solver%delete()
       else
-         call self%solver%delete(self%ptr) 
+         if (c_associated(self%ptr)) then
+            call self%solver%delete(self%ptr)
+            self%ptr = c_null_ptr
+            self%ndim = 0
+         end if
+         if (allocated(self%solver)) deallocate(self%solver)
+
       end if
-      deallocate(self%solver)
+      
    end if
 end subroutine delete
 

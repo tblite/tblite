@@ -149,8 +149,11 @@ subroutine delete(self, ptr)
    !> Pointer to the C++ solver instance
    type(c_ptr), intent(inout), optional :: ptr
    
-   if (present(ptr)) call delete_cusolver_ptr(ptr)
-   self%ptr = c_null_ptr
+   if (present(ptr)) then
+      call delete_cusolver_ptr(ptr)
+      self%ptr = c_null_ptr
+   end if
+   
 
 end subroutine delete
 
