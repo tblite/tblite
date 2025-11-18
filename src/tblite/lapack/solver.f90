@@ -85,7 +85,6 @@ subroutine new(self, overlap, nel, kt)
    real(wp), intent(in) :: nel(:)
    !> Electronic temperature
    real(wp), intent(in) :: kt
-
    if (self%ndim /= size(overlap, 1)) then
       self%ndim = size(overlap, 1)
       if (allocated(self%solver)) call self%delete()
@@ -129,10 +128,9 @@ subroutine delete(self)
          if (c_associated(self%ptr)) then
             call self%solver%delete(self%ptr)
             self%ptr = c_null_ptr
-            self%ndim = 0
          end if
          if (allocated(self%solver)) deallocate(self%solver)
-
+         self%ndim = 0
       end if
       
    end if
