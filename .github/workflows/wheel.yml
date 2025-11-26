@@ -81,7 +81,7 @@ jobs:
         # macos-latest
         # windows-latest
         python: ['39', '310', '311', '312', '313']
-        include: 
+        include:
           - os: ubuntu-22.04
             python: '38'
 
