@@ -134,7 +134,7 @@ jobs:
             PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig
             LDFLAGS=-L/opt/homebrew/opt/openblas/lib
             CPPFLAGS=-I/opt/homebrew/opt/openblas/include
-            MACOSX_DEPLOYMENT_TARGET=14.0
+            MACOSX_DEPLOYMENT_TARGET=15.0
 
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
