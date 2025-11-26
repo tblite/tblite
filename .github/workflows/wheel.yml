@@ -97,7 +97,7 @@ jobs:
 
       # Install 'cibuildwheel' as the driver for building wheels
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.23.3
+        run: python -m pip install cibuildwheel==3.3.0
 
       # Download the source distribution from above
       - name: Download sdist
