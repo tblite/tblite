@@ -21,10 +21,6 @@ option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP
 option(WITH_TESTS "Enable compilation of unit tests" TRUE)
 option(GPU "Compile with GPU capability" FALSE)
 
-if(GPU)
-  add_compile_definitions(USE_CUDA)
-endif()
-
 if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   set(
     "${PROJECT_NAME}-dependency-method"

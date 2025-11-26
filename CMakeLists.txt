@@ -62,7 +62,11 @@ if(NOT TARGET "gambits::gambits")
   set(FORTRAN_API ON)
   find_package("gambits" REQUIRED)
 endif()
+option(GPU "Compile with GPU capability" FALSE)
 
+if(GPU)
+  add_compile_definitions(USE_CUDA)
+endif()
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
