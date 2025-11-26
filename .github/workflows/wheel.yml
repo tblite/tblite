@@ -116,6 +116,8 @@ jobs:
           CIBW_BUILD: "*${{ matrix.python }}-*"
           # MM: Package installation (yum install ...) works differently on musllinux
           CIBW_SKIP: "*musllinux*"
+          # Include all PyPy versions
+          CIBW_ENABLE: pypy pypy-eol
           # Control verbosity of the 'pip wheel' output
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
