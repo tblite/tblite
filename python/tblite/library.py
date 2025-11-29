@@ -309,9 +309,8 @@ def get_atomic_dipoles(res) -> np.ndarray:
     _nspin = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
     nspin = _nspin[0]
-    dpat = np.zeros((nspin, 3, _natoms[0]))
+    dpat = np.zeros((nspin, _natoms[0], 3))
     error_check(lib.tblite_get_result_atomic_dipoles)(res, ffi.cast("double*", dpat.ctypes.data))
-    dpat = np.swapaxes(dpat, 1, 2)
     if nspin == 1:
         return np.squeeze(dpat, axis=0)
     return dpat
@@ -328,9 +327,8 @@ def get_atomic_quadrupoles(res) -> np.ndarray:
     _nspin = ffi.new("int *")
     error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
     nspin = _nspin[0]
-    qmat = np.zeros((nspin, 6, _natoms[0]))
+    qmat = np.zeros((nspin, _natoms[0], 6))
     error_check(lib.tblite_get_result_atomic_quadrupoles)(res, ffi.cast("double*", qmat.ctypes.data))
-    qmat = np.swapaxes(qmat, 1, 2)
     if nspin == 1:
         return np.squeeze(qmat, axis=0)
     return qmat
@@ -620,13 +618,15 @@ def set_result_shell_charges_and_moments_guess(
 
     # Always use unified API with nspin parameter
     # Arrays need to be in Fortran order: [nsh, nspin], [3, nat, nspin], [6, nat, nspin]
+    # Python arrays are (nspin, nsh), (nspin, nat, 3), (nspin, nat, 6) in C-order.
+    # This memory layout is identical to Fortran order for the transposed shapes.
     error_check(lib.tblite_set_result_shell_charges_and_moments_guess)(
         res,
-        ffi.cast("const double*", qsh_arr.T.ravel().ctypes.data),
+        ffi.cast("const double*", np.ascontiguousarray(qsh_arr).ravel().ctypes.data),
         int(nsh),
-        ffi.cast("const double*", np.moveaxis(dpat_arr, [0, 1, 2], [2, 1, 0]).ravel().ctypes.data),
+        ffi.cast("const double*", np.ascontiguousarray(dpat_arr).ravel().ctypes.data),
         int(nat),
-        ffi.cast("const double*", np.moveaxis(qmat_arr, [0, 1, 2], [2, 1, 0]).ravel().ctypes.data),
+        ffi.cast("const double*", np.ascontiguousarray(qmat_arr).ravel().ctypes.data),
         int(nspin),
     )
 
