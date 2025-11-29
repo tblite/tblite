@@ -121,6 +121,20 @@ jobs:
           # Control verbosity of the 'pip wheel' output
           CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel
+          # Use compiliers/libraries not in $DEVTOOLSET_ROOT
+          # LAPACK installed by `yum install -y lapack-devel` in AlmaLinux 8
+          # in manylinux_2_28 may be compiled with gcc-gfortran 8.5.0, while
+          # AlmaLinux 8 also has GCC 14 from devtoolset-14 installed
+          # in $DEVTOOLSET_ROOT.
+          # To avoid conflicts, we specify LAPACK-compatible compilers/libraries.
+          # https://cibuildwheel.pypa.io/en/v3.3.0/options/#linux-image
+          # https://github.com/pypa/manylinux
+          CIBW_ENVIRONMENT_LINUX: >
+            CC=/usr/bin/gcc
+            CXX=/usr/bin/g++
+            FC=/usr/bin/gfortran
+            LD_LIBRARY_PATH=/usr/lib64
+            C_INCLUDE_PATH=/usr/include
           # Delete all other (=/= gcc-15) GCC versions to avoid conflicts in delocation of the wheel
           # MM: 'openblas' from brew requires gcc@15, using a different version for building leads to delocation errors
           # MM: gcc@14 needs macOS14
