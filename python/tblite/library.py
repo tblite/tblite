@@ -569,9 +569,11 @@ def set_result_shell_charges_and_moments_guess(
 ) -> None:
     """Set shell charges, atomic dipoles, and quadrupoles as restart guess.
 
-    qsh shape: (nsh,)
-    dpat shape: (nat, 3) or (3, nat)
-    qmat shape: (nat, 6) or (6, nat)
+    Normalizes input shapes to always include spin dimension and calls the
+    unified C API. Shapes are normalized as follows:
+    - qsh: (nspin, nsh)
+    - dpat: (nspin, nat, 3) 
+    - qmat: (nspin, nat, 6)
     """
     qsh_arr = np.array(qsh, dtype=float, copy=False)
     dpat_arr = np.array(dpat, dtype=float, copy=False)
@@ -590,7 +592,7 @@ def set_result_shell_charges_and_moments_guess(
         if dpat_arr.shape[1] == 3:
             dpat_arr = np.swapaxes(dpat_arr, 1, 2)
     else:
-        raise TBLiteValueError("dpat must have shape (nat,3), (3,nat), (2,nat,3) or (2,3,nat)")
+        raise TBLiteValueError("dpat must have shape (nat,3), (3,nat), (nspin,nat,3) or (nspin,3,nat)")
 
     if qmat_arr.ndim == 2:
         # Accept (nat,6) or (6,nat)
@@ -602,7 +604,7 @@ def set_result_shell_charges_and_moments_guess(
         if qmat_arr.shape[1] == 6:
             qmat_arr = np.swapaxes(qmat_arr, 1, 2)
     else:
-        raise TBLiteValueError("qmat must have shape (nat,6), (6,nat), (2,nat,6) or (2,6,nat)")
+        raise TBLiteValueError("qmat must have shape (nat,6), (6,nat), (nspin,nat,6) or (nspin,6,nat)")
 
     nspin = qsh_arr.shape[0]
     nsh = qsh_arr.shape[1]
@@ -616,27 +618,17 @@ def set_result_shell_charges_and_moments_guess(
     if qmat_arr.shape[2] != 6:
         raise TBLiteValueError("qmat last dimension must be 6")
 
-    if nspin == 1:
-        error_check(lib.tblite_set_result_shell_charges_and_moments_guess)(
-            res,
-            ffi.cast("const double*", qsh_arr.ravel().ctypes.data),
-            int(nsh),
-            ffi.cast("const double*", np.swapaxes(dpat_arr[0], 0, 1).ctypes.data),
-            int(nat),
-            ffi.cast("const double*", np.swapaxes(qmat_arr[0], 0, 1).ctypes.data),
-            int(nat),
-        )
-    else:
-        error_check(lib.tblite_set_result_shell_charges_and_moments_guess_spin)(
-            res,
-            ffi.cast("const double*", qsh_arr.ravel().ctypes.data),
-            int(nsh),
-            ffi.cast("const double*", np.swapaxes(dpat_arr, 1, 2).ravel().ctypes.data),
-            int(nat),
-            ffi.cast("const double*", np.swapaxes(qmat_arr, 1, 2).ravel().ctypes.data),
-            int(nat),
-            int(nspin),
-        )
+    # Always use unified API with nspin parameter
+    # Arrays need to be in Fortran order: [nsh, nspin], [3, nat, nspin], [6, nat, nspin]
+    error_check(lib.tblite_set_result_shell_charges_and_moments_guess)(
+        res,
+        ffi.cast("const double*", qsh_arr.T.ravel().ctypes.data),
+        int(nsh),
+        ffi.cast("const double*", np.moveaxis(dpat_arr, [0, 1, 2], [2, 1, 0]).ravel().ctypes.data),
+        int(nat),
+        ffi.cast("const double*", np.moveaxis(qmat_arr, [0, 1, 2], [2, 1, 0]).ravel().ctypes.data),
+        int(nspin),
+    )
 
 
 @context_check

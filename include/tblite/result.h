@@ -297,15 +297,16 @@ tblite_load_result_wavefunction(tblite_error error,
 /// Set shell charges together with atomic dipole and quadrupole moments as restart guess
 ///
 /// Passing this will enforce usage of (qsh, dpat, qmat) as a combined guess.
+/// Always includes nspin parameter for generality (use nspin=1 for closed-shell).
 ///
 /// @param error: Handle for error messages
 /// @param res: Result container
-/// @param qsh: Shell charges, shape [nsh]
+/// @param qsh: Shell charges, shape [nspin][nsh] (flattened, Fortran column-major order)
 /// @param nsh: Number of shells
-/// @param dpat: Atomic dipoles, shape [3][nat]
+/// @param dpat: Atomic dipoles, shape [nspin][3][nat] (flattened)
 /// @param nat: Number of atoms
-/// @param qmat: Atomic quadrupoles (packed xx, xy, yy, xz, yz, zz), shape [6][nat]
-/// @param nat2: Number of atoms (should match nat)
+/// @param qmat: Atomic quadrupoles (packed xx, xy, yy, xz, yz, zz), shape [nspin][6][nat] (flattened)
+/// @param nspin: Number of spins (1 for closed-shell, 2 for spin-polarized)
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_result_shell_charges_and_moments_guess(tblite_error error,
                                                   tblite_result res,
@@ -314,28 +315,4 @@ tblite_set_result_shell_charges_and_moments_guess(tblite_error error,
                                                   const double* dpat,
                                                   const int nat,
                                                   const double* qmat,
-                                                  const int nat2);
-
-/// Set shell charges together with atomic dipole and quadrupole moments as restart guess (spin-resolved)
-///
-/// Passing this will enforce usage of (qsh, dpat, qmat) as a combined guess.
-///
-/// @param error: Handle for error messages
-/// @param res: Result container
-/// @param qsh: Shell charges, shape [nsh][nspin]
-/// @param nsh: Number of shells
-/// @param dpat: Atomic dipoles, shape [3][nat][nspin]
-/// @param nat: Number of atoms
-/// @param qmat: Atomic quadrupoles (packed), shape [6][nat][nspin]
-/// @param nat2: Number of atoms (should match nat)
-/// @param nspin: Number of spins
-TBLITE_API_ENTRY void TBLITE_API_CALL
-tblite_set_result_shell_charges_and_moments_guess_spin(tblite_error error,
-                                                       tblite_result res,
-                                                       const double* qsh,
-                                                       const int nsh,
-                                                       const double* dpat,
-                                                       const int nat,
-                                                       const double* qmat,
-                                                       const int nat2,
-                                                       const int nspin);
+                                                  const int nspin);

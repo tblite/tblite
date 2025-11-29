@@ -1300,40 +1300,25 @@ int test_calc_restart_compressed(void)
     }
 
     /* Retrieve compressed data (qsh, dpat, qmat) */
-    double* qsh = (double*)malloc(sizeof(double) * nshells);
-    double* dpat = (double*)malloc(sizeof(double) * 3 * natoms);
-    double* qmat = (double*)malloc(sizeof(double) * 6 * natoms);
+    double* qsh = (double*)malloc(sizeof(double) * nshells * nspin);
+    double* dpat = (double*)malloc(sizeof(double) * 3 * natoms * nspin);
+    double* qmat = (double*)malloc(sizeof(double) * 6 * natoms * nspin);
     if (!qsh || !dpat || !qmat)
         goto err;
 
-    /* Getters return [nspin][...] flattened; with nspin=1 this is contiguous */
-    double* qsh_all = (double*)malloc(sizeof(double) * nspin * nshells);
-    double* dpat_all = (double*)malloc(sizeof(double) * nspin * 3 * natoms);
-    double* qmat_all = (double*)malloc(sizeof(double) * nspin * 6 * natoms);
-    if (!qsh_all || !dpat_all || !qmat_all)
-        goto err;
-
-    tblite_get_result_shell_charges(error, res_full, qsh_all);
+    tblite_get_result_shell_charges(error, res_full, qsh);
     if (tblite_check(error))
         goto err;
-    tblite_get_result_atomic_dipoles(error, res_full, dpat_all);
+    tblite_get_result_atomic_dipoles(error, res_full, dpat);
     if (tblite_check(error))
         goto err;
-    tblite_get_result_atomic_quadrupoles(error, res_full, qmat_all);
+    tblite_get_result_atomic_quadrupoles(error, res_full, qmat);
     if (tblite_check(error))
         goto err;
 
-    /* Extract first spin block (only spin=1 here) */
-    for (int i = 0; i < nshells; ++i)
-        qsh[i] = qsh_all[i];
-    for (int i = 0; i < 3 * natoms; ++i)
-        dpat[i] = dpat_all[i];
-    for (int i = 0; i < 6 * natoms; ++i)
-        qmat[i] = qmat_all[i];
-
-    /* Build restart guess */
+    /* Build restart guess using unified API with nspin */
     res_guess = tblite_new_result();
-    tblite_set_result_shell_charges_and_moments_guess(error, res_guess, qsh, nshells, dpat, natoms, qmat, natoms);
+    tblite_set_result_shell_charges_and_moments_guess(error, res_guess, qsh, nshells, dpat, natoms, qmat, nspin);
     if (tblite_check(error))
         goto err;
 
@@ -1356,9 +1341,6 @@ int test_calc_restart_compressed(void)
     free(qsh);
     free(dpat);
     free(qmat);
-    free(qsh_all);
-    free(dpat_all);
-    free(qmat_all);
 
     tblite_delete(error);
     tblite_delete(ctx);
@@ -1382,9 +1364,6 @@ err:
     free(qsh);
     free(dpat);
     free(qmat);
-    free(qsh_all);
-    free(dpat_all);
-    free(qmat_all);
     tblite_delete(error);
     tblite_delete(ctx);
     tblite_delete(mol);
@@ -1392,6 +1371,107 @@ err:
     tblite_delete(res_full);
     tblite_delete(res_guess);
     return 1;
+}
+
+int test_calc_restart_compressed_errors(void)
+{
+    printf("Start test: calculator-restart-compressed-errors\n");
+    tblite_error error = NULL;
+    tblite_result res = NULL;
+    int passed = 0;
+
+    error = tblite_new_error();
+    res = tblite_new_result();
+
+    /* Test 1: Invalid nsh (zero) */
+    double dummy_data[10] = {0};
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 0, dummy_data, 5, dummy_data, 1);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for nsh=0, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected nsh=0\n");
+    tblite_clear_error(error);
+
+    /* Test 2: Invalid nat (zero) */
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 5, dummy_data, 0, dummy_data, 1);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for nat=0, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected nat=0\n");
+    tblite_clear_error(error);
+
+    /* Test 3: Invalid nspin (zero) */
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 5, dummy_data, 5, dummy_data, 0);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for nspin=0, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected nspin=0\n");
+    tblite_clear_error(error);
+
+    /* Test 4: Valid parameters (closed-shell, nspin=1) should succeed */
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 2, dummy_data, 1, dummy_data, 1);
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] Unexpected error: %s\n", message);
+        goto err;
+    }
+    printf("  [OK] Accepted valid closed-shell parameters\n");
+
+    /* Test 5: Valid parameters (spin-polarized, nspin=2) should succeed */
+    tblite_delete(res);
+    res = tblite_new_result();
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 3, dummy_data, 2, dummy_data, 2);
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] Unexpected error for spin-polarized: %s\n", message);
+        goto err;
+    }
+    printf("  [OK] Accepted valid spin-polarized parameters\n");
+
+    /* Test 6: Negative nsh */
+    tblite_delete(res);
+    res = tblite_new_result();
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, -1, dummy_data, 2, dummy_data, 1);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for negative nsh, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected negative nsh\n");
+    tblite_clear_error(error);
+
+    /* Test 7: Negative nat */
+    tblite_delete(res);
+    res = tblite_new_result();
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 5, dummy_data, -3, dummy_data, 1);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for negative nat, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected negative nat\n");
+    tblite_clear_error(error);
+
+    /* Test 8: Negative nspin */
+    tblite_delete(res);
+    res = tblite_new_result();
+    tblite_set_result_shell_charges_and_moments_guess(error, res, dummy_data, 5, dummy_data, 2, dummy_data, -1);
+    if (!tblite_check(error)) {
+        printf("[Fatal] Expected error for negative nspin, but none occurred\n");
+        goto err;
+    }
+    printf("  [OK] Correctly rejected negative nspin\n");
+    tblite_clear_error(error);
+
+    passed = 1;
+
+err:
+    tblite_delete(error);
+    tblite_delete(res);
+    return passed ? 0 : 1;
 }
 
 void example_callback(tblite_error error, char* msg, int len, void* udata)
@@ -3818,6 +3898,7 @@ int main(void)
     stat += test_spgfn1();
     stat += test_calc_restart();
     stat += test_calc_restart_compressed();
+    stat += test_calc_restart_compressed_errors();
     stat += test_callback();
     stat += test_dict_api();
     stat += test_post_processing_api();

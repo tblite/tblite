@@ -273,7 +273,7 @@ class Result:
 
     def get(self, attribute: str):
         """
-        Get a quantity stored instade the result container.
+        Get a quantity stored inside the result container.
         The following quantities are available
 
         ====================== ================================= ==============
@@ -298,7 +298,7 @@ class Result:
          density-matrix         norb, norb [2, norb, norb]        e
          natoms                 scalar                            unitless
          norbitals              scalar                            unitless
-         post-processing-dict   dependes on the key               /
+         post-processing-dict   depends on the key                /
         ====================== ================================= ==============
 
         Notes
@@ -330,10 +330,10 @@ class Result:
 
         Currently supported:
         - shell-charges-and-moments-guess: Tuple of arrays used as initial guess.
-          Shapes accepted:
-            qsh: (nsh,) or (2, nsh)
-            dpat: (nat, 3), (3, nat), (2, nat, 3) or (2, 3, nat)
-            qmat: (nat, 6), (6, nat), (2, nat, 6) or (2, 6, nat)
+          Shapes accepted (always normalized to include spin dimension):
+            qsh: (nspin, nsh)
+            dpat: (nspin, nat, 3)
+            qmat: (nspin, nat, 6)
 
         Raises
         ------

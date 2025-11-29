@@ -835,3 +835,127 @@ def test_calc_restart_compressed_spin_polarized():
 
     # Check that energies are very close
     assert energy_restart == approx(energy_full, abs=1e-6)
+
+
+def test_compressed_restart_shape_normalization():
+    """Test that various input shapes for compressed restart are normalized correctly"""
+    numbers = np.array([1, 1])
+    positions = np.array([
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.4],
+    ])
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res_full = calc.singlepoint()
+
+    # Get data in standard shape
+    qsh = res_full.get("shell-charges")  # (nsh,)
+    dpat = res_full.get("atomic-dipoles")  # (nat, 3)
+    qmat = res_full.get("atomic-quadrupoles")  # (nat, 6)
+
+    # Test with transposed dpat shape (3, nat)
+    res_restart = Result()
+    res_restart.set("shell-charges-and-moments-guess", (qsh, dpat.T, qmat))
+    res_restart = calc.singlepoint(res_restart)
+    assert res_restart.get("energy") == approx(res_full.get("energy"), abs=1e-6)
+
+    # Test with transposed qmat shape (6, nat)
+    res_restart = Result()
+    res_restart.set("shell-charges-and-moments-guess", (qsh, dpat, qmat.T))
+    res_restart = calc.singlepoint(res_restart)
+    assert res_restart.get("energy") == approx(res_full.get("energy"), abs=1e-6)
+
+    # Test with both transposed
+    res_restart = Result()
+    res_restart.set("shell-charges-and-moments-guess", (qsh, dpat.T, qmat.T))
+    res_restart = calc.singlepoint(res_restart)
+    assert res_restart.get("energy") == approx(res_full.get("energy"), abs=1e-6)
+
+
+def test_compressed_restart_errors():
+    """Test error handling in compressed restart setter"""
+    from tblite.exceptions import TBLiteValueError
+
+    numbers = np.array([1, 1])
+    positions = np.array([
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.4],
+    ])
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    res_full = calc.singlepoint()
+
+    qsh = res_full.get("shell-charges")
+    dpat = res_full.get("atomic-dipoles")
+    qmat = res_full.get("atomic-quadrupoles")
+
+    # Test: dpat with wrong number of dimensions
+    res = Result()
+    with raises(TBLiteValueError, match="dpat must have shape"):
+        res.set("shell-charges-and-moments-guess", (qsh, np.zeros(5), qmat))
+
+    # Test: qmat with wrong number of dimensions
+    res = Result()
+    with raises(TBLiteValueError, match="qmat must have shape"):
+        res.set("shell-charges-and-moments-guess", (qsh, dpat, np.zeros(10)))
+
+    # Test: inconsistent spin dimensions
+    res = Result()
+    qsh_spin = np.zeros((2, qsh.shape[0]))  # 2 spins
+    with raises(TBLiteValueError, match="consistent spin dimension"):
+        res.set("shell-charges-and-moments-guess", (qsh_spin, dpat, qmat))  # dpat has 1 spin
+
+    # Test: inconsistent atom counts between dpat and qmat
+    res = Result()
+    dpat_wrong = np.zeros((5, 3))  # 5 atoms
+    qmat_wrong = np.zeros((3, 6))  # 3 atoms
+    with raises(TBLiteValueError, match="same number of atoms"):
+        res.set("shell-charges-and-moments-guess", (qsh, dpat_wrong, qmat_wrong))
+
+    # Test: dpat last dimension not 3
+    res = Result()
+    dpat_bad = np.zeros((2, 2, 4))  # last dim is 4, not 3
+    qmat_bad = np.zeros((2, 2, 6))
+    qsh_bad = np.zeros((2, 3))
+    with raises(TBLiteValueError, match="dpat last dimension must be 3"):
+        res.set("shell-charges-and-moments-guess", (qsh_bad, dpat_bad, qmat_bad))
+
+    # Test: qmat last dimension not 6
+    res = Result()
+    dpat_ok = np.zeros((2, 2, 3))
+    qmat_bad2 = np.zeros((2, 2, 5))  # last dim is 5, not 6
+    with raises(TBLiteValueError, match="qmat last dimension must be 6"):
+        res.set("shell-charges-and-moments-guess", (qsh_bad, dpat_ok, qmat_bad2))
+
+
+def test_compressed_restart_spin_shape_variations():
+    """Test spin-polarized compressed restart with various input shapes"""
+    numbers = np.array([7, 8])
+    positions = np.array([
+        [0.0, 0.0, -1.1],
+        [0.0, 0.0, 1.1],
+    ])
+
+    calc = Calculator("GFN2-xTB", numbers, positions, uhf=1)
+    calc.add("spin-polarization", 1.0)
+    res_full = calc.singlepoint()
+    energy_full = res_full.get("energy")
+
+    # Get spin-resolved data: qsh (2, nsh), dpat (2, nat, 3), qmat (2, nat, 6)
+    qsh = res_full.get("shell-charges")
+    dpat = res_full.get("atomic-dipoles")
+    qmat = res_full.get("atomic-quadrupoles")
+
+    # Test with shape (2, 3, nat) for dpat
+    dpat_alt = np.swapaxes(dpat, 1, 2)  # (2, 3, nat)
+    res_restart = Result()
+    res_restart.set("shell-charges-and-moments-guess", (qsh, dpat_alt, qmat))
+    res_restart = calc.singlepoint(res_restart)
+    assert res_restart.get("energy") == approx(energy_full, abs=1e-6)
+
+    # Test with shape (2, 6, nat) for qmat
+    qmat_alt = np.swapaxes(qmat, 1, 2)  # (2, 6, nat)
+    res_restart = Result()
+    res_restart.set("shell-charges-and-moments-guess", (qsh, dpat, qmat_alt))
+    res_restart = calc.singlepoint(res_restart)
+    assert res_restart.get("energy") == approx(energy_full, abs=1e-6)

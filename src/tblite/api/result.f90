@@ -40,8 +40,8 @@ module tblite_api_result
       & get_result_orbital_coefficients_api, get_result_energies_api, &
       & get_result_density_matrix_api, get_result_overlap_matrix_api, &
       & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
-      & get_post_processing_dict_api, &
-      & get_result_atomic_dipoles_api, get_result_atomic_quadrupoles_api, &
+      & get_post_processing_dict_api
+   public :: get_result_atomic_dipoles_api, get_result_atomic_quadrupoles_api, &
       & set_result_shell_charges_and_moments_guess_api
 
 
@@ -718,8 +718,8 @@ subroutine load_result_wavefunction_api(verror, vres, cfilename) &
    call load_wavefunction(res%wfn, filename, error%ptr)
 end subroutine load_result_wavefunction_api
 
-!> Set shell charges together with atomic dipole and quadrupole moments
-subroutine set_result_shell_charges_and_moments_guess_api(verror, vres, qsh, nsh, dpat, nat, qmat, nat2) &
+!> Set shell charges together with atomic dipole and quadrupole moments (generalized for any nspin)
+subroutine set_result_shell_charges_and_moments_guess_api(verror, vres, qsh, nsh, dpat, nat, qmat, nspin) &
       & bind(C, name=namespace//"set_result_shell_charges_and_moments_guess")
    type(c_ptr), value :: verror
    type(vp_error), pointer :: error
@@ -730,7 +730,7 @@ subroutine set_result_shell_charges_and_moments_guess_api(verror, vres, qsh, nsh
    real(c_double), intent(in) :: dpat(*)
    integer(c_int), value :: nat
    real(c_double), intent(in) :: qmat(*)
-   integer(c_int), value :: nat2
+   integer(c_int), value :: nspin
    logical :: ok
 
    if (debug) print '("[Info]", 1x, a)', "set_result_shell_charges_and_moments_guess"
@@ -738,80 +738,9 @@ subroutine set_result_shell_charges_and_moments_guess_api(verror, vres, qsh, nsh
    call get_result(verror, vres, error, res, ok)
    if (.not.ok) return
 
-   if (nsh <= 0 .or. nat <= 0 .or. nat2 <= 0) then
-      call fatal_error(error%ptr, "Invalid dimensions for shell charges and moments guess")
-      return
-   end if
-   if (nat /= nat2) then
-      call fatal_error(error%ptr, "Mismatched atom counts for dipoles and quadrupoles")
-      return
-   end if
-
-   if (allocated(res%wfn)) then
-      deallocate(res%wfn)
-   end if
-   if (allocated(res%results)) then
-      deallocate(res%results)
-   end if
-
-   if (allocated(res%charges_guess_shell)) then
-      if (any(shape(res%charges_guess_shell) /= [nsh, 1])) then
-         deallocate(res%charges_guess_shell)
-      end if
-   end if
-   if (.not.allocated(res%charges_guess_shell)) then
-      allocate(res%charges_guess_shell(nsh, 1))
-   end if
-   res%charges_guess_shell(:, 1) = qsh(:nsh)
-
-   if (allocated(res%dpat_guess)) then
-      if (any(shape(res%dpat_guess) /= [3, nat, 1])) then
-         deallocate(res%dpat_guess)
-      end if
-   end if
-   if (.not.allocated(res%dpat_guess)) then
-      allocate(res%dpat_guess(3, nat, 1))
-   end if
-   res%dpat_guess(:, :, 1) = reshape(dpat(:3*nat), [3, nat])
-
-   if (allocated(res%qmat_guess)) then
-      if (any(shape(res%qmat_guess) /= [6, nat, 1])) then
-         deallocate(res%qmat_guess)
-      end if
-   end if
-   if (.not.allocated(res%qmat_guess)) then
-      allocate(res%qmat_guess(6, nat, 1))
-   end if
-   res%qmat_guess(:, :, 1) = reshape(qmat(:6*nat), [6, nat])
-end subroutine set_result_shell_charges_and_moments_guess_api
-
-!> Set shell charges together with atomic dipole and quadrupole moments (spin-resolved)
-subroutine set_result_shell_charges_and_moments_guess_spin_api(verror, vres, qsh, nsh, dpat, nat, qmat, nat2, nspin) &
-      & bind(C, name=namespace//"set_result_shell_charges_and_moments_guess_spin")
-   type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   type(c_ptr), value :: vres
-   type(vp_result), pointer :: res
-   real(c_double), intent(in) :: qsh(*)
-   integer(c_int), value :: nsh
-   real(c_double), intent(in) :: dpat(*)
-   integer(c_int), value :: nat
-   real(c_double), intent(in) :: qmat(*)
-   integer(c_int), value :: nat2
-   integer(c_int), value :: nspin
-   logical :: ok
-
-   if (debug) print '("[Info]", 1x, a)', "set_result_shell_charges_and_moments_guess_spin"
-
-   call get_result(verror, vres, error, res, ok)
-   if (.not.ok) return
-
-   if (nsh <= 0 .or. nat <= 0 .or. nat2 <= 0 .or. nspin <= 0) then
-      call fatal_error(error%ptr, "Invalid dimensions for spin-resolved shell charges and moments guess")
-      return
-   end if
-   if (nat /= nat2) then
-      call fatal_error(error%ptr, "Mismatched atom counts for dipoles and quadrupoles")
+   if (nsh <= 0 .or. nat <= 0 .or. nspin <= 0) then
+      call fatal_error(error%ptr, "Invalid dimensions for shell charges and moments guess: " &
+         & //"nsh, nat, and nspin must all be positive")
       return
    end if
 
@@ -851,7 +780,7 @@ subroutine set_result_shell_charges_and_moments_guess_spin_api(verror, vres, qsh
       allocate(res%qmat_guess(6, nat, nspin))
    end if
    res%qmat_guess(:, :, :) = reshape(qmat(:6*nat*nspin), [6, nat, nspin])
-end subroutine set_result_shell_charges_and_moments_guess_spin_api
+end subroutine set_result_shell_charges_and_moments_guess_api
 
 subroutine get_result(verror, vres, error, res, ok)
    type(c_ptr), intent(in) :: verror
