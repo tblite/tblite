@@ -791,26 +791,48 @@ def test_calc_restart_compressed_closed_shell():
     qmat = res_full.get("atomic-quadrupoles")
 
     # Restart using compressed data
+    log = []
+    calc_restart = Calculator("GFN2-xTB", numbers, positions, logger=log.append)
+
     res_restart = Result()
     res_restart.set("shell-charges-and-moments-guess", (qsh, dpat, qmat))
-    res_restart = calc.singlepoint(res_restart)
+    res_restart = calc_restart.singlepoint(res_restart)
     energy_restart = res_restart.get("energy")
 
     # Check that energies are very close
     assert energy_restart == approx(energy_full, abs=1e-6)
 
+    # Count iterations from log
+    iterations = 0
+    for line in log:
+        parts = line.strip().split()
+        if len(parts) > 0 and parts[0].isdigit():
+            iterations = max(iterations, int(parts[0]))
+
+    assert iterations <= 2
+
 
 def test_calc_restart_compressed_spin_polarized():
     """Test compressed restart (qsh, dpat, qmat) for spin-polarized system"""
-    # Use a small open-shell system (e.g., NO)
-    numbers = np.array([7, 8])
+    # Use same molecule as closed-shell test
+    numbers = np.array([6, 6, 7, 7, 1, 1, 1, 1, 1, 1, 8, 8])
     positions = np.array([
-        [0.0, 0.0, -1.1],
-        [0.0, 0.0, 1.1],
+        [-3.81469488143921, +0.09993441402912, 0.00000000000000],
+        [+3.81469488143921, -0.09993441402912, 0.00000000000000],
+        [-2.66030049324036, -2.15898251533508, 0.00000000000000],
+        [+2.66030049324036, +2.15898251533508, 0.00000000000000],
+        [-0.73178529739380, -2.28237795829773, 0.00000000000000],
+        [-5.89039325714111, -0.02589114569128, 0.00000000000000],
+        [-3.71254944801331, -3.73605775833130, 0.00000000000000],
+        [+3.71254944801331, +3.73605775833130, 0.00000000000000],
+        [+0.73178529739380, +2.28237795829773, 0.00000000000000],
+        [+5.89039325714111, +0.02589114569128, 0.00000000000000],
+        [-2.74426102638245, +2.16115570068359, 0.00000000000000],
+        [+2.74426102638245, -2.16115570068359, 0.00000000000000],
     ])
 
-    # Enable spin polarization
-    calc = Calculator("GFN2-xTB", numbers, positions, uhf=1)
+    # Enable spin polarization (triplet state, uhf=2)
+    calc = Calculator("GFN2-xTB", numbers, positions, uhf=2)
     calc.add("spin-polarization", 1.0)
 
     # Full calculation
@@ -828,13 +850,28 @@ def test_calc_restart_compressed_spin_polarized():
     assert qmat.ndim == 3 and qmat.shape[0] == 2 and qmat.shape[2] == 6
 
     # Restart using compressed spin-resolved data
+    log = []
+    calc_restart = Calculator("GFN2-xTB", numbers, positions, uhf=2, logger=log.append)
+    calc_restart.add("spin-polarization", 1.0)
+
     res_restart = Result()
     res_restart.set("shell-charges-and-moments-guess", (qsh, dpat, qmat))
-    res_restart = calc.singlepoint(res_restart)
+    res_restart = calc_restart.singlepoint(res_restart)
     energy_restart = res_restart.get("energy")
 
     # Check that energies are very close
     assert energy_restart == approx(energy_full, abs=1e-6)
+
+    # Count iterations from log
+    iterations = 0
+    for line in log:
+        parts = line.strip().split()
+        if len(parts) > 0 and parts[0].isdigit():
+            iterations = max(iterations, int(parts[0]))
+    
+    print(log)
+
+    assert iterations <= 2
 
 
 def test_compressed_restart_shape_normalization():
