@@ -136,6 +136,7 @@ jobs:
             LDFLAGS=-L/opt/homebrew/opt/openblas/lib
             CPPFLAGS=-I/opt/homebrew/opt/openblas/include
             MACOSX_DEPLOYMENT_TARGET=15.0
+          CIBW_TEST_COMMAND: python -c "import tblite.interface"
 
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
