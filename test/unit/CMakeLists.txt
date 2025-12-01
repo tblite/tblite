@@ -19,6 +19,7 @@ set(
   tests
   "cgto-ortho"
   "coulomb-charge"
+  "coulomb-ewald"
   "coulomb-multipole"
   "coulomb-thirdorder"
   "double-dictionary"

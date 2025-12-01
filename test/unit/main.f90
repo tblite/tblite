@@ -23,8 +23,10 @@ program tester
    use test_ceh, only : collect_ceh
    use test_cgto_ortho, only : collect_cgto_ortho
    use test_coulomb_charge, only : collect_coulomb_charge
+   use test_coulomb_ewald, only : collect_coulomb_ewald
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
-   use test_coulomb_multipole, only : collect_coulomb_multipole
+   use test_coulomb_multipole_molecule, only : collect_coulomb_multipole_molecule
+   use test_coulomb_multipole_periodic, only : collect_coulomb_multipole_periodic
    use test_double_dictionary, only : collect_double_dictionary
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
@@ -72,8 +74,10 @@ program tester
       new_testsuite("solvation-cds", collect_solvation_cds), &
       new_testsuite("solvation-shift", collect_solvation_shift), &
       new_testsuite("coulomb-charge", collect_coulomb_charge), &
+      new_testsuite("coulomb-ewald", collect_coulomb_ewald), &
       new_testsuite("coulomb-thirdorder", collect_coulomb_thirdorder), &
-      new_testsuite("coulomb-multipole", collect_coulomb_multipole), &
+      new_testsuite("coulomb-multipole-molecule", collect_coulomb_multipole_molecule), &
+      new_testsuite("coulomb-multipole-periodic", collect_coulomb_multipole_periodic), &
       new_testsuite("double-dictionary", collect_double_dictionary), &
       new_testsuite("post-processing", collect_post_processing), &
       new_testsuite("slater-expansion", collect_slater_expansion), &

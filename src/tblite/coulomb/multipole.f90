@@ -26,7 +26,7 @@ module tblite_coulomb_multipole
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
+   use tblite_coulomb_ewald, only : get_dir_cutoff, get_amat_ewald_mp_3d
    use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_ncoord_gfn, only : gfn_ncoord_type, new_gfn_ncoord
@@ -63,6 +63,9 @@ module tblite_coulomb_multipole
 
       !> Coordination number container for multipolar damping radii
       type(gfn_ncoord_type), allocatable :: ncoord
+
+      !> Compute Ewald matrix for multipole moments
+      logical :: ewald_matrix = .true.
    contains
       !> Update cache from container
       procedure :: update
@@ -87,7 +90,7 @@ module tblite_coulomb_multipole
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
-   real(wp), parameter :: conv = 100*eps
+   real(wp), parameter :: conv = eps
    character(len=*), parameter :: label = "anisotropic electrostatics"
 
 contains
@@ -432,27 +435,6 @@ subroutine get_dir_trans(lattice, alpha, conv, trans)
 
 end subroutine get_dir_trans
 
-!> Get reciprocal lattice translations
-subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
-   !> Lattice parameters
-   real(wp), intent(in) :: lattice(:, :)
-   !> Parameter for Ewald summation
-   real(wp), intent(in) :: alpha
-   !> Cell volume
-   real(wp), intent(in) :: volume
-   !> Tolerance for Ewald summation
-   real(wp), intent(in) :: conv
-   !> Translation vectors
-   real(wp), allocatable, intent(out) :: trans(:, :)
-
-   real(wp) :: rec_lat(3, 3)
-
-   rec_lat = twopi*transpose(matinv_3x3(lattice))
-   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, conv), trans)
-   trans = trans(:, 2:)
-
-end subroutine get_rec_trans
-
 
 !> Get interaction matrix for all multipole moments up to inverse cubic order
 subroutine get_multipole_matrix(self, mol, cache, amat_sd, amat_dd, amat_sq)
@@ -475,6 +457,10 @@ subroutine get_multipole_matrix(self, mol, cache, amat_sd, amat_dd, amat_sq)
    if (any(mol%periodic)) then
       call get_multipole_matrix_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
          & cache%wsc, cache%alpha, amat_sd, amat_dd, amat_sq)
+      if (self%ewald_matrix) then
+         call get_amat_ewald_mp_3d(mol, cache%alpha, cache%vol, cache%rtrans, &
+            & amat_sd, amat_dd, amat_sq)
+      end if
    else
       call get_multipole_matrix_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
          & amat_sd, amat_dd, amat_sq)
@@ -499,11 +485,11 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
    real(wp), intent(inout) :: amat_sq(:, :, :)
 
    integer :: iat, jat
-   real(wp) :: r1, vec(3), g1, g3, g5, fdmp3, fdmp5, tc(6), rr
+   real(wp) :: r1, vec(3), g1, g3, fdmp3, fdmp5, tc(6), rr, dr(3, 3), t3, t5
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(amat_sd, amat_dd, amat_sq, mol, rad, kdmp3, kdmp5) &
-   !$omp private(r1, vec, g1, g3, g5, fdmp3, fdmp5, tc, rr)
+   !$omp private(r1, vec, g1, g3, dr, fdmp3, fdmp5, tc, rr, t3, t5)
    do iat = 1, mol%nat
       do jat = 1, mol%nat
          if (iat == jat) cycle
@@ -511,21 +497,25 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
          r1 = norm2(vec)
          g1 = 1.0_wp / r1
          g3 = g1 * g1 * g1
-         g5 = g3 * g1 * g1
+
+         dr(:, :) = spread(vec, 1, 3) * spread(vec, 2, 3) * g1*g1
 
          rr = 0.5_wp * (rad(jat) + rad(iat)) * g1
          fdmp3 = 1.0_wp / (1.0_wp + 6.0_wp * rr**kdmp3)
          fdmp5 = 1.0_wp / (1.0_wp + 6.0_wp * rr**kdmp5)
 
-         amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + vec * g3 * fdmp3
+         t3 = g3 * fdmp3
+         t5 = g3 * fdmp5
+
+         amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + vec * t3
          amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) &
-            & + unity * g3*fdmp5 - spread(vec, 1, 3) * spread(vec, 2, 3) * 3*g5*fdmp5
-         tc(2) = 2*vec(1)*vec(2)*g5*fdmp5
-         tc(4) = 2*vec(1)*vec(3)*g5*fdmp5
-         tc(5) = 2*vec(2)*vec(3)*g5*fdmp5
-         tc(1) = vec(1)*vec(1)*g5*fdmp5
-         tc(3) = vec(2)*vec(2)*g5*fdmp5
-         tc(6) = vec(3)*vec(3)*g5*fdmp5
+            & + (unity - 3 * dr) * t5
+         tc(2) = 2*dr(1, 2)*t5
+         tc(4) = 2*dr(1, 3)*t5
+         tc(5) = 2*dr(2, 3)*t5
+         tc(1) = dr(1, 1)*t5
+         tc(3) = dr(2, 2)*t5
+         tc(6) = dr(3, 3)*t5
          amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + tc
       end do
    end do
@@ -553,19 +543,17 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    !> Interation matrix for charges and quadrupoles
    real(wp), intent(inout) :: amat_sq(:, :, :)
 
-   integer :: iat, jat, img, k
-   real(wp) :: vec(3), rr, wsw, vol
-   real(wp) :: d_sd(3), d_dd(3, 3), d_sq(6), r_sd(3), r_dd(3, 3), r_sq(6)
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   integer :: iat, jat, img
+   real(wp) :: vec(3), rr, wsw
+   real(wp) :: d_sd(3), d_dd(3, 3), d_sq(6)
+   real(wp), allocatable :: dtrans(:, :)
 
-   vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(amat_sd, amat_dd, amat_sq) &
-   !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5) &
-   !$omp private(iat, jat, img, vec, rr, wsw, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq)
+   !$omp shared(mol, wsc, rad, alpha, dtrans, kdmp3, kdmp5) &
+   !$omp private(iat, jat, img, vec, rr, wsw, d_sd, d_dd, d_sq)
    do iat = 1, mol%nat
       do jat = 1, mol%nat
          wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
@@ -573,76 +561,18 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
 
             rr = 0.5_wp * (rad(jat) + rad(iat))
-            call get_amat_sdq_rec_3d(vec, vol, alpha, rtrans, r_sd, r_dd, r_sq)
             call get_amat_sdq_dir_3d(vec, rr, kdmp3, kdmp5, alpha, dtrans, d_sd, d_dd, d_sq)
 
-            amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + wsw * (d_sd + r_sd)
-            amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) + wsw * (r_dd + d_dd)
-            amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + wsw * (r_sq + d_sq)
+            amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + wsw * d_sd
+            amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) + wsw * d_dd
+            amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + wsw * d_sq
          end do
       end do
    end do
 
-   !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha) private(iat, rr, k)
-   do iat = 1, mol%nat
-      ! dipole-dipole selfenergy: -2/3·α³/sqrt(π) Σ(i) μ²(i)
-      rr = -2.0_wp/3.0_wp * alpha**3 / sqrtpi
-      do k = 1, 3
-         amat_dd(k, iat, k, iat) = amat_dd(k, iat, k, iat) + 2*rr
-      end do
-
-      ! charge-quadrupole selfenergy: 4/9·α³/sqrt(π) Σ(i) q(i)Tr(θi)
-      ! (no actual contribution since quadrupoles are traceless)
-      rr = 4.0_wp/9.0_wp * alpha**3 / sqrtpi
-      amat_sq([1, 3, 6], iat, iat) = amat_sq([1, 3, 6], iat, iat) + rr
-   end do
 end subroutine get_multipole_matrix_3d
 
-pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat_sq)
-   real(wp), intent(in) :: rij(3)
-   real(wp), intent(in) :: vol
-   real(wp), intent(in) :: alp
-   real(wp), intent(in) :: trans(:, :)
-   real(wp), intent(out) :: amat_sd(:)
-   real(wp), intent(out) :: amat_dd(:, :)
-   real(wp), intent(out) :: amat_sq(:)
-
-   integer :: itr
-   real(wp) :: fac, vec(3), g2, expk, sink, cosk, gv
-
-   amat_sd = 0.0_wp
-   amat_dd = 0.0_wp
-   amat_sq = 0.0_wp
-   fac = 4*pi/vol
-
-   amat_dd(1, 1) = fac/6.0_wp
-   amat_dd(2, 2) = fac/6.0_wp
-   amat_dd(3, 3) = fac/6.0_wp
-   amat_sq([1, 3, 6]) = -fac/9.0_wp
-
-   do itr = 1, size(trans, 2)
-      vec(:) = trans(:, itr)
-      g2 = dot_product(vec, vec)
-      if (g2 < eps) cycle
-      gv = dot_product(rij, vec)
-      expk = fac*exp(-0.25_wp*g2/(alp*alp))/g2
-      sink = sin(gv)*expk
-      cosk = cos(gv)*expk
-
-      amat_sd(:) = amat_sd + 2*vec*sink
-      amat_dd(:, :) = amat_dd + spread(vec, 1, 3) * spread(vec, 2, 3) * cosk
-      amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*cosk
-      amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*cosk
-      amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*cosk
-      amat_sq(4) = amat_sq(4) + 2*vec(1)*vec(3)*cosk
-      amat_sq(5) = amat_sq(5) + 2*vec(2)*vec(3)*cosk
-      amat_sq(6) = amat_sq(6) +   vec(3)*vec(3)*cosk
-   end do
-
-end subroutine get_amat_sdq_rec_3d
-
-pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
+subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
       & amat_sd, amat_dd, amat_sq)
    real(wp), intent(in) :: rij(3)
    real(wp), intent(in) :: rr
@@ -655,7 +585,8 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
    real(wp), intent(out) :: amat_sq(:)
 
    integer :: itr
-   real(wp) :: vec(3), r1, tmp, fdmp3, fdmp5, g1, g3, g5, arg, arg2, alp2, e1, e2, erft, expt
+   real(wp) :: vec(3), r1, tmp, fdmp3, fdmp5, g1, g2, g3, arg, arg2, alp2, e1, e2, erft, expt
+   real(wp) :: dr(3, 3), t3, t5, f0, f1, f2
 
    amat_sd = 0.0_wp
    amat_dd = 0.0_wp
@@ -667,29 +598,46 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
       r1 = norm2(vec)
       if (r1 < eps) cycle
       g1 = 1.0_wp/r1
-      g3 = g1 * g1 * g1
-      g5 = g3 * g1 * g1
-      fdmp3 = 1.0_wp / (1.0_wp + 6.0_wp * (rr/r1)**kdmp3)
-      fdmp5 = 1.0_wp / (1.0_wp + 6.0_wp * (rr/r1)**kdmp5)
+      g2 = g1 * g1
+      g3 = g2 * g1
+
+      dr(:, :) = spread(vec, 1, 3) * spread(vec, 2, 3) * g2
+
+      fdmp3 = 1.0_wp / (1.0_wp + 6.0_wp * (rr*g1)**kdmp3)
+      fdmp5 = 1.0_wp / (1.0_wp + 6.0_wp * (rr*g1)**kdmp5)
 
       arg = r1*alp
       arg2 = arg*arg
       expt = exp(-arg2)/sqrtpi
-      erft = -erf(arg)*g1
-      e1 = g1*g1 * (erft + 2*expt*alp)
-      e2 = g1*g1 * (e1 + 4*expt*alp2*alp/3)
+      erft = -erf(arg)
 
-      tmp = fdmp3 * g3 + e1
-      amat_sd = amat_sd + vec * tmp
-      amat_dd(:, :) = amat_dd(:, :) + unity * (fdmp5*g3 + e1) &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3) * (3 * (g5*fdmp5 + e2))
-      amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
-      amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*(g5*fdmp5 + e2)
-      amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
-      amat_sq(4) = amat_sq(4) + 2*vec(1)*vec(3)*(g5*fdmp5 + e2)
-      amat_sq(5) = amat_sq(5) + 2*vec(2)*vec(3)*(g5*fdmp5 + e2)
-      amat_sq(6) = amat_sq(6) +   vec(3)*vec(3)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
+      f0 = erf(arg) * g1
+      f1 = g2 * (f0 - expt * (2.0_wp * alp))
+      f2 = (f1 - expt * (4.0_wp * alp**3) / 3.0_wp)
+
+      t3 = g3 * fdmp3 - f1
+      t5 = g3 * fdmp5 - f2
+
+      amat_sd(:) = amat_sd + vec * t3
+      amat_dd(:, :) = amat_dd(:, :) - (unity - 3 * dr) * t5
+      amat_sq(1) = amat_sq(1) -   dr(1, 1)*t5
+      amat_sq(2) = amat_sq(2) - 2*dr(1, 2)*t5
+      amat_sq(3) = amat_sq(3) -   dr(2, 2)*t5
+      amat_sq(4) = amat_sq(4) - 2*dr(1, 3)*t5
+      amat_sq(5) = amat_sq(5) - 2*dr(2, 3)*t5
+      amat_sq(6) = amat_sq(6) -   dr(3, 3)*t5
    end do
+
+!   unit cell energy          supercell energy / 8      difference (should be zero)
+! co2
+!   1.5490423389922844E-002   1.1911739014275896E-002   3.5786843756469480E-003
+!  -3.1000117588354825E-003  -3.5482781092729342E-003   4.4826635043745174E-004
+!   1.4447898175189516E-002   1.4986355195005418E-002  -5.3845701981590152E-004
+
+! urea
+!  -1.3140555204224157E-002  -5.1382697204210275E-003  -8.0022854838031291E-003
+!   1.7703306347266388E-002   1.3199754237019738E-002   4.5035521102466496E-003
+!   3.9453257842027127E-003   3.2160982862653570E-003   7.2922749793735567E-004
 
 end subroutine get_amat_sdq_dir_3d
 
@@ -717,7 +665,8 @@ subroutine get_multipole_gradient(self, mol, cache, qat, dpat, qpat, dEdr, gradi
 
    if (any(mol%periodic)) then
       call get_multipole_gradient_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & qat, dpat, qpat, cache%wsc, cache%alpha, dEdr, gradient, sigma)
+         & qat, dpat, qpat, cache%wsc, cache%alpha, cache%vol, cache%rtrans, &
+         & dEdr, gradient, sigma)
    else
       call get_multipole_gradient_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
          & qat, dpat, qpat, dEdr, gradient, sigma)
@@ -835,7 +784,7 @@ end subroutine get_multipole_gradient_0d
 
 !> Evaluate multipole derivatives under 3D periodic boundary conditions
 subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, wsc, alpha, &
-      & dEdr, gradient, sigma)
+      & vol, rtrans, dEdr, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -854,6 +803,10 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence parameter for Ewald sum
    real(wp), intent(in) :: alpha
+   !> Volume of the unit cell
+   real(wp), intent(in) :: vol
+   !> Reciprocal space translation vectors
+   real(wp), intent(in) :: rtrans(:, :)
    !> Derivative of the energy w.r.t. the critical radii
    real(wp), contiguous, intent(inout) :: dEdr(:)
    !> Derivative of the energy w.r.t. atomic displacements
@@ -863,12 +816,10 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 
    integer :: iat, jat, img
    real(wp) :: vec(3), dG(3), dGr(3), dGd(3), dS(3, 3), dSr(3, 3), dSd(3, 3)
-   real(wp) :: wsw, vol, rr, dE, dEd
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp) :: wsw, rr, dE, dEd
+   real(wp), allocatable :: dtrans(:, :)
 
-   vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
@@ -937,7 +888,7 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp
-   fac = 4*pi/vol
+   fac = 8*pi/vol
    alp2 = alp*alp
 
    do itr = 1, size(trans, 2)
@@ -964,9 +915,9 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
          & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) - unity)
 
       qiqpj = qi*(tj(1)*vec(1)*vec(1) + tj(3)*vec(2)*vec(2) + tj(6)*vec(3)*vec(3) &
-         & + 2*tj(2)*vec(1)*vec(2) + 2*tj(4)*vec(1)*vec(3) + 2*tj(5)*vec(2)*vec(3))
+         & + 2*tj(2)*vec(1)*vec(2) + 2*tj(4)*vec(1)*vec(3) + 2*tj(5)*vec(2)*vec(3))/3
       qpiqj = qj*(ti(1)*vec(1)*vec(1) + ti(3)*vec(2)*vec(2) + ti(6)*vec(3)*vec(3) &
-         & + 2*ti(2)*vec(1)*vec(2) + 2*ti(4)*vec(1)*vec(3) + 2*ti(5)*vec(2)*vec(3))
+         & + 2*ti(2)*vec(1)*vec(2) + 2*ti(4)*vec(1)*vec(3) + 2*ti(5)*vec(2)*vec(3))/3
 
       dg(:) = dg + vec * sink * (qiqpj + qpiqj)
       ds(:, :) = ds + cosk * (qiqpj + qpiqj) &

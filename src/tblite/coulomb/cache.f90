@@ -21,7 +21,10 @@
 module tblite_coulomb_cache
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_coulomb_ewald, only : get_alpha
+   use mctc_io_constants, only : pi
+   use mctc_io_math, only : matdet_3x3, matinv_3x3
+   use tblite_coulomb_ewald, only : get_alpha, get_rec_cutoff
+   use tblite_cutoff, only : get_lattice_points
    use tblite_wignerseitz, only : wignerseitz_cell, new_wignerseitz_cell
    implicit none
    private
@@ -31,9 +34,11 @@ module tblite_coulomb_cache
 
    type :: coulomb_cache
       real(wp) :: alpha
+      real(wp) :: vol
       type(wignerseitz_cell) :: wsc
       real(wp), allocatable :: amat(:, :)
       real(wp), allocatable :: vvec(:)
+      real(wp), allocatable :: rtrans(:, :)
 
       real(wp), allocatable :: cn(:)
       real(wp), allocatable :: dcndr(:, :, :)
@@ -48,6 +53,8 @@ module tblite_coulomb_cache
       procedure :: update
    end type coulomb_cache
 
+   real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
+   real(wp), parameter :: conv = eps
 
 contains
 
@@ -61,8 +68,32 @@ subroutine update(self, mol)
    if (any(mol%periodic)) then
       call new_wignerseitz_cell(self%wsc, mol)
       call get_alpha(mol%lattice, self%alpha, .false.)
+
+      self%vol = abs(matdet_3x3(mol%lattice))
+      call get_rec_trans(mol%lattice, self%alpha, self%vol, conv, self%rtrans)
    end if
 
 end subroutine update
+
+!> Get reciprocal lattice translations
+subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
+   !> Lattice parameters
+   real(wp), intent(in) :: lattice(:, :)
+   !> Parameter for Ewald summation
+   real(wp), intent(in) :: alpha
+   !> Cell volume
+   real(wp), intent(in) :: volume
+   !> Tolerance for Ewald summation
+   real(wp), intent(in) :: conv
+   !> Translation vectors
+   real(wp), allocatable, intent(out) :: trans(:, :)
+
+   real(wp) :: rec_lat(3, 3)
+
+   rec_lat = 2*pi*transpose(matinv_3x3(lattice))
+   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, conv), trans)
+   trans = trans(:, 2:)
+
+end subroutine get_rec_trans
 
 end module tblite_coulomb_cache
