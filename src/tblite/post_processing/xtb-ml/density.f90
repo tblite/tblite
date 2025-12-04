@@ -520,7 +520,7 @@ subroutine mulliken_shellwise(ao2shell, p, s, charges_shell)
       do mu = 1, nao
          do nu = 1, nao
             !$omp atomic
-            charges_shell(ao2shell(mu), spin) = charges_shell(ao2shell(mu), spin) + p(mu, nu, spin)*s(mu, nu)
+            charges_shell(ao2shell(mu), spin) = charges_shell(ao2shell(mu), spin) + p(nu, mu, spin)*s(nu, mu)
          end do
       end do
    end do
