@@ -32,43 +32,43 @@ jobs:
           - {compiler: gcc, version: '12', build: cmake}
 
         include:
-        - os: ubuntu-latest
-          build-type: coverage
-          toolchain: {compiler: gcc, version: '10', build: meson}
+          - os: ubuntu-latest
+            build-type: coverage
+            toolchain: {compiler: gcc, version: '10', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '11', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '11', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '13', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '13', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '14', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '14', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '12', build: fpm}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: fpm}
 
-        # - os: windows-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gcc
-        #   shell: msys2 {0}
+          # - os: windows-latest
+          #   build: meson
+          #   build-type: debug
+          #   compiler: gcc
+          #   shell: msys2 {0}
 
     defaults:
       run:
