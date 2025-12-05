@@ -64,6 +64,10 @@ jobs:
             build-type: debug
             toolchain: {compiler: gcc, version: '12', build: fpm}
 
+          - os: macos-15-intel
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
           # - os: windows-latest
           #   build: meson
           #   build-type: debug
@@ -89,9 +93,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') && matrix.toolchain.compiler == 'gcc' }}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc' }}
@@ -288,6 +292,11 @@ jobs:
           gcc_v: '12'
           python_v: '3.12'
 
+        include:
+        - os: macos-15-intel
+          gcc_v: '12'
+          python_v: '3.12'
+
     env:
       FC: gfortran
       CC: gcc
@@ -308,9 +317,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos')}}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') }}
