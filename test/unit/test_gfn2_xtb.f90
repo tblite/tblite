@@ -375,7 +375,8 @@ subroutine test_convergence(error)
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
-   call eeq_guess(mol, calc, wfn)
+   call eeq_guess(mol, calc, wfn, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
    call check(error, energy, ref, thr=1e-7_wp)

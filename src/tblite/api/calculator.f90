@@ -30,7 +30,8 @@ module tblite_api_calculator
    use tblite_results, only : results_type
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
+      & sad_guess, eeq_guess, eeqbc_guess
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -54,7 +55,8 @@ module tblite_api_calculator
    enum, bind(c)
       enumerator :: &
          tblite_guess_sad = 0_c_int, &
-         tblite_guess_eeq = 1_c_int
+         tblite_guess_eeq = 1_c_int, &
+         tblite_guess_eeqbc = 2_c_int
    end enum
 
 
@@ -560,7 +562,8 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
    call check_results(res%results)
    
-   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
+   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
+      & calc%nspin, calc%guess, error)
    if (calc%post_proc%n == 0) then 
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, f_char, error)
@@ -569,8 +572,9 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
-   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
-   & gradient=res%gradient, sigma=res%sigma, results=res%results, post_process=calc%post_proc)
+   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
+      & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
+      & post_process=calc%post_proc)
 
 end subroutine get_singlepoint_api
 
@@ -585,13 +589,14 @@ subroutine check_results(res)
    end if
 end subroutine
 
-subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
+subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
    integer, intent(in) :: nspin
    integer, intent(in) :: guess
+   type(error_type), intent(out), allocatable :: error
 
    if (allocated(wfn)) then
       wfn%kt = etemp
@@ -610,7 +615,9 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
       case default
          call sad_guess(mol, calc, wfn)
       case(tblite_guess_eeq)
-         call eeq_guess(mol, calc, wfn)
+         call eeq_guess(mol, calc, wfn, error)
+      case(tblite_guess_eeqbc)
+         call eeqbc_guess(mol, calc, wfn, error)
       end select
    end if
 end subroutine check_wavefunction

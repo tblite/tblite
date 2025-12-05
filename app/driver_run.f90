@@ -34,7 +34,8 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, shell_partition, load_wavefunction, save_wavefunction
+      & sad_guess, eeq_guess, eeqbc_guess, shell_partition, &
+      & load_wavefunction, save_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -200,7 +201,9 @@ subroutine run_main(config, error)
       case("sad")
          call sad_guess(mol, calc, wfn)
       case("eeq")
-         call eeq_guess(mol, calc, wfn)
+         call eeq_guess(mol, calc, wfn, error)
+      case("eeqbc")
+         call eeqbc_guess(mol, calc, wfn, error)
       case("ceh")
          call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then

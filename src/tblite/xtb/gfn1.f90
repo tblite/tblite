@@ -22,6 +22,8 @@ module tblite_xtb_gfn1
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
+   use mctc_ncoord, only : new_ncoord, cn_count
+   use mctc_data_paulingen, only : get_pauling_en
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -29,9 +31,7 @@ module tblite_xtb_gfn1
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & harmonic_average, coulomb_kernel
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
-   use tblite_data_paulingen, only : get_pauling_en
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
-   use tblite_ncoord, only : new_ncoord
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator
@@ -531,10 +531,12 @@ subroutine new_gfn1_calculator(calc, mol, error)
    end if
 
    call add_basis(calc, mol)
-   call add_ncoord(calc, mol)
+   call add_ncoord(calc, mol, error)
+   if (allocated(error)) return
    call add_hamiltonian(calc, mol)
    call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol)
+   call add_dispersion(calc, mol, error)
+   if (allocated(error)) return
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
 
@@ -591,26 +593,30 @@ subroutine add_hamiltonian(calc, mol)
    call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn1_h0spec(mol))
 end subroutine add_hamiltonian
 
-subroutine add_dispersion(calc, mol)
+subroutine add_dispersion(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d3_dispersion), allocatable :: tmp
 
    allocate(tmp)
-   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9)
+   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error)
    call move_alloc(tmp, calc%dispersion)
 end subroutine add_dispersion
 
-subroutine add_ncoord(calc, mol)
+subroutine add_ncoord(calc, mol, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
-   call new_ncoord(calc%ncoord, mol, cn_type="exp")
+   call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%exp, error=error)
 end subroutine add_ncoord
 
 subroutine add_repulsion(calc, mol)
@@ -951,6 +957,7 @@ subroutine export_gfn1_param(param)
       par%s9 = s9
       par%sc = .false.
       par%d3 = .true.
+      par%smooth = .false.
    end associate
 
    allocate(param%repulsion)

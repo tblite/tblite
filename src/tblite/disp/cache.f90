@@ -26,9 +26,9 @@ module tblite_disp_cache
 
    type :: dispersion_cache
       real(wp), allocatable :: dispmat(:, :, :, :)
-      real(wp), allocatable :: gwvec(:, :)
-      real(wp), allocatable :: dgwdq(:, :)
-      real(wp), allocatable :: vvec(:, :)
+      real(wp), allocatable :: gwvec(:, :, :)
+      real(wp), allocatable :: dgwdq(:, :, :)
+      real(wp), allocatable :: vvec(:, :, :)
       real(wp), allocatable :: cn(:)
       real(wp), allocatable :: dcndr(:, :, :)
       real(wp), allocatable :: dcndL(:, :, :)
