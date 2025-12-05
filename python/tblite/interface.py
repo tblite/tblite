@@ -236,6 +236,9 @@ class Result:
         "gradient": library.get_gradient,
         "virial": library.get_virial,
         "charges": library.get_charges,
+        "shell-charges": library.get_shell_charges,
+        "atomic-dipoles": library.get_atomic_dipoles,
+        "atomic-quadrupoles": library.get_atomic_quadrupoles,
         "bond-orders": library.get_bond_orders,
         "dipole": library.get_dipole,
         "quadrupole": library.get_quadrupole,
@@ -249,7 +252,14 @@ class Result:
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
     }
-    _setter = {}
+    _setter = {
+        "shell-charges-and-moments-guess": lambda _res, tup: library.set_result_shell_charges_and_moments_guess(
+            _res,
+            np.ascontiguousarray(tup[0], dtype=float),
+            np.array(tup[1], dtype=float, copy=False),
+            np.array(tup[2], dtype=float, copy=False),
+        ),
+    }
 
     def __init__(self, other=None):
         """
@@ -263,7 +273,7 @@ class Result:
 
     def get(self, attribute: str):
         """
-        Get a quantity stored instade the result container.
+        Get a quantity stored inside the result container.
         The following quantities are available
 
         ====================== ================================= ==============
@@ -274,6 +284,9 @@ class Result:
          gradient               nat, 3                            Hartree/Bohr
          virial                 3, 3                              Hartree
          charges                nat                               e
+         shell-charges          nsh [2, nsh]                      e
+         atomic-dipoles         nat, 3 [2, nat, 3]                e·Bohr
+         atomic-quadrupoles     nat, 6 [2, nat, 6]                e·Bohr²
          bond-orders            nat, nat                          e
          dipole                 3                                 e·Bohr
          quadrupole             6                                 e·Bohr²
@@ -285,7 +298,7 @@ class Result:
          density-matrix         norb, norb [2, norb, norb]        e
          natoms                 scalar                            unitless
          norbitals              scalar                            unitless
-         post-processing-dict   dependes on the key               /
+         post-processing-dict   depends on the key                /
         ====================== ================================= ==============
 
         Notes
@@ -313,8 +326,14 @@ class Result:
 
     def set(self, attribute: str, value):
         """
-        Get a quantity stored instade the result container.
-        Currently, no quantities can be set in the result container.
+        Set a quantity in the result container.
+
+        Currently supported:
+        - shell-charges-and-moments-guess: Tuple of arrays used as initial guess.
+          Shapes accepted (always normalized to include spin dimension):
+            qsh: (nspin, nsh)
+            dpat: (nspin, nat, 3)
+            qmat: (nspin, nat, 6)
 
         Raises
         ------

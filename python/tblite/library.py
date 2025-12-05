@@ -282,6 +282,58 @@ def get_charges(res) -> np.ndarray:
     return _charges
 
 
+def get_shell_charges(res) -> np.ndarray:
+    """Retrieve shell charges from result container.
+
+    Returns array with shape (nsh,) for closed-shell or (2, nsh) for spin-polarized.
+    """
+    _nsh = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_shells)(res, _nsh)
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    nspin = _nspin[0]
+    qsh = np.zeros((nspin, _nsh[0]))
+    error_check(lib.tblite_get_result_shell_charges)(res, ffi.cast("double*", qsh.ctypes.data))
+    if nspin == 1:
+        return np.squeeze(qsh, axis=0)
+    return qsh
+
+
+def get_atomic_dipoles(res) -> np.ndarray:
+    """Retrieve atomic dipole moments (dpat) from result container.
+
+    Returns array with shape (nat, 3) for closed-shell or (2, nat, 3) for spin-polarized.
+    """
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    nspin = _nspin[0]
+    dpat = np.zeros((nspin, _natoms[0], 3))
+    error_check(lib.tblite_get_result_atomic_dipoles)(res, ffi.cast("double*", dpat.ctypes.data))
+    if nspin == 1:
+        return np.squeeze(dpat, axis=0)
+    return dpat
+
+
+def get_atomic_quadrupoles(res) -> np.ndarray:
+    """Retrieve atomic quadrupole moments (qmat) from result container.
+
+    Returns array with shape (nat, 6) for closed-shell or (2, nat, 6) for spin-polarized.
+    Packed order (xx, xy, yy, xz, yz, zz).
+    """
+    _natoms = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_atoms)(res, _natoms)
+    _nspin = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_spins)(res, _nspin)
+    nspin = _nspin[0]
+    qmat = np.zeros((nspin, _natoms[0], 6))
+    error_check(lib.tblite_get_result_atomic_quadrupoles)(res, ffi.cast("double*", qmat.ctypes.data))
+    if nspin == 1:
+        return np.squeeze(qmat, axis=0)
+    return qmat
+
+
 def get_bond_orders(res) -> np.ndarray:
     """Retrieve Wiberg / Mayer bond orders from result container"""
     _dict = get_post_processing_dict(res=res)
@@ -508,6 +560,75 @@ set_calculator_temperature = context_check(
 set_calculator_save_integrals = context_check(
     lib.tblite_set_calculator_save_integrals
 )
+
+
+def set_result_shell_charges_and_moments_guess(
+    res, qsh: np.ndarray, dpat: np.ndarray, qmat: np.ndarray
+) -> None:
+    """Set shell charges, atomic dipoles, and quadrupoles as restart guess.
+
+    Normalizes input shapes to always include spin dimension and calls the
+    unified C API. Shapes are normalized as follows:
+    - qsh: (nspin, nsh)
+    - dpat: (nspin, nat, 3) 
+    - qmat: (nspin, nat, 6)
+    """
+    qsh_arr = np.array(qsh, dtype=float, copy=False)
+    dpat_arr = np.array(dpat, dtype=float, copy=False)
+    qmat_arr = np.array(qmat, dtype=float, copy=False)
+
+    # Normalize shapes: closed-shell -> (1, ...)
+    if qsh_arr.ndim == 1:
+        qsh_arr = qsh_arr[None, :]
+    if dpat_arr.ndim == 2:
+        # Accept (nat,3) or (3,nat)
+        if dpat_arr.shape[0] == 3:
+            dpat_arr = dpat_arr.T
+        dpat_arr = dpat_arr[None, :, :]
+    elif dpat_arr.ndim == 3:
+        # Accept (2,nat,3) or (2,3,nat)
+        if dpat_arr.shape[1] == 3:
+            dpat_arr = np.swapaxes(dpat_arr, 1, 2)
+    else:
+        raise TBLiteValueError("dpat must have shape (nat,3), (3,nat), (nspin,nat,3) or (nspin,3,nat)")
+
+    if qmat_arr.ndim == 2:
+        # Accept (nat,6) or (6,nat)
+        if qmat_arr.shape[0] == 6:
+            qmat_arr = qmat_arr.T
+        qmat_arr = qmat_arr[None, :, :]
+    elif qmat_arr.ndim == 3:
+        # Accept (2,nat,6) or (2,6,nat)
+        if qmat_arr.shape[1] == 6:
+            qmat_arr = np.swapaxes(qmat_arr, 1, 2)
+    else:
+        raise TBLiteValueError("qmat must have shape (nat,6), (6,nat), (nspin,nat,6) or (nspin,6,nat)")
+
+    nspin = qsh_arr.shape[0]
+    nsh = qsh_arr.shape[1]
+    if dpat_arr.shape[0] != nspin or qmat_arr.shape[0] != nspin:
+        raise TBLiteValueError("qsh, dpat, qmat must have consistent spin dimension")
+    nat = dpat_arr.shape[1]
+    if qmat_arr.shape[1] != nat:
+        raise TBLiteValueError("dpat and qmat must have the same number of atoms")
+    if dpat_arr.shape[2] != 3:
+        raise TBLiteValueError("dpat last dimension must be 3")
+    if qmat_arr.shape[2] != 6:
+        raise TBLiteValueError("qmat last dimension must be 6")
+
+    # Always use unified API with nspin parameter
+    # Arrays need to be in Fortran order: [nsh, nspin], [3, nat, nspin], [6, nat, nspin]
+    # Python arrays are (nspin, nsh), (nspin, nat, 3), (nspin, nat, 6) in C-order.
+    # This memory layout is identical to Fortran order for the transposed shapes.
+    error_check(lib.tblite_set_result_shell_charges_and_moments_guess)(
+        res,
+        ffi.cast("const double*", np.ascontiguousarray(qsh_arr).ravel().ctypes.data),
+        int(nsh),
+        ffi.cast("const double*", np.ascontiguousarray(dpat_arr).ravel().ctypes.data),
+        int(nat),
+        ffi.cast("const double*", np.ascontiguousarray(qmat_arr).ravel().ctypes.data),
+        int(nspin),
+    )
 
 
 @context_check

@@ -145,6 +145,16 @@ tblite_get_result_charges(tblite_error error,
                           tblite_result res,
                           double* charges);
 
+/// Retrieve shell charges from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param qsh: Shell charges, shape [nspin][nsh] (flattened)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_shell_charges(tblite_error error,
+                                tblite_result res,
+                                double* qsh);
+
 /// Retrieve bond orders from result container
 ///
 /// @param error: Handle for error messages
@@ -235,6 +245,26 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
                                      tblite_result res,
                                      double* hmat);
 
+/// Retrieve atomic dipole moments (dpat) from result container (order x, y, z per atom)
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param dpat: Atomic dipoles, shape [nspin][3][nat] (flattened)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_atomic_dipoles(tblite_error error,
+                                 tblite_result res,
+                                 double* dpat);
+
+/// Retrieve atomic quadrupole moments (qmat) from result container (packed xx, xy, yy, xz, yz, zz per atom)
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param qmat: Atomic quadrupoles, shape [nspin][6][nat] (flattened)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_atomic_quadrupoles(tblite_error error,
+                                     tblite_result res,
+                                     double* qmat);
+
 /// Retrieve Hamiltonian matrix from result container
 ///
 /// @param error: Handle for error messages
@@ -263,3 +293,26 @@ TBLITE_API_CALL void TBLITE_API_CALL
 tblite_load_result_wavefunction(tblite_error error,
                                 tblite_result res,
                                 const char* filename);
+
+/// Set shell charges together with atomic dipole and quadrupole moments as restart guess
+///
+/// Passing this will enforce usage of (qsh, dpat, qmat) as a combined guess.
+/// Always includes nspin parameter for generality (use nspin=1 for closed-shell).
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param qsh: Shell charges, shape [nspin][nsh] (flattened, Fortran column-major order)
+/// @param nsh: Number of shells
+/// @param dpat: Atomic dipoles, shape [nspin][3][nat] (flattened)
+/// @param nat: Number of atoms
+/// @param qmat: Atomic quadrupoles (packed xx, xy, yy, xz, yz, zz), shape [nspin][6][nat] (flattened)
+/// @param nspin: Number of spins (1 for closed-shell, 2 for spin-polarized)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_result_shell_charges_and_moments_guess(tblite_error error,
+                                                  tblite_result res,
+                                                  const double* qsh,
+                                                  const int nsh,
+                                                  const double* dpat,
+                                                  const int nat,
+                                                  const double* qmat,
+                                                  const int nspin);

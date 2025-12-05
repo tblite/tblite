@@ -18,6 +18,7 @@
 set(
   tests
   "cgto-ortho"
+  "compressed-restart-calculator"
   "coulomb-charge"
   "coulomb-multipole"
   "coulomb-thirdorder"

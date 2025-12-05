@@ -30,13 +30,14 @@ module tblite_api_calculator
    use tblite_results, only : results_type
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess, shell_partition
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_api_utils, only : f_c_character, c_f_character
+   use tblite_scf_iterator, only : get_qat_from_qsh
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    implicit none
    private
@@ -560,7 +561,18 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
    call check_results(res%results)
    
-   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
+   if (allocated(res%charges_guess_shell)) then
+      if (.not.allocated(res%dpat_guess) .or. .not.allocated(res%qmat_guess)) then
+         call fatal_error(error, "If shell charges are provided as guess, atomic dipoles (dpat)"& 
+                                             & //"and quadrupoles (qmat) must also be provided")
+         call ctx%ptr%set_error(error)
+         return
+      end if
+      call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess, &
+      & qsh_guess=res%charges_guess_shell, dpat_guess=res%dpat_guess, qmat_guess=res%qmat_guess)
+   else
+      call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
+   end if
    if (calc%post_proc%n == 0) then 
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, f_char, error)
@@ -585,13 +597,16 @@ subroutine check_results(res)
    end if
 end subroutine
 
-subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
+subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, qsh_guess, dpat_guess, qmat_guess)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
    integer, intent(in) :: nspin
    integer, intent(in) :: guess
+   real(wp), intent(in), optional :: qsh_guess(:, :)
+   real(wp), intent(in), optional :: dpat_guess(:, :, :)
+   real(wp), intent(in), optional :: qmat_guess(:, :, :)
 
    if (allocated(wfn)) then
       wfn%kt = etemp
@@ -605,13 +620,27 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
    if (.not.allocated(wfn)) then
       allocate(wfn)
       call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, etemp)
-
-      select case(guess)
-      case default
-         call sad_guess(mol, calc, wfn)
-      case(tblite_guess_eeq)
-         call eeq_guess(mol, calc, wfn)
-      end select
+      if (present(qsh_guess)) then
+         if (.not.(present(dpat_guess) .and. present(qmat_guess))) then
+            return
+         if (.not.(all(shape(qsh_guess) == [calc%bas%nsh, nspin]) .and. &
+               & all(shape(dpat_guess) == [3, mol%nat, nspin]) .and. &
+               & all(shape(qmat_guess) == [6, mol%nat, nspin]))) then
+            return
+         end if
+         end if
+         wfn%qsh(:, :) = qsh_guess
+         wfn%dpat(:, :, :) = dpat_guess
+         wfn%qpat(:, :, :) = qmat_guess
+         call get_qat_from_qsh(calc%bas, wfn%qsh, wfn%qat)
+      else
+         select case(guess)
+         case default
+            call sad_guess(mol, calc, wfn)
+         case(tblite_guess_eeq)
+            call eeq_guess(mol, calc, wfn)
+         end select
+      end if
    end if
 end subroutine check_wavefunction
 
@@ -678,3 +707,4 @@ if (allocated(error)) call ctx%ptr%set_error(error)
 end subroutine
 
 end module tblite_api_calculator
+
