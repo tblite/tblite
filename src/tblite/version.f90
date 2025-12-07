@@ -27,10 +27,10 @@ module tblite_version
 
 
    !> String representation of the tblite version
-   character(len=*), parameter :: tblite_version_string = "0.5.0"
+   character(len=*), parameter :: tblite_version_string = "0.5.1"
 
    !> Numeric representation of the tblite version
-   integer, parameter :: tblite_version_compact(3) = [0, 5, 0]
+   integer, parameter :: tblite_version_compact(3) = [0, 5, 1]
 
 
 contains
