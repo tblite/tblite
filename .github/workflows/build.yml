@@ -32,43 +32,47 @@ jobs:
           - {compiler: gcc, version: '12', build: cmake}
 
         include:
-        - os: ubuntu-latest
-          build-type: coverage
-          toolchain: {compiler: gcc, version: '10', build: meson}
+          - os: ubuntu-latest
+            build-type: coverage
+            toolchain: {compiler: gcc, version: '10', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '11', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '11', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '13', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '13', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '14', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '14', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '12', build: fpm}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: fpm}
 
-        # - os: windows-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gcc
-        #   shell: msys2 {0}
+          - os: macos-15-intel
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
+          # - os: windows-latest
+          #   build: meson
+          #   build-type: debug
+          #   compiler: gcc
+          #   shell: msys2 {0}
 
     defaults:
       run:
@@ -89,9 +93,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') && matrix.toolchain.compiler == 'gcc' }}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc' }}
@@ -288,6 +292,11 @@ jobs:
           gcc_v: '12'
           python_v: '3.12'
 
+        include:
+        - os: macos-15-intel
+          gcc_v: '12'
+          python_v: '3.12'
+
     env:
       FC: gfortran
       CC: gcc
@@ -308,9 +317,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos')}}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') }}
