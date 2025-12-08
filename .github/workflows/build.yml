@@ -68,6 +68,10 @@ jobs:
             build-type: debug
             toolchain: {compiler: gcc, version: '12', build: meson}
 
+          - os: macos-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
           # - os: windows-latest
           #   build: meson
           #   build-type: debug
@@ -298,14 +302,13 @@ jobs:
         python_v: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
         include:
-        - os: macos-latest
-          gcc_v: '12'
-          python_v: '3.12'
+          - os: macos-latest
+            gcc_v: '12'
+            python_v: '3.12'
 
-        include:
-        - os: macos-15-intel
-          gcc_v: '12'
-          python_v: '3.12'
+          - os: macos-15-intel
+            gcc_v: '12'
+            python_v: '3.12'
 
     env:
       FC: gfortran
