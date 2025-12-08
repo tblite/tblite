@@ -257,7 +257,8 @@ ubuntu-20.4-cu-11.8-gcc-9-openblas-cmake:       # This job runs in the build sta
     - export CC=gcc CXX=g++ FC=gfortran
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
-    - ctest --parallel 2
+    - export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+    - ctest --parallel 1
 
 ubuntu-20.4-cu-11.8-intel-mkl-cmake:       # This job runs in the build stage, which runs first.
   stage: build
@@ -278,4 +279,5 @@ ubuntu-20.4-cu-11.8-intel-mkl-cmake:       # This job runs in the build stage, w
     - export CC=icc CXX=icpc FC=ifort
     - cmake -B _build -DLAPACK_VENDOR=auto -DGPU=ON
     - !reference [.cmake_compile, script]
-    - ctest --parallel 2
+    - export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+    - ctest --parallel 1

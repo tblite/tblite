@@ -13,4 +13,5 @@ This section contains tutorials with step by step instructions for using *tblite
    python/singlepoint
    python/geometry
    fitting
+   gpu
    parallel

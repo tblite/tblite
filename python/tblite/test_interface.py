@@ -554,6 +554,46 @@ def test_xtbml_api():
     assert dict_.get("CN_A") is None
     
     assert len(dict_.keys()) == 129
+
+def test_context_solver_api():
+    """Test context solver API"""
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("temperature", 0.0)
+    calc.set("solver", "gvd")
+    calc.set("accuracy", 1.0)
+    
+    res = calc.singlepoint()
+
+    energy_gvd = res.get("energy")
+    print(energy_gvd)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("solver", "sp2")
+    calc.set("accuracy", 1.0)
+    calc.set("temperature", 0.0)
+    res = calc.singlepoint()
+    energy_sp2 = res.get("energy")
+
+    assert energy_gvd == approx(energy_sp2, abs=THR*10)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("solver", "sp2-accel")
+    calc.set("accuracy", 1.0)
+    calc.set("temperature", 0.0)
+    res = calc.singlepoint()
+    energy_sp2 = res.get("energy")
+
+    assert energy_gvd == approx(energy_sp2, abs=THR*10)
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("solver", "trs4")
+    calc.set("accuracy", 1.0)
+    calc.set("temperature", 0.0)
+    res = calc.singlepoint()
+    energy_sp2 = res.get("energy")
+
+    assert energy_gvd == approx(energy_sp2, abs=THR*10)
     
 
 def test_solvation_gfn2_cpcm():
