@@ -29,6 +29,19 @@ if fc_id == 'gcc'
     '-Wno-maybe-uninitialized',
     language: 'fortran',
   )
+  # Particularly for the manylinux image to make Python wheels,
+  # the libraries below seem to be necessary to add explicitly to avoid
+  # undefined symbol errors such as:
+  # - _ZGVbN2v_exp (from libmvec.so)
+  # - _gfortran_os_error_at (from libfortran.so)
+  if os == 'linux'
+    lib_deps += cc.find_library('gfortran')
+    mvec_dep = cc.find_library('mvec', required: false)
+    if mvec_dep.found()
+        lib_deps += mvec_dep
+    endif
+    lib_deps += cc.find_library('m')
+  endif
   if fc.version().version_compare('<10')
     message('tblite it not tested with GNU Fortran < 10, functionality might be impacted. The build automatically adds ‘-fno-range-check’ for compatibility. Please upgrade to a newer compiler version if possible.') 
     add_project_arguments(
@@ -122,7 +135,7 @@ endif
 # Create the tool chain library as subproject
 mctc_dep = dependency(
   'mctc-lib',
-  version: '>=0.3.0',
+  version: '>=0.5.1',
   fallback: ['mctc-lib', 'mctc_dep'],
   default_options: ['default_library=static'],
 )
@@ -131,7 +144,7 @@ lib_deps += mctc_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: ['>=3.4.0', '<4'],
+  version: ['>=4.0.0'],
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -149,7 +162,7 @@ lib_deps += sdftd3_dep
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',
-  version: '>=0.4.0',
+  version: '>=0.4.3',
   fallback: ['toml-f', 'tomlf_dep'],
   default_options: ['default_library=static'],
 )

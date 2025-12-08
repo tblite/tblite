@@ -29,7 +29,7 @@ module tblite_driver_guess
    use tblite_lapack_solver, only : lapack_solver
    use tblite_output_ascii
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-   & sad_guess, eeq_guess, get_molecular_dipole_moment
+      & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
@@ -138,6 +138,9 @@ contains
          case("eeq")
             call ctx%message("Electronegativity equilibration (EEQ) guess")
             call ctx%message("")
+         case("eeqbc")
+            call ctx%message("Bond Capacity electronegativity equilibration (EEQ) guess")
+            call ctx%message("")
          case("ceh")
             call ctx%message(calc_ceh%info(config%verbosity, " | "))
          end select
@@ -150,7 +153,9 @@ contains
       case("sad")
          call sad_guess(mol, qat, dpat)
       case("eeq")
-         call eeq_guess(mol, qat, dpat)
+         call eeq_guess(mol, qat, dpat, error)
+      case("eeqbc")
+         call eeqbc_guess(mol, qat, dpat, error)
       case("ceh")
          call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then

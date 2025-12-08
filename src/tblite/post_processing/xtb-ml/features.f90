@@ -59,7 +59,6 @@ module tblite_xtbml_feature_type
          !> Cache list for storing caches of various interactions
          type(container_cache), intent(inout) :: cache_list(:)
       end subroutine compute_features
-
       subroutine compute_extended(self, mol, wfn, integrals, calc, cache_list, convolution)
          import :: wp, wavefunction_type, structure_type, integral_type, xtb_calculator,&
          & container_cache, context_type, xtbml_feature_type, xtbml_convolution_type

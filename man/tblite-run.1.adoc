@@ -48,7 +48,7 @@ Supported geometry input formats are:
 
 *--guess* _string_::
      Guess for the initial populations, possible options:
-     _sad_ (default), _eeq_, and _ceh_.
+     _sad_ (default), _eeq_, _eeqbc_, and _ceh_.
 
 *--restart* [_string_]::
      Restart calculation from previous run.

@@ -117,7 +117,7 @@ class TBLite(ase.calculators.calculator.Calculator):
      accuracy                 1.0               Numerical accuracy of the calculation
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
-     initial_guess            "sad"             Initial guess for wavefunction (sad or eeq)
+     initial_guess            "sad"             Initial guess for wavefunction (sad, eeq, or eeqbc)
      mixer_damping            0.4               Damping parameter for self-consistent mixer
      electric_field           None              Uniform electric field vector (in V/A)
      spin_polarization        None              Spin polarization (scaling factor)
@@ -270,7 +270,7 @@ class TBLite(ase.calculators.calculator.Calculator):
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
             if "initial_guess" in changed_parameters:
-                self._xtb.set("guess", {"sad": 0, "eeq": 1}[self.parameters.guess])
+                self._xtb.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess])
 
             if "mixer_damping" in changed_parameters:
                 self._xtb.set("mixer-damping", self.parameters.mixer_damping)
@@ -411,7 +411,7 @@ def _create_api_calculator(
             parameters.electronic_temperature * kB / Hartree,
         )
         calc.set("max-iter", parameters.max_iterations)
-        calc.set("guess", {"sad": 0, "eeq": 1}[parameters.guess])
+        calc.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[parameters.guess])
         calc.set("mixer-damping", parameters.mixer_damping)
         calc.set("verbosity", parameters.verbosity)
         if parameters.electric_field is not None:

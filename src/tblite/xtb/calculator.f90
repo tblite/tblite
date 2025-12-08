@@ -23,6 +23,7 @@
 module tblite_xtb_calculator
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
+   use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count, get_cn_count_id
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -34,8 +35,7 @@ module tblite_xtb_calculator
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
-      & d3_dispersion, new_d3_dispersion
-   use tblite_ncoord, only : ncoord_type, new_ncoord
+      & new_d4s_dispersion, d3_dispersion, new_d3_dispersion
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
@@ -147,12 +147,15 @@ subroutine new_xtb_calculator(calc, mol, param, error)
    if (allocated(error)) return
 
    call add_basis(calc, mol, param, irc)
-   call add_ncoord(calc, mol, param)
+   call add_ncoord(calc, mol, param, error)
+   if (allocated(error)) return
    call add_hamiltonian(calc, mol, param, irc)
    call add_repulsion(calc, mol, param, irc)
    call add_halogen(calc, mol, param, irc)
-   call add_dispersion(calc, mol, param)
-   call add_coulomb(calc, mol, param, irc)
+   call add_dispersion(calc, mol, param, error)
+   if (allocated(error)) return
+   call add_coulomb(calc, mol, param, irc, error)
+   if (allocated(error)) return
 
    calc%method = "custom"
 
@@ -204,16 +207,21 @@ subroutine add_basis(calc, mol, param, irc)
 end subroutine add_basis
 
 
-subroutine add_ncoord(calc, mol, param)
+subroutine add_ncoord(calc, mol, param, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Parametrization records
    type(param_record), intent(in) :: param
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: cn_count_type
 
    if (allocated(param%hamiltonian%cn)) then
-      call new_ncoord(calc%ncoord, mol, cn_type=param%hamiltonian%cn)
+      cn_count_type = get_cn_count_id(param%hamiltonian%cn)
+      call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count_type, error=error)
    end if
 end subroutine add_ncoord
 
@@ -232,13 +240,15 @@ subroutine add_hamiltonian(calc, mol, param, irc)
 end subroutine add_hamiltonian
 
 
-subroutine add_dispersion(calc, mol, param)
+subroutine add_dispersion(calc, mol, param, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Parametrization records
    type(param_record), intent(in) :: param
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d4_dispersion), allocatable :: d4
    type(d3_dispersion), allocatable :: d3
@@ -247,11 +257,18 @@ subroutine add_dispersion(calc, mol, param)
    associate(par => param%dispersion)
       if (par%d3) then
          allocate(d3)
-         call new_d3_dispersion(d3, mol, s6=par%s6, s8=par%s8, a1=par%a1, a2=par%a2, s9=par%s9)
+         call new_d3_dispersion(d3, mol, s6=par%s6, s8=par%s8, &
+            & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
          call move_alloc(d3, calc%dispersion)
       else
          allocate(d4)
-         call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, a1=par%a1, a2=par%a2, s9=par%s9)
+         if (par%smooth) then 
+            call new_d4s_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+         else
+            call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+         end if
          call move_alloc(d4, calc%dispersion)
       end if
    end associate
@@ -301,7 +318,7 @@ subroutine add_halogen(calc, mol, param, irc)
    end associate
 end subroutine add_halogen
 
-subroutine add_coulomb(calc, mol, param, irc)
+subroutine add_coulomb(calc, mol, param, irc, error)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
@@ -310,6 +327,8 @@ subroutine add_coulomb(calc, mol, param, irc)
    type(param_record), intent(in) :: param
    !> Record identifiers
    integer, intent(in) :: irc(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
    real(wp), allocatable :: dkernel(:), qkernel(:), rad(:), vcn(:)
@@ -361,7 +380,7 @@ subroutine add_coulomb(calc, mol, param, irc)
       vcn = param%record(irc)%mpvcn
       associate(par => param%multipole)
          call new_damped_multipole(calc%coulomb%aes2, mol, par%dmp3, par%dmp5, &
-            & dkernel, qkernel, par%shift, par%kexp, par%rmax, rad, vcn)
+            & dkernel, qkernel, par%shift, par%kexp, par%rmax, rad, vcn, error)
       end associate
    end if
 

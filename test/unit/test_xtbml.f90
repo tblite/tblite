@@ -13,7 +13,6 @@ module test_xtbml
    use tblite_data_spin, only : get_spin_constant
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
-   use tblite_io_numpy, only : save_npz
    use tblite_param_post_processing, only : post_processing_param_list
    use tblite_param_serde, only : serde_record
    use tblite_param_xtbml_features, only : xtbml_features_record

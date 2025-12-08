@@ -20,12 +20,12 @@
 module tblite_ceh_ceh
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only: structure_type
+   use mctc_ncoord, only : new_ncoord, cn_count
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & arithmetic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_basis_type, only : cgto_type, new_basis, basis_type
-   use tblite_ncoord, only : new_ncoord
    use tblite_output_format, only: format_string
    use tblite_integral_type, only : integral_type
    use tblite_xtb_spec, only : tb_h0spec
@@ -922,8 +922,10 @@ contains
       end if
 
       call add_ceh_basis(calc, mol)
-      call add_ncoord(calc, mol)
-      call add_ncoord_en(calc, mol)
+      call add_ncoord(calc, mol, error)
+      if(allocated(error)) return
+      call add_ncoord_en(calc, mol, error)
+      if(allocated(error)) return
       call add_hamiltonian(calc, mol)
       call add_coulomb(calc, mol)
 
@@ -965,25 +967,29 @@ contains
    end subroutine add_ceh_basis
 
 
-   subroutine add_ncoord(calc, mol)
+   subroutine add_ncoord(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-
-      call new_ncoord(calc%ncoord, mol, cn_type="erf", &
-      & rcov=ceh_cov_radii(mol%num))
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
+      
+      call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%erf, &
+         & error=error, rcov=ceh_cov_radii(mol%num))
    end subroutine add_ncoord
 
 
-   subroutine add_ncoord_en(calc, mol)
+   subroutine add_ncoord_en(calc, mol, error)
       !> Instance of the CEH evaluator
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error    
 
-      call new_ncoord(calc%ncoord_en, mol, cn_type="erf_en", &
-      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+      call new_ncoord(calc%ncoord_en, mol, cn_count_type=cn_count%erf_en, &
+         & error=error, rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    end subroutine add_ncoord_en
 
 

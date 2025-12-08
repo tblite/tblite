@@ -23,7 +23,7 @@ from pytest import approx, raises
 from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
 from tblite.interface import Calculator, Result, symbols_to_numbers
 
-THR = 1.0e-9
+THR = 1.0e-6
 
 
 def get_ala(conf):

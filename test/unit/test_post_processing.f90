@@ -63,7 +63,8 @@ subroutine test_h2_wbo(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
    call add_post_processing(pproc, wbo_label, error)
-   call eeq_guess(mol, calc, wfn)
+   call eeq_guess(mol, calc, wfn, error)
+   if (allocated(error)) return
    energy = 0.0_wp
    
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
@@ -157,7 +158,8 @@ subroutine test_timer_print(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
    call add_post_processing(pproc, wbo_label, error)
-   call eeq_guess(mol, calc, wfn)
+   call eeq_guess(mol, calc, wfn, error)
+   if (allocated(error)) return
    energy = 0.0_wp
    
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=3)

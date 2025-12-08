@@ -19,6 +19,7 @@ module test_coulomb_charge
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type, new
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
    use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
@@ -28,8 +29,6 @@ module test_coulomb_charge
       & gamma_coulomb, new_gamma_coulomb
    use tblite_scf, only: new_potential, potential_type
    use tblite_ceh_ceh, only : get_effective_qat
-   use tblite_ncoord_erf_en
-   use tblite_ncoord_type, only : get_coordination_number
    use tblite_cutoff, only : get_lattice_points
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
@@ -51,11 +50,12 @@ module test_coulomb_charge
    end interface
 
    abstract interface
-      subroutine charge_maker(wfn, mol, nshell)
-         import :: wavefunction_type, structure_type
+      subroutine charge_maker(wfn, mol, nshell, error)
+         import :: wavefunction_type, structure_type, error_type
          class(wavefunction_type), intent(inout) :: wfn
          type(structure_type), intent(in) :: mol
          integer, optional, intent(in) :: nshell(:)
+         type(error_type), allocatable, intent(out) :: error
       end subroutine charge_maker
    end interface
 
@@ -421,7 +421,7 @@ end subroutine make_coulomb_g2
 
 
 !> Procedure to create CN based effective charges and gradients from CEH
-subroutine get_charges_effceh(wfn, mol, nshell)
+subroutine get_charges_effceh(wfn, mol, nshell, error)
 
    !> New wavefunction object
    class(wavefunction_type), intent(inout) :: wfn
@@ -431,6 +431,9 @@ subroutine get_charges_effceh(wfn, mol, nshell)
 
    !> Return shell-resolved charges
    integer, optional, intent(in) :: nshell(:)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    real(wp), parameter :: ceh_cov_radii(20) = 0.5 * [&
    &  2.4040551903_wp,  1.8947380542_wp,  3.4227634078_wp,  3.5225408137_wp, &
@@ -447,17 +450,17 @@ subroutine get_charges_effceh(wfn, mol, nshell)
    &  4.1093492601_wp,  3.7979559518_wp,  2.4147937668_wp,  2.1974781961_wp]
    
    real(wp), allocatable :: lattr(:, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
-   type(erf_en_ncoord_type) :: ncoord_en
+   class(ncoord_type), allocatable :: ncoord_en
    integer :: iat, ii, ish
 
    allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
 
-   ! Get electronegativity-weighted coordination number
-   call new_erf_en_ncoord(ncoord_en, mol, &
-   & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+   ! Get electronegativity-weighted coordination number 
+   call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
+      & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
+   if (allocated(error)) return
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-   call get_coordination_number(ncoord_en, mol, lattr, cutoff, &
-      & cn_en, dcn_endr, dcn_endL)
+   call ncoord_en%get_coordination_number(mol, lattr, cn_en, dcn_endr, dcn_endL)
 
    ! Get effective charges and their gradients
    call get_effective_qat(mol, cn_en, wfn%qat, &
@@ -641,12 +644,14 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
          call potr%reset
          call potl%reset
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potr)
 
          mol%xyz(ic, iat) = mol%xyz(ic, iat) - 2*step
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
          
@@ -659,7 +664,8 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
       end do
    end do
 
-   call get_charges(wfn, mol, coulomb%nshell)
+   call get_charges(wfn, mol, coulomb%nshell, error)
+   if (allocated(error)) return
    call coulomb%update(mol, cache)
    call coulomb%get_potential(mol, cache, wfn, potl)
    call coulomb%get_potential_gradient(mol, cache, wfn, potl)
@@ -807,14 +813,16 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potr)
 
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
          if (allocated(lattice)) mol%lattice(:, :) = matmul(eps, lattice)
-         call get_charges(wfn, mol, coulomb%nshell)
+         call get_charges(wfn, mol, coulomb%nshell, error)
+         if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
          eps(jc, ic) = eps(jc, ic) + step
@@ -828,7 +836,8 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
       end do
    end do
 
-   call get_charges(wfn, mol, coulomb%nshell)
+   call get_charges(wfn, mol, coulomb%nshell, error)
+   if (allocated(error)) return
    call coulomb%update(mol, cache)
    call coulomb%get_potential(mol, cache, wfn, potl)
    call coulomb%get_potential_gradient(mol, cache, wfn, potl)
@@ -1193,16 +1202,6 @@ subroutine test_s_effective_pyrazine(error)
 
 end subroutine test_s_effective_pyrazine
 
-subroutine write_charges(mol)
-   use dftd4_charge, only : get_charges
-   type(structure_type) :: mol
-   real(wp), allocatable :: qat(:)
-   allocate(qat(mol%nat))
-   call get_charges(mol, qat)
-   write(*, '(3x,a)') "real(wp), parameter :: qat(*) = [&"
-   write(*, '(*(6x,"&",3(es20.14e1, "_wp":, ","),"&", /))', advance='no') qat
-   write(*, '(a)') "]"
-end subroutine
 
 subroutine test_e_effective_m07(error)
 
