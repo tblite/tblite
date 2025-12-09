@@ -20,6 +20,7 @@
 !> Declaration of the abstract base class for electronic solvers
 module tblite_scf_solver
    use mctc_env, only : sp, dp, wp, error_type
+   use iso_c_binding, only : c_ptr
    use tblite_blas, only : gemm
    implicit none
    private
@@ -55,10 +56,12 @@ module tblite_scf_solver
          type(error_type), allocatable, intent(out) :: error
       end subroutine get_density
 
-      subroutine delete(self)
-         import :: solver_type
+      subroutine delete(self, ptr)
+         import :: solver_type, c_ptr
          !> Solver for the general eigenvalue problem
          class(solver_type), intent(inout) :: self
+         !> Pointer to the C++ solver instance
+         type(c_ptr), intent(inout), optional :: ptr
       end subroutine delete
    end interface
 

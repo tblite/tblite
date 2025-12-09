@@ -37,9 +37,10 @@
              : check_double_array)(x, __VA_ARGS__)
 
 static inline bool
-check_int(int actual, int expected, const char* msg)
+check_int(int actual, int expected, const char *msg)
 {
-    if (expected == actual) {
+    if (expected == actual)
+    {
         return true;
     }
     fprintf(stderr, "[Fatal] %s: expected %d, got %d\n", msg, expected, actual);
@@ -47,9 +48,10 @@ check_int(int actual, int expected, const char* msg)
 }
 
 static inline bool
-check_double(double actual, double expected, double tol, const char* msg)
+check_double(double actual, double expected, double tol, const char *msg)
 {
-    if (fabs(expected - actual) < tol) {
+    if (fabs(expected - actual) < tol)
+    {
         return true;
     }
     fprintf(stderr, "[Fatal] %s: expected %3.7f, got %3.7f\n", msg, expected, actual);
@@ -57,10 +59,12 @@ check_double(double actual, double expected, double tol, const char* msg)
 }
 
 static inline bool
-check_double_array(double* actual, double* expected, double tol, int ndim, const char* msg)
+check_double_array(double *actual, double *expected, double tol, int ndim, const char *msg)
 {
-    for (int i = 0; i != ndim; i++) {
-        if (!check_double(actual[i], expected[i], tol, msg)) {
+    for (int i = 0; i != ndim; i++)
+    {
+        if (!check_double(actual[i], expected[i], tol, msg))
+        {
             return false;
         }
     }
@@ -68,10 +72,12 @@ check_double_array(double* actual, double* expected, double tol, int ndim, const
 }
 
 static inline bool
-check_int_array(const int* actual, const int* expected, int ndim, const char* msg)
+check_int_array(const int *actual, const int *expected, int ndim, const char *msg)
 {
-    for (int i = 0; i != ndim; i++) {
-        if (!check(actual[i], expected[i], msg)) {
+    for (int i = 0; i != ndim; i++)
+    {
+        if (!check(actual[i], expected[i], msg))
+        {
             return false;
         }
     }
@@ -79,7 +85,7 @@ check_int_array(const int* actual, const int* expected, int ndim, const char* ms
 }
 
 static inline double
-norm2(int n, double* vec)
+norm2(int n, double *vec)
 {
     double norm = 0.0;
     int i;
@@ -89,7 +95,7 @@ norm2(int n, double* vec)
 }
 
 static inline double
-sum(int n, double* vec)
+sum(int n, double *vec)
 {
     double val = 0.0;
     int i;
@@ -466,7 +472,7 @@ int test_uninitialized_structure(void)
 
     error = tblite_new_error();
 
-    double xyz[6] = { 0.0 };
+    double xyz[6] = {0.0};
     tblite_update_structure_geometry(error, mol, xyz, NULL);
     if (!tblite_check(error))
         goto unexpected;
@@ -2793,7 +2799,8 @@ int test_post_processing_api()
     if (!check_int(ndim2, 21, "Check dimension of wbo tensor")) {
         goto err;
     }
-    if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
+    if (!check_int(ndim3, 0, "Check dimension of wbo tensor"))
+    {
         goto err;
     }
 
@@ -3648,6 +3655,221 @@ err:
     return 1;
 }
 
+int test_context_solver_api()
+{
+    printf("Start test: Solver API\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    const double thr = 1.0e-6;
+
+    int natoms = 22;
+    int num[22] = {7, 1, 6, 1, 6, 6, 1, 1, 1, 8, 6, 6, 1, 1, 1, 8, 7, 1, 6, 1, 1, 1};
+    double xyz[3 * 22] = {
+        2.65893135608838,
+        -2.39249423371715,
+        -3.66065400053935,
+        3.49612941769371,
+        -0.88484673975624,
+        -2.85194146578362,
+        -0.06354076626069,
+        -2.63180732150005,
+        -3.28819116275323,
+        -1.07444177498884,
+        -1.92306930149582,
+        -4.93716401361053,
+        -0.83329925447427,
+        -5.37320588052218,
+        -2.81379718546920,
+        -0.90691285352090,
+        -1.04371377845950,
+        -1.04918016247507,
+        -2.86418317801214,
+        -5.46484901686185,
+        -2.49961410229771,
+        -0.34235262692151,
+        -6.52310417728877,
+        -4.43935278498325,
+        0.13208660968384,
+        -6.10946566962768,
+        -1.15032982743173,
+        -2.96060093623907,
+        0.01043357425890,
+        -0.99937552379387,
+        3.76519127865000,
+        -3.27106236675729,
+        -5.83678272799149,
+        6.47957316843231,
+        -2.46911747464509,
+        -6.21176914665408,
+        7.32688324906998,
+        -1.67889171278096,
+        -4.51496113512671,
+        6.54881843238363,
+        -1.06760660462911,
+        -7.71597456720663,
+        7.56369260941896,
+        -4.10015651865148,
+        -6.82588105651977,
+        2.64916867837331,
+        -4.60764575400925,
+        -7.35167957128511,
+        0.77231592220237,
+        -0.92788783332000,
+        0.90692539619101,
+        2.18437036702702,
+        -2.20200039553542,
+        0.92105755612696,
+        0.01367202674183,
+        0.22095199845428,
+        3.27728206652909,
+        1.67849497305706,
+        0.53855308534857,
+        4.43416031916610,
+        -0.89254709011762,
+        2.01704896333243,
+        2.87780123699499,
+        -1.32658751691561,
+        -0.95404596601807,
+        4.30967630773603,
+    };
+
+    error = tblite_new_error();
+    // check that we get an immediate return if ctx is not associated
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check_error(error))
+        goto err;
+
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_set_calculator_temperature(ctx, calc, 0.0);
+    // Test wrong solver
+    tblite_set_context_solver(ctx, 7);
+    if (!tblite_check_context(ctx))
+        goto err;
+    show_context_error(ctx);
+
+    tblite_set_context_solver(ctx, TBLITE_SOLVER_SYGVD);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    double gvd_energy = 0.0;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &gvd_energy);
+    if (tblite_check_error(error))
+        goto err;
+    tblite_delete(ctx);
+    ctx = tblite_new_context();
+
+    tblite_set_context_solver(ctx, TBLITE_SOLVER_SP2);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    double dmp_energy = 0.0;
+
+    tblite_delete(calc);
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &dmp_energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(dmp_energy, gvd_energy, thr, "Too large difference between energy and gvd energy"))
+        goto err;
+
+    tblite_delete(ctx);
+    ctx = tblite_new_context();
+
+    tblite_set_context_solver(ctx, TBLITE_SOLVER_TRS4);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    dmp_energy = 0.0;
+
+    tblite_delete(calc);
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &dmp_energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(dmp_energy, gvd_energy, thr, "Too large difference between energy and gvd energy"))
+        goto err;
+
+    tblite_delete(ctx);
+    ctx = tblite_new_context();
+
+    tblite_set_context_solver(ctx, TBLITE_SOLVER_SP2_ACCEL);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    dmp_energy = 0.0;
+
+    tblite_delete(calc);
+    calc = tblite_new_gfn2_calculator(ctx, mol);
+    if (!calc)
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check_context(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &dmp_energy);
+    if (tblite_check_error(error))
+        goto err;
+
+    if (!check(dmp_energy, gvd_energy, thr, "Too large difference between energy and gvd energy"))
+        goto err;
+
+    return 0;
+err:
+    if (tblite_check_error(error))
+    {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check_context(ctx))
+    {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
 int main(void)
 {
     int stat = 0;
@@ -3683,6 +3905,7 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
+    stat += test_context_solver_api();
     printf("Test finished with %d errors.\n", stat);
     return stat > 0 ? 1 : 0;
 }

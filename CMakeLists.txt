@@ -58,7 +58,15 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
+if(NOT TARGET "gambits::gambits")
+  set(FORTRAN_API ON)
+  find_package("gambits" REQUIRED)
+endif()
+option(GPU "Compile with GPU capability" FALSE)
 
+if(GPU)
+  add_compile_definitions(USE_CUDA)
+endif()
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
@@ -68,6 +76,7 @@ set(
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
   "s-dftd3::s-dftd3"
+  "gambits::gambits"
 )
 
 # Collect source of the project

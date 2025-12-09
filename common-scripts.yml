@@ -1,0 +1,27 @@
+.cpu_prep:
+  script:
+    - echo "Building the code..."
+    - echo $SINGULARITY_NAME
+    - python3 -m pip install ninja meson==1.4.0 cmake
+    - export PATH=~/.local/bin:$PATH
+
+.gpu_prep:
+  script:
+    - export PATH=/usr/local/cuda-11.8/bin:${PATH}
+    - export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:${LD_LIBRARY_PATH}
+    - export LIBRARY_PATH=/usr/local/cuda-11.8/lib64:${LIBRARY_PATH}
+    - export CUDA_ROOT=/usr/local/cuda-11.8
+    - export CPATH=/usr/local/cuda-11.8/include:${CPATH}
+    - which nvcc
+
+.meson_compile:
+  script:
+    - cd _build
+    - meson compile
+    - echo "Compile complete."
+
+.cmake_compile:
+  script:
+    - cd _build
+    - make
+    - echo "Compile complete."

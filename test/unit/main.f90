@@ -25,6 +25,7 @@ program tester
    use test_coulomb_charge, only : collect_coulomb_charge
    use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
+   use test_density_matrix_purification, only : collect_DMP
    use test_double_dictionary, only : collect_double_dictionary
    use test_dispersion, only : collect_dispersion
    use test_fit, only : collect_fit
@@ -90,6 +91,7 @@ program tester
       new_testsuite("xtb-external", collect_xtb_external), &
       new_testsuite("spin", collect_spin), &
       new_testsuite("xtb-param", collect_xtb_param), &
+      new_testsuite("density-matrix-purification", collect_DMP), &
       new_testsuite("xtbml", collect_xtbml) &
       ]
 

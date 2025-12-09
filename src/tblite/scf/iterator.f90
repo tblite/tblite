@@ -25,15 +25,16 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
+   use tblite_purification_solver, only : purification_solver 
+   use tblite_scf_mixer, only : mixer_type
+   use tblite_scf_info, only : scf_info
+   use tblite_scf_potential, only : potential_type, add_pot_to_h1
+   use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
       & get_mulliken_atomic_multipoles
    use tblite_xtb_coulomb, only : tb_coulomb
-   use tblite_scf_mixer, only : mixer_type
-   use tblite_scf_info, only : scf_info
-   use tblite_scf_potential, only : potential_type, add_pot_to_h1
-   use tblite_scf_solver, only : solver_type
    implicit none
    private
 
@@ -302,17 +303,36 @@ subroutine next_density(wfn, solver, ints, ts, error)
    real(wp), intent(out) :: ts
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   integer :: spin
+   ts = 0.0_wp
+   
+   call get_density_from_coeff(wfn, solver, ints, ts, error)
+   
 
-   real(wp) :: e_fermi, stmp(2)
+end subroutine next_density
+
+subroutine get_density_from_coeff(wfn, solver, ints, ts, error)
+   !> Tight-binding wavefunction data
+   type(wavefunction_type), intent(inout) :: wfn
+   !> Solver for the general eigenvalue problem
+   class(solver_type), intent(inout) :: solver
+   !> Integral container
+   type(integral_type), intent(in) :: ints
+   !> Electronic entropy
+   real(wp), intent(inout) :: ts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp) :: stmp(2)
    real(wp), allocatable :: focc(:)
    integer :: spin
-
+   stmp = 0.0_wp
    call solver%get_density(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wfn%density, error)
    do spin = 1, 2
       call get_electronic_entropy(wfn%focc(:, spin), wfn%kt, stmp(spin))
    end do
    ts = sum(stmp)
-end subroutine next_density
+end subroutine get_density_from_coeff
 
 subroutine get_electronic_entropy(occ, kt, s)
    real(wp), intent(in) :: occ(:)

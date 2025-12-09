@@ -50,7 +50,7 @@ jobs:
 
           - os: ubuntu-latest
             build-type: debug
-            toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
+            toolchain: {compiler: intel-classic, version: '2023.0', mkl_version: '2023.0.0', build: meson}
 
           - os: ubuntu-latest
             build-type: debug
@@ -65,6 +65,10 @@ jobs:
             toolchain: {compiler: gcc, version: '12', build: fpm}
 
           - os: macos-15-intel
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
+          - os: macos-latest
             build-type: debug
             toolchain: {compiler: gcc, version: '12', build: meson}
 
@@ -150,20 +154,28 @@ jobs:
 
     - name: Setup environment for Fortran and C compilers
       run: |
-        if [ ! -n "$FC" ]; then
-          if [ "${{ matrix.toolchain.compiler }}" = "gcc" ]; then
-            FC="gfortran"
-            CC="gcc"
-          elif [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
-            FC="ifx"
-            CC="icx"
-          elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
-            FC="ifort"
-            CC="icc"
-          fi
-          echo "FC=$FC" >> $GITHUB_ENV
-          echo "CC=$CC" >> $GITHUB_ENV
+        if [ "${{ matrix.toolchain.compiler }}" = "gcc" ] && [ "${{ matrix.os }}" = "macos-latest" ]; then
+          FC="gfortran-${{ matrix.toolchain.version }}"
+          CC="gcc-${{ matrix.toolchain.version }}"
+          CXX="g++-${{ matrix.toolchain.version }}"
+        elif [ "${{ matrix.toolchain.compiler }}" = "gcc" ]; then
+          FC="gfortran"
+          CC="gcc"
+          CXX="g++"
+        elif [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
+          FC="ifx"
+          CC="icx"
+          CXX="icpx"
+        elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
+          sudo apt-get install -y gcc-10 gfortran-10 g++-10
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10 --slave /usr/bin/g++ g++ /usr/bin/g++-10
+          FC="ifort"
+          CC="icc"
+          CXX="icpc"
         fi
+        echo "FC=$FC" >> $GITHUB_ENV
+        echo "CC=$CC" >> $GITHUB_ENV
+        echo "CXX=$CXX" >> $GITHUB_ENV
 
     - name: Install build and test dependencies
       if: ${{ ! contains(matrix.os, 'windows') }}
@@ -198,6 +210,8 @@ jobs:
     - name: Build library (fpm)
       if: ${{ matrix.toolchain.build == 'fpm' }}
       run: |
+        export FPM_CXXFLAGS="-DNETLIB_HEADER -std=c++17"
+        echo "FPM_CXXFLAGS=$FPM_CXXFLAGS" >> $GITHUB_ENV
         fpm --version
         fpm build
 
@@ -288,14 +302,13 @@ jobs:
         python_v: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
         include:
-        - os: macos-latest
-          gcc_v: '12'
-          python_v: '3.12'
+          - os: macos-latest
+            gcc_v: '12'
+            python_v: '3.12'
 
-        include:
-        - os: macos-15-intel
-          gcc_v: '12'
-          python_v: '3.12'
+          - os: macos-15-intel
+            gcc_v: '12'
+            python_v: '3.12'
 
     env:
       FC: gfortran

@@ -69,6 +69,14 @@ This library depends on several Fortran modules to provide the desired functiona
 .. _mstore: https://github.com/grimme-lab/mstore
 .. _toml-f: https://github.com/toml-f/toml-f
 
+Alternative solvers to the included LAPACK-based implementations have been included with
+
+- `gambits`_: (Gaming)GPU-Accelerated Matrix-Based ITerative Solvers
+- `lahva`_: The linear algebra backend for GAMBITS that provides GPU-accelerated linear algebra routines
+
+.. _gambits: https://git.rwth-aachen.de/bannwarthlab/gambits
+.. _lahva: https://git.rwth-aachen.de/bannwarthlab/lahva
+
 .. _meson: https://mesonbuild.com
 .. _ninja: https://ninja-build.org
 .. _asciidoctor: https://asciidoctor.org
@@ -89,6 +97,7 @@ For the full feature-complete build it is highly recommended to perform the buil
 To setup a build the following software is required
 
 - A Fortran 2008 compliant compiler, like GCC Fortran and Intel Fortran classic
+- a CXX compliant C compiler, like GCC and Intel C compiler (classic or LLVM-based)
 - `meson`_, version 0.57.2 or newer
 - `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
@@ -99,19 +108,38 @@ Optional dependencies are
 - A C compiler to test the C API and compile the Python extension module
 - Python 3.6 or newer with the `CFFI`_ package installed to build the Python API
 
+Optional dependencies for GPU support are
+
+- NVIDIA CUDA toolkit, with nvcc compiler
+- cuBLAS and cuSOLVER libraries
+
+Meson will attempt to install the GPU-accelerated solvers if a compatible CUDA toolkit is found, without further intervantion.
+
 To setup a new build run
 
 .. code:: text
 
    meson setup _build --prefix=$HOME/.local
 
-The Fortran and C compiler can be selected with the ``FC`` and ``CC`` environment variable, respectively.
+The Fortran, C and CXX compiler can be selected with the ``FC``, ``CC`` and ``CXX`` environment variable, respectively.
 The installation location is selected using the ``--prefix`` option.
 The required Fortran modules will be fetched automatically from the upstream repositories and checked out in the *subprojects* directory.
 
 .. note::
 
    For Intel Fortran oneAPI (2021 or newer) builds with MKL backend the ``-Dfortran_link_args=-qopenmp`` option has to be added.
+
+.. note::
+
+   For GPU builds:
+   - make sure that the ``nvcc`` compiler is available in your ``PATH``.
+   - set the appropriate ``CUDA_ROOT`` environment variable pointing to the base installation directory of the CUDA toolkit. 
+      For example, for CUDA 11.8 installed in ``/usr/local/cuda-11.8`` set ``export CUDA_ROOT=/usr/local/cuda-11.8``.
+   - especially for the NVHPC SDK, the location of the necessary libraries might not be found automatically.
+     In this case set the ``LIBRARY_PATH`` to include the directory containing the ``libcublas.so``, ``libcusolver.so``, and ``libcudart.so`` libraries.
+   - by default, the build will be performed for the CUDA architecture of the detected GPU on the system, where the compilation is attempted.
+     To target a specific architecture set the ``-Dcuda_arch=<arch>`` option, where ``<arch>`` is the compute capability of your GPU, *e.g.* ``['75', '89']`` for compute capability 7.5 and 8.9.
+     Several architectures can be specified as a comma-separated list. This option can also be set in the ``meson_options.txt`` file for convenience.
 
 .. tip::
 
@@ -153,9 +181,14 @@ The CMake build files usually do not provide a feature-complete build, but contr
 To setup a build the following software is required
 
 - A Fortran 2008 compliant compiler, like GCC Fortran and Intel Fortran classic
+- a CXX compliant C compiler, like GCC and Intel C compiler (classic or LLVM-based)
 - `cmake`_, version 3.14 or newer
 - `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
+
+Optional dependencies for GPU support are
+- NVIDIA CUDA toolkit, with nvcc compiler
+- cuBLAS and cuSOLVER libraries
 
 Configure a new build with
 
@@ -166,6 +199,16 @@ Configure a new build with
 You can set the Fortran compiler in the ``FC`` environment variable.
 The installation location can be selected with the ``CMAKE_INSTALL_PREFIX``, GNU install directories are supported by default.
 CMake will automatically fetch the required Fortran modules, you can provide specific version in the *subprojects* directory which will be used instead.
+
+.. note::
+
+   For GPU builds:
+   - set the CMAKE variable ``GPU`` to ``ON``.
+   - consider setting the appropriate architecture flags for your GPU with the ``CMAKE_CUDA_ARCHITECTURES`` CMake variable.
+      By default, the build will be performed for the CUDA architecture of the detected GPU, on the system that you are building ``tblite``.
+   An example would be
+      ``cmake -B _build -G Ninja -DGPU=ON -DCMAKE_CUDA_ARCHITECTURES="75;89"``
+
 
 To run a build use
 
@@ -190,6 +233,7 @@ Fpm based build
 ~~~~~~~~~~~~~~~
 
 This projects supports building with the Fortran package manager (`fpm`_).
+There is currently no support for building with GPU offloading enabled with fpm.
 Create a new build by running
 
 .. code:: text
