@@ -113,7 +113,7 @@ def context_check(func):
 
     return handle_context_error
 
-def set_context_solver(ctx, solver : str):
+def set_context_solver(ctx, calc, solver : str):
     """Set the solver for the context"""
     #solver enumerator
     solver_dict = {
