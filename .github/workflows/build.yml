@@ -292,7 +292,6 @@ jobs:
           gcc_v: '12'
           python_v: '3.12'
 
-        include:
         - os: macos-15-intel
           gcc_v: '12'
           python_v: '3.12'
