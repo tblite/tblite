@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.14)
 project(
   "tblite"
   LANGUAGES "Fortran" "C"
-  VERSION "0.5.0"
+  VERSION "0.5.1"
   DESCRIPTION "Light-weight tight-binding framework"
 )
 
