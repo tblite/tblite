@@ -244,7 +244,7 @@ subroutine table_set_char_api(verror, vtable, ckey, cval, n) &
 
    call c_f_pointer(vtable, table)
    call c_f_character(ckey, key)
-   call c_f_pointer(cval, carr, [strlen(cval)+1, min(n, 1)])
+   call c_f_pointer(cval, carr, [strlen(cval)+1, max(n, 1)])
 
    if (table%ptr%has_key(key)) call table%ptr%delete(key)
 
