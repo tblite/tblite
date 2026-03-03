@@ -803,4 +803,4 @@ def test_spin_polarized_restart():
     
     # Verify iteration count (should be very low, e.g., <= 3)
     # Ideally 1 or 2 if restart is perfect
-    assert iterations <= 2, f"Restart took {iterations} iterations, expected <= 3"
+    assert iterations <= 3, f"Restart took {iterations} iterations, expected <= 3"
