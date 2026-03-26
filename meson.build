@@ -90,6 +90,7 @@ if install
     find_program(files('config'/'install-mod.py')),
     get_option('includedir') / module_id,
   )
+  meson.add_dist_script('config/dist_symlinks.sh')
 
   pkg = import('pkgconfig')
   pkg.generate(
