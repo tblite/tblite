@@ -136,7 +136,9 @@ jobs:
             LDFLAGS="-L$(brew --prefix openblas)/lib"
             CPPFLAGS="-I$(brew --prefix openblas)/include"
             MACOSX_DEPLOYMENT_TARGET=15.0
-          CIBW_TEST_COMMAND: python -c "import tblite.interface"
+          # Work around duplicate OpenMP runtime loading during import tests on macOS;
+          # restrict KMP_DUPLICATE_LIB_OK to the test command so built wheels do not rely on it.
+          CIBW_TEST_COMMAND: KMP_DUPLICATE_LIB_OK=TRUE python -c "import tblite.interface"
 
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
