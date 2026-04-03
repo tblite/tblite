@@ -63,15 +63,35 @@ Supported keywords are:
 =================== ==================================== =========================================
 """
 
+import sys
 from io import StringIO
-from typing import Any, Dict, Union
+from typing import Any, Dict, Literal, overload, Union
 
 import numpy as np
-import qcelemental as qcel
 
 from .exceptions import TBLiteRuntimeError, TBLiteTypeError, TBLiteValueError
 from .interface import Calculator
 from .library import get_version
+
+if sys.version_info < (3, 14):
+    try:
+        import qcelemental.models.v1 as qcel_v1
+    except ModuleNotFoundError:
+        import qcelemental.models as qcel_v1
+else:
+    qcel_v1 = None
+
+try:
+    import qcelemental.models.v2 as qcel_v2
+except ModuleNotFoundError:
+    qcel_v2 = None
+
+
+if qcel_v1 is None and qcel_v2 is None:
+    raise ModuleNotFoundError(
+        "The qcelemental package is required for qcschema support. "
+        "Please install it with 'pip install qcelemental'."
+    )
 
 SUPPORTED_DRIVERS = {
     "energy",
@@ -81,7 +101,43 @@ SUPPORTED_DRIVERS = {
 }
 
 
-def get_provenance() -> qcel.models.Provenance:
+if qcel_v1 is not None:
+
+    @overload
+    def get_provenance(schema_version: Literal[1]) -> "qcel_v1.Provenance": ...
+
+    @overload
+    def get_error(
+        input_data: "qcel_v1.AtomicInput",
+        error: Union[Dict[str, Any], "qcel_v1.ComputeError"],
+        schema_version: int,
+    ) -> "qcel_v1.AtomicResult": ...
+
+    @overload
+    def run_schema(
+        input_data: Union[Dict[str, Any], "qcel_v1.AtomicInput"],
+    ) -> Union["qcel_v1.AtomicResult", "qcel_v1.FailedOperation"]: ...
+
+
+if qcel_v2 is not None:
+
+    @overload
+    def get_provenance(schema_version: Literal[2]) -> "qcel_v2.Provenance": ...
+
+    @overload
+    def get_error(
+        input_data: "qcel_v2.AtomicInput",
+        error: Union[Dict[str, Any], "qcel_v2.ComputeError"],
+        schema_version: int,
+    ) -> "qcel_v2.FailedOperation": ...
+
+    @overload
+    def run_schema(
+        input_data: Union[Dict[str, Any], "qcel_v2.AtomicInput"],
+    ) -> Union["qcel_v2.AtomicResult", "qcel_v2.FailedOperation"]: ...
+
+
+def get_provenance(schema_version: Literal[1, 2]):
     """
     Returns a QCSchema provenance model.
 
@@ -90,40 +146,59 @@ def get_provenance() -> qcel.models.Provenance:
     qcel.models.Provenance
         A QCSchema provenance model.
     """
-    return qcel.models.Provenance(
+    prov = dict(
         creator="tblite",
         version=".".join([str(v) for v in get_version()]),
         routine="tblite.qcschema.run_schema",
     )
+    if schema_version == 1:
+        return qcel_v1.Provenance(**prov)
+    elif schema_version == 2:
+        return qcel_v2.Provenance(**prov)
+    else:
+        raise ValueError(
+            f"Unsupported QCSchema version: {schema_version}. Only v1 and v2 are supported."
+        )
 
 
-def get_error(
-    input_data: qcel.models.AtomicInput,
-    error: Union[Dict[str, Any], qcel.models.ComputeError],
-) -> qcel.models.AtomicResult:
-    if not isinstance(error, qcel.models.ComputeError):
-        error = qcel.models.ComputeError(**error)
+def get_error(input_data, error, schema_version):
+    if schema_version == 1:
+        if not isinstance(error, qcel_v1.ComputeError):
+            error = qcel_v1.ComputeError(**error)
 
-    return_data = input_data.dict()
-    return_data.update(
-        error=error,
-        success=False,
-        return_result={
-            "energy": 0.0,
-            "gradient": np.zeros(input_data.molecule.geometry.shape),
-            "hessian": np.zeros(
-                (
-                    input_data.molecule.geometry.size,
-                    input_data.molecule.geometry.size,
-                )
-            ),
-            "properties": {},
-        }[input_data.driver],
-        properties={},
-        provenance=get_provenance(),
-    )
+        if not isinstance(input_data, qcel_v1.AtomicInput):
+            input_data = qcel_v1.AtomicInput(**input_data)
 
-    return qcel.models.AtomicResult(**return_data)
+        return_data = input_data.dict()
+        return_data.update(
+            error=error,
+            success=False,
+            return_result={
+                "energy": 0.0,
+                "gradient": np.zeros(input_data.molecule.geometry.shape),
+                "hessian": np.zeros(
+                    (
+                        input_data.molecule.geometry.size,
+                        input_data.molecule.geometry.size,
+                    )
+                ),
+                "properties": {},
+            }[input_data.driver],
+            properties={},
+            provenance=get_provenance(schema_version),
+        )
+        return qcel_v1.AtomicResult(**return_data)
+
+    elif schema_version == 2:
+        if not isinstance(error, qcel_v2.ComputeError):
+            error = qcel_v2.ComputeError(**error)
+
+        return qcel_v2.FailedOperation(input_data=input_data, error=error)
+
+    else:
+        raise ValueError(
+            f"Unsupported QCSchema version: {schema_version}. Only v1 and v2 are supported."
+        )
 
 
 class _Logger:
@@ -138,86 +213,120 @@ class _Logger:
         return self._buffer.getvalue()
 
 
-def run_schema(
-    input_data: Union[Dict[str, Any], qcel.models.AtomicInput]
-) -> qcel.models.AtomicResult:
+def run_schema(input_data):
     """Runs a QCSchema input through the QCEngine stack and returns a QCSchema result.
 
     Parameters
     ----------
     input_data : qcel.models.AtomicInput
-        A QCSchema input dictionary or model.
+        A QCSchema v1 or v2 input dictionary or model.
 
     Returns
     -------
     qcel.models.AtomicResult
-        A QCSchema result model.
+        A QCSchema v1 or v2 result model.
     """
-    if not isinstance(input_data, qcel.models.AtomicInput):
-        input_data = qcel.models.AtomicInput(**input_data)
+    if qcel_v2 is not None and isinstance(input_data, qcel_v2.AtomicInput):
+        atomic_input = input_data
+    elif qcel_v1 is not None and isinstance(input_data, qcel_v1.AtomicInput):
+        atomic_input = input_data
+    elif qcel_v2 is not None and input_data.get("specification"):
+        atomic_input = qcel_v2.AtomicInput(**input_data)
+    elif qcel_v1 is not None:
+        atomic_input = qcel_v1.AtomicInput(**input_data)
+    else:
+        raise ValueError(
+            "Input data is not a valid QCSchema AtomicInput for either v1 or v2."
+        )
 
-    if input_data.driver not in SUPPORTED_DRIVERS:
+    schema_version = atomic_input.schema_version
+    if schema_version == 1:
+        ret_data = atomic_input.dict()
+        input_keywords = atomic_input.keywords
+        input_method = atomic_input.model.method
+        input_basis = atomic_input.model.basis
+        input_driver = atomic_input.driver
+    elif schema_version == 2:
+        ret_data = {
+            "input_data": atomic_input,
+            "extras": {},
+            "molecule": atomic_input.molecule,
+        }
+        input_keywords = atomic_input.specification.keywords
+        input_method = atomic_input.specification.model.method
+        input_basis = atomic_input.specification.model.basis
+        input_driver = atomic_input.specification.driver
+    else:
+        raise ValueError(
+            f"Unsupported QCSchema version: {schema_version}. Only v1 and v2 are supported."
+        )
+
+    if input_driver not in SUPPORTED_DRIVERS:
         driver_name = (
-            input_data.driver.name
-            if hasattr(input_data.driver, "name")
-            else str(input_data.driver)
+            input_driver.name
+            if hasattr(input_driver, "name")
+            else str(input_driver)
         )
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            dict(
                 error_type="input_error",
                 error_message=f"Driver '{driver_name}' is not supported by tblite.",
             ),
+            schema_version,
         )
 
-    if input_data.model.method not in Calculator._loader:
+    if input_method not in Calculator._loader:
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            dict(
                 error_type="input_error",
-                error_message=f"Model '{input_data.model.method}' is not supported by tblite.",
+                error_message=f"Model '{input_method}' is not supported by tblite.",
             ),
+            schema_version,
         )
 
-    if input_data.model.basis is not None:
+    if input_basis is not None:
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            dict(
                 error_type="input_error",
                 error_message="Basis sets are not supported by tblite.",
             ),
+            schema_version,
         )
 
     keywords = {
         key: value
-        for key, value in input_data.keywords.items()
+        for key, value in input_keywords.items()
         if key in Calculator._setter
     }
     interaction = {
         key: value
-        for key, value in input_data.keywords.items()
+        for key, value in input_keywords.items()
         if key in Calculator._interaction
     }
     unknown_keywords = (
-        set(input_data.keywords) - set(keywords) - set(interaction)
+        set(input_keywords) - set(keywords) - set(interaction)
     )
     if unknown_keywords:
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            dict(
                 error_type="input_error",
                 error_message=f"Unknown keywords: {', '.join(unknown_keywords)}.",
             ),
+            schema_version,
         )
 
     logger = _Logger()
     try:
         calc = Calculator(
-            method=input_data.model.method,
-            numbers=input_data.molecule.atomic_numbers,
-            positions=input_data.molecule.geometry,
-            charge=input_data.molecule.molecular_charge,
-            uhf=input_data.molecule.molecular_multiplicity - 1,
+            method=input_method,
+            numbers=atomic_input.molecule.atomic_numbers,
+            positions=atomic_input.molecule.geometry,
+            charge=atomic_input.molecule.molecular_charge,
+            uhf=atomic_input.molecule.molecular_multiplicity - 1,
             color=False,
             logger=logger,
         )
@@ -231,7 +340,12 @@ def run_schema(
 
         result = calc.singlepoint().dict()
 
-        properties = qcel.models.AtomicResultProperties(
+        if schema_version == 1:
+            AtProp = qcel_v1.AtomicResultProperties
+        elif schema_version == 2:
+            AtProp = qcel_v2.AtomicProperties
+
+        properties = AtProp(
             return_energy=result["energy"],
             return_gradient=result["gradient"],
             calcinfo_natom=result["natoms"],
@@ -253,33 +367,37 @@ def run_schema(
                 "mulliken_charges": result["charges"],
                 "mayer_indices": result["bond-orders"],
             },
-        }[input_data.driver]
+        }[input_driver]
 
     except (TBLiteTypeError, TBLiteValueError) as e:
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            error = dict(
                 error_type="input_error",
                 error_message=str(e),
             ),
+            schema_version=schema_version,
         )
 
     except TBLiteRuntimeError as e:
         return get_error(
             input_data,
-            qcel.models.ComputeError(
+            error = dict(
                 error_type="execution_error",
                 error_message=str(e),
             ),
+            schema_version=schema_version,
         )
 
-    return_data = input_data.dict()
-    return_data.update(
+    ret_data.update(
         success=True,
         return_result=return_result,
         properties=properties,
-        provenance=get_provenance(),
+        provenance=get_provenance(schema_version),
         stdout=str(logger),
     )
 
-    return qcel.models.AtomicResult(**return_data)
+    if schema_version == 1:
+        return qcel_v1.AtomicResult(**ret_data)
+
+    return qcel_v2.AtomicResult(**ret_data)
