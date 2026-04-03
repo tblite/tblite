@@ -20,10 +20,7 @@ import numpy as np
 import pytest
 
 try:
-    from tblite.qcschema import run_schema
-    import qcelemental
-    qcel_v1 = qcelemental.models
-    qcel_v2 = None
+    from tblite.qcschema import run_schema, qcel_v1, qcel_v2
 except ModuleNotFoundError:
     qcel_v1 = None
     qcel_v2 = None
