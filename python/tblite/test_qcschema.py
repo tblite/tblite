@@ -14,20 +14,31 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """Tests for the qcelemental interface."""
-from typing import Any
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pytest
 
 try:
-    import qcelemental as qcel
-    from qcelemental.models import AtomicInput, Molecule
-
     from tblite.qcschema import run_schema
+    import qcelemental
+    qcel_v1 = qcelemental.models
+    qcel_v2 = None
 except ModuleNotFoundError:
-    qcel = None
-    AtomicInput = dict
-    Molecule = dict
+    qcel_v1 = None
+    qcel_v2 = None
+
+v1_available = pytest.mark.skipif(
+    qcel_v1 is None, reason="QCSchema v1 not available for py314+"
+)
+v2_available = pytest.mark.skipif(
+    qcel_v2 is None, reason="QCSchema v2 not available in current QCElemental"
+)
+
+
+@pytest.fixture(params=[pytest.param(1, marks=v1_available), pytest.param(2, marks=v2_available)])
+def qcsk_version(request):
+    return request.param
 
 
 @pytest.fixture
@@ -37,8 +48,13 @@ def multiplicity(request) -> int:
 
 
 @pytest.fixture(params=["ala-xab"])
-def molecule(request, multiplicity: int) -> Molecule:
+def molecule(request, multiplicity: int, qcsk_version: int) -> "Molecule":
     """Get a molecule for testing."""
+    if qcsk_version == 1:
+        Molecule = qcel_v1.Molecule
+    elif qcsk_version == 2:
+        Molecule = qcel_v2.Molecule
+
     if request.param == "ala-xab":
         return Molecule(
             symbols=list("NHCHCCHHHOCCHHHONHCHHH"),
@@ -86,21 +102,59 @@ def method(request) -> str:
     return request.param
 
 
+def get_atomic_input(
+    version: int,
+    molecule: Dict[str, Any],
+    driver: str,
+    model: str,
+    keywords: Optional[Dict[str, Any]] = None,
+    qcel_object: bool = False,
+):
+    keywords = {} if keywords is None else keywords
+    spec = {
+        "driver": driver,
+        "model": model,
+        "keywords": keywords,
+    }
+
+    if version == 1:
+        input_data = {
+            "molecule": molecule,
+            **spec,
+        }
+        if qcel_object:
+            return qcel_v1.AtomicInput(**input_data)
+        return input_data
+
+    if version == 2:
+        input_data = {
+            "molecule": molecule,
+            "specification": spec,
+        }
+        if qcel_object:
+            return qcel_v2.AtomicInput(**input_data)
+        return input_data
+
+    raise ValueError(f"Unsupported version: {version}")
+
+
 @pytest.fixture()
-def atomic_input(molecule: Molecule, driver: str, method: str) -> AtomicInput:
+def atomic_input(molecule: "Molecule", driver: str, method: str, qcsk_version: int) -> "AtomicInput":
     """AtomicInput fixture."""
-    return AtomicInput(
+    return get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver=driver,
         model={"method": method},
         keywords={"spin-polarization": 1.0},
+        qcel_object=True,
     )
 
 
 @pytest.fixture()
-def return_result(molecule: Molecule, driver: str, method: str) -> Any:
+def return_result(molecule: "Molecule", driver: str, method: str) -> Any:
     """Return result fixture."""
-    if qcel is None:
+    if qcel_v1 is None and qcel_v2 is None:
         return None
 
     # fmt: off
@@ -249,9 +303,9 @@ def return_result(molecule: Molecule, driver: str, method: str) -> Any:
     # fmt: on
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 @pytest.mark.parametrize("multiplicity", [1, 3], indirect=True)
-def test_qcschema(atomic_input: AtomicInput, return_result: Any) -> None:
+def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
     """Test qcschema interface."""
     atomic_result = run_schema(atomic_input)
 
@@ -272,20 +326,22 @@ def solvation(request) -> dict:
 
 
 @pytest.fixture()
-def atomic_input_solvation(molecule: Molecule, method: str, solvation: dict) -> AtomicInput:
+def atomic_input_solvation(molecule: "Molecule", method: str, solvation: dict, qcsk_version: int) -> "AtomicInput":
     """AtomicInput fixture."""
-    return AtomicInput(
+    return get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="energy",
         model={"method": method},
-        keywords=solvation
+        keywords=solvation,
+        qcel_object=False,
     )
 
 
 @pytest.fixture()
-def return_result_solvation(molecule: Molecule, method: str, solvation: dict) -> Any:
+def return_result_solvation(molecule: "Molecule", method: str, solvation: dict) -> Any:
     """Return result fixture."""
-    if qcel is None:
+    if qcel_v1 is None and qcel_v2 is None:
         return None
 
     # fmt: off
@@ -344,8 +400,8 @@ def return_result_solvation(molecule: Molecule, method: str, solvation: dict) ->
     # fmt: on
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_qcschema_solvation(atomic_input_solvation: AtomicInput, return_result_solvation: Any) -> None:
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_qcschema_solvation(atomic_input_solvation: "AtomicInput", return_result_solvation: Any) -> None:
     """Test qcschema interface."""
     atomic_result = run_schema(atomic_input_solvation)
 
@@ -353,10 +409,10 @@ def test_qcschema_solvation(atomic_input_solvation: AtomicInput, return_result_s
     assert pytest.approx(atomic_result.return_result) == return_result_solvation
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_unsupported_driver(molecule: Molecule):
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_unsupported_driver(molecule: "Molecule", qcsk_version: int):
     """Test unsupported driver name."""
-    atomic_inp = AtomicInput(
+    atomic_inp = get_atomic_input(qcsk_version,
         molecule=molecule,
         driver="hessian",
         model={"method": "GFN1-xTB"},
@@ -372,10 +428,12 @@ def test_unsupported_driver(molecule: Molecule):
     )
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_unsupported_method(molecule: Molecule):
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_unsupported_method(molecule: "Molecule", qcsk_version: int):
     """Test unsupported method name."""
-    atomic_inp = AtomicInput(
+
+    atomic_inp = get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="energy",
         model={"method": "GFN-xTB"},
@@ -391,10 +449,10 @@ def test_unsupported_method(molecule: Molecule):
     )
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_unsupported_basis(molecule: Molecule):
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_unsupported_basis(molecule: "Molecule", qcsk_version: int):
     """Test unsupported basis set."""
-    atomic_inp = AtomicInput(
+    atomic_inp = get_atomic_input(qcsk_version,
         molecule=molecule,
         driver="energy",
         model={"method": "GFN1-xTB", "basis": "def2-SVP"},
@@ -410,10 +468,10 @@ def test_unsupported_basis(molecule: Molecule):
     )
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_unsupported_keywords(molecule: Molecule):
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_unsupported_keywords(molecule: "Molecule", qcsk_version: int):
     """Test unsupported keywords."""
-    atomic_inp = AtomicInput(
+    atomic_inp = get_atomic_input(qcsk_version,
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
@@ -427,10 +485,10 @@ def test_unsupported_keywords(molecule: Molecule):
     assert "Unknown keywords: unsupported" in atomic_result.error.error_message
 
 
-@pytest.mark.skipif(qcel is None, reason="requires qcelemental")
-def test_scf_not_converged(molecule: Molecule):
+@pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
+def test_scf_not_converged(molecule: "Molecule", qcsk_version: int):
     """Test unconverged SCF."""
-    atomic_inp = AtomicInput(
+    atomic_inp = get_atomic_input(qcsk_version,
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
