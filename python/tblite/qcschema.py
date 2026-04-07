@@ -19,6 +19,12 @@ Integration with the `QCArchive infrastructure <https://qcarchive.molssi.org>`_.
 This module provides a function to run QCSchema input or QCElemental Atomic Input
 through the TBLite calculator and return the result as a QCElemental Atomic Result.
 
+If the QCElemental package is installed the ``tblite.qcschema`` module becomes
+importable and provides the ``run_schema`` function supporting QCSchema v1.
+If the QCElemental package is >=0.50.0, ``tblite.qcschema`` supports QCSchema v1
+and v2, returning whichever version was submitted. Note that Python 3.14+ only
+works with QCSchema v2 due to Pydantic restrictions.
+
 The model support the following methods:
 
 - **GFN2-xTB**: 

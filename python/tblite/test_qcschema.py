@@ -409,7 +409,8 @@ def test_qcschema_solvation(atomic_input_solvation: "AtomicInput", return_result
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 def test_unsupported_driver(molecule: "Molecule", qcsk_version: int):
     """Test unsupported driver name."""
-    atomic_inp = get_atomic_input(qcsk_version,
+    atomic_inp = get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="hessian",
         model={"method": "GFN1-xTB"},
@@ -428,7 +429,6 @@ def test_unsupported_driver(molecule: "Molecule", qcsk_version: int):
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 def test_unsupported_method(molecule: "Molecule", qcsk_version: int):
     """Test unsupported method name."""
-
     atomic_inp = get_atomic_input(
         qcsk_version,
         molecule=molecule,
@@ -449,7 +449,8 @@ def test_unsupported_method(molecule: "Molecule", qcsk_version: int):
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 def test_unsupported_basis(molecule: "Molecule", qcsk_version: int):
     """Test unsupported basis set."""
-    atomic_inp = get_atomic_input(qcsk_version,
+    atomic_inp = get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="energy",
         model={"method": "GFN1-xTB", "basis": "def2-SVP"},
@@ -468,7 +469,8 @@ def test_unsupported_basis(molecule: "Molecule", qcsk_version: int):
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 def test_unsupported_keywords(molecule: "Molecule", qcsk_version: int):
     """Test unsupported keywords."""
-    atomic_inp = get_atomic_input(qcsk_version,
+    atomic_inp = get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
@@ -485,7 +487,8 @@ def test_unsupported_keywords(molecule: "Molecule", qcsk_version: int):
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
 def test_scf_not_converged(molecule: "Molecule", qcsk_version: int):
     """Test unconverged SCF."""
-    atomic_inp = get_atomic_input(qcsk_version,
+    atomic_inp = get_atomic_input(
+        qcsk_version,
         molecule=molecule,
         driver="gradient",
         model={"method": "GFN1-xTB"},
