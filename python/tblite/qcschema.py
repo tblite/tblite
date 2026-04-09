@@ -348,7 +348,8 @@ def run_schema(input_data):
 
         if schema_version == 1:
             AtProp = qcel_v1.AtomicResultProperties
-        elif schema_version == 2:
+        else:
+            # schema_version == 2:
             AtProp = qcel_v2.AtomicProperties
 
         properties = AtProp(
