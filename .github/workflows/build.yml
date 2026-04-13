@@ -285,7 +285,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         gcc_v: ['12']
-        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
         include:
         - os: macos-latest
@@ -331,6 +331,10 @@ jobs:
       with:
         compiler: gcc
         version: ${{ matrix.gcc_v }}
+
+    - name: Install QCSchema v2 for Py 313+
+      if: ((matrix.python_v == '3.14') || (matrix.python_v == '3.13'))
+      run: pip3 install "qcelemental>=0.50.0rc3"
 
     - name: Install meson and test dependencies
       run: pip3 install ${{ env.PIP_EXTRAS }}
