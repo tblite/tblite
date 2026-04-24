@@ -180,6 +180,7 @@ subroutine new_ddx(self, mol, input, error)
       self%label = "ddlpb solvation model"
    end if
 
+
    ! Set model 
    self%ddx_input%ddx_model = input%ddx_model
 
@@ -320,6 +321,15 @@ subroutine update(self, mol, cache)
       deallocate(ptr%ddx_pot)
    end if
    allocate(ptr%ddx_pot(mol%nat), source=0.0_wp)
+
+   call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
+   call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
+   
+   call setup(ptr%ddx%params,ptr%ddx%constants, &
+      & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
+      & ptr%ddx_state%psi, ptr%ddx_error)
+   call check_error(ptr%ddx_error)
 
    call fill_guess(ptr%ddx%params, ptr%ddx%constants, &
          & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)

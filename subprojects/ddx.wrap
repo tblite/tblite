@@ -1,4 +1,4 @@
 [wrap-git]
 directory = ddx
-url = https://github.com/lukaswittmann/ddX
-revision = meson
+url = https://github.com/ddsolvation/ddX
+revision = v0.7.0
