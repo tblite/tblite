@@ -467,7 +467,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call check_error(ptr%ddx_error)
 
    call solve(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)code .
+      
    call check_error(ptr%ddx_error)
 
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &

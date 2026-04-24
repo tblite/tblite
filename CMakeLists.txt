@@ -118,10 +118,10 @@ add_library(ddx_includes INTERFACE)
 install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
 target_include_directories(ddx_includes
   INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/ddx-build/src>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/subprojects/ddx/src>
     $<INSTALL_INTERFACE:include/ddx>
 )
-install(DIRECTORY "${CMAKE_BINARY_DIR}/_deps/ddx-build/src/"
+install(DIRECTORY "${CMAKE_BINARY_DIR}/subprojects/ddx/src/"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
         FILES_MATCHING PATTERN "*.mod")
 target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
