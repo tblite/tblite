@@ -19,7 +19,7 @@ module test_xtbml
    use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
    use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, new_alpb, get_solvent_data, &
-      & cpcm_input, cpcm_solvation, new_cpcm
+      & ddx_input, ddx_solvation, new_ddx
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, toml_array, add_array
    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
@@ -1163,11 +1163,11 @@ subroutine test_energy_sum_up_gfn1(error)
 
    block
       class(container_type), allocatable :: cont
-      type(cpcm_solvation), allocatable :: solv
-      type(cpcm_input) :: cpcm_inp
-      cpcm_inp = cpcm_input(4.0)
+      type(ddx_solvation), allocatable :: solv
+      type(ddx_input) :: ddx_inp
+      ddx_inp = ddx_input(4.0, ddx_model=12)
       allocate(solv)
-      call new_cpcm(solv, mol, cpcm_inp, error)
+      call new_ddx(solv, mol, ddx_inp, error)
       call move_alloc(solv, cont)
       call calc%push_back(cont)
    end block
