@@ -274,9 +274,7 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
             do jsh = 1, nshell(jat)
                gam = hubbard(jsh, ish, jzp, izp)
                tmp = 1.0_wp/(r1g + gam**(-gexp))**(1.0_wp/gexp)
-               !$omp atomic
                amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + tmp
-               !$omp atomic
                amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + tmp
             end do
          end do
@@ -284,12 +282,9 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
       do ish = 1, nshell(iat)
          do jsh = 1, ish-1
             gam = hubbard(jsh, ish, izp, izp)
-            !$omp atomic
             amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + gam
-            !$omp atomic
             amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + gam
          end do
-         !$omp atomic
          amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + hubbard(ish, ish, izp, izp)
       end do
    end do
@@ -343,9 +338,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
                   gam = hubbard(jsh, ish, jzp, izp)
                   call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
                   aval = (dtmp + rtmp) * wsw
-                  !$omp atomic
                   amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
-                  !$omp atomic
                   amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
                end do
             end do
@@ -362,15 +355,12 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
                gam = hubbard(jsh, ish, izp, izp)
                call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
                aval = (dtmp + rtmp + gam) * wsw
-               !$omp atomic
                amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
-               !$omp atomic
                amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
             end do
             gam = hubbard(ish, ish, izp, izp)
             call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
             aval = (dtmp + rtmp + gam) * wsw
-            !$omp atomic
             amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
       end do

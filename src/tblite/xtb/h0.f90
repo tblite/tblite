@@ -192,7 +192,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
    !> Effective Hamiltonian
    real(wp), intent(out) :: hamiltonian(:, :)
 
-   integer :: iat, jat, izp, jzp, itr, k, img, inl
+   integer :: iat, jat, izp, jzp, itr, img, inl
    integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), hij, shpoly, dtmpj(3), qtmpj(6)
    real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
@@ -206,7 +206,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
 
    !$omp parallel do schedule(runtime) default(none) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, k) &
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij) &
    !$omp private(r2, vec, stmp, dtmpi, qtmpi, dtmpj, qtmpj, hij, shpoly, rr, inl, img)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -239,42 +239,28 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
                      ij = jao + nao*(iao-1)
                      call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
                         & dtmpj, qtmpj)
-                     !$omp atomic
                      overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                         + stmp(ij)
 
-                     do k = 1, 3
-                        !$omp atomic
-                        dpint(k, jj+jao, ii+iao) = dpint(k, jj+jao, ii+iao) &
-                           + dtmpi(k, ij)
-                     end do
+                     dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
+                        + dtmpi(:, ij)
 
-                     do k = 1, 6
-                        !$omp atomic
-                        qpint(k, jj+jao, ii+iao) = qpint(k, jj+jao, ii+iao) &
-                           + qtmpi(k, ij)
-                     end do
+                     qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
+                        + qtmpi(:, ij)
 
-                     !$omp atomic
                      hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
                         + stmp(ij) * hij
 
                      if (iat /= jat) then
-                        !$omp atomic
                         overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
                            + stmp(ij)
-                        do k = 1, 3
-                           !$omp atomic
-                           dpint(k, ii+iao, jj+jao) = dpint(k, ii+iao, jj+jao) &
-                              + dtmpj(k)
-                        end do
 
-                        do k = 1, 6
-                           !$omp atomic
-                           qpint(k, ii+iao, jj+jao) = qpint(k, ii+iao, jj+jao) &
-                              + qtmpj(k)
-                        end do
-                        !$omp atomic
+                        dpint(:, ii+iao, jj+jao) = dpint(:, ii+iao, jj+jao) &
+                           + dtmpj
+
+                        qpint(:, ii+iao, jj+jao) = qpint(:, ii+iao, jj+jao) &
+                           + qtmpj
+
                         hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
                            + stmp(ij) * hij
                      end if
