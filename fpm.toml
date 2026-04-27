@@ -1,5 +1,5 @@
 name = "tblite"
-version = "0.5.0"
+version = "0.5.1"
 license = "LGPL-3.0-or-later"
 maintainer = ["@awvwgk"]
 author = ["Sebastian Ehlert"]
