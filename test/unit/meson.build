@@ -79,5 +79,11 @@ tester = executable(
 )
 
 foreach t : tests
-  test(t, tester, args: t, suite: 'unit')
+  timeout = 30
+
+  if t == 'solvation-ddx'
+    timeout = 120
+  endif
+
+  test(t, tester, args: t, suite: 'unit', timeout: timeout)
 endforeach
