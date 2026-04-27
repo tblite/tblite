@@ -181,10 +181,15 @@ jobs:
         ${{ env.MESON_ARGS }}
       env:
         COVERAGE: ${{ matrix.build-type == 'coverage' }}
+        #MESON_ARGS: >-
+         # ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
+         # ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
+         # ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
         MESON_ARGS: >-
-          ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
+          ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dopenmp=false -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
+
 
     - name: Configure build (CMake)
       if: ${{ matrix.toolchain.build == 'cmake' }}
