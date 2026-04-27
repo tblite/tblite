@@ -98,10 +98,10 @@ jobs:
         echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
-      if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ contains(matrix.os, 'ubuntu') }}
       run: |
         sudo apt-get update
-        sudo apt-get install -y liblapack-dev
+        sudo apt-get install -y libblas-dev liblapack-dev
 
     - name: Install fpm
       if: ${{ matrix.toolchain.build == 'fpm' }}
