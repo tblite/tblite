@@ -185,11 +185,12 @@ jobs:
          # ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
          # ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
          # ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
-        MESON_ARGS: >-
-          ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dopenmp=false -Dapi=false' || '' }}
-          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
-          ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
-
+        # .github/workflows/build.yml
+# ref: 1830138332ff88f8a79afdcac9b32728436610dd
+       MESON_ARGS: >-
+         ${{ contains(matrix.toolchain.compiler, 'intel') && '-Db_staticpic=true -Dopenmp=false -Dapi=false' || '' }}
+         ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
+         ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
 
     - name: Configure build (CMake)
       if: ${{ matrix.toolchain.build == 'cmake' }}
