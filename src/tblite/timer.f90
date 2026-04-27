@@ -146,29 +146,29 @@ function format_time(time) result(string)
    integer :: mins, hours, days
 
    secs = time
-   days = int(secs/86400.0_wp)
-   secs = secs - days*86400.0_wp
-   hours = int(secs/3600.0_wp)
-   secs = secs - hours*3600.0_wp
-   mins = int(secs/60.0_wp)
-   secs = time - mins*60.0_wp
+   ! days = int(secs/86400.0_wp)
+   ! secs = secs - days*86400.0_wp
+   ! hours = int(secs/3600.0_wp)
+   ! secs = secs - hours*3600.0_wp
+   ! mins = int(secs/60.0_wp)
+   ! secs = time - mins*60.0_wp
 
-   if (days > 0) then
-      string = format_string(days, '(i0, " d,")')
-   else
-      string = repeat(" ", 4)
-   end if
-   if (hours > 0) then
-      string = string // format_string(hours, '(1x, i2, " h,")')
-   else
-      string = string // repeat(" ", 6)
-   end if
-   if (mins > 0) then
-      string = string // format_string(mins, '(1x, i2, " min,")')
-   else
-      string = string // repeat(" ", 8)
-   end if
-   string = string // format_string(secs, '(f6.3)')//" sec"
+   ! if (days > 0) then
+   !    string = format_string(days, '(i0, " d,")')
+   ! else
+   !    string = repeat(" ", 4)
+   ! end if
+   ! if (hours > 0) then
+   !    string = string // format_string(hours, '(1x, i2, " h,")')
+   ! else
+   !    string = string // repeat(" ", 6)
+   ! end if
+   ! if (mins > 0) then
+   !    string = string // format_string(mins, '(1x, i2, " min,")')
+   ! else
+   !    string = string // repeat(" ", 8)
+   ! end if
+   string = string // format_string(secs, '(f10.3)')//" sec"
 end function format_time
 
 

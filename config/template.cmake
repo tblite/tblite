@@ -37,4 +37,8 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   if(NOT TARGET "dftd4::dftd4")
     find_dependency("dftd4")
   endif()
+
+   if(NOT TARGET "ddx::ddx")
+      find_dependency("ddx")
+   endif()
 endif()

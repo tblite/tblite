@@ -2350,6 +2350,7 @@ int test_uninitialized_dict()
     if (!tblite_check(error))
         goto unexpected;
 
+        printf("Unexpected error: dictionary is not initialized\n");
     tblite_get_singlepoint(ctx, mol, calc, res);
 
     error = NULL;
@@ -3121,7 +3122,7 @@ int test_uninitialized_solvation()
     error = tblite_new_error();
 
     //check if it fails when mol is not associated
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 0.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_ddx_solvation_cosmo, 0.0);
     if (!tblite_check(error))
         goto unexpected;
     show(error);
@@ -3144,9 +3145,9 @@ unexpected:
     return 1;
 }
 
-int test_solvation_cpcm_eps()
+int test_solvation_ddx_eps()
 {
-    printf("Start test: CPCM Solvation\n");
+    printf("Start test: ddX Solvation\n");
     tblite_error error = NULL;
     tblite_context ctx = NULL;
     tblite_structure mol = NULL;
@@ -3168,7 +3169,7 @@ int test_solvation_cpcm_eps()
     if (!calc)
         goto err;
 
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 7.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_ddx_solvation_cosmo, 0.0);
     if (tblite_check(error))
         goto err;
 
@@ -3184,7 +3185,7 @@ int test_solvation_cpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.43287176929, thr, "energy error"))
+   if (!check(energy, -28.43789851660, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -3207,6 +3208,7 @@ err:
         printf("[Fatal] %s\n", message);
     }
 
+      
     tblite_delete(error);
     tblite_delete(ctx);
     tblite_delete(mol);
@@ -3677,7 +3679,7 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
-    stat += test_solvation_cpcm_eps();
+    stat += test_solvation_ddx_eps();
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();

@@ -61,12 +61,17 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
-
+set(EXAMPLES OFF CACHE BOOL "Disable ddx examples" FORCE)
+if(NOT TARGET "ddx::ddx")
+  find_package("ddx" REQUIRED)
+endif()
+  
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
   "LAPACK::LAPACK"
   "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
+  "ddx::ddx"
   "toml-f::toml-f"
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
@@ -109,6 +114,18 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
+add_library(ddx_includes INTERFACE)
+install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
+target_include_directories(ddx_includes
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/subprojects/ddx/src>
+    $<INSTALL_INTERFACE:include/ddx>
+)
+install(DIRECTORY "${CMAKE_BINARY_DIR}/subprojects/ddx/src/"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
+        FILES_MATCHING PATTERN "*.mod")
+target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
+
 # Add example application
 add_subdirectory("app")
 
@@ -148,6 +165,8 @@ install(
   "COPYING.LESSER"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}"
 )
+
+
 
 # add the testsuite
 if (WITH_TESTS)
