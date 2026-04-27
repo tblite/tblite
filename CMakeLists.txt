@@ -114,17 +114,30 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
-add_library(ddx_includes INTERFACE)
-install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
-target_include_directories(ddx_includes
-  INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/subprojects/ddx/src>
-    $<INSTALL_INTERFACE:include/ddx>
-)
-install(DIRECTORY "${CMAKE_BINARY_DIR}/subprojects/ddx/src/"
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
-        FILES_MATCHING PATTERN "*.mod")
-target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
+set(ddx_module_dir)
+if(DEFINED DDX_BINARY_DIR)
+  set(ddx_module_dir "${DDX_BINARY_DIR}/src")
+elseif(DEFINED ddX_BINARY_DIR)
+  set(ddx_module_dir "${ddX_BINARY_DIR}/src")
+elseif(TARGET ddx)
+  get_target_property(ddx_module_dir ddx Fortran_MODULE_DIRECTORY)
+  if(NOT ddx_module_dir)
+    get_target_property(ddx_module_dir ddx BINARY_DIR)
+  endif()
+endif()
+if(ddx_module_dir)
+  add_library(ddx_includes INTERFACE)
+  install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
+  target_include_directories(ddx_includes
+    INTERFACE
+      $<BUILD_INTERFACE:${ddx_module_dir}>
+      $<INSTALL_INTERFACE:include/ddx>
+  )
+  install(DIRECTORY "${ddx_module_dir}/"
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
+          FILES_MATCHING PATTERN "*.mod")
+  target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
+endif()
 
 # Add example application
 add_subdirectory("app")
