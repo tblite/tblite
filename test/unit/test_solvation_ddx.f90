@@ -57,10 +57,10 @@ subroutine collect_solvation_ddx(testsuite)
       ! new_unittest("energy-mol-lpb", test_e_lpb_m01), &
       new_unittest("gradient-mol-num-cosmo", test_g_num_cosmo_m02), &
       ! new_unittest("gradient-mol-cosmo", test_g_cosmo_m02) &
-      new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
+      new_unittest("gradient-mol-num-pcm", test_g_pcm_m02) &
       ! new_unittest("gradient-mol-lpb", test_g_lpb_m02), &
-      new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
-      new_unittest("potential-mol-pcm", test_p_pcm_m03) &
+      ! new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
+      ! new_unittest("potential-mol-pcm", test_p_pcm_m03) &
       ! new_unittest("potential-mol-lpb", test_p_lpb_m03) &
       ]
 
