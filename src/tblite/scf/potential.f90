@@ -153,7 +153,7 @@ subroutine add_vat_to_vsh(bas, vat, vsh)
    integer :: iat, ish, ii, spin
 
    !$omp parallel do schedule(runtime) collapse(2) default(none) &
-   !$omp reduction(+:vsh) shared(bas, vat) private(spin, ii, ish, iat)
+   !$omp shared(bas, vat, vsh) private(spin, ii, ish, iat)
    do spin = 1, size(vat, 2)
       do iat = 1, size(vat, 1)
          ii = bas%ish_at(iat)
@@ -176,7 +176,7 @@ subroutine add_vsh_to_vao(bas, vsh, vao)
    integer :: ish, iao, ii, spin
 
    !$omp parallel do schedule(runtime) collapse(2) default(none) &
-   !$omp reduction(+:vao) shared(bas, vsh) private(ii, iao, ish)
+   !$omp shared(bas, vsh, vao) private(ii, iao, ish)
    do spin = 1, size(vsh, 2)
       do ish = 1, size(vsh, 1)
          ii = bas%iao_sh(ish)
@@ -199,15 +199,21 @@ subroutine add_vao_to_h1(bas, sint, vao, h1)
    !> Effective Hamiltonian
    real(wp), intent(inout) :: h1(:, :, :)
 
-   integer :: iao, jao, spin
+   integer :: iao, jao, spin, nao
+   real(wp) :: vij
 
-   !$omp parallel do collapse(3) schedule(runtime) default(none) &
-   !$omp shared(h1, bas, sint, vao) private(spin, iao, jao)
+   nao = bas%nao
+
+   !$omp parallel do collapse(2) schedule(runtime) default(none) &
+   !$omp shared(h1, sint, vao, nao) private(spin, iao, jao, vij)
    do spin = 1, size(h1, 3)
-      do iao = 1, bas%nao
-         do jao = 1, bas%nao
-            h1(jao, iao, spin) = h1(jao, iao, spin) &
-               & - sint(jao, iao) * 0.5_wp * (vao(jao, spin) + vao(iao, spin))
+      do iao = 1, nao
+         do jao = 1, iao
+            vij = -sint(jao, iao) * 0.5_wp * (vao(jao, spin) + vao(iao, spin))
+            h1(jao, iao, spin) = h1(jao, iao, spin) + vij
+            if (jao /= iao) then
+               h1(iao, jao, spin) = h1(iao, jao, spin) + vij
+            end if
          end do
       end do
    end do
@@ -224,20 +230,25 @@ subroutine add_vmp_to_h1(bas, mpint, vmp, h1)
    !> Effective Hamiltonian
    real(wp), intent(inout) :: h1(:, :, :)
 
-   integer :: iao, jao, iat, jat, nmp, spin
+   integer :: iao, jao, iat, jat, nmp, spin, nao
+   real(wp) :: vij
 
    nmp = min(size(mpint, 1), size(vmp, 1))
+   nao = bas%nao
 
-   !$omp parallel do collapse(3) schedule(runtime) default(none) &
-   !$omp shared(h1, bas, mpint, vmp, nmp) private(spin, iao, jao, iat, jat)
+   !$omp parallel do collapse(2) schedule(runtime) default(none) &
+   !$omp shared(h1, bas, mpint, vmp, nmp, nao) private(spin, iao, jao, iat, jat, vij)
    do spin = 1, size(h1, 3)
-      do iao = 1, bas%nao
-         do jao = 1, bas%nao
-            iat = bas%ao2at(iao)
+      do iao = 1, nao
+         iat = bas%ao2at(iao)
+         do jao = 1, iao
             jat = bas%ao2at(jao)
-            h1(jao, iao, spin) = h1(jao, iao, spin) &
-               & - 0.5_wp * dot_product(mpint(:nmp, jao, iao), vmp(:nmp, iat, spin)) &
+            vij = -0.5_wp * dot_product(mpint(:nmp, jao, iao), vmp(:nmp, iat, spin)) &
                & - 0.5_wp * dot_product(mpint(:nmp, iao, jao), vmp(:nmp, jat, spin))
+            h1(jao, iao, spin) = h1(jao, iao, spin) + vij
+            if (jao /= iao) then
+               h1(iao, jao, spin) = h1(iao, jao, spin) + vij
+            end if
          end do
       end do
    end do

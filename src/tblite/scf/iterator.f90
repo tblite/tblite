@@ -90,6 +90,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (iscf > 0) then
       call mixer%next(error)
       if (allocated(error)) return
+
       call get_mixer(mixer, bas, wfn, info)
    end if
 
@@ -104,6 +105,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(interactions) .and. present(icache)) then
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
+
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
    call set_mixer(mixer, wfn, info)
@@ -127,6 +129,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    energies(:) = ts / size(energies)
    call reduce(energies, eao, bas%ao2at)
+
    if (present(coulomb) .and. present(ccache)) then
       call coulomb%get_energy(mol, ccache, wfn, energies)
    end if
@@ -145,15 +148,18 @@ subroutine get_electronic_energy(h0, density, energies)
    real(wp), intent(inout) :: energies(:)
 
    integer :: iao, jao, spin
+   real(wp) :: eiao
 
-   !$omp parallel do collapse(3) schedule(runtime) default(none) &
-   !$omp reduction(+:energies) shared(h0, density) private(spin, iao, jao)
-   do spin = 1, size(density, 3)
-      do iao = 1, size(density, 2)
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(h0, density, energies) private(spin, iao, jao, eiao)
+   do iao = 1, size(density, 2)
+      eiao = 0.0_wp
+      do spin = 1, size(density, 3)
          do jao = 1, size(density, 1)
-            energies(iao) = energies(iao) + h0(jao, iao) * density(jao, iao, spin)
+            eiao = eiao + h0(jao, iao) * density(jao, iao, spin)
          end do
       end do
+      energies(iao) = energies(iao) + eiao
    end do
 end subroutine get_electronic_energy
 
