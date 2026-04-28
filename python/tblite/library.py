@@ -600,9 +600,11 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
     )
 
 
-def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
-    """Create new tblite CPCM solvation object"""
-    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(mol, float(epsilon))
+def new_ddx_solvation(ctx, mol, calc, epsilon: float, model: int):
+    """Create new tblite ddCOSMO solvation object"""
+    return error_check(lib.tblite_new_ddx_solvation_epsilon)(
+        mol, float(epsilon)
+    )
 
 
 @context_check

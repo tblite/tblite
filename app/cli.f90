@@ -266,7 +266,6 @@ subroutine get_run_arguments(config, list, start, error)
    logical, allocatable :: alpb
    integer :: ddx_model
    integer, allocatable :: kernel, sol_state
-   real(wp) :: kappa = 0.0_wp
    type(solvent_data), allocatable :: solvent
 
    iarg = start
@@ -435,7 +434,7 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cosmo", "--cpcm", "--pcm", "--lpb")
+      case("--cosmo", "--cpcm", "--pcm")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
@@ -446,8 +445,6 @@ subroutine get_run_arguments(config, list, start, error)
             ddx_model = ddx_solvation_model%cpcm
          else if (arg == "--pcm") then
             ddx_model = ddx_solvation_model%pcm
-         else if (arg == "--lpb") then
-            ddx_model = ddx_solvation_model%lpb
          else 
             call fatal_error(error, "Unknown ddX solvation model '"//arg//"' specified")
             exit
@@ -470,15 +467,6 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          if (allocated(error)) exit
 
-      case("--kappa")
-         if (ddx_model /= ddx_solvation_model%lpb) then
-            call fatal_error(error, "Kappa is only needed for LPB solvation model")
-            exit
-         end if
-         iarg = iarg + 1
-         call list%get(iarg, arg)
-         call get_argument_as_real(arg, kappa, error)
-         if (allocated(error)) exit
 
       case("--gb", "--gbe")
          if (allocated(solvent)) then
@@ -686,7 +674,7 @@ subroutine get_run_arguments(config, list, start, error)
             return
          end if
          allocate(config%solvation)
-         config%solvation%ddx = ddx_input(solvent%eps, ddx_model, kappa=kappa)
+         config%solvation%ddx = ddx_input(solvent%eps, ddx_model)
       end if
    end if
 
