@@ -174,7 +174,6 @@ subroutine new_ddx(self, mol, input, error)
       self%label = "ddpcm solvation model"
    end if
 
-
    ! Set model 
    self%ddx_input%ddx_model = input%ddx_model
 
@@ -192,7 +191,7 @@ subroutine new_ddx(self, mol, input, error)
       end do
    end if
 
-   ! Calculate epsilon and feps
+   ! Get epsilon and calculate feps
    self%dielectric_const = input%dielectric_const
    if (input%ddx_model == ddx_solvation_model%cosmo) then
       feps_param = 0.5_wp
@@ -204,8 +203,8 @@ subroutine new_ddx(self, mol, input, error)
       self%feps = 1.0_wp
    end if
 
-   ! Initialize the shift depending on the model: ddCOSMO/ddCPCM has an internal shift, 
-   ! ddPCM and ddLPB have a symmetric shift
+   ! Initialize the shift of the switching function depending on the model: 
+   ! ddCOSMO/ddCPCM has an internal shift, ddPCM has a symmetric shift
    if (input%ddx_model == ddx_solvation_model%cosmo .or. &
       & input%ddx_model == ddx_solvation_model%cpcm) then
       self%ddx_input%shift = -1.0_wp
@@ -277,19 +276,16 @@ subroutine update(self, mol, cache)
       model = self%ddx_input%ddx_model
    end if
 
-   call ddinit(model, mol%nat, mol%xyz, &
-      & self%rvdw, self%dielectric_const, ptr%ddx, &
-      & ptr%ddx_error, force=1, ngrid=self%ddx_input%nang, &
+   call ddinit(model, mol%nat, mol%xyz, self%rvdw, self%dielectric_const, ptr%ddx, ptr%ddx_error, &
+      & force=1, ngrid=self%ddx_input%nang, &
       & lmax=self%ddx_input%lmax, nproc=self%ddx_input%nproc, &
-      & eta=self%ddx_input%eta, &
-      & shift=self%ddx_input%shift, maxiter=self%ddx_input%max_iter, &
-      & jacobi_ndiis=self%ddx_input%jacobi_ndiis, pm=self%ddx_input%pm, &
-      & pl=self%ddx_input%pl, incore=self%ddx_input%incore, &
-      & enable_fmm=self%ddx_input%enable_fmm)
+      & eta=self%ddx_input%eta, shift=self%ddx_input%shift, &
+      & maxiter=self%ddx_input%max_iter, jacobi_ndiis=self%ddx_input%jacobi_ndiis, &
+      & pm=self%ddx_input%pm, pl=self%ddx_input%pl, &
+      & incore=self%ddx_input%incore, enable_fmm=self%ddx_input%enable_fmm)
    call check_error(ptr%ddx_error)
 
-   call allocate_state(ptr%ddx%params, ptr%ddx%constants, &
-      ptr%ddx_state, ptr%ddx_error)
+   call allocate_state(ptr%ddx%params, ptr%ddx%constants, ptr%ddx_state, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    if (allocated(ptr%multipoles)) then
