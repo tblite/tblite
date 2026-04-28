@@ -56,8 +56,6 @@ module tblite_solvation_ddx
       integer :: cpcm = 12
       !> Polarizable continuum model
       integer :: pcm = 2
-      !> Linearized Poisson-Boltzmann model
-      integer :: lpb = 3
    end type enum_ddx_solvation_model
 
    !> Actual enumerator for the dd solvation models
@@ -84,8 +82,6 @@ module tblite_solvation_ddx
       real(wp), allocatable :: rvdw(:)
       !> Number of OMP threads
       integer :: nproc = 1
-      !> Debye-Hückel screening length (only used for LPB)
-      real(wp) :: kappa = 0.0_wp
       !> Shift of the characteristic function 
       ! (default value depends on the model, for COSMO/CPCM it is -1)
       real(wp) :: shift = -1.0_wp
@@ -176,8 +172,6 @@ subroutine new_ddx(self, mol, input, error)
       self%label = "ddcpcm solvation model"
    else if (input%ddx_model == ddx_solvation_model%pcm) then
       self%label = "ddpcm solvation model"
-      else if (input%ddx_model == ddx_solvation_model%lpb) then
-      self%label = "ddlpb solvation model"
    end if
 
 
@@ -209,9 +203,6 @@ subroutine new_ddx(self, mol, input, error)
    else 
       self%feps = 1.0_wp
    end if
-
-   ! Get Debye-Hückel screening length (only used for LPB)
-   self%ddx_input%kappa = input%kappa
 
    ! Initialize the shift depending on the model: ddCOSMO/ddCPCM has an internal shift, 
    ! ddPCM and ddLPB have a symmetric shift
@@ -290,7 +281,7 @@ subroutine update(self, mol, cache)
       & self%rvdw, self%dielectric_const, ptr%ddx, &
       & ptr%ddx_error, force=1, ngrid=self%ddx_input%nang, &
       & lmax=self%ddx_input%lmax, nproc=self%ddx_input%nproc, &
-      & eta=self%ddx_input%eta, kappa=self%ddx_input%kappa, &
+      & eta=self%ddx_input%eta, &
       & shift=self%ddx_input%shift, maxiter=self%ddx_input%max_iter, &
       & jacobi_ndiis=self%ddx_input%jacobi_ndiis, pm=self%ddx_input%pm, &
       & pl=self%ddx_input%pl, incore=self%ddx_input%incore, &
@@ -375,11 +366,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call check_error(ptr%ddx_error)
 
    ! Add solvation energy to total energy
-   if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
-      energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%x_lpb(:,:,1) * ptr%ddx_state%psi, 1)
-   else
-      energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
-   end if
+   energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
 
 end subroutine get_energy
 
@@ -422,13 +409,9 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    ! Contract with the Coulomb matrix
    ptr%ddx_pot = 0.0_wp
-   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t') 
+   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t')   
    ! Scale with 0.5 and feps, and get second contribution to potential
-   if (self%ddx_input%ddx_model == ddx_solvation_model%lpb) then
-      ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%x_lpb(1, :, 1))
-   else
-      ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
-   end if
+   ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
  
    ! Add potential to overall potential for new SCF step 
    pot%vat(:,1) = pot%vat(:,1) + ptr%ddx_pot(:)

@@ -135,7 +135,9 @@ class TBLite(ase.calculators.calculator.Calculator):
     ================== ====================================================
      "alpb"             Solvent name (str), solution state (optional)
      "gbsa"             Solvent name (str), solution state (optional)
+     "cosmo"            Epsilon (float)
      "cpcm"             Epsilon (float)
+     "pcm"              Epsilon (float)
      "gbe"              Epsilon (float), Born kernel
      "gb"               Epsilon (float), Born kernel
     ================== ====================================================
@@ -466,7 +468,9 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
     for key in (
         "alpb",
         "gbsa",
+        "cosmo",
         "cpcm",
+        "pcm",
         "gbe",
         "gb",
     ):

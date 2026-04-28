@@ -66,7 +66,7 @@ subroutine collect_solvation_ddx(testsuite)
 end subroutine collect_solvation_ddx
 
 
-subroutine test_e(error, model, mol, qat, ref, kappa)
+subroutine test_e(error, model, mol, qat, ref)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -83,9 +83,6 @@ subroutine test_e(error, model, mol, qat, ref, kappa)
    !> Reference energy
    real(wp), intent(in) :: ref
 
-   !> Debye-Hückel screening parameter (only used in LPB)
-   real(wp), optional, intent(in) :: kappa
-
    type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
@@ -99,11 +96,7 @@ subroutine test_e(error, model, mol, qat, ref, kappa)
    allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
    energy = 0.0_wp
 
-   if (present(kappa)) then
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale, kappa=kappa))
-   else
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
-   end if
+   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -123,7 +116,7 @@ subroutine test_e(error, model, mol, qat, ref, kappa)
 end subroutine test_e
 
 
-subroutine test_g(error, model, mol, qat, kappa)
+subroutine test_g(error, model, mol, qat)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -136,9 +129,6 @@ subroutine test_g(error, model, mol, qat, kappa)
 
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
-
-   !> Debye-Hückel screening parameter (only used in LPB)
-   real(wp), optional, intent(in) :: kappa
 
    type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
@@ -155,11 +145,7 @@ subroutine test_g(error, model, mol, qat, kappa)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   if (present(kappa)) then
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale, kappa=kappa))
-   else
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
-   end if
+   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -199,7 +185,7 @@ subroutine test_g(error, model, mol, qat, kappa)
    end if
 end subroutine test_g
 
-subroutine test_p(error, model, mol, qat, kappa)
+subroutine test_p(error, model, mol, qat)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -212,9 +198,6 @@ subroutine test_p(error, model, mol, qat, kappa)
 
    !> Atomic partial charges
    real(wp), intent(in) :: qat(:)
-
-   !> Debye-Hückel screening parameter (only used in LPB)
-   real(wp), optional, intent(in) :: kappa
 
    type(ddx_solvation) :: solv
    type(wavefunction_type) :: wfn
@@ -231,11 +214,7 @@ subroutine test_p(error, model, mol, qat, kappa)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   if (present(kappa)) then
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale, kappa=kappa))
-   else
-      solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
-   end if
+   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
 
    allocate(cache)
    call solv%update(mol, cache)
