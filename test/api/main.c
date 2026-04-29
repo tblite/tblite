@@ -3696,7 +3696,7 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
-   //  stat += test_solvation_ddx_eps();
+    stat += test_solvation_ddx_eps();
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();
