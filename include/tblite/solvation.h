@@ -52,8 +52,7 @@ enum tblite_solvation_param{
 enum tblite_ddx_solvation_model{
     tblite_ddx_solvation_cosmo = 11,
     tblite_ddx_solvation_cpcm = 12,
-    tblite_ddx_solvation_pcm = 2,
-    tblite_ddx_solvation_lpb = 3
+    tblite_ddx_solvation_pcm = 2
 };
 
 /// Create new ddx implicit solvation container using internal parameters
@@ -68,8 +67,7 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_epsilon(tblite_error error,
                                  tblite_structure mol,
                                  double eps,
-                                 int model,
-                                 double kappa);
+                                 int model);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
