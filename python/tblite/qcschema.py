@@ -61,7 +61,7 @@ Supported keywords are:
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
- ddx-solvation       ddX implicit solvation               Epsilon
+ ddX-solvation       dd-based implicit solvation          Epsilon, Model
  gb-solvation        GB implicit solvation                Epsilon, Born kernel
  gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
  gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
@@ -312,8 +312,16 @@ def run_schema(input_data):
         for key, value in input_keywords.items()
         if key in Calculator._interaction
     }
+    ddx_models = {
+        "cosmo-solvation": "cosmo",
+        "cpcm-solvation": "cpcm",
+        "pcm-solvation": "pcm",
+    }
+    for key, model in ddx_models.items():
+        if key in input_keywords:
+            interaction["ddX-solvation"] = [input_keywords[key], model]
     unknown_keywords = (
-        set(input_keywords) - set(keywords) - set(interaction)
+        set(input_keywords) - set(keywords) - set(interaction) - set(ddx_models)
     )
     if unknown_keywords:
         return get_error(
