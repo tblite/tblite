@@ -60,8 +60,7 @@ enum tblite_ddx_solvation_model{
 /// @param error: Error handle
 /// @param mol: Molecular structure data
 /// @param eps: epsilon value for solvent
-/// @param model: type of solvation model to use (COSMO=11, CPCM=12, PCM=2, LPB=3)
-/// @param kappa: dielectric constant of solvent (only used in LPB)
+/// @param model: type of solvation model to use (COSMO=11, CPCM=12, PCM=2)
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_epsilon(tblite_error error,
