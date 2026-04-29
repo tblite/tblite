@@ -50,9 +50,9 @@ enum tblite_solvation_param{
 };
 
 enum tblite_ddx_solvation_model{
-    tblite_ddx_solvation_cosmo = 11,
-    tblite_ddx_solvation_cpcm = 12,
-    tblite_ddx_solvation_pcm = 2
+    tblite_solvation_ddcosmo = 11,
+    tblite_solvation_ddcpcm = 12,
+    tblite_solvation_ddpcm = 2
 };
 
 /// Create new ddx implicit solvation container using internal parameters

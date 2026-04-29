@@ -44,6 +44,9 @@ module tblite_api_solvation
 
    enum, bind(c)
       enumerator :: &
+         solvation_ddcosmo = 11, &
+         solvation_ddcpcm = 12, &
+         solvation_ddpcm = 2, &
          solvation_gbe = 10, &
          solvation_alpb_gfn1 = 11, &
          solvation_alpb_gfn2 = 12, &
