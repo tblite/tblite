@@ -563,6 +563,12 @@ _born_enum = {
     "p16": 2,
 }
 
+_ddx_model_enum = {
+    "cosmo": 11,
+    "cpcm": 12,
+    "pcm": 2,
+  }
+
 
 def new_alpb_solvation(
     ctx, mol, calc, solvent: str, state: str = "gsolv", *, version: int
@@ -600,10 +606,10 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
     )
 
 
-def new_ddx_solvation(ctx, mol, calc, epsilon: float, model: int):
+def new_ddx_solvation(ctx, mol, calc, epsilon: float, model: str):
     """Create new tblite ddCOSMO solvation object"""
     return error_check(lib.tblite_new_ddx_solvation_epsilon)(
-        mol, float(epsilon)
+        mol, float(epsilon), _ddx_model_enum[model]
     )
 
 

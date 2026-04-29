@@ -314,15 +314,15 @@ def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
     assert pytest.approx(atomic_result.return_result) == return_result
 
 
-@pytest.fixture(
-    params=[
-        {"cpcm-solvation": 7.0},
-        {"alpb-solvation": ["water", "bar1mol"]},
-        {"gbsa-solvation": ["methanol", "reference"]},
-        {"gbe-solvation": [7.0, "p16"]},
-        {"gb-solvation": [7.0, "still"]},
-    ]
-)
+@pytest.fixture(params=[
+      {"cosmo-solvation": 7.0},
+      {"cpcm-solvation": 7.0}, 
+      {"pcm-solvation": 7.0},
+      {"alpb-solvation": ["water", "bar1mol"]},
+      {"gbsa-solvation": ["methanol", "reference"]},
+      {"gbe-solvation": [7.0, "p16"]},
+      {"gb-solvation": [7.0, "still"]},
+   ])
 def solvation(request) -> dict:
     """Solvation fixture."""
     return request.param
@@ -351,16 +351,36 @@ def return_result_solvation(molecule: "Molecule", method: str, solvation: dict) 
 
     # fmt: off
     return {
+      (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "cosmo-solvation",
+            "GFN1-xTB",
+        ): -34.99874684566,
+        (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "cosmo-solvation",
+            "GFN2-xTB",
+        ): -32.97707940097,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cpcm-solvation",
             "GFN1-xTB",
-        ): -34.9875514437647,
+        ): -35.00027992606,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cpcm-solvation",
             "GFN2-xTB",
-        ): -32.9714541886084,
+        ): -32.97844540897,
+        (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "pcm-solvation",
+            "GFN1-xTB",
+        ): -34.99779118525,
+        (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "pcm-solvation",
+            "GFN2-xTB",
+        ): -32.97608151401,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "alpb-solvation",

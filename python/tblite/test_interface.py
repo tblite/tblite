@@ -556,16 +556,39 @@ def test_xtbml_api():
     assert len(dict_.keys()) == 130
 
 
-def test_solvation_gfn2_ddx():
+def test_solvation_gfn2_ddcosmo():
     """Test (ddX) COSMO solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("ddx-solvation", 7.0)
+    calc.add("ddX-solvation", 7.0, "cosmo")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43287176929, abs=THR)
+    assert energy == approx(-28.43789851640, abs=THR)
+
+
+def test_solvation_gfn2_ddcpcm():
+    """Test (ddX) CPCM solvation with GFN2-xTB"""
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("ddX-solvation", 7.0, "cpcm")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43800959099, abs=THR)
+
+def test_solvation_gfn2_ddpcm():
+    """Test (ddX) PCM solvation with GFN2-xTB"""
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("ddX-solvation", 7.0, "pcm")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43751950718, abs=THR)
 
 
 def test_solvation_gfn2_alpb():
