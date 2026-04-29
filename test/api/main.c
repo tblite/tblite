@@ -3332,6 +3332,7 @@ int test_solvation_ddpcm_eps()
     if (!calc)
         goto err;
 
+
     cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_solvation_ddpcm);
     if (tblite_check(error))
         goto err;
