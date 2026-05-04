@@ -80,9 +80,6 @@ jobs:
           - macos-latest
           - macos-15-intel
           # windows-latest
-        include:
-          - os: ubuntu-22.04
-            python: '38'
 
     defaults:
       run:
