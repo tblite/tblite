@@ -186,23 +186,14 @@ subroutine test_hamiltonian_periodic_self(error)
    type(tb_hamiltonian) :: h0
    type(adjacency_list) :: list
    type(potential_type) :: pot
-   real(wp), allocatable :: lattr(:, :), selfenergy(:), dsedcn(:), dEdcn(:)
+   real(wp), allocatable :: lattr(:, :), cn(:), selfenergy(:), dsedcn(:), dEdcn(:)
    real(wp), allocatable :: pmat(:, :, :), xmat(:, :, :), gradient(:, :), sigma(:, :)
+   real(wp), allocatable :: numdEdcn(:), numgradient(:, :), numsigma(:, :)
    real(wp) :: cutoff
    integer :: iao
    real(wp), parameter :: strict_thr = 1.0e-13_wp
-   real(wp), parameter :: ref_dEdcn(12) = [&
-      &-1.4067368674538650e-03_wp,-1.4067368674538650e-03_wp, &
-      &-1.4067368674538650e-03_wp,-1.4067368674538650e-03_wp, &
-      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
-      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
-      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
-      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp]
-   real(wp), parameter :: ref_sigma(3, 3) = reshape([&
-      &-4.1041505193536365e-03_wp, 0.0000000000000000e+00_wp, 0.0000000000000000e+00_wp, &
-      & 0.0000000000000000e+00_wp,-4.1041505193536373e-03_wp, 0.0000000000000000e+00_wp, &
-      & 0.0000000000000000e+00_wp, 0.0000000000000000e+00_wp,-4.1041505193536365e-03_wp], &
-      & shape(ref_sigma))
+   real(wp), parameter :: cn_thr = 2.0e-13_wp
+   real(wp), parameter :: strain_thr = 1.0e-10_wp
 
    call get_structure(mol, "X23", "CO2")
    call make_basis(bas, mol, 6)
@@ -212,15 +203,17 @@ subroutine test_hamiltonian_periodic_self(error)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
    call new_adjacency_list(list, mol, lattr, cutoff)
 
-   allocate(selfenergy(bas%nsh), dsedcn(bas%nsh))
-   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=[0.0_wp], &
+   allocate(cn(mol%nat), selfenergy(bas%nsh), dsedcn(bas%nsh))
+   cn(:) = 0.0_wp
+   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cn, &
       & selfenergy=selfenergy, dsedcn=dsedcn)
 
    call new_potential(pot, mol, bas, 1)
    call pot%reset
 
    allocate(pmat(bas%nao, bas%nao, 1), xmat(bas%nao, bas%nao, 1), &
-      & gradient(3, mol%nat), sigma(3, 3), dEdcn(mol%nat))
+      & gradient(3, mol%nat), sigma(3, 3), dEdcn(mol%nat), &
+      & numdEdcn(mol%nat), numgradient(3, mol%nat), numsigma(3, 3))
    pmat(:, :, :) = 0.0_wp
    xmat(:, :, :) = 0.0_wp
    gradient(:, :) = 0.0_wp
@@ -233,32 +226,286 @@ subroutine test_hamiltonian_periodic_self(error)
    call get_hamiltonian_gradient(mol, lattr, list, bas, h0, selfenergy, dsedcn, &
       & pot, pmat, xmat, dEdcn, gradient, sigma)
 
-   if (any(abs(dEdcn - ref_dEdcn) > strict_thr)) then
+   call numdiff_hamiltonian_cn(mol, cn, numdEdcn)
+   call numdiff_hamiltonian_cartesian(mol, cn, numgradient)
+   call ridders_hamiltonian_strain(mol, cn, numsigma)
+
+   if (any(abs(dEdcn - numdEdcn) > cn_thr)) then
       call test_failed(error, "Periodic self-image CN derivative does not match")
       print '(3es21.14)', dEdcn
       print '("---")'
-      print '(3es21.14)', ref_dEdcn
+      print '(3es21.14)', numdEdcn
       print '("---")'
-      print '(3es21.14)', dEdcn - ref_dEdcn
+      print '(3es21.14)', dEdcn - numdEdcn
       return
    end if
 
-   if (any(abs(gradient) > strict_thr)) then
+   if (any(abs(gradient - numgradient) > strict_thr)) then
       call test_failed(error, "Periodic self-image gradient does not cancel")
       print '(3es21.14)', gradient
+      print '("---")'
+      print '(3es21.14)', numgradient
+      print '("---")'
+      print '(3es21.14)', gradient - numgradient
       return
    end if
 
-   if (any(abs(sigma - ref_sigma) > strict_thr)) then
+   if (any(abs(sigma - numsigma) > strain_thr)) then
       call test_failed(error, "Periodic self-image strain derivative does not match")
       print '(3es21.14)', sigma
       print '("---")'
-      print '(3es21.14)', ref_sigma
+      print '(3es21.14)', numsigma
       print '("---")'
-      print '(3es21.14)', sigma - ref_sigma
+      print '(3es21.14)', sigma - numsigma
    end if
 
 end subroutine test_hamiltonian_periodic_self
+
+
+function get_hamiltonian_energy(mol, cn) result(energy)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   real(wp) :: energy
+
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
+   real(wp), allocatable :: lattr(:, :), selfenergy(:)
+   real(wp), allocatable :: overlap(:, :), dpint(:, :, :), qpint(:, :, :)
+   real(wp), allocatable :: hamiltonian(:, :)
+   real(wp) :: cutoff
+   integer :: iao
+
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+
+   allocate(selfenergy(bas%nsh))
+   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy)
+
+   allocate(overlap(bas%nao, bas%nao), dpint(3, bas%nao, bas%nao), &
+      & qpint(6, bas%nao, bas%nao), hamiltonian(bas%nao, bas%nao))
+   call get_hamiltonian(mol, lattr, list, bas, h0, selfenergy, overlap, dpint, qpint, &
+      & hamiltonian)
+
+   energy = 0.0_wp
+   do iao = 1, bas%nao
+      energy = energy + hamiltonian(iao, iao)
+   end do
+end function get_hamiltonian_energy
+
+
+function get_hamiltonian_image_energy(mol, cn) result(energy)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   real(wp) :: energy
+
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
+   real(wp), allocatable :: lattr(:, :), selfenergy(:)
+   real(wp), allocatable :: overlap(:, :), dpint(:, :, :), qpint(:, :, :)
+   real(wp), allocatable :: hamiltonian(:, :)
+   real(wp) :: cutoff
+   integer :: iat, izp, is, ish, iao
+
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+
+   allocate(selfenergy(bas%nsh))
+   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy)
+
+   allocate(overlap(bas%nao, bas%nao), dpint(3, bas%nao, bas%nao), &
+      & qpint(6, bas%nao, bas%nao), hamiltonian(bas%nao, bas%nao))
+   call get_hamiltonian(mol, lattr, list, bas, h0, selfenergy, overlap, dpint, qpint, &
+      & hamiltonian)
+
+   energy = 0.0_wp
+   do iao = 1, bas%nao
+      energy = energy + hamiltonian(iao, iao)
+   end do
+
+   do iat = 1, mol%nat
+      izp = mol%id(iat)
+      is = bas%ish_at(iat)
+      do ish = 1, bas%nsh_id(izp)
+         do iao = 1, msao(bas%cgto(ish, izp)%ang)
+            energy = energy - selfenergy(is+ish)
+         end do
+      end do
+   end do
+end function get_hamiltonian_image_energy
+
+
+function get_hamiltonian_energy_with_selfenergy(mol, selfenergy) result(energy)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: selfenergy(:)
+   real(wp) :: energy
+
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
+   real(wp), allocatable :: lattr(:, :)
+   real(wp), allocatable :: overlap(:, :), dpint(:, :, :), qpint(:, :, :)
+   real(wp), allocatable :: hamiltonian(:, :)
+   real(wp) :: cutoff
+   integer :: iao
+
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+
+   allocate(overlap(bas%nao, bas%nao), dpint(3, bas%nao, bas%nao), &
+      & qpint(6, bas%nao, bas%nao), hamiltonian(bas%nao, bas%nao))
+   call get_hamiltonian(mol, lattr, list, bas, h0, selfenergy, overlap, dpint, qpint, &
+      & hamiltonian)
+
+   energy = 0.0_wp
+   do iao = 1, bas%nao
+      energy = energy + hamiltonian(iao, iao)
+   end do
+end function get_hamiltonian_energy_with_selfenergy
+
+
+subroutine numdiff_hamiltonian_cn(mol, cn, numdEdcn)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   real(wp), intent(out) :: numdEdcn(:)
+
+   integer :: iat
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   real(wp), allocatable :: cni(:)
+   real(wp), allocatable :: selfenergy_r(:), selfenergy_l(:), dselfenergy(:)
+   real(wp), parameter :: step = 1.0_wp
+
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+
+   cni = cn
+   allocate(selfenergy_r(bas%nsh), selfenergy_l(bas%nsh), dselfenergy(bas%nsh))
+   do iat = 1, mol%nat
+      cni(iat) = cn(iat) + step
+      call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cni, &
+         & selfenergy=selfenergy_r)
+      cni(iat) = cn(iat) - step
+      call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cni, &
+         & selfenergy=selfenergy_l)
+      cni(iat) = cn(iat)
+      dselfenergy(:) = 0.5_wp*(selfenergy_r - selfenergy_l)/step
+      numdEdcn(iat) = get_hamiltonian_energy_with_selfenergy(mol, dselfenergy)
+   end do
+end subroutine numdiff_hamiltonian_cn
+
+
+subroutine numdiff_hamiltonian_cartesian(mol, cn, numgradient)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   real(wp), intent(out) :: numgradient(:, :)
+
+   integer :: ic, iat
+   real(wp) :: er, el
+   type(structure_type) :: moli
+   real(wp), parameter :: step = 1.0e-5_wp
+
+   do iat = 1, mol%nat
+      do ic = 1, 3
+         moli = mol
+         moli%xyz(ic, iat) = mol%xyz(ic, iat) + step
+         er = get_hamiltonian_energy(moli, cn)
+         moli = mol
+         moli%xyz(ic, iat) = mol%xyz(ic, iat) - step
+         el = get_hamiltonian_energy(moli, cn)
+         numgradient(ic, iat) = 0.5_wp*(er - el)/step
+      end do
+   end do
+end subroutine numdiff_hamiltonian_cartesian
+
+
+subroutine ridders_hamiltonian_strain(mol, cn, numsigma)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   real(wp), intent(out) :: numsigma(:, :)
+
+   integer, parameter :: max_tab = 10
+   real(wp), parameter :: initial_step = 1.0e-3_wp
+   real(wp), parameter :: step_div = sqrt(2.0_wp)
+   real(wp), parameter :: safe = 2.0_wp
+
+   integer :: ic, jc, itab, jtab
+   real(wp) :: step, fac, err, errt
+   real(wp) :: table(max_tab, max_tab)
+
+   do ic = 1, 3
+      do jc = 1, 3
+         step = initial_step
+         table(:, :) = 0.0_wp
+         table(1, 1) = central_hamiltonian_strain(mol, cn, ic, jc, step)
+         numsigma(jc, ic) = table(1, 1)
+         err = huge(1.0_wp)
+
+         do itab = 2, max_tab
+            step = step / step_div
+            table(1, itab) = central_hamiltonian_strain(mol, cn, ic, jc, step)
+            fac = step_div**2
+            do jtab = 2, itab
+               table(jtab, itab) = (fac*table(jtab-1, itab) - table(jtab-1, itab-1)) &
+                  & / (fac - 1.0_wp)
+               fac = fac * step_div**2
+               errt = max(abs(table(jtab, itab) - table(jtab-1, itab)), &
+                  & abs(table(jtab, itab) - table(jtab-1, itab-1)))
+               if (errt <= err) then
+                  err = errt
+                  numsigma(jc, ic) = table(jtab, itab)
+               end if
+            end do
+            if (abs(table(itab, itab) - table(itab-1, itab-1)) >= safe*err) exit
+         end do
+      end do
+   end do
+end subroutine ridders_hamiltonian_strain
+
+
+function central_hamiltonian_strain(mol, cn, ic, jc, step) result(deriv)
+   type(structure_type), intent(in) :: mol
+   real(wp), intent(in) :: cn(:)
+   integer, intent(in) :: ic, jc
+   real(wp), intent(in) :: step
+   real(wp) :: deriv
+
+   type(structure_type) :: moli
+   real(wp) :: er, el, eps(3, 3)
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+
+   eps(:, :) = unity
+   eps(jc, ic) = eps(jc, ic) + step
+   moli = mol
+   moli%xyz(:, :) = matmul(eps, mol%xyz)
+   if (any(mol%periodic)) moli%lattice(:, :) = matmul(eps, mol%lattice)
+   er = get_hamiltonian_image_energy(moli, cn)
+
+   eps(:, :) = unity
+   eps(jc, ic) = eps(jc, ic) - step
+   moli = mol
+   moli%xyz(:, :) = matmul(eps, mol%xyz)
+   if (any(mol%periodic)) moli%lattice(:, :) = matmul(eps, mol%lattice)
+   el = get_hamiltonian_image_energy(moli, cn)
+
+   deriv = (er - el)/step
+end function central_hamiltonian_strain
 
 subroutine test_hamiltonian_h2(error)
 
