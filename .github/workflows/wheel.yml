@@ -113,7 +113,7 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
           # MM: Package installation (yum install ...) works differently on musllinux
-          CIBW_SKIP: "*musllinux*"
+          CIBW_SKIP: "{cp38-macosx_arm64,cp39-macosx_arm64,*musllinux*}"
           # Include all PyPy versions
           CIBW_ENABLE: pypy pypy-eol
           # Control verbosity of the 'pip wheel' output
