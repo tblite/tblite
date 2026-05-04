@@ -132,6 +132,15 @@ else
   lib_deps += blas_dep
 endif
 
+# Create TOML Fortran as subproject
+tomlf_dep = dependency(
+  'toml-f',
+  version: '>=0.4.3',
+  fallback: ['toml-f', 'tomlf_dep'],
+  default_options: ['default_library=static'],
+)
+lib_deps += tomlf_dep
+
 # Create the tool chain library as subproject
 mctc_dep = dependency(
   'mctc-lib',
@@ -150,6 +159,15 @@ dftd4_dep = dependency(
 )
 lib_deps += dftd4_dep
 
+# Create multicharge library as subproject
+multicharge_dep = dependency(
+  'multicharge',
+  version: ['>=0.5.0'],
+  fallback: ['multicharge', 'multicharge_dep'],
+  default_options: ['default_library=static'],
+)
+lib_deps += multicharge_dep
+
 # Create DFT-D3 library as subproject
 sdftd3_dep = dependency(
   's-dftd3',
@@ -159,16 +177,8 @@ sdftd3_dep = dependency(
 )
 lib_deps += sdftd3_dep
 
-# Create TOML Fortran as subproject
-tomlf_dep = dependency(
-  'toml-f',
-  version: '>=0.4.3',
-  fallback: ['toml-f', 'tomlf_dep'],
-  default_options: ['default_library=static'],
-)
-lib_deps += tomlf_dep
 has_nvcc = add_languages('cuda', native: false, required: gpu)
-if (has_nvcc == true)
+if has_nvcc
   add_project_arguments(['-DUSE_CUDA'], language: 'fortran')
 endif
 

@@ -41,19 +41,21 @@ subroutine get_mulliken_shell_charges(bas, smat, pmat, n0sh, qsh)
    real(wp), intent(in) :: n0sh(:)
    real(wp), intent(out) :: qsh(:, :)
 
-   integer :: iao, jao, spin
+   integer :: iao, jao, ish, spin
    real(wp) :: pao
 
    qsh(:, :) = 0.0_wp
-   !$omp parallel do default(none) collapse(2) schedule(runtime) reduction(+:qsh) &
-   !$omp shared(bas, pmat, smat) private(spin, iao, jao, pao)
+   !$omp parallel do default(none) collapse(2) schedule(runtime) &
+   !$omp shared(qsh, bas, pmat, smat) private(spin, iao, jao, pao, ish)
    do spin = 1, size(pmat, 3)
       do iao = 1, bas%nao
+         ish = bas%ao2sh(iao)
          pao = 0.0_wp
          do jao = 1, bas%nao
             pao = pao + pmat(jao, iao, spin) * smat(jao, iao)
          end do
-         qsh(bas%ao2sh(iao), spin) = qsh(bas%ao2sh(iao), spin) - pao
+         !$omp atomic
+         qsh(ish, spin) = qsh(ish, spin) - pao
       end do
    end do
 
@@ -69,19 +71,24 @@ subroutine get_mulliken_atomic_multipoles(bas, mpmat, pmat, mpat)
    real(wp), intent(in) :: pmat(:, :, :)
    real(wp), intent(out) :: mpat(:, :, :)
 
-   integer :: iao, jao, spin
+   integer :: iao, jao, spin, nmp, iat, ii
    real(wp) :: pao(size(mpmat, 1))
 
+   nmp = size(mpmat, 1)
    mpat(:, :, :) = 0.0_wp
-   !$omp parallel do default(none) schedule(runtime) reduction(+:mpat) &
-   !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao)
+   !$omp parallel do default(none) collapse(2) schedule(runtime) &
+   !$omp shared(mpat, bas, pmat, mpmat, nmp) private(spin, iao, jao, pao, iat, ii)
    do spin = 1, size(pmat, 3)
       do iao = 1, bas%nao
+         iat = bas%ao2at(iao)
          pao(:) = 0.0_wp
          do jao = 1, bas%nao
             pao(:) = pao + pmat(jao, iao, spin) * mpmat(:, jao, iao)
          end do
-         mpat(:, bas%ao2at(iao), spin) = mpat(:, bas%ao2at(iao), spin) - pao
+         do ii = 1, nmp
+            !$omp atomic
+            mpat(ii, iat, spin) = mpat(ii, iat, spin) - pao(ii)
+         end do
       end do
    end do
 
@@ -95,18 +102,21 @@ subroutine get_mulliken_shell_multipoles(bas, mpmat, pmat, mpat)
    real(wp), intent(in) :: pmat(:, :, :)
    real(wp), intent(out) :: mpat(:, :, :)
 
-   integer :: iao, jao, spin
+   integer :: iao, jao, spin, ii
    real(wp) :: pao(size(mpmat, 1))
    mpat(:, :, :) = 0.0_wp
    !$omp parallel do default(none) schedule(runtime) reduction(+:mpat) &
-   !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao)
+   !$omp shared(bas, pmat, mpmat) private(spin, iao, jao, pao, ii)
    do spin = 1, size(pmat, 3)
       do iao = 1, bas%nao
          pao(:) = 0.0_wp
          do jao = 1, bas%nao
             pao(:) = pao + pmat(jao, iao, spin) * mpmat(:, jao, iao)
          end do
-         mpat(:, bas%ao2sh(iao), spin) = mpat(:, bas%ao2sh(iao), spin) - pao
+         do ii = 1, size(mpmat, 1)
+            !$omp atomic
+            mpat(ii, bas%ao2sh(iao), spin) = mpat(ii, bas%ao2sh(iao), spin) - pao(ii)
+         end do
       end do
    end do
 
@@ -178,7 +188,7 @@ subroutine get_mayer_bond_orders(bas, smat, pmat, mbo)
    do spin = 1, size(pmat, 3)
       call gemm(pmat(:, :, spin), smat, psmat)
       !$omp parallel do default(none) collapse(2) &
-      !$omp shared(bas, psmat, mbo, spin) private(iao, jao, iat, jat, pao)
+      !$omp shared(mbo, bas, psmat, spin) private(iao, jao, iat, jat, pao)
       do iao = 1, bas%nao
          do jao = 1, bas%nao
             iat = bas%ao2at(iao)
@@ -214,7 +224,7 @@ subroutine get_mayer_bond_orders_uhf(bas, smat, pmat, mbo)
    do spin = 1, size(pmat, 3)
       call gemm(pmat(:, :, spin), smat, psmat)
       !$omp parallel do default(none) collapse(2) &
-      !$omp shared(bas, psmat, mbo, spin) private(iao, jao, iat, jat, pao)
+      !$omp shared(mbo, bas, psmat) private(iao, jao, iat, jat, pao)
       do iao = 1, bas%nao
          do jao = 1, bas%nao
             iat = bas%ao2at(iao)

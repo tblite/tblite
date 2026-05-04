@@ -80,6 +80,7 @@ subroutine read_char_r0(reader, var, stat)
    character(len=*), intent(out) :: var
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + len(var) > size(reader%buffer)) then
          stat = iostat_end
@@ -110,6 +111,7 @@ subroutine read_char_r1(reader, var, stat)
    character(len=1), intent(out) :: var(:)
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + size(var) > size(reader%buffer)) then
          stat = iostat_end
@@ -127,6 +129,7 @@ subroutine read_i4_r1(reader, var, stat)
    integer(i4), intent(out) :: var(:)
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + size(var) * 4 > size(reader%buffer)) then
          stat = iostat_end
@@ -144,6 +147,7 @@ subroutine read_rdp_r1(reader, var, stat)
    real(dp), intent(out) :: var(:)
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + size(var) * 8 > size(reader%buffer)) then
          stat = iostat_end
@@ -161,6 +165,7 @@ subroutine read_rdp_r2(reader, var, stat)
    real(dp), intent(out) :: var(:, :)
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + size(var) * 8 > size(reader%buffer)) then
          stat = iostat_end
@@ -178,6 +183,7 @@ subroutine read_rdp_r3(reader, var, stat)
    real(dp), intent(out) :: var(:, :, :)
    integer, intent(out) :: stat
 
+   stat = 0
    if (allocated(reader%buffer)) then
       if (reader%pos + size(var) * 8 > size(reader%buffer)) then
          stat = iostat_end

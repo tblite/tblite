@@ -35,6 +35,10 @@ dependencies = [
    "numpy",
 ]
 optional-dependencies.ase = ["ase"]
+optional-dependencies.qcschema = [
+  "qcelemental; python_version < '3.14'",
+  "qcelemental>=0.50.0rc3; python_version >= '3.14'",
+]
 optional-dependencies.test = [
   "pytest",
   "pytest-cov",

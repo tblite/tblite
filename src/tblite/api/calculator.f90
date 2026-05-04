@@ -601,8 +601,8 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    if (allocated(wfn)) then
       wfn%kt = etemp
 
-      if (size(wfn%qat) /= mol%nat .or. size(wfn%emo) /= calc%bas%nao &
-         & .or. size(wfn%qsh) /= calc%bas%nsh .or. wfn%nspin /= nspin) then
+      if (size(wfn%qat, 1) /= mol%nat .or. size(wfn%emo, 1) /= calc%bas%nao &
+         & .or. size(wfn%qsh, 1) /= calc%bas%nsh .or. wfn%nspin /= nspin) then
          deallocate(wfn)
       end if
    end if

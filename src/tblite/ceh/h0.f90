@@ -111,7 +111,7 @@ contains
       real(wp), intent(out) :: hamiltonian(:, :)
 
       integer  :: itr, img, inl, ii, jj, is, js, jzp, izp, nao
-      integer  :: iat, ish, jat, jsh, k, iao, jao, ij, iaosh, jaosh
+      integer  :: iat, ish, jat, jsh, iao, jao, ij, iaosh, jaosh
       real(wp) :: hij, rr, r2, vec(3), dtmpj(3)
       real(wp), allocatable :: stmp(:), dtmpi(:, :), block_overlap(:,:)
 
@@ -126,7 +126,7 @@ contains
 
       !$omp parallel do schedule(runtime) default(none) &
       !$omp shared(mol, bas, trans, list, overlap, overlap_diat, dpint, hamiltonian, h0, selfenergy) &
-      !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, iaosh, jaosh, k) &
+      !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, iaosh, jaosh) &
       !$omp private(r2, vec, stmp, block_overlap, dtmpi, dtmpj, hij, rr, inl, img)
       do iat = 1, mol%nat
          izp = mol%id(iat)
@@ -162,30 +162,21 @@ contains
                         ! to Bra function (center j) to save the redundant calculation
                         call shift_operator(vec, stmp(ij), dtmpi(:, ij), dtmpj)
 
-                        !$omp atomic
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            + stmp(ij)
 
-                        !$omp atomic
                         block_overlap(jaosh+jao, iaosh+iao) = block_overlap(jaosh+jao, iaosh+iao) &
                            + stmp(ij)
 
-                        do k = 1, 3
-                           !$omp atomic
-                           dpint(k, jj+jao, ii+iao) = dpint(k, jj+jao, ii+iao) &
-                              + dtmpi(k, ij)
-                        end do
+                        dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
+                           + dtmpi(:, ij)
 
                         if (iat /= jat) then
-                           !$omp atomic
                            overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
                               + stmp(ij)
 
-                           do k = 1, 3
-                              !$omp atomic
-                              dpint(k, ii+iao, jj+jao) = dpint(k, ii+iao, jj+jao) &
-                                 + dtmpj(k)
-                           end do
+                           dpint(:, ii+iao, jj+jao) = dpint(:, ii+iao, jj+jao) &
+                              + dtmpj
 
                         end if
                      end do
@@ -212,20 +203,16 @@ contains
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
 
-                        !$omp atomic
                         overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
                            + block_overlap(jaosh+jao, iaosh+iao)
 
-                        !$omp atomic
                         hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
                            + block_overlap(jaosh+jao, iaosh+iao) * hij
 
                         if (iat /= jat) then
-                           !$omp atomic
                            overlap_diat(ii+iao, jj+jao) = overlap_diat(ii+iao, jj+jao) &
                               + block_overlap(jaosh+jao, iaosh+iao)
 
-                           !$omp atomic
                            hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
                               + block_overlap(jaosh+jao, iaosh+iao) * hij
                         end if

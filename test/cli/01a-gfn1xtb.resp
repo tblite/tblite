@@ -3,3 +3,5 @@ $ORIGIN/01-ala-xab.xyz
 01-ala-xab-restart.npz
 --method
 gfn1
+--acc
+0.01

@@ -210,8 +210,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    if (self%model%ncoup > 1) then
       ! Dispersion energy with pairwise weighting
-      !$omp parallel do schedule(runtime) default(none),  &
-      !$omp reduction(+:energies) shared(self, mol, ptr) &
+      !$omp parallel do schedule(runtime) default(none) &
+      !$omp shared(self, mol, ptr, energies) &
       !$omp private(iat, jat, izp, jzp, iref, jref)
       do iat = 1, mol%nat
          izp = mol%id(iat)
@@ -260,8 +260,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    if (self%model%ncoup > 1) then
       ! Dispersion energy with pairwise weighting
       allocate(tmp_vat(mol%nat), source=0.0_wp)
-      !$omp parallel do schedule(runtime) default(none),  &
-      !$omp reduction(+:tmp_vat) shared(self, mol, ptr) &
+      !$omp parallel do schedule(runtime) default(none) &
+      !$omp shared(self, mol, ptr, tmp_vat) &
       !$omp private(iat, jat, izp, jzp, iref, jref)
       do iat = 1, mol%nat
          izp = mol%id(iat)
