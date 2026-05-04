@@ -28,6 +28,7 @@ module test_hamiltonian
    use tblite_cutoff, only : get_lattice_points
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
+   use tblite_scf_potential, only : potential_type, new_potential
    use tblite_xtb_gfn2
    use tblite_xtb_h0
    implicit none
@@ -51,7 +52,8 @@ subroutine collect_hamiltonian(testsuite)
       new_unittest("hamiltonian-h2", test_hamiltonian_h2), &
       new_unittest("hamiltonian-lih", test_hamiltonian_lih), &
       new_unittest("hamiltonian-s2", test_hamiltonian_s2), &
-      new_unittest("hamiltonian-sih4", test_hamiltonian_sih4) &
+      new_unittest("hamiltonian-sih4", test_hamiltonian_sih4), &
+      new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self) &
       ]
 
 end subroutine collect_hamiltonian
@@ -172,6 +174,91 @@ subroutine test_hamiltonian_mol(error, mol, ref)
    !print '(*("&", 3(es20.14e1, "_wp":, ","), "&", /))', eigval
 
 end subroutine test_hamiltonian_mol
+
+
+subroutine test_hamiltonian_periodic_self(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
+   type(potential_type) :: pot
+   real(wp), allocatable :: lattr(:, :), selfenergy(:), dsedcn(:), dEdcn(:)
+   real(wp), allocatable :: pmat(:, :, :), xmat(:, :, :), gradient(:, :), sigma(:, :)
+   real(wp) :: cutoff
+   integer :: iao
+   real(wp), parameter :: strict_thr = 1.0e-13_wp
+   real(wp), parameter :: ref_dEdcn(12) = [&
+      &-1.4067368674538650e-03_wp,-1.4067368674538650e-03_wp, &
+      &-1.4067368674538650e-03_wp,-1.4067368674538650e-03_wp, &
+      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
+      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
+      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp, &
+      & 1.1667151814048768e-03_wp, 1.1667151814048768e-03_wp]
+   real(wp), parameter :: ref_sigma(3, 3) = reshape([&
+      &-4.1041505193536365e-03_wp, 0.0000000000000000e+00_wp, 0.0000000000000000e+00_wp, &
+      & 0.0000000000000000e+00_wp,-4.1041505193536373e-03_wp, 0.0000000000000000e+00_wp, &
+      & 0.0000000000000000e+00_wp, 0.0000000000000000e+00_wp,-4.1041505193536365e-03_wp], &
+      & shape(ref_sigma))
+
+   call get_structure(mol, "X23", "CO2")
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+
+   allocate(selfenergy(bas%nsh), dsedcn(bas%nsh))
+   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=[0.0_wp], &
+      & selfenergy=selfenergy, dsedcn=dsedcn)
+
+   call new_potential(pot, mol, bas, 1)
+   call pot%reset
+
+   allocate(pmat(bas%nao, bas%nao, 1), xmat(bas%nao, bas%nao, 1), &
+      & gradient(3, mol%nat), sigma(3, 3), dEdcn(mol%nat))
+   pmat(:, :, :) = 0.0_wp
+   xmat(:, :, :) = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+   dEdcn(:) = 0.0_wp
+   do iao = 1, bas%nao
+      pmat(iao, iao, 1) = 1.0_wp
+   end do
+
+   call get_hamiltonian_gradient(mol, lattr, list, bas, h0, selfenergy, dsedcn, &
+      & pot, pmat, xmat, dEdcn, gradient, sigma)
+
+   if (any(abs(dEdcn - ref_dEdcn) > strict_thr)) then
+      call test_failed(error, "Periodic self-image CN derivative does not match")
+      print '(3es21.14)', dEdcn
+      print '("---")'
+      print '(3es21.14)', ref_dEdcn
+      print '("---")'
+      print '(3es21.14)', dEdcn - ref_dEdcn
+      return
+   end if
+
+   if (any(abs(gradient) > strict_thr)) then
+      call test_failed(error, "Periodic self-image gradient does not cancel")
+      print '(3es21.14)', gradient
+      return
+   end if
+
+   if (any(abs(sigma - ref_sigma) > strict_thr)) then
+      call test_failed(error, "Periodic self-image strain derivative does not match")
+      print '(3es21.14)', sigma
+      print '("---")'
+      print '(3es21.14)', ref_sigma
+      print '("---")'
+      print '(3es21.14)', sigma - ref_sigma
+   end if
+
+end subroutine test_hamiltonian_periodic_self
 
 subroutine test_hamiltonian_h2(error)
 
