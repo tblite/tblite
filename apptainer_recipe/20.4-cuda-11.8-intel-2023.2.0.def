@@ -1,0 +1,29 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2023.2-devel-ubuntu20.04
+
+%post
+    # Update the package list and install necessary packages
+        rm /etc/apt/sources.list.d/oneAPI*
+    	export DEBIAN_FRONTEND=noninteractive
+        export TZ=Europe/Berlin
+        apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        curl git \
+        pip
+
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
+    dpkg -i cuda-keyring_1.1-1_all.deb
+
+    add-apt-repository -r https://apt.repos.intel.com/oneapi
+    # Install CUDA
+    apt-get update
+    apt-get install -y cuda-compiler-11-8 cuda-cudart-dev-11-8 cuda-compiler-11-8 libcusolver-dev-11-8 libcublas-dev-11-8 libcusparse-dev-11-8 --no-install-recommends
+
+    # Clean up
+    apt-get clean
+
+%environment
+    # Set up environment variables for CUDA
+    export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}
+    export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}

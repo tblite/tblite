@@ -44,6 +44,7 @@ module tblite_driver_run
    use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
    use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
+   use tblite_purification_solver_context, only : purification_solver_context, purification_type
 
    implicit none
    private
@@ -83,8 +84,12 @@ subroutine run_main(config, error)
    class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
-   ctx%solver = lapack_solver(config%solver)
-
+   if (allocated(config%dmp_input)) then
+      ctx%solver = purification_solver_context(config%dmp_input)
+   else
+      ctx%solver = lapack_solver(config%solver)
+   end if
+   
    if (config%input == "-") then
       if (allocated(config%input_format)) then
          call read_structure(mol, input_unit, config%input_format, error)

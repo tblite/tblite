@@ -185,3 +185,16 @@ sdftd3_dep = dependency(
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
 lib_deps += sdftd3_dep
+
+has_nvcc = add_languages('cuda', native: false, required: gpu)
+if has_nvcc
+  add_project_arguments(['-DUSE_CUDA'], language: 'fortran')
+endif
+
+gambits_dep = dependency(
+  'gambits',
+  version: '>=0.0.0',
+  fallback: ['gambits','gambits_dep'],
+  default_options: ['default_library=static','api_fortran=true'],
+)
+lib_deps += gambits_dep

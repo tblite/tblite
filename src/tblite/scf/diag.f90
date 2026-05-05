@@ -20,6 +20,7 @@
 !> Declaration of the abstract base class for electronic solvers based on diagonalization
 module tblite_scf_diag
    use mctc_env, only : sp, dp, wp, error_type
+   use iso_c_binding, only : c_ptr
    use tblite_blas, only : gemm
    use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
@@ -33,6 +34,7 @@ module tblite_scf_diag
       procedure(solve_sp), deferred :: solve_sp
       procedure(solve_dp), deferred :: solve_dp
       procedure :: get_density
+      procedure :: get_density_matrix
       procedure :: get_wdensity
       procedure :: delete
    end type diag_solver_type
@@ -92,7 +94,7 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
       end do
 
       focc(:, 1) = focc(:, 1) + focc(:, 2)
-      call get_density_matrix(focc(:, 1), hmat(:, :, 1), density(:, :, 1))
+      call self%get_density_matrix(focc(:, 1), hmat(:, :, 1), density(:, :, 1))
       focc(:, 1) = focc(:, 1) - focc(:, 2)
    case(2)
       hmat(:, :, :) = 2*hmat
@@ -102,7 +104,7 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
 
          call get_fermi_filling(self%nel(spin), self%kt, eval(:, spin), &
             & homo, focc(:, spin), e_fermi)
-         call get_density_matrix(focc(:, spin), hmat(:, :, spin), density(:, :, spin))
+         call self%get_density_matrix(focc(:, spin), hmat(:, :, spin), density(:, :, spin))
       end do
    end select
 end subroutine get_density
@@ -134,7 +136,7 @@ subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
 
    do spin = 1, nspin
       tmp = focc(:, spin) * eval(:, spin)
-      call get_density_matrix(tmp, hmat(:, :, spin), density(:, :, spin))
+      call self%get_density_matrix(tmp, hmat(:, :, spin), density(:, :, spin))
    end do
 
    if (nspin == 1 .and. size(focc, 2) == 2) then
@@ -143,7 +145,9 @@ subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
 end subroutine get_wdensity
 
 !> Get the density matrix from the coefficients and occupation numbers
-subroutine get_density_matrix(focc, coeff, pmat)
+subroutine get_density_matrix(self, focc, coeff, pmat)
+   !> Solver for the general eigenvalue problem
+   class(diag_solver_type), intent(inout) :: self
    !> Occupation numbers
    real(wp), intent(in) :: focc(:)
    !> Coefficients of the wavefunction
@@ -166,9 +170,11 @@ subroutine get_density_matrix(focc, coeff, pmat)
 end subroutine get_density_matrix
 
 !> Delete the solver instance
-subroutine delete(self)
+subroutine delete(self, ptr)
    !> Solver for the general eigenvalue problem
    class(diag_solver_type), intent(inout) :: self
+   !> Pointer to a C++ solver instance
+   type(c_ptr), intent(inout), optional :: ptr
 
    ! No specific resources to free in this base class
 end subroutine delete

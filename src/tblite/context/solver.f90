@@ -27,7 +27,13 @@ module tblite_context_solver
 
    !> Abstract base class for creating electronic solver instances
    type, public, abstract :: context_solver
-   contains
+      !> Instance of the electronic solver
+      class(solver_type), allocatable :: solver
+      !> falg to reuse the solver instance
+      logical :: reuse = .false.
+      !> Dimension of the matrices handled by this solver
+      integer :: ndim = 0
+  contains    
       !> Create new instance of electronic solver
       procedure(new), deferred :: new
       !> Delete an electronic solver instance
@@ -37,12 +43,10 @@ module tblite_context_solver
 
    abstract interface
       !> Create new electronic solver
-      subroutine new(self, solver, overlap, nel, kt)
-         import :: wp, context_solver, solver_type
+      subroutine new(self, overlap, nel, kt)
+         import :: wp, context_solver
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
-         !> New electronic solver
-         class(solver_type), allocatable, intent(out) :: solver
          !> Overlap matrix
          real(wp), intent(in) :: overlap(:, :)
          !> Electronic temperature
@@ -52,12 +56,10 @@ module tblite_context_solver
       end subroutine new
 
       !> Delete electronic solver instance
-      subroutine delete(self, solver)
-         import :: context_solver, solver_type
+      subroutine delete(self)
+         import :: context_solver
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
-         !> Electronic solver instance
-         class(solver_type), allocatable, intent(inout) :: solver
       end subroutine delete
    end interface
 

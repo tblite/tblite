@@ -1,0 +1,23 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2023.2-devel-ubuntu20.04
+
+%post
+    # Update the package list and install necessary packages
+        rm /etc/apt/sources.list.d/oneAPI*
+    	export DEBIAN_FRONTEND=noninteractive
+        export TZ=Europe/Berlin
+        apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        curl git \
+        pip
+
+
+    # Clean up
+    apt-get clean
+    apt install -y libopenblas-dev liblapacke-dev --no-install-recommends
+    apt install -y gfortran
+
+%environment
+    # Set up environment variables for CUDA
+    export PATH=~/.local/bin:$PATH

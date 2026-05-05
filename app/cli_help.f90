@@ -123,7 +123,8 @@ module tblite_cli_help
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
-      "                           gvd (default), and gvr"//nl//&
+      "                           gvd (default), gvr, gvd-gpu (if compiled with GPU support)"//nl//&
+      "                           DMP solvers: sp2, sp2-accel, trs4"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&
       "                           Homogeneous electric field in V/Å."//nl//&
       "      --alpb <name>        Use analytical linearized Poisson-Boltzmann (ALPB) solvation model."//nl//&

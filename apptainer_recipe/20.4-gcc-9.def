@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%post
+    # Update the package list and install necessary packages
+        export DEBIAN_FRONTEND=noninteractive
+        export TZ=Europe/Berlin
+        apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        curl git gfortran \
+        pip
+
+    # Install CUDA
+    apt-get update
+    apt-get install -y libopenblas-dev liblapacke-dev --no-install-recommends
+
+    # Clean up
+    apt-get clean
+    
+
+%environment
+    # Set up environment variables for CUDA
+    export PATH=~/.local/bin:$PATH

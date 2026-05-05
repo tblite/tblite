@@ -22,8 +22,10 @@ dependencies:
   - pyberny
   # build dependencies
   - c-compiler
+  - cxx-compiler
   - fortran-compiler
   - libblas
+  - blas-devel
   - liblapack
   - meson !=1.8.0
   - ninja

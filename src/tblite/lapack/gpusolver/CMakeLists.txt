@@ -2,30 +2,23 @@
 # SPDX-Identifier: LGPL-3.0-or-later
 #
 # tblite is free software: you can redistribute it and/or modify it under
-# the terms of the Lesser GNU General Public License as published by
+# the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # tblite is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# Lesser GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the Lesser GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-option(
-  'python_version',
-  type: 'string',
-  value: 'python3',
-  description: 'Python version to link against.',
+set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+
+list(
+  APPEND srcs
+  "${dir}/sygvd.F90"
 )
 
-option(
-  'lapack',
-  type: 'combo',
-  value: 'auto',
-  yield: true,
-  choices: ['auto', 'mkl', 'mkl-rt', 'openblas', 'netlib', 'custom'],
-  description : 'linear algebra backend',
-)
+set(srcs "${srcs}" PARENT_SCOPE)

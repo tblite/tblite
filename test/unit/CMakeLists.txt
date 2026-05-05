@@ -23,6 +23,7 @@ set(
   "coulomb-thirdorder"
   "dispersion"
   "double-dictionary"
+  "density-matrix-purification"
   "fit"
   "gfn1-xtb"
   "gfn2-xtb"

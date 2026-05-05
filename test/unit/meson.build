@@ -34,6 +34,7 @@ tests = [
   'coulomb-charge',
   'coulomb-multipole',
   'coulomb-thirdorder',
+  'density-matrix-purification',
   'dispersion',
   'double-dictionary',
   'fit',

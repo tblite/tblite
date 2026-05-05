@@ -24,6 +24,8 @@ module tblite_cli
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
+   use tblite_purification_solver_context, only : dmp_input, purification_type, &
+      & purification_runmode, purification_precision
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
@@ -88,6 +90,8 @@ module tblite_cli
       logical :: spin_polarized = .false.
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
+      !> Purifcation solver
+      type(dmp_input), allocatable :: dmp_input
    end type run_config
 
    !> Configuration for evaluating tight binding model on input structure
@@ -509,9 +513,59 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          case("gvd")
             config%solver = lapack_algorithm%gvd
+         case("gvd-gpu")
+            config%solver = lapack_algorithm%gvd_cusolver
          case("gvr")
             config%solver = lapack_algorithm%gvr
+         case("tc2","sp2")
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%tc2
+         case("tc2-accel","sp2-accel")
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%tc2accel    
+         case("trs4")
+            allocate(config%dmp_input)
+            config%dmp_input%type = purification_type%trs4
          end select
+
+      case("--purification-runmode")
+         iarg = iarg +1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for purification runmode")
+            exit
+         end if
+
+         select case(arg)
+         case("gpu")
+            config%dmp_input%runmode = purification_runmode%gpu
+         case("cpu")
+            config%dmp_input%runmode= purification_runmode%cpu
+         case default
+            config%dmp_input%runmode= purification_runmode%default
+         end select
+
+      case("--purification-precision")
+         iarg = iarg +1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for purification precision")
+            exit
+         end if
+
+         select case(arg)
+         case("double")
+            config%dmp_input%precision = purification_precision%double
+         case("single")
+            config%dmp_input%precision = purification_precision%single
+         case("mixed")
+            config%dmp_input%precision = purification_precision%mixed
+         case("mixed-fp16")
+            config%dmp_input%precision = purification_precision%mixed_fp16
+         case default
+            config%dmp_input%precision = purification_precision%mixed
+         end select
+
 
       case("--etemp")
          iarg = iarg + 1

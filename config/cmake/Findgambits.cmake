@@ -14,31 +14,27 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-math = cc.find_library('m')
-if cc.get_id() == 'gcc' or cc.get_id() == 'cc'
-  gfort = cc.find_library('gfortran')
+set(_lib "gambits")
+set(_pkg "GAMBITS")
+set(_url "https://git.rwth-aachen.de/bannwarthlab/gambits")
 
+if(NOT DEFINED "${_pkg}_FIND_METHOD")
+  if(DEFINED "${PROJECT_NAME}-dependency-method")
+    set("${_pkg}_FIND_METHOD" "${${PROJECT_NAME}-dependency-method}")
+  else()
+    set("${_pkg}_FIND_METHOD" "cmake" "pkgconf" "subproject" "fetch")
+  endif()
+  set("_${_pkg}_FIND_METHOD")
+endif()
 
-test(
-  'C-API',
-  executable(
-    '@0@-capi-tester'.format(meson.project_name()),
-    sources: files('main.c'),
-    dependencies: [tblite_dep, math, gfort],
-    link_language: 'c',
-  ),
-  suite: 'api',
-)
-else
-  test(
-    'C-API',
-    executable(
-      '@0@-capi-tester'.format(meson.project_name()),
-      sources: files('main.c'),
-      dependencies: [tblite_dep, math],
-      link_language: 'c',
-    ),
-    suite: 'api',
-  )
+include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
 
-endif
+tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "v0.2.0")
+
+if(DEFINED "_${_pkg}_FIND_METHOD")
+  unset("${_pkg}_FIND_METHOD")
+  unset("_${_pkg}_FIND_METHOD")
+endif()
+unset(_lib)
+unset(_pkg)
+unset(_url)

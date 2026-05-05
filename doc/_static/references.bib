@@ -250,3 +250,68 @@
   doi={10.1021/acs.jpca.0c05052},
   publisher={ACS Publications}
 }
+
+@article{niklasson2002,
+  title = {Expansion Algorithm for the Density Matrix},
+  author = {Niklasson, Anders M. N.},
+  year = {2002},
+  month = oct,
+  journal = {Phys. Rev. B},
+  volume = {66},
+  number = {15},
+  pages = {155115},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevB.66.155115},
+  urldate = {2024-06-19},
+  abstract = {A purification algorithm for expanding the single-particle density matrix in terms of the Hamiltonian operator is proposed. The scheme works with a predefined occupation and requires less than half the number of matrix-matrix multiplications compared to existing methods at low ({$<$}10\%) and high ({$>$}90\%) occupancies. The expansion can be used with a fixed chemical potential, in which case it is an asymmetric generalization of and a substantial improvement over grand canonical McWeeny purification. It is shown that the computational complexity, measured as the number of matrix multiplications, essentially is independent of system size even for metallic materials with a vanishing band gap.},
+  file = {/Users/pisteinbach/Zotero/storage/2R42AFEA/Niklasson - 2002 - Expansion algorithm for the density matrix.pdf;/Users/pisteinbach/Zotero/storage/FT73R4GW/PhysRevB.66.html}
+}
+
+@article{rubensson2014,
+  title = {Interior {{Eigenvalues}} from {{Density Matrix Expansions}} in {{Quantum Mechanical Molecular Dynamics}}},
+  author = {Rubensson, Emanuel H. and Niklasson, Anders M. N.},
+  year = {2014},
+  month = jan,
+  journal = {SIAM J. Sci. Comput.},
+  volume = {36},
+  number = {2},
+  pages = {B147-B170},
+  publisher = {{Society for Industrial and Applied Mathematics}},
+  issn = {1064-8275},
+  doi = {10.1137/130911585},
+  urldate = {2024-11-13},
+  abstract = {Recursive Fermi--Dirac operator expansion is an efficient way to compute one-electron density matrices in electronic structure theory. The convergence is rapid and depends only weakly on the conditioning of the problem and, for many systems, the computational cost increases only linearly with system size. In this article, errors introduced when evaluating the recursive expansion are analyzed and schemes to control the forward error are proposed. The error has previously been analyzed for explicit schemes working at zero electronic temperature [J. Chem. Phys., 128 (2008), 074106]. Here, implicit schemes [Phys. Rev. B, 68 (2003), 233104] working at zero or finite temperature are treated. The proposed schemes for error control are demonstrated by tight-binding as well as density functional theory electronic structure calculations on several test systems. Condition numbers for the problem of computing the density matrix are derived, giving quantitative insight into under what circumstances a temperature dependent formulation results in better conditioning. It is shown that for the considered recursive expansions, the number of matrix-matrix multiplications needed to compute the density matrix increases only with the squared logarithm of the condition number of the problem.},
+  file = {/Users/pisteinbach/Zotero/storage/TMUUZQKV/Rubensson and Niklasson - 2014 - Interior Eigenvalues from Density Matrix Expansion.pdf}
+}
+
+@article{niklasson2003,
+  title = {Trace Resetting Density Matrix Purification in {{O}}({{N}}) Self-Consistent-Field Theory},
+  author = {Niklasson, Anders M. N. and Tymczak, C. J. and Challacombe, Matt},
+  year = {2003},
+  month = may,
+  journal = {J. Chem. Phys.},
+  volume = {118},
+  number = {19},
+  eprint = {https://pubs.aip.org/aip/jcp/article-pdf/118/19/8611/19312803/8611\{{\textbackslash}textbackslash\}{\textbackslash}\_1\{{\textbackslash}textbackslash\}{\textbackslash}\_online.pdf},
+  pages = {8611--8620},
+  issn = {0021-9606},
+  doi = {10.1063/1.1559913},
+  abstract = {A new approach to linear scaling construction of the density matrix is proposed, based on trace resetting purification of an effective Hamiltonian. Trace resetting is related to the trace preserving canonical purification scheme of Palser and Manolopoulos [Phys. Rev. B 58, 12704 (1999)] in that they both work with a predefined occupation number and do not require adjustment or prior knowledge of the chemical potential. In the trace resetting approach, trace conservation is not strictly enforced, allowing greater flexibility in the choice of purification polynomial and improved performance for Hamiltonian systems with high or low filling. However, optimal polynomials may in some cases admit unstable solutions, requiring a resetting mechanism to bring the solution back into the domain of convergent purification. A quartic trace resetting method is developed, along with analysis of stability and error accumulation due to incomplete sparse-matrix methods that employ a threshold {$\tau$} to achieve sparsity. It is argued that threshold metered purification errors in the density matrix are O({$\tau\Delta$}g-1) at worst, where {$\Delta$}g is the gap at the chemical potential. In the low filling regime, purification derived total energies are shown to converge smoothly with {$\tau$}2 for RPBE/STO-6G C60 and a RPBE0/STO-3G Ti substituted zeolite. For the zeolite, the quartic trace resetting method is found to be both faster and over an order of magnitude more accurate than the Palser--Manolopoulos method. In the low filling limit, true linear scaling is demonstrated for RHF/6-31G** water clusters, and the trace resetting method is found to be both faster and an order of magnitude more accurate than the Palser--Manolopoulos scheme. Basis set progression of RPBE chlorophyll reveals the quartic trace resetting to be up to four orders of magnitude more accurate than the Palser--Manolopoulos algorithm in the limit of low filling. Furthermore, the ability of trace resetting and trace preserving algorithms to deal with degeneracy and fractional occupation is discussed.}
+}
+
+@article{steinbach2025,
+  title = {Acceleration of {{Semiempirical Electronic Structure Theory Calculations}} on {{Consumer-Grade GPUs Using Mixed-Precision Density Matrix Purification}}},
+  author = {Steinbach, Pit and Bannwarth, Christoph},
+  year = {2025},
+  month = aug,
+  journal = {J. Chem. Theory Comput.},
+  volume = {21},
+  number = {15},
+  pages = {7335--7351},
+  publisher = {American Chemical Society},
+  issn = {1549-9618},
+  doi = {10.1021/acs.jctc.5c00262},
+  urldate = {2025-09-16},
+  abstract = {For semiempirical electronic structure methods, solving the Roothaan--Hall equations to determine the one-electron density matrix is generally the computational bottleneck. Therefore, alternatives have been proposed to directly solve for the one-electron density matrix without the need to solve for the orbitals first. In this work, we implement an efficient dense linear algebra implementation of Niklasson's density matrix purification schemes using graphics processing units (GPUs). The computational bottleneck in these methods is the matrix--matrix multiplication needed to construct the purification polynomials, which can be accelerated by using GPUs. Of particular interest in this work is the use of consumer-grade GPUs that thrive on algorithms that maximize the amount of single-precision (FP32) operations carried out. Therefore, we present a tailored mixed-precision (MP) scheme to leverage much of the FP32 performance of these GPUs without sacrificing numerical accuracy in the self-consistent field (SCF) calculations. We demonstrate that our MP implementation is faster than LAPACK (Intel oneMKL DSYGVD) and cuSOLVER DSYGVD diagonalization-based density matrix builds for molecules with more than 1000 basis functions in combination with the semiempirical GFN2-xTB method. At the same time, the numerical precision of the energies and gradients is not significantly impacted by the MP scheme compared to a full double-precision (FP64) treatment. This gives access to significant accelerations of semiempirical calculations on commodity computing hardware. Going further, we show that our asynchronous GPU implementation enables running multiple SCFs in parallel on a single GPU, which enables us to leverage our implementation for accelerating state-of-the-art conformational sampling procedures that are based on molecular dynamics and metadynamic simulations.},
+  file = {/Users/pisteinbach/Zotero/storage/TUC9N4LK/Steinbach and Bannwarth - 2025 - Acceleration of Semiempirical Electronic Structure.pdf}
+}
