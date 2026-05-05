@@ -150,10 +150,19 @@ mctc_dep = dependency(
 )
 lib_deps += mctc_dep
 
+# Create multicharge library as subproject
+multicharge_dep = dependency(
+  'multicharge',
+  version: '>=0.5.0',
+  fallback: ['multicharge', 'multicharge_dep'],
+  default_options: ['default_library=static'],
+)
+lib_deps += multicharge_dep
+
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: ['>=4.0.0'],
+  version: '>=4.0.0',
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )

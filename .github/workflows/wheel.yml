@@ -80,10 +80,6 @@ jobs:
           - macos-latest
           - macos-15-intel
           # windows-latest
-        python: ['39', '310', '311', '312', '313', '314']
-        include:
-          - os: ubuntu-22.04
-            python: '38'
 
     defaults:
       run:
@@ -113,9 +109,8 @@ jobs:
           CIBW_CONFIG_SETTINGS: setup-args="-Dtblite:openmp=false" setup-args="-Dtblite:lapack=openblas" setup-args="-Dlapack=openblas"
           CIBW_ARCHS: auto64
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
-          CIBW_BUILD: "*${{ matrix.python }}-*"
           # MM: Package installation (yum install ...) works differently on musllinux
-          CIBW_SKIP: "*musllinux*"
+          CIBW_SKIP: "{cp38-macosx_arm64,cp39-macosx_arm64,*musllinux*}"
           # Include all PyPy versions
           CIBW_ENABLE: pypy pypy-eol
           # Control verbosity of the 'pip wheel' output
@@ -143,7 +138,7 @@ jobs:
       # Upload the built wheels as artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: tblite-python-${{ matrix.os }}-${{ matrix.python }}
+          name: tblite-python-${{ matrix.os }}
           path: ./*.whl
           retention-days: 5
 
@@ -162,7 +157,7 @@ jobs:
       - name: Create SHA256 checksums
         run: |
           set -ex
-          for output in tblite*/tblite*; do
+          for output in tblite*/*tblite*; do
             pushd $(dirname "$output")
             sha256sum $(basename "$output") | tee $(basename "$output").sha256
             popd
@@ -173,27 +168,54 @@ jobs:
           mkdir dist/
           cp -v tblite*/tblite*.whl tblite*/tblite*.tar.gz dist/
 
-      - name: Publish to Test PyPI
-        if: ${{ github.event_name == 'release' }}
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_TOKEN }}
-          repository-url: https://test.pypi.org/legacy/
-
       - name: Upload assets
         uses: svenstaro/upload-release-action@v2
         if: ${{ github.event_name == 'release' }}
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: tblite*/tblite*
+          file: tblite*/*tblite*
           file_glob: true
           tag: ${{ github.ref }}
           overwrite: true
 
-      - name: Publish to PyPI
-        if: ${{ github.event_name == 'release' }}
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_TOKEN }}
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    needs:
+      - sdist
+      - wheels
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tblite
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download sdist
+      uses: actions/download-artifact@v4
+      with:
+        name: tblite-python-sdist
+        path: dist/
+
+    - name: Download manylinux wheels
+      uses: actions/download-artifact@v4
+      with:
+        name: tblite-python-ubuntu-latest
+        path: dist/
+
+    - name: Download osx/aarch64 wheels
+      uses: actions/download-artifact@v4
+      with:
+        name: tblite-python-macos-latest
+        path: dist/
+
+    - name: Download osx/x86_64 wheels
+      uses: actions/download-artifact@v4
+      with:
+        name: tblite-python-macos-15-intel
+        path: dist/
+
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
