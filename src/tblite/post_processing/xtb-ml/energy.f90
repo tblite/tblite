@@ -147,7 +147,8 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
 
             allocate(d3)
             call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
-               & a2=cont%param%a2, s9=cont%param%s9, error=error)
+               & a2=cont%param%a2, s9=cont%param%s9, error=error, &
+               & disp2_width=cont%cutoff%width2, disp3_width=cont%cutoff%width3)
             if(allocated(error)) then
                write(error_unit, '("[Error]:", 1x, a)') error%message
                error stop
@@ -165,7 +166,8 @@ subroutine compute_features(self, mol, wfn, integrals, calc, cache_list)
 
             allocate(d4)
             call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
-               & a2=cont%param%a2, s9=cont%param%s9, error=error)
+               & a2=cont%param%a2, s9=cont%param%s9, error=error, &
+               & disp2_width=cont%cutoff%width2, disp3_width=cont%cutoff%width3)
             if(allocated(error)) then
                write(error_unit, '("[Error]:", 1x, a)') error%message
                error stop
