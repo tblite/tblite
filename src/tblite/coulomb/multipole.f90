@@ -932,9 +932,9 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
    real(wp), intent(out) :: dg(3)
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr
+   integer :: itr, a, b
    real(wp) :: fac, vec(3), g2, gv, expk, alp2, sink, cosk, dpiqj, qidpj
-   real(wp) :: qpiqj, qiqpj, dpiv, dpjv
+   real(wp) :: qpiqj, qiqpj, dpiv, dpjv, tiv(3), tjv(3)
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp
@@ -954,24 +954,45 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
       qidpj = dot_product(vec, mj)*qi
 
       dg(:) = dg - 2*vec*cosk * (dpiqj - qidpj)
-      ds(:, :) = ds + 2 * sink * (dpiqj - qidpj) &
-         & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) - unity)
+      do b = 1, 3
+         do a = 1, 3
+            ds(a, b) = ds(a, b) &
+               & + 2 * sink * (dpiqj - qidpj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
+               & - sink*(vec(a)*(qj*mi(b) - qi*mj(b)) + vec(b)*(qj*mi(a) - qi*mj(a)))
+         end do
+      end do
 
       dpiv = dot_product(mi, vec)
       dpjv = dot_product(mj, vec)
 
       dg(:) = dg + vec*sink*dpiv*dpjv
-      ds(:, :) = ds + cosk * dpiv*dpjv &
-         & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) - unity)
+      do b = 1, 3
+         do a = 1, 3
+            ds(a, b) = ds(a, b) &
+               & + cosk * dpiv*dpjv * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
+               & - 0.5_wp*cosk*(vec(a)*(mi(b)*dpjv + mj(b)*dpiv) + vec(b)*(mi(a)*dpjv + mj(a)*dpiv))
+         end do
+      end do
 
       qiqpj = qi*(tj(1)*vec(1)*vec(1) + tj(3)*vec(2)*vec(2) + tj(6)*vec(3)*vec(3) &
          & + 2*tj(2)*vec(1)*vec(2) + 2*tj(4)*vec(1)*vec(3) + 2*tj(5)*vec(2)*vec(3))
       qpiqj = qj*(ti(1)*vec(1)*vec(1) + ti(3)*vec(2)*vec(2) + ti(6)*vec(3)*vec(3) &
          & + 2*ti(2)*vec(1)*vec(2) + 2*ti(4)*vec(1)*vec(3) + 2*ti(5)*vec(2)*vec(3))
+      tiv = [ti(1)*vec(1) + ti(2)*vec(2) + ti(4)*vec(3), &
+         & ti(2)*vec(1) + ti(3)*vec(2) + ti(5)*vec(3), &
+         & ti(4)*vec(1) + ti(5)*vec(2) + ti(6)*vec(3)]
+      tjv = [tj(1)*vec(1) + tj(2)*vec(2) + tj(4)*vec(3), &
+         & tj(2)*vec(1) + tj(3)*vec(2) + tj(5)*vec(3), &
+         & tj(4)*vec(1) + tj(5)*vec(2) + tj(6)*vec(3)]
 
       dg(:) = dg + vec * sink * (qiqpj + qpiqj)
-      ds(:, :) = ds + cosk * (qiqpj + qpiqj) &
-         & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) - unity)
+      do b = 1, 3
+         do a = 1, 3
+            ds(a, b) = ds(a, b) &
+               & + cosk * (qiqpj + qpiqj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
+               & - cosk*(vec(a)*(qi*tjv(b) + qj*tiv(b)) + vec(b)*(qi*tjv(a) + qj*tiv(a)))
+         end do
+      end do
    end do
 
 end subroutine get_damat_sdq_rec_3d
@@ -989,7 +1010,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
    real(wp), intent(out) :: dg(3)
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr, k
+   integer :: itr, k, a, b, c
    real(wp) :: vec(3), r1, r2, g1, g3, g5, g7, fdmp3, fdmp5, ddmp3, ddmp5, dpiqj, qidpj
    real(wp) :: alp2, arg, arg2, erft, expt, e1, e2, e3, tabc(3, 3, 3), tab(3, 3)
    real(wp) :: dpidpj, dpiv, dpjv, edd, eq, g_sd(3), g_dd(3), g_sq(3)
@@ -1033,15 +1054,12 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
       ! Charge - dipole
       g_sd(:) = - (ddmp3*g5)*vec * (dpiqj - qidpj) + fdmp3*g3*(qi*mj - qj*mi)
 
-      block
-         integer :: a, b
-         do b = 1, 3
-            do a = 1, 3
-               tab(a, b) = 3*vec(a)*vec(b)*e2
-            end do
-            tab(b, b) = tab(b, b) - e1
+      do b = 1, 3
+         do a = 1, 3
+            tab(a, b) = 3*vec(a)*vec(b)*e2
          end do
-      end block
+         tab(b, b) = tab(b, b) - e1
+      end do
 
       do k = 1, 3
          g_sd(k) = g_sd(k) &
@@ -1055,7 +1073,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
 
       de = de + 3.0_wp*(dpiqj - qidpj)*kdmp3*fdmp3*g3*(fdmp3/rr)*(rr*g1)**kdmp3
       dg(:) = dg + g_sd
-      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_sd, 2, 3) &
+      ds(:, :) = ds - 0.5_wp * (spread(vec, 1, 3) * spread(g_sd, 2, 3) &
          & + spread(g_sd, 1, 3) * spread(vec, 2, 3))
 
       ! Dipole - dipole
@@ -1063,21 +1081,18 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
          & + 3.0_wp*fdmp5*g5*(dpiv*mj + dpjv*mi) &
          & - edd*ddmp5*g7*vec
 
-      block
-         integer :: a, b, c
-         do c = 1, 3
-            do b = 1, 3
-               do a = 1, 3
-                  tabc(a, b, c) = - 15*vec(a)*vec(b)*vec(c)*e3
-               end do
-            end do
+      do c = 1, 3
+         do b = 1, 3
             do a = 1, 3
-               tabc(a, a, c) = tabc(a, a, c) + 3*e2*vec(c)
-               tabc(c, a, c) = tabc(c, a, c) + 3*e2*vec(a)
-               tabc(a, c, c) = tabc(a, c, c) + 3*e2*vec(a)
+               tabc(a, b, c) = - 15*vec(a)*vec(b)*vec(c)*e3
             end do
          end do
-      end block
+         do a = 1, 3
+            tabc(a, a, c) = tabc(a, a, c) + 3*e2*vec(c)
+            tabc(c, a, c) = tabc(c, a, c) + 3*e2*vec(a)
+            tabc(a, c, c) = tabc(a, c, c) + 3*e2*vec(a)
+         end do
+      end do
 
       do k = 1, 3
          g_dd(k) = g_dd(k) &
@@ -1094,7 +1109,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
 
       de = de + 3.0_wp*edd*kdmp5*fdmp5*g5*(fdmp5/rr)*(rr*g1)**kdmp5
       dg(:) = dg + g_dd
-      ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(g_dd, 2, 3) &
+      ds(:, :) = ds - 0.5_wp * (spread(vec, 1, 3) * spread(g_dd, 2, 3) &
          & + spread(g_dd, 1, 3) * spread(vec, 2, 3))
 
       ! Charge - quadrupole

@@ -94,7 +94,7 @@ subroutine collect_coulomb_multipole(testsuite)
       new_unittest("gradient-pbc", test_g_effective_urea), &
       new_unittest("sigma-1", test_s_effective_m05), &
       new_unittest("sigma-2", test_s_effective_m06), &
-      !new_unittest("sigma-pbc", test_s_effective_oxacb), &
+      new_unittest("sigma-pbc", test_s_effective_oxacb), &
       new_unittest("potential-1", test_v_effective_m07), &
       new_unittest("potential-2", test_v_effective_m08) &
       ]
@@ -313,7 +313,7 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
 end subroutine test_numgrad
 
 
-subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
+subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole, threshold)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -333,16 +333,23 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    !> Factory to create new electrostatic objects
    procedure(multipole_maker) :: make_multipole
 
+   !> Threshold for agreement between numerical and analytical sigma
+   real(wp), intent(in), optional :: threshold
+
    integer :: ic, jc
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
+   real(wp) :: thr_sigma
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3), eps(3, 3), numsigma(3, 3)
    real(wp), allocatable :: gradient(:, :), xyz(:, :), lattice(:, :)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
    real(wp), parameter :: step = 1.0e-6_wp
    type(wavefunction_type) :: wfn
+
+   thr_sigma = thr2
+   if (present(threshold)) thr_sigma = threshold
 
    allocate(gradient(3, mol%nat), xyz(3, mol%nat))
    energy = 0.0_wp
@@ -388,7 +395,7 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole)
    call multipole%update(mol, cache)
    call multipole%get_gradient(mol, cache, wfn, gradient, sigma)
 
-   if (any(abs(sigma - numsigma) > thr2)) then
+   if (any(abs(sigma - numsigma) > thr_sigma)) then
       call test_failed(error, "Strain derivatives do not match")
       print'(3es21.14)', sigma
       print'("---")'
@@ -1091,7 +1098,7 @@ subroutine test_s_effective_oxacb(error)
       & shape(qpat))
 
    call get_structure(mol, "X23", "oxacb")
-   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2, 1.0e-6_wp)
 
 end subroutine test_s_effective_oxacb
 
