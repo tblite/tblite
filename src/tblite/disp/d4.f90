@@ -72,6 +72,56 @@ module tblite_disp_d4
 contains
 
 
+subroutine get_disp2_switch(cutoff, inner, active)
+
+   real(wp), intent(in) :: cutoff
+   real(wp), intent(out) :: inner
+   logical, intent(out) :: active
+
+   character(len=64) :: env
+   integer :: stat, io
+   real(wp) :: width
+
+   inner = cutoff
+   width = 0.05_wp
+
+   call get_environment_variable("TBLITE_D4_DISP2_SMOOTH_WIDTH", env, status=stat)
+   if (stat /= 0 .or. len_trim(env) == 0) then
+      call get_environment_variable("DFTD4_DISP2_SMOOTH_WIDTH", env, status=stat)
+   end if
+   if (stat == 0 .and. len_trim(env) > 0) then
+      read(env, *, iostat=io) width
+   end if
+   active = width > 0.0_wp .and. width < cutoff
+   if (active) inner = cutoff - width
+
+end subroutine get_disp2_switch
+
+
+pure subroutine smooth_cutoff(r, cutoff, inner, active, sw, dswdr)
+
+   real(wp), intent(in) :: r, cutoff, inner
+   logical, intent(in) :: active
+   real(wp), intent(out) :: sw, dswdr
+
+   real(wp) :: x, width
+
+   if (.not. active .or. r <= inner) then
+      sw = 1.0_wp
+      dswdr = 0.0_wp
+   else if (r >= cutoff) then
+      sw = 0.0_wp
+      dswdr = 0.0_wp
+   else
+      width = cutoff - inner
+      x = (cutoff - r) / width
+      sw = x**3 * (10.0_wp + x*(-15.0_wp + 6.0_wp*x))
+      dswdr = -30.0_wp*x**2*(1.0_wp - x)**2 / width
+   end if
+
+end subroutine smooth_cutoff
+
+
 !> Create a new instance of a self-consistent D4 dispersion correction
 subroutine new_d4_dispersion(self, mol, s6, s8, a1, a2, s9, error)
    !> Instance of the dispersion correction
@@ -347,15 +397,18 @@ subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, r4r2, dispmat)
    real(wp), intent(out) :: dispmat(:, :, :, :)
 
    integer :: iat, jat, izp, jzp, jtr, iref, jref
-   real(wp) :: vec(3), r2, cutoff2, r0ij, rrij, t6, t8, edisp, dE
+   logical :: use_switch
+   real(wp) :: vec(3), r2, r, cutoff2, cutoff_inner, r0ij, rrij, t6, t8
+   real(wp) :: edisp, dE, sw, dswdr
 
    dispmat(:, :, :, :) = 0.0_wp
    cutoff2 = cutoff**2
+   call get_disp2_switch(cutoff, cutoff_inner, use_switch)
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, param, disp, trans, cutoff2, r4r2, dispmat) &
+   !$omp shared(mol, param, disp, trans, cutoff, cutoff2, cutoff_inner, use_switch, r4r2, dispmat) &
    !$omp private(iat, jat, izp, jzp, jtr, vec, r2, r0ij, rrij, &
-   !$omp& t6, t8, edisp, dE)
+   !$omp& t6, t8, edisp, dE, r, sw, dswdr)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       do jat = 1, iat
@@ -367,11 +420,18 @@ subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, r4r2, dispmat)
             vec(:) = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, jtr))
             r2 = vec(1)*vec(1) + vec(2)*vec(2) + vec(3)*vec(3)
             if (r2 > cutoff2 .or. r2 < epsilon(1.0_wp)) cycle
+            if (use_switch) then
+               r = sqrt(r2)
+               call smooth_cutoff(r, cutoff, cutoff_inner, use_switch, sw, dswdr)
+               if (sw <= 0.0_wp) cycle
+            else
+               sw = 1.0_wp
+            end if
 
             t6 = 1.0_wp/(r2**3 + r0ij**6)
             t8 = 1.0_wp/(r2**4 + r0ij**8)
 
-            edisp = param%s6*t6 + param%s8*rrij*t8
+            edisp = sw * (param%s6*t6 + param%s8*rrij*t8)
 
             dE = dE - edisp
          end do
