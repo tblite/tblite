@@ -48,7 +48,7 @@ module tblite_disp_d3
    end type d3_dispersion
 
    character(len=*), parameter :: label = "DFT-D3(BJ) dispersion correction"
-   real(wp), parameter :: default_disp2_width = 0.05_wp
+   real(wp), parameter :: default_disp2_width = 0.0_wp
    real(wp), parameter :: default_disp3_width = 0.0_wp
 
 contains

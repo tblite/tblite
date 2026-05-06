@@ -68,7 +68,7 @@ module tblite_disp_d4
 
    character(len=*), parameter :: label_d4 = "self-consistent DFT-D4 dispersion"
    character(len=*), parameter :: label_d4s = "self-consistent DFT-D4S dispersion"
-   real(wp), parameter :: default_disp2_width = 0.05_wp
+   real(wp), parameter :: default_disp2_width = 0.0_wp
    real(wp), parameter :: default_disp3_width = 0.0_wp
 
 
