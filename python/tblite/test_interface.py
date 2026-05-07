@@ -552,8 +552,7 @@ def test_xtbml_api():
     dict_ = res.get("post-processing-dict")
     
     assert dict_.get("CN_A") is None
-    print(len(dict_.keys()))
-    print(dict_.keys())
+
     assert len(dict_.keys()) == 130
     
 

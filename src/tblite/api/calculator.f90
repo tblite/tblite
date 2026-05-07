@@ -28,10 +28,9 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, eeqbc_guess
+      & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
