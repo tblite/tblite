@@ -20,7 +20,7 @@ module tblite_post_processing_molecular_moments
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_container, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
@@ -37,50 +37,60 @@ module tblite_post_processing_molecular_moments
 
    public :: molecular_moments, new_molecular_moments
 
+   !> Molecular moments as post-processing method  
    type, extends(post_processing_type) :: molecular_moments
-      logical :: comp_dipm = .true. , comp_qm = .true.
+      !> Perform dipole moment calculation
+      logical :: comp_dipm = .true.
+      !> Perform quadrupole moment calculation
+      logical :: comp_qm = .true.
    contains
+      !> Calculate molecular moments
       procedure :: compute
+      !> Print timings
       procedure :: print_timer
    end type molecular_moments
 
    character(len=27), parameter :: label = "Molecular Multipole Moments"
-   type(timer_type) :: timer
 
 contains
 
-subroutine new_molecular_moments(new_molmom_type, param)
-   type(molecular_moments), intent(inout) :: new_molmom_type
+subroutine new_molecular_moments(self, param)
+   !> Instance of the molecular moments post-processing
+   type(molecular_moments), intent(out) :: self
+   !> Molecular multipole parameterization
    type(molecular_multipole_record), intent(in) :: param
    
-   new_molmom_type%label = label
+   self%label = label
 
-   new_molmom_type%comp_dipm = param%moldipm
-   new_molmom_type%comp_qm = param%molqp
+   self%comp_dipm = param%moldipm
+   self%comp_qm = param%molqp
 
 end subroutine new_molecular_moments
 
-subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
-   class(molecular_moments),intent(inout) :: self
+subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
+   !> Instance of the molecular moments post-processing
+   class(molecular_moments),intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
    type(wavefunction_type), intent(in) :: wfn
-   !> integral container
-   type(integral_type), intent(in) :: integrals
-   !> calculator instance
+   !> Integral container
+   type(integral_type), intent(in) :: ints
+   !> Calculator instance
    type(xtb_calculator), intent(in) :: calc
    !> Cache list for storing caches of various interactions
-   type(container_cache), intent(inout) :: cache_list(:)
+   type(cache_list), intent(inout) :: caches
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
+   !> Timer instance
+   type(timer_type), intent(inout) :: timer
    !> Print level
    integer, intent(in) :: prlevel
    !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
    real(wp) :: dipm(3), qp(6)
 
-   call timer%push("total")
+   call timer%push("molmom")
    if (self%comp_dipm) then
       call timer%push("dipole")
       call get_molecular_dipole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), dipm)
@@ -89,28 +99,33 @@ subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, di
    end if
    if (self%comp_qm) then
       call timer%push("quadrupole")
-      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), wfn%qpat(:, :, 1), qp)
+      call get_molecular_quadrupole_moment(mol, wfn%qat(:, 1), wfn%dpat(:, :, 1), &
+         & wfn%qpat(:, :, 1), qp)
       call dict%add_entry("molecular-quadrupole", qp)
       call timer%pop()
    end if
    call timer%pop()
+
 end subroutine compute
 
-subroutine print_timer(self, prlevel, ctx)
-   !> Instance of the interaction container
+subroutine print_timer(self, timer, prlevel, ctx)
+   !> Instance of the molecular moments post-processing
    class(molecular_moments), intent(in) :: self
-   integer :: prlevel
-   type(context_type) :: ctx
+   !> Timer instance
+   type(timer_type), intent(in) :: timer
+   !> Print level
+   integer, intent(in) :: prlevel
+   !> Context container for writing to stdout
+   type(context_type), intent(inout) :: ctx
+
    real(wp) :: ttime, stime
    integer :: it
    character(len=*), parameter :: labels(*) = [character(len=20):: &
-      "dipole", "quadrupole"  ]
-
-
+      "dipole", "quadrupole" ]
 
    if (prlevel > 2) then
       call ctx%message(label//" timing details:")
-      ttime = timer%get("total")
+      ttime = timer%get("molmom")
       call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
       do it = 1, size(labels)
          stime = timer%get(labels(it))
@@ -120,6 +135,7 @@ subroutine print_timer(self, prlevel, ctx)
       end do
       call ctx%message("")
    end if
+
 end subroutine print_timer
 
 end module tblite_post_processing_molecular_moments

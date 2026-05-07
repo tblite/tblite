@@ -16,8 +16,8 @@
 !> @file tblite/post-processing/xtb-ml/atomic_frontier_orbitals.f90
 
 !> compute atomic response function and effective H-L gap
-module tblite_xtbml_atomic_frontier
-   use mctc_env, only : wp, sp
+module tblite_post_processing_xtbml_atomic_frontier
+   use mctc_env, only : wp
    implicit none
    private
    public :: atomic_frontier_orbitals
@@ -208,4 +208,4 @@ subroutine atomic_frontier_orbitals(focc, eps, aoat, C, S, response, egap, chemp
 
 end subroutine atomic_frontier_orbitals
 
-end module tblite_xtbml_atomic_frontier
+end module tblite_post_processing_xtbml_atomic_frontier

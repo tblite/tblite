@@ -90,7 +90,8 @@ subroutine test_mulliken_charges_shell_h2p(error)
    xtbml_param%xtbml_density = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("q_A", mulliken_shell)
@@ -139,7 +140,8 @@ subroutine test_dipm_shell_h2p(error)
    xtbml_param%xtbml_a = [1.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("dipm_A_x", tmp_array)
@@ -226,7 +228,8 @@ subroutine test_dipm_shell_co2(error)
    xtbml_param%xtbml_a = [1.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("dipm_A_x", tmp_array)
@@ -336,7 +339,8 @@ subroutine test_qp_shell_benz(error)
    xtbml_param%xtbml_a = [1.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("dipm_A_x", tmp_array)
@@ -482,7 +486,8 @@ subroutine test_qp_shell_benz_high_a(error)
    xtbml_param%xtbml_a = [1000.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("dipm_A_x", tmp_array)
@@ -601,7 +606,8 @@ subroutine test_rotation_co2(error)
    xtbml_param%xtbml_a = [1.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=3, results=res, post_process=pproc)
 
 
@@ -616,7 +622,8 @@ subroutine test_rotation_co2(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc)
 
    if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
@@ -662,7 +669,8 @@ subroutine test_translation_co2(error)
    xtbml_param%xtbml_a = [1.0_wp]
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    xyz_trans = xyz(:,:)
@@ -676,7 +684,8 @@ subroutine test_translation_co2(error)
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    deallocate(pproc)
    allocate(pproc)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res_, post_process=pproc)
 
    if (.not.(compare_dict(res%dict, res_%dict, thr2))) then
@@ -723,10 +732,11 @@ subroutine test_orbital_energy_ref(error)
    call dict_ref%add_entry("ext_chem_pot_alpha", [ -0.9205182203755125_wp, -0.9205182203755127_wp, -0.9334269287974830_wp])
    call dict_ref%add_entry("ext_HOAO_alpha", [ -0.9232658053262217_wp, -0.9232658053262219_wp, -0.9368077181575476_wp])
    call dict_ref%add_entry("ext_LUAO_alpha", [ -0.9177706354248032_wp, -0.9177706354248034_wp, -0.9300461394374184_wp])
-   call dict_ref%add_entry("ext_gap_beta", [ 9.4593893126801003_wp, 9.4593893126801003_wp, 6.5604665198186094_wp])
-   call dict_ref%add_entry("ext_chem_pot_beta", [ -12.9537156502782160_wp, -12.9537156502782196_wp, -13.9314158798429979_wp])
-   call dict_ref%add_entry("ext_HOAO_beta", [ -17.6834103066182671_wp, -17.6834103066182706_wp, -17.2116491397523035_wp])
-   call dict_ref%add_entry("ext_LUAO_beta", [ -8.2240209939381650_wp, -8.2240209939381685_wp, -10.6511826199336923_wp])
+   call dict_ref%add_entry("ext_gap_beta", [ 9.4538889011103020_wp, 9.4538889011103020_wp, 6.5537012263493697_wp])
+   call dict_ref%add_entry("ext_chem_pot_beta", [ -12.033203108920080_wp, -12.033203108920080_wp, -12.997992016340195_wp])
+   call dict_ref%add_entry("ext_HOAO_beta", [ -16.760147559475232_wp, -16.760147559475232_wp, -16.274842629514879_wp])
+   call dict_ref%add_entry("ext_LUAO_beta", [ -7.3062586583649294_wp, -7.3062586583649294_wp, -9.7211414031655110_wp])
+   call dict_ref%add_entry("n_features", [ 18.0_wp])
 
    call new(mol,num,xyz*aatoau,uhf=2,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
@@ -738,7 +748,8 @@ subroutine test_orbital_energy_ref(error)
    xtbml_param%xtbml_convolution = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    if (.not.(compare_dict(res%dict, dict_ref, thr2))) then
@@ -777,6 +788,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
                call lhs%get_label(i, label)
                write(*,*) "Entry ", label, " is diverging"
                write(*,*) array1
+               write(*,*) array1_
                return
             end if
             continue
@@ -1085,21 +1097,23 @@ subroutine test_energy_sum_up_gfn2(error)
    xtbml_param%xtbml_energy = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("E_tot", tmp_array)
    sum_energy = sum_energy + sum(tmp_array)
-   ! print'(3es21.14)', abs(sum_energy-energy)
+
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN2: Energy features don't add up to total energy.")
-      ! print'(3es21.14)', abs(sum_energy-energy)
+      write(*,*) "diff:"
+      print'(3es21.14)', abs(sum_energy-energy)
    end if
-
 
    call res%dict%remove_entry("E_tot")
    call res%dict%remove_entry("w_tot")
+   call res%dict%remove_entry("n_features")
 
    sum_energy = 0.0_wp
    do i = 1, res%dict%get_n_entries()
@@ -1108,10 +1122,11 @@ subroutine test_energy_sum_up_gfn2(error)
       sum_energy = sum_energy + sum(tmp_array)
       deallocate(tmp_array)
    end do
-   ! print'(3es21.14)', abs(sum_energy-energy)
+
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN2: Energy features don't add up to total energy.")
-      ! print'(3es21.14)', abs(sum_energy-energy)
+      write(*,*) "diff:"
+      print'(3es21.14)', abs(sum_energy-energy)
    end if
 
 end subroutine test_energy_sum_up_gfn2
@@ -1172,19 +1187,22 @@ subroutine test_energy_sum_up_gfn1(error)
       call calc%push_back(cont)
    end block
 
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("E_tot", tmp_array)
    sum_energy = sum_energy + sum(tmp_array)
 
-
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
+      write(*,*) "diff:"
       print'(3es21.14)', abs(sum_energy-energy)
    end if
+
    call res%dict%remove_entry("E_tot")
    call res%dict%remove_entry("w_tot")
+   call res%dict%remove_entry("n_features")
 
    sum_energy = 0.0_wp
    do i = 1, res%dict%get_n_entries()
@@ -1193,9 +1211,9 @@ subroutine test_energy_sum_up_gfn1(error)
       deallocate(tmp_array)
    end do
 
-
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
+      write(*,*) "diff:"
       print'(3es21.14)', abs(sum_energy-energy)
    end if
 
@@ -1250,12 +1268,14 @@ subroutine test_high_spin(error)
    xtbml_param%xtbml_convolution = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
-      !19 features per spin channel => 38
+      !16 features per spin channel => 32
       !9 features for orbital energy => 18
-      ! total 56
-   if (res%dict%get_n_entries() /= 56) then
+      !1 for the number of features
+      ! total 51
+   if (res%dict%get_n_entries() /= 51) then
       call test_failed(error, "Wrong number of features")
    end if
 
@@ -1288,7 +1308,8 @@ subroutine test_orbital_energy_hp(error)
    xtbml_param%xtbml_orbital_energy = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("HOAO", mulliken_shell)
@@ -1326,7 +1347,8 @@ subroutine test_orbital_energy_he(error)
    xtbml_param%xtbml_orbital_energy = .true.
    call move_alloc(xtbml_param, tmp_record)
    call pparam%push(tmp_record)
-   call add_post_processing(pproc, pparam)
+   call add_post_processing(pproc, mol, pparam, error)
+   if (allocated(error)) return
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0, results=res, post_process=pproc)
 
    call res%dict%get_entry("LUAO", mulliken_shell)

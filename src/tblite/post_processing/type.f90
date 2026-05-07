@@ -21,6 +21,7 @@ module tblite_post_processing_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_container_cache, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
@@ -30,47 +31,68 @@ module tblite_post_processing_type
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
+
    public :: post_processing_type, collect_containers_caches
 
+   !> Abstract base class for post-processing methods
    type, abstract :: post_processing_type
+      !> Post-processing label
       character(len=:), allocatable :: label
-
    contains
-      !> Setup container
+      !> Perform post-processing method
       procedure(compute), deferred :: compute
+      !> Information on the post-processing method
       procedure :: info
-      procedure :: print_timer
+      !> Print timings
+      procedure(print_timer), deferred :: print_timer
    end type  post_processing_type
 
-   type(timer_type) :: timer
    abstract interface
-      subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
-      import :: post_processing_type, structure_type, wavefunction_type, integral_type, xtb_calculator, &
-         & context_type, container_cache, double_dictionary_type
-      class(post_processing_type),intent(inout) :: self
-      !> Molecular structure data
-      type(structure_type), intent(in) :: mol
-      !> Wavefunction strcuture data
-      type(wavefunction_type), intent(in) :: wfn
-      !> integral container
-      type(integral_type), intent(in) :: integrals
-      !> calculator instance
-      type(xtb_calculator), intent(in) :: calc
-      !> Cache list for storing caches of various interactions
-      type(container_cache), intent(inout) :: cache_list(:)
-      !> Context container for writing to stdout
-      type(context_type), intent(inout) :: ctx
-      !> Print level
-      integer, intent(in) :: prlevel
-      !> Dictionary for storing results
-      type(double_dictionary_type), intent(inout) :: dict
+      subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
+         import :: post_processing_type, structure_type, wavefunction_type, &
+            & integral_type, xtb_calculator, context_type, timer_type, &
+            & cache_list, double_dictionary_type
+         !> Instance of a post-processing method
+         class(post_processing_type),intent(in) :: self
+         !> Molecular structure data
+         type(structure_type), intent(in) :: mol
+         !> Wavefunction strcuture data
+         type(wavefunction_type), intent(in) :: wfn
+         !> Integral container
+         type(integral_type), intent(in) :: ints
+         !> Calculator instance
+         type(xtb_calculator), intent(in) :: calc
+         !> Cache list for storing caches of various interactions
+         type(cache_list), intent(inout) :: caches
+         !> Context container for writing to stdout
+         type(context_type), intent(inout) :: ctx
+         !> Timer instance
+         type(timer_type), intent(inout) :: timer
+         !> Print level
+         integer, intent(in) :: prlevel
+         !> Dictionary for storing results
+         type(double_dictionary_type), intent(inout) :: dict
       end subroutine compute
+
+      subroutine print_timer(self, timer, prlevel, ctx)
+         import :: post_processing_type, timer_type, context_type
+         !> Instance of a post-processing method
+         class(post_processing_type), intent(in) :: self
+         !> Timer instance
+         type(timer_type), intent(in) :: timer
+         !> Print level
+         integer, intent(in) :: prlevel
+         !> Context container for writing to stdout
+         type(context_type), intent(inout) :: ctx
+      end subroutine print_timer
+
    end interface
+
 contains
 
 
 pure function info(self, verbosity, indent) result(str)
-   !> Instance of the interaction container
+   !> Instance of a post-processing method
    class(post_processing_type), intent(in) :: self
    !> Verbosity level
    integer, intent(in) :: verbosity
@@ -84,35 +106,32 @@ pure function info(self, verbosity, indent) result(str)
    else
       str = "Unknown"
    end if
+
 end function info
 
-subroutine print_timer(self, prlevel, ctx)
-   !> Instance of the interaction container
-   class(post_processing_type), intent(in) :: self
-   !> Print level
-   integer :: prlevel
-   !> Context container for writing to stdout
-   type(context_type) :: ctx
-   real(wp) :: ttime
-
-   if (prlevel > 1) then
-      ttime = timer%get("total")
-      call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
-      call ctx%message("")
-   end if
-end subroutine print_timer
-
-subroutine collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
-   type(container_cache), allocatable, intent(inout) :: rcache, ccache, hcache, dcache, icache
-   type(container_cache), allocatable, intent(inout) :: cache_list(:)
+subroutine collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
+   !> Container cache for the repulsion interaction
+   type(container_cache), allocatable, intent(inout) :: rcache
+   !> Container cache for the Coulomb interaction
+   type(container_cache), allocatable, intent(inout) :: ccache
+   !> Container cache for the halogen correction
+   type(container_cache), allocatable, intent(inout) :: hcache
+   !> Container cache for the dispersion interaction
+   type(container_cache), allocatable, intent(inout) :: dcache
+   !> Container cache for general interactions
+   type(container_cache), allocatable, intent(inout) :: icache
+   !> Instance of the calculator
    type(xtb_calculator), intent(in) :: calc
+   !> List of caches for use in the post-processing
+   type(cache_list), intent(inout) :: caches
 
-   allocate(cache_list(5))
-   if (allocated(calc%repulsion)) call move_alloc(rcache%raw, cache_list(1)%raw)
-   if (allocated(calc%coulomb)) call move_alloc(ccache%raw, cache_list(2)%raw)
-   if (allocated(calc%halogen)) call move_alloc(hcache%raw, cache_list(3)%raw)
-   if (allocated(calc%dispersion)) call move_alloc(dcache%raw, cache_list(4)%raw)
-   if (allocated(calc%interactions)) call move_alloc(icache%raw, cache_list(5)%raw)
+   allocate(caches%list(5))
+   if (allocated(calc%repulsion)) call move_alloc(rcache%raw, caches%list(1)%raw)
+   if (allocated(calc%coulomb)) call move_alloc(ccache%raw, caches%list(2)%raw)
+   if (allocated(calc%halogen)) call move_alloc(hcache%raw, caches%list(3)%raw)
+   if (allocated(calc%dispersion)) call move_alloc(dcache%raw, caches%list(4)%raw)
+   if (allocated(calc%interactions)) call move_alloc(icache%raw, caches%list(5)%raw)
+
 end subroutine collect_containers_caches
 
 end module tblite_post_processing_type

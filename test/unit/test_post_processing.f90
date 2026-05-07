@@ -37,6 +37,7 @@ subroutine collect_post_processing(testsuite)
    ]
 end subroutine
 
+
 subroutine test_h2_wbo(error)
    type(error_type), allocatable, intent(out) :: error
    integer, parameter :: n_atoms = 2
@@ -47,7 +48,7 @@ subroutine test_h2_wbo(error)
    type(post_processing_list) :: pproc
    type(results_type) :: res
    real(kind=wp) :: energy
-   real(kind=wp), allocatable :: wbo(:, :), wbo_exp(:, :)
+   real(kind=wp), allocatable :: wbo(:, :, :), wbo_exp(:, :, :)
    real(kind=wp), allocatable :: xyz(:, :)
    character(len=:), allocatable :: wbo_label
    integer, parameter :: atoms(2) =  [1, 1]
@@ -56,24 +57,26 @@ subroutine test_h2_wbo(error)
       &+0.00000000_wp, +0.000000000_wp, +0.472429040_wp,&
       &+0.00000000_wp, +0.000000000_wp, -0.472429040_wp],&
       & shape(xyz))
-   
+
    call new(mol, atoms, xyz, charge=+1.0_wp, uhf=1)
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
-   call add_post_processing(pproc, wbo_label, error)
+   call add_post_processing(pproc, mol, wbo_label, error)
    call eeq_guess(mol, calc, wfn, error)
    if (allocated(error)) return
    energy = 0.0_wp
-   
+
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
    call res%dict%get_entry("bond-orders", wbo)
    
-   allocate(wbo_exp(2, 2))
+   allocate(wbo_exp(2, 2, 2))
    wbo_exp = reshape([&
-   &0.000000_wp, +0.50000000_wp,&
-      &0.500000000_wp, 0.00000000_wp ],&
+      &0.000000_wp, +0.50000000_wp, &
+      &0.500000000_wp, 0.00000000_wp, &
+      &0.000000_wp, +0.50000000_wp, &
+      &0.500000000_wp, 0.00000000_wp],&
       & shape(wbo_exp))
    
    if (any(abs(wbo - wbo_exp) > thr)) then
@@ -82,11 +85,14 @@ subroutine test_h2_wbo(error)
          print'("---")'
          print'(3es21.14)', wbo_exp
    end if
+   if (allocated(error)) return
 
+   deallocate(wbo, wbo_exp)
    mol%charge = 0.0_wp
    mol%uhf = 0
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
    call res%dict%get_entry("bond-orders", wbo)
+   allocate(wbo_exp(2, 2, 1))
    wbo_exp = reshape([&
       &0.00000000_wp, +1.0000000_wp,&
       &+1.00000000_wp, 0.00000000_wp ],&
@@ -98,14 +104,19 @@ subroutine test_h2_wbo(error)
       print'("---")'
       print'(3es21.14)', wbo_exp
    end if
+   if (allocated(error)) return
 
+   deallocate(wbo, wbo_exp)
    mol%charge = -1.0_wp
    mol%uhf = 1
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
    call res%dict%get_entry("bond-orders", wbo)
+   allocate(wbo_exp(2, 2, 2))
    wbo_exp = reshape([&
       &0.00000000_wp, +0.5000000_wp,&
-      &+0.50000000_wp, 0.00000000_wp ],&
+      &+0.50000000_wp, 0.00000000_wp, & 
+      &0.00000000_wp, -0.5000000_wp,&
+      &-0.50000000_wp, 0.00000000_wp ],&
       & shape(wbo_exp))
    
    if (any(abs(wbo - wbo_exp) > thr)) then
@@ -114,11 +125,14 @@ subroutine test_h2_wbo(error)
          print'("---")'
          print'(3es21.14)', wbo_exp
    end if
+   if (allocated(error)) return
 
+   deallocate(wbo, wbo_exp)
    mol%charge = -2.0_wp
    mol%uhf = 0
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
    call res%dict%get_entry("bond-orders", wbo)
+   allocate(wbo_exp(2, 2, 1))
    wbo_exp = reshape([&
       &0.00000000_wp, +0.0000000_wp,&
       &+0.00000000_wp, 0.00000000_wp ],&
@@ -144,7 +158,7 @@ subroutine test_timer_print(error)
    type(results_type) :: res
    real(kind=wp) :: energy
    real(kind=wp), allocatable :: xyz(:, :)
-   character(len=:), allocatable :: wbo_label
+   character(len=:), allocatable :: wbo_label, molmom_label, xtbml_label
    integer, parameter :: atoms(2) =  [1, 1]
    allocate(xyz(3, n_atoms))
    xyz = reshape([&
@@ -157,7 +171,11 @@ subroutine test_timer_print(error)
    if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    wbo_label = "bond-orders"
-   call add_post_processing(pproc, wbo_label, error)
+   call add_post_processing(pproc, mol, wbo_label, error)
+   molmom_label = "molmom"
+   call add_post_processing(pproc, mol, molmom_label, error)
+   xtbml_label = "xtbml"
+   call add_post_processing(pproc, mol, xtbml_label, error)
    call eeq_guess(mol, calc, wfn, error)
    if (allocated(error)) return
    energy = 0.0_wp

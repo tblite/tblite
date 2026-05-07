@@ -27,6 +27,7 @@ module tblite_xtb_singlepoint
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
    use tblite_container, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
@@ -90,6 +91,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    !> Container for storing additional results
    type(results_type), intent(out), optional :: results
+   !> List of post-processing methods
    type(post_processing_list), intent(inout), optional :: post_process
    
    logical :: grad, converged, econverged, pconverged
@@ -107,7 +109,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(scf_info) :: info
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
-   type(container_cache), allocatable :: cache_list(:)
+   type(cache_list), allocatable :: caches
    
    integer :: iscf, spin
 
@@ -332,22 +334,19 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call ctx%delete_solver(solver)
    if (ctx%failed()) return
 
-   if (present(post_process)) then
+   if (present(post_process) .and. present(results)) then
       call timer%push("post processing")
-      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
-      call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
-      call post_process%print_csv(mol)
-      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
-      call post_process%print_timer(prlevel, ctx)
-      deallocate(cache_list)
-      call timer%pop()
-   end if
-   if (present(results)) then
-      if (allocated(results%dict)) deallocate(results%dict)
+      allocate(caches)
+      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
       allocate(results%dict)
-      if (present(post_process)) then 
-         call post_process%pack_res(mol, results)
-      end if
+      call post_process%compute(mol, wfn, ints, calc, caches, ctx, timer, prlevel, results)
+      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
+      call post_process%print_timer(timer, prlevel, ctx)
+      deallocate(caches)
+      call timer%pop()
+   else if (present(post_process)) then
+      call fatal_error(error, "Post-processing list provided without results container")
+      call ctx%set_error(error)
    end if
 
    if (calc%save_integrals .and. present(results)) then

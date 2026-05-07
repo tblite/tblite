@@ -13,13 +13,13 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/post-processing/xtb-ml/xtbml.f90
-!> File to collect all xtbml features
-module tblite_post_processing_xtbml_features
-   use mctc_env, only : wp
+!> @file tblite/post-processing/xtb-ml/type.f90
+!> xTB-ML features as a post-processing method
+module tblite_post_processing_xtbml_type
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_container, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
@@ -29,171 +29,190 @@ module tblite_post_processing_xtbml_features
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_xtbml_convolution, only : xtbml_convolution_type
-   use tblite_xtbml_density_based, only : xtbml_density_features_type
-   use tblite_xtbml_energy_features, only : xtbml_energy_features_type
-   use tblite_xtbml_geometry_based, only : xtbml_geometry_features_type
-   use tblite_xtbml_orbital_energy, only : xtbml_orbital_features_type
+   use tblite_post_processing_xtbml_cache, only : xtbml_cache
+   use tblite_post_processing_xtbml_convolution, only : xtbml_convolution, &
+      & new_xtbml_convolution
+   use tblite_post_processing_xtbml_density, only : xtbml_density_features, &
+      & new_xtbml_density_features
+   use tblite_post_processing_xtbml_energy, only : xtbml_energy_features, &
+      & new_xtbml_energy_features
+   use tblite_post_processing_xtbml_geometry, only : xtbml_geometry_features, &
+      & new_xtbml_geometry_features
+   use tblite_post_processing_xtbml_orbital, only : xtbml_orbital_features, &
+      & new_xtbml_orbital_features
    implicit none
    private
+
    public :: xtbml_type, new_xtbml_features
+
+   !> xTB-ML features as post-processing method
    type, extends(post_processing_type) :: xtbml_type
-      type(xtbml_geometry_features_type), allocatable :: geom
-      type(xtbml_density_features_type), allocatable :: dens
-      type(xtbml_orbital_features_type), allocatable :: orb
-      type(xtbml_energy_features_type), allocatable :: energy
-      type(xtbml_convolution_type), allocatable :: conv
+      !> Geometry-based xTB-ML features
+      type(xtbml_geometry_features), allocatable :: geom
+      !> Density-based xTB-ML features
+      type(xtbml_density_features), allocatable :: dens
+      !> Orbital energy-based xTB-ML features
+      type(xtbml_orbital_features), allocatable :: orb
+      !> Energy-based xTB-ML features
+      type(xtbml_energy_features), allocatable :: energy
+      !> Convolution of xTB-ML features
+      type(xtbml_convolution), allocatable :: conv
    contains
+      !> Calculate xTB-ML features
       procedure :: compute
+      !> Information on the post-processing method
       procedure :: info
+      !> Print timings
       procedure :: print_timer
    end type xtbml_type
+
    character(len=*), parameter :: label = "  xtbml features:"
-   type(timer_type) :: timer
+
 contains
 
-subroutine new_xtbml_features(new_xtbml_model, param)
-   type(xtbml_features_record) :: param
-   type(xtbml_type), intent(inout) :: new_xtbml_model
+subroutine new_xtbml_features(self, mol, param, error)
+   !> Instance of the xTB-ML features post-processing
+   type(xtbml_type), intent(out) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Parameterization for the xTB-ML features
+   type(xtbml_features_record), intent(in) :: param
+   !> Error handling
+   type(error_type), intent(inout) , allocatable:: error
 
-   new_xtbml_model%label = label
+   real(wp), allocatable :: rcov_scale(:)
+
+   self%label = label
 
    if (param%xtbml_geometry) then
-      allocate(new_xtbml_model%geom)
-      call new_xtbml_model%geom%setup()
+      allocate(self%geom)
+      call new_xtbml_geometry_features(self%geom, mol, error)
+      if (allocated(error)) return
    end if
 
    if (param%xtbml_density) then
-      allocate(new_xtbml_model%dens)
-      call new_xtbml_model%dens%setup()
-      new_xtbml_model%dens%return_xyz = param%xtbml_tensor
+      allocate(self%dens)
+      call new_xtbml_density_features(self%dens, param%xtbml_tensor)
    end if
 
    if (param%xtbml_orbital_energy) then
-      allocate(new_xtbml_model%orb)
-      call new_xtbml_model%orb%setup()
+      allocate(self%orb)
+      call new_xtbml_orbital_features(self%orb)
    end if
 
    if (param%xtbml_energy) then
-      allocate(new_xtbml_model%energy)
-      call new_xtbml_model%energy%setup()
+      allocate(self%energy)
+      call new_xtbml_energy_features(self%energy)
    end if
 
    if (param%xtbml_convolution) then
-      allocate(new_xtbml_model%conv)
+      allocate(self%conv)
       if (allocated(param%xtbml_a)) then
-         new_xtbml_model%conv%a = param%xtbml_a
+         rcov_scale = param%xtbml_a
       else 
-         new_xtbml_model%conv%a = (/1.0_wp/)
+         rcov_scale = (/1.0_wp/)
       end if
-      new_xtbml_model%conv%n_a = size(new_xtbml_model%conv%a)
-      call new_xtbml_model%conv%setup()
+
+      call new_xtbml_convolution(self%conv, mol, rcov_scale, error)
    end if
 
 end subroutine new_xtbml_features
 
-subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
-   class(xtbml_type),intent(inout) :: self
+subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
+   & prlevel, dict)
+   !> Instance of the xTB-ML features post-processing
+   class(xtbml_type),intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
    type(wavefunction_type), intent(in) :: wfn
-   !> integral container for dipole and quadrupole integrals for CAMMs
-   type(integral_type), intent(in) :: integrals
+   !> Integral container
+   type(integral_type), intent(in) :: ints
    !> Single-point calculator conatiner
    type(xtb_calculator), intent(in) :: calc
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
    !> Cache list for storing caches of various interactions
-   type(container_cache), intent(inout) :: cache_list(:)
-   !> Dictionary to store the features
-   type(double_dictionary_type), intent(inout) :: dict
+   type(cache_list), intent(inout) :: caches
+   !> Timer instance
+   type(timer_type), intent(inout) :: timer
    !> Print level
    integer, intent(in) :: prlevel
+   !> Dictionary to store the features
+   type(double_dictionary_type), intent(inout) :: dict
 
-   call timer%push("total")
+   type(xtbml_cache) :: mlcache
+   integer :: n_features
 
+   call timer%push("xtbML")
+
+   n_features = 0
 
    if (allocated(self%geom)) then
       call timer%push("geometry")
-      associate(category => self%geom)
-         call category%compute_features(mol, wfn, integrals, calc, cache_list)
-         dict = dict + category%dict
-         deallocate(category%dict)
-      end associate
+      call self%geom%compute_features(mol, wfn, ints, calc, caches, &
+         & mlcache, dict, n_features)
       call timer%pop()
    end if
 
    if (allocated(self%dens)) then
       call timer%push("density")
-      associate(category => self%dens)
-         call category%compute_features(mol, wfn, integrals, calc, cache_list)
-         dict = dict + category%dict
-         deallocate(category%dict)
-      end associate
+      call self%dens%compute_features(mol, wfn, ints, calc, caches, &
+         & mlcache, dict, n_features)
       call timer%pop()
    end if
 
    if (allocated(self%orb)) then
       call timer%push("orbital energy")
-      associate(category => self%orb)
-         call category%compute_features(mol, wfn, integrals, calc, cache_list)
-         dict = dict + category%dict
-         deallocate(category%dict)
-      end associate
+      call self%orb%compute_features(mol, wfn, ints, calc, caches, &
+         & mlcache, dict, n_features)
       call timer%pop()
    end if
 
    if (allocated(self%energy)) then
       call timer%push("energy")
-      associate(category => self%energy)
-         call category%compute_features(mol, wfn, integrals, calc, cache_list)
-         dict = dict + category%dict
-         deallocate(category%dict)
-      end associate
+      call self%energy%compute_features(mol, wfn, ints, calc, caches, &
+         & mlcache, dict, n_features)
       call timer%pop()
    end if
 
    if (allocated(self%conv)) then
 
+      call timer%push("convolution")
+      call self%conv%compute_kernel(mol, mlcache)
+      call timer%pop()
+
       if (allocated(self%geom)) then
          call timer%push("geometry convolution")
-         call self%conv%compute_kernel(mol)
-         associate(category => self%geom)
-            call category%compute_extended(mol, wfn, integrals, calc, cache_list, self%conv)
-            dict = dict + category%dict_ext
-            deallocate(category%dict_ext)
-         end associate
+         call self%geom%compute_extended(mol, wfn, ints, calc, caches, &
+            & mlcache, self%conv, dict, n_features)
          call timer%pop()
-      else
-         call self%conv%compute_kernel(mol)
       end if
 
       if (allocated(self%dens)) then
          call timer%push("density convolution")
-         associate(category => self%dens)
-            call category%compute_extended(mol, wfn, integrals, calc, cache_list, self%conv)
-            dict = dict + category%dict_ext
-            deallocate(category%dict_ext)
-         end associate
+         call self%dens%compute_extended(mol, wfn, ints, calc, caches, &
+            & mlcache, self%conv, dict, n_features)
          call timer%pop()
       end if
 
       if (allocated(self%orb)) then
          call timer%push("orbital energy convolution")
-         associate(category => self%orb)
-            call category%compute_extended(mol, wfn, integrals, calc, cache_list, self%conv)
-            dict = dict + category%dict_ext
-            deallocate(category%dict_ext)
-         end associate
+         call self%orb%compute_extended(mol, wfn, ints, calc, caches, &
+            & mlcache, self%conv, dict, n_features)
          call timer%pop()
       end if
    end if
+   
+   ! Store the number of xTB-ML features also in the dictionary
+   call dict%add_entry("n_features", [real(n_features, wp)])
+
    call timer%pop()
+
 end subroutine compute
 
 pure function info(self, verbosity, indent) result(str)
-   !> Instance of the interaction container
+   !> Instance of the xTB-ML features post-processing
    class(xtbml_type), intent(in) :: self
    !> Verbosity level
    integer, intent(in) :: verbosity
@@ -201,8 +220,10 @@ pure function info(self, verbosity, indent) result(str)
    character(len=*), intent(in) :: indent
    !> Information on the container
    character(len=:), allocatable :: str
+
    character(len=*), parameter :: nl = new_line('a')
    character(len=:), allocatable :: category_indent
+
    if (allocated(self%label)) then
       str = self%label
    else
@@ -230,22 +251,29 @@ pure function info(self, verbosity, indent) result(str)
    if (allocated(self%conv)) then
       str = str // nl // self%conv%info(verbosity, category_indent)
    end if
+
 end function info
 
-subroutine print_timer(self, prlevel, ctx)
-   !> Instance of the interaction container
+subroutine print_timer(self, timer, prlevel, ctx)
+   !> Instance of the xTB-ML features post-processing
    class(xtbml_type), intent(in) :: self
-   integer :: prlevel
-   type(context_type) :: ctx
+   !> Timer instance
+   type(timer_type), intent(in) :: timer
+   !> Print level
+   integer, intent(in) :: prlevel
+   !> Context container for writing to stdout
+   type(context_type), intent(inout) :: ctx
+
    real(wp) :: ttime, stime
    integer :: it
    character(len=*), parameter :: labels(*) = [character(len=20):: &
-   & "geometry", "density", "orbital energy", "energy", "geometry convolution", &
-      "density convolution", "orbital energy convolution"]
+   & "geometry", "density", "orbital energy", "energy", &
+   & "geometry convolution", "density convolution", &
+   & "orbital energy convolution"]
 
    if (prlevel > 2) then
       call ctx%message("ML features timing details:")
-      ttime = timer%get("total")
+      ttime = timer%get("xtbML")
       call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
       do it = 1, size(labels)
          stime = timer%get(labels(it))
@@ -255,6 +283,7 @@ subroutine print_timer(self, prlevel, ctx)
       end do
       call ctx%message("")
    end if
+
 end subroutine print_timer
 
-end module tblite_post_processing_xtbml_features
+end module tblite_post_processing_xtbml_type
