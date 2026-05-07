@@ -24,7 +24,7 @@
 module tblite_blas
    use tblite_blas_level1, only : dot => wrap_dot
    use tblite_blas_level2, only : gemv => wrap_gemv, symv => wrap_symv
-   use tblite_blas_level3, only : gemm => wrap_gemm
+   use tblite_blas_level3, only : gemm => wrap_gemm, symm => wrap_symm
    implicit none
    public
 end module tblite_blas
