@@ -23,8 +23,7 @@ module test_xtb_param
    use tblite_context_type, only : context_type
    use tblite_param, only : param_record, charge_record, dispersion_record, element_record, &
       & halogen_record, hamiltonian_record, multipole_record, repulsion_record, &
-      & thirdorder_record, param_mask, count
-   use tblite_param_molecular_moments, only:  molecular_multipole_record
+      & thirdorder_record, param_mask, count, molmom_record
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
@@ -189,7 +188,7 @@ subroutine test_mol_multipole_empty(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_table) :: table
-   type(molecular_multipole_record) :: param
+   type(molmom_record) :: param
 
    table = toml_table()
    call param%load(table, error)

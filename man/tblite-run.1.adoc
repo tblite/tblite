@@ -117,6 +117,7 @@ Supported geometry input formats are:
      or by specifying the post-processing step name directly.
      Mayer-Wiberg bond orders are computed by default.
      - molmom (molecular multipole moments)
+     - trafo (spherical-to-cartesian MO transformation)
      - xtbml (atomistic properties based on Mulliken partitioning)
 
 *--post-processing-output* _file_::

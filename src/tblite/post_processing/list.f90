@@ -23,15 +23,13 @@ module tblite_post_processing_list
    use tblite_container_list, only : cache_list
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
-   use tblite_param_molecular_moments, only : molecular_multipole_record
-   use tblite_param_post_processing, only : post_processing_param_list
-   use tblite_param_serde, only : serde_record
-   use tblite_param_xtbml_features, only : xtbml_features_record
-   use tblite_post_processing_bond_orders, only : new_wbo, wiberg_bond_orders
-   use tblite_post_processing_molecular_moments, only : new_molecular_moments, &
-      & molecular_moments
+   use tblite_param_post_processing, only : post_processing_record_list, &
+      & post_processing_record, molmom_record, xtbml_record
+   use tblite_post_processing_wbo, only : new_wiberg_bond_orders, wiberg_bond_orders
+   use tblite_post_processing_molmom, only : new_molecular_moments, molecular_moments
+   use tblite_post_processing_trafo, only : new_sph_cart_trafo, sph_cart_trafo
    use tblite_post_processing_type, only : post_processing_type
-   use tblite_post_processing_xtbml_type, only : xtbml_type, new_xtbml_features
+   use tblite_post_processing_xtbml, only : xtbml_type, new_xtbml_features
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type
    use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
@@ -43,15 +41,15 @@ module tblite_post_processing_list
    public :: add_post_processing
 
    !> Wrapped post-processing type for creation of lists
-   type :: post_processing_record
+   type :: post_processing_container
       !> Actual post-processing method
       class(post_processing_type), allocatable :: pproc
-   end type post_processing_record
+   end type post_processing_container
 
    !> List of post-processing methods
    type, public :: post_processing_list
       !> Raw list of post-processing methods
-      type(post_processing_record), allocatable :: list(:)
+      type(post_processing_container), allocatable :: list(:)
       !> Number of post-processing methods in the list
       integer :: npp = 0
    contains
@@ -147,15 +145,15 @@ subroutine add_post_processing_param(self, mol, param, error)
    class(post_processing_list), intent(inout) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> List of post-processing parameterizations
-   type(post_processing_param_list), intent(in) :: param
+   !> List of post-processing records
+   type(post_processing_record_list), intent(in) :: param
    !> Error handling
    type(error_type), intent(inout), allocatable :: error
 
    integer :: ipp
    do ipp = 1, param%get_n_records()
       select type(par => param%list(ipp)%record)
-      type is (molecular_multipole_record)
+      type is (molmom_record)
          block
             type(molecular_moments), allocatable :: tmp
             class(post_processing_type), allocatable :: proc
@@ -164,7 +162,7 @@ subroutine add_post_processing_param(self, mol, param, error)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
-      type is (xtbml_features_record)
+      type is (xtbml_record)
          block
             type(xtbml_type), allocatable :: tmp
             class(post_processing_type), allocatable :: proc
@@ -180,7 +178,7 @@ subroutine add_post_processing_param(self, mol, param, error)
 end subroutine add_post_processing_param
 
 subroutine add_post_processing_cli(self, mol, config, error)
-   !> Instance of the post-processing list
+   !> Instance of the post-processing record list
    class(post_processing_list), intent(inout) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -189,7 +187,7 @@ subroutine add_post_processing_cli(self, mol, config, error)
    !> Error handling
    type(error_type), intent(inout) , allocatable:: error
 
-   type(post_processing_param_list) :: param
+   type(post_processing_record_list) :: param
    class(post_processing_type), allocatable :: tmp_proc
 
    select case(config)
@@ -197,24 +195,33 @@ subroutine add_post_processing_cli(self, mol, config, error)
       block
          type(wiberg_bond_orders), allocatable :: wbo_tmp
          allocate(wbo_tmp)
-         call new_wbo(wbo_tmp)
+         call new_wiberg_bond_orders(wbo_tmp)
          call move_alloc(wbo_tmp, tmp_proc)
          call self%push(tmp_proc)
          return
       end block
    case("molmom")
       block
-         type(molecular_multipole_record), allocatable :: molmom_tmp
-         class(serde_record), allocatable :: tmp
+         type(molmom_record), allocatable :: molmom_tmp
+         class(post_processing_record), allocatable :: tmp
          allocate(molmom_tmp)
          call molmom_tmp%populate_default_param()
          call move_alloc(molmom_tmp, tmp)
          call param%push(tmp)
       end block
+   case("trafo")
+      block
+         type(sph_cart_trafo), allocatable :: trafo_tmp
+         allocate(trafo_tmp)
+         call new_sph_cart_trafo(trafo_tmp)
+         call move_alloc(trafo_tmp, tmp_proc)
+         call self%push(tmp_proc)
+         return
+      end block
    case("xtbml")
       block
-         type(xtbml_features_record), allocatable :: ml_param
-         class(serde_record), allocatable :: cont
+         type(xtbml_record), allocatable :: ml_param
+         class(post_processing_record), allocatable :: cont
          allocate(ml_param)
          call ml_param%populate_default_param(.false.)
          call move_alloc(ml_param, cont)
@@ -222,8 +229,8 @@ subroutine add_post_processing_cli(self, mol, config, error)
       end block
    case("xtbml-xyz","xtbml_xyz")
       block
-         type(xtbml_features_record), allocatable :: ml_param
-         class(serde_record), allocatable :: cont 
+         type(xtbml_record), allocatable :: ml_param
+         class(post_processing_record), allocatable :: cont 
          allocate(ml_param)
          call ml_param%populate_default_param(.true.)
          call move_alloc(ml_param, cont)
@@ -290,11 +297,11 @@ end function is_duplicate
 
 subroutine resize(list, n)
    !> Instance of the array to be resized
-   type(post_processing_record), allocatable, intent(inout) :: list(:)
+   type(post_processing_container), allocatable, intent(inout) :: list(:)
    !> Dimension of the final array size
    integer, intent(in), optional :: n
 
-   type(post_processing_record), allocatable :: tmp(:)
+   type(post_processing_container), allocatable :: tmp(:)
    integer :: this_size, new_size, item
    integer, parameter :: initial_size = 1
 

@@ -13,15 +13,15 @@ module test_xtbml
    use tblite_data_spin, only : get_spin_constant
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
-   use tblite_param_post_processing, only : post_processing_param_list
-   use tblite_param_serde, only : serde_record
-   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_param_post_processing, only : post_processing_record_list, &
+      & post_processing_record, xtbml_record
    use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
-   use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, new_alpb, get_solvent_data, &
-      & cpcm_input, cpcm_solvation, new_cpcm
+   use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, &
+      & new_alpb, get_solvent_data, cpcm_input, cpcm_solvation, new_cpcm
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, toml_array, add_array
+   use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, &
+      & toml_array, add_array
    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
@@ -70,10 +70,10 @@ subroutine test_mulliken_charges_shell_h2p(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
    type(results_type) :: res
-   class(serde_record), allocatable :: tmp_record
+   class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
    real(wp), parameter :: xyz(3, 2) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
@@ -112,9 +112,9 @@ subroutine test_dipm_shell_h2p(error)
    type(wavefunction_type) :: wfn
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nsh = 2, nat=2
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
@@ -196,9 +196,9 @@ subroutine test_dipm_shell_co2(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=3
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy  = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
@@ -289,9 +289,9 @@ subroutine test_qp_shell_benz(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy = 0.0_wp
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
@@ -437,9 +437,9 @@ subroutine test_qp_shell_benz_high_a(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
@@ -575,9 +575,9 @@ subroutine test_rotation_co2(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    !> Error handling
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
@@ -638,9 +638,9 @@ subroutine test_translation_co2(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    !> Error handling
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
@@ -700,9 +700,9 @@ subroutine test_orbital_energy_ref(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    type(double_dictionary_type) :: dict_ref
    !> Error handling
    integer,parameter :: nat = 3
@@ -836,8 +836,8 @@ subroutine test_xtbml_param_load(error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_table), pointer :: table_xtbml
    type(toml_table) :: table_post_proc
-   type(post_processing_param_list) :: param
-   class(serde_record), allocatable :: record
+   type(post_processing_record_list) :: param
+   class(post_processing_record), allocatable :: record
    real(wp) :: a_array(2)
    type(toml_array), pointer :: array
    a_array =  [1.2, 1.0]
@@ -856,7 +856,7 @@ subroutine test_xtbml_param_load(error)
    call param%load(table_post_proc, error)
    associate(record => param%list(1)%record)
       select type(record)
-         type is (xtbml_features_record)
+         type is (xtbml_record)
          call check(error, record%xtbml_geometry, .true.)
          if (allocated(error)) return
          call check(error, record%xtbml_density, .true.)
@@ -879,7 +879,7 @@ subroutine test_xtbml_param_bad_inp(error)
    type(error_type), allocatable, intent(out) :: error
    type(toml_table), pointer :: xtbml, xtbml_
    type(toml_table) :: table_post_proc
-   type(xtbml_features_record) :: param
+   type(xtbml_record) :: param
    real(wp) :: a_array(2)
    type(toml_array), pointer :: array
    a_array =  [1.2, 1.0]
@@ -979,7 +979,7 @@ subroutine test_xtbml_param_dump(error)
    type(toml_table), pointer :: table_xtbml, child
    type(toml_table) :: table_post_proc
    type(toml_table) :: new_table
-   type(xtbml_features_record) :: param
+   type(xtbml_record) :: param
    type(toml_key), allocatable :: list(:)
 
 
@@ -1036,9 +1036,9 @@ subroutine test_energy_sum_up_gfn2(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
    real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
@@ -1142,9 +1142,9 @@ subroutine test_energy_sum_up_gfn1(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
    real(wp) :: energy = 1.0_wp, sum_energy = 0.0_wp
@@ -1230,9 +1230,9 @@ subroutine test_high_spin(error)
    type(integral_type) :: ints
    type(results_type) :: res
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
-   class(serde_record), allocatable :: tmp_record
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
+   class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=3
    real(wp), allocatable :: tmp_array(:)
    real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
@@ -1289,10 +1289,10 @@ subroutine test_orbital_energy_hp(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
    type(results_type) :: res
-   class(serde_record), allocatable :: tmp_record
+   class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
    real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
@@ -1328,10 +1328,10 @@ subroutine test_orbital_energy_he(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    type(post_processing_list), allocatable :: pproc
-   type(xtbml_features_record), allocatable :: xtbml_param
-   type(post_processing_param_list), allocatable :: pparam
+   type(xtbml_record), allocatable :: xtbml_param
+   type(post_processing_record_list), allocatable :: pparam
    type(results_type) :: res
-   class(serde_record), allocatable :: tmp_record
+   class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
    real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))

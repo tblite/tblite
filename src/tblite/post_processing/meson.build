@@ -19,6 +19,7 @@ subdir('xtb-ml')
 srcs += files(
   'list.f90',
   'molmom.f90',
+  'trafo.f90',
   'type.f90',
   'wbo.f90'
 )

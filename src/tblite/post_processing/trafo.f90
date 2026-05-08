@@ -14,9 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/post_processing/wbo.f90
-!> Implements the calculation of Wiberg-Mayer bond orders as post processing method.
-module tblite_post_processing_wbo
+!> @file tblite/post_processing/trafo.f90
+!> Spherical-to-cartesian transformation of MO coefficients as post processing method
+module tblite_post_processing_trafo
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
@@ -24,40 +24,40 @@ module tblite_post_processing_wbo
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
+   use tblite_integral_trafo, only : adjoint_transform0
    use tblite_post_processing_type, only : post_processing_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders
+   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
-   public :: new_wiberg_bond_orders, wiberg_bond_orders
+   public :: new_sph_cart_trafo, sph_cart_trafo
 
-   !> Wiberg-Mayer bond orders as post-processing method
-   type, extends(post_processing_type) :: wiberg_bond_orders
+   !> Spherical-to-cartesian transformation of MO coeffs as post-processing method
+   type, extends(post_processing_type) :: sph_cart_trafo
    contains
-      !> Calculate Wiberg-Mayer bond orders
+      !> Calculate transformed MO coeffs in the Cartesian basis
       procedure :: compute
       !> Print timings
       procedure :: print_timer
-   end type wiberg_bond_orders
+   end type sph_cart_trafo
 
-   character(len=24), parameter :: label = "Mayer-Wiberg bond orders"
+   character(len=40), parameter :: label = "Spherical-to-cartesian MO transformation"
 
 contains
 
-subroutine new_wiberg_bond_orders(self)
-   !> Instance of the Wiberg-Mayer bond order post-processing
-   type(wiberg_bond_orders), intent(out) :: self
+subroutine new_sph_cart_trafo(self)
+   !> Instance of the spherical-to-cartesian transformation post-processing
+   type(sph_cart_trafo), intent(out) :: self
 
    self%label = label
 
-end subroutine new_wiberg_bond_orders
+end subroutine new_sph_cart_trafo
 
 subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
-   !> Instance of the Wiberg-Mayer bond order post-processing
-   class(wiberg_bond_orders),intent(in) :: self
+   !> Instance of the spherical-to-cartesian transformation post-processing
+   class(sph_cart_trafo), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
@@ -77,46 +77,46 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict
    !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
 
-   real(wp), allocatable :: wbo(:, :, :), pmat(:, :, :)
-   integer :: spin
+   integer :: spin, iat, izp, ish, is, li, ii, ni, iicart, nicart
+   real(wp), allocatable :: coeff_cart(:, :, :)
 
-   call timer%push("wbo")
+   call timer%push("sph-cart-trafo")
 
-   if ((wfn%nspin == 1) .and. (wfn%nel(1) /= wfn%nel(2))) then
-      ! Restricted calculation with open-shell occupation
-      allocate(wbo(mol%nat, mol%nat, 2), source=0.0_wp)
-      allocate(pmat(calc%bas%nao, calc%bas%nao, 2), source=0.0_wp)
+   allocate(coeff_cart(calc%bas%nao_cart, calc%bas%nao, wfn%nspin), source=0.0_wp)
 
-      ! Calculate density matrices for each spin with the spin-resolved occupation,
-      ! but the restricted orbital coefficients (alpha).
-      do spin = 1, 2
-         call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, 1), &
-            & pmat(:, :, spin))
+   !$omp parallel do default(none) schedule(runtime) collapse(2) &
+   !$omp shared(mol, calc, wfn, coeff_cart) &
+   !$omp private(spin, iat, izp, is, ish, li, ii, ni, iicart, nicart)
+   do spin = 1, wfn%nspin
+      do iat = 1, mol%nat
+         izp = mol%id(iat)
+         is = calc%bas%ish_at(iat)
+         do ish = 1, calc%bas%nsh_at(iat)
+            li = calc%bas%cgto(ish, izp)%ang
+
+            ii = calc%bas%iao_sh(is+ish)
+            ni = calc%bas%nao_sh(is+ish)
+            iicart = calc%bas%iao_cart_sh(is+ish)
+            nicart = calc%bas%nao_cart_sh(is+ish)
+
+            ! Transform all MO coefficients for the current spherical AO shell
+            call adjoint_transform0(li, 0, wfn%coeff(ii+1:ii+ni, :, spin), &
+               & coeff_cart(iicart+1:iicart+nicart, :, spin), &
+               & bra=.true., ket=.false.)
+         end do
       end do
+   end do
 
-      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for open-shell case
-      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, pmat, wbo)
-      
-      call dict%add_entry("bond-orders", wbo)
-      
-   else
-      ! Restricted closed-shell or unrestricted calculations
-      allocate(wbo(mol%nat, mol%nat, wfn%nspin), source=0.0_wp)
-      
-      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for unrestricted
-      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, &
-         & wfn%density, wbo)
-      
-      call dict%add_entry("bond-orders", wbo)
-   end if
+   call dict%add_entry("cartesian-mos", coeff_cart)
 
    call timer%pop()
 
 end subroutine compute
 
+
 subroutine print_timer(self, timer, prlevel, ctx)
-   !> Instance of the Wiberg-Mayer bond order post-processing
-   class(wiberg_bond_orders), intent(in) :: self
+   !> Instance of the spherical-to-cartesian transformation post-processing
+   class(sph_cart_trafo), intent(in) :: self
    !> Timer instance
    type(timer_type), intent(in) :: timer
    !> Print level
@@ -125,14 +125,15 @@ subroutine print_timer(self, timer, prlevel, ctx)
    type(context_type), intent(inout) :: ctx
 
    real(wp) :: ttime
-
+   integer :: it
+   
    if (prlevel > 2) then
       call ctx%message(label//" timing details:")
-      ttime = timer%get("wbo")
+      ttime = timer%get("sph-cart-trafo")
       call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
       call ctx%message("")
    end if
 
 end subroutine print_timer
 
-end module tblite_post_processing_wbo
+end module tblite_post_processing_trafo

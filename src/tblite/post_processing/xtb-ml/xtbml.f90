@@ -13,9 +13,12 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/post-processing/xtb-ml/type.f90
+!> @dir tblite/post-processing/xtb-ml
+!> Explicit implementation of different xTB-ML features
+
+!> @file tblite/post-processing/xtb-ml.f90
 !> xTB-ML features as a post-processing method
-module tblite_post_processing_xtbml_type
+module tblite_post_processing_xtbml
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
@@ -23,7 +26,7 @@ module tblite_post_processing_xtbml_type
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
-   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_param_post_processing_xtbml, only : xtbml_record
    use tblite_post_processing_type, only : post_processing_type
    use tblite_output_format, only : format_string
    use tblite_timer, only : timer_type, format_time
@@ -76,7 +79,7 @@ subroutine new_xtbml_features(self, mol, param, error)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Parameterization for the xTB-ML features
-   type(xtbml_features_record), intent(in) :: param
+   type(xtbml_record), intent(in) :: param
    !> Error handling
    type(error_type), intent(inout) , allocatable:: error
 
@@ -286,4 +289,4 @@ subroutine print_timer(self, timer, prlevel, ctx)
 
 end subroutine print_timer
 
-end module tblite_post_processing_xtbml_type
+end module tblite_post_processing_xtbml

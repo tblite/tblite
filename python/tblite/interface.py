@@ -501,6 +501,7 @@ class Calculator(Structure):
     _post_processing = {
         "bond-orders" : "bond-orders",
         "molecular-multipoles" : "molmom",
+        "sph-cart-trafo" : "trafo",
         "xtbml" : "xtbml",
         "xtbml_xyz" : "xtbml_xyz"
     }

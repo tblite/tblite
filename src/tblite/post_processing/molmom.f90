@@ -16,7 +16,7 @@
 
 !> @file tblite/post_processing/molmom.f90
 !> Implements the calculation of molecular moments as post processing methods.
-module tblite_post_processing_molecular_moments
+module tblite_post_processing_molmom
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
@@ -25,13 +25,14 @@ module tblite_post_processing_molecular_moments
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
    use tblite_output_format, only : format_string
-   use tblite_param_molecular_moments, only : molecular_multipole_record
+   use tblite_param_post_processing_molmom, only : molmom_record
    use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, get_molecular_quadrupole_moment
+   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
    implicit none
    private
 
@@ -58,7 +59,7 @@ subroutine new_molecular_moments(self, param)
    !> Instance of the molecular moments post-processing
    type(molecular_moments), intent(out) :: self
    !> Molecular multipole parameterization
-   type(molecular_multipole_record), intent(in) :: param
+   type(molmom_record), intent(in) :: param
    
    self%label = label
 
@@ -138,4 +139,4 @@ subroutine print_timer(self, timer, prlevel, ctx)
 
 end subroutine print_timer
 
-end module tblite_post_processing_molecular_moments
+end module tblite_post_processing_molmom
