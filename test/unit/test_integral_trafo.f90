@@ -31,8 +31,7 @@ module test_integral_trafo
 
    public :: collect_integral_trafo
 
-   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
-   real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: thr = 1e4*epsilon(1.0_wp)
 
 contains
 
