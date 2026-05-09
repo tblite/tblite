@@ -16,7 +16,7 @@
 !> @file tblite/post-processing/xtb-ml/features.f90
 !> Abstract base class for xtb based features
 module tblite_post_processing_xtbml_features
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_container_list, only : cache_list
    use tblite_context , only : context_type
@@ -46,10 +46,10 @@ module tblite_post_processing_xtbml_features
 
    abstract interface
       subroutine compute_features(self, mol, wfn, ints, calc, caches, &
-         & mlcache, dict, n_features)
+         & mlcache, dict, n_features, error)
          import :: wp, wavefunction_type, structure_type, integral_type, &
             & xtb_calculator, cache_list, context_type, xtbml_feature_type, &
-            & xtbml_cache, double_dictionary_type
+            & xtbml_cache, double_dictionary_type, error_type
          !> Instance of a xTB-ML feature
          class(xtbml_feature_type), intent(in) :: self
          !> Molecular structure data
@@ -68,13 +68,15 @@ module tblite_post_processing_xtbml_features
          type(double_dictionary_type), intent(inout) :: dict
          !> Number of features
          integer, intent(inout) :: n_features
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
       end subroutine compute_features
 
       subroutine compute_extended(self, mol, wfn, ints, calc, caches, &
-         & mlcache, convolution, dict, n_features)
+         & mlcache, convolution, dict, n_features, error)
          import :: wp, wavefunction_type, structure_type, integral_type, &
             & xtb_calculator, cache_list, context_type, xtbml_feature_type, &
-            & xtbml_cache, xtbml_convolution, double_dictionary_type
+            & xtbml_cache, xtbml_convolution, double_dictionary_type, error_type
          !> Instance of a xTB-ML feature
          class(xtbml_feature_type), intent(in) :: self
          !> Molecular structure data
@@ -95,6 +97,8 @@ module tblite_post_processing_xtbml_features
          type(double_dictionary_type), intent(inout) :: dict
          !> Number of features
          integer, intent(inout) :: n_features
+         !> Error handling
+         type(error_type), allocatable, intent(out) :: error
       end subroutine compute_extended
 
    end interface

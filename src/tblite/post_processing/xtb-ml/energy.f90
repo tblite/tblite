@@ -16,7 +16,6 @@
 !> @file tblite/post-processing/xtb-ml/energy.f90
 !> Energy-based xTB-ML features
 module tblite_post_processing_xtbml_energy
-   use, intrinsic :: iso_fortran_env, only : error_unit
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
@@ -67,7 +66,7 @@ end subroutine new_xtbml_energy_features
 !> all contributions to the molecular energy are computed here
 !> and stored in the feature container
 subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
-   & dict, n_features)
+   & dict, n_features, error)
    !> Instance of the xTB-ML energy features
    class(xtbml_energy_features), intent(in) :: self
    !> Molecular structure data
@@ -86,10 +85,11 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    type(d3_dispersion), allocatable :: d3
    type(d4_dispersion), allocatable :: d4
-   type(error_type), allocatable :: error
    class(container_type), allocatable :: cont
    real(wp), allocatable :: tmp_energy(:), e_ao(:), e_disp_tot(:), e_disp_ATM(:), tot_energy(:)
 
@@ -166,10 +166,7 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
             call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
                & a2=cont%param%a2, s9=cont%param%s9, error=error, &
                & disp2_width=cont%cutoff%width2, disp3_width=cont%cutoff%width3)
-            if(allocated(error)) then
-               write(error_unit, '("[Error]:", 1x, a)') error%message
-               error stop
-            end if
+            if(allocated(error)) return
             call d3%update(mol, caches%list(4))
             call d3%get_engrad(mol, caches%list(4), e_disp_ATM)
             call dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
@@ -186,10 +183,7 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
             call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
                & a2=cont%param%a2, s9=cont%param%s9, error=error, &
                & disp2_width=cont%cutoff%width2, disp3_width=cont%cutoff%width3)
-            if(allocated(error)) then
-               write(error_unit, '("[Error]:", 1x, a)') error%message
-               error stop
-            end if
+            if (allocated(error)) return
             call d4%update(mol, caches%list(4))
             call d4%get_engrad(mol, caches%list(4), e_disp_ATM)
             call dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
@@ -220,7 +214,7 @@ end subroutine compute_features
 
 !> Compute extended energy-based features, empty for now
 subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
-   & convolution, dict, n_features)
+   & convolution, dict, n_features, error)
    !> Instance of the xTB-ML energy features
    class(xtbml_energy_features), intent(in) :: self
    !> Molecular structure data
@@ -241,6 +235,8 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 end subroutine compute_extended
 
 end module tblite_post_processing_xtbml_energy

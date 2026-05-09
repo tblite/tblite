@@ -65,7 +65,7 @@ end subroutine new_xtbml_geometry_features
 
 
 subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
-   & dict, n_features)
+   & dict, n_features, error)
    !> Instance of the xTB-ML geometry features
    class(xtbml_geometry_features), intent(in) :: self
    !> Molecular structure data
@@ -84,6 +84,8 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    ! Count number of features
    n_features = n_features + 1
@@ -100,7 +102,7 @@ end subroutine compute_features
 
 
 subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
-   & convolution, dict, n_features)
+   & convolution, dict, n_features, error)
    !> Instance of the xTB-ML geometry features
    class(xtbml_geometry_features), intent(in) :: self
    !> Molecular structure data
@@ -121,6 +123,8 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    character(len=:), allocatable :: tmp_label
    real(wp), allocatable ::  ext_cn(:, :)

@@ -16,7 +16,7 @@
 !> @file tblite/post-processing/xtb-ml/density.f90
 !> Density-based xTB-ML features using Mulliken partitioning
 module tblite_post_processing_xtbml_density
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_container_list, only : cache_list
@@ -78,7 +78,7 @@ end subroutine new_xtbml_density_features
 
 
 subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
-   & dict, n_features)
+   & dict, n_features, error)
    !> Instance of the xTB-ML density features
    class(xtbml_density_features), intent(in) :: self
    !> Molecular structure data
@@ -97,6 +97,8 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: spin, ic
    real(wp), allocatable :: psh(:, :), qat(:, :), dpsh(:, :, :), qpsh(:, :, :)
@@ -226,7 +228,7 @@ end subroutine compute_features
 
 
 subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
-   & convolution, dict, n_features)
+   & convolution, dict, n_features, error)
    !> Instance of the xTB-ML density features
    class(xtbml_density_features), intent(in) :: self
    !> Molecular structure data
@@ -247,6 +249,8 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: spin, ic, isc
    real(wp), allocatable :: ext_qat(:, :), ext_dpat(:, :, :), ext_qpat(:, :, :)

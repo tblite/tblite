@@ -21,7 +21,6 @@
 module tblite_post_processing_xtbml
    use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
-   use tblite_basis_type, only : basis_type
    use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
@@ -145,6 +144,7 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
    type(double_dictionary_type), intent(inout) :: dict
 
    type(xtbml_cache) :: mlcache
+   type(error_type), allocatable :: error
    integer :: n_features
 
    call timer%push("xtbML")
@@ -154,28 +154,44 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
    if (allocated(self%geom)) then
       call timer%push("geometry")
       call self%geom%compute_features(mol, wfn, ints, calc, caches, &
-         & mlcache, dict, n_features)
+         & mlcache, dict, n_features, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call timer%pop()
    end if
 
    if (allocated(self%dens)) then
       call timer%push("density")
       call self%dens%compute_features(mol, wfn, ints, calc, caches, &
-         & mlcache, dict, n_features)
+         & mlcache, dict, n_features, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call timer%pop()
    end if
 
    if (allocated(self%orb)) then
       call timer%push("orbital energy")
       call self%orb%compute_features(mol, wfn, ints, calc, caches, &
-         & mlcache, dict, n_features)
+         & mlcache, dict, n_features, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call timer%pop()
    end if
 
    if (allocated(self%energy)) then
       call timer%push("energy")
       call self%energy%compute_features(mol, wfn, ints, calc, caches, &
-         & mlcache, dict, n_features)
+         & mlcache, dict, n_features, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call timer%pop()
    end if
 
@@ -188,21 +204,33 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
       if (allocated(self%geom)) then
          call timer%push("geometry convolution")
          call self%geom%compute_extended(mol, wfn, ints, calc, caches, &
-            & mlcache, self%conv, dict, n_features)
+            & mlcache, self%conv, dict, n_features, error)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
          call timer%pop()
       end if
 
       if (allocated(self%dens)) then
          call timer%push("density convolution")
          call self%dens%compute_extended(mol, wfn, ints, calc, caches, &
-            & mlcache, self%conv, dict, n_features)
+            & mlcache, self%conv, dict, n_features, error)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
          call timer%pop()
       end if
 
       if (allocated(self%orb)) then
          call timer%push("orbital energy convolution")
          call self%orb%compute_extended(mol, wfn, ints, calc, caches, &
-            & mlcache, self%conv, dict, n_features)
+            & mlcache, self%conv, dict, n_features, error)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
          call timer%pop()
       end if
    end if

@@ -211,7 +211,7 @@ tblite_get_singlepoint(tblite_context ctx,
                        tblite_calculator calc,
                        tblite_result res);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
 /// @param ctx: Context handle
 /// @param calc: Calculator instance
@@ -223,7 +223,7 @@ tblite_push_back_post_processing_str(tblite_context ctx,
                                      tblite_structure mol,
                                      char* charptr);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
 /// @param ctx: Context handle
 /// @param calc: Calculator instance

@@ -16,7 +16,7 @@
 !> @file tblite/post-processing/xtb-ml/orbital_energy.f90
 !> Orbital energy based xtbml features
 module tblite_post_processing_xtbml_orbital
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use mctc_io_convert, only : evtoau, autoev
    use tblite_basis_type, only : basis_type
@@ -75,7 +75,7 @@ end subroutine new_xtbml_orbital_features
 
 
 subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
-   & dict, n_features)
+   & dict, n_features, error)
    !> Instance of the xTB-ML orbital energy features
    class(xtbml_orbital_features), intent(in) :: self
    !> Molecular structure data
@@ -94,6 +94,8 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: nspin, spin
    character(len=6), allocatable :: spin_label(:)
@@ -137,7 +139,7 @@ end subroutine compute_features
 
 
 subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
-   & convolution, dict, n_features)
+   & convolution, dict, n_features, error)
    !> Instance of the xTB-ML orbital energy features
    class(xtbml_orbital_features), intent(in) :: self
    !> Molecular structure data
@@ -158,6 +160,8 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
    type(double_dictionary_type), intent(inout) :: dict
    !> Number of features
    integer, intent(inout) :: n_features
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: isc, nspin, spin
    character(len=:), allocatable :: a_label, conv_label, spin_label(:)
@@ -568,6 +572,9 @@ subroutine get_ehoao_ext(ext_chempot, ext_egap, ext_ehoao)
 
    integer :: iat, ksc
 
+   !$omp parallel do default(none) collapse(2) schedule(runtime) &
+   !$omp shared(ext_chempot, ext_egap, ext_ehoao) &
+   !$omp private(iat, ksc)
    do ksc = 1, size(ext_chempot, 2)
       do iat = 1, size(ext_chempot, 1)
          ext_ehoao(iat, ksc) = ext_chempot(iat, ksc) - ext_egap(iat, ksc) / 2.0_wp
@@ -588,6 +595,9 @@ subroutine get_eluao_ext(ext_chempot, ext_egap, ext_eluao)
 
    integer :: iat, ksc
 
+   !$omp parallel do default(none) collapse(2) schedule(runtime) &
+   !$omp shared(ext_chempot, ext_egap, ext_eluao) &
+   !$omp private(iat, ksc)
    do ksc = 1, size(ext_chempot, 2)
       do iat = 1, size(ext_chempot, 1)
          ext_eluao(iat, ksc) = ext_chempot(iat, ksc) + ext_egap(iat, ksc) / 2.0_wp

@@ -18,7 +18,6 @@
 
 !> Defines the abstract base post-processing record type
 module tblite_param_post_processing_type
-   use mctc_env, only : wp, error_type
    use tblite_param_serde, only : serde_record
    implicit none
 

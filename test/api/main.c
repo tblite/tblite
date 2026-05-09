@@ -2685,7 +2685,7 @@ int test_post_processing_api()
 
     show(ctx);
 
-    // Test with molcular structure and calculator
+    // Test with molecular structure and calculator
     tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
@@ -2887,7 +2887,7 @@ int test_post_processing_api()
         goto err;
     show(ctx);
 
-    // Test with molcular structure and calculator
+    // Test with molecular structure and calculator
     tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
