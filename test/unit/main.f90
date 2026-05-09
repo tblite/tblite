@@ -34,6 +34,7 @@ program tester
    use test_halogen, only : collect_halogen
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
+   use test_integral_trafo, only : collect_integral_trafo
    use test_ipea1_xtb, only : collect_ipea1_xtb
    use test_npy, only : collect_npy
    use test_npz, only : collect_npz
@@ -79,6 +80,7 @@ program tester
       new_testsuite("cgto-ortho", collect_cgto_ortho), &
       new_testsuite("integral-overlap", collect_integral_overlap), &
       new_testsuite("integral-multipole", collect_integral_multipole), &
+      new_testsuite("integral-trafo", collect_integral_trafo), &
       new_testsuite("hamiltonian", collect_hamiltonian), &
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("wavefunction-restart", collect_wavefunction_restart), &
