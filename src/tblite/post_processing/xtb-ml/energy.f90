@@ -87,7 +87,6 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
    !> Number of features
    integer, intent(inout) :: n_features
 
-   type(container_cache), allocatable :: cache
    type(d3_dispersion), allocatable :: d3
    type(d4_dispersion), allocatable :: d4
    type(error_type), allocatable :: error
@@ -105,30 +104,25 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
 
    if (allocated(calc%repulsion)) then
       associate(cont => calc%repulsion)
-         if (.not. allocated(cache)) allocate(cache)
-         call move_alloc(caches%list(1)%raw, cache%raw)
-         cache = caches%list(1)
-         call cont%update(mol, cache)
-         call cont%get_engrad(mol, cache, tmp_energy)
+         call cont%update(mol, caches%list(1))
+         call cont%get_engrad(mol, caches%list(1), tmp_energy)
          call dict%add_entry("E_rep", tmp_energy)
          n_features = n_features + 1
       end associate
    end if
 
-   if (allocated(cache%raw)) deallocate(cache%raw)
    tot_energy = tot_energy + tmp_energy
    tmp_energy = 0.0_wp
    if (allocated(calc%coulomb)) then
-      call move_alloc(caches%list(2)%raw, cache%raw)
       associate(cont => calc%coulomb)
-         call cont%update(mol, cache)
+         call cont%update(mol, caches%list(2))
          if (allocated(cont%es2)) then
-            call cont%es2%update(mol, cache)
-            call cont%es2%get_energy(mol, cache, wfn, tmp_energy)
+            call cont%es2%update(mol, caches%list(2))
+            call cont%es2%get_energy(mol, caches%list(2), wfn, tmp_energy)
          end if
          if (allocated(cont%es3)) then
-            call cont%es3%update(mol, cache)
-            call cont%es3%get_energy(mol, cache, wfn, tmp_energy)
+            call cont%es3%update(mol, caches%list(2))
+            call cont%es3%get_energy(mol, caches%list(2), wfn, tmp_energy)
          end if
          tot_energy = tot_energy + tmp_energy
          call dict%add_entry("E_ies_ixc", tmp_energy)
@@ -140,7 +134,7 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
             n_features = n_features + 1
             tot_energy = tot_energy + tmp_energy
             tmp_energy = 0.0_wp
-            call cont%aes2%get_energy_aes(mol, cache, wfn, tmp_energy)
+            call cont%aes2%get_energy_aes(mol, caches%list(2), wfn, tmp_energy)
             call dict%add_entry("E_aes", tmp_energy)
             n_features = n_features + 1
             tot_energy = tot_energy + tmp_energy
@@ -148,29 +142,25 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
       end associate
    end if
 
-   if (allocated(cache%raw)) deallocate(cache%raw)
    tmp_energy = 0.0_wp
    if (allocated(calc%halogen)) then
-      call move_alloc(caches%list(3)%raw, cache%raw)
       associate(cont => calc%halogen)
-         call cont%update(mol, cache)
-         call cont%get_engrad(mol, cache, tmp_energy)
+         call cont%update(mol, caches%list(3))
+         call cont%get_engrad(mol, caches%list(3), tmp_energy)
          call dict%add_entry("E_hx", tmp_energy)
          n_features = n_features + 1
       end associate
    end if
 
-   if (allocated(cache%raw)) deallocate(cache%raw)
    tot_energy = tot_energy + tmp_energy
    tmp_energy = 0.0_wp
    if (allocated(calc%dispersion)) then
-      call move_alloc(caches%list(4)%raw, cache%raw)
       associate(cont => calc%dispersion)
          select type(cont)
          type is (d3_dispersion)
             allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
-            call cont%update(mol, cache)
-            call cont%get_engrad(mol, cache, e_disp_tot)
+            call cont%update(mol, caches%list(4))
+            call cont%get_engrad(mol, caches%list(4), e_disp_tot)
 
             allocate(d3)
             call new_d3_dispersion(d3, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
@@ -180,17 +170,17 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
                write(error_unit, '("[Error]:", 1x, a)') error%message
                error stop
             end if
-            call d3%update(mol, cache)
-            call d3%get_engrad(mol, cache, e_disp_ATM)
+            call d3%update(mol, caches%list(4))
+            call d3%get_engrad(mol, caches%list(4), e_disp_ATM)
             call dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
             call dict%add_entry("E_disp3", e_disp_ATM)
             n_features = n_features + 2
             tmp_energy = e_disp_tot
          type is (d4_dispersion)
             allocate(e_disp_tot(mol%nat), e_disp_ATM(mol%nat), source=0.0_wp)
-            call cont%update(mol, cache)
-            call cont%get_engrad(mol, cache, e_disp_tot)
-            call cont%get_energy(mol, cache, wfn, e_disp_tot)
+            call cont%update(mol, caches%list(4))
+            call cont%get_engrad(mol, caches%list(4), e_disp_tot)
+            call cont%get_energy(mol, caches%list(4), wfn, e_disp_tot)
 
             allocate(d4)
             call new_d4_dispersion(d4, mol, s6=0.0_wp, s8=0.0_wp, a1=cont%param%a1, &
@@ -200,8 +190,8 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
                write(error_unit, '("[Error]:", 1x, a)') error%message
                error stop
             end if
-            call d4%update(mol, cache)
-            call d4%get_engrad(mol, cache, e_disp_ATM)
+            call d4%update(mol, caches%list(4))
+            call d4%get_engrad(mol, caches%list(4), e_disp_ATM)
             call dict%add_entry("E_disp2", e_disp_tot-e_disp_ATM)
             call dict%add_entry("E_disp3", e_disp_ATM)
             n_features = n_features + 2
@@ -210,21 +200,17 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
       end associate
    end if
 
-   if (allocated(cache%raw)) deallocate(cache%raw)
    tot_energy = tot_energy + tmp_energy
    tmp_energy = 0.0_wp
    if (allocated(calc%interactions)) then
-      call move_alloc(caches%list(5)%raw, cache%raw)
       associate(cont => calc%interactions)
-         call cont%get_energy(mol, cache, wfn, tmp_energy)
-         call cont%update(mol, cache)
-         call cont%get_engrad(mol, cache, tmp_energy)
+         call cont%get_energy(mol, caches%list(5), wfn, tmp_energy)
+         call cont%update(mol, caches%list(5))
+         call cont%get_engrad(mol, caches%list(5), tmp_energy)
          call dict%add_entry(cont%info(0, ""), tmp_energy)
       end associate
    end if
 
-   if (allocated(cache%raw)) deallocate(cache%raw)
-   deallocate(cache)
    tot_energy = tot_energy + tmp_energy
    call dict%add_entry("E_tot", tot_energy)
    call dict%add_entry("w_tot", tot_energy/sum(tot_energy))

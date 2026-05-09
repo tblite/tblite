@@ -2667,6 +2667,7 @@ int test_post_processing_api()
     if (tblite_check(error))
         goto err;
 
+    // Test without allocated calculator
     tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
     if (!tblite_check(ctx))
         goto err;
@@ -2677,6 +2678,14 @@ int test_post_processing_api()
     if (!calc)
         goto err;
 
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_str(ctx, calc, NULL, "bond-orders");
+    if (!tblite_check(ctx))
+        goto err;
+
+    show(ctx);
+
+    // Test with molcular structure and calculator
     tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
@@ -2862,6 +2871,7 @@ int test_post_processing_api()
     tblite_delete(calc);
     calc = NULL;
 
+    // Test without allocated calculator
     tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (!tblite_check(ctx))
         goto err;
@@ -2871,6 +2881,13 @@ int test_post_processing_api()
     if (!calc)
         goto err;
 
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_param(ctx, calc, NULL, param);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    // Test with molcular structure and calculator
     tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
