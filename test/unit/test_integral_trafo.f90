@@ -20,11 +20,10 @@ module test_integral_trafo
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
-   use tblite_basis_type, only : basis_type
    use tblite_blas, only : gemm
    use tblite_context_type, only : context_type
-   use tblite_integral_trafo, only : transform0, transform1, transform2, &
-      & adjoint_transform0, adjoint_transform1, adjoint_transform2
+   use tblite_integral_trafo, only : transform0, adjoint_transform0, &
+      & adjoint_transform1, adjoint_transform2
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
@@ -139,7 +138,7 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    allocate(cart1(nrow_cart, ncol_cart), cart2(nrow_cart, ncol_cart))
    allocate(sphr1(nsj, nsi), sphr2(nsj, nsi))
 
-   ! Random coefficients around around 0.0
+   ! Random coefficients around 0.0
    call random_number(cart1)
    call random_number(sphr1)
    cart1 = cart1 - 0.5_wp
@@ -342,7 +341,6 @@ subroutine test_density_trafo(mol, calc, wfn, ref, error, thr_in)
    integer :: spin
    real(wp) :: energy, thr_
    real(wp), allocatable :: coeff_cart(:, :, :), focc(:), density_cart(:, :, :)
-   character(len=:), allocatable :: trafo_label
    type(context_type) :: ctx
    
    thr_ = thr
