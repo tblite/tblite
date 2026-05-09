@@ -149,7 +149,6 @@ module tblite_cli_help
       "                           Add post processing methods to the calculation,"//nl//&
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
       "                           Options: molmom (molecular multipole moments)"//nl//&
-      "                           Options: trafo (spherical-to-cartesian MO transformation)"//nl//&
       "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
       "      --post-processing-output <file>"//nl//&
       "                           Output file for post processing results in npz format."//nl//&

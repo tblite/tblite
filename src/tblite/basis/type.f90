@@ -52,8 +52,6 @@ module tblite_basis_type
       integer :: nsh = 0
       !> Number of spherical atomic orbitals in this basis set
       integer :: nao = 0
-      !> Number of cartesian atomic orbitals in this basis set
-      integer :: nao_cart = 0
       !> Integral cutoff as maximum exponent of Gaussian product theoreom to consider
       real(wp) :: intcut = 0.0_wp
       !> Smallest primitive exponent in the basis set
@@ -64,12 +62,8 @@ module tblite_basis_type
       integer, allocatable :: nsh_at(:)
       !> Number of spherical atomic orbitals for each shell
       integer, allocatable :: nao_sh(:)
-      !> Number of cartesian atomic orbitals for each shell
-      integer, allocatable :: nao_cart_sh(:)
       !> Index offset for each shell in the atomic orbital space
       integer, allocatable :: iao_sh(:)
-      !> Index offset for each shell in the cartesian atomic orbital space
-      integer, allocatable :: iao_cart_sh(:)
       !> Index offset for each atom in the shell space
       integer, allocatable :: ish_at(:)
       !> Mapping from spherical atomic orbitals to the respective atom
@@ -102,7 +96,7 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
    !> Calculation accuracy
    real(wp), intent(in) :: acc
 
-   integer :: iat, isp, ish, iao, ii, iicart
+   integer :: iat, isp, ish, iao, ii
    real(wp) :: min_alpha
 
    self%nsh_id = nshell
@@ -125,32 +119,26 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
    end do
 
    ! Make count of spherical orbitals for each shell
-   allocate(self%nao_sh(self%nsh), self%nao_cart_sh(self%nsh))
+   allocate(self%nao_sh(self%nsh))
    do iat = 1, mol%nat
       isp = mol%id(iat)
       ii = self%ish_at(iat)
       do ish = 1, self%nsh_at(iat)
          self%nao_sh(ii+ish) = 2*cgto(ish, isp)%ang + 1
-         self%nao_cart_sh(ii+ish) = (cgto(ish, isp)%ang + 1)*(cgto(ish, isp)%ang + 2)/2
       end do
    end do
 
    ! Create mapping between shells and spherical orbitals, also map directly back to atoms
    self%nao = sum(self%nao_sh)
-   self%nao_cart = sum(self%nao_cart_sh)
-   allocate(self%iao_sh(self%nsh), self%iao_cart_sh(self%nsh), self%ao2sh(self%nao), &
-      & self%ao2at(self%nao))
+   allocate(self%iao_sh(self%nsh), self%ao2sh(self%nao), self%ao2at(self%nao))
    ii = 0
-   iicart = 0
    do ish = 1, self%nsh
       self%iao_sh(ish) = ii
-      self%iao_cart_sh(ish) = iicart
       do iao = 1, self%nao_sh(ish)
          self%ao2sh(ii+iao) = ish
          self%ao2at(ii+iao) = self%sh2at(ish)
       end do
       ii = ii + self%nao_sh(ish)
-      iicart = iicart + self%nao_cart_sh(ish)
    end do
 
    ii = 0

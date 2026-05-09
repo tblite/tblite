@@ -17,9 +17,7 @@
 !> @file tblite/integral/trafo.f90
 !> Provides transformation from cartesian to spherical harmonic basis functions
 
-!> Implementation of transformations from cartesian to spherical harmonic basis functions
-!> and adjoint transformation for contravariant vectors from spherical harmonic 
-!> to cartesian basis functions.
+!> Implemenation of transformations from cartesian to spherical harmonic basis functions
 !>
 !> Spherical harmonics use standard ordering, *i.e.* [-l, ..., 0, ..., l].
 module tblite_integral_trafo
@@ -28,7 +26,6 @@ module tblite_integral_trafo
    private
 
    public :: transform0, transform1, transform2
-   public :: adjoint_transform0, adjoint_transform1, adjoint_transform2
 
 
    real(wp), parameter :: s3 = sqrt(3.0_wp)
@@ -98,16 +95,10 @@ module tblite_integral_trafo
 contains
 
 
-!> Transformation from the cartesian to the spherical harmonic basis 
-!> for a shell pair block.
 pure subroutine transform0(lj, li, cart, sphr)
-   !> Angular momentum of ket shell i
    integer, intent(in) :: li
-   !> Angular momentum of bra shell j
    integer, intent(in) :: lj
-   !> Cartesian representation of the integral [bra j, ket i]
    real(wp), intent(in) :: cart(:, :)
-   !> Spherical harmonic representation of the integral [bra j, ket i]
    real(wp), intent(out) :: sphr(:, :)
 
    select case(li)
@@ -203,18 +194,11 @@ pure subroutine transform0(lj, li, cart, sphr)
 
 end subroutine transform0
 
-!> Transformation from the cartesian to the spherical harmonic basis 
-!> for a vector of shell pair block.
 pure subroutine transform1(lj, li, cart, sphr)
-   !> Angular momentum of ket shell i
    integer, intent(in) :: li
-   !> Angular momentum of bra shell j
    integer, intent(in) :: lj
-   !> Cartesian representation of the integral [:, bra j, ket i]
    real(wp), intent(in) :: cart(:, :, :)
-   !> Spherical harmonic representation of the integral [:, bra j, ket i]
    real(wp), intent(out) :: sphr(:, :, :)
-
    integer :: k
 
    do k = 1, size(cart, 1)
@@ -222,18 +206,11 @@ pure subroutine transform1(lj, li, cart, sphr)
    end do
 end subroutine transform1
 
-!> Transformation from the cartesian to the spherical harmonic basis 
-!> for a matrix of shell pair block.
 pure subroutine transform2(lj, li, cart, sphr)
-   !> Angular momentum of ket shell i
    integer, intent(in) :: li
-   !> Angular momentum of bra shell j
    integer, intent(in) :: lj
-   !> Cartesian representation of the integral [:, :, bra j, ket i]
    real(wp), intent(in) :: cart(:, :, :, :)
-   !> Spherical harmonic representation of the integral [:, :, bra j, ket i]
    real(wp), intent(out) :: sphr(:, :, :, :)
-
    integer :: k, l
 
    do l = 1, size(cart, 2)
@@ -242,177 +219,6 @@ pure subroutine transform2(lj, li, cart, sphr)
       end do
    end do
 end subroutine transform2
-
-
-!> Adjoint transformation from the spherical harmonic to the cartesian basis
-!> for a shell pair block. Applies quantities which behave contravariant w.r.t.
-!> the basis functions (i.e. MO expansion coefficients or the density matrix)
-pure subroutine adjoint_transform0(lj, li, sphr, cart, bra, ket)
-   !> Angular momentum of ket shell i
-   integer, intent(in) :: li
-   !> Angular momentum of bra shell j
-   integer, intent(in) :: lj
-   !> Spherical harmonic representation of the integral [bra j, ket i]
-   real(wp), intent(in) :: sphr(:, :)
-   !> Cartesian representation of the integral [bra j, ket i]
-   real(wp), intent(out) :: cart(:, :)
-   !> Flag for transformation of the bra dimension
-   logical, intent(in) :: bra
-   !> Flag for transformation of the ket dimension
-   logical, intent(in) :: ket
-
-   if (.not. bra .and. .not. ket) then
-      cart = sphr
-      return
-   end if
-
-   ! Transform only ket dimension
-   if (.not. bra .and. ket) then
-      select case(li)
-      case(0, 1)
-         cart = sphr
-      case(2)
-         cart = matmul(sphr, dtrafo)
-      case(3)
-         cart = matmul(sphr, ftrafo)
-      case(4)
-         cart = matmul(sphr, gtrafo)
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-      return
-   end if
-
-   ! Transform only bra dimension
-   if (bra .and. .not. ket) then
-      select case(lj)
-      case(0, 1)
-         cart = sphr
-      case(2)
-         cart = matmul(transpose(dtrafo), sphr)
-      case(3)
-         cart = matmul(transpose(ftrafo), sphr)
-      case(4)
-         cart = matmul(transpose(gtrafo), sphr)
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-      return
-   end if
-
-   ! Transform both dimensions
-   select case(lj)
-   case(0, 1)
-      select case(li)
-      case(0, 1)
-         cart = sphr
-      case(2)
-         cart = matmul(sphr, dtrafo)
-      case(3)
-         cart = matmul(sphr, ftrafo)
-      case(4)
-         cart = matmul(sphr, gtrafo)
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-
-   case(2)
-      select case(li)
-      case(0, 1)
-         cart = matmul(transpose(dtrafo), sphr)
-      case(2)
-         cart = matmul(transpose(dtrafo), matmul(sphr, dtrafo))
-      case(3)
-         cart = matmul(transpose(dtrafo), matmul(sphr, ftrafo))
-      case(4)
-         cart = matmul(transpose(dtrafo), matmul(sphr, gtrafo))
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-
-   case(3)
-      select case(li)
-      case(0, 1)
-         cart = matmul(transpose(ftrafo), sphr)
-      case(2)
-         cart = matmul(transpose(ftrafo), matmul(sphr, dtrafo))
-      case(3)
-         cart = matmul(transpose(ftrafo), matmul(sphr, ftrafo))
-      case(4)
-         cart = matmul(transpose(ftrafo), matmul(sphr, gtrafo))
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-
-   case(4)
-      select case(li)
-      case(0, 1)
-         cart = matmul(transpose(gtrafo), sphr)
-      case(2)
-         cart = matmul(transpose(gtrafo), matmul(sphr, dtrafo))
-      case(3)
-         cart = matmul(transpose(gtrafo), matmul(sphr, ftrafo))
-      case(4)
-         cart = matmul(transpose(gtrafo), matmul(sphr, gtrafo))
-      case default
-         error stop "[Fatal] Moments higher than g are not supported"
-      end select
-
-   case default
-      error stop "[Fatal] Moments higher than g are not supported"
-   end select
-
-end subroutine adjoint_transform0
-
-!> Adjoint transformation from the spherical harmonic to the cartesian basis
-!> for a vector of shell pair block. Applies quantities which behave contravariant
-!> w.r.t. the basis functions (i.e. MO expansion coefficients or the density matrix)
-pure subroutine adjoint_transform1(lj, li, sphr, cart, bra, ket)
-   !> Angular momentum of ket shell i
-   integer, intent(in) :: li
-   !> Angular momentum of bra shell j
-   integer, intent(in) :: lj
-   !> Spherical harmonic representation of the integral [:, bra j, ket i]
-   real(wp), intent(in) :: sphr(:, :, :)
-   !> Cartesian representation of the integral [:, bra j, ket i]
-   real(wp), intent(out) :: cart(:, :, :)
-   !> Flag for transformation of the bra dimension
-   logical, intent(in) :: bra
-   !> Flag for transformation of the ket dimension
-   logical, intent(in) :: ket
-
-   integer :: k
-
-   do k = 1, size(sphr, 1)
-      call adjoint_transform0(lj, li, sphr(k, :, :), cart(k, :, :), bra, ket)
-   end do
-end subroutine adjoint_transform1
-
-!> Adjoint transformation from the spherical harmonic to the cartesian basis
-!> for a matrix of shell pair block. Applies quantities which behave contravariant
-!> w.r.t. the basis functions (i.e. MO expansion coefficients or the density matrix)
-pure subroutine adjoint_transform2(lj, li, sphr, cart, bra, ket)
-   !> Angular momentum of ket shell i
-   integer, intent(in) :: li
-   !> Angular momentum of bra shell j
-   integer, intent(in) :: lj
-   !> Spherical harmonic representation of the integral [:, :, bra j, ket i]
-   real(wp), intent(in) :: sphr(:, :, :, :)
-   !> Cartesian representation of the integral [:, :, bra j, ket i]
-   real(wp), intent(out) :: cart(:, :, :, :)
-   !> Flag for transformation of the bra dimension
-   logical, intent(in) :: bra
-   !> Flag for transformation of the ket dimension
-   logical, intent(in) :: ket
-
-   integer :: k, l
-
-   do l = 1, size(sphr, 2)
-      do k = 1, size(sphr, 1)
-         call adjoint_transform0(lj, li, sphr(k, l, :, :), cart(k, l, :, :), bra, ket)
-      end do
-   end do
-end subroutine adjoint_transform2
 
 
 end module tblite_integral_trafo

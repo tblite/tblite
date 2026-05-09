@@ -27,7 +27,6 @@ module tblite_post_processing_list
       & post_processing_record, molmom_record, xtbml_record
    use tblite_post_processing_wbo, only : new_wiberg_bond_orders, wiberg_bond_orders
    use tblite_post_processing_molmom, only : new_molecular_moments, molecular_moments
-   use tblite_post_processing_trafo, only : new_sph_cart_trafo, sph_cart_trafo
    use tblite_post_processing_type, only : post_processing_type
    use tblite_post_processing_xtbml, only : xtbml_type, new_xtbml_features
    use tblite_results, only : results_type
@@ -208,15 +207,6 @@ subroutine add_post_processing_cli(self, mol, config, error)
          call molmom_tmp%populate_default_param()
          call move_alloc(molmom_tmp, tmp)
          call param%push(tmp)
-      end block
-   case("trafo")
-      block
-         type(sph_cart_trafo), allocatable :: trafo_tmp
-         allocate(trafo_tmp)
-         call new_sph_cart_trafo(trafo_tmp)
-         call move_alloc(trafo_tmp, tmp_proc)
-         call self%push(tmp_proc)
-         return
       end block
    case("xtbml")
       block

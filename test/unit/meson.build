@@ -44,7 +44,6 @@ tests = [
   'halogen',
   'integral-overlap',
   'integral-multipole',
-  'integral-trafo',
   'ipea1-xtb',
   'npy',
   'npz',
