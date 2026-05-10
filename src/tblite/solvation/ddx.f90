@@ -527,7 +527,7 @@ subroutine get_coulomb_matrix(xyz, ccav, jmat)
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(ccav, xyz, jmat) private(ic, j, vec, d2, d)
    do ic = 1, size(ccav, 2)
-      do j = 1, size(xyz, 2)
+      do jat = 1, size(xyz, 2)
          vec(:) = ccav(:, ic) - xyz(:, j)
          d2 = vec(1)**2 + vec(2)**2 + vec(3)**2
          d = sqrt(d2)
