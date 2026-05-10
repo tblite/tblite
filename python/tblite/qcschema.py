@@ -61,7 +61,7 @@ Supported keywords are:
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
- ddX-solvation       dd-based implicit solvation          Epsilon, Model
+ ddX-solvation       dd-based implicit solvation          Epsilon, Model ("COSMO", "CPCM", "PCM")
  gb-solvation        GB implicit solvation                Epsilon, Born kernel
  gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
  gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
