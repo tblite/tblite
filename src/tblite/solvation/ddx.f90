@@ -19,43 +19,40 @@
 
 !> Implicit solvation model based on a polarizable dielectric continuum
 module tblite_solvation_ddx
-   use mctc_env, only : wp, error_type, fatal_error
-   use mctc_io, only : structure_type
-   use mctc_io_constants, only : pi
-   use tblite_blas, only : dot, gemv
-   use tblite_container_cache, only : container_cache
-   use tblite_mesh_lebedev, only : grid_size
-   use tblite_scf_info, only : scf_info, atom_resolved
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_solvation_data, only : get_vdw_rad_cosmo
-   use tblite_solvation_type, only : solvation_type
-
-   use omp_lib, only : omp_get_max_threads
-
-   use ddx, only: ddx_type, ddx_error_type, check_error, ddinit, ddx_state_type, allocate_state, ddrun
-   use ddx, only: setup, fill_guess, solve, fill_guess_adjoint, solve_adjoint, solvation_force_terms
+   use ddx, only: allocate_state, check_error, ddinit, ddrun, ddx_error_type, &
+      & ddx_state_type, ddx_type, fill_guess, fill_guess_adjoint, setup, &
+      & solvation_force_terms, solve, solve_adjoint
    use ddx_core, only: ddx_electrostatics_type
    use ddx_multipolar_solutes, only: multipole_electrostatics, multipole_force_terms, multipole_psi
-
+   use mctc_env, only: error_type, fatal_error, wp
+   use mctc_io, only: structure_type
+   use mctc_io_constants, only: pi
+   use omp_lib, only: omp_get_max_threads
+   use tblite_blas, only: dot, gemv
+   use tblite_container_cache, only: container_cache
+   use tblite_mesh_lebedev, only: grid_size
+   use tblite_scf_info, only: atom_resolved, scf_info
+   use tblite_scf_potential, only: potential_type
+   use tblite_solvation_data, only: get_vdw_rad_cosmo
+   use tblite_solvation_type, only: solvation_type
+   use tblite_wavefunction_type, only: wavefunction_type
 
    implicit none
    private
 
    public :: ddx_solvation, new_ddx, ddx_input, ddx_cache, ddx_solvation_model
 
-
    !> Possible solvation models to be used within the dd framework
    type :: enum_ddx_solvation_model
-      ! COSMO and CPCM temporary defined as 11 and 12 to get correct feps in the first step
-      ! Labels are dumbed to 1 before passing the model input to the ddX routine,
-      ! where both models are handeled the same way
+      ! COSMO, CPCM, and PCM are internally defined as 100, 101, and 200 to get correct feps in the first step
+      ! and to avoid collisions with other aliase elsewhere in the code. 
+      ! Labels are dumbed to ddX-specific values 1 and 2 before passing the model input to the ddX routine.
       !> Conductor like screening model
-      integer :: cosmo = 11
+      integer :: cosmo = 100
       !> Conductor-like polarizable continuum model
-      integer :: cpcm = 12
+      integer :: cpcm = 101
       !> Polarizable continuum model
-      integer :: pcm = 2
+      integer :: pcm = 200
    end type enum_ddx_solvation_model
 
    !> Actual enumerator for the dd solvation models
@@ -268,12 +265,12 @@ subroutine update(self, mol, cache)
    ! Electric field gradient
    ptr%ddx_electrostatics%do_g = .true.
 
-   ! Put COSMO and CPCM label back to 1 
+   ! Adjust the model to what ddX expects
    if (self%ddx_input%ddx_model == ddx_solvation_model%cosmo .or. &
       & self%ddx_input%ddx_model == ddx_solvation_model%cpcm) then
-      model = 1
+      model = 1 ! ddCOSMO and ddCPCM are handeled the same way in ddX
    else
-      model = self%ddx_input%ddx_model
+      model = 2 ! ddPCM 
    end if
 
    call ddinit(model, mol%nat, mol%xyz, self%rvdw, self%dielectric_const, ptr%ddx, ptr%ddx_error, &

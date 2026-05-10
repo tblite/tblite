@@ -475,39 +475,39 @@ def _get_uhf(
 
 
 def _update_parameters(kwargs: Dict[str, Any]) -> None:
-      """
-      Update the parameters of the calculator with the provided keyword arguments.
-      This function is used to update the parameters of the calculator
-      when new values are provided.
-      """
+    """
+    Update the parameters of the calculator with the provided keyword arguments.
+    This function is used to update the parameters of the calculator
+    when new values are provided.
+    """
 
-      ddx_models = ("cosmo", "cpcm", "pcm")
+    ddx_models = ("cosmo", "cpcm", "pcm")
 
-      for key in (
-          "alpb",
-          "gbsa",
-          "cosmo",
-          "cpcm",
-          "pcm",
-          "gbe",
-          "gb",
-      ):
-          if f"{key}_solvation" in kwargs:
-              value = kwargs.pop(f"{key}_solvation")
+    for key in (
+        "alpb",
+        "gbsa",
+        "cosmo",
+        "cpcm",
+        "pcm",
+        "gbe",
+        "gb",
+    ):
+        if f"{key}_solvation" in kwargs:
+            value = kwargs.pop(f"{key}_solvation")
 
-              if key in ddx_models:
-                  value = ("ddX", value, key)
-              elif isinstance(value, (tuple, list)):
-                  value = (key, *value)
-              else:
-                  value = (key, value)
+            if key in ddx_models:
+                value = ("ddX", value, key)
+            elif isinstance(value, (tuple, list)):
+                value = (key, *value)
+            else:
+                value = (key, value)
 
-              if "solvation" in kwargs:
-                  raise ase.calculators.calculator.InputError(
-                      "Multiple solvation models provided, can only use one"
-                  )
+            if "solvation" in kwargs:
+                raise ase.calculators.calculator.InputError(
+                    "Multiple solvation models provided, can only use one"
+                )
 
-              kwargs["solvation"] = value
+            kwargs["solvation"] = value
 
 
 

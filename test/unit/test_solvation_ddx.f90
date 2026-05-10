@@ -71,7 +71,7 @@ subroutine test_e(error, model, mol, qat, ref)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> Solvation model (COSMO=11, CPCM=12, PCM=2, LPB=3)
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
    integer, intent(in) :: model
 
    !> Molecular structure data
@@ -121,7 +121,7 @@ subroutine test_g(error, model, mol, qat)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> Solvation model (COSMO=11, CPCM=12, PCM=2, LPB=3)
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
    integer, intent(in) :: model
 
    !> Molecular structure data
@@ -190,7 +190,7 @@ subroutine test_p(error, model, mol, qat)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> Solvation model (COSMO=11, CPCM=12, PCM=2, LPB=3)
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
    integer, intent(in) :: model
 
    !> Molecular structure data
