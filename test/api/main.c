@@ -2123,7 +2123,7 @@ int test_dict_api()
     if (!check_int(ndim2, 21, "Check dimension of wbo tensor")) {
         goto err;
     }
-    if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
+    if (!check_int(ndim3, 1, "Check dimension of wbo tensor")) {
         goto err;
     }
     tblite_get_label_entry_index(error, dict, &n_dict_entries, label, NULL);
@@ -2496,7 +2496,7 @@ int test_h2plus_wbo()
 
     res = tblite_new_result();
 
-    tblite_push_back_post_processing_str(ctx, calc, "molmom");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "molmom");
     if (tblite_check(ctx))
         goto err;
 
@@ -2576,7 +2576,7 @@ int test_h2plus_wbo()
 
     res = tblite_new_result();
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
     if (tblite_check(ctx))
         goto err;
 
@@ -2667,7 +2667,8 @@ int test_post_processing_api()
     if (tblite_check(error))
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    // Test without allocated calculator
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
     if (!tblite_check(ctx))
         goto err;
 
@@ -2677,7 +2678,15 @@ int test_post_processing_api()
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_str(ctx, calc, NULL, "bond-orders");
+    if (!tblite_check(ctx))
+        goto err;
+
+    show(ctx);
+
+    // Test with molecular structure and calculator
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -2727,9 +2736,9 @@ int test_post_processing_api()
 
     dict = NULL;
 
-    tblite_push_back_post_processing_str(ctx, calc, "molmom");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "molmom");
     // Test that adding another wbo container will lead to nothing, i.e. there will be 3 entries in the dictionary
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -2793,7 +2802,7 @@ int test_post_processing_api()
     if (!check_int(ndim2, 21, "Check dimension of wbo tensor")) {
         goto err;
     }
-    if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
+    if (!check_int(ndim3, 1, "Check dimension of wbo tensor")) {
         goto err;
     }
 
@@ -2848,7 +2857,7 @@ int test_post_processing_api()
     if (tblite_check(error))
         goto err;
     tblite_delete(param);
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (!tblite_check(ctx))
         goto err;
     show(ctx);
@@ -2862,7 +2871,8 @@ int test_post_processing_api()
     tblite_delete(calc);
     calc = NULL;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    // Test without allocated calculator
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (!tblite_check(ctx))
         goto err;
     show(ctx);
@@ -2871,7 +2881,14 @@ int test_post_processing_api()
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_param(ctx, calc, NULL, param);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    // Test with molecular structure and calculator
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
 
@@ -2994,7 +3011,7 @@ int test_xtbml_api()
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "xtbml");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "xtbml");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -3006,7 +3023,7 @@ int test_xtbml_api()
 
     int n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 38, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 39, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
 
@@ -3050,7 +3067,7 @@ int test_xtbml_api()
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
 
@@ -3066,7 +3083,7 @@ int test_xtbml_api()
 
     n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 101, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 102, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
     

@@ -211,20 +211,26 @@ tblite_get_singlepoint(tblite_context ctx,
                        tblite_calculator calc,
                        tblite_result res);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
-/// @param post_proc: Post Processing instance 
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
 /// @param charptr: String of the post processing desired
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_push_back_post_processing_str(tblite_context ctx,
-                                     tblite_calculator calc, 
+                                     tblite_calculator calc,
+                                     tblite_structure mol,
                                      char* charptr);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
-/// @param post_proc: Post Processing instance 
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
 /// @param param: Param instance containing post processing information
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_push_back_post_processing_param(tblite_context ctx,
                                        tblite_calculator calc,
+                                       tblite_structure mol,
                                        tblite_param param);

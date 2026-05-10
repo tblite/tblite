@@ -33,6 +33,7 @@ module tblite_results
       real(wp), allocatable :: overlap(:, :)
       !> (Core) Hamiltonian integrals
       real(wp), allocatable :: hamiltonian(:, :)
+      !> Dictionary for storing additional results from post-processing
       type(double_dictionary_type), allocatable :: dict
    end type results_type
 

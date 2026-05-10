@@ -14,17 +14,15 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @dir tblite/blas
-!> Contains wrappers for the basic linear algebra subprograms
+!> @file tblite/param/post_processing/type.f90
 
-!> @file tblite/blas.f90
-!> Provides high-level interfaces to the basic linear algebra subprograms
-
-!> Proxy module to reexport high-level basic linear algebra subprogram wrappers
-module tblite_blas
-   use tblite_blas_level1, only : dot => wrap_dot
-   use tblite_blas_level2, only : gemv => wrap_gemv, symv => wrap_symv
-   use tblite_blas_level3, only : gemm => wrap_gemm, symm => wrap_symm
+!> Defines the abstract base post-processing record type
+module tblite_param_post_processing_type
+   use tblite_param_serde, only : serde_record
    implicit none
-   public
-end module tblite_blas
+
+   !> Abstract post-processing record base type
+   type, public, abstract, extends(serde_record) :: post_processing_record
+   end type
+
+end module tblite_param_post_processing_type

@@ -14,28 +14,36 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/param/post_processing.f90
-!> Provides a list-type container to store various post processing param records
+!> @dir tblite/param/post_processing
+!> Provides records for specific post-processing methods
 
-!> Definition of the dispersion corrections
+!> @file tblite/param/post_processing.f90
+!> Provides a list-type container to store various post-processing records
+
+!> Proxy module for rexport and list-type post-processing record container
 module tblite_param_post_processing
    use mctc_env, only : wp, error_type, fatal_error
-   use mctc_io_symbols, only : to_number
    use tblite_param_serde, only : serde_record
-   use tblite_toml, only : toml_table, get_value, set_value, add_table, toml_array, toml_key
-   use tblite_param_molecular_moments, only : molecular_multipole_record
-   use tblite_param_xtbml_features, only : xtbml_features_record
+   use tblite_toml, only : toml_table, toml_key
+   use tblite_param_post_processing_molmom, only : molmom_record
+   use tblite_param_post_processing_type, only : post_processing_record
+   use tblite_param_post_processing_xtbml, only : xtbml_record
    implicit none
    private
 
-   public :: molecular_multipole_record, post_processing_param_list
-   !> Parametrization record specifying the dispersion model
-   type :: post_processing_record
-      class(serde_record), allocatable :: record
+   public :: post_processing_record_list, post_processing_record
+   public :: molmom_record, xtbml_record
+
+   !> Container for post-processing records
+   type :: post_processing_record_container
+      !> Actual post-processing record
+      class(post_processing_record), allocatable :: record
    end type
 
-   type :: post_processing_param_list
-      type(post_processing_record), allocatable :: list(:)
+   type :: post_processing_record_list
+      !> List of post-processing records
+      type(post_processing_record_container), allocatable :: list(:)
+      !> Number of records in the list
       integer :: n = 0
    contains
       private
@@ -50,14 +58,17 @@ module tblite_param_post_processing
 contains
 
 function get_n_records(self) result(n)
-   class(post_processing_param_list), intent(in) :: self
+   !> List of all post-processing records
+   class(post_processing_record_list), intent(in) :: self
    integer n
    n = self%n
 end function
 
 subroutine push(self, record)
-   class(post_processing_param_list), intent(inout) :: self
-   class(serde_record), allocatable, intent(inout) :: record
+   !> List of all post-processing records
+   class(post_processing_record_list), intent(inout) :: self
+   !> Post-processing record to be added to the list
+   class(post_processing_record), allocatable, intent(inout) :: record
 
    if (.not.allocated(self%list)) call resize(self%list)
    if (self%n >= size(self%list)) then
@@ -70,11 +81,11 @@ end subroutine push
 
 subroutine resize(list, n)
    !> Instance of the array to be resized
-   type(post_processing_record), allocatable, intent(inout) :: list(:)
+   type(post_processing_record_container), allocatable, intent(inout) :: list(:)
    !> Dimension of the final array size
    integer, intent(in), optional :: n
 
-   type(post_processing_record), allocatable :: tmp(:)
+   type(post_processing_record_container), allocatable :: tmp(:)
    integer :: this_size, new_size, item
    integer, parameter :: initial_size = 20
 
@@ -104,8 +115,8 @@ subroutine resize(list, n)
 end subroutine resize
 
 subroutine dump_to_toml(self, table, error)
-   !> List of all element records
-   class(post_processing_param_list), intent(in) :: self
+   !> List of all post-processing records
+   class(post_processing_record_list), intent(in) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
    !> Error handling
@@ -124,8 +135,8 @@ end subroutine dump_to_toml
 
    !> Deserialize records from a table by iterating over all entries
 subroutine load_from_toml(self, table, error)
-   !> List of all element records
-   class(post_processing_param_list), intent(inout) :: self
+   !> List of all post-processing records
+   class(post_processing_record_list), intent(inout) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
    !> Error handling
@@ -140,8 +151,8 @@ subroutine load_from_toml(self, table, error)
       select case(key)
       case("molecular-multipole")
          block
-            type(molecular_multipole_record), allocatable :: tmp_record
-            class(serde_record), allocatable :: cont
+            type(molmom_record), allocatable :: tmp_record
+            class(post_processing_record), allocatable :: cont
             allocate(tmp_record)
             call tmp_record%load(table, error) 
             call move_alloc(tmp_record, cont)
@@ -149,8 +160,8 @@ subroutine load_from_toml(self, table, error)
          end block
       case("xtbml")
          block
-            type(xtbml_features_record), allocatable :: tmp_record
-            class(serde_record), allocatable :: cont
+            type(xtbml_record), allocatable :: tmp_record
+            class(post_processing_record), allocatable :: cont
             allocate(tmp_record)
             call tmp_record%load(table, error) 
             call move_alloc(tmp_record, cont)

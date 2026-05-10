@@ -511,9 +511,9 @@ set_calculator_save_integrals = context_check(
 
 
 @context_check
-def post_processing_push_back(ctx, calc, s):
+def post_processing_push_back(ctx, calc, mol, s):
     _string = ffi.new("char[]", s.encode("ascii"))
-    lib.tblite_push_back_post_processing_str(ctx, calc, _string)
+    lib.tblite_push_back_post_processing_str(ctx, calc, mol, _string)
 
 
 @context_check

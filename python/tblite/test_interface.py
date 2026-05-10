@@ -531,7 +531,7 @@ def test_xtbml_api():
 
     dict_xtbml = res.dict()
     dict_xtbml = dict_xtbml.get("post-processing-dict")
-    assert len(dict_xtbml.keys()) == 38
+    assert len(dict_xtbml.keys()) == 39
     
     toml_inp = ["[post-processing.xtbml] \n",
                 "geometry = false \n",
@@ -552,8 +552,8 @@ def test_xtbml_api():
     dict_ = res.get("post-processing-dict")
     
     assert dict_.get("CN_A") is None
-    
-    assert len(dict_.keys()) == 129
+
+    assert len(dict_.keys()) == 130
     
 
 def test_solvation_gfn2_cpcm():

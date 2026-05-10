@@ -28,10 +28,9 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, eeqbc_guess
+      & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -72,6 +71,7 @@ module tblite_api_calculator
       integer :: guess = tblite_guess_sad
       !> Numbers of spin channels for calculator
       integer :: nspin = 1
+      !> List of post-processing applied methods
       type(post_processing_list) :: post_proc
    end type vp_calculator
 
@@ -564,11 +564,11 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
       & calc%nspin, calc%guess, error)
-   if (calc%post_proc%n == 0) then 
+   if (calc%post_proc%npp == 0) then 
       f_char = "bond-orders"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
@@ -622,13 +622,15 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    end if
 end subroutine check_wavefunction
 
-subroutine push_back_post_processing_str_api(vctx, vcalc, charptr) &
+subroutine push_back_post_processing_str_api(vctx, vcalc, vmol, charptr) &
    & bind(C, name=namespace//"push_back_post_processing_str")
 character(kind=c_char), intent(in) :: charptr(*)
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
 type(c_ptr), value :: vctx
 type(vp_context), pointer :: ctx
+type(c_ptr), value :: vcalc
+type(vp_calculator), pointer :: calc
+type(c_ptr), value :: vmol
+type(vp_structure), pointer :: mol
 character(len=:), allocatable :: config_str
 type(error_type), allocatable :: error
 
@@ -646,17 +648,26 @@ if (.not.c_associated(vcalc)) then
 end if
 call c_f_pointer(vcalc, calc)
 
-call add_post_processing(calc%post_proc, config_str, error)
+if (.not.c_associated(vmol)) then
+   call fatal_error(error, "Molecular structure data is missing")
+   call ctx%ptr%set_error(error)
+   return
+end if
+call c_f_pointer(vmol, mol)
+
+call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine
 
-subroutine push_back_post_processing_param_api(vctx, vcalc, vparam) &
+subroutine push_back_post_processing_param_api(vctx, vcalc, vmol, vparam) &
    & bind(C, name=namespace//"push_back_post_processing_param")
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
 type(c_ptr), value :: vctx
 type(vp_context), pointer :: ctx
+type(c_ptr), value :: vcalc
+type(vp_calculator), pointer :: calc
+type(c_ptr), value :: vmol
+type(vp_structure), pointer :: mol
 type(c_ptr), value :: vparam
 type(vp_param), pointer :: param
 type(error_type), allocatable :: error
@@ -679,7 +690,15 @@ if (.not.c_associated(vcalc)) then
    return
 end if
 call c_f_pointer(vcalc, calc)
-call add_post_processing(calc%post_proc, param%ptr%post_proc)
+
+if (.not.c_associated(vmol)) then
+   call fatal_error(error, "Molecular structure data is missing")
+   call ctx%ptr%set_error(error)
+   return
+end if
+call c_f_pointer(vmol, mol)
+
+call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine

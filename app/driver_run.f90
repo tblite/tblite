@@ -43,7 +43,7 @@ module tblite_driver_run
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
-   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
 
    implicit none
    private
@@ -268,22 +268,22 @@ subroutine run_main(config, error)
 
    wbo_label = "bond-orders"
    allocate(post_proc)
-   call add_post_processing(post_proc, wbo_label, error)
+   call add_post_processing(post_proc, mol, wbo_label, error)
    if (allocated(error)) return
 
    if (config%verbosity > 2) then
       molmom_label = "molmom"
-      call add_post_processing(post_proc, molmom_label, error)
+      call add_post_processing(post_proc, mol, molmom_label, error)
       if (allocated(error)) return
    end if
 
    if (allocated(config%post_processing)) then
-      call add_post_processing(post_proc, config%post_processing, error)
+      call add_post_processing(post_proc, mol, config%post_processing, error)
       if (allocated(error)) return
    end if
 
    if (allocated(param%post_proc)) then
-      call add_post_processing(post_proc, param%post_proc)
+      call add_post_processing(post_proc, mol, param%post_proc, error)
       if (allocated(error)) return
    end if
 
@@ -316,8 +316,8 @@ subroutine run_main(config, error)
 
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
-      call post_proc%dict%get_entry("molecular-dipole", dpmom)
-      call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
+      call results%dict%get_entry("molecular-dipole", dpmom)
+      call results%dict%get_entry("molecular-quadrupole", qpmom)
       
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)

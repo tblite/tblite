@@ -15,76 +15,66 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/param/post_processing/molmom.f90
-!> Provides model for the calculation of molecular multipole moments for the converged singlepoint
-
-module tblite_param_molecular_moments
+!> Provides record for molecular multipole moments post-processing
+module tblite_param_post_processing_molmom
    use mctc_env, only : wp, error_type, fatal_error
-   use mctc_io_symbols, only : to_number
-   use tblite_param_serde, only : serde_record
-   use tblite_toml, only : toml_table, get_value, set_value, add_table, toml_array
+   use tblite_param_post_processing_type, only : post_processing_record
+   use tblite_toml, only : toml_table, get_value, set_value, add_table
    implicit none
    private
 
    public :: count
 
    character(len=*), parameter :: k_dipm = "dipole", k_qp = "quadrupole", &
-      & k_key = "molecular-multipole"
+      & k_molmom = "molecular-multipole"
 
-   !> Parametrization record specifying the dispersion model
-   type, public, extends(serde_record) :: molecular_multipole_record
-      !> Compute density-based xtbml features
+   !> Record specifying the molecular multipole moments post-processing
+   type, public, extends(post_processing_record) :: molmom_record
+      !> Compute dipole moments
       logical :: moldipm = .false.
-      !> Return vectorial information additional to norm of the corresponding multipole moments
+      !> Compute quadrupole moments
       logical :: molqp = .false.
-
-
    contains
-      generic :: load => load_from_array
-      generic :: dump => dump_to_array
       !> Read parametrization data from TOML data structure
       procedure :: load_from_toml
       !> Write parametrization data to TOML data structure
       procedure :: dump_to_toml
-      !> Read parametrization data from parameter array
-      procedure, private :: load_from_array
-      !> Write parametrization data to parameter array
-      procedure, private :: dump_to_array
+      !> Populate parametrization record with default values
       procedure :: populate_default_param
    end type
 
-
-   !> Masking for the dispersion model
+   !> Masking for the molecular multipole moments post-processing
    type, public :: molmom_mask
    end type molmom_mask
-
 
    interface count
       module procedure :: count_mask
    end interface count
 
-
 contains
 
 subroutine populate_default_param(param)
-   class(molecular_multipole_record), intent(inout) :: param
+   !> Multipole moment post-processing record
+   class(molmom_record), intent(inout) :: param
 
    param%moldipm = .true.
    param%molqp= .true.
-
 
 end subroutine
 
 !> Read parametrization data from TOML data structure
 subroutine load_from_toml(self, table, error)
    !> Instance of the parametrization data
-   class(molecular_multipole_record), intent(inout) :: self
+   class(molmom_record), intent(inout) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
-   type(toml_table), pointer :: child
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+
+   type(toml_table), pointer :: child
    integer :: stat
-   call get_value(table, k_key, child, requested=.false.)
+
+   call get_value(table, k_molmom, child, requested=.false.)
    if (.not.associated(child)) return
    call get_value(child, k_dipm, self%moldipm, stat=stat)
    if (stat /= 0) then
@@ -104,7 +94,7 @@ end subroutine load_from_toml
 !> Write parametrization data to TOML datastructure
 subroutine dump_to_toml(self, table, error)
    !> Instance of the parametrization data
-   class(molecular_multipole_record), intent(in) :: self
+   class(molmom_record), intent(in) :: self
    !> Data structure
    type(toml_table), intent(inout) :: table
    !> Error handling
@@ -112,7 +102,7 @@ subroutine dump_to_toml(self, table, error)
 
    type(toml_table), pointer :: child
 
-   call add_table(table, k_key, child)
+   call add_table(table, k_molmom, child)
 
    call set_value(child, k_dipm, self%moldipm)
    call set_value(child, k_qp, self%molqp)
@@ -120,37 +110,10 @@ subroutine dump_to_toml(self, table, error)
 end subroutine dump_to_toml
 
 
-!> Read parametrization data from parameter array
-subroutine load_from_array(self, array, offset, base, mask, error)
-   class(molecular_multipole_record), intent(inout) :: self
-   real(wp), intent(in) :: array(:)
-   integer, intent(inout) :: offset
-   type(molecular_multipole_record), intent(in) :: base
-   type(molmom_mask), intent(in) :: mask
-   type(error_type), allocatable, intent(out) :: error
-
-   select type(self)
-   type is (molecular_multipole_record)
-      self = base
-   end select
-
-end subroutine load_from_array
-
-!> Write parametrization data to parameter array
-subroutine dump_to_array(self, array, offset, mask, error)
-   class(molecular_multipole_record), intent(in) :: self
-   real(wp), intent(inout) :: array(:)
-   integer, intent(inout) :: offset
-   type(molmom_mask), intent(in) :: mask
-   type(error_type), allocatable, intent(out) :: error
-
-end subroutine dump_to_array
-
 elemental function count_mask(mask) result(ncount)
    type(molmom_mask), intent(in) :: mask
    integer :: ncount
    ncount = 0
 end function count_mask
 
-
-end module tblite_param_molecular_moments
+end module tblite_param_post_processing_molmom

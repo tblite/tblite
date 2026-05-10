@@ -16,126 +16,123 @@
 
 !> @file tblite/post_processing/wbo.f90
 !> Implements the calculation of Wiberg-Mayer bond orders as post processing method.
-module tblite_post_processing_bond_orders
+module tblite_post_processing_wbo
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
-   use tblite_container, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
-   use tblite_output_format, only : format_string
    use tblite_post_processing_type, only : post_processing_type
-   use tblite_results, only : results_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, get_mayer_bond_orders_uhf
+   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
-   public :: new_wbo, wiberg_bond_orders
+   public :: new_wiberg_bond_orders, wiberg_bond_orders
 
+   !> Wiberg-Mayer bond orders as post-processing method
    type, extends(post_processing_type) :: wiberg_bond_orders
    contains
+      !> Calculate Wiberg-Mayer bond orders
       procedure :: compute
+      !> Print timings
       procedure :: print_timer
    end type wiberg_bond_orders
 
    character(len=24), parameter :: label = "Mayer-Wiberg bond orders"
-   type(timer_type) :: timer
+
 contains
 
-subroutine new_wbo(new_wbo_type)
-   type(wiberg_bond_orders), intent(inout) :: new_wbo_type
-   new_wbo_type%label = label
-end subroutine new_wbo
+subroutine new_wiberg_bond_orders(self)
+   !> Instance of the Wiberg-Mayer bond order post-processing
+   type(wiberg_bond_orders), intent(out) :: self
 
-subroutine compute(self, mol, wfn, integrals, calc, cache_list, ctx, prlevel, dict)
-   class(wiberg_bond_orders),intent(inout) :: self
+   self%label = label
+
+end subroutine new_wiberg_bond_orders
+
+subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
+   !> Instance of the Wiberg-Mayer bond order post-processing
+   class(wiberg_bond_orders),intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Wavefunction strcuture data
    type(wavefunction_type), intent(in) :: wfn
-   !> integral container
-   type(integral_type), intent(in) :: integrals
-   !> calculator instance
+   !> Integral container
+   type(integral_type), intent(in) :: ints
+   !> Calculator instance
    type(xtb_calculator), intent(in) :: calc
    !> Cache list for storing caches of various interactions
-   type(container_cache), intent(inout) :: cache_list(:)
+   type(cache_list), intent(inout) :: caches
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
+   !> Timer instance
+   type(timer_type), intent(inout) :: timer
    !> Print level
    integer, intent(in) :: prlevel
    !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
-   real(kind=wp), allocatable :: wbo(:, :, :), wbo_2d(:, :)
-   real(kind=wp), allocatable :: focc_(:, :)
-   integer :: nspin, i, j
-   real(kind=wp) :: nel_
-   real(wp), allocatable :: pmat(:, :, :)
 
-   call timer%push("total")
-   nspin = size(wfn%density, dim=3)
+   real(wp), allocatable :: wbo(:, :, :), pmat(:, :, :)
+   integer :: spin
 
-   if ((nspin == 1) .and. (wfn%nel(1) /= wfn%nel(2))) then
+   call timer%push("wbo")
+
+   if ((wfn%nspin == 1) .and. (wfn%nel(1) /= wfn%nel(2))) then
+      ! Restricted calculation with open-shell occupation
       allocate(wbo(mol%nat, mol%nat, 2), source=0.0_wp)
-      allocate(focc_(calc%bas%nao, 2), source=0.0_wp)
-      allocate(pmat(calc%bas%nao, calc%bas%nao, 2))
-      do j = 1,2
-         nel_ = wfn%nel(j)
-         do i = 1, size(wfn%focc)
-            if (nel_ > 1.0_wp) then
-               focc_(i,j) = 1.0_wp
-               nel_ = nel_ - 1.0_wp
-            else
-               focc_(i,j) = nel_
-               exit
-            end if
-         end do
+      allocate(pmat(calc%bas%nao, calc%bas%nao, 2), source=0.0_wp)
+
+      ! Calculate density matrices for each spin with the spin-resolved occupation,
+      ! but the restricted orbital coefficients (alpha).
+      do spin = 1, 2
+         call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, 1), &
+            & pmat(:, :, spin))
       end do
-      do j = 1, 2
-         call get_density_matrix(focc_(:, j), wfn%coeff(:, :, nspin), pmat(:, :, j))
-      end do
-      call get_mayer_bond_orders_uhf(calc%bas, integrals%overlap, pmat, wbo)
-      wbo_2d = 2*wbo(:, :, 1)
-      call dict%add_entry("bond-orders", wbo_2d)
+
+      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for open-shell case
+      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, pmat, wbo)
+      
+      call dict%add_entry("bond-orders", wbo)
+      
    else
-      allocate(wbo(mol%nat, mol%nat, nspin), source=0.0_wp)
-      call get_mayer_bond_orders(calc%bas, integrals%overlap, wfn%density, wbo)
-      if (size(wbo, dim = 3) == 1) then 
-         wbo_2d = wbo(:, : , 1)
-         call dict%add_entry("bond-orders", wbo_2d)
-      else
-         call dict%add_entry("bond-orders", wbo(:, :, :))
-      end if
+      ! Restricted closed-shell or unrestricted calculations
+      allocate(wbo(mol%nat, mol%nat, wfn%nspin), source=0.0_wp)
+      
+      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for unrestricted
+      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, &
+         & wfn%density, wbo)
+      
+      call dict%add_entry("bond-orders", wbo)
    end if
 
-   
    call timer%pop()
+
 end subroutine compute
 
-subroutine print_timer(self, prlevel, ctx)
-   !> Instance of the interaction container
+subroutine print_timer(self, timer, prlevel, ctx)
+   !> Instance of the Wiberg-Mayer bond order post-processing
    class(wiberg_bond_orders), intent(in) :: self
-   integer :: prlevel
-   type(context_type) :: ctx
-   real(wp) :: ttime, stime
-   integer :: it
-   character(len=*), parameter :: labels(*) = [character(len=20):: &
-      & ]
+   !> Timer instance
+   type(timer_type), intent(in) :: timer
+   !> Print level
+   integer, intent(in) :: prlevel
+   !> Context container for writing to stdout
+   type(context_type), intent(inout) :: ctx
+
+   real(wp) :: ttime
+
    if (prlevel > 2) then
       call ctx%message(label//" timing details:")
-      ttime = timer%get("total")
+      ttime = timer%get("wbo")
       call ctx%message(" total:"//repeat(" ", 16)//format_time(ttime))
-      do it = 1, size(labels)
-         stime = timer%get(labels(it))
-         if (stime <= epsilon(0.0_wp)) cycle
-         call ctx%message(" - "//labels(it)//format_time(stime) &
-            & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
-      end do
       call ctx%message("")
    end if
+
 end subroutine print_timer
 
-end module tblite_post_processing_bond_orders
+end module tblite_post_processing_wbo
