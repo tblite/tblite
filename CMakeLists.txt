@@ -180,7 +180,6 @@ install(
 )
 
 
-
 # add the testsuite
 if (WITH_TESTS)
   enable_testing()
