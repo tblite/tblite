@@ -2351,7 +2351,6 @@ int test_uninitialized_dict()
     if (!tblite_check(error))
         goto unexpected;
 
-        printf("Unexpected error: dictionary is not initialized\n");
     tblite_get_singlepoint(ctx, mol, calc, res);
 
     error = NULL;
