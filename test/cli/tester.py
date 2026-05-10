@@ -61,7 +61,6 @@ outp = sys.argv[2]
 with open(sys.argv[3]) as fd:
     wdir = os.path.dirname(fd.name)
     args = [arg.replace('$ORIGIN', wdir) for arg in fd.read().strip().split("\n")]
-print(f"Running {prog} with arguments: {' '.join(args)}")
 
 
 stat = subprocess.call(
