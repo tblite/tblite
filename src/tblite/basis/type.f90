@@ -21,6 +21,7 @@
 module tblite_basis_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_integral_trafo, only : adjoint_transform0
    implicit none
    private
 
@@ -52,6 +53,8 @@ module tblite_basis_type
       integer :: nsh = 0
       !> Number of spherical atomic orbitals in this basis set
       integer :: nao = 0
+      !> Number of cartesian atomic orbitals in this basis set
+      integer :: nao_cart = 0
       !> Integral cutoff as maximum exponent of Gaussian product theoreom to consider
       real(wp) :: intcut = 0.0_wp
       !> Smallest primitive exponent in the basis set
@@ -62,8 +65,12 @@ module tblite_basis_type
       integer, allocatable :: nsh_at(:)
       !> Number of spherical atomic orbitals for each shell
       integer, allocatable :: nao_sh(:)
+      !> Number of cartesian atomic orbitals for each shell
+      integer, allocatable :: nao_cart_sh(:)
       !> Index offset for each shell in the atomic orbital space
       integer, allocatable :: iao_sh(:)
+      !> Index offset for each shell in the cartesian atomic orbital space
+      integer, allocatable :: iao_cart_sh(:)
       !> Index offset for each atom in the shell space
       integer, allocatable :: ish_at(:)
       !> Mapping from spherical atomic orbitals to the respective atom
@@ -74,6 +81,9 @@ module tblite_basis_type
       integer, allocatable :: sh2at(:)
       !> Contracted Gaussian basis functions forming the basis set
       type(cgto_type), allocatable :: cgto(:, :)
+   contains
+      !> Transform matrix dimension from spherical to cartesian basis
+      procedure :: spherical_to_cartesian_trafo
    end type basis_type
 
    !> Get optimal real space cutoff for integral evaluation
@@ -96,7 +106,7 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
    !> Calculation accuracy
    real(wp), intent(in) :: acc
 
-   integer :: iat, isp, ish, iao, ii
+   integer :: iat, isp, ish, iao, ii, iicart
    real(wp) :: min_alpha
 
    self%nsh_id = nshell
@@ -119,26 +129,32 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
    end do
 
    ! Make count of spherical orbitals for each shell
-   allocate(self%nao_sh(self%nsh))
+   allocate(self%nao_sh(self%nsh), self%nao_cart_sh(self%nsh))
    do iat = 1, mol%nat
       isp = mol%id(iat)
       ii = self%ish_at(iat)
       do ish = 1, self%nsh_at(iat)
          self%nao_sh(ii+ish) = 2*cgto(ish, isp)%ang + 1
+         self%nao_cart_sh(ii+ish) = (cgto(ish, isp)%ang + 1)*(cgto(ish, isp)%ang + 2)/2
       end do
    end do
 
    ! Create mapping between shells and spherical orbitals, also map directly back to atoms
    self%nao = sum(self%nao_sh)
-   allocate(self%iao_sh(self%nsh), self%ao2sh(self%nao), self%ao2at(self%nao))
+   self%nao_cart = sum(self%nao_cart_sh)
+   allocate(self%iao_sh(self%nsh), self%iao_cart_sh(self%nsh), self%ao2sh(self%nao), &
+      & self%ao2at(self%nao))
    ii = 0
+   iicart = 0
    do ish = 1, self%nsh
       self%iao_sh(ish) = ii
+      self%iao_cart_sh(ish) = iicart
       do iao = 1, self%nao_sh(ish)
          self%ao2sh(ii+iao) = ish
          self%ao2at(ii+iao) = self%sh2at(ish)
       end do
       ii = ii + self%nao_sh(ish)
+      iicart = iicart + self%nao_cart_sh(ish)
    end do
 
    ii = 0
@@ -204,5 +220,42 @@ pure function clip(val, min_val, max_val) result(res)
    real(wp) :: res
    res = min(max(val, min_val), max_val)
 end function clip
+
+
+!> Transform matrix dimension from spherical to cartesian basis
+subroutine spherical_to_cartesian_trafo(self, mol, sphr, cart)
+   !> Instance of the basis set data
+   class(basis_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Matrix with first index in the spherical basis
+   real(wp), intent(in) :: sphr(:, :)
+   !> Matrix with first index in the cartesian basis
+   real(wp), intent(out) :: cart(:, :)
+
+   integer :: iat, izp, ish, is, li, ii, ni, iicart, nicart
+
+   !$omp parallel do default(none) schedule(runtime) &
+   !$omp shared(self, mol, sphr, cart) &
+   !$omp private(iat, izp, is, ish, li, ii, ni, iicart, nicart)
+   do iat = 1, mol%nat
+      izp = mol%id(iat)
+      is = self%ish_at(iat)
+      do ish = 1, self%nsh_at(iat)
+         li = self%cgto(ish, izp)%ang
+
+         ii = self%iao_sh(is+ish)
+         ni = self%nao_sh(is+ish)
+         iicart = self%iao_cart_sh(is+ish)
+         nicart = self%nao_cart_sh(is+ish)
+
+         ! Transform all matrix columns for the current shell
+         call adjoint_transform0(li, 0, sphr(ii+1:ii+ni, :), &
+            & cart(iicart+1:iicart+nicart, :), &
+            & bra=.true., ket=.false.)
+      end do
+   end do
+
+end subroutine spherical_to_cartesian_trafo
 
 end module tblite_basis_type
