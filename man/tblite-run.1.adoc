@@ -81,14 +81,21 @@ Supported geometry input formats are:
      Use generalized Born solvation model (GB).
      Solvent is specified by dielectric constant or solvent name.
 
-*--ddx* _real_|_string_::
-     Use solvation models based on domain decomposition.
-     Method can either be COSMO (1), CPCM (2), PCM (3), or LPB (4)
-     Solvent is specified by dielectric constant or solvent name.
-
 *--born-kernel* _string_::
      Specify Born kernel to use with ALPB, GBSA or GB solvation model.
      Possible options are _p16_ (default for ALPB) and _still_ (default for GB/GBSA).
+
+*--cosmo* _real_|_string_::
+     Use (domain decomposition based) COSMO.
+     Solvent is specified by dielectric constant or solvent name.
+
+--cpcm* _real_|_string_::
+     Use (domain decomposition based) CPCM.
+     Solvent is specified by dielectric constant or solvent name.
+
+--pcm* _real_|_string_::
+     Use (domain decomposition based) PCM.
+     Solvent is specified by dielectric constant or solvent name.
 
 *--solv-state* _string_::
      Solution state correction: _gsolv_ (default), _bar1mol_, _reference_.

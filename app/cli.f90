@@ -24,9 +24,9 @@ module tblite_cli
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
-   use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel, &
-      & ddx_solvation_model
+   use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
+      & ddx_solvation_model, get_solvent_data, shift_input, solution_state, &
+      & solvation_input, solvent_data
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -411,9 +411,6 @@ subroutine get_run_arguments(config, list, start, error)
             ddx_model = ddx_solvation_model%cpcm
          else if (arg == "--pcm") then
             ddx_model = ddx_solvation_model%pcm
-         else 
-            call fatal_error(error, "Unknown ddX solvation model '"//arg//"' specified")
-            exit
          end if
          parametrized_solvation = .false.
 

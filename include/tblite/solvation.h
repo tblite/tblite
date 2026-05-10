@@ -50,9 +50,9 @@ enum tblite_solvation_param{
 };
 
 enum tblite_ddx_solvation_model{
-    tblite_solvation_ddcosmo = 11,
-    tblite_solvation_ddcpcm = 12,
-    tblite_solvation_ddpcm = 2
+    tblite_solvation_ddcosmo = 100,
+    tblite_solvation_ddcpcm = 101,
+    tblite_solvation_ddpcm = 200
 };
 
 /// Create new ddx implicit solvation container using internal parameters
@@ -60,7 +60,7 @@ enum tblite_ddx_solvation_model{
 /// @param error: Error handle
 /// @param mol: Molecular structure data
 /// @param eps: epsilon value for solvent
-/// @param model: type of solvation model to use (COSMO=11, CPCM=12, PCM=2)
+/// @param model: type of solvation model to use (COSMO=100, CPCM=101, PCM=200)
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_epsilon(tblite_error error,

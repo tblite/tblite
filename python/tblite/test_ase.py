@@ -261,7 +261,7 @@ def test_spgfn1_xtb():
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_ddcosmo():
     """Test ddCOSMO solvation with GFN2-xTB"""
-    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+    thr = 5.0e-6 # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
@@ -275,7 +275,7 @@ def test_solvation_gfn2_xtb_ddcosmo():
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_ddcpcm():
     """Test ddCPCM solvation with GFN2-xTB"""
-    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+    thr = 5.0e-6 # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
@@ -289,7 +289,7 @@ def test_solvation_gfn2_xtb_ddcpcm():
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_ddpcm():
     """Test ddPCM solvation with GFN2-xTB"""
-    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+    thr = 5.0e-6 # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
