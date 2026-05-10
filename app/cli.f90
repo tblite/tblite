@@ -433,7 +433,6 @@ subroutine get_run_arguments(config, list, start, error)
          end if
          if (allocated(error)) exit
 
-
       case("--gb", "--gbe")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
