@@ -592,7 +592,7 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
 
 
 def new_ddx_solvation(ctx, mol, calc, epsilon: float, model: str):
-    """Create new tblite ddCOSMO solvation object"""
+    """Create new tblite ddX (COSMO, CPCM, or PCM) solvation object"""
     return error_check(lib.tblite_new_ddx_solvation_epsilon)(
         mol, float(epsilon), _ddx_model_enum[model]
     )
