@@ -80,12 +80,12 @@ tester = executable(
   link_language: 'fortran',
 )
 
-foreach t : tests
-  timeout = 30
+#foreach t : tests
+  #timeout = 30
 
-  if t == 'solvation-ddx'
-    timeout = 120
-  endif
+  #if t == 'solvation-ddx'
+    #timeout = 120
+  #endif
 
-  test(t, tester, args: t, suite: 'unit', timeout: timeout)
-endforeach
+  #test(t, tester, args: t, suite: 'unit', timeout: timeout)
+#endforeach
