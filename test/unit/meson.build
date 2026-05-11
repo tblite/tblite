@@ -78,7 +78,7 @@ tester = executable(
   link_language: 'fortran',
 )
 
-#foreach t : tests
+ foreach t : tests
   #timeout = 30
 
   #if t == 'solvation-ddx'
@@ -86,4 +86,5 @@ tester = executable(
   #endif
 
   #test(t, tester, args: t, suite: 'unit', timeout: timeout)
-#endforeach
+  test(t, tester, args: t, suite: 'unit')
+endforeach

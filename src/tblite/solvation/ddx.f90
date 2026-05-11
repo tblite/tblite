@@ -139,7 +139,7 @@ module tblite_solvation_ddx
       !> ddX potential
       real(wp), allocatable :: ddx_pot(:)
       !> Solvation energy as returned by ddx
-      real(wp) :: esolv
+      ! real(wp) :: esolv
       !> ddx multipole, (1, mol%nat)
       real(wp), allocatable :: multipoles(:, :)
       !> ddx forces (i.e. gradient of the solvation energy)
