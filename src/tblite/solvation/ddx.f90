@@ -65,18 +65,36 @@ module tblite_solvation_ddx
       real(wp) :: dielectric_const
       !> ddx model
       integer :: ddx_model = ddx_solvation_model%cosmo
+      !> Van-der-Waal radii for all atoms
+      real(wp), allocatable :: rvdw(:)
       !> Scaling of van-der-Waals radii
       real(wp) :: rscale = 1.0_wp
+      !> Number of grid points for each atom (=110)
+      integer :: nang = grid_size(8)
+      !> Regularization parameter
+      real(wp) :: eta = 0.1_wp
+      !> Maximum angular momentum of basis functions
+      integer :: lmax = 1
+   end type ddx_input
+
+   !> Definition of polarizable continuum model
+   type, extends(solvation_type) :: ddx_solvation
+      !> ddX model 
+      integer :: ddx_model
+      !> Dielectric function
+      real(wp) :: feps
+      !> Dielctric constant
+      real(wp) :: dielectric_const
+      !> Van-der-Waal radii for all atoms
+      real(wp), allocatable :: rvdw(:)
       !> Accuracy for iterative solver
       real(wp) :: conv = 1.0e-10_wp
       !> Regularization parameter
-      real(wp) :: eta = 0.1_wp
+      real(wp) :: eta 
       !> Number of grid points for each atom (=110)
-      integer :: nang = grid_size(8)
+      integer :: nang 
       !> Maximum angular momentum of basis functions
-      integer :: lmax = 1
-      !> Van-der-Waals radii for all species
-      real(wp), allocatable :: rvdw(:)
+      integer :: lmax 
       !> Number of OMP threads
       integer :: nproc = 1
       !> Shift of the characteristic function 
@@ -94,18 +112,6 @@ module tblite_solvation_ddx
       integer :: incore = 0
       !> 1 to use FMM acceleration and 0 otherwise
       integer :: enable_fmm = 1
-   end type ddx_input
-
-   !> Definition of polarizable continuum model
-   type, extends(solvation_type) :: ddx_solvation
-      !> ddX instance
-      type(ddx_input) :: ddx_input
-      !> Dielectric function
-      real(wp) :: feps
-      !> Dielctric constant
-      real(wp) :: dielectric_const
-      !> Van-der-Waal radii for all atoms
-      real(wp), allocatable :: rvdw(:)
    contains
       !> Update cache from container
       procedure :: update
@@ -168,10 +174,10 @@ subroutine new_ddx(self, mol, input, error)
    end if
 
    ! Set model 
-   self%ddx_input%ddx_model = input%ddx_model
+   self%ddx_model = input%ddx_model
 
    ! Get number of OMP threads
-   self%ddx_input%nproc = omp_get_max_threads()
+   self%nproc = omp_get_max_threads()
 
    ! Get radii for all atoms
    allocate(self%rvdw(mol%nat), source=0.0_wp)
@@ -200,26 +206,19 @@ subroutine new_ddx(self, mol, input, error)
    ! ddCOSMO/ddCPCM has an internal shift, ddPCM has a symmetric shift
    if (input%ddx_model == ddx_solvation_model%cosmo .or. &
       & input%ddx_model == ddx_solvation_model%cpcm) then
-      self%ddx_input%shift = -1.0_wp
+      self%shift = -1.0_wp
    else 
-      self%ddx_input%shift = 0.0_wp
+      self%shift = 0.0_wp
    end if
 
-   ! Initialize the rest of the input
-   self%ddx_input%conv = input%conv
-   self%ddx_input%eta = input%eta
-   self%ddx_input%nang = input%nang
-   self%ddx_input%lmax = input%lmax
-   self%ddx_input%max_iter = input%max_iter
-   self%ddx_input%jacobi_ndiis = input%jacobi_ndiis
-   self%ddx_input%pm = input%pm
-   self%ddx_input%pl = input%pl
-   self%ddx_input%incore = input%incore
-   self%ddx_input%enable_fmm = input%enable_fmm
+   ! Initialize the rest of the adjustable input parameters
+   self%nang = input%nang
+   self%eta = input%eta
+   self%lmax = input%lmax
 
 end subroutine new_ddx
 
-!> Type constructor for ddX splvation
+!> Type constructor for ddX solvation
 function create_ddx(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -262,20 +261,20 @@ subroutine update(self, mol, cache)
    ptr%ddx_electrostatics%do_g = .true.
 
    ! Adjust the model to what ddX expects
-   if (self%ddx_input%ddx_model == ddx_solvation_model%cosmo .or. &
-      & self%ddx_input%ddx_model == ddx_solvation_model%cpcm) then
+   if (self%ddx_model == ddx_solvation_model%cosmo .or. &
+      & self%ddx_model == ddx_solvation_model%cpcm) then
       model = 1 ! ddCOSMO and ddCPCM are handeled the same way in ddX
    else
       model = 2 ! ddPCM 
    end if
 
    call ddinit(model, mol%nat, mol%xyz, self%rvdw, self%dielectric_const, ptr%ddx, ptr%ddx_error, &
-      & force=1, ngrid=self%ddx_input%nang, &
-      & lmax=self%ddx_input%lmax, nproc=self%ddx_input%nproc, &
-      & eta=self%ddx_input%eta, shift=self%ddx_input%shift, &
-      & maxiter=self%ddx_input%max_iter, jacobi_ndiis=self%ddx_input%jacobi_ndiis, &
-      & pm=self%ddx_input%pm, pl=self%ddx_input%pl, &
-      & incore=self%ddx_input%incore, enable_fmm=self%ddx_input%enable_fmm)
+      & force=1, ngrid=self%nang, &
+      & lmax=self%lmax, nproc=self%nproc, &
+      & eta=self%eta, shift=self%shift, &
+      & maxiter=self%max_iter, jacobi_ndiis=self%jacobi_ndiis, &
+      & pm=self%pm, pl=self%pl, &
+      & incore=self%incore, enable_fmm=self%enable_fmm)
    call check_error(ptr%ddx_error)
 
    call allocate_state(ptr%ddx%params, ptr%ddx%constants, ptr%ddx_state, ptr%ddx_error)
@@ -304,11 +303,11 @@ subroutine update(self, mol, cache)
    call check_error(ptr%ddx_error)
 
    call fill_guess(ptr%ddx%params, ptr%ddx%constants, &
-         & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+         & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    call fill_guess_adjoint(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
 end subroutine update
@@ -343,7 +342,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call check_error(ptr%ddx_error)
 
    call solve(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    ! Add solvation energy to total energy
@@ -381,11 +380,11 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call check_error(ptr%ddx_error)
 
    call solve(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    ! Contract with the Coulomb matrix
@@ -434,12 +433,12 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call check_error(ptr%ddx_error)
 
    call solve(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
       
    call check_error(ptr%ddx_error)
 
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%ddx_input%conv, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
