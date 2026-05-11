@@ -284,9 +284,10 @@ subroutine update(self, mol, cache)
          allocate(ptr%multipoles(1, mol%nat), source=0.0_wp) 
    endif
 
-   if (.not.allocated(ptr%jmat))then
-         allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp) 
+   if (allocated(ptr%jmat))then
+      deallocate(ptr%jmat)
    endif
+   allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp)
    call get_coulomb_matrix(mol%xyz, ptr%ddx%constants%ccav, ptr%jmat)
 
    if (.not.allocated(ptr%ddx_pot))then
