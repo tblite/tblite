@@ -99,7 +99,7 @@ module tblite_solvation_ddx
       integer :: nproc = 1
       !> Shift of the characteristic function 
       ! (default value depends on the model, for COSMO/CPCM it is -1)
-      real(wp) :: shift = -1.0_wp
+      real(wp) :: shift
       !> Maximum number of iterations for the iterative solver
       integer :: max_iter = 100
       !> Number of extrapolation points for the Jacobi/DIIS solver
