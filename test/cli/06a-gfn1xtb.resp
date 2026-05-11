@@ -4,3 +4,5 @@ $ORIGIN/06-ammonia.tmol
 --method
 gfn1
 --grad
+--config
+smooth_cutoff=0

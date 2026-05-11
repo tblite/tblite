@@ -116,6 +116,9 @@ module tblite_cli_help
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, eeqbc, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --config <key>=<value>"//nl//&
+      "                           Set configuration key to value, possible keys are:"//nl//&
+      "                           smooth_cutoff (default: 0.05)"//nl//&
       "      --restart [<file>]   Restart calculation from previous run"//nl//&
       "                           File name for restart file is optional,"//nl//&
       "                           (Default: tblite-restart.npz)"//nl//&
@@ -165,7 +168,7 @@ module tblite_cli_help
 
    !> Help text for guess command
    character(len=*), parameter :: help_text_guess = &
-      "Usage: "//prog_name//" [guess] [options] <input>"//nl//&
+      "Usage: "//prog_name//" guess [options] <input>"//nl//&
       ""//nl//&
       "Execute only the atomic charge / density guess."//nl//&
       "Prints the initializing charges and dipole moments."//nl//&

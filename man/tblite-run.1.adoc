@@ -50,6 +50,10 @@ Supported geometry input formats are:
      Guess for the initial populations, possible options:
      _sad_ (default), _eeq_, _eeqbc_, and _ceh_.
 
+*--config* _key=value_::
+     Set configuration key to value, possible keys are:
+     _smooth\_cutoff_ (default: 0.05)
+
 *--restart* [_string_]::
      Restart calculation from previous run.
      Provide the name of the restart file (default 'tblite-restart.npz')
