@@ -34,7 +34,7 @@ module tblite_xtb_gfn1
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, xtb_config
    use tblite_xtb_h0, only : new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_output_format, only : format_string
@@ -516,13 +516,22 @@ module tblite_xtb_gfn1
 contains
 
 
-subroutine new_gfn1_calculator(calc, mol, error)
+subroutine new_gfn1_calculator(calc, mol, error, config)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(out) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Configuration options for the calculator
+   type(xtb_config), intent(in), optional :: config
+
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg = config
+   end if
 
    ! Check if all atoms of mol%nat are supported (Z <= 86)
    if (any(mol%num > max_elem)) then
@@ -535,7 +544,7 @@ subroutine new_gfn1_calculator(calc, mol, error)
    if (allocated(error)) return
    call add_hamiltonian(calc, mol)
    call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol, error)
+   call add_dispersion(calc, mol, error, smooth_cutoff=cfg%smooth_cutoff)
    if (allocated(error)) return
    call add_coulomb(calc, mol)
    call add_halogen(calc, mol)
@@ -593,18 +602,21 @@ subroutine add_hamiltonian(calc, mol)
    call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn1_h0spec(mol))
 end subroutine add_hamiltonian
 
-subroutine add_dispersion(calc, mol, error)
+subroutine add_dispersion(calc, mol, error, smooth_cutoff)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Whether to use a smooth cutoff for the dispersion energy
+   real(wp), intent(in) :: smooth_cutoff
 
    type(d3_dispersion), allocatable :: tmp
 
    allocate(tmp)
-   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error)
+   call new_d3_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error, &
+      & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
    call move_alloc(tmp, calc%dispersion)
 end subroutine add_dispersion
 
