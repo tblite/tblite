@@ -138,12 +138,8 @@ module tblite_solvation_ddx
       real(wp), allocatable :: jmat(:, :)
       !> ddX potential
       real(wp), allocatable :: ddx_pot(:)
-      !> Solvation energy as returned by ddx
-      ! real(wp) :: esolv
-      !> ddx multipole, (1, mol%nat)
+      !> ddx multipole, dim=(1, mol%nat)
       real(wp), allocatable :: multipoles(:, :)
-      !> ddx forces (i.e. gradient of the solvation energy)
-      real(wp), allocatable :: force(:, :)
    end type ddx_cache
 
 contains
@@ -237,7 +233,7 @@ function create_ddx(mol, input) result(self)
    ! Create new instance of the solvation model
    call new_ddx(self, mol, input, error)
    if (allocated(error)) then
-      call fatal_error(error)
+      error stop "Creation of ddX solvation model failed."
    end if
 
 end function create_ddx
@@ -285,26 +281,18 @@ subroutine update(self, mol, cache)
    call allocate_state(ptr%ddx%params, ptr%ddx%constants, ptr%ddx_state, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   if (allocated(ptr%multipoles)) then
-      deallocate(ptr%multipoles)
-   end if
-   allocate(ptr%multipoles(1, mol%nat), source=0.0_wp)
+   if (.not.allocated(ptr%multipoles))then
+         allocate(ptr%multipoles(1, mol%nat), source=0.0_wp) 
+   endif
 
-   if (allocated(ptr%jmat)) then
-      deallocate(ptr%jmat)
-   end if
-   allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp)
+   if (.not.allocated(ptr%jmat))then
+         allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp) 
+   endif
    call get_coulomb_matrix(mol%xyz, ptr%ddx%constants%ccav, ptr%jmat)
 
-   if (allocated(ptr%force)) then
-      deallocate(ptr%force)
-   end if
-   allocate(ptr%force(3, mol%nat), source=0.0_wp)
-
-   if (allocated(ptr%ddx_pot)) then
-      deallocate(ptr%ddx_pot)
-   end if
-   allocate(ptr%ddx_pot(mol%nat), source=0.0_wp)
+   if (.not.allocated(ptr%ddx_pot))then
+      allocate(ptr%ddx_pot(mol%nat), source=0.0_wp) 
+   endif
 
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
@@ -424,13 +412,16 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Strain derivatives of the solvation free energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
+   !> Temporary variable for the ddX force/gradient
+   real(wp), allocatable :: force(:,:)
+
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
    
    call view(cache, ptr)
 
-   ptr%force = 0.0_wp
+   allocate(force(3, mol%nat), source=0.0_wp)
 
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
@@ -452,18 +443,19 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call check_error(ptr%ddx_error)
 
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, ptr%force, ptr%ddx_error)
+      & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
    call multipole_force_terms(ptr%ddx%params, ptr%ddx%constants, ptr%ddx%workspace, &
-      ptr%ddx_state, 0, ptr%multipoles, ptr%force, ptr%ddx_error)
+      ptr%ddx_state, 0, ptr%multipoles, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   ! Calculate the gradient of the solvation energy
-   ptr%force = self%feps * ptr%force 
+   ! Add the dielectric factor to the gradient of the solvation energy 
+   ! (ddX computes the gradient without it)
+   force = self%feps * force 
 
    ! Add the gradient of the solvation energy to the total gradient
-   gradient =  gradient + ptr%force
+   gradient =  gradient + force
 
 end subroutine get_gradient
 
