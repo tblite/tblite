@@ -87,7 +87,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%ddx = ddx_input(eps, model)
+   solvmodel%ddx = ddx_input(model, eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    
