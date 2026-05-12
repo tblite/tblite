@@ -20,6 +20,7 @@ list(
   APPEND srcs
   "${dir}/ascii.f90"
   "${dir}/format.f90"
+  "${dir}/molden.f90"
   "${dir}/property.f90"
 )
 

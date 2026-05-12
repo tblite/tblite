@@ -29,7 +29,9 @@ module tblite_driver_run
    use tblite_external_field, only : electric_field
    use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
-   use tblite_output_ascii
+   use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
+      & ascii_quadrupole_moments, tagged_result, json_results
+   use tblite_output_molden, only : molden_result
    use tblite_param, only : param_record
    use tblite_results, only : results_type
    use tblite_spin, only : spin_polarization, new_spin_polarization
@@ -352,6 +354,17 @@ subroutine run_main(config, error)
          call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
       end if
    end if
+
+   if (config%molden) then
+      open(file=config%molden_output, newunit=unit)
+      call molden_result(unit, mol, wfn, calc%bas, error)
+      close(unit)
+      if (allocated(error)) return
+      if (config%verbosity > 0) then
+         call info(ctx, "Molden file written to '"//config%molden_output//"'")
+      end if
+   end if
+
 end subroutine run_main
 
 

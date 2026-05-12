@@ -1,0 +1,9 @@
+run
+--no-restart
+$ORIGIN/06-ammonia.tmol
+--method
+gfn2
+--acc
+0.01
+--molden
+$MOLDEN

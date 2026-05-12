@@ -165,6 +165,7 @@ module tblite_cli_help
       "                           (default: tblite-data.npz)"//nl//&
       "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
       "                           Results are stored in file (default: tblite.txt)"//nl//&
+      "      --molden [file]      Write Molden input file (default: tblite.molden)"//nl//&
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
       "      --trexio [file]      Dump results as TREXIO output (default: tblite.trexio)."//nl//&
       "                           Use .h5/.hdf5 for TREXIO HDF5 when available."//nl//&

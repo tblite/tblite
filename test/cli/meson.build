@@ -76,6 +76,24 @@ foreach case: run_testcases
   )
 endforeach
 
+run_moldencases = [
+  '06b-gfn2xtb',
+  '07a-gfn1xtb',
+]
+foreach case: run_moldencases
+test(
+  case,
+  app_tester,
+  args: [
+    tblite_exe,
+    files('@0@.json'.format(case)),
+    files('@0@.resp'.format(case)),
+    files('@0@.molden'.format(case)),
+  ],
+  suite: 'cli',
+)
+endforeach
+
 test(
   'tagdiff-example',
   tblite_exe,
