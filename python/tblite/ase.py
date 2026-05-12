@@ -135,9 +135,9 @@ class TBLite(ase.calculators.calculator.Calculator):
     ================== ====================================================
      "alpb"             Solvent name (str), solution state (optional)
      "gbsa"             Solvent name (str), solution state (optional)
-     "cosmo"            Epsilon (float)
-     "cpcm"             Epsilon (float)
-     "pcm"              Epsilon (float)
+     "cosmo"            Epsilon (float) / Solvent name (str)
+     "cpcm"             Epsilon (float) / Solvent name (str)
+     "pcm"              Epsilon (float) / Solvent name (str)
      "gbe"              Epsilon (float), Born kernel
      "gb"               Epsilon (float), Born kernel
     ================== ====================================================

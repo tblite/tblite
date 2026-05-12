@@ -87,7 +87,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%ddx = ddx_input(model, eps)
+   solvmodel%ddx = ddx_input(ddx_model=model, dielectric_const=eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    
@@ -134,7 +134,7 @@ function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont
       return
    end if
 
-   solvmodel%ddx = ddx_input(model, solvent%eps)
+   solvmodel%ddx = ddx_input(ddx_model=model, dielectric_const=solvent%eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
 
