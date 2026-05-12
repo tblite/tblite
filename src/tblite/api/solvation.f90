@@ -39,8 +39,8 @@ module tblite_api_solvation
    implicit none
    private
 
-   public :: new_gb_solvation_epsilon_api, new_alpb_solvation_solvent_api, &
-      & new_ddx_solvation_epsilon_api
+   public :: new_ddx_solvation_epsilon_api, new_ddx_solvation_solvent_api, &
+      & new_gb_solvation_epsilon_api, new_alpb_solvation_solvent_api
 
    enum, bind(c)
       enumerator :: &
@@ -96,6 +96,54 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    
    vcont = c_loc(cont)
 end function new_ddx_solvation_epsilon_api
+
+function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont) &
+   & bind(C, name=namespace//"new_ddx_solvation_solvent")
+   type(c_ptr), value :: verr
+   type(vp_error), pointer :: err
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   character(kind=c_char), intent(in) :: csolvstr(*)
+   integer(c_int), value :: model
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+
+   type(solvation_input) :: solvmodel
+   type(solvent_data) :: solvent
+
+   character(len=:), allocatable :: solvstr
+
+   class(solvation_type), allocatable :: solv
+
+   if (debug) print '("[Info]", 1x, a)', "new_ddx_solvation_solvent"
+   vcont = c_null_ptr
+
+   if (.not.c_associated(verr)) return
+   call c_f_pointer(verr, err)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(err%ptr, "Molecular structure data is missing")
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   call c_f_character(csolvstr, solvstr)
+   solvent = get_solvent_data(solvstr)
+   if (solvent%eps <= 0.0_wp) then
+      call fatal_error(err%ptr, "String value for epsilon was not found among database of solvents")
+      return
+   end if
+
+   solvmodel%ddx = ddx_input(model, solvent%eps)
+   call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
+   if (allocated(err%ptr)) return
+
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+
+   vcont = c_loc(cont)
+
+end function new_ddx_solvation_solvent_api
 
 function new_gb_solvation_epsilon_api(verr, vmol, eps, version, born_type) result(vcont) &
    & bind(C, name=namespace//"new_gb_solvation_epsilon")

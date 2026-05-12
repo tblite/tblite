@@ -581,7 +581,7 @@ class Calculator(Structure):
          spin-polarization   Spin polarization           Scaling factor
          alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
          gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
-         ddX-solvation       dd-based implicit solvation Epsilon, model ("COSMO", "CPCM", "PCM")
+         ddX-solvation       dd-based implicit solvation Epsilon / Solvent name, model
          gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
          gb-solvation        GB implicit solvation       Epsilon, Born kernel
         =================== =========================== =========================================

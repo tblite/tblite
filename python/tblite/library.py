@@ -22,7 +22,7 @@ also provides some FFI based wappers for memory handling.
 
 import functools
 import sys
-from typing import Callable, Dict
+from typing import Callable, Dict, Union
 
 import numpy as np
 
@@ -549,9 +549,9 @@ _born_enum = {
 }
 
 _ddx_model_enum = {
-    "cosmo": 11,
-    "cpcm": 12,
-    "pcm": 2,
+    "cosmo": 100,
+    "cpcm": 101,
+    "pcm": 200,
   }
 
 
@@ -591,10 +591,16 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
     )
 
 
-def new_ddx_solvation(ctx, mol, calc, epsilon: float, model: str):
+def new_ddx_solvation(ctx, mol, calc, solvent_or_epsilon: Union[str, float], model: str):
     """Create new tblite ddX (COSMO, CPCM, or PCM) solvation object"""
+    if isinstance(solvent_or_epsilon, str):
+        _solvent = ffi.new("char[]", solvent_or_epsilon.encode("ascii"))
+        return error_check(lib.tblite_new_ddx_solvation_solvent)(
+            mol, _solvent, _ddx_model_enum[model]
+        )
+
     return error_check(lib.tblite_new_ddx_solvation_epsilon)(
-        mol, float(epsilon), _ddx_model_enum[model]
+        mol, float(solvent_or_epsilon), _ddx_model_enum[model]
     )
 
 
