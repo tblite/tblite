@@ -61,10 +61,10 @@ module tblite_solvation_ddx
 
    !> Input for ddX solvation
    type :: ddx_input
+      !> ddx model
+      integer :: ddx_model 
       !> Dielectric constant
       real(wp) :: dielectric_const
-      !> ddx model
-      integer :: ddx_model = ddx_solvation_model%cosmo
       !> Van-der-Waal radii for all atoms
       real(wp), allocatable :: rvdw(:)
       !> Scaling of van-der-Waals radii
@@ -156,11 +156,11 @@ module tblite_solvation_ddx
 contains
 
 !> Constructor for ddX input
-function create_ddx_input(dielectric_const, ddx_model, rvdw, rscale, nang, eta, lmax) result(self)
-   !> Dielectric constant
-   real(wp), intent(in) :: dielectric_const
+function create_ddx_input(ddx_model, dielectric_const, rvdw, rscale, nang, eta, lmax) result(self)
    !> ddx model
    integer, intent(in), optional :: ddx_model
+   !> Dielectric constant
+   real(wp), intent(in) :: dielectric_const
    !> Van-der-Waal radii for all atoms
    real(wp), intent(in), optional :: rvdw(:)
    !> Scaling of van-der-Waals radii
@@ -174,11 +174,12 @@ function create_ddx_input(dielectric_const, ddx_model, rvdw, rscale, nang, eta, 
 
    type(ddx_input) :: self
 
-   self%dielectric_const = dielectric_const
 
    if (present(ddx_model)) then
       self%ddx_model = ddx_model
    end if
+
+   self%dielectric_const = dielectric_const
 
    if (present(rvdw)) then
       self%rvdw = rvdw
