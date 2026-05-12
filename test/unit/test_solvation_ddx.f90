@@ -87,7 +87,7 @@ subroutine test_e(error, model, mol, qat, ref)
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
-   real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
+   real(wp), parameter :: eps = 80.0_wp
    integer, parameter :: nang = 302
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp) :: energy(mol%nat)
@@ -96,7 +96,7 @@ subroutine test_e(error, model, mol, qat, ref)
    allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
    energy = 0.0_wp
 
-   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -134,7 +134,7 @@ subroutine test_g(error, model, mol, qat)
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache) :: cache
-   real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
+   real(wp), parameter :: eps = 80.0_wp
    integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
@@ -145,7 +145,7 @@ subroutine test_g(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -203,7 +203,7 @@ subroutine test_p(error, model, mol, qat)
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
    type(container_cache), allocatable :: cache
-   real(wp), parameter :: feps = 80.0_wp, rscale = 1.0_wp
+   real(wp), parameter :: eps = 80.0_wp
    integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), parameter :: thr = 1e+3_wp*sqrt(epsilon(1.0_wp))
@@ -214,7 +214,7 @@ subroutine test_p(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(feps, model, nang=nang, rscale=rscale))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
 
    allocate(cache)
    call solv%update(mol, cache)
