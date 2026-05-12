@@ -68,6 +68,19 @@ tblite_new_ddx_solvation_epsilon(tblite_error error,
                                  double eps,
                                  int model);
 
+/// Create new ddx implicit solvation container using internal parameters
+///
+/// @param error: Error handle
+/// @param mol: Molecular structure data
+/// @param solvent: Solvent name to be described
+/// @param model: type of solvation model to use (COSMO=100, CPCM=101, PCM=200)
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_ddx_solvation_solvent(tblite_error error,
+                                 tblite_structure mol,
+                                 char* solvent,
+                                 int model);
+
 /// Create new ALPB implicit solvation container using internal parameters
 ///
 /// @param error: Error handle

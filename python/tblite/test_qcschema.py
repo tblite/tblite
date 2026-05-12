@@ -315,6 +315,7 @@ def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
 
 
 @pytest.fixture(params=[
+      {"cosmo-solvation": "methanol"},
       {"cosmo-solvation": 7.0},
       {"cpcm-solvation": 7.0}, 
       {"pcm-solvation": 7.0},
@@ -351,77 +352,112 @@ def return_result_solvation(molecule: "Molecule", method: str, solvation: dict) 
 
     # fmt: off
     return {
-      (
+        (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cosmo-solvation",
+            "methanol",
+            "GFN1-xTB",
+        ): -35.00299773110,
+        (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "cosmo-solvation",
+            "methanol",
+            "GFN2-xTB",
+        ): -32.98092347037,
+        (
+            "142dbe2f7f02c899c660c08ba85c086a366fbdec",
+            "cosmo-solvation",
+            7.0,
             "GFN1-xTB",
         ): -34.99874684566,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cosmo-solvation",
+            7.0,
             "GFN2-xTB",
         ): -32.97707940097,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cpcm-solvation",
+            7.0,
             "GFN1-xTB",
         ): -35.00027992606,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "cpcm-solvation",
+            7.0,
             "GFN2-xTB",
         ): -32.97844540897,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "pcm-solvation",
+            7.0,
             "GFN1-xTB",
         ): -34.99779118525,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "pcm-solvation",
+            7.0,
             "GFN2-xTB",
         ): -32.97608151401,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "alpb-solvation",
+            ("water", "bar1mol"),
             "GFN1-xTB",
         ): -34.9966872968042,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "alpb-solvation",
+            ("water", "bar1mol"),
             "GFN2-xTB",
         ): -32.9777888674693,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gbsa-solvation",
+            ("methanol", "reference"),
             "GFN1-xTB",
         ): -34.9989058302890,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gbsa-solvation",
+            ("methanol", "reference"),
             "GFN2-xTB",
         ): -32.9763255038126,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gbe-solvation",
+            (7.0, "p16"),
             "GFN1-xTB",
         ): -34.9859026499920,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gbe-solvation",
+            (7.0, "p16"),
             "GFN2-xTB",
         ): -32.9667327170214,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gb-solvation",
+            (7.0, "still"),
             "GFN1-xTB",
         ): -34.9859968024425,
         (
             "142dbe2f7f02c899c660c08ba85c086a366fbdec",
             "gb-solvation",
+            (7.0, "still"),
             "GFN2-xTB",
         ): -32.9668850575386,
-    }[(molecule.get_hash(), list(solvation.keys())[0], method)]
+    }[
+        (
+            molecule.get_hash(),
+            list(solvation.keys())[0],
+            tuple(list(solvation.values())[0])
+            if isinstance(list(solvation.values())[0], list)
+            else list(solvation.values())[0],
+            method,
+        )
+    ]
     # fmt: on
 
 
