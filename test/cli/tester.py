@@ -75,7 +75,7 @@ def read_molden(fname):
             out.append([sec, len(buf), [[val(t) for t in line.split()] for line in buf]])
 
         elif sec == "MO":
-            # Skip the MO coefficients in the MO section
+            # In MO section skip the MO coefficients due to phase dependence
             lines = []
             for line in buf:
                 text = line.strip()
