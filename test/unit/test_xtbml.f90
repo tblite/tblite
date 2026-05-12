@@ -1180,7 +1180,7 @@ subroutine test_energy_sum_up_gfn1(error)
       class(container_type), allocatable :: cont
       type(ddx_solvation), allocatable :: solv
       type(ddx_input) :: ddx_inp
-      ddx_inp = ddx_input(4.0, ddx_model=101) ! ddCPCM
+      ddx_inp = ddx_input(4.0_wp, ddx_model=101) ! ddCPCM
       allocate(solv)
       call new_ddx(solv, mol, ddx_inp, error)
       call move_alloc(solv, cont)
@@ -1430,4 +1430,3 @@ subroutine get_spin_constants(wll, mol, bas)
 end subroutine get_spin_constants
 
 end module test_xtbml
-

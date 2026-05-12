@@ -77,6 +77,11 @@ module tblite_solvation_ddx
       integer :: lmax = 1
    end type ddx_input
 
+   !> Provide constructor for ddX input
+   interface ddx_input
+      module procedure :: create_ddx_input
+   end interface ddx_input
+
    !> Definition of polarizable continuum model
    type, extends(solvation_type) :: ddx_solvation
       !> ddX model 
@@ -149,6 +154,53 @@ module tblite_solvation_ddx
    end type ddx_cache
 
 contains
+
+!> Constructor for ddX input
+function create_ddx_input(dielectric_const, ddx_model, rvdw, rscale, nang, eta, lmax) result(self)
+   !> Dielectric constant
+   real(wp), intent(in) :: dielectric_const
+   !> ddx model
+   integer, intent(in), optional :: ddx_model
+   !> Van-der-Waal radii for all atoms
+   real(wp), intent(in), optional :: rvdw(:)
+   !> Scaling of van-der-Waals radii
+   real(wp), intent(in), optional :: rscale
+   !> Number of grid points for each atom
+   integer, intent(in), optional :: nang
+   !> Regularization parameter
+   real(wp), intent(in), optional :: eta
+   !> Maximum angular momentum of basis functions
+   integer, intent(in), optional :: lmax
+
+   type(ddx_input) :: self
+
+   self%dielectric_const = dielectric_const
+
+   if (present(ddx_model)) then
+      self%ddx_model = ddx_model
+   end if
+
+   if (present(rvdw)) then
+      self%rvdw = rvdw
+   end if
+
+   if (present(rscale)) then
+      self%rscale = rscale
+   end if
+
+   if (present(nang)) then
+      self%nang = nang
+   end if
+
+   if (present(eta)) then
+      self%eta = eta
+   end if
+
+   if (present(lmax)) then
+      self%lmax = lmax
+   end if
+
+end function create_ddx_input
 
 !> Create new electric field container
 subroutine new_ddx(self, mol, input, error)
