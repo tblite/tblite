@@ -127,6 +127,9 @@ Supported geometry input formats are:
      Output file for post processing results in npz format.
      (default: tblite-data.npz)
 
+*--molden* [_file_]::
+     Write Molden input _file_ (default: tblite.molden)
+
 *--json* [_file_]::
      Dump results as JSON output to _file_ (default: tblite.json)
 
