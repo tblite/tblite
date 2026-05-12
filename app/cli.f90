@@ -670,7 +670,7 @@ subroutine get_run_arguments(config, list, start, error)
             return
          end if
          allocate(config%solvation)
-         config%solvation%ddx = ddx_input(solvent%eps, ddx_model)
+         config%solvation%ddx = ddx_input(ddx_model, solvent%eps)
       end if
    end if
 
