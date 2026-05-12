@@ -17,8 +17,8 @@ module test_xtbml
       & post_processing_record, xtbml_record
    use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
-   use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, new_alpb, get_solvent_data, &
-      & ddx_input, ddx_solvation, new_ddx
+   use tblite_solvation, only : alpb_input, solvent_data, alpb_solvation, new_alpb, born_kernel, get_solvent_data, &
+      & ddx_input, ddx_solvation, new_ddx, ddx_solvation_model
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value, &
       & toml_array, add_array
@@ -1083,7 +1083,7 @@ subroutine test_energy_sum_up_gfn2(error)
       type(solvent_data), allocatable :: solvent
       solvent = get_solvent_data("water")
       alpb_inp = alpb_input(solvent%eps, solvent=solvent%solvent, &
-         kernel=1, alpb=.true.)
+         kernel=born_kernel%still, alpb=.true.)
       allocate(solv)
       call new_alpb(solv, mol, alpb_inp,"gfn2")
       call move_alloc(solv, cont)
@@ -1180,7 +1180,8 @@ subroutine test_energy_sum_up_gfn1(error)
       class(container_type), allocatable :: cont
       type(ddx_solvation), allocatable :: solv
       type(ddx_input) :: ddx_inp
-      ddx_inp = ddx_input(ddx_model=101, dielectric_const=4.0_wp) ! ddCPCM
+
+      ddx_inp = ddx_input(ddx_model=ddx_solvation_model%cpcm, dielectric_const=4.0_wp) ! ddCPCM
       allocate(solv)
       call new_ddx(solv, mol, ddx_inp, error)
       call move_alloc(solv, cont)
