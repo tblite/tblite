@@ -96,7 +96,8 @@ subroutine test_e(error, model, mol, qat, ref)
    allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
    energy = 0.0_wp
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -145,7 +146,8 @@ subroutine test_g(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -214,7 +216,8 @@ subroutine test_p(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    allocate(cache)
    call solv%update(mol, cache)

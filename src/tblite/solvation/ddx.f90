@@ -272,21 +272,19 @@ subroutine new_ddx(self, mol, input, error)
 end subroutine new_ddx
 
 !> Type constructor for ddX solvation
-function create_ddx(mol, input) result(self)
+function create_ddx(mol, input, error) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ddX solvation
    type(ddx_input), intent(in) :: input
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
    !> Instance of the solvation model
    type(ddx_solvation) :: self
-   !> Error handling
-   type(error_type), allocatable :: error
 
    ! Create new instance of the solvation model
    call new_ddx(self, mol, input, error)
-   if (allocated(error)) then
-      error stop "Creation of ddX solvation model failed."
-   end if
+   if (allocated(error)) return
 
 end function create_ddx
 
