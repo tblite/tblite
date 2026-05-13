@@ -103,7 +103,7 @@ jobs:
 
 
     - name: Install LAPACK (Linux)
-      if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ contains(matrix.os, 'ubuntu')}}
       run: |
         sudo apt-get update
         sudo apt-get install -y libblas-dev liblapack-dev
