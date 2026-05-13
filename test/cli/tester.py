@@ -56,7 +56,7 @@ class approx:
 
 
 def read_molden(fname):
-    checked = ("Cell", "Atoms", "GTO")
+    checked = ("Cell", "Atoms", "Core", "Pseudo", "Nval", "GTO")
     out, sec, buf = [], None, []
 
     def val(tok):
