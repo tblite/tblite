@@ -138,7 +138,7 @@ subroutine test_g(error, model, mol, qat)
    real(wp), parameter :: eps = 80.0_wp
    integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
-   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp)) 
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
@@ -321,14 +321,10 @@ subroutine test_g_cosmo_m02(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      & 7.38394711236234E-2_wp,-1.68354976558608E-1_wp,-3.47642833746823E-1_wp,&
-      &-7.05489267186003E-1_wp, 7.73548301641266E-1_wp, 2.30207581365386E-1_wp,&
-      & 1.02748501676354E-1_wp, 9.47818107467040E-2_wp, 2.44260351729187E-2_wp,&
-      & 2.34984927037408E-1_wp,-3.17839896393030E-1_wp, 6.67112994818879E-1_wp,&
-      &-4.78119977010488E-1_wp, 6.57536027459275E-2_wp, 1.08259054549882E-1_wp,&
-      &-3.58215329983396E-1_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "02")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_g(error, ddx_solvation_model%cosmo, mol, qat)
 
 end subroutine test_g_cosmo_m02
@@ -340,14 +336,10 @@ subroutine test_g_cpcm_m02(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      & 7.38394711236234E-2_wp,-1.68354976558608E-1_wp,-3.47642833746823E-1_wp,&
-      &-7.05489267186003E-1_wp, 7.73548301641266E-1_wp, 2.30207581365386E-1_wp,&
-      & 1.02748501676354E-1_wp, 9.47818107467040E-2_wp, 2.44260351729187E-2_wp,&
-      & 2.34984927037408E-1_wp,-3.17839896393030E-1_wp, 6.67112994818879E-1_wp,&
-      &-4.78119977010488E-1_wp, 6.57536027459275E-2_wp, 1.08259054549882E-1_wp,&
-      &-3.58215329983396E-1_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "02")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_g(error, ddx_solvation_model%cpcm, mol, qat)
 
 end subroutine test_g_cpcm_m02
@@ -359,14 +351,10 @@ subroutine test_g_pcm_m02(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      & 7.38394711236234E-2_wp,-1.68354976558608E-1_wp,-3.47642833746823E-1_wp,&
-      &-7.05489267186003E-1_wp, 7.73548301641266E-1_wp, 2.30207581365386E-1_wp,&
-      & 1.02748501676354E-1_wp, 9.47818107467040E-2_wp, 2.44260351729187E-2_wp,&
-      & 2.34984927037408E-1_wp,-3.17839896393030E-1_wp, 6.67112994818879E-1_wp,&
-      &-4.78119977010488E-1_wp, 6.57536027459275E-2_wp, 1.08259054549882E-1_wp,&
-      &-3.58215329983396E-1_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "02")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_g(error, ddx_solvation_model%pcm, mol, qat)
 
 end subroutine test_g_pcm_m02
@@ -378,14 +366,10 @@ subroutine test_p_cosmo_m03(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      &-1.77788256288236E-1_wp,-8.22943267808161E-1_wp, 4.04578389873281E-2_wp,&
-      & 5.79710531992282E-1_wp, 6.99601887637659E-1_wp, 6.84309612639107E-2_wp,&
-      &-3.42971414989811E-1_wp, 4.64954031865410E-2_wp, 6.77012204116428E-2_wp,&
-      & 8.49931225363225E-2_wp,-5.22285304699699E-1_wp,-2.92515001764712E-1_wp,&
-      &-3.98375452377043E-1_wp, 2.09769668297792E-1_wp, 7.23140464830357E-1_wp,&
-      & 3.65775987838250E-2_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "03")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_p(error, ddx_solvation_model%cosmo, mol, qat)
 
 end subroutine test_p_cosmo_m03
@@ -397,14 +381,10 @@ subroutine test_p_cpcm_m03(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      &-1.77788256288236E-1_wp,-8.22943267808161E-1_wp, 4.04578389873281E-2_wp,&
-      & 5.79710531992282E-1_wp, 6.99601887637659E-1_wp, 6.84309612639107E-2_wp,&
-      &-3.42971414989811E-1_wp, 4.64954031865410E-2_wp, 6.77012204116428E-2_wp,&
-      & 8.49931225363225E-2_wp,-5.22285304699699E-1_wp,-2.92515001764712E-1_wp,&
-      &-3.98375452377043E-1_wp, 2.09769668297792E-1_wp, 7.23140464830357E-1_wp,&
-      & 3.65775987838250E-2_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "03")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_p(error, ddx_solvation_model%cpcm, mol, qat)
 
 end subroutine test_p_cpcm_m03
@@ -416,14 +396,10 @@ subroutine test_p_pcm_m03(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      &-1.77788256288236E-1_wp,-8.22943267808161E-1_wp, 4.04578389873281E-2_wp,&
-      & 5.79710531992282E-1_wp, 6.99601887637659E-1_wp, 6.84309612639107E-2_wp,&
-      &-3.42971414989811E-1_wp, 4.64954031865410E-2_wp, 6.77012204116428E-2_wp,&
-      & 8.49931225363225E-2_wp,-5.22285304699699E-1_wp,-2.92515001764712E-1_wp,&
-      &-3.98375452377043E-1_wp, 2.09769668297792E-1_wp, 7.23140464830357E-1_wp,&
-      & 3.65775987838250E-2_wp]
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
 
-   call get_structure(mol, "MB16-43", "03")
+   call get_structure(mol, "Heavy28", "bih3")
    call test_p(error, ddx_solvation_model%pcm, mol, qat)
 
 end subroutine test_p_pcm_m03
