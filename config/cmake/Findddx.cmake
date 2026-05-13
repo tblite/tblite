@@ -17,7 +17,7 @@
 set(_lib "ddx")
 set(_pkg "DDX")
 set(_url "https://github.com/ddsolvation/ddx")
-set(_rev "HEAD")
+set(_rev "v0.7.0")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
