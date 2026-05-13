@@ -235,6 +235,26 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
                                      tblite_result res,
                                      double* hmat);
 
+/// Retrieve covalent coordination numbers from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param covcn: Covalent coordination numbers, shape [nat]
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_covcn(tblite_error error,
+                        tblite_result res,
+                        double* covcn);
+
+/// Retrieve CM5 charges from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param cm5: CM5 charges, shape [nat]
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_cm5_charges(tblite_error error,
+                              tblite_result res,
+                              double* cm5);
+
 /// Retrieve Hamiltonian matrix from result container
 ///
 /// @param error: Handle for error messages

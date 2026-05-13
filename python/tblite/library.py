@@ -29,9 +29,7 @@ import numpy as np
 try:
     from ._libtblite import ffi, lib
 except ImportError as e:
-    raise ImportError(
-        "tblite C extension unimportable, cannot use C-API"
-    ) from e
+    raise ImportError("tblite C extension unimportable, cannot use C-API") from e
 
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -125,9 +123,7 @@ def new_context(color: bool = True, logger: Callable[[str], None] = print):
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
     handle = ffi.new_handle(logger)
-    context_check(lib.tblite_set_context_logger)(
-        ctx, lib.logger_callback, handle
-    )
+    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, handle)
     if color and sys.stdout.isatty():
         context_check(lib.tblite_set_context_color)(ctx, 1)
     return ctx, handle
@@ -381,9 +377,7 @@ get_orbital_coefficients = _get_ao_matrix(
 )
 get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
-get_hamiltonian_matrix = _get_ao_matrix(
-    lib.tblite_get_result_hamiltonian_matrix, False
-)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
 
 
 def _delete_calculator(calc) -> None:
@@ -414,9 +408,7 @@ def new_ipea1_calculator(ctx, mol):
 @context_check
 def new_xtb_calculator(ctx, mol, param):
     """Create new tblite calculator from parametrization records"""
-    return ffi.gc(
-        lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator
-    )
+    return ffi.gc(lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator)
 
 
 def get_calculator_shell_map(ctx, calc) -> np.ndarray:
@@ -451,9 +443,7 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
         _dim1 = ffi.new("int*")
         _dim2 = ffi.new("int*")
         _dim3 = ffi.new("int*")
-        error_check(lib.tblite_get_array_size_index)(
-            _dict, _index, _dim1, _dim2, _dim3
-        )
+        error_check(lib.tblite_get_array_size_index)(_dict, _index, _dim1, _dim2, _dim3)
         if _dim3[0] == 0:
             if _dim2[0] == 0:
                 _array = np.zeros((_dim1[0],))
@@ -466,12 +456,107 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
             _dict, _index, ffi.cast("double*", _array.ctypes.data)
         )
         _message = ffi.new("char[]", 512)
-        error_check(lib.tblite_get_label_entry_index)(
-            _dict, _index, _message, ffi.NULL
-        )
+        error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
     return _dict_py
+
+
+def _get_post_processing_entry(res, label: str, message: str) -> np.ndarray:
+    """Retrieve one entry from the post-processing dictionary."""
+    data = get_post_processing_dict(res=res)
+    if label not in data:
+        raise TBLiteValueError(message)
+    return data[label]
+
+
+def get_covcn(res) -> np.ndarray:
+    """Retrieve covalent coordination numbers from result container."""
+    _covcn = np.zeros((get_number_of_atoms(res),))
+    error_check(lib.tblite_get_result_covcn)(
+        res, ffi.cast("double*", _covcn.ctypes.data)
+    )
+    return _covcn
+
+
+def get_cm5_charges(res) -> np.ndarray:
+    """Retrieve CM5 charges from result container."""
+    _cm5 = np.zeros((get_number_of_atoms(res),))
+    error_check(lib.tblite_get_result_cm5_charges)(
+        res, ffi.cast("double*", _cm5.ctypes.data)
+    )
+    return _cm5
+
+
+def get_fractional_occupation_density(res) -> np.ndarray:
+    """Retrieve fractional occupation density proxy from orbital occupations."""
+    occ = get_orbital_occupations(res)
+    if occ.ndim == 1:
+        return occ * (2.0 - occ)
+    return np.sum(occ * (1.0 - occ), axis=0)
+
+
+def get_fukui_plus(res) -> np.ndarray:
+    """Retrieve electrophilic Fukui function."""
+    return _get_post_processing_entry(
+        res,
+        "fukui-plus",
+        "Fukui functions were not calculated for this result.",
+    )
+
+
+def get_fukui_minus(res) -> np.ndarray:
+    """Retrieve nucleophilic Fukui function."""
+    return _get_post_processing_entry(
+        res,
+        "fukui-minus",
+        "Fukui functions were not calculated for this result.",
+    )
+
+
+def get_fukui_radical(res) -> np.ndarray:
+    """Retrieve radical Fukui function."""
+    return _get_post_processing_entry(
+        res,
+        "fukui-radical",
+        "Fukui functions were not calculated for this result.",
+    )
+
+
+def get_fukui_dual(res) -> np.ndarray:
+    """Retrieve dual descriptor from Fukui functions."""
+    return _get_post_processing_entry(
+        res,
+        "fukui-dual",
+        "Fukui functions were not calculated for this result.",
+    )
+
+
+def get_ip_correction(res) -> np.ndarray:
+    """Retrieve IP correction term."""
+    return _get_post_processing_entry(
+        res,
+        "ip-correction",
+        "IP correction is not available in this result.",
+    )
+
+
+def get_ea_correction(res) -> np.ndarray:
+    """Retrieve EA correction term."""
+    return _get_post_processing_entry(
+        res,
+        "ea-correction",
+        "EA correction is not available in this result.",
+    )
+
+
+def get_fod(res) -> np.ndarray:
+    """Retrieve fractional occupation density (FOD)."""
+    return _get_post_processing_entry(
+        res,
+        "fod",
+        "Fractional occupation density is not available in this result.",
+    )
 
 
 def get_calculator_angular_momenta(ctx, calc) -> np.ndarray:
@@ -498,16 +583,10 @@ def get_calculator_orbital_map(ctx, calc) -> np.ndarray:
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
-set_calculator_mixer_damping = context_check(
-    lib.tblite_set_calculator_mixer_damping
-)
+set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
-set_calculator_temperature = context_check(
-    lib.tblite_set_calculator_temperature
-)
-set_calculator_save_integrals = context_check(
-    lib.tblite_set_calculator_save_integrals
-)
+set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
+set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
 
 @context_check
@@ -587,9 +666,7 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
 
 def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
     """Create new tblite CPCM solvation object"""
-    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(
-        mol, float(epsilon)
-    )
+    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(mol, float(epsilon))
 
 
 @context_check

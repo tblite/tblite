@@ -40,6 +40,7 @@ module tblite_api_result
       & get_result_orbital_coefficients_api, get_result_energies_api, &
       & get_result_density_matrix_api, get_result_overlap_matrix_api, &
       & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
+      & get_result_covcn_api, get_result_cm5_charges_api, &
       & get_post_processing_dict_api
 
 
@@ -568,6 +569,68 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    mbo(:size(mbo_f)) = &
       & reshape(mbo_f, [size(mbo_f)])
 end subroutine get_result_bond_orders_api
+
+
+subroutine get_result_covcn_api(verror, vres, covcn) &
+      & bind(C, name=namespace//"get_result_covcn")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: covcn(*)
+   real(kind=wp), allocatable :: covcn_f(:)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_covcn"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain covalent coordination numbers")
+      return
+   end if
+
+   call res%results%dict%get_entry("CN_A", covcn_f)
+
+   if (.not.allocated(covcn_f)) then
+      call fatal_error(error%ptr, "Could not find covalent coordination numbers in results dictionary")
+      return
+   end if
+
+   covcn(:size(covcn_f)) = covcn_f
+end subroutine get_result_covcn_api
+
+
+subroutine get_result_cm5_charges_api(verror, vres, cm5) &
+      & bind(C, name=namespace//"get_result_cm5_charges")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: cm5(*)
+   real(kind=wp), allocatable :: cm5_f(:)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_cm5_charges"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain CM5 charges")
+      return
+   end if
+
+   call res%results%dict%get_entry("cm5-charges", cm5_f)
+
+   if (.not.allocated(cm5_f)) then
+      call fatal_error(error%ptr, "Could not find CM5 charges in results dictionary")
+      return
+   end if
+
+   cm5(:size(cm5_f)) = cm5_f
+end subroutine get_result_cm5_charges_api
 
 function get_post_processing_dict_api(verror, vres) result(vdict) &
    & bind(C, name=namespace//"get_post_processing_dict")
