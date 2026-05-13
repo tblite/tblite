@@ -15,9 +15,10 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/solvation/ddx.f90
-!> Provides a polarizable continuum model
+!> Provides a polarizable continuum model in domain decomposition (dd) framework of ddX
 
-!> Implicit solvation model based on a polarizable dielectric continuum
+!> Implicit solvation model based on a polarizable dielectric continuum in domain
+!> decomposition framework of ddX
 module tblite_solvation_ddx
    use ddx, only: allocate_state, check_error, ddinit, ddrun, ddx_error_type, &
       & ddx_state_type, ddx_type, fill_guess, fill_guess_adjoint, setup, &
@@ -44,10 +45,11 @@ module tblite_solvation_ddx
 
    !> Possible solvation models to be used within the dd framework
    type :: enum_ddx_solvation_model
-      ! COSMO, CPCM, and PCM are internally defined as 100, 101, and 200 to get correct feps in the first step
-      ! and to avoid collisions with other aliase elsewhere in the code. 
-      ! Labels are dumbed to ddX-specific values 1 and 2 before passing the model input to the ddX routine.
-      !> Conductor like screening model
+      ! COSMO, CPCM, and PCM are internally defined as 100, 101, and 200 to get the correct
+      ! dielectric factor (feps) during initialization and to avoid collisions with other aliases
+      ! elsewhere in the code
+      ! Labels are mapped to ddX-specific values 1 and 2 before passing the model input to the ddX routine
+      !> Conductor-like screening model
       integer :: cosmo = 100
       !> Conductor-like polarizable continuum model
       integer :: cpcm = 101
@@ -61,17 +63,17 @@ module tblite_solvation_ddx
 
    !> Input for ddX solvation
    type :: ddx_input
-      !> ddx model
+      !> ddX model
       integer :: ddx_model 
       !> Dielectric constant
       real(wp) :: dielectric_const
-      !> Van-der-Waal radii for all atoms
+      !> van der Waals radii for all atoms
       real(wp), allocatable :: rvdw(:)
       !> Scaling of van-der-Waals radii
       real(wp) :: rscale = 1.0_wp
-      !> Number of grid points for each atom (=110)
+      !> Number of grid points for each atom (default=110)
       integer :: nang = grid_size(8)
-      !> Regularization parameter
+      !> Regularization parameter / width of the switching function 
       real(wp) :: eta = 0.1_wp
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
@@ -88,9 +90,9 @@ module tblite_solvation_ddx
       integer :: ddx_model
       !> Dielectric function
       real(wp) :: feps
-      !> Dielctric constant
+      !> Dielectric constant
       real(wp) :: dielectric_const
-      !> Van-der-Waal radii for all atoms
+      !> van der Waals radii for all atoms
       real(wp), allocatable :: rvdw(:)
       !> Accuracy for iterative solver
       real(wp) :: conv = 1.0e-10_wp
@@ -102,7 +104,7 @@ module tblite_solvation_ddx
       integer :: lmax 
       !> Number of OMP threads
       integer :: nproc = 1
-      !> Shift of the characteristic function 
+      !> Shift of the switching function 
       ! (default value depends on the model, for COSMO/CPCM it is -1)
       real(wp) :: shift
       !> Maximum number of iterations for the iterative solver
@@ -149,7 +151,7 @@ module tblite_solvation_ddx
       real(wp), allocatable :: jmat(:, :)
       !> ddX potential
       real(wp), allocatable :: ddx_pot(:)
-      !> ddx multipole, dim=(1, mol%nat)
+      !> ddX multipoles, dim=(1, mol%nat)
       real(wp), allocatable :: multipoles(:, :)
    end type ddx_cache
 
@@ -157,11 +159,11 @@ contains
 
 !> Constructor for ddX input
 function create_ddx_input(ddx_model, dielectric_const, rvdw, rscale, nang, eta, lmax) result(self)
-   !> ddx model
+   !> ddX model
    integer, intent(in), optional :: ddx_model
    !> Dielectric constant
    real(wp), intent(in) :: dielectric_const
-   !> Van-der-Waal radii for all atoms
+   !> van der Waals radii for all atoms
    real(wp), intent(in), optional :: rvdw(:)
    !> Scaling of van-der-Waals radii
    real(wp), intent(in), optional :: rscale
@@ -243,7 +245,7 @@ subroutine new_ddx(self, mol, input, error)
       end do
    end if
 
-   ! Get epsilon and calculate feps
+   ! Get epsilon and calculate dielectric function depending on the model
    self%dielectric_const = input%dielectric_const
    if (input%ddx_model == ddx_solvation_model%cosmo) then
       feps_param = 0.5_wp
@@ -256,7 +258,7 @@ subroutine new_ddx(self, mol, input, error)
    end if
 
    ! Initialize the shift of the switching function depending on the model: 
-   ! ddCOSMO/ddCPCM has an internal shift, ddPCM has a symmetric shift
+   ! In ddX, ddCOSMO/ddCPCM uses an internal shift by default, ddPCM has a symmetric shift
    if (input%ddx_model == ddx_solvation_model%cosmo .or. &
       & input%ddx_model == ddx_solvation_model%cpcm) then
       self%shift = -1.0_wp
@@ -303,22 +305,31 @@ subroutine update(self, mol, cache)
 
    call taint(cache, ptr)
 
-   ! Electrostatics at the cavity points
-   ! Electric potential
+   ! Request all electrostatic quantities that may be needed later
+   ! The ddX multipole routine allocates and fills only the selected arrays
+   ! Electric potential at the cavity points
    ptr%ddx_electrostatics%do_phi = .true.
-   ! Electric field
+   ! Electric field at the cavity points
    ptr%ddx_electrostatics%do_e = .true.
-   ! Electric field gradient
+   ! Electric field gradient at the cavity points
    ptr%ddx_electrostatics%do_g = .true.
 
-   ! Adjust the model to what ddX expects
+   ! Adjust the tblite model labels to the public ddX API:
+   ! model 1 is the COSMO-type equation, model 2 is the PCM equation
    if (self%ddx_model == ddx_solvation_model%cosmo .or. &
       & self%ddx_model == ddx_solvation_model%cpcm) then
-      model = 1 ! ddCOSMO and ddCPCM are handeled the same way in ddX
+      model = 1 ! ddCOSMO and ddCPCM are handled the same way in ddX
    else
-      model = 2 ! ddPCM 
+      model = 2 ! ddPCM
    end if
 
+   ! Initialize the ddX model:
+   ! ddX uses two main kinds of data, labeled as model- and state-specific.
+   ! In ddinit, we initialize the model class, where we specify the desired model,
+   ! dielectric permittivity, general information on the discretization (such as grid size),
+   ! and cavity parameters (including number of spheres, coordinates, and radii)
+   ! Moreover, geometry-dependent constants (for instance the number of solvent-exposed
+   ! Lebedev grid points) are pre-computed and stored.
    call ddinit(model, mol%nat, mol%xyz, self%rvdw, self%dielectric_const, ptr%ddx, ptr%ddx_error, &
       & force=1, ngrid=self%nang, &
       & lmax=self%lmax, nproc=self%nproc, &
@@ -328,32 +339,48 @@ subroutine update(self, mol, cache)
       & incore=self%incore, enable_fmm=self%enable_fmm)
    call check_error(ptr%ddx_error)
 
+   ! The state class contains all quantities that are explicitly solute-dependent. That will be the 
+   ! right-hand sides of the primal & adjoint linear systems (the spherical harmonics expansion of
+   ! the solute potential and the spherical harmonics representation of the solute charges)
+   ! as well as the relevant intermediates.
+   ! First we start by allocating the state-specific arrays using the dimensions now defined via ddinit
    call allocate_state(ptr%ddx%params, ptr%ddx%constants, ptr%ddx_state, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Allocate the multipole array that later contains the xTB Mulliken charges
+   ! (We only pass monopoles)
    if (.not.allocated(ptr%multipoles))then
          allocate(ptr%multipoles(1, mol%nat), source=0.0_wp) 
    endif
 
+   ! Allocate and compute the Coulomb matrix
    if (allocated(ptr%jmat))then
       deallocate(ptr%jmat)
    endif
    allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp)
    call get_coulomb_matrix(mol%xyz, ptr%ddx%constants%ccav, ptr%jmat)
 
+   ! Allocate atom-resolved solvation potential contribution produced by get_potential
    if (.not.allocated(ptr%ddx_pot))then
       allocate(ptr%ddx_pot(mol%nat), source=0.0_wp) 
    endif
 
+   ! Now we initialize the RHSs (they are zero in the first iteration)
+   ! Given the monopole distribution...
+   ! ...we compute the electrostatic potential on the cavity surface
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
+   ! ...we convert the monopole charges into the spherical harmonics representation
    call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
-   
+   ! ...and we transform the potential into the spherical harmonics representation,
+   !    marking the RHSs as ready for the solver
    call setup(ptr%ddx%params,ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
       & ptr%ddx_state%psi, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Construct model-specific initial guesses for the solutions of the
+   ! primal and adjoint linear systems
    call fill_guess(ptr%ddx%params, ptr%ddx%constants, &
          & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
@@ -364,7 +391,7 @@ subroutine update(self, mol, cache)
 
 end subroutine update
 
-!> Get electric field energy
+!> Get solvation energy
 subroutine get_energy(self, mol, cache, wfn, energies)
    !> Instance of the solvation model
    class(ddx_solvation), intent(in) :: self
@@ -381,18 +408,23 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call view(cache, ptr)
 
    ! Recalculate the solution of the ddX system with the new charges after diagonalization
-   ! This solution cannot be reused in the potential due to intermediate mixing
 
+   ! Assemble the multipole array based on the new xTB charges and
+   ! apply a normalization for the spherical harmonics representation
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
+   ! Compute the electrostatic potential on the cavity surface
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
+   ! Convert the normalized monopole charges into the spherical harmonics representation
    call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
-   
+   ! Transform the potential into the spherical harmonics representation
    call setup(ptr%ddx%params,ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
       & ptr%ddx_state%psi, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Solve the primal linear system to get the surface charge distribution
+   ! for the current solute potential
    call solve(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
@@ -402,7 +434,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
 end subroutine get_energy
 
-!> Get electric field potential
+!> Get solvation potential
 subroutine get_potential(self, mol, cache, wfn, pot)
    !> Instance of the solvation model
    class(ddx_solvation), intent(in) :: self
@@ -418,39 +450,54 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   ! Solution of the ddX system (direct and adjoint) with the mixed charges
-   ! This solution cannot be reused in the energy calculation due to intermediate diagonalization
+   ! Due to intermediate mixing, the xTB charges have changed since the last call
+   ! to get_energy, and we need to solve the ddX systems again
 
+   ! Assemble the multipole array based on the new xTB charges and
+   ! apply a normalization for the spherical harmonics representation
    ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
+   ! Compute the electrostatic potential on the cavity surface
    call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
+   ! Convert the normalized monopole charges into the spherical harmonics representation
    call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
-
+   ! Transform the potential into the spherical harmonics representation
    call setup(ptr%ddx%params,ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
       & ptr%ddx_state%psi, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Solve the primal linear system to get the surface charge distribution
+   ! for the current solute potential
    call solve(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Solve the adjoint linear system:
+   ! We need to do this any time we compute a derivative of the energy (here wrt to the basis
+   ! function coefficients), because this lets us avoid computing the derivative of
+   ! the surface charge distribution.
+   ! For reference, see J. Chem. Theory Comput. 2013, 9, 3637−3648
    call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   ! Contract with the Coulomb matrix
    ptr%ddx_pot = 0.0_wp
-   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t')   
-   ! Scale with 0.5 and feps, and get second contribution to potential
+   ! The solvation potential comes from a contribution of the derivative of Psi as well as
+   ! from a contribution of the derivative of the cavity potential & coupling matrix.
+   ! (Again, see J. Chem. Theory Comput. 2013, 9, 3637−3648)
+   ! Zeta is an intermediate in the computation of the latter and needs to be
+   ! contracted with the Coulomb matrix in a last step.
+   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t')  
+
+   ! Scale with 0.5 and feps, and get the Psi contribution to potential
    ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
- 
-   ! Add potential to overall potential for new SCF step 
+   ! Add potential to overall potential for new SCC step
    pot%vat(:,1) = pot%vat(:,1) + ptr%ddx_pot(:)
 
 end subroutine get_potential
 
-!> Get electric field gradient
+!> Get solvation gradient
 subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Instance of the solvation model
    class(ddx_solvation), intent(in) :: self
@@ -474,34 +521,17 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    allocate(force(3, mol%nat), source=0.0_wp)
 
-   ptr%multipoles(1, :) = wfn%qat(:, 1) / sqrt(4.0_wp*pi)
-   call multipole_electrostatics(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%multipoles, 0, ptr%ddx_electrostatics, ptr%ddx_error)
-   call multipole_psi(ptr%ddx%params, ptr%multipoles, 0, ptr%ddx_state%psi)
-
-   call setup(ptr%ddx%params,ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, &
-      & ptr%ddx_state%psi, ptr%ddx_error)
-   call check_error(ptr%ddx_error)
-
-   call solve(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
-      
-   call check_error(ptr%ddx_error)
-
-   call solve_adjoint(ptr%ddx%params, ptr%ddx%constants, &
-      & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
-   call check_error(ptr%ddx_error)
-
+   ! Compute all the solute-aspecific force terms
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
+   ! Compute all the solute-specific force terms
    call multipole_force_terms(ptr%ddx%params, ptr%ddx%constants, ptr%ddx%workspace, &
       ptr%ddx_state, 0, ptr%multipoles, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   ! Add the dielectric factor to the gradient of the solvation energy 
+   ! Add the dielectric factor to the gradient of the solvation energy
    ! (ddX computes the gradient without it)
    force = self%feps * force 
 
@@ -509,7 +539,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    gradient =  gradient + force
 
 end subroutine get_gradient
-
 
 !> Return dependency on density
 pure function variable_info(self) result(info)
@@ -520,7 +549,6 @@ pure function variable_info(self) result(info)
 
    info = scf_info(charge=atom_resolved)
 end function variable_info
-
 
 subroutine taint(cache, ptr)
    type(container_cache), target, intent(inout) :: cache
@@ -553,8 +581,8 @@ subroutine view(cache, ptr)
    end select
 end subroutine view
 
-!> Evaluate the Coulomb interactions between the atomic sides (xyz) and the
-!> surface elements of the cavity (ccav).
+!> Evaluate the Coulomb interactions between the atomic sites (xyz) and the
+!> surface elements of the cavity (ccav)
 subroutine get_coulomb_matrix(xyz, ccav, jmat)
    real(wp), intent(in) :: xyz(:, :)
    real(wp), intent(in) :: ccav(:, :)
