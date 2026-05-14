@@ -1,0 +1,4 @@
+[wrap-git]
+directory = ddx
+url = https://github.com/robin-dahl/ddX.git
+revision = meson_fix

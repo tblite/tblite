@@ -1,0 +1,405 @@
+! This file is part of tblite.
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+module test_solvation_ddx
+   use mctc_env, only : wp
+   use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
+      & test_failed
+   use mctc_io, only : structure_type, new
+   use mstore, only : get_structure
+   use tblite_container, only : container_cache
+   use tblite_scf_potential, only : potential_type
+   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, ddx_input 
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
+   use tblite_basis_type, only : basis_type
+   use tblite_integral_type, only : integral_type
+   use tblite_context_type, only : context_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
+   use tblite_xtb_singlepoint, only : xtb_singlepoint
+
+   implicit none
+   private
+
+   public :: collect_solvation_ddx
+
+   real(wp), parameter :: acc = 0.01_wp
+   real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
+   real(wp), parameter :: thr2 = 10*sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
+
+
+contains
+
+
+!> Collect all exported unit tests
+subroutine collect_solvation_ddx(testsuite)
+
+   !> Collection of tests
+   type(unittest_type), allocatable, intent(out) :: testsuite(:)
+
+   testsuite = [ &
+      new_unittest("energy-mol-cosmo", test_e_cosmo_m01), &
+      new_unittest("energy-mol-cpcm", test_e_cpcm_m01), &
+      new_unittest("energy-mol-pcm", test_e_pcm_m01), &
+      new_unittest("gradient-mol-num-cosmo", test_g_cosmo_m02), &
+      new_unittest("gradient-mol-num-cpcm", test_g_cpcm_m02), &
+      new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
+      new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
+      new_unittest("potential-mol-cpcm", test_p_cpcm_m03), &
+      new_unittest("potential-mol-pcm", test_p_pcm_m03) &
+      ]
+
+end subroutine collect_solvation_ddx
+
+
+subroutine test_e(error, model, mol, qat, ref)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
+   integer, intent(in) :: model
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   !> Reference energy
+   real(wp), intent(in) :: ref
+
+   type(ddx_solvation) :: solv
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache) :: cache
+   real(wp), parameter :: eps = 80.0_wp
+   integer, parameter :: nang = 302
+   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
+   real(wp) :: energy(mol%nat)
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
+   energy = 0.0_wp
+
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+
+   call solv%update(mol, cache)
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+
+   if (abs(sum(energy) - ref) > thr) then
+      call test_failed(error, "Energy does not match reference")
+      print '(a)', 'Energy:'
+      print '(3es20.13)', sum(energy)
+      print '(a)', "---"
+      print '(a)', 'Reference:'
+      print '(3es20.13)', ref
+      print '(a)', "---"
+      print '(a)', 'Difference:'
+      print '(3es20.13)', sum(energy) - ref
+   end if
+end subroutine test_e
+
+
+subroutine test_g(error, model, mol, qat)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
+   integer, intent(in) :: model
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   type(ddx_solvation) :: solv
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache) :: cache
+   real(wp), parameter :: eps = 80.0_wp
+   integer, parameter :: nang = 302
+   real(wp), parameter :: step = 1.0e-4_wp
+   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp)) 
+   real(wp), allocatable :: gradient(:, :), numg(:, :)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   integer :: ii, ic
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1))
+
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+
+   allocate(numg(3, mol%nat), gradient(3, mol%nat))
+   do ii = 1, mol%nat
+      do ic = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         mol%xyz(ic, ii) = mol%xyz(ic, ii) + step
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         mol%xyz(ic, ii) = mol%xyz(ic, ii) - 2*step
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         mol%xyz(ic, ii) = mol%xyz(ic, ii) + step
+         numg(ic, ii) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+
+   call solv%update(mol, cache)
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+   call solv%get_gradient(mol, cache, wfn, gradient, sigma)
+
+   if (any(abs(gradient - numg) > thr)) then
+      call test_failed(error, "Gradient does not match")
+      print '(3es20.13)', gradient
+      print '(a)', "---"
+      print '(3es20.13)', numg
+      print '(a)', "---"
+      print '(3es20.13)', gradient - numg
+   end if
+end subroutine test_g
+
+subroutine test_p(error, model, mol, qat)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
+   integer, intent(in) :: model
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   type(ddx_solvation) :: solv
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache), allocatable :: cache
+   real(wp), parameter :: eps = 80.0_wp
+   integer, parameter :: nang = 302
+   real(wp), parameter :: step = 1.0e-4_wp
+   real(wp), parameter :: thr = 1e+3_wp*sqrt(epsilon(1.0_wp))
+   real(wp), allocatable :: vat(:)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
+   integer :: ii
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1))
+
+   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+
+   allocate(cache)
+   call solv%update(mol, cache)
+
+   allocate(vat(mol%nat))
+   do ii = 1, mol%nat
+      er = 0.0_wp
+      el = 0.0_wp
+      wfn%qat(ii, 1) = wfn%qat(ii, 1) + step
+      call solv%get_potential(mol, cache, wfn, pot)
+      call solv%get_energy(mol, cache, wfn, er)
+
+      wfn%qat(ii, 1) = wfn%qat(ii, 1) - 2*step
+      call solv%get_potential(mol, cache, wfn, pot)
+      call solv%get_energy(mol, cache, wfn, el)
+
+      wfn%qat(ii, 1) = wfn%qat(ii, 1) + step
+      vat(ii) = 0.5_wp*(sum(er) - sum(el))/step
+   end do
+
+   energy = 0.0_wp
+   pot%vat(:, :) = 0.0_wp
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+
+   if (any(abs([pot%vat] - vat) > thr)) then
+      call test_failed(error, "Potential does not match")
+      print '(a)', 'analytical'
+      print '(3es20.13)', pot%vat
+      print '(a)', "---"
+      print '(a)', 'numerical'
+      print '(3es20.13)', vat
+      print '(a)', "---"
+      print '(a)', 'diff'
+      print '(3es20.13)', [pot%vat] - vat
+   end if
+end subroutine test_p
+
+
+subroutine test_e_cosmo_m01(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 7.73347900345264E-1_wp, 1.07626888948184E-1_wp,-3.66999593831010E-1_wp,&
+      & 4.92833325937897E-2_wp,-1.83332156197733E-1_wp, 2.33302086605469E-1_wp,&
+      & 6.61837152062315E-2_wp,-5.43944165050002E-1_wp,-2.70264356583716E-1_wp,&
+      & 2.66618968841682E-1_wp, 2.62725033202480E-1_wp,-7.15315510172571E-2_wp,&
+      &-3.73300777019193E-1_wp, 3.84585237785621E-2_wp,-5.05851088366940E-1_wp,&
+      & 5.17677238544189E-1_wp]
+
+   call get_structure(mol, "MB16-43", "01")
+   call test_e(error, ddx_solvation_model%cosmo, mol, qat, -3.4697720884118800E-2_wp)
+
+end subroutine test_e_cosmo_m01
+
+subroutine test_e_cpcm_m01(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 7.73347900345264E-1_wp, 1.07626888948184E-1_wp,-3.66999593831010E-1_wp,&
+      & 4.92833325937897E-2_wp,-1.83332156197733E-1_wp, 2.33302086605469E-1_wp,&
+      & 6.61837152062315E-2_wp,-5.43944165050002E-1_wp,-2.70264356583716E-1_wp,&
+      & 2.66618968841682E-1_wp, 2.62725033202480E-1_wp,-7.15315510172571E-2_wp,&
+      &-3.73300777019193E-1_wp, 3.84585237785621E-2_wp,-5.05851088366940E-1_wp,&
+      & 5.17677238544189E-1_wp]
+
+   call get_structure(mol, "MB16-43", "01")
+   call test_e(error, ddx_solvation_model%cpcm, mol, qat, -3.4914581639644553E-002_wp)
+
+end subroutine test_e_cpcm_m01
+
+subroutine test_e_pcm_m01(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 7.73347900345264E-1_wp, 1.07626888948184E-1_wp,-3.66999593831010E-1_wp,&
+      & 4.92833325937897E-2_wp,-1.83332156197733E-1_wp, 2.33302086605469E-1_wp,&
+      & 6.61837152062315E-2_wp,-5.43944165050002E-1_wp,-2.70264356583716E-1_wp,&
+      & 2.66618968841682E-1_wp, 2.62725033202480E-1_wp,-7.15315510172571E-2_wp,&
+      &-3.73300777019193E-1_wp, 3.84585237785621E-2_wp,-5.05851088366940E-1_wp,&
+      & 5.17677238544189E-1_wp]
+
+   call get_structure(mol, "MB16-43", "01")
+   call test_e(error, ddx_solvation_model%pcm, mol, qat, -3.3624259293951506E-2_wp)
+
+end subroutine test_e_pcm_m01
+
+subroutine test_g_cosmo_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_g(error, ddx_solvation_model%cosmo, mol, qat)
+
+end subroutine test_g_cosmo_m02
+
+subroutine test_g_cpcm_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_g(error, ddx_solvation_model%cpcm, mol, qat)
+
+end subroutine test_g_cpcm_m02
+
+subroutine test_g_pcm_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_g(error, ddx_solvation_model%pcm, mol, qat)
+
+end subroutine test_g_pcm_m02
+
+subroutine test_p_cosmo_m03(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_p(error, ddx_solvation_model%cosmo, mol, qat)
+
+end subroutine test_p_cosmo_m03
+
+subroutine test_p_cpcm_m03(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_p(error, ddx_solvation_model%cpcm, mol, qat)
+
+end subroutine test_p_cpcm_m03
+
+subroutine test_p_pcm_m03(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_p(error, ddx_solvation_model%pcm, mol, qat)
+
+end subroutine test_p_pcm_m03
+
+
+end module test_solvation_ddx

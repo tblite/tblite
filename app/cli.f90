@@ -24,8 +24,9 @@ module tblite_cli
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
-   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
+   use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
+      & ddx_solvation_model, get_solvent_data, shift_input, solution_state, &
+      & solvation_input, solvent_data
    use tblite_version, only : get_tblite_version
    implicit none
    private
@@ -256,6 +257,7 @@ subroutine get_run_arguments(config, list, start, error)
    character(len=:), allocatable :: arg
    logical :: solvent_not_found, parametrized_solvation
    logical, allocatable :: alpb
+   integer :: ddx_model
    integer, allocatable :: kernel, sol_state
    type(solvent_data), allocatable :: solvent
 
@@ -398,10 +400,17 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cpcm")
+      case("--cosmo", "--cpcm", "--pcm")
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
+         end if
+         if (arg == "--cosmo") then
+            ddx_model = ddx_solvation_model%cosmo
+         else if (arg == "--cpcm") then
+            ddx_model = ddx_solvation_model%cpcm
+         else if (arg == "--pcm") then
+            ddx_model = ddx_solvation_model%pcm
          end if
          parametrized_solvation = .false.
 
@@ -409,7 +418,7 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
-            call fatal_error(error, "Missing argument for CPCM")
+            call fatal_error(error, "Missing argument for ddX solvation")
             exit
          end if
          solvent_not_found = .false.
@@ -599,13 +608,13 @@ subroutine get_run_arguments(config, list, start, error)
             config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, alpb=alpb)
          end if
       else
-         ! CPCM solvation model
+         ! ddX solvation model
          if (sol_state /= solution_state%gsolv) then 
-            call fatal_error(error, "Solution state shift not supported for CPCM")
+            call fatal_error(error, "Solution state shift not supported for ddX solvation")
             return
          end if
          allocate(config%solvation)
-         config%solvation%cpcm = cpcm_input(solvent%eps)
+         config%solvation%ddx = ddx_input(ddx_model, solvent%eps)
       end if
    end if
 
