@@ -59,7 +59,6 @@ with open(sys.argv[3]) as fd:
     wdir = os.path.dirname(fd.name)
     args = [arg.replace('$ORIGIN', wdir) for arg in fd.read().strip().split("\n")]
 
-
 stat = subprocess.call(
     [prog, *args, "--json", os.path.basename(outp)],
     shell=False,
