@@ -170,3 +170,7 @@ cython_debug/
 # Directories
 /build*/
 /_*/
+
+# Local xtbML configuration
+  xtbml.toml
+
