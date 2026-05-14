@@ -510,7 +510,5 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
             kwargs["solvation"] = value
 
 
-
-
 if "tblite" not in ase.calculators.calculator.external_calculators:
     ase.calculators.calculator.register_calculator_class("tblite", TBLite)
