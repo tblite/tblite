@@ -3131,6 +3131,12 @@ int test_uninitialized_solvation()
     tblite_error error = NULL;
     tblite_structure mol = NULL;
     tblite_container cont = NULL;
+    int natoms = 2;
+    int num[2] = { 1, 1 };
+    double xyz[6] = {
+        0.0, 0.0, 0.0,
+        0.0, 0.0, 1.4,
+    };
 
     error = tblite_new_error();
     // check that we get an immediate return if error is not associated
@@ -3138,9 +3144,31 @@ int test_uninitialized_solvation()
     if (cont != NULL) goto unexpected;
     error = tblite_new_error();
 
-    //check if it fails when mol is not associated
+    // check if it fails when mol is not associated
     cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_solvation_ddcosmo);
     if (!tblite_check(error))
+        goto unexpected;
+    show(error);
+    cont = tblite_new_ddx_solvation_solvent(error, mol, "water", tblite_solvation_ddcosmo);
+    if (!tblite_check(error))
+        goto unexpected;
+    show(error);
+
+    // check we get an error when the solvent name is not listed
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check(error))
+        goto unexpected;
+    cont = tblite_new_ddx_solvation_solvent(error, mol, "invalid-solvent", tblite_solvation_ddcosmo);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
+        goto unexpected;
+    show(error);
+
+    cont = tblite_new_alpb_solvation_solvent(error, mol, "ínvalid-solvent", tblite_solvation_alpb_gfn2, tblite_state_bar1mol);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
         goto unexpected;
     show(error);
 
