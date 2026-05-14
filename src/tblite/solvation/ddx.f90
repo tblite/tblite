@@ -25,7 +25,7 @@ module tblite_solvation_ddx
       & solvation_force_terms, solve, solve_adjoint
    use ddx_core, only: ddx_electrostatics_type
    use ddx_multipolar_solutes, only: multipole_electrostatics, multipole_force_terms, multipole_psi
-   use mctc_env, only: error_type, fatal_error, wp
+   use mctc_env, only: wp
    use mctc_io, only: structure_type
    use mctc_io_constants, only: pi
    use omp_lib, only: omp_get_max_threads
@@ -206,16 +206,13 @@ function create_ddx_input(ddx_model, dielectric_const, rvdw, rscale, nang, eta, 
 end function create_ddx_input
 
 !> Create new electric field container
-subroutine new_ddx(self, mol, input, error)
+subroutine new_ddx(self, mol, input)
    !> Instance of the solvation model
    type(ddx_solvation), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ddX solvation
    type(ddx_input), intent(in) :: input
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
    integer :: iat, izp
    real(wp) :: feps_param 
 
@@ -274,19 +271,16 @@ subroutine new_ddx(self, mol, input, error)
 end subroutine new_ddx
 
 !> Type constructor for ddX solvation
-function create_ddx(mol, input, error) result(self)
+function create_ddx(mol, input) result(self)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ddX solvation
    type(ddx_input), intent(in) :: input
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
    !> Instance of the solvation model
    type(ddx_solvation) :: self
 
    ! Create new instance of the solvation model
-   call new_ddx(self, mol, input, error)
-   if (allocated(error)) return
+   call new_ddx(self, mol, input)
 
 end function create_ddx
 

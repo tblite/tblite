@@ -78,8 +78,7 @@ subroutine new_solvation(solv, mol, input, error, method)
    end if
 
    if (allocated(input%ddx)) then
-      solv = ddx_solvation(mol, input%ddx, error)
-      if (allocated(error)) return
+      solv = ddx_solvation(mol, input%ddx)
       return
    end if
 
