@@ -521,12 +521,12 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    allocate(force(3, mol%nat), source=0.0_wp)
 
-   ! Compute all the solute-aspecific force terms
+   ! Compute all the solute-aspecific solvation force terms
    call solvation_force_terms(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, ptr%ddx_electrostatics, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
 
-   ! Compute all the solute-specific force terms
+   ! Compute all the solute-specific solvation force terms
    call multipole_force_terms(ptr%ddx%params, ptr%ddx%constants, ptr%ddx%workspace, &
       ptr%ddx_state, 0, ptr%multipoles, force, ptr%ddx_error)
    call check_error(ptr%ddx_error)
