@@ -20,8 +20,9 @@ import sys
 
 _dir = os.path.abspath(os.path.dirname(__file__))
 
-import tblite
 from tblite.library import get_version
+
+import tblite
 
 project = "tblite"
 author = "Sebastian Ehlert"

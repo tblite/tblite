@@ -71,7 +71,7 @@ Supported keywords are:
 
 import sys
 from io import StringIO
-from typing import Any, Dict, Literal, overload, Union
+from typing import Any, Dict, Literal, Union, overload
 
 import numpy as np
 
@@ -110,37 +110,43 @@ SUPPORTED_DRIVERS = {
 if qcel_v1 is not None:
 
     @overload
-    def get_provenance(schema_version: Literal[1]) -> "qcel_v1.Provenance": ...
+    def get_provenance(schema_version: Literal[1]) -> "qcel_v1.Provenance":
+        ...
 
     @overload
     def get_error(
         input_data: "qcel_v1.AtomicInput",
         error: Union[Dict[str, Any], "qcel_v1.ComputeError"],
         schema_version: int,
-    ) -> "qcel_v1.AtomicResult": ...
+    ) -> "qcel_v1.AtomicResult":
+        ...
 
     @overload
     def run_schema(
         input_data: Union[Dict[str, Any], "qcel_v1.AtomicInput"],
-    ) -> Union["qcel_v1.AtomicResult", "qcel_v1.FailedOperation"]: ...
+    ) -> Union["qcel_v1.AtomicResult", "qcel_v1.FailedOperation"]:
+        ...
 
 
 if qcel_v2 is not None:
 
     @overload
-    def get_provenance(schema_version: Literal[2]) -> "qcel_v2.Provenance": ...
+    def get_provenance(schema_version: Literal[2]) -> "qcel_v2.Provenance":
+        ...
 
     @overload
     def get_error(
         input_data: "qcel_v2.AtomicInput",
         error: Union[Dict[str, Any], "qcel_v2.ComputeError"],
         schema_version: int,
-    ) -> "qcel_v2.FailedOperation": ...
+    ) -> "qcel_v2.FailedOperation":
+        ...
 
     @overload
     def run_schema(
         input_data: Union[Dict[str, Any], "qcel_v2.AtomicInput"],
-    ) -> Union["qcel_v2.AtomicResult", "qcel_v2.FailedOperation"]: ...
+    ) -> Union["qcel_v2.AtomicResult", "qcel_v2.FailedOperation"]:
+        ...
 
 
 def get_provenance(schema_version: Literal[1, 2]):
@@ -269,9 +275,7 @@ def run_schema(input_data):
 
     if input_driver not in SUPPORTED_DRIVERS:
         driver_name = (
-            input_driver.name
-            if hasattr(input_driver, "name")
-            else str(input_driver)
+            input_driver.name if hasattr(input_driver, "name") else str(input_driver)
         )
         return get_error(
             input_data,
@@ -303,18 +307,14 @@ def run_schema(input_data):
         )
 
     keywords = {
-        key: value
-        for key, value in input_keywords.items()
-        if key in Calculator._setter
+        key: value for key, value in input_keywords.items() if key in Calculator._setter
     }
     interaction = {
         key: value
         for key, value in input_keywords.items()
         if key in Calculator._interaction
     }
-    unknown_keywords = (
-        set(input_keywords) - set(keywords) - set(interaction)
-    )
+    unknown_keywords = set(input_keywords) - set(keywords) - set(interaction)
     if unknown_keywords:
         return get_error(
             input_data,
@@ -359,9 +359,7 @@ def run_schema(input_data):
             calcinfo_nbasis=result["norbitals"],
             calcinfo_nmo=result["norbitals"],
             scf_dipole_moment=result["dipole"],
-            scf_quadrupole_moment=result["quadrupole"][
-                [0, 1, 3, 1, 2, 4, 3, 4, 5]
-            ],
+            scf_quadrupole_moment=result["quadrupole"][[0, 1, 3, 1, 2, 4, 3, 4, 5]],
             scf_total_energy=result["energy"],
             scf_total_gradient=result["gradient"],
         )
@@ -379,7 +377,7 @@ def run_schema(input_data):
     except (TBLiteTypeError, TBLiteValueError) as e:
         return get_error(
             input_data,
-            error = dict(
+            error=dict(
                 error_type="input_error",
                 error_message=str(e),
             ),
@@ -389,7 +387,7 @@ def run_schema(input_data):
     except TBLiteRuntimeError as e:
         return get_error(
             input_data,
-            error = dict(
+            error=dict(
                 error_type="execution_error",
                 error_message=str(e),
             ),

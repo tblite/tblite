@@ -31,7 +31,7 @@ module tblite_api_calculator
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator, xtb_config
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
@@ -59,6 +59,11 @@ module tblite_api_calculator
    end enum
 
 
+   type, bind(c) :: xtb_config_struct
+      real(wp) :: smooth_cutoff
+   end type
+
+
    !> Void pointer to calculator type
    type :: vp_calculator
       !> Actual payload
@@ -82,7 +87,7 @@ module tblite_api_calculator
 contains
 
 
-function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn2_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn2_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -90,6 +95,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn2_calculator"
@@ -102,7 +108,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn2_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn2_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -114,7 +120,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn2_calculator_api
 
 
-function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
+function new_ipea1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_ipea1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -122,6 +128,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_ipea1_calculator"
@@ -134,7 +141,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_ipea1_calculator(calc%ptr, mol%ptr, error)
+   call new_ipea1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -146,7 +153,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_ipea1_calculator_api
 
 
-function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -154,6 +161,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn1_calculator"
@@ -166,7 +174,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn1_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -178,7 +186,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn1_calculator_api
 
 
-function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
+function new_xtb_calculator_api(vctx, vmol, vparam, config) result(vcalc) &
       & bind(C, name=namespace//"new_xtb_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -188,6 +196,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    type(vp_param), pointer :: param
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
 
    type(error_type), allocatable :: error
 
@@ -204,7 +213,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    call c_f_pointer(vparam, param)
 
    allocate(calc)
-   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error)
+   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -702,5 +711,15 @@ call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine
+
+pure function convert_config(config) result(cfg)
+   type(xtb_config_struct), intent(in), optional :: config
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg%smooth_cutoff = config%smooth_cutoff
+   end if
+end function convert_config
 
 end module tblite_api_calculator

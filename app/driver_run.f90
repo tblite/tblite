@@ -134,7 +134,7 @@ subroutine run_main(config, error)
    if (allocated(config%param)) then
       call param%load(config%param, error)
       if (.not. allocated(error)) then
-         call new_xtb_calculator(calc, mol, param, error)
+         call new_xtb_calculator(calc, mol, param, error, config%cfg)
       end if
    else
       method = "gfn2"
@@ -143,11 +143,11 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol, error)
+         call new_gfn2_calculator(calc, mol, error, config%cfg)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol, error)
+         call new_gfn1_calculator(calc, mol, error, config%cfg)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol, error)
+         call new_ipea1_calculator(calc, mol, error, config%cfg)
       end select
    end if
    if (allocated(error)) return

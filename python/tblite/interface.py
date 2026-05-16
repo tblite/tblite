@@ -20,9 +20,10 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+
 from . import library
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -85,9 +86,7 @@ class Structure:
             raise TBLiteValueError("Expected tripels of cartesian coordinates")
 
         if 3 * numbers.size != positions.size:
-            raise TBLiteValueError(
-                "Dimension missmatch between numbers and positions"
-            )
+            raise TBLiteValueError("Dimension missmatch between numbers and positions")
 
         self._natoms = len(numbers)
         _numbers = np.ascontiguousarray(numbers, dtype="i4")
@@ -344,7 +343,7 @@ class Result:
             if the saving fails
         """
         library.save_wavefunction(self._res, filename)
-    
+
     def load(self, filename: str) -> None:
         """
         Load a result container from a file. The format is compatible with the
@@ -499,10 +498,10 @@ class Calculator(Structure):
         "gb-solvation": library.new_gb_solvation,
     }
     _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
-        "xtbml" : "xtbml",
-        "xtbml_xyz" : "xtbml_xyz"
+        "bond-orders": "bond-orders",
+        "molecular-multipoles": "molmom",
+        "xtbml": "xtbml",
+        "xtbml_xyz": "xtbml_xyz",
     }
 
     def __init__(
@@ -514,6 +513,7 @@ class Calculator(Structure):
         uhf: Optional[int] = None,
         lattice: Optional[np.ndarray] = None,
         periodic: Optional[np.ndarray] = None,
+        xtb_config: Optional[Dict[str, Any]] = None,
         **context_kwargs,
     ):
         """
@@ -524,16 +524,14 @@ class Calculator(Structure):
         TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
-        Structure.__init__(
-            self, numbers, positions, charge, uhf, lattice, periodic
-        )
+        Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
         self._ctx = library.new_context(**context_kwargs)
         if method not in self._loader:
             raise TBLiteValueError(
                 f"Method '{method}' is not available for this calculator"
             )
-        self._calc = self._loader[method](self._ctx, self._mol)
+        self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
         self._method = method
 
     def set(self, attribute: str, value) -> None:
@@ -642,11 +640,8 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         return self._getter[attribute](self._ctx, self._calc)
-        
 
-    def singlepoint(
-        self, res: Optional[Result] = None, copy: bool = False
-    ) -> Result:
+    def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """
         Perform actual single point calculation in the library backend.
         The output of the library will be forwarded to the standard output.
@@ -706,9 +701,7 @@ ELEMENT_SYMBOLS = [
 ]
 # fmt: on
 
-SYMBOL_TO_NUMBER = {
-    symbol: number + 1 for number, symbol in enumerate(ELEMENT_SYMBOLS)
-}
+SYMBOL_TO_NUMBER = {symbol: number + 1 for number, symbol in enumerate(ELEMENT_SYMBOLS)}
 
 
 def symbols_to_numbers(symbols: List[str]) -> List[int]:

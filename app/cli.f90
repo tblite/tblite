@@ -27,6 +27,7 @@ module tblite_cli
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
+   use tblite_xtb_calculator, only : xtb_config
    implicit none
    private
 
@@ -88,6 +89,8 @@ module tblite_cli
       logical :: spin_polarized = .false.
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
+      !> Configuration for xtb calculator
+      type(xtb_config) :: cfg = xtb_config()
    end type run_config
 
    !> Configuration for evaluating tight binding model on input structure
@@ -253,7 +256,7 @@ subroutine get_run_arguments(config, list, start, error)
 
    integer :: iarg, narg
    logical :: getopts
-   character(len=:), allocatable :: arg
+   character(len=:), allocatable :: arg, sec
    logical :: solvent_not_found, parametrized_solvation
    logical, allocatable :: alpb
    integer, allocatable :: kernel, sol_state
@@ -342,6 +345,33 @@ subroutine get_run_arguments(config, list, start, error)
       case("--guess")
          iarg = iarg + 1
          call list%get(iarg, config%guess)
+
+      case("--config")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for config")
+            exit
+         end if
+
+         block
+            integer :: ieq
+
+            ieq = index(arg, "=")
+            if (ieq == 0) then
+               call fatal_error(error, "Invalid format for config argument, expected key=value")
+               exit
+            end if
+            sec = arg(ieq+1:)
+
+            select case(arg(1:ieq-1))
+            case("smooth_cutoff")
+               call get_argument_as_real(sec, config%cfg%smooth_cutoff, error)
+            case default
+               call fatal_error(error, "Unknown configuration key '"//arg(1:ieq-1)//"'")
+               exit
+            end select
+         end block
 
       case("--restart")
          iarg = iarg + 1

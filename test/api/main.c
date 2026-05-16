@@ -1162,7 +1162,7 @@ int test_calc_restart(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -1184,7 +1184,7 @@ int test_calc_restart(void)
 
     // reset calculator
     tblite_delete(calc);
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
 
     tblite_get_singlepoint(ctx, mol, calc, res1);
     if (tblite_check(ctx))
@@ -1278,7 +1278,7 @@ int test_callback(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -1395,7 +1395,7 @@ int test_gfn2_si5h12(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_xtb_calculator(ctx, mol, param);
+    calc = tblite_new_xtb_calculator(ctx, mol, param, NULL);
     if (!calc)
         goto err;
 
@@ -1600,7 +1600,7 @@ int test_ipea1_ch4(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_ipea1_calculator(ctx, mol);
+    calc = tblite_new_ipea1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -1724,7 +1724,8 @@ int test_gfn1_co2(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    tblite_xtb_config cfg = { 0.0 };
+    calc = tblite_new_gfn1_calculator(ctx, mol, &cfg);
     if (!calc)
         goto err;
 
@@ -1829,7 +1830,7 @@ int test_gfn2_convergence(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_xtb_calculator(ctx, mol, param);
+    calc = tblite_new_xtb_calculator(ctx, mol, param, NULL);
     if (!calc)
         goto err;
 
@@ -1900,7 +1901,7 @@ int test_spgfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2031,7 +2032,7 @@ int test_dict_api()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2337,7 +2338,7 @@ int test_uninitialized_dict()
     if (tblite_check(error))
         goto unexpected;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto unexpected;
 
@@ -2490,7 +2491,7 @@ int test_h2plus_wbo()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (tblite_check(ctx))
         goto err;
 
@@ -2570,7 +2571,7 @@ int test_h2plus_wbo()
 
     calc = NULL;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (tblite_check(ctx))
         goto err;
 
@@ -2674,7 +2675,7 @@ int test_post_processing_api()
 
     show(ctx);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2877,7 +2878,7 @@ int test_post_processing_api()
         goto err;
     show(ctx);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2911,7 +2912,7 @@ int test_post_processing_api()
     if (!check_int(n_dict_entries, 1, "Check number of entries in dict, using param for push_back")) {
         goto err;
     }
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
     if (tblite_check(ctx))
         goto err;
@@ -3007,7 +3008,7 @@ int test_xtbml_api()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3063,7 +3064,7 @@ int test_xtbml_api()
     tblite_delete(calc);
     tblite_delete(dict);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3181,7 +3182,7 @@ int test_solvation_cpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3253,7 +3254,7 @@ int test_solvation_alpb_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3325,7 +3326,7 @@ int test_solvation_alpb_gfn2()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3397,7 +3398,7 @@ int test_solvation_gbsa_gfn2()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3469,7 +3470,7 @@ int test_solvation_gb_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3541,7 +3542,7 @@ int test_solvation_alpb_gfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3613,7 +3614,7 @@ int test_solvation_gbsa_gfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 

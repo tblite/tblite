@@ -149,6 +149,7 @@ subroutine update(self, mol, cache)
    type(coulomb_cache), pointer :: ptr
 
    call taint(cache, ptr)
+   call ptr%update(mol)
 
    if (.not.allocated(ptr%mrad)) then
       allocate(ptr%mrad(mol%nat))
