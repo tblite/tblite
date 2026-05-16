@@ -12,6 +12,7 @@ try:
     import os
     import subprocess
     import sys
+    import re
 except ImportError:
     exit(77)
 
