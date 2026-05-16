@@ -197,7 +197,7 @@ def test_gfn1_xtb_3d():
         ]
     )
 
-    atoms.calc = TBLite(method="GFN1-xTB")
+    atoms.calc = TBLite(method="GFN1-xTB", xtb_config={"smooth_cutoff": 0.0})
     assert atoms.pbc.all()
 
     assert approx(atoms.get_potential_energy(), abs=thr) == -1257.0801067985549
@@ -261,7 +261,7 @@ def test_spgfn1_xtb():
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_cpcm():
     """Test CPCM solvation with GFN2-xTB"""
-    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+    thr = 5.0e-5  # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
@@ -270,7 +270,7 @@ def test_solvation_gfn2_xtb_cpcm():
 
     atoms.calc.set(cpcm_solvation=7.0)
     assert approx(atoms.get_potential_energy(), abs=thr) == -773.6978494954839
-                                                            
+
 
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_alpb():

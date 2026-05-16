@@ -8,7 +8,10 @@ supposed to be used by meson for testing purposes only.
 """
 
 try:
-    import subprocess, sys, json, os
+    import json
+    import os
+    import subprocess
+    import sys
 except ImportError:
     exit(77)
 

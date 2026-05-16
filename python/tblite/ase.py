@@ -124,6 +124,7 @@ class TBLite(ase.calculators.calculator.Calculator):
      solvation                None              Solvation model to use (see below for details)
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
+     xtb_config               None              Additional configuration for the API calculator (dict)
     ======================== ================= ====================================================
 
     Solvation models are supported by passing a tuple to the *solvation* keyword.
@@ -202,6 +203,7 @@ class TBLite(ase.calculators.calculator.Calculator):
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
+        "xtb_config": None,
     }
 
     _res = None
@@ -251,6 +253,7 @@ class TBLite(ase.calculators.calculator.Calculator):
             or "electric_field" in changed_parameters
             or "spin_polarization" in changed_parameters
             or "solvation" in changed_parameters
+            or "xtb_config" in changed_parameters
         ):
             self._xtb = None
             self._res = None
@@ -270,7 +273,9 @@ class TBLite(ase.calculators.calculator.Calculator):
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
             if "initial_guess" in changed_parameters:
-                self._xtb.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess])
+                self._xtb.set(
+                    "guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess]
+                )
 
             if "mixer_damping" in changed_parameters:
                 self._xtb.set("mixer-damping", self.parameters.mixer_damping)
@@ -358,7 +363,9 @@ class TBLite(ase.calculators.calculator.Calculator):
 
         if not properties:
             properties = ["energy"]
-        ase.calculators.calculator.Calculator.calculate(self, atoms, properties, system_changes)
+        ase.calculators.calculator.Calculator.calculate(
+            self, atoms, properties, system_changes
+        )
 
         self._check_api_calculator(system_changes)
 
@@ -404,6 +411,7 @@ def _create_api_calculator(
             _uhf,
             _cell / Bohr,
             _periodic,
+            xtb_config=parameters.xtb_config,
         )
         calc.set("accuracy", parameters.accuracy)
         calc.set(
@@ -434,16 +442,24 @@ def _create_api_calculator(
     return calc
 
 
-def _get_charge(atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters) -> int:
+def _get_charge(
+    atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters
+) -> int:
     """
     Get the total charge of the system.
     If no charge is provided, the total charge of the system is calculated
     by summing the initial charges of all atoms.
     """
-    return atoms.get_initial_charges().sum() if parameters.charge is None else parameters.charge
+    return (
+        atoms.get_initial_charges().sum()
+        if parameters.charge is None
+        else parameters.charge
+    )
 
 
-def _get_uhf(atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters) -> int:
+def _get_uhf(
+    atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters
+) -> int:
     """
     Get the number of unpaired electrons.
     If no multiplicity is provided, the number of unpaired electrons

@@ -45,43 +45,57 @@ typedef enum {
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
 
+/// Configuration for calculator setup
+typedef struct {
+   /// Smooth cutoff for the Fermi function in the GFN-xTB method (in Hartree)
+   double smooth_cutoff;
+} tblite_xtb_config;
+
 /// Construct calculator with GFN2-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_gfn2_calculator(tblite_context ctx,
-                           tblite_structure mol);
+                           tblite_structure mol,
+                           tblite_xtb_config* config);
 
 /// Construct calculator with GFN1-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_gfn1_calculator(tblite_context ctx,
-                           tblite_structure mol);
+                           tblite_structure mol,
+                           tblite_xtb_config* config);
 
 /// Construct calculator with IPEA1-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_ipea1_calculator(tblite_context ctx,
-                            tblite_structure mol);
+                            tblite_structure mol,
+                            tblite_xtb_config* config);
 
 /// Construct calculator from parametrization records
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 /// @param param: Parametrization records
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_xtb_calculator(tblite_context ctx,
                           tblite_structure mol,
-                          tblite_param param);
+                          tblite_param param,
+                          tblite_xtb_config* config);
 
 /// Delete calculator
 ///

@@ -22,16 +22,14 @@ also provides some FFI based wappers for memory handling.
 
 import functools
 import sys
-from typing import Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 
 try:
     from ._libtblite import ffi, lib
 except ImportError as e:
-    raise ImportError(
-        "tblite C extension unimportable, cannot use C-API"
-    ) from e
+    raise ImportError("tblite C extension unimportable, cannot use C-API") from e
 
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -125,9 +123,7 @@ def new_context(color: bool = True, logger: Callable[[str], None] = print):
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
     handle = ffi.new_handle(logger)
-    context_check(lib.tblite_set_context_logger)(
-        ctx, lib.logger_callback, handle
-    )
+    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, handle)
     if color and sys.stdout.isatty():
         context_check(lib.tblite_set_context_color)(ctx, 1)
     return ctx, handle
@@ -381,9 +377,7 @@ get_orbital_coefficients = _get_ao_matrix(
 )
 get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
-get_hamiltonian_matrix = _get_ao_matrix(
-    lib.tblite_get_result_hamiltonian_matrix, False
-)
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
 
 
 def _delete_calculator(calc) -> None:
@@ -394,28 +388,59 @@ def _delete_calculator(calc) -> None:
 
 
 @context_check
-def new_gfn2_calculator(ctx, mol):
+def new_gfn2_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with GFN2-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_gfn2_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_gfn2_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_gfn1_calculator(ctx, mol):
+def new_gfn1_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with GFN1-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_gfn1_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_gfn1_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_ipea1_calculator(ctx, mol):
+def new_ipea1_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with IPEA1-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_ipea1_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_xtb_calculator(ctx, mol, param):
+def new_xtb_calculator(ctx, mol, param, cfg=None):
     """Create new tblite calculator from parametrization records"""
     return ffi.gc(
-        lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator
+        lib.tblite_new_xtb_calculator(ctx, mol, param, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
+
+
+def tblite_xtb_config(config: Optional[Dict[str, Any]] = None):
+    if config is None:
+        return ffi.NULL
+
+    SUPPORTED_KEYS = {"smooth_cutoff": 0.05}
+
+    if set(config.keys()) - set(SUPPORTED_KEYS.keys()):
+        raise TBLiteValueError(
+            f"Unsupported configuration keys: {set(config.keys()) - set(SUPPORTED_KEYS.keys())}. "
+            f"Supported keys are: {SUPPORTED_KEYS.keys()}."
+        )
+
+    return ffi.new(
+        "tblite_xtb_config *",
+        {
+            key: config.get(key, default)
+            for key, default in SUPPORTED_KEYS.items()
+        }
     )
 
 
@@ -451,9 +476,7 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
         _dim1 = ffi.new("int*")
         _dim2 = ffi.new("int*")
         _dim3 = ffi.new("int*")
-        error_check(lib.tblite_get_array_size_index)(
-            _dict, _index, _dim1, _dim2, _dim3
-        )
+        error_check(lib.tblite_get_array_size_index)(_dict, _index, _dim1, _dim2, _dim3)
         if _dim3[0] == 0:
             if _dim2[0] == 0:
                 _array = np.zeros((_dim1[0],))
@@ -466,9 +489,7 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
             _dict, _index, ffi.cast("double*", _array.ctypes.data)
         )
         _message = ffi.new("char[]", 512)
-        error_check(lib.tblite_get_label_entry_index)(
-            _dict, _index, _message, ffi.NULL
-        )
+        error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
     return _dict_py
@@ -498,16 +519,10 @@ def get_calculator_orbital_map(ctx, calc) -> np.ndarray:
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
-set_calculator_mixer_damping = context_check(
-    lib.tblite_set_calculator_mixer_damping
-)
+set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
-set_calculator_temperature = context_check(
-    lib.tblite_set_calculator_temperature
-)
-set_calculator_save_integrals = context_check(
-    lib.tblite_set_calculator_save_integrals
-)
+set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
+set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
 
 
 @context_check
@@ -587,9 +602,7 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
 
 def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
     """Create new tblite CPCM solvation object"""
-    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(
-        mol, float(epsilon)
-    )
+    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(mol, float(epsilon))
 
 
 @context_check

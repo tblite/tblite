@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 try:
-    from tblite.qcschema import run_schema, qcel_v1, qcel_v2
+    from tblite.qcschema import qcel_v1, qcel_v2, run_schema
 except ModuleNotFoundError:
     qcel_v1 = None
     qcel_v2 = None
@@ -33,7 +33,9 @@ v2_available = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(params=[pytest.param(1, marks=v1_available), pytest.param(2, marks=v2_available)])
+@pytest.fixture(
+    params=[pytest.param(1, marks=v1_available), pytest.param(2, marks=v2_available)]
+)
 def qcsk_version(request):
     return request.param
 
@@ -81,7 +83,7 @@ def molecule(request, multiplicity: int, qcsk_version: int) -> "Molecule":
                     [-1.32658751691561, -0.95404596601807, +4.30967630773603],
                 ]
             ),
-            molecular_multiplicity = multiplicity,
+            molecular_multiplicity=multiplicity,
         )
 
     raise ValueError(f"Unknown molecule: {request.param}")
@@ -136,7 +138,9 @@ def get_atomic_input(
 
 
 @pytest.fixture()
-def atomic_input(molecule: "Molecule", driver: str, method: str, qcsk_version: int) -> "AtomicInput":
+def atomic_input(
+    molecule: "Molecule", driver: str, method: str, qcsk_version: int
+) -> "AtomicInput":
     """AtomicInput fixture."""
     return get_atomic_input(
         qcsk_version,
@@ -310,20 +314,24 @@ def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
     assert pytest.approx(atomic_result.return_result) == return_result
 
 
-@pytest.fixture(params=[
-      {"cpcm-solvation": 7.0}, 
-      {"alpb-solvation": ["water", "bar1mol"]},
-      {"gbsa-solvation": ["methanol", "reference"]},
-      {"gbe-solvation": [7.0, "p16"]},
-      {"gb-solvation": [7.0, "still"]},
-   ])
+@pytest.fixture(
+    params=[
+        {"cpcm-solvation": 7.0},
+        {"alpb-solvation": ["water", "bar1mol"]},
+        {"gbsa-solvation": ["methanol", "reference"]},
+        {"gbe-solvation": [7.0, "p16"]},
+        {"gb-solvation": [7.0, "still"]},
+    ]
+)
 def solvation(request) -> dict:
     """Solvation fixture."""
     return request.param
 
 
 @pytest.fixture()
-def atomic_input_solvation(molecule: "Molecule", method: str, solvation: dict, qcsk_version: int) -> "AtomicInput":
+def atomic_input_solvation(
+    molecule: "Molecule", method: str, solvation: dict, qcsk_version: int
+) -> "AtomicInput":
     """AtomicInput fixture."""
     return get_atomic_input(
         qcsk_version,
@@ -398,7 +406,9 @@ def return_result_solvation(molecule: "Molecule", method: str, solvation: dict) 
 
 
 @pytest.mark.skipif(qcel_v1 is None and qcel_v2 is None, reason="requires qcelemental")
-def test_qcschema_solvation(atomic_input_solvation: "AtomicInput", return_result_solvation: Any) -> None:
+def test_qcschema_solvation(
+    atomic_input_solvation: "AtomicInput", return_result_solvation: Any
+) -> None:
     """Test qcschema interface."""
     atomic_result = run_schema(atomic_input_solvation)
 
@@ -461,8 +471,7 @@ def test_unsupported_basis(molecule: "Molecule", qcsk_version: int):
     assert not atomic_result.success
     assert atomic_result.error.error_type == "input_error"
     assert (
-        "Basis sets are not supported by tblite."
-        in atomic_result.error.error_message
+        "Basis sets are not supported by tblite." in atomic_result.error.error_message
     )
 
 

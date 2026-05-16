@@ -19,7 +19,6 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 from pytest import approx, raises
-
 from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
 from tblite.interface import Calculator, Result, symbols_to_numbers
 
@@ -118,9 +117,7 @@ def get_ala(conf):
 
 def get_crcp2():
     """Get structure for CrCP2"""
-    numbers = np.array(
-        [24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1]
-    )
+    numbers = np.array([24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1])
     positions = np.array(
         [
             [+0.00000000000000, +0.00000000000000, -0.06044684528305],
@@ -519,6 +516,7 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
+
 def test_xtbml_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)
@@ -532,29 +530,31 @@ def test_xtbml_api():
     dict_xtbml = res.dict()
     dict_xtbml = dict_xtbml.get("post-processing-dict")
     assert len(dict_xtbml.keys()) == 39
-    
-    toml_inp = ["[post-processing.xtbml] \n",
-                "geometry = false \n",
-                "density = true \n",
-                "orbital = true \n",
-                "energy = false \n", 
-                "convolution = true\n",
-                "a = [1.0, 1.2]\n",
-                "tensorial-output = true"]
-    
+
+    toml_inp = [
+        "[post-processing.xtbml] \n",
+        "geometry = false \n",
+        "density = true \n",
+        "orbital = true \n",
+        "energy = false \n",
+        "convolution = true\n",
+        "a = [1.0, 1.2]\n",
+        "tensorial-output = true",
+    ]
+
     with open("xtbml.toml", "w") as f:
         f.writelines(toml_inp)
-        
+
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("xtbml.toml")
-    
+
     res = calc.singlepoint()
     dict_ = res.get("post-processing-dict")
-    
+
     assert dict_.get("CN_A") is None
 
     assert len(dict_.keys()) == 130
-    
+
 
 def test_solvation_gfn2_cpcm():
     """Test CPCM solvation with GFN2-xTB"""
@@ -637,7 +637,8 @@ def test_solvation_gfn2_gb():
     calc.add("gb-solvation", 7.0, "still")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43676829542, abs=THR) 
+    assert energy == approx(-28.43676829542, abs=THR)
+
 
 def test_solvation_gfn1_alpb():
     """Test ALPB solvation with GFN1-xTB"""
@@ -667,7 +668,6 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
 
 
 def test_result_setter():
@@ -706,9 +706,7 @@ def test_gfn1_logging():
 
     logger = Logger("test")
 
-    calc = Calculator(
-        "GFN1-xTB", numbers, positions, color=False, logger=logger.info
-    )
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=logger.info)
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-34.980794815805446, abs=THR)
@@ -716,9 +714,7 @@ def test_gfn1_logging():
     def broken_logger(message: str) -> None:
         raise NotImplementedError("This logger is broken")
 
-    calc = Calculator(
-        "GFN1-xTB", numbers, positions, color=False, logger=broken_logger
-    )
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
     with raises(TBLiteRuntimeError):
         calc.singlepoint()
 
@@ -764,13 +760,17 @@ def test_numbers():
 def test_spin_polarized_restart():
     # Use a small open-shell system (e.g., NO) in Bohr
     numbers = np.array([7, 8], dtype=np.int32)
-    positions = np.array([
-        [0.0, 0.0, -1.1],
-        [0.0, 0.0,  1.1],
-    ], dtype=float)
+    positions = np.array(
+        [
+            [0.0, 0.0, -1.1],
+            [0.0, 0.0, 1.1],
+        ],
+        dtype=float,
+    )
 
     # Capture output to count iterations
     log = []
+
     def logger(msg):
         log.append(msg)
 
@@ -778,11 +778,11 @@ def test_spin_polarized_restart():
     calc = Calculator("GFN2-xTB", numbers, positions, uhf=1, logger=logger)
     calc.add("spin-polarization", 1.0)
     calc.set("verbosity", 1)
-    
+
     # Full run
     res_full = calc.singlepoint()
     energy_full = res_full.get("energy")
-    
+
     # Clear log for restart run
     log.clear()
 
@@ -790,17 +790,17 @@ def test_spin_polarized_restart():
     res_restart_wfn = Result(res_full)
     res_restart_wfn = calc.singlepoint(res_restart_wfn)
     energy_restart_wfn = res_restart_wfn.get("energy")
-    
+
     # Count iterations (lines starting with an integer index)
     iterations = 0
     for line in log:
         parts = line.strip().split()
         if len(parts) > 0 and parts[0].isdigit():
             iterations += 1
-            
+
     # Check energy consistency
     assert abs(energy_full - energy_restart_wfn) < 1e-8
-    
+
     # Verify iteration count (should be very low, e.g., <= 3)
     # Ideally 1 or 2 if restart is perfect
     assert iterations <= 3, f"Restart took {iterations} iterations, expected <= 3"
