@@ -14,9 +14,15 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+#ifndef TBLITE_HAS_HDF5
+#define TBLITE_HAS_HDF5 0
+#endif
 
-module tblite_cli_features
-   use tblite_features, only : get_tblite_lib_feature => get_tblite_feature, tblite_use_hdf5
+!> @file tblite/features.f90
+!> Provides version and feature information
+
+!> Interfaces to query the version information of the library.
+module tblite_features
    implicit none
    private
 
@@ -24,35 +30,26 @@ module tblite_cli_features
    public :: tblite_use_hdf5
 
 
+   !> Logical flag indicating if HDF5 support is available
+   logical, parameter :: tblite_use_hdf5 = TBLITE_HAS_HDF5 /= 0
+
+
 contains
 
-function get_tblite_feature(feature) result(has_feature)
-   !> Feature name
-   character(len=*), intent(in) :: feature
-   !> Whether the feature is enabled
-   logical :: has_feature
 
-   select case(feature)
-   case("color")
-      has_feature = color_support()
+!> Getter function to retrieve tblite version
+pure function get_tblite_feature(flag) result(use_feature)
+   character(len=*), intent(in) :: flag
+   logical :: use_feature
+
+   select case(flag)
+   case("hdf5")
+      use_feature = tblite_use_hdf5
    case default
-      has_feature = get_tblite_lib_feature(feature)
+      use_feature = .false.
    end select
+
 end function get_tblite_feature
 
-!> Check output terminal for color support
-function color_support() result(color)
-   use, intrinsic :: iso_fortran_env, only : output_unit
-#if defined __INTEL_COMPILER
-   use ifport, only : isatty
-#endif
-   !> Whether color can be supported
-   logical :: color
 
-   color = .false.
-#if defined __GFORTRAN__ || defined __INTEL_COMPILER
-   color = isatty(output_unit)
-#endif
-end function color_support
-
-end module tblite_cli_features
+end module tblite_features

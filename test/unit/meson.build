@@ -41,6 +41,7 @@ tests = [
   'gfn2-xtb',
   'ceh',
   'hamiltonian',
+  'hdf5',
   'halogen',
   'integral-overlap',
   'integral-multipole',

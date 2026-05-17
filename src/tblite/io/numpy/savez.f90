@@ -42,10 +42,15 @@ module tblite_io_numpy_savez
 contains
 
 subroutine save_npz_i4_r1(filename, varname, array, iostat, iomsg)
+   !> Filename of the npz file
    character(len=*), intent(in) :: filename
+   !> Name of the variable to save
    character(len=*), intent(in) :: varname
+   !> Array to save
    integer(i4), intent(in) :: array(:)
+   !> Status of the write operation
    integer, intent(out), optional :: iostat
+   !> Error message in case of failure
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_i4
@@ -96,10 +101,15 @@ subroutine save_npz_i4_r1(filename, varname, array, iostat, iomsg)
 end subroutine save_npz_i4_r1
 
 subroutine save_npz_rdp_r1(filename, varname, array, iostat, iomsg)
+   !> Filename of the npz file
    character(len=*), intent(in) :: filename
+   !> Name of the variable to save
    character(len=*), intent(in) :: varname
+   !> Array to save
    real(dp), intent(in) :: array(:)
+   !> Status of the write operation
    integer, intent(out), optional :: iostat
+   !> Error message in case of failure
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
@@ -150,10 +160,15 @@ subroutine save_npz_rdp_r1(filename, varname, array, iostat, iomsg)
 end subroutine save_npz_rdp_r1
 
 subroutine save_npz_rdp_r2(filename, varname, array, iostat, iomsg)
+   !> Filename of the npz file
    character(len=*), intent(in) :: filename
+   !> Name of the variable to save
    character(len=*), intent(in) :: varname
+   !> Array to save
    real(dp), intent(in) :: array(:, :)
+   !> Status of the write operation
    integer, intent(out), optional :: iostat
+   !> Error message in case of failure
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
@@ -204,10 +219,15 @@ subroutine save_npz_rdp_r2(filename, varname, array, iostat, iomsg)
 end subroutine save_npz_rdp_r2
 
 subroutine save_npz_rdp_r3(filename, varname, array, iostat, iomsg)
+   !> Filename of the npz file
    character(len=*), intent(in) :: filename
+   !> Name of the variable to save
    character(len=*), intent(in) :: varname
+   !> Array to save
    real(dp), intent(in) :: array(:, :, :)
+   !> Status of the write operation
    integer, intent(out), optional :: iostat
+   !> Error message in case of failure
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
@@ -291,8 +311,11 @@ pure function get_local_header(filename, checksum, nbytes) result(header)
 end function get_local_header
 
 pure function get_global_header(filename, local_header, global_header_offset) result(header)
+   !> Name of the file to be saved
    character(len=*), intent(in) :: filename
+   !> Local header associated with the file entry
    character(len=*), intent(in) :: local_header
+   !> Offset of the local header in the archive
    integer(i4), intent(in) :: global_header_offset
 
    character(len=2), parameter :: file_comment_length = repeat(char(0), 2)
@@ -315,8 +338,11 @@ pure function get_global_header(filename, local_header, global_header_offset) re
 end function get_global_header
 
 pure function get_footer(nrecs, global_header_size, global_header_offset) result(footer)
+   !> Number of records in the archive
    integer(i2), intent(in) :: nrecs
+   !> Size of the global header in bytes
    integer(i4), intent(in) :: global_header_size
+   !> Offset of the global header in the archive
    integer(i4), intent(in) :: global_header_offset
 
    character(len=2), parameter :: disk_no = repeat(char(0), 2)
@@ -338,11 +364,11 @@ end function get_footer
 
 !> Handle iostat and iomsg of write operation
 subroutine handle_iostat(stat, filename, iostat, iomsg)
-   !> Error status of loading, zero on success
+   !> Error status of writing, zero on success
    integer, intent(in) :: stat
-   !> Name of the npy file to load from
+   !> Name of the npz file to write to
    character(len=*), intent(in) :: filename
-   !> Error status of loading, zero on success
+   !> Error status of writing, zero on success
    integer, intent(out), optional :: iostat
    !> Associated error message in case of non-zero status code
    character(len=:), allocatable, intent(out), optional :: iomsg

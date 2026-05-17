@@ -31,6 +31,7 @@ program tester
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
    use test_hamiltonian, only : collect_hamiltonian
+   use test_hdf5, only : collect_hdf5
    use test_halogen, only : collect_halogen
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
@@ -82,6 +83,7 @@ program tester
       new_testsuite("integral-multipole", collect_integral_multipole), &
       new_testsuite("integral-trafo", collect_integral_trafo), &
       new_testsuite("hamiltonian", collect_hamiltonian), &
+      new_testsuite("hdf5", collect_hdf5), &
       new_testsuite("halogen", collect_halogen), &
       new_testsuite("wavefunction-restart", collect_wavefunction_restart), &
       new_testsuite("dispersion", collect_dispersion), &

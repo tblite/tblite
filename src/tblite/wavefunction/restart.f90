@@ -21,13 +21,14 @@
 module tblite_wavefunction_restart
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_io_numpy, only : load_npz, save_npz
+   use tblite_io_hdf5, only : load_hdf5, save_hdf5
+   use tblite_io_data, only : iodata_type, open_iodata_handler
    use tblite_output_format, only : format_string
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
    public :: load_wavefunction, save_wavefunction
-
 
    character(len=*), parameter :: prefix = "tblite0_"
 contains
@@ -42,10 +43,9 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
    integer, intent(in), optional :: nspin
 
    logical :: exist
-   integer :: stat
-   character(len=:), allocatable :: msg
    real(wp), allocatable :: kt(:)
    integer, allocatable :: nat_sizes(:), nsh_sizes(:), nao_sizes(:), nspin_sizes(:)
+   class(iodata_type), allocatable :: iodata
 
    inquire(file=filename, exist=exist)
    if (.not.exist) then
@@ -53,50 +53,44 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
       return
    end if
 
-   call load_npz(filename, prefix//"kt", kt, stat, msg)
+   call open_iodata_handler(iodata, filename, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call load_npz(filename, prefix//"nel", wfn%nel, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"n0at", wfn%n0at, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"n0sh", wfn%n0sh, stat, msg)
-   end if
+   call iodata%load(prefix//"kt", kt, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call load_npz(filename, prefix//"density", wfn%density, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"coeff", wfn%coeff, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"emo", wfn%emo, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"focc", wfn%focc, stat, msg)
-   end if
+   call iodata%load(prefix//"nel", wfn%nel, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call load_npz(filename, prefix//"qat", wfn%qat, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"qsh", wfn%qsh, stat, msg)
-   end if
+   call iodata%load(prefix//"n0at", wfn%n0at, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call load_npz(filename, prefix//"dpat", wfn%dpat, stat, msg)
-   end if
-   if (stat == 0) then
-      call load_npz(filename, prefix//"qpat", wfn%qpat, stat, msg)
-   end if
+   call iodata%load(prefix//"n0sh", wfn%n0sh, error)
+   if (allocated(error)) return
 
-   if (stat /= 0) then
-      if (.not.allocated(msg)) msg = "Failed to read wavefunction from '"//filename//"'"
-      call fatal_error(error, msg)
-      return
-   end if
+   call iodata%load(prefix//"density", wfn%density, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"coeff", wfn%coeff, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"emo", wfn%emo, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"focc", wfn%focc, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"qat", wfn%qat, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"qsh", wfn%qsh, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"dpat", wfn%dpat, error)
+   if (allocated(error)) return
+
+   call iodata%load(prefix//"qpat", wfn%qpat, error)
+   if (allocated(error)) return
 
    nat_sizes = [size(wfn%n0at), size(wfn%qat, 1), size(wfn%dpat, 2), size(wfn%qpat, 2)]
    if (present(nat)) nat_sizes = [nat, nat_sizes]
@@ -162,7 +156,9 @@ subroutine save_wavefunction(wfn, filename, error)
 
    integer :: io, stat
    logical :: exist
+   real(wp), allocatable :: kt(:)
    character(len=:), allocatable :: msg
+   class(iodata_type), allocatable :: iodata
 
    inquire(file=filename, exist=exist)
    if (exist) then
@@ -170,50 +166,41 @@ subroutine save_wavefunction(wfn, filename, error)
       close(io, status="delete")
    end if
 
-   call save_npz(filename, prefix//"kt", [wfn%kt], stat, msg)
+   call open_iodata_handler(iodata, filename, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call save_npz(filename, prefix//"nel", wfn%nel, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"n0at", wfn%n0at, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"n0sh", wfn%n0sh, stat, msg)
-   end if
+   kt = [wfn%kt]
+   call iodata%save(prefix//"kt", kt, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call save_npz(filename, prefix//"density", wfn%density, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"coeff", wfn%coeff, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"emo", wfn%emo, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"focc", wfn%focc, stat, msg)
-   end if
+   call iodata%save(prefix//"nel", wfn%nel, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call save_npz(filename, prefix//"qat", wfn%qat, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"qsh", wfn%qsh, stat, msg)
-   end if
+   call iodata%save(prefix//"n0at", wfn%n0at, error)
+   if (allocated(error)) return
 
-   if (stat == 0) then
-      call save_npz(filename, prefix//"dpat", wfn%dpat, stat, msg)
-   end if
-   if (stat == 0) then
-      call save_npz(filename, prefix//"qpat", wfn%qpat, stat, msg)
-   end if
+   call iodata%save(prefix//"n0sh", wfn%n0sh, error)
+   if (allocated(error)) return
 
-   if (stat /= 0) then
-      if (.not.allocated(msg)) msg = "Failed to write wavefunction to '"//filename//"'"
-      call fatal_error(error, msg)
-      return
-   end if
+   call iodata%save(prefix//"density", wfn%density, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"coeff", wfn%coeff, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"emo", wfn%emo, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"focc", wfn%focc, error)
+   if (allocated(error)) return
+
+   call iodata%save(prefix//"qat", wfn%qat, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"qsh", wfn%qsh, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"dpat", wfn%dpat, error)
+   if (allocated(error)) return
+   call iodata%save(prefix//"qpat", wfn%qpat, error)
+   if (allocated(error)) return
+
 end subroutine save_wavefunction
+
 
 end module tblite_wavefunction_restart

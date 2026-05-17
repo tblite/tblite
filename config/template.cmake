@@ -2,6 +2,7 @@
 
 set("@PROJECT_NAME@_WITH_OpenMP" @WITH_OpenMP@)
 set("@PROJECT_NAME@_WITH_API" @WITH_API@)
+set("@PROJECT_NAME@_WITH_HDF5" @WITH_HDF5@)
 set(
   "@PROJECT_NAME@_INCLUDE_DIRS"
   "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@"
@@ -16,6 +17,10 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
 
   if(NOT TARGET "OpenMP::OpenMP_Fortran" AND "@PROJECT_NAME@_WITH_OpenMP")
     find_dependency("OpenMP")
+  endif()
+
+  if(NOT TARGET "HDF5::HDF5" AND "@PROJECT_NAME@_WITH_HDF5")
+    find_dependency("HDF5")
   endif()
 
   if(NOT TARGET "LAPACK::LAPACK")

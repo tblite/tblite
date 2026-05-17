@@ -24,9 +24,7 @@ module tblite_double_dictionary
    use mctc_env, only : error_type, fatal_error
    use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
    use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
-   use tblite_io_numpy, only : save_npz, load_npz
-   use tblite_io_numpy_loadz, only : get_npz_descriptor
-   use tblite_io_numpy_zip, only : zip_file, list_zip_file
+   use tblite_io_data, only : iodata_type, open_iodata_handler, iodata_record
    implicit none
    private
 
@@ -162,9 +160,10 @@ subroutine load_from_file(self, filename, error)
    integer :: io, stat, irec, it
    integer, allocatable :: vshape(:)
    logical :: exist
-   type(zip_file) :: zip
-   character(len=:), allocatable :: msg, label, vtype
+   character(len=:), allocatable :: msg, label, vtype, paths(:)
    character(len=*), parameter :: prefix = "tblite0_"
+   class(iodata_type), allocatable :: iodata
+   type(iodata_record), allocatable :: records(:)
 
    inquire(file=filename, exist=exist)
    if (.not. exist) then
@@ -172,59 +171,45 @@ subroutine load_from_file(self, filename, error)
       return
    end if
 
-   open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
-   call list_zip_file(io, filename, zip, stat, msg)
-   close(io)
-   if (stat /= 0) then
-      if (.not.allocated(msg)) msg = "Failed to read zip file '"//filename//"'"
-      call fatal_error(error, msg)
-      return
-   end if
+   call open_iodata_handler(iodata, filename, error)
+   if (allocated(error)) return
 
-   if (.not.allocated(zip%records)) then
-      call fatal_error(error, "No records found in file '"//filename//"'")
-      return
-   end if
+   call iodata%list(records, error)
+   if (allocated(error)) return
 
-   do irec = 1, size(zip%records)
-      associate(path => zip%records(irec)%path)
-         if (len(path) < len(prefix) + 4) then
+   do irec = 1, size(records)
+      associate(path => records(irec)%name)
+         if (len(path) <= len(prefix)) then
             call fatal_error(error, "File '"//filename//"::"//path// &
                & "' does not match expected format")
             exit
          end if
-         label = path(len(prefix) + 1:len(path) - 4)
          if (path(:len(prefix)) /= prefix) then
             call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
             exit
          end if
-         call get_npz_descriptor(filename, prefix//label, vtype, vshape, stat, msg)
-         if (stat == 0 .and. allocated(vshape)) then
-            select case(size(vshape))
-            case default
-               call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
-               exit
-            case (1)
-               call self%push(label, it)
-               call load_npz(filename, prefix//label, self%record(it)%array1, stat, msg)
-            case (2)
-               call self%push(label, it)
-               call load_npz(filename, prefix//label, self%record(it)%array2, stat, msg)
-            case (3)
-               call self%push(label, it)
-               call load_npz(filename, prefix//label, self%record(it)%array3, stat, msg)
-            end select
-         end if
-         if (stat /= 0) then
-            if (.not.allocated(msg)) then
-               msg = "Failed to load file '"//filename//"::"//path//"'"
-            end if
-            call fatal_error(error, msg)
+         label = path(len(prefix) + 1:)
+
+         call iodata%get_shape(path, vshape, error)
+         if (allocated(error)) exit
+
+         select case(size(vshape))
+         case default
+            call fatal_error(error, "Unknown file type '"//filename//"::"//path//"'")
             exit
-         end if
+         case (1)
+            call self%push(label, it)
+            call iodata%load(path, self%record(it)%array1, error)
+         case (2)
+            call self%push(label, it)
+            call iodata%load(path, self%record(it)%array2, error)
+         case (3)
+            call self%push(label, it)
+            call iodata%load(path, self%record(it)%array3, error)
+         end select
+         if (allocated(error)) exit
       end associate
    end do
-
 end subroutine load_from_file
 
 !> Write double dictionary data to file
@@ -242,6 +227,7 @@ subroutine dump_to_file(self, file, error)
    logical :: exist
    real(kind=wp), allocatable :: array1(:), array2(:, :), array3(:, :, :)
    character(len=:), allocatable :: msg
+   class(iodata_type), allocatable :: iodata
 
 
    inquire(file=file, exist=exist)
@@ -250,33 +236,32 @@ subroutine dump_to_file(self, file, error)
       close(io, status='delete')
    end if
 
+   call open_iodata_handler(iodata, file, error)
+   if (allocated(error)) return
+
+   stat = 0
    do it = 1, self%n
       associate(record => self%record(it))
          if (allocated(record%array1)) then
-            call save_npz(file, prefix//record%label, record%array1, stat, msg)
-            if (stat /= 0) exit
+            call iodata%save(prefix//record%label, record%array1, error)
+            if (allocated(error)) exit
             cycle
          end if
 
          if (allocated(record%array2)) then
-            call save_npz(file, prefix//record%label, record%array2, stat, msg)
+            call iodata%save(prefix//record%label, record%array2, error)
+            if (allocated(error)) exit
             if (stat /= 0) exit
             cycle
          end if
 
          if (allocated(record%array3)) then
-            call save_npz(file, prefix//record%label, record%array3, stat, msg)
-            if (stat /= 0) exit
+            call iodata%save(prefix//record%label, record%array3, error)
+            if (allocated(error)) exit
             cycle
          end if
       end associate
    end do
-   if (stat /= 0) then
-      if (.not.allocated(msg)) then
-         msg = "Failed to write file '"//file//"'"
-      end if
-      call fatal_error(error, msg)
-   end if
 end subroutine dump_to_file
 
 

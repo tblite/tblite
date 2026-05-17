@@ -22,7 +22,7 @@ module tblite_cli
    use tblite_argument, only : argument_list, len
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff, help_text_guess
-   use tblite_features, only : get_tblite_feature
+   use tblite_cli_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
       & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
@@ -509,6 +509,14 @@ subroutine get_run_arguments(config, list, start, error)
          call list%get(iarg, config%post_processing)
          if (.not.allocated(config%post_processing)) then
             call fatal_error(error, "Missing argument for post processing")
+            exit
+         end if
+
+      case("--post-processing-output")
+         iarg = iarg + 1
+         call list%get(iarg, config%post_proc_output)
+         if (.not.allocated(config%post_proc_output)) then
+            call fatal_error(error, "Missing argument for post processing output")
             exit
          end if
 
@@ -1118,6 +1126,7 @@ subroutine version(unit)
    call get_tblite_version(string=version_string)
    write(unit, '(a, *(1x, a))') &
       & prog_name, "version", version_string
+   write(unit, '(a, 1x, a)') "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
 
 end subroutine version
 

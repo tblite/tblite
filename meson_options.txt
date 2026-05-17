@@ -40,6 +40,14 @@ option(
 )
 
 option(
+  'hdf5',
+  type: 'feature',
+  value: 'auto',
+  yield: true,
+  description: 'use HDF5 support',
+)
+
+option(
   'api',
   type: 'boolean',
   value: true,

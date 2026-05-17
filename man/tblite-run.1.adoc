@@ -56,7 +56,8 @@ Supported geometry input formats are:
 
 *--restart* [_string_]::
      Restart calculation from previous run.
-     Provide the name of the restart file (default 'tblite-restart.npz')
+     Provide the name of the restart file (default 'tblite-restart.npz').
+     Files ending in .h5 or .hdf5 are read and written as HDF5 when HDF5 support is available.
 
 *--no-restart*::
      Do not restart from previous run.
@@ -124,7 +125,7 @@ Supported geometry input formats are:
      - xtbml (atomistic properties based on Mulliken partitioning)
 
 *--post-processing-output* _file_::
-     Output file for post processing results in npz format.
+     Output file for post processing results in npz format, or HDF5 when the file ends in .h5 or .hdf5 and HDF5 support is available.
      (default: tblite-data.npz)
 
 *--json* [_file_]::
