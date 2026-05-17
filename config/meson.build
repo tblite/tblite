@@ -36,7 +36,10 @@ if fc_id == 'gcc'
   # - _gfortran_os_error_at (from libfortran.so)
   if os == 'linux'
     lib_deps += cc.find_library('gfortran')
-    lib_deps += cc.find_library('quadmath')
+    quadmath_dep = cc.find_library('quadmath', required: false)
+    if quadmath_dep.found()
+        lib_deps += quadmath_dep
+    endif
     mvec_dep = cc.find_library('mvec', required: false)
     if mvec_dep.found()
         lib_deps += mvec_dep
