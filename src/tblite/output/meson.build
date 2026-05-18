@@ -17,5 +17,6 @@
 srcs += files(
   'ascii.f90',
   'format.f90',
+  'molden.f90',
   'property.f90',
 )
