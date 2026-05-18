@@ -38,6 +38,9 @@ if(NOT TARGET "OpenMP::OpenMP_Fortran")
   endif()
 endif()
 
+if(WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
+  find_package("HDF5" REQUIRED COMPONENTS Fortran)
+endif()
 if(NOT TARGET "LAPACK::LAPACK")
   find_package("LAPACK" REQUIRED)
 endif()
@@ -97,6 +100,18 @@ target_link_libraries(
   PUBLIC
   "${lib-deps}"
 )
+if(WITH_HDF5)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "HDF5::HDF5"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_HDF5=1"
+  )
+endif()
 target_include_directories(
   "${PROJECT_NAME}-lib"
   PUBLIC

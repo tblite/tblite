@@ -27,6 +27,7 @@ set(
   "gfn1-xtb"
   "gfn2-xtb"
   "hamiltonian"
+  "hdf5"
   "halogen"
   "integral-overlap"
   "integral-multipole"

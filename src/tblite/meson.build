@@ -52,6 +52,7 @@ srcs += files(
   'data.f90',
   'double_dictionary.f90',
   'disp.f90',
+  'features.F90',
   'lapack.f90',
   'os.F90',
   'param.f90',

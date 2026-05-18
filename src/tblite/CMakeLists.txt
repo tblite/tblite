@@ -55,6 +55,7 @@ list(
   "${dir}/data.f90"
   "${dir}/double_dictionary.f90"
   "${dir}/disp.f90"
+  "${dir}/features.F90"
   "${dir}/lapack.f90"
   "${dir}/os.F90"
   "${dir}/param.f90"

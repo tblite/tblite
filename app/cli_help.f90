@@ -121,7 +121,8 @@ module tblite_cli_help
       "                           smooth_cutoff (default: 0.05)"//nl//&
       "      --restart [<file>]   Restart calculation from previous run"//nl//&
       "                           File name for restart file is optional,"//nl//&
-      "                           (Default: tblite-restart.npz)"//nl//&
+      "                           (Default: tblite-restart.npz). Use .h5/.hdf5"//nl//&
+      "                           for HDF5 restart files when HDF5 is available."//nl//&
       "      --no-restart         Do not restart calculation from previous run"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
@@ -154,7 +155,8 @@ module tblite_cli_help
       "                           Options: molmom (molecular multipole moments)"//nl//&
       "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
       "      --post-processing-output <file>"//nl//&
-      "                           Output file for post processing results in npz format."//nl//&
+      "                           Output file for post processing results in npz format,"//nl//&
+      "                           or HDF5 with .h5/.hdf5 when HDF5 is available."//nl//&
       "                           (default: tblite-data.npz)"//nl//&
       "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
       "                           Results are stored in file (default: tblite.txt)"//nl//&

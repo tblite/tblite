@@ -136,6 +136,14 @@ else
   lib_deps += blas_dep
 endif
 
+hdf5_dep = dependency('hdf5', language: 'fortran', required: get_option('hdf5'))
+if hdf5_dep.found()
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_HDF5=1'],
+    dependencies: [hdf5_dep],
+  )
+endif
+
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',

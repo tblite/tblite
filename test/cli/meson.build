@@ -138,6 +138,23 @@ test(
   suite: 'cli',
 )
 
+if hdf5_dep.found()
+  test(
+    'post-processing-hdf5',
+    tblite_exe,
+    args: [
+      'run',
+      '--no-restart',
+      '--post-processing',
+      'molmom',
+      '--post-processing-output',
+      'tblite-data.h5',
+      files('07-mb33.xyz')
+    ],
+    suite: 'cli',
+  )
+endif
+
 test(
   'post-processing-param', 
   tblite_exe, 
