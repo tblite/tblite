@@ -33,6 +33,7 @@ foreach subprog: ['fit', 'param', 'run', 'guess', 'tagdiff']
 endforeach
 
 app_tester = find_program(files('tester.py'))
+trexio_tester = find_program(files('trexio_tester.py'))
 
 run_testcases = [
   '01a-gfn1xtb',
@@ -153,6 +154,34 @@ if hdf5_dep.found()
     ],
     suite: 'cli',
   )
+endif
+
+if trexio_lib.found()
+  test(
+    'trexio-text',
+    trexio_tester,
+    args: [
+      tblite_exe,
+      files('test'/'water.xyz'),
+      'tblite.trexio',
+      'text',
+    ],
+    suite: 'cli',
+  )
+
+  if hdf5_dep.found()
+    test(
+      'trexio-hdf5',
+      trexio_tester,
+      args: [
+        tblite_exe,
+        files('test'/'water.xyz'),
+        'tblite.trexio.h5',
+        'hdf5',
+      ],
+      suite: 'cli',
+    )
+  endif
 endif
 
 test(
