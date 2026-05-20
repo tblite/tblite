@@ -175,7 +175,14 @@ end subroutine make_roundtrip_data
 subroutine remove_trexio_output(filename)
    character(len=*), intent(in) :: filename
 
-   call execute_command_line("rm -rf -- "//filename)
+   integer :: io, stat
+   logical :: exist
+
+   inquire(file=filename, exist=exist)
+   if (exist) then
+      open(newunit=io, file=filename, status="old", action="write", iostat=stat)
+      if (stat == 0) close(io, status="delete")
+   end if
 end subroutine remove_trexio_output
 
 end module test_trexio
