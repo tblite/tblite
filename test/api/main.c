@@ -3283,7 +3283,7 @@ int test_solvation_ddcpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3356,7 +3356,7 @@ int test_solvation_ddcpcm_solvent()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3429,7 +3429,7 @@ int test_solvation_ddpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
