@@ -22,7 +22,7 @@ also provides some FFI based wappers for memory handling.
 
 import functools
 import sys
-from typing import Any, Callable, Dict, Union, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 import numpy as np
 
