@@ -33,7 +33,6 @@ foreach subprog: ['fit', 'param', 'run', 'guess', 'tagdiff']
 endforeach
 
 app_tester = find_program(files('tester.py'))
-trexio_tester = find_program(files('trexio_tester.py'))
 
 run_testcases = [
   '01a-gfn1xtb',
