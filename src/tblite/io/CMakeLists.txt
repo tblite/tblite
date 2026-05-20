@@ -25,7 +25,6 @@ list(
   "${dir}/hdf5.F90"
   "${dir}/numpy.f90"
   "${dir}/tag.f90"
-  "${dir}/trexio_module.F90"
   "${dir}/trexio.F90"
 )
 

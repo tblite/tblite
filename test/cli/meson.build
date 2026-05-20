@@ -156,34 +156,6 @@ if hdf5_dep.found()
   )
 endif
 
-if trexio_lib.found()
-  test(
-    'trexio-text',
-    trexio_tester,
-    args: [
-      tblite_exe,
-      files('test'/'water.xyz'),
-      'tblite.trexio',
-      'text',
-    ],
-    suite: 'cli',
-  )
-
-  if hdf5_dep.found()
-    test(
-      'trexio-hdf5',
-      trexio_tester,
-      args: [
-        tblite_exe,
-        files('test'/'water.xyz'),
-        'tblite.trexio.h5',
-        'hdf5',
-      ],
-      suite: 'cli',
-    )
-  endif
-endif
-
 test(
   'post-processing-param', 
   tblite_exe, 

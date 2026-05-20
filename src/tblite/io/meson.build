@@ -22,6 +22,5 @@ srcs += files(
   'hdf5.F90',
   'numpy.f90',
   'tag.f90',
-  'trexio_module.F90',
   'trexio.F90',
 )
