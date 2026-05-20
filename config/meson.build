@@ -144,6 +144,16 @@ if hdf5_dep.found()
   )
 endif
 
+trexio_dep = cc.find_library('trexio', required: get_option('trexio'))
+if trexio_dep.found()
+  lib_deps += declare_dependency(
+    compile_args: [
+      '-DTBLITE_HAS_TREXIO=1',
+    ],
+    dependencies: [trexio_dep],
+  )
+endif
+
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',

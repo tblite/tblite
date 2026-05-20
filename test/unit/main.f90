@@ -49,6 +49,7 @@ program tester
    use test_solvation_cds, only: collect_solvation_cds
    use test_solvation_shift, only: collect_solvation_shift
    use test_tagged_io, only : collect_tagged_io
+   use test_trexio, only : collect_trexio
    use test_wavefunction_restart, only : collect_wavefunction_restart
    use test_xtb_external, only : collect_xtb_external
    use test_xtb_param, only : collect_xtb_param
@@ -63,6 +64,7 @@ program tester
 
    testsuites = [ &
       new_testsuite("tagged-io", collect_tagged_io), &
+      new_testsuite("trexio", collect_trexio), &
       new_testsuite("fit", collect_fit), &
       new_testsuite("repulsion", collect_repulsion), &
       new_testsuite("npy", collect_npy), &

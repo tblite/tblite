@@ -45,6 +45,7 @@ set(
   "solvation-cds"
   "solvation-shift"
   "tagged-io"
+  "trexio"
   "wavefunction-restart"
   "xtb-param"
   "xtb-external"

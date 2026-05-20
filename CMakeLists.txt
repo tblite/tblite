@@ -41,6 +41,27 @@ endif()
 if(WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
   find_package("HDF5" REQUIRED COMPONENTS Fortran)
 endif()
+if(WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
+  find_path(
+    TREXIO_INCLUDE_DIR
+    NAMES "trexio_f.f90"
+    PATH_SUFFIXES "include"
+  )
+  find_library(
+    TREXIO_LIBRARY
+    NAMES "trexio"
+  )
+  if(NOT TREXIO_INCLUDE_DIR OR NOT TREXIO_LIBRARY)
+    message(FATAL_ERROR "TREXIO support requested, but trexio_f.f90 or libtrexio could not be found")
+  endif()
+  add_library("TREXIO::TREXIO" UNKNOWN IMPORTED)
+  set_target_properties(
+    "TREXIO::TREXIO"
+    PROPERTIES
+    IMPORTED_LOCATION "${TREXIO_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TREXIO_INCLUDE_DIR}"
+  )
+endif()
 if(NOT TARGET "LAPACK::LAPACK")
   find_package("LAPACK" REQUIRED)
 endif()
@@ -110,6 +131,18 @@ if(WITH_HDF5)
     "${PROJECT_NAME}-lib"
     PUBLIC
     "TBLITE_HAS_HDF5=1"
+  )
+endif()
+if(WITH_TREXIO)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TREXIO::TREXIO"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_TREXIO=1"
   )
 endif()
 target_include_directories(

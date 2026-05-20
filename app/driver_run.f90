@@ -27,6 +27,7 @@ module tblite_driver_run
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
    use tblite_output_ascii
    use tblite_param, only : param_record
@@ -341,6 +342,14 @@ subroutine run_main(config, error)
       close(unit)
       if (config%verbosity > 0) then
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
+      end if
+   end if
+
+   if (config%trexio) then
+      call save_trexio(config%trexio_output, mol, calc%bas, wfn, energy, error)
+      if (allocated(error)) return
+      if (config%verbosity > 0) then
+         call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
       end if
    end if
 end subroutine run_main

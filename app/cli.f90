@@ -69,6 +69,10 @@ module tblite_cli
       logical :: json = .false.
       !> File for output of JSON dump
       character(len=:), allocatable :: json_output
+      !> Create TREXIO output
+      logical :: trexio = .false.
+      !> File for TREXIO output
+      character(len=:), allocatable :: trexio_output
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
@@ -596,6 +600,20 @@ subroutine get_run_arguments(config, list, start, error)
                cycle
             end if
             call move_alloc(arg, config%json_output)
+         end if
+
+      case("--trexio")
+         config%trexio = .true.
+         config%trexio_output = "tblite.trexio"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%trexio_output)
          end if
       end select
    end do
@@ -1127,6 +1145,7 @@ subroutine version(unit)
    write(unit, '(a, *(1x, a))') &
       & prog_name, "version", version_string
    write(unit, '(a, 1x, a)') "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
+   write(unit, '(a, 1x, a)') "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
 
 end subroutine version
 

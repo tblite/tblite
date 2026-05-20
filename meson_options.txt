@@ -48,6 +48,14 @@ option(
 )
 
 option(
+  'trexio',
+  type: 'feature',
+  value: 'auto',
+  yield: true,
+  description: 'use TREXIO output support',
+)
+
+option(
   'api',
   type: 'boolean',
   value: true,
