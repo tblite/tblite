@@ -24,6 +24,7 @@ module tblite_cli
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_cli_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
+   use tblite_scf_mixer_input, only : mixer_input, anneal_input, scf_version
    use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
       & ddx_solvation_model, get_solvent_data, shift_input, solution_state, &
       & solvation_input, solvent_data
@@ -34,7 +35,6 @@ module tblite_cli
 
    public :: get_arguments, driver_config, run_config, param_config, fit_config, &
       & tagdiff_config, guess_config
-
 
    type, abstract :: driver_config
       logical :: color = .false.
@@ -90,6 +90,8 @@ module tblite_cli
       integer, allocatable :: max_iter
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp
+      !> Mixer configuration
+      type(mixer_input) :: mixer = mixer_input()
       !> Electronic temperature for the guess (currently only CEH)
       real(wp) :: etemp_guess = 4000.0_wp
       !> Electric field
@@ -153,6 +155,8 @@ module tblite_cli
       character(len=:), allocatable :: reference
       logical :: fit = .false.
    end type tagdiff_config
+
+   real(wp), parameter :: kt = 3.166808578545117e-06_wp
 
 contains
 
@@ -263,9 +267,10 @@ subroutine get_run_arguments(config, list, start, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: iarg, narg
+   integer :: iarg, narg, mixer_sep, comma_count, ich, ieq
    logical :: getopts
-   character(len=:), allocatable :: arg, sec
+   character(len=:), allocatable :: arg, sec, mixer_name
+   real(wp) :: anneal_input(3)
    logical :: solvent_not_found, parametrized_solvation
    logical, allocatable :: alpb
    integer :: ddx_model
@@ -550,8 +555,50 @@ subroutine get_run_arguments(config, list, start, error)
       case("--iterations")
          iarg = iarg + 1
          call list%get(iarg, arg)
-         allocate(config%max_iter)
-         call get_argument_as_int(arg, config%max_iter, error)
+         call get_argument_as_int(arg, config%mixer%max_iter, error)
+         if (allocated(error)) exit
+
+      case("--mixer")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for config")
+            exit
+         end if
+
+         ieq = index(arg, "=")
+         if (ieq == 0) then
+            select case(arg)
+            case("broyden")
+               config%mixer%scf = scf_version%broyden
+            case default
+               call fatal_error(error, "Unknown electronic mixer '"//arg//"' specified")
+               exit
+            end select
+         else
+            sec = arg(ieq+1:)
+
+            select case(arg(1:ieq-1))
+            case("damping")
+               call get_argument_as_real(sec, config%mixer%damping, error)
+            case("memory")
+               call get_argument_as_int(sec, config%mixer%memory, error)
+            case default
+               call fatal_error(error, "Unknown configuration key '"//arg(1:ieq-1)//"'")
+               exit
+            end select
+         end if
+
+      case("--mixer-memory")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_int(arg, config%mixer%memory, error)
+         if (allocated(error)) exit
+
+      case("--mixer-damping")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%mixer%damping, error)
          if (allocated(error)) exit
 
       case("--solver")
@@ -577,6 +624,39 @@ subroutine get_run_arguments(config, list, start, error)
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp, error)
          if (allocated(error)) exit
+
+      case("--etemp-anneal")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         allocate(config%mixer%anneal)
+         comma_count = 0
+         if (allocated(arg)) then
+            do ich = 1, len(arg)
+               if (arg(ich:ich) == ',') comma_count = comma_count + 1
+            end do
+         end if
+
+         select case(comma_count)
+         case(0)
+            call get_argument_as_real(arg, anneal_input(1), error)
+            anneal_input(2) = 50
+            anneal_input(3) = 50
+         case(2)
+            call get_argument_as_realv(arg, anneal_input, error)
+            if (allocated(error)) exit
+         case default
+            call fatal_error(error, "Expected --etemp-anneal <start> or <start>,<hold>,<steps>")
+         end select
+         if (allocated(error)) exit
+
+         config%mixer%anneal%initial_kt = anneal_input(1) * kt
+         config%mixer%anneal%hold = nint(anneal_input(2))
+         config%mixer%anneal%cycles = nint(anneal_input(3))
+         if (abs(real(config%mixer%anneal%hold, wp) - anneal_input(2)) > epsilon(1.0_wp) .or. &
+            & abs(real(config%mixer%anneal%cycles, wp) - anneal_input(3)) > epsilon(1.0_wp)) then
+            call fatal_error(error, "Cannot read integer annealing schedule from '"//arg//"'")
+            exit
+         end if
 
       case("--etemp-guess")
          iarg = iarg + 1

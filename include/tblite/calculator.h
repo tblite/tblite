@@ -40,7 +40,15 @@ typedef enum {
    TBLITE_GUESS_SAD = 0,
    /// Use partial charges obtained by electronegativity equilibration as guess.
    TBLITE_GUESS_EEQ = 1,
+   /// Use partial charges with bond-charge corrections from electronegativity equilibration as guess.
+   TBLITE_GUESS_EEQBC = 2,
 } tblite_guess;
+
+/// Available self-consistent-field mixers.
+typedef enum {
+   /// Use modified Broyden mixing.
+   TBLITE_MIXER_BROYDEN = 1,
+} tblite_mixer;
 
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
@@ -132,6 +140,40 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_mixer_damping(tblite_context ctx,
                                     tblite_calculator calc,
                                     double damping);
+
+/// Set number of previous SCF steps retained by the mixer in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param memory: Number of previous SCF steps retained by the mixer
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer_memory(tblite_context ctx,
+                                   tblite_calculator calc,
+                                   int memory);
+
+/// Set SCF mixer in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mixer: SCF mixer to use
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer(tblite_context ctx,
+                            tblite_calculator calc,
+                            tblite_mixer mixer);
+
+/// Set electronic temperature annealing schedule for the calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param initial_etemp: Initial electronic temperature in Hartree
+/// @param hold: Number of SCF cycles to keep the initial temperature
+/// @param cycles: Number of SCF cycles to lower to the calculation temperature
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_temperature_annealing(tblite_context ctx,
+                                            tblite_calculator calc,
+                                            double initial_etemp,
+                                            int hold,
+                                            int cycles);
 
 /// Set initial guess for creating new wavefunction objects
 ///

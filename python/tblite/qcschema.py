@@ -55,9 +55,12 @@ Supported keywords are:
  accuracy            Numerical thresholds for SCC         float (1.0)
  guess               Initial guess for wavefunction       integer (0 == SAD)
  max-iter            Maximum number of SCC iterations     integer (250)
+ mixer               SCC mixer                            string ("broyden")
  mixer-damping       Parameter for the SCC mixer          float (0.4)
+ mixer-memory        Number of mixer history vectors      integer (0 uses max-iter)
  save-integrals      Keep integral matrices in results    0 (False)
  temperature         Electronic temperature for filling   float (9.500e-4)
+ annealing           Start or [start, hold, cycles]       float or list
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor

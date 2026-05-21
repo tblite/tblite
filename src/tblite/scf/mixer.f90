@@ -22,37 +22,44 @@
 
 !> Provides an electronic mixer implementation
 module tblite_scf_mixer
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type, fatal_error
    use tblite_scf_mixer_broyden, only : broyden_mixer, broyden_input, new_broyden
    use tblite_scf_mixer_type, only : mixer_type
+   use tblite_scf_mixer_input, only : mixer_input, scf_version
    implicit none
    private
 
    public :: mixer_type, new_mixer
 
 
-   !> Input for selecting electronic mixer
-   type, public :: mixer_input
-      !> Input for Broyden mixer
-      type(broyden_input), allocatable :: broyden
-   end type mixer_input
-
 contains
 
 !> Create a new instance of the mixer
-subroutine new_mixer(self, memory, ndim, damp)
+subroutine new_mixer(self, input, ndim, error)
    !> Instance of the mixer on exit
    class(mixer_type), allocatable, intent(out) :: self
-   integer, intent(in) :: memory
+   type(mixer_input), intent(in) :: input
    integer, intent(in) :: ndim
-   real(wp), intent(in) :: damp
+   type(error_type), allocatable, intent(out) :: error
 
-   block
-      type(broyden_mixer), allocatable :: mixer
-      allocate(mixer)
-      call new_broyden(mixer, ndim, broyden_input(memory, damp))
-      call move_alloc(mixer, self)
-   end block
+   integer :: memory
+
+   memory = input%max_iter
+   if (input%memory > 0) memory = min(input%memory, input%max_iter)
+
+   select case(input%scf)
+   case(scf_version%broyden)
+      block
+         type(broyden_mixer), allocatable :: mixer
+         allocate(mixer)
+         call new_broyden(mixer, ndim, broyden_input(memory, input%damping))
+         call move_alloc(mixer, self)
+      end block
+   case default
+      call fatal_error(error, "Unknown SCF version selected for mixer")
+   end select
+   if (allocated(error)) return
+
 end subroutine new_mixer
 
 end module tblite_scf_mixer

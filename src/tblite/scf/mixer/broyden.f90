@@ -160,8 +160,9 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    real(wp), intent(in) :: alpha
    integer, intent(out) :: info
 
-   real(wp), allocatable :: beta(:,:), c(:, :)
-   integer :: i, j, it1, itn
+   real(wp), allocatable :: beta(:, :), c(:, :)
+   integer, allocatable :: hist(:)
+   integer :: i, j, ih, jh, it1, itn, first, nhist
    real(wp) :: inv, omega0, minw, maxw, wfac
 
    info = 0
@@ -184,7 +185,12 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
       return
    end if
 
-   allocate(beta(min(memory, itn), min(memory, itn)), c(min(memory, itn), 1))
+   nhist = min(memory, itn)
+   first = max(1, itn - memory + 1)
+   allocate(hist(nhist), beta(nhist, nhist), c(nhist, 1))
+   do ih = 1, nhist
+      hist(ih) = mod(first + ih - 2, memory) + 1
+   end do
 
    ! create omega (weight) for the current iteration
    omega(it1) = sqrt(dot_product(dq, dq))
@@ -204,18 +210,23 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    df(:, it1) = inv*df(:, it1)
 
    ! Next: build a, beta, c, gamma
-   do j = max(1, itn - memory + 1), itn
-      i = mod(j - 1, memory) + 1
-      a(i, it1) = dot_product(df(:, i), df(:, it1))
-      a(it1, i) = a(i, it1)
-      c(i, 1) = omega(i) * dot_product(df(:, i), dq)
+   do ih = 1, nhist
+      i = hist(ih)
+      c(ih, 1) = omega(i) * dot_product(df(:, i), dq)
+      do jh = 1, nhist
+         j = hist(jh)
+         a(i, j) = dot_product(df(:, i), df(:, j))
+      end do
    end do
 
    ! Build beta from a and omega
-   do j = max(1, itn - memory + 1), itn
-      i = mod(j - 1, memory) + 1
-      beta(:it1, i) = omega(:it1) * omega(i) * a(:it1, i)
-      beta(i, i) = beta(i, i) + omega0*omega0
+   do ih = 1, nhist
+      i = hist(ih)
+      do jh = 1, nhist
+         j = hist(jh)
+         beta(ih, jh) = omega(i) * omega(j) * a(i, j)
+      end do
+      beta(ih, ih) = beta(ih, ih) + omega0*omega0
    end do
 
    ! build beta^-1
@@ -232,9 +243,9 @@ subroutine broyden(n, q, qlast, dq, dqlast, iter, memory, alpha, omega, df, u, a
    ! calculate new charges
    q(:) = q + alpha * dq
 
-   do j = max(1, itn - memory + 1), itn
-      i = mod(j - 1, memory) + 1
-      q(:) = q - omega(i) * c(i, 1) * u(:, i)
+   do ih = 1, nhist
+      i = hist(ih)
+      q(:) = q - omega(i) * c(ih, 1) * u(:, i)
    end do
 
 end subroutine broyden
