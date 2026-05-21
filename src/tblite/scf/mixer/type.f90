@@ -20,15 +20,24 @@
 !> Provides base class for electronic mixing routines
 module tblite_scf_mixer_type
    use mctc_env, only : error_type, wp
+   use tblite_scf_mixer_input, only : trial_version
    implicit none
    private
 
 
    !> Abstract base class for electronic mixing
    type, public, abstract :: mixer_type
+      !> SCF loop selector for the mixer
+      integer :: trial = trial_version%default
+      !> Number of standard SCF cycles before trial strategies are enabled
+      integer :: trial_start = 0
+      !> Total number of SCF map evaluations used in the current SCF run
+      integer :: trial_evaluations = 0
    contains
       !> Apply mixing to the density
       procedure(next), deferred :: next
+      !> Select whether the mixer requires the trial inner SCF loop
+      procedure :: use_inner_scf
       !> Set new density
       generic :: set => set_1d, set_2d, set_3d
       !> Set new density from 1D array
@@ -105,6 +114,18 @@ module tblite_scf_mixer_type
    end interface
 
 contains
+
+pure function use_inner_scf(self) result(use_inner)
+   class(mixer_type), intent(in) :: self
+   logical :: use_inner
+
+   select case(self%trial)
+   case(trial_version%oda, trial_version%mesa)
+      use_inner = .true.
+   case default
+      use_inner = .false.
+   end select
+end function use_inner_scf
 
 !> Set new density from 2D array
 subroutine set_2d(self, qvec)

@@ -520,9 +520,61 @@ def get_calculator_orbital_map(ctx, calc) -> np.ndarray:
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
 set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
+set_calculator_mixer_memory = context_check(lib.tblite_set_calculator_mixer_memory)
+set_calculator_mixer_trial_start = context_check(lib.tblite_set_calculator_mixer_trial_start)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
 set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
 set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
+
+
+def set_calculator_mixer(ctx, calc, mixer):
+    """Set the SCF mixer and optional trial strategy."""
+    if isinstance(mixer, str):
+        if ":" in mixer:
+            mixer_name, trial_name = mixer.split(":", 1)
+            if not mixer_name or not trial_name:
+                raise TBLiteValueError(f"Invalid mixer specification '{mixer}'")
+        elif mixer in ("oda", "mesa"):
+            mixer_name, trial_name = "broyden", mixer
+        else:
+            mixer_name, trial_name = mixer, "default"
+    elif isinstance(mixer, (tuple, list)) and len(mixer) == 2:
+        mixer_name, trial_name = mixer
+    else:
+        raise TBLiteValueError("Expected mixer as string or (mixer, trial) pair")
+
+    mixer_map = {
+        "broyden": lib.TBLITE_MIXER_BROYDEN,
+    }
+    trial_map = {
+        "default": lib.TBLITE_MIXER_TRIAL_DEFAULT,
+        "oda": lib.TBLITE_MIXER_TRIAL_ODA,
+        "mesa": lib.TBLITE_MIXER_TRIAL_MESA,
+    }
+    try:
+        mixer_value = mixer_map[mixer_name]
+    except KeyError as exc:
+        raise TBLiteValueError(f"Unknown SCF mixer '{mixer_name}'") from exc
+    try:
+        trial_value = trial_map[trial_name]
+    except KeyError as exc:
+        raise TBLiteValueError(f"Unknown SCF mixer trial strategy '{trial_name}'") from exc
+
+    context_check(lib.tblite_set_calculator_mixer)(ctx, calc, mixer_value, trial_value)
+
+
+def set_calculator_temperature_annealing(ctx, calc, annealing):
+    """Set electronic-temperature annealing as start or (start, hold, cycles)."""
+    if isinstance(annealing, (tuple, list)):
+        if len(annealing) != 3:
+            raise TBLiteValueError("Expected annealing as start or (start, hold, cycles)")
+        initial_etemp, hold, cycles = annealing
+    else:
+        initial_etemp, hold, cycles = annealing, 50, 50
+
+    context_check(lib.tblite_set_calculator_temperature_annealing)(
+        ctx, calc, initial_etemp, int(hold), int(cycles)
+    )
 
 
 @context_check

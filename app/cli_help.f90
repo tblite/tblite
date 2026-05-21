@@ -114,6 +114,9 @@ module tblite_cli_help
       "      --param <file>       Parametrization file to use for calculation"//nl//&
       "      --acc <real>         Convergence criterion for SCF (Default: 1.0)"//nl//&
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --etemp-anneal <real>[,<int>,<int>]"//nl//&
+      "                           Initial electronic temperature for SCF annealing,"//nl//&
+      "                           optionally followed by hold and annealing steps"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, eeqbc, ceh (Charge-Extended Hückel method)"//nl//&
       "      --config <key>=<value>"//nl//&
@@ -126,6 +129,17 @@ module tblite_cli_help
       "      --no-restart         Do not restart calculation from previous run"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
+      "      --mixer <name>[:<name>]"//nl//&
+      "                           Electronic mixer: broyden (default)"//nl//&
+      "                           Append :oda or :mesa for trial-damped SCF"//nl//&
+      "      --mixer <option>=<value>"//nl//&
+      "                           Set mixer specific settings using <option>=<value> syntax"//nl//&
+      "      --mixer memory=<int>"//nl//&
+      "                           Number of previous SCF steps retained by the mixer"//nl//&
+      "      --mixer damping=<real>"//nl//&
+      "                           Damping parameter for the electronic mixer"//nl//&
+      "      --mixer trial-start=<int>"//nl//&
+      "                           Standard SCF cycles before ODA/MESA trials (Default: 4)"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
       "                           gvd (default), and gvr"//nl//&
       "      --efield <real>,<real>,<real>"//nl//&

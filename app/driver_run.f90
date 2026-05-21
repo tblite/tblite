@@ -32,6 +32,7 @@ module tblite_driver_run
    use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_results, only : results_type
+   use tblite_scf_mixer_input, only : anneal_input
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
@@ -70,7 +71,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin
+   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps
    logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
@@ -153,7 +154,7 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
-   if (allocated(config%max_iter)) calc%max_iter = config%max_iter
+   calc%mixer_input = config%mixer
 
    use_guess = .true.
    restart_exist = .false.
