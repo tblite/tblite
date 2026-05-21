@@ -439,8 +439,13 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                end if
                gradient(:, iat) = gradient(:, iat) + dG
                gradient(:, jat) = gradient(:, jat) - dG
-               sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
-                  + spread(dG, 1, 3) * spread(vec, 2, 3))
+               if (iat == jat) then
+                  sigma(:, :) = sigma + 0.25_wp * (spread(vec, 1, 3) &
+                     & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
+               else
+                  sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) &
+                     & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
+               end if
 
             end do
          end do
