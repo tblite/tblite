@@ -504,7 +504,7 @@ function central_hamiltonian_strain(mol, cn, ic, jc, step) result(deriv)
    if (any(mol%periodic)) moli%lattice(:, :) = matmul(eps, mol%lattice)
    el = get_hamiltonian_image_energy(moli, cn)
 
-   deriv = (er - el)/step
+   deriv = 0.5_wp * (er - el)/step
 end function central_hamiltonian_strain
 
 subroutine test_hamiltonian_h2(error)
