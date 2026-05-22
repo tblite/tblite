@@ -172,5 +172,5 @@ cython_debug/
 /_*/
 
 # Local xtbML configuration
-  xtbml.toml
+xtbml.toml
 
