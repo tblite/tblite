@@ -276,23 +276,6 @@ def test_solvation_gfn2_xtb_ddcosmo():
 def test_solvation_gfn2_xtb_ddcpcm():
     """Test ddCPCM solvation with GFN2-xTB"""
     thr = 5.0e-6 # currently loose testing due to non-variational CPCM
-def test_solvation_gfn2_xtb_ddcosmo():
-    """Test ddCOSMO solvation with GFN2-xTB"""
-    thr = 5.0e-6 # currently loose testing due to non-variational CPCM
-
-    atoms = get_crcp2()
-
-    atoms.calc = TBLite(method="GFN2-xTB")
-    atoms.calc.set(accuracy=0.1)
-
-    atoms.calc.set(cosmo_solvation=7.0)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8346342515409
-
-
-@pytest.mark.skipif(ase is None, reason="requires ase")
-def test_solvation_gfn2_xtb_ddcpcm():
-    """Test ddCPCM solvation with GFN2-xTB"""
-    thr = 5.0e-6 # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
