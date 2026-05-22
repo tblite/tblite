@@ -211,7 +211,7 @@ lib_deps += sdftd3_dep
 # Create ddX library as subproject
 ddx_dep = dependency(
   'ddx',
-  version: '>=0.6.0',
+  version: '>=0.8.0',
   fallback: ['ddx', 'ddx_dep'],
   default_options: ['default_library=static'],
 )
