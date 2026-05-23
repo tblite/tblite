@@ -324,17 +324,6 @@ def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
       {"gbe-solvation": [7.0, "p16"]},
       {"gb-solvation": [7.0, "still"]},
    ])
-
-@pytest.fixture(params=[
-      {"cosmo-solvation": "methanol"},
-      {"cosmo-solvation": 7.0},
-      {"cpcm-solvation": 7.0}, 
-      {"pcm-solvation": 7.0},
-      {"alpb-solvation": ["water", "bar1mol"]},
-      {"gbsa-solvation": ["methanol", "reference"]},
-      {"gbe-solvation": [7.0, "p16"]},
-      {"gb-solvation": [7.0, "still"]},
-   ])
 def solvation(request) -> dict:
     """Solvation fixture."""
     return request.param
