@@ -30,6 +30,7 @@ module tblite_api_solvation
    use tblite_container, only : container_type, container_list
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_features, only : get_tblite_feature
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
       & solvent_data, get_solvent_data, solvation_type, new_solvation, solution_state, &
@@ -72,6 +73,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
+   integer :: model_int
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
 
@@ -81,13 +83,29 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    if (.not.c_associated(verr)) return
    call c_f_pointer(verr, err)
 
+   if (.not.get_tblite_feature("ddx")) then
+      call fatal_error(err%ptr, "ddX solvation model support is not available in this build of tblite")
+      return
+   end if
+
    if (.not.c_associated(vmol)) then
       call fatal_error(err%ptr, "Molecular structure data is missing")
       return
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%ddx = ddx_input(ddx_model=model, dielectric_const=eps)
+   select case(model)
+   case default
+      call fatal_error(err%ptr, "Unknown ddX solvation model")
+   case(solvation_ddcosmo)
+      model_int = ddx_solvation_model%cosmo
+   case(solvation_ddcpcm)
+      model_int = ddx_solvation_model%cpcm
+   case(solvation_ddpcm)
+      model_int = ddx_solvation_model%pcm
+   end select
+
+   solvmodel%ddx = ddx_input(ddx_model=model_int, dielectric_const=eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    
@@ -108,6 +126,7 @@ function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
+   integer :: model_int
    type(solvation_input) :: solvmodel
    type(solvent_data) :: solvent
 
@@ -121,11 +140,27 @@ function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont
    if (.not.c_associated(verr)) return
    call c_f_pointer(verr, err)
 
+   if (.not.get_tblite_feature("ddx")) then
+      call fatal_error(err%ptr, "ddX solvation model support is not available in this build of tblite")
+      return
+   end if
+
    if (.not.c_associated(vmol)) then
       call fatal_error(err%ptr, "Molecular structure data is missing")
       return
    end if
    call c_f_pointer(vmol, mol)
+
+   select case(model)
+   case default
+      call fatal_error(err%ptr, "Unknown ddX solvation model")
+   case(solvation_ddcosmo)
+      model_int = ddx_solvation_model%cosmo
+   case(solvation_ddcpcm)
+      model_int = ddx_solvation_model%cpcm
+   case(solvation_ddpcm)
+      model_int = ddx_solvation_model%pcm
+   end select
 
    call c_f_character(csolvstr, solvstr)
    solvent = get_solvent_data(solvstr)
@@ -134,7 +169,7 @@ function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont
       return
    end if
 
-   solvmodel%ddx = ddx_input(ddx_model=model, dielectric_const=solvent%eps)
+   solvmodel%ddx = ddx_input(ddx_model=model_int, dielectric_const=solvent%eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
 

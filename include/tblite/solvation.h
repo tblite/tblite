@@ -47,9 +47,6 @@ enum tblite_solvation_param{
     tblite_solvation_gb = 20,
     tblite_solvation_gbsa_gfn1 = 21,
     tblite_solvation_gbsa_gfn2 = 22,
-};
-
-enum tblite_ddx_solvation_model{
     tblite_solvation_ddcosmo = 100,
     tblite_solvation_ddcpcm = 101,
     tblite_solvation_ddpcm = 200
@@ -66,7 +63,7 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_epsilon(tblite_error error,
                                  tblite_structure mol,
                                  double eps,
-                                 int model);
+                                 enum tblite_solvation_param model);
 
 /// Create new ddx implicit solvation container using internal parameters
 ///
@@ -79,7 +76,7 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_ddx_solvation_solvent(tblite_error error,
                                  tblite_structure mol,
                                  char* solvent,
-                                 int model);
+                                 enum tblite_solvation_param model);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -93,8 +90,8 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_gb_solvation_epsilon(tblite_error error,
                                 tblite_structure mol,
                                 double eps,
-                                int version,
-                                int born);
+                                enum tblite_solvation_param version,
+                                enum tblite_born_kernel born);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -108,5 +105,5 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_alpb_solvation_solvent(tblite_error error,
                                   tblite_structure mol,
                                   char* solvent,
-                                  int version,
-                                  int refstate);
+                                  enum tblite_solvation_param version,
+                                  enum tblite_ref_solvation_state refstate);

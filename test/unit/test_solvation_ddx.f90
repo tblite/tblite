@@ -22,11 +22,12 @@ module test_solvation_ddx
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
-   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, ddx_input 
+   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, ddx_input, new_ddx
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_basis_type, only : basis_type
    use tblite_integral_type, only : integral_type
    use tblite_context_type, only : context_type
+   use tblite_features, only : get_tblite_feature
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
@@ -51,19 +52,29 @@ subroutine collect_solvation_ddx(testsuite)
    !> Collection of tests
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
-   testsuite = [ &
-      new_unittest("energy-mol-cosmo", test_e_cosmo_m01), &
-      new_unittest("energy-mol-cpcm", test_e_cpcm_m01), &
-      new_unittest("energy-mol-pcm", test_e_pcm_m01), &
-      new_unittest("gradient-mol-num-cosmo", test_g_cosmo_m02), &
-      new_unittest("gradient-mol-num-cpcm", test_g_cpcm_m02), &
-      new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
-      new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
-      new_unittest("potential-mol-cpcm", test_p_cpcm_m03), &
-      new_unittest("potential-mol-pcm", test_p_pcm_m03) &
-      ]
+   if (get_tblite_feature("ddx")) then
+      testsuite = [ &
+         new_unittest("energy-mol-cosmo", test_e_cosmo_m01), &
+         new_unittest("energy-mol-cpcm", test_e_cpcm_m01), &
+         new_unittest("energy-mol-pcm", test_e_pcm_m01), &
+         new_unittest("gradient-mol-num-cosmo", test_g_cosmo_m02), &
+         new_unittest("gradient-mol-num-cpcm", test_g_cpcm_m02), &
+         new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
+         new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
+         new_unittest("potential-mol-cpcm", test_p_cpcm_m03), &
+         new_unittest("potential-mol-pcm", test_p_pcm_m03) &
+         ]
+   else
+      testsuite = [new_unittest("ddx-disabled", test_ddx_disabled)]
+   end if
 
 end subroutine collect_solvation_ddx
+
+subroutine test_ddx_disabled(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   call check(error, .not.get_tblite_feature("ddx"), "ddX feature is unexpectedly enabled")
+end subroutine test_ddx_disabled
 
 
 subroutine test_e(error, model, mol, qat, ref)
@@ -96,7 +107,8 @@ subroutine test_e(error, model, mol, qat, ref)
    allocate(pot%vat(size(qat, 1), 1), source=0.0_wp)
    energy = 0.0_wp
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   call new_ddx(solv, mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -145,7 +157,8 @@ subroutine test_g(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   call new_ddx(solv, mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    allocate(numg(3, mol%nat), gradient(3, mol%nat))
    do ii = 1, mol%nat
@@ -214,7 +227,8 @@ subroutine test_p(error, model, mol, qat)
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
 
-   solv = ddx_solvation(mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang))
+   call new_ddx(solv, mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
 
    allocate(cache)
    call solv%update(mol, cache)

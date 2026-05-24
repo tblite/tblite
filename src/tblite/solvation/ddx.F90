@@ -14,21 +14,27 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+#ifndef TBLITE_HAS_DDX
+#define TBLITE_HAS_DDX 0
+#endif
+
 !> @file tblite/solvation/ddx.f90
 !> Provides a polarizable continuum model in domain decomposition (dd) framework of ddX
 
 !> Implicit solvation model based on a polarizable dielectric continuum in domain
 !> decomposition framework of ddX
 module tblite_solvation_ddx
+#if TBLITE_HAS_DDX
    use ddx, only: allocate_state, check_error, ddinit, ddrun, ddx_error_type, &
       & ddx_state_type, ddx_type, fill_guess, fill_guess_adjoint, setup, &
       & solvation_force_terms, solve, solve_adjoint
    use ddx_core, only: ddx_electrostatics_type
    use ddx_multipolar_solutes, only: multipole_electrostatics, multipole_force_terms, multipole_psi
-   use mctc_env, only: wp
+#endif
+   use mctc_env, only: wp, error_type, fatal_error
    use mctc_io, only: structure_type
    use mctc_io_constants, only: pi
-   use omp_lib, only: omp_get_max_threads
+!$ use omp_lib, only: omp_get_max_threads
    use tblite_blas, only: dot, gemv
    use tblite_container_cache, only: container_cache
    use tblite_mesh_lebedev, only: grid_size
@@ -42,6 +48,7 @@ module tblite_solvation_ddx
    private
 
    public :: ddx_solvation, new_ddx, ddx_input, ddx_cache, ddx_solvation_model
+   public :: valid_ddx_model
 
    !> Possible solvation models to be used within the dd framework
    type :: enum_ddx_solvation_model
@@ -64,7 +71,7 @@ module tblite_solvation_ddx
    !> Input for ddX solvation
    type :: ddx_input
       !> ddX model
-      integer :: ddx_model 
+      integer :: ddx_model = ddx_solvation_model%cosmo
       !> Dielectric constant
       real(wp) :: dielectric_const
       !> van der Waals radii for all atoms
@@ -132,13 +139,9 @@ module tblite_solvation_ddx
       procedure :: get_gradient
    end type ddx_solvation
 
-   !> Provide constructor for ddX solvation
-   interface ddx_solvation
-      module procedure :: create_ddx
-   end interface ddX_solvation
-
    !> Restart data for ddX calculation
    type :: ddx_cache
+#if TBLITE_HAS_DDX
       !> ddX instance
       type(ddx_type) :: ddx 
       !> ddX container with quantities common to all models
@@ -147,6 +150,7 @@ module tblite_solvation_ddx
       type(ddx_electrostatics_type) :: ddx_electrostatics
       !> ddX error handling
       type(ddx_error_type) :: ddx_error
+#endif
       !> Interaction matrix with surface charges jmat(ncav, nat)
       real(wp), allocatable :: jmat(:, :)
       !> ddX potential
@@ -176,7 +180,6 @@ function create_ddx_input(ddx_model, dielectric_const, rvdw, rscale, nang, eta, 
 
    type(ddx_input) :: self
 
-
    if (present(ddx_model)) then
       self%ddx_model = ddx_model
    end if
@@ -205,14 +208,27 @@ function create_ddx_input(ddx_model, dielectric_const, rvdw, rscale, nang, eta, 
 
 end function create_ddx_input
 
+pure function valid_ddx_model(model) result(valid)
+   !> ddX model identifier
+   integer, intent(in) :: model
+   logical :: valid
+
+   valid = model == ddx_solvation_model%cosmo .or. &
+      & model == ddx_solvation_model%cpcm .or. &
+      & model == ddx_solvation_model%pcm
+end function valid_ddx_model
+
 !> Create new electric field container
-subroutine new_ddx(self, mol, input)
+subroutine new_ddx(self, mol, input, error)
    !> Instance of the solvation model
    type(ddx_solvation), intent(out) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Input for ddX solvation
    type(ddx_input), intent(in) :: input
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+#if TBLITE_HAS_DDX
    integer :: iat, izp
    real(wp) :: feps_param 
 
@@ -223,13 +239,17 @@ subroutine new_ddx(self, mol, input)
       self%label = "ddcpcm solvation model"
    else if (input%ddx_model == ddx_solvation_model%pcm) then
       self%label = "ddpcm solvation model"
+   else
+      call fatal_error(error, "Unknown ddX solvation model")
+      return
    end if
 
    ! Set model 
    self%ddx_model = input%ddx_model
 
    ! Get number of OMP threads
-   self%nproc = omp_get_max_threads()
+   self%nproc = 1
+!$ self%nproc = omp_get_max_threads()
 
    ! Get radii for all atoms
    allocate(self%rvdw(mol%nat), source=0.0_wp)
@@ -267,22 +287,11 @@ subroutine new_ddx(self, mol, input)
    self%nang = input%nang
    self%eta = input%eta
    self%lmax = input%lmax
+#else
+   call fatal_error(error, "ddX solvation model support is not available in this build of tblite")
+#endif
 
 end subroutine new_ddx
-
-!> Type constructor for ddX solvation
-function create_ddx(mol, input) result(self)
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Input for ddX solvation
-   type(ddx_input), intent(in) :: input
-   !> Instance of the solvation model
-   type(ddx_solvation) :: self
-
-   ! Create new instance of the solvation model
-   call new_ddx(self, mol, input)
-
-end function create_ddx
 
 
 !> Update cache from container
@@ -293,6 +302,7 @@ subroutine update(self, mol, cache)
    type(structure_type), intent(in) :: mol
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
+#if TBLITE_HAS_DDX
    type(ddx_cache), pointer :: ptr
 
    integer :: model
@@ -382,6 +392,7 @@ subroutine update(self, mol, cache)
    call fill_guess_adjoint(ptr%ddx%params, ptr%ddx%constants, &
       & ptr%ddx%workspace, ptr%ddx_state, self%conv, ptr%ddx_error)
    call check_error(ptr%ddx_error)
+#endif
 
 end subroutine update
 
@@ -397,6 +408,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    real(wp), intent(inout) :: energies(:)
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
+#if TBLITE_HAS_DDX
    type(ddx_cache), pointer :: ptr
 
    call view(cache, ptr)
@@ -425,6 +437,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    ! Add solvation energy to total energy
    energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
+#endif
 
 end subroutine get_energy
 
@@ -440,6 +453,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(potential_type), intent(inout) :: pot
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
+#if TBLITE_HAS_DDX
    type(ddx_cache), pointer :: ptr
 
    call view(cache, ptr)
@@ -488,6 +502,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
    ! Add potential to overall potential for new SCC step
    pot%vat(:,1) = pot%vat(:,1) + ptr%ddx_pot(:)
+#endif
 
 end subroutine get_potential
 
@@ -504,6 +519,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Strain derivatives of the solvation free energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
+#if TBLITE_HAS_DDX
    !> Temporary variable for the ddX force/gradient
    real(wp), allocatable :: force(:,:)
 
@@ -531,6 +547,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    ! Add the gradient of the solvation energy to the total gradient
    gradient =  gradient + force
+#endif
 
 end subroutine get_gradient
 

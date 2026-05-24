@@ -435,6 +435,10 @@ subroutine get_run_arguments(config, list, start, error)
          end select
 
       case("--cosmo", "--cpcm", "--pcm")
+         if (.not.get_tblite_feature("ddx")) then
+            call fatal_error(error, "ddX solvation support is not available in this build")
+            exit
+         end if
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
@@ -1153,6 +1157,7 @@ subroutine version(unit)
    call get_tblite_version(string=version_string)
    write(unit, '(a, *(1x, a))') &
       & prog_name, "version", version_string
+   write(unit, '(a, 1x, a)') "ddX support:", merge("enabled ", "disabled", get_tblite_feature("ddx"))
    write(unit, '(a, 1x, a)') "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
    write(unit, '(a, 1x, a)') "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
 

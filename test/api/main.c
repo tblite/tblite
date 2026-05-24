@@ -3165,6 +3165,14 @@ int test_uninitialized_solvation()
         goto unexpected;
     show(error);
 
+    // check we get an error when the ddX model is not listed
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, 999);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
+        goto unexpected;
+    show(error);
+
     cont = tblite_new_alpb_solvation_solvent(error, mol, "ínvalid-solvent", tblite_solvation_alpb_gfn2, tblite_state_bar1mol);
     if (!tblite_check(error))
         goto unexpected;

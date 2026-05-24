@@ -29,6 +29,10 @@ include(GNUInstallDirs)
 # General configuration information
 add_subdirectory("config")
 
+if(WITH_DDX)
+  enable_language("CXX")
+endif()
+
 if(NOT TARGET "OpenMP::OpenMP_Fortran")
   if (WITH_OpenMP)
     find_package("OpenMP" REQUIRED)
@@ -85,8 +89,8 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
-set(EXAMPLES OFF CACHE BOOL "Disable ddx examples" FORCE)
-if(NOT TARGET "ddx::ddx")
+if(WITH_DDX AND NOT TARGET "ddx::ddx")
+  set(EXAMPLES OFF CACHE BOOL "Disable ddx examples" FORCE)
   find_package("ddx" REQUIRED)
 endif()
   
@@ -95,7 +99,6 @@ set(
   "OpenMP::OpenMP_Fortran"
   "LAPACK::LAPACK"
   "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
-  "ddx::ddx"
   "toml-f::toml-f"
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
@@ -126,6 +129,18 @@ target_link_libraries(
   PUBLIC
   "${lib-deps}"
 )
+if(WITH_DDX)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "ddx::ddx"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_DDX=1"
+  )
+endif()
 if(WITH_HDF5)
   target_link_libraries(
     "${PROJECT_NAME}-lib"
@@ -162,29 +177,31 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
-set(ddx_module_dir)
-if(DEFINED DDX_BINARY_DIR)
-  set(ddx_module_dir "${DDX_BINARY_DIR}/src")
-elseif(DEFINED ddX_BINARY_DIR)
-  set(ddx_module_dir "${ddX_BINARY_DIR}/src")
-elseif(TARGET ddx)
-  get_target_property(ddx_module_dir ddx Fortran_MODULE_DIRECTORY)
-  if(NOT ddx_module_dir)
-    get_target_property(ddx_module_dir ddx BINARY_DIR)
+if(WITH_DDX)
+  set(ddx_module_dir)
+  if(DEFINED DDX_BINARY_DIR)
+    set(ddx_module_dir "${DDX_BINARY_DIR}/src")
+  elseif(DEFINED ddX_BINARY_DIR)
+    set(ddx_module_dir "${ddX_BINARY_DIR}/src")
+  elseif(TARGET ddx)
+    get_target_property(ddx_module_dir ddx Fortran_MODULE_DIRECTORY)
+    if(NOT ddx_module_dir)
+      get_target_property(ddx_module_dir ddx BINARY_DIR)
+    endif()
   endif()
-endif()
-if(ddx_module_dir)
-  add_library(ddx_includes INTERFACE)
-  install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
-  target_include_directories(ddx_includes
-    INTERFACE
-      $<BUILD_INTERFACE:${ddx_module_dir}>
-      $<INSTALL_INTERFACE:include/ddx>
-  )
-  install(DIRECTORY "${ddx_module_dir}/"
-          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
-          FILES_MATCHING PATTERN "*.mod")
-  target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
+  if(ddx_module_dir)
+    add_library(ddx_includes INTERFACE)
+    install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
+    target_include_directories(ddx_includes
+      INTERFACE
+        $<BUILD_INTERFACE:${ddx_module_dir}>
+        $<INSTALL_INTERFACE:include/ddx>
+    )
+    install(DIRECTORY "${ddx_module_dir}/"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
+            FILES_MATCHING PATTERN "*.mod")
+    target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
+  endif()
 endif()
 
 # Add example application

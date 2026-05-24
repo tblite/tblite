@@ -1168,6 +1168,7 @@ subroutine test_energy_sum_up_gfn1(error)
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn1_calculator(calc,mol,error)
+   if (allocated(error)) return
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
    allocate(pproc)
    allocate(xtbml_param)
@@ -1183,7 +1184,8 @@ subroutine test_energy_sum_up_gfn1(error)
 
       ddx_inp = ddx_input(ddx_model=ddx_solvation_model%cpcm, dielectric_const=4.0_wp) ! ddCPCM
       allocate(solv)
-      call new_ddx(solv, mol, ddx_inp)
+      call new_ddx(solv, mol, ddx_inp, error)
+      if (allocated(error)) return
       call move_alloc(solv, cont)
       call calc%push_back(cont)
    end block
