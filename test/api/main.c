@@ -3131,6 +3131,12 @@ int test_uninitialized_solvation()
     tblite_error error = NULL;
     tblite_structure mol = NULL;
     tblite_container cont = NULL;
+    int natoms = 2;
+    int num[2] = { 1, 1 };
+    double xyz[6] = {
+        0.0, 0.0, 0.0,
+        0.0, 0.0, 1.4,
+    };
 
     error = tblite_new_error();
     // check that we get an immediate return if error is not associated
@@ -3138,9 +3144,39 @@ int test_uninitialized_solvation()
     if (cont != NULL) goto unexpected;
     error = tblite_new_error();
 
-    //check if it fails when mol is not associated
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 0.0);
+    // check if it fails when mol is not associated
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_solvation_ddcosmo);
     if (!tblite_check(error))
+        goto unexpected;
+    show(error);
+    cont = tblite_new_ddx_solvation_solvent(error, mol, "water", tblite_solvation_ddcosmo);
+    if (!tblite_check(error))
+        goto unexpected;
+    show(error);
+
+    // check we get an error when the solvent name is not listed
+    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check(error))
+        goto unexpected;
+    cont = tblite_new_ddx_solvation_solvent(error, mol, "invalid-solvent", tblite_solvation_ddcosmo);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
+        goto unexpected;
+    show(error);
+
+    // check we get an error when the ddX model is not listed
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, 999);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
+        goto unexpected;
+    show(error);
+
+    cont = tblite_new_alpb_solvation_solvent(error, mol, "ínvalid-solvent", tblite_solvation_alpb_gfn2, tblite_state_bar1mol);
+    if (!tblite_check(error))
+        goto unexpected;
+    if (cont != NULL)
         goto unexpected;
     show(error);
 
@@ -3162,9 +3198,9 @@ unexpected:
     return 1;
 }
 
-int test_solvation_cpcm_eps()
+int test_solvation_ddcosmo_eps()
 {
-    printf("Start test: CPCM Solvation\n");
+    printf("Start test: ddCOSMO Solvation\n");
     tblite_error error = NULL;
     tblite_context ctx = NULL;
     tblite_structure mol = NULL;
@@ -3186,7 +3222,7 @@ int test_solvation_cpcm_eps()
     if (!calc)
         goto err;
 
-    cont = tblite_new_cpcm_solvation_epsilon(error, mol, 7.0);
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_solvation_ddcosmo);
     if (tblite_check(error))
         goto err;
 
@@ -3202,7 +3238,7 @@ int test_solvation_cpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.43287176929, thr, "energy error"))
+   if (!check(energy, -28.43789851660, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -3225,6 +3261,227 @@ err:
         printf("[Fatal] %s\n", message);
     }
 
+      
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
+int test_solvation_ddcpcm_eps()
+{
+    printf("Start test: ddCPCM Solvation\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    const double thr = 1.0e-6;
+
+    double energy;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_solvation_ddcpcm);
+    if (tblite_check(error))
+        goto err;
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check(error))
+        goto err;
+
+   if (!check(energy, -28.43800959099, thr, "energy error"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 0;
+err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+      
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
+int test_solvation_ddcpcm_solvent()
+{
+    printf("Start test: ddCPCM Solvation\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    const double thr = 1.0e-6;
+
+    double energy;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    cont = tblite_new_ddx_solvation_solvent(error, mol, "toluene", tblite_solvation_ddcpcm);
+    if (tblite_check(error))
+        goto err;
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check(error))
+        goto err;
+
+   if (!check(energy, -28.43747404383, thr, "energy error"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 0;
+err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
+int test_solvation_ddpcm_eps()
+{
+    printf("Start test: ddPCM Solvation\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    const double thr = 1.0e-6;
+
+    double energy;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+
+    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, tblite_solvation_ddpcm);
+    if (tblite_check(error))
+        goto err;
+
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check(error))
+        goto err;
+
+   if (!check(energy, -28.43751950718, thr, "energy error"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 0;
+err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+      
     tblite_delete(error);
     tblite_delete(ctx);
     tblite_delete(mol);
@@ -3695,7 +3952,10 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
-    stat += test_solvation_cpcm_eps();
+    stat += test_solvation_ddcosmo_eps();
+    stat += test_solvation_ddcpcm_eps();
+    stat += test_solvation_ddcpcm_solvent();
+    stat += test_solvation_ddpcm_eps();
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();

@@ -30,19 +30,24 @@ module tblite_api_solvation
    use tblite_container, only : container_type, container_list
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_features, only : get_tblite_feature
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
+   use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
       & solvent_data, get_solvent_data, solvation_type, new_solvation, solution_state, &
-      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel
+      & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel, &
+      & ddx_solvation_model
    use tblite_api_utils, only: c_f_character
    implicit none
    private
 
-   public :: new_gb_solvation_epsilon_api, new_alpb_solvation_solvent_api, &
-      & new_cpcm_solvation_epsilon_api
+   public :: new_ddx_solvation_epsilon_api, new_ddx_solvation_solvent_api, &
+      & new_gb_solvation_epsilon_api, new_alpb_solvation_solvent_api
 
    enum, bind(c)
       enumerator :: &
+         solvation_ddcosmo = 100, &
+         solvation_ddcpcm = 101, &
+         solvation_ddpcm = 200, &
          solvation_gbe = 10, &
          solvation_alpb_gfn1 = 11, &
          solvation_alpb_gfn2 = 12, &
@@ -57,24 +62,31 @@ module tblite_api_solvation
 contains
 
 
-function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
-   & bind(C, name=namespace//"new_cpcm_solvation_epsilon")
+function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
+   & bind(C, name=namespace//"new_ddx_solvation_epsilon")
    type(c_ptr), value :: verr
    type(vp_error), pointer :: err
    type(c_ptr), value :: vmol
    type(vp_structure), pointer :: mol
    real(kind=c_double), value :: eps
+   integer(c_int), value :: model
    type(c_ptr) :: vcont
    type(vp_container), pointer :: cont
 
+   integer :: model_int
    type(solvation_input) :: solvmodel
    class(solvation_type), allocatable :: solv
 
-   if (debug) print '("[Info]", 1x, a)', "new_cpcm_solvation_epsilon"
+   if (debug) print '("[Info]", 1x, a)', "new_ddx_solvation_epsilon"
    vcont = c_null_ptr
 
    if (.not.c_associated(verr)) return
    call c_f_pointer(verr, err)
+
+   if (.not.get_tblite_feature("ddx")) then
+      call fatal_error(err%ptr, "ddX solvation model support is not available in this build of tblite")
+      return
+   end if
 
    if (.not.c_associated(vmol)) then
       call fatal_error(err%ptr, "Molecular structure data is missing")
@@ -82,7 +94,19 @@ function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
    end if
    call c_f_pointer(vmol, mol)
 
-   solvmodel%cpcm = cpcm_input(eps)
+   select case(model)
+   case default
+      call fatal_error(err%ptr, "Unknown ddX solvation model")
+      return
+   case(solvation_ddcosmo)
+      model_int = ddx_solvation_model%cosmo
+   case(solvation_ddcpcm)
+      model_int = ddx_solvation_model%cpcm
+   case(solvation_ddpcm)
+      model_int = ddx_solvation_model%pcm
+   end select
+
+   solvmodel%ddx = ddx_input(ddx_model=model_int, dielectric_const=eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
    
@@ -90,7 +114,73 @@ function new_cpcm_solvation_epsilon_api(verr, vmol, eps) result(vcont) &
    call move_alloc(solv, cont%ptr)
    
    vcont = c_loc(cont)
-end function new_cpcm_solvation_epsilon_api
+end function new_ddx_solvation_epsilon_api
+
+function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont) &
+   & bind(C, name=namespace//"new_ddx_solvation_solvent")
+   type(c_ptr), value :: verr
+   type(vp_error), pointer :: err
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   character(kind=c_char), intent(in) :: csolvstr(*)
+   integer(c_int), value :: model
+   type(c_ptr) :: vcont
+   type(vp_container), pointer :: cont
+
+   integer :: model_int
+   type(solvation_input) :: solvmodel
+   type(solvent_data) :: solvent
+
+   character(len=:), allocatable :: solvstr
+
+   class(solvation_type), allocatable :: solv
+
+   if (debug) print '("[Info]", 1x, a)', "new_ddx_solvation_solvent"
+   vcont = c_null_ptr
+
+   if (.not.c_associated(verr)) return
+   call c_f_pointer(verr, err)
+
+   if (.not.get_tblite_feature("ddx")) then
+      call fatal_error(err%ptr, "ddX solvation model support is not available in this build of tblite")
+      return
+   end if
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(err%ptr, "Molecular structure data is missing")
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   select case(model)
+   case default
+      call fatal_error(err%ptr, "Unknown ddX solvation model")
+      return
+   case(solvation_ddcosmo)
+      model_int = ddx_solvation_model%cosmo
+   case(solvation_ddcpcm)
+      model_int = ddx_solvation_model%cpcm
+   case(solvation_ddpcm)
+      model_int = ddx_solvation_model%pcm
+   end select
+
+   call c_f_character(csolvstr, solvstr)
+   solvent = get_solvent_data(solvstr)
+   if (solvent%eps <= 0.0_wp) then
+      call fatal_error(err%ptr, "String value for epsilon was not found among database of solvents")
+      return
+   end if
+
+   solvmodel%ddx = ddx_input(ddx_model=model_int, dielectric_const=solvent%eps)
+   call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
+   if (allocated(err%ptr)) return
+
+   allocate(cont)
+   call move_alloc(solv, cont%ptr)
+
+   vcont = c_loc(cont)
+
+end function new_ddx_solvation_solvent_api
 
 function new_gb_solvation_epsilon_api(verr, vmol, eps, version, born_type) result(vcont) &
    & bind(C, name=namespace//"new_gb_solvation_epsilon")

@@ -17,11 +17,12 @@
 
 module tblite_cli_features
    use tblite_features, only : get_tblite_lib_feature => get_tblite_feature, &
-      & tblite_use_hdf5, tblite_use_trexio
+   & tblite_use_ddx, tblite_use_hdf5, tblite_use_trexio
    implicit none
    private
 
    public :: get_tblite_feature
+   public :: tblite_use_ddx
    public :: tblite_use_hdf5
    public :: tblite_use_trexio
 

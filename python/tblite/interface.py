@@ -493,7 +493,7 @@ class Calculator(Structure):
         "spin-polarization": library.new_spin_polarization,
         "alpb-solvation": library.new_alpb_solvation,
         "gbsa-solvation": library.new_gbsa_solvation,
-        "cpcm-solvation": library.new_cpcm_solvation,
+        "ddX-solvation": library.new_ddx_solvation,
         "gbe-solvation": library.new_gbe_solvation,
         "gb-solvation": library.new_gb_solvation,
     }
@@ -579,7 +579,7 @@ class Calculator(Structure):
          spin-polarization   Spin polarization           Scaling factor
          alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
          gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
-         cpcm-solvation      CPCM implicit solvation     Epsilon
+         ddX-solvation       dd-based implicit solvation Epsilon / Solvent name, model
          gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
          gb-solvation        GB implicit solvation       Epsilon, Born kernel
         =================== =========================== =========================================

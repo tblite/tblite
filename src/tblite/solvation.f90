@@ -24,8 +24,9 @@
 module tblite_solvation
    use mctc_env, only : error_type, fatal_error
    use mctc_io, only : structure_type
+   use tblite_features, only : tblite_use_ddx
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input, born_kernel
-   use tblite_solvation_cpcm, only : cpcm_solvation, new_cpcm, cpcm_input
+   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
    use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solution_state
    use tblite_solvation_data, only : solvent_data, get_solvent_data
@@ -38,7 +39,7 @@ module tblite_solvation
    private
 
    public :: alpb_solvation, new_alpb, alpb_input, born_kernel
-   public :: cpcm_solvation, new_cpcm, cpcm_input
+   public :: ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
    public :: cds_solvation, new_cds, cds_input
    public :: shift_solvation, new_shift, shift_input
    public :: solvent_data, get_solvent_data
@@ -62,6 +63,7 @@ subroutine new_solvation(solv, mol, input, error, method)
    character(len=*), optional, intent(in) :: method
    !> scratch input
    type(alpb_input), allocatable :: scratch_input
+   type(ddx_solvation), allocatable :: ddx_solv
 
    if (allocated(input%alpb)) then
       scratch_input = input%alpb
@@ -77,8 +79,15 @@ subroutine new_solvation(solv, mol, input, error, method)
       return
    end if
 
-   if (allocated(input%cpcm)) then
-      solv = cpcm_solvation(mol, input%cpcm)
+   if (allocated(input%ddx)) then
+      if (.not.tblite_use_ddx) then
+         call fatal_error(error, "ddX solvation support is not available in this build")
+         return
+      end if
+      allocate(ddx_solv)
+      call new_ddx(ddx_solv, mol, input%ddx, error)
+      if (allocated(error)) return
+      call move_alloc(ddx_solv, solv)
       return
    end if
 

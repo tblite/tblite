@@ -47,18 +47,36 @@ enum tblite_solvation_param{
     tblite_solvation_gb = 20,
     tblite_solvation_gbsa_gfn1 = 21,
     tblite_solvation_gbsa_gfn2 = 22,
+    tblite_solvation_ddcosmo = 100,
+    tblite_solvation_ddcpcm = 101,
+    tblite_solvation_ddpcm = 200
 };
 
-/// Create new CPCM implicit solvation container using internal parameters
+/// Create new ddx implicit solvation container using internal parameters
 ///
 /// @param error: Error handle
 /// @param mol: Molecular structure data
 /// @param eps: epsilon value for solvent
+/// @param model: type of solvation model to use (COSMO=100, CPCM=101, PCM=200)
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_cpcm_solvation_epsilon(tblite_error error,
-                                  tblite_structure mol,
-                                  double eps);
+tblite_new_ddx_solvation_epsilon(tblite_error error,
+                                 tblite_structure mol,
+                                 double eps,
+                                 enum tblite_solvation_param model);
+
+/// Create new ddx implicit solvation container using internal parameters
+///
+/// @param error: Error handle
+/// @param mol: Molecular structure data
+/// @param solvent: Solvent name to be described
+/// @param model: type of solvation model to use (COSMO=100, CPCM=101, PCM=200)
+/// @return New interaction container
+TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
+tblite_new_ddx_solvation_solvent(tblite_error error,
+                                 tblite_structure mol,
+                                 char* solvent,
+                                 enum tblite_solvation_param model);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -72,8 +90,8 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_gb_solvation_epsilon(tblite_error error,
                                 tblite_structure mol,
                                 double eps,
-                                int version,
-                                int born);
+                                enum tblite_solvation_param version,
+                                enum tblite_born_kernel born);
 
 /// Create new ALPB implicit solvation container using internal parameters
 ///
@@ -87,5 +105,5 @@ TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
 tblite_new_alpb_solvation_solvent(tblite_error error,
                                   tblite_structure mol,
                                   char* solvent,
-                                  int version,
-                                  int refstate);
+                                  enum tblite_solvation_param version,
+                                  enum tblite_ref_solvation_state refstate);

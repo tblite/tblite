@@ -14,6 +14,9 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+#ifndef TBLITE_HAS_DDX
+#define TBLITE_HAS_DDX 0
+#endif
 #ifndef TBLITE_HAS_HDF5
 #define TBLITE_HAS_HDF5 0
 #endif
@@ -30,10 +33,13 @@ module tblite_features
    private
 
    public :: get_tblite_feature
+   public :: tblite_use_ddx
    public :: tblite_use_hdf5
    public :: tblite_use_trexio
 
 
+   !> Logical flag indicating if DDX solvation model support is available
+   logical, parameter :: tblite_use_ddx = TBLITE_HAS_DDX /= 0
    !> Logical flag indicating if HDF5 support is available
    logical, parameter :: tblite_use_hdf5 = TBLITE_HAS_HDF5 /= 0
    !> Logical flag indicating if TREXIO support is available
@@ -49,6 +55,8 @@ pure function get_tblite_feature(flag) result(use_feature)
    logical :: use_feature
 
    select case(flag)
+   case("ddx")
+      use_feature = tblite_use_ddx
    case("hdf5")
       use_feature = tblite_use_hdf5
    case("trexio")

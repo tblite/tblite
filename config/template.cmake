@@ -2,6 +2,7 @@
 
 set("@PROJECT_NAME@_WITH_OpenMP" @WITH_OpenMP@)
 set("@PROJECT_NAME@_WITH_API" @WITH_API@)
+set("@PROJECT_NAME@_WITH_DDX" @WITH_DDX@)
 set("@PROJECT_NAME@_WITH_HDF5" @WITH_HDF5@)
 set(
   "@PROJECT_NAME@_INCLUDE_DIRS"
@@ -42,4 +43,8 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   if(NOT TARGET "dftd4::dftd4")
     find_dependency("dftd4")
   endif()
+
+   if(NOT TARGET "ddx::ddx" AND "@PROJECT_NAME@_WITH_DDX")
+      find_dependency("ddx")
+   endif()
 endif()

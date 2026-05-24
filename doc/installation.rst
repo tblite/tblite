@@ -97,6 +97,7 @@ Optional dependencies are
 
 - `asciidoctor`_, to build the manual pages
 - A C compiler to test the C API and compile the Python extension module
+- A C++ compiler to build ddX solvation support
 - Python 3.6 or newer with the `CFFI`_ package installed to build the Python API
 
 To setup a new build run
@@ -105,7 +106,7 @@ To setup a new build run
 
    meson setup _build --prefix=$HOME/.local
 
-The Fortran and C compiler can be selected with the ``FC`` and ``CC`` environment variable, respectively.
+The Fortran, C, and C++ compilers can be selected with the ``FC``, ``CC``, and ``CXX`` environment variables, respectively.
 The installation location is selected using the ``--prefix`` option.
 The required Fortran modules will be fetched automatically from the upstream repositories and checked out in the *subprojects* directory.
 

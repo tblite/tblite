@@ -207,3 +207,17 @@ sdftd3_dep = dependency(
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
 lib_deps += sdftd3_dep
+
+# Create ddX library as subproject
+if get_option('ddx')
+  ddx_dep = dependency(
+    'ddx',
+    version: '>=0.8.0',
+    fallback: ['ddx', 'ddx_dep'],
+    default_options: ['default_library=static'],
+  )
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_DDX=1'],
+    dependencies: [ddx_dep],
+  )
+endif

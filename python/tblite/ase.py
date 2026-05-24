@@ -136,7 +136,9 @@ class TBLite(ase.calculators.calculator.Calculator):
     ================== ====================================================
      "alpb"             Solvent name (str), solution state (optional)
      "gbsa"             Solvent name (str), solution state (optional)
-     "cpcm"             Epsilon (float)
+     "cosmo"            Epsilon (float) / Solvent name (str)
+     "cpcm"             Epsilon (float) / Solvent name (str)
+     "pcm"              Epsilon (float) / Solvent name (str)
      "gbe"              Epsilon (float), Born kernel
      "gb"               Epsilon (float), Born kernel
     ================== ====================================================
@@ -479,16 +481,23 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
     when new values are provided.
     """
 
+    ddx_models = ("cosmo", "cpcm", "pcm")
+
     for key in (
         "alpb",
         "gbsa",
+        "cosmo",
         "cpcm",
+        "pcm",
         "gbe",
         "gb",
     ):
         if f"{key}_solvation" in kwargs:
             value = kwargs.pop(f"{key}_solvation")
-            if isinstance(value, (tuple, list)):
+
+            if key in ddx_models:
+                value = ("ddX", value, key)
+            elif isinstance(value, (tuple, list)):
                 value = (key, *value)
             else:
                 value = (key, value)
@@ -497,6 +506,7 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
                 raise ase.calculators.calculator.InputError(
                     "Multiple solvation models provided, can only use one"
                 )
+
             kwargs["solvation"] = value
 
 
