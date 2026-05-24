@@ -97,6 +97,7 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    select case(model)
    case default
       call fatal_error(err%ptr, "Unknown ddX solvation model")
+      return
    case(solvation_ddcosmo)
       model_int = ddx_solvation_model%cosmo
    case(solvation_ddcpcm)
@@ -154,6 +155,7 @@ function new_ddx_solvation_solvent_api(verr, vmol, csolvstr, model) result(vcont
    select case(model)
    case default
       call fatal_error(err%ptr, "Unknown ddX solvation model")
+      return
    case(solvation_ddcosmo)
       model_int = ddx_solvation_model%cosmo
    case(solvation_ddcpcm)

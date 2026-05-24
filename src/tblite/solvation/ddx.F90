@@ -518,13 +518,13 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: gradient(:, :)
    !> Strain derivatives of the solvation free energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
+   !> Reusable data container
+   type(container_cache), intent(inout) :: cache
 
 #if TBLITE_HAS_DDX
    !> Temporary variable for the ddX force/gradient
    real(wp), allocatable :: force(:,:)
 
-   !> Reusable data container
-   type(container_cache), intent(inout) :: cache
    type(ddx_cache), pointer :: ptr
    
    call view(cache, ptr)
