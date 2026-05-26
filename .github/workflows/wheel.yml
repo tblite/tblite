@@ -169,29 +169,9 @@ jobs:
           python -m pip install ./tblite-*cp311*manylinux*.whl numpy \
             'torch==2.6.0+cpu' \
             --extra-index-url https://download.pytorch.org/whl/cpu
-      - name: Five identical singlepoints must be bit-identical
-        run: |
-          python - <<'PY'
-          import numpy as np
-          import torch  # noqa: F401  -- loads torch's bundled libgomp first
-          from tblite.interface import Calculator
 
-          H2O = np.array([[0.0, 0.0, 0.0],
-                          [1.4309, 1.1074, 0.0],
-                          [-1.4309, 1.1074, 0.0]])
-          energies = []
-          for i in range(5):
-              calc = Calculator("GFN1-xTB", np.array([8, 1, 1]), H2O,
-                                charge=0.0, uhf=0)
-              calc.set("verbosity", 0)
-              energies.append(float(calc.singlepoint().get("energy")))
-              print(f"call {i}: {energies[-1]:.15f}")
-          # Determinism is the real signal; a fixed wheel produces bit-identical
-          # results across calls. A wide sanity range catches "wheel returns
-          # garbage" without breaking on legitimate parameter updates.
-          assert len(set(energies)) == 1, f"non-deterministic: {energies}"
-          assert -10.0 < energies[0] < 0.0, f"energy {energies[0]} outside sane range"
-          PY
+      - name: Five identical singlepoints (with torch loaded) must be deterministic or fail loudly
+        run: python .github/regressions/test_libgomp_collision.py
 
   release:
     needs:
