@@ -21,15 +21,23 @@
 module tblite_basis_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use mctc_io_constants, only : pi
    use tblite_integral_trafo, only : adjoint_transform0
    implicit none
    private
 
-   public :: new_basis, get_cutoff
+   public :: new_basis, new_cgto, get_cutoff
 
    !> Maximum contraction length of basis functions.
    !> The limit is chosen as twice the maximum size returned by the STO-NG expansion
    integer, parameter :: maxg = 12
+
+   !> Two over pi
+   real(wp), parameter :: top = 2.0_wp / pi
+
+   !> Double factorial, see OEIS A001147
+   real(wp), parameter :: dfactorial(8) = &
+      & [1.0_wp,1.0_wp,3.0_wp,15.0_wp,105.0_wp,945.0_wp,10395.0_wp,135135.0_wp]
 
    !> Contracted Gaussian type basis function
    type, public :: cgto_type
@@ -177,6 +185,38 @@ subroutine new_basis(self, mol, nshell, cgto, acc)
    self%min_alpha = min_alpha
 
 end subroutine new_basis
+
+
+!> Setup CGTO with coefficients and exponents
+subroutine new_cgto(self, ng, l, expos, coeffs, norm)
+   !> Instance of the cgto data
+   type(cgto_type), intent(out) :: self
+   !> Number of primitive Gaussian functions
+   integer, intent(in) :: ng
+   !> Azimudal quantum number of shell
+   integer, intent(in) :: l
+   !> Exponent of Gaussian function
+   real(wp), intent(in) :: expos(:)
+   !> Coefficients of the Gaussian function
+   real(wp), intent(in) :: coeffs(:)
+   !> Include normalization in contraction coefficients
+   logical, intent(in) :: norm
+
+   real(wp) :: normalizer(maxg)
+
+   self%ang = l
+   self%nprim = ng
+   self%alpha(1:ng) = expos(1:ng)
+
+   normalizer = 1.0_wp
+   if (norm) then
+      normalizer(1:ng) = (top*self%alpha(1:ng))**0.75_wp &
+         & * sqrt(4.0_wp*self%alpha(1:ng))**l / sqrt(dfactorial(l+1))
+   endif
+   self%coeff(1:ng) = coeffs(1:ng) * normalizer(1:ng)
+
+end subroutine new_cgto
+
 
 !> Determine required real space cutoff for the basis set
 pure function get_cutoff(self, acc) result(cutoff)

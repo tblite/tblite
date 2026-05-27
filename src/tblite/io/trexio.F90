@@ -33,9 +33,11 @@
 !> TREXIO writer for tblite singlepoint results.
 module tblite_io_trexio
    use mctc_env, only : error_type, fatal_error, wp
-   use mctc_io, only : structure_type
-   use tblite_basis_type, only : basis_type
-   use tblite_wavefunction_type, only : wavefunction_type, get_alpha_beta_occupation
+   use mctc_io, only : structure_type, new
+   use tblite_basis_type, only : basis_type, cgto_type, new_basis, new_cgto
+   use tblite_integral_trafo, only : transform0
+   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
+      & get_alpha_beta_occupation, get_density_matrix
 #if TBLITE_HAS_TREXIO
    use, intrinsic :: iso_c_binding, only : c_double
    use tblite_ext_trexio, only : trexio_t, trexio_back_end_t, trexio_exit_code, &
@@ -46,10 +48,13 @@ module tblite_io_trexio
       & trexio_read_electron_num, trexio_read_electron_up_num, &
       & trexio_read_electron_dn_num, trexio_read_state_energy, &
       & trexio_read_basis_shell_num, trexio_read_basis_nucleus_index, &
-      & trexio_read_basis_shell_ang_mom, trexio_read_ao_num, &
-      & trexio_read_ao_shell, trexio_read_mo_num, &
-      & trexio_read_mo_coefficient, trexio_read_mo_occupation, &
-      & trexio_read_mo_energy, trexio_read_mo_spin, &
+      & trexio_read_basis_shell_ang_mom, trexio_read_ecp_z_core, &
+      & trexio_read_ao_num, trexio_read_ao_cartesian, trexio_read_ao_shell, &
+      & trexio_read_mo_num, trexio_read_mo_coefficient, &
+      & trexio_read_mo_occupation, trexio_read_mo_energy, trexio_read_mo_spin, &
+      & trexio_read_basis_prim_num, trexio_read_basis_exponent, &
+      & trexio_read_basis_coefficient, trexio_read_basis_shell_factor, &
+      & trexio_read_basis_shell_index, trexio_read_basis_prim_factor, &
       & trexio_write_nucleus_num, trexio_write_nucleus_charge, &
       & trexio_write_nucleus_coord, trexio_write_nucleus_label, &
       & trexio_write_electron_num, trexio_write_electron_up_num, &
@@ -57,63 +62,38 @@ module tblite_io_trexio
       & trexio_write_state_id, trexio_write_state_energy, &
       & trexio_write_basis_type, trexio_write_basis_shell_num, &
       & trexio_write_basis_nucleus_index, trexio_write_basis_shell_ang_mom, &
-      & trexio_write_ao_cartesian, trexio_write_ao_num, trexio_write_ao_shell, &
-      & trexio_write_mo_type, trexio_write_mo_num, trexio_write_mo_coefficient, &
-      & trexio_write_mo_occupation, trexio_write_mo_energy, trexio_write_mo_spin
+      & trexio_write_ecp_z_core, trexio_write_ao_cartesian, trexio_write_ao_num, &
+      & trexio_write_ao_shell, trexio_write_mo_type, trexio_write_mo_num, &
+      & trexio_write_mo_coefficient, trexio_write_mo_occupation, &
+      & trexio_write_mo_energy, trexio_write_mo_spin, &
+      & trexio_write_basis_prim_num, trexio_write_basis_exponent, &
+      & trexio_write_basis_coefficient, trexio_write_basis_shell_factor, &
+      & trexio_write_basis_shell_index, trexio_write_basis_prim_factor, &
+      & trexio_write_cell_a, trexio_write_cell_b, trexio_write_cell_c, &
+      & trexio_read_cell_a, trexio_read_cell_b, trexio_read_cell_c
 #endif
    implicit none
    private
 
-   public :: trexio_data_type, load_trexio, save_trexio
+   public :: load_trexio, save_trexio
 
-   !> Data read back from a TREXIO file written by tblite.
-   type :: trexio_data_type
-      !> Number of nuclei
-      integer :: nat = 0
-      !> Number of electrons
-      integer :: electron_num = 0
-      !> Number of alpha electrons
-      integer :: electron_up_num = 0
-      !> Number of beta electrons
-      integer :: electron_dn_num = 0
-      !> Total energy in atomic units
-      real(wp) :: energy = 0.0_wp
-      !> Number of shells
-      integer :: nsh = 0
-      !> Number of atomic orbitals
-      integer :: nao = 0
-      !> Number of molecular orbitals
-      integer :: nmo = 0
-      !> Nuclear charges, shape: [nat]
-      real(wp), allocatable :: nuclear_charge(:)
-      !> Nuclear coordinates in Bohr, shape: [3, nat]
-      real(wp), allocatable :: nuclear_coord(:, :)
-      !> Nuclear labels, shape: [nat]
-      character(len=8), allocatable :: nuclear_label(:)
-      !> Shell-to-nucleus map, shape: [nsh]
-      integer, allocatable :: basis_nucleus_index(:)
-      !> Shell angular momenta, shape: [nsh]
-      integer, allocatable :: basis_shell_ang_mom(:)
-      !> AO-to-shell map, shape: [nao]
-      integer, allocatable :: ao_shell(:)
-      !> MO coefficients, shape: [nmo, nao]
-      real(wp), allocatable :: mo_coefficient(:, :)
-      !> MO occupations, shape: [nmo]
-      real(wp), allocatable :: mo_occupation(:)
-      !> MO energies, shape: [nmo]
-      real(wp), allocatable :: mo_energy(:)
-      !> MO spin labels, shape: [nmo]
-      integer, allocatable :: mo_spin(:)
-   end type trexio_data_type
+   !> Maximum contraction length allowed in TREXIO basis sets
+   integer, parameter :: maxg = 12
 
 contains
 
-!> Read tblite TREXIO output for round-trip checks.
-subroutine load_trexio(filename, data, error)
+!> Read tblite TREXIO output into tblite objects
+subroutine load_trexio(filename, mol, bas, wfn, energy, error)
    !> Input file or directory name
    character(len=*), intent(in) :: filename
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(out) :: data
+   !> Molecular structure data loaded from TREXIO
+   type(structure_type), intent(out) :: mol
+   !> Basis set information loaded from TREXIO
+   type(basis_type), intent(out) :: bas
+   !> Wavefunction data loaded from TREXIO
+   type(wavefunction_type), intent(out) :: wfn
+   !> Total energy
+   real(wp), intent(out) :: energy
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -136,11 +116,10 @@ subroutine load_trexio(filename, data, error)
       return
    end if
 
-   call read_nucleus(trex_file, data, error)
-   if (.not.allocated(error)) call read_electrons(trex_file, data, error)
-   if (.not.allocated(error)) call read_state(trex_file, data, error)
-   if (.not.allocated(error)) call read_basis(trex_file, data, error)
-   if (.not.allocated(error)) call read_mos(trex_file, data, error)
+   call load_structure(trex_file, mol, error)
+   if (.not.allocated(error)) call read_state(trex_file, energy, error)
+   if (.not.allocated(error)) call load_basis(trex_file, mol, bas, error)
+   if (.not.allocated(error)) call load_wavefunction(trex_file, mol, bas, wfn, error)
 
    rc = trexio_close(trex_file)
    if (rc /= TREXIO_SUCCESS .and. .not.allocated(error)) then
@@ -186,10 +165,13 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error)
    end if
 
    call write_nucleus(trex_file, mol, error)
-   if (.not.allocated(error)) call write_electrons(trex_file, wfn, error)
+   if (.not.allocated(error)) call write_cell(trex_file, mol, error)
+   if (.not.allocated(error)) call write_electron(trex_file, wfn, error)
    if (.not.allocated(error)) call write_state(trex_file, energy, error)
-   if (.not.allocated(error)) call write_basis(trex_file, bas, error)
-   if (.not.allocated(error)) call write_mos(trex_file, wfn, error)
+   if (.not.allocated(error)) call write_basis(trex_file, mol, bas, error)
+   if (.not.allocated(error)) call write_ecp(trex_file, mol, wfn, error)
+   if (.not.allocated(error)) call write_ao(trex_file, bas, error)
+   if (.not.allocated(error)) call write_mo(trex_file, mol, bas, wfn, error)
 
    rc = trexio_close(trex_file)
    if (rc /= TREXIO_SUCCESS .and. .not.allocated(error)) then
@@ -221,22 +203,63 @@ subroutine get_backend(filename, backend, error)
    end if
 end subroutine get_backend
 
-subroutine read_nucleus(trex_file, data, error)
+!> Load molecular structure object from TREXIO file
+subroutine load_structure(trex_file, mol, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(inout) :: data
+   !> Molecular structure data loaded from TREXIO
+   type(structure_type), intent(out) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: nat, electron_num, electron_up_num, electron_dn_num
+   real(wp), allocatable :: nuclear_charge(:), nuclear_coord(:, :), lattice(:, :)
+   character(len=8), allocatable :: nuclear_label(:)
+   logical, allocatable :: periodic(:)
+
+   integer :: uhf
+   real(wp) :: charge
+
+   ! Read structure data from TREXIO file
+   call read_nucleus(trex_file, nat, nuclear_charge, nuclear_coord, nuclear_label, &
+      & error)
+   if (.not.allocated(error)) call read_cell(trex_file, periodic, lattice, error)
+   if (.not.allocated(error)) call read_electron(trex_file, electron_num, &
+      & electron_up_num, electron_dn_num, error)
+
+   ! Total charge and multiplicity
+   charge = sum(nuclear_charge) - real(electron_num, wp)
+   uhf = electron_up_num - electron_dn_num
+
+   ! Set up new molecular structure object
+   call new(mol, nint(nuclear_charge), nuclear_label, nuclear_coord, charge=charge, &
+      & uhf=uhf, lattice=lattice, periodic=periodic)
+end subroutine load_structure
+
+!> Read total nuclear charge, atomic symbols and coordinates
+subroutine read_nucleus(trex_file, nat, nuclear_charge, nuclear_coord, &
+   & nuclear_label, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Number of atoms
+   integer, intent(out) :: nat
+   !> Nuclear charges
+   real(wp), allocatable, intent(out) :: nuclear_charge(:)
+   !> Nuclear coordinates in Bohr
+   real(wp), allocatable, intent(out) :: nuclear_coord(:, :)
+   !> Nuclear labels
+   character(len=8), allocatable, intent(out) :: nuclear_label(:)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    real(c_double), allocatable :: charge(:), coord(:, :)
    integer(trexio_exit_code) :: rc
 
-   rc = trexio_read_nucleus_num(trex_file, data%nat)
+   rc = trexio_read_nucleus_num(trex_file, nat)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO nucleus count")
    if (allocated(error)) return
 
-   allocate(charge(data%nat), coord(3, data%nat), data%nuclear_label(data%nat))
+   allocate(charge(nat), coord(3, nat), nuclear_label(nat))
    rc = trexio_read_nucleus_charge(trex_file, charge)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO nuclear charges")
    if (allocated(error)) return
@@ -245,133 +268,622 @@ subroutine read_nucleus(trex_file, data, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO nuclear coordinates")
    if (allocated(error)) return
 
-   rc = trexio_read_nucleus_label(trex_file, data%nuclear_label, len(data%nuclear_label))
+   rc = trexio_read_nucleus_label(trex_file, nuclear_label, len(nuclear_label))
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO nuclear labels")
    if (allocated(error)) return
 
-   data%nuclear_charge = real(charge, wp)
-   data%nuclear_coord = real(coord, wp)
+   nuclear_charge = real(charge, wp)
+   nuclear_coord = real(coord, wp)
 end subroutine read_nucleus
 
-subroutine read_electrons(trex_file, data, error)
+!> Read lattice vectors and periodicity information
+subroutine read_cell(trex_file, periodic, lattice, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(inout) :: data
+   !> Periodic directions
+   logical, allocatable, intent(out) :: periodic(:)
+   !> Lattice vectors in Bohr
+   real(wp), allocatable, intent(out) :: lattice(:, :)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(c_double) :: a(3), b(3), c(3)
+   logical :: tmp_periodic(3)
+   integer(trexio_exit_code) :: rc
+
+   tmp_periodic(:) = .true.
+   rc = trexio_read_cell_a(trex_file, a)
+   if (rc /= TREXIO_SUCCESS) tmp_periodic(1) = .false.
+
+   rc = trexio_read_cell_b(trex_file, b)
+   if (rc /= TREXIO_SUCCESS) tmp_periodic(2) = .false.
+
+   rc = trexio_read_cell_c(trex_file, c)
+   if (rc /= TREXIO_SUCCESS) tmp_periodic(3) = .false.
+
+   if (any(tmp_periodic)) then
+      periodic = tmp_periodic
+
+      allocate(lattice(3, 3), source=0.0_wp)
+      if (periodic(1)) lattice(:, 1) = real(a, wp)
+      if (periodic(2)) lattice(:, 2) = real(b, wp)
+      if (periodic(3)) lattice(:, 3) = real(c, wp)
+   end if
+end subroutine read_cell
+
+!> Read total number of alpha/beta electrons including the core electrons
+subroutine read_electron(trex_file, electron_num, electron_up_num, electron_dn_num, &
+   & error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Number of electrons
+   integer, intent(out) :: electron_num
+   !> Number of alpha electrons
+   integer, intent(out) :: electron_up_num
+   !> Number of beta electrons
+   integer, intent(out) :: electron_dn_num
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer(trexio_exit_code) :: rc
 
-   rc = trexio_read_electron_num(trex_file, data%electron_num)
+   rc = trexio_read_electron_num(trex_file, electron_num)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO electron count")
    if (allocated(error)) return
 
-   rc = trexio_read_electron_up_num(trex_file, data%electron_up_num)
+   rc = trexio_read_electron_up_num(trex_file, electron_up_num)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO alpha electron count")
    if (allocated(error)) return
 
-   rc = trexio_read_electron_dn_num(trex_file, data%electron_dn_num)
+   rc = trexio_read_electron_dn_num(trex_file, electron_dn_num)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO beta electron count")
-end subroutine read_electrons
+end subroutine read_electron
 
-subroutine read_state(trex_file, data, error)
+!> Read total energy of the state in atomic units
+subroutine read_state(trex_file, energy, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(inout) :: data
+   !> Total energy in atomic units
+   real(wp), intent(out) :: energy
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(c_double) :: energy
+   real(c_double) :: state_energy
    integer(trexio_exit_code) :: rc
 
-   rc = trexio_read_state_energy(trex_file, energy)
+   rc = trexio_read_state_energy(trex_file, state_energy)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO state energy")
    if (allocated(error)) return
 
-   data%energy = real(energy, wp)
+   energy = real(state_energy, wp)
 end subroutine read_state
 
-subroutine read_basis(trex_file, data, error)
+
+!> Load basis set information object from TREXIO file
+subroutine load_basis(trex_file, mol, bas, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(inout) :: data
+   !> Molecular structure data loaded from TREXIO
+   type(structure_type), intent(in) :: mol
+   !> Basis set information loaded from TREXIO
+   type(basis_type), intent(out) :: bas
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: nsh, nprim
+   integer, allocatable :: basis_nucleus_index(:), basis_shell_index(:)
+   integer, allocatable :: basis_shell_ang_mom(:)
+   real(wp), allocatable :: basis_shell_factor(:), basis_primitive_factor(:)
+   real(wp), allocatable :: basis_primitive_alpha(:), basis_primitive_coeff(:)
+
+   type(cgto_type), allocatable :: cgto(:, :)
+   type(cgto_type) :: tmp_cgto
+   logical, allocatable :: seen_cgto(:, :)
+   integer, allocatable :: nsh_id(:), nsh_at(:), sh2at(:), nsh_work(:)
+   real(wp), allocatable :: alpha(:), coeff(:)
+   integer :: iat, iprim, ish, isp, jsh, l, ng
+
+   call read_basis(trex_file, nsh, nprim, basis_nucleus_index, basis_shell_ang_mom, &
+      & basis_shell_factor, basis_shell_index, basis_primitive_alpha, &
+      & basis_primitive_coeff, basis_primitive_factor, error)
+   if (allocated(error)) return
+
+   if (any(basis_shell_index < 0) .or. any(basis_shell_index >= nsh)) then
+      call fatal_error(error, "TREXIO [GTO] primitive references an unknown shell")
+      return
+   end if
+
+   ! Shell count per atom and shell to atom mapping
+   allocate(nsh_at(mol%nat), sh2at(nsh), source=0)
+   do ish = 1, nsh
+      iat = basis_nucleus_index(ish) + 1
+      if (iat <= 0 .or. iat > mol%nat) then
+         call fatal_error(error, "TREXIO [GTO] shell references an unknown atom")
+         return
+      end if
+      sh2at(ish) = iat
+      nsh_at(iat) = nsh_at(iat) + 1
+   end do
+
+   ! Shell count per species requiring identical shell counts for all atoms of a species
+   allocate(nsh_id(mol%nid))
+   nsh_id(:) = -1
+   do iat = 1, mol%nat
+      isp = mol%id(iat)
+      if (nsh_id(isp) < 0) then
+         nsh_id(isp) = nsh_at(iat)
+      else if (nsh_id(isp) /= nsh_at(iat)) then
+         call fatal_error(error, "TREXIO basis has inconsistent shell counts for one species")
+         return
+      end if
+   end do
+   if (any(nsh_id <= 0)) then
+      call fatal_error(error, "TREXIO [GTO] missing shells for at least one species")
+      return
+   end if
+
+   ! Build CGTOs for each species
+   allocate(cgto(maxval(nsh_id), mol%nid))
+   allocate(seen_cgto(maxval(nsh_id), mol%nid), source=.false.)
+   allocate(alpha(maxg), coeff(maxg))
+   allocate(nsh_work(mol%nat), source=0)
+   do ish = 1, nsh
+      iat = sh2at(ish)
+      isp = mol%id(iat)
+      ! Count shells at the current atom
+      nsh_work(iat) = nsh_work(iat) + 1
+      jsh = nsh_work(iat)
+      ! Shell angular momentum
+      l = basis_shell_ang_mom(ish)
+
+      alpha(:) = 0.0_wp
+      coeff(:) = 0.0_wp
+      ng = 0
+      do iprim = 1, nprim
+         if (basis_shell_index(iprim) /= ish - 1) cycle
+         ng = ng + 1
+         alpha(ng) = basis_primitive_alpha(iprim)
+         coeff(ng) = basis_shell_factor(ish) * basis_primitive_factor(iprim) &
+            & * basis_primitive_coeff(iprim)
+      end do
+      if (ng <= 0 .or. ng > maxg) then
+         call fatal_error(error, "TREXIO [GTO] shell has no primitives")
+         return
+      end if
+      call new_cgto(tmp_cgto, ng, l, alpha, coeff, .true.)
+      
+      ! Check if current CGTO matches earlier CGTOs for the same species
+      if (.not. seen_cgto(jsh, isp)) then
+         cgto(jsh, isp) = tmp_cgto
+         seen_cgto(jsh, isp) = .true.
+      else if (.not. same_cgto(cgto(jsh, isp), tmp_cgto)) then
+         call fatal_error(error, "TREXIO basis differs between atoms of the same species")
+         return
+      end if
+   end do
+
+   call new_basis(bas, mol, nsh_id, cgto, 1.0_wp)
+end subroutine load_basis
+
+!> Read shell mappings, angular momenta, contraction coefficients and exponents
+subroutine read_basis(trex_file, nsh, nprim, basis_nucleus_index, basis_shell_ang_mom, &
+   & basis_shell_factor, basis_shell_index, basis_primitive_alpha, &
+   & basis_primitive_coeff, basis_primitive_factor, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Number of shells
+   integer, intent(out) :: nsh
+   !> Number of primitives
+   integer, intent(out) :: nprim
+   !> Mapping from shell index to nucleus index
+   integer, allocatable, intent(out) :: basis_nucleus_index(:)
+   !> Angular momentum of each shell
+   integer, allocatable, intent(out) :: basis_shell_ang_mom(:)
+   !> Shell normalization factors
+   real(wp), allocatable, intent(out) :: basis_shell_factor(:)
+   !> Mapping from primitive index to shell index
+   integer, allocatable, intent(out) :: basis_shell_index(:)
+   !> Exponent of Gaussian primitive functions
+   real(wp), allocatable, intent(out) :: basis_primitive_alpha(:)
+   !> Contraction coefficient of each primitive
+   real(wp), allocatable, intent(out) :: basis_primitive_coeff(:)
+   !> Primitive normalization factors
+   real(wp), allocatable, intent(out) :: basis_primitive_factor(:)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer(trexio_exit_code) :: rc
+   real(c_double), allocatable :: d_shell_factor(:), d_prim_factor(:)
+   real(c_double), allocatable :: d_alpha(:), d_coeff(:)
 
-   rc = trexio_read_basis_shell_num(trex_file, data%nsh)
+   rc = trexio_read_basis_shell_num(trex_file, nsh)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO shell count")
    if (allocated(error)) return
 
-   allocate(data%basis_nucleus_index(data%nsh), data%basis_shell_ang_mom(data%nsh))
-   rc = trexio_read_basis_nucleus_index(trex_file, data%basis_nucleus_index)
+   allocate(basis_nucleus_index(nsh))
+   rc = trexio_read_basis_nucleus_index(trex_file, basis_nucleus_index)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO shell atom map")
    if (allocated(error)) return
 
-   rc = trexio_read_basis_shell_ang_mom(trex_file, data%basis_shell_ang_mom)
+   allocate(basis_shell_ang_mom(nsh))
+   rc = trexio_read_basis_shell_ang_mom(trex_file, basis_shell_ang_mom)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO shell angular momenta")
    if (allocated(error)) return
 
-   rc = trexio_read_ao_num(trex_file, data%nao)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO count")
+   allocate(d_shell_factor(nsh), basis_shell_factor(nsh))
+   rc = trexio_read_basis_shell_factor(trex_file, d_shell_factor)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO shell factor")
+   if (allocated(error)) return
+   basis_shell_factor = real(d_shell_factor, wp)
+
+   rc = trexio_read_basis_prim_num(trex_file, nprim)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive count")
    if (allocated(error)) return
 
-   allocate(data%ao_shell(data%nao))
-   rc = trexio_read_ao_shell(trex_file, data%ao_shell)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO shell map")
+   allocate(basis_shell_index(nprim))
+   rc = trexio_read_basis_shell_index(trex_file, basis_shell_index)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive shell map")
+   if (allocated(error)) return
+   
+   allocate(d_alpha(nprim), basis_primitive_alpha(nprim))
+   rc = trexio_read_basis_exponent(trex_file, d_alpha)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive exponent")
+   if (allocated(error)) return
+   basis_primitive_alpha = real(d_alpha, wp)
+   
+   allocate(d_coeff(nprim), basis_primitive_coeff(nprim))
+   rc = trexio_read_basis_coefficient(trex_file, d_coeff)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive coefficient")
+   if (allocated(error)) return
+   basis_primitive_coeff = real(d_coeff, wp)
+
+   allocate(d_prim_factor(nprim), basis_primitive_factor(nprim))
+   rc = trexio_read_basis_prim_factor(trex_file, d_prim_factor)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive factor")
+   if (allocated(error)) return
+   basis_primitive_factor = real(d_prim_factor, wp)
 end subroutine read_basis
 
-subroutine read_mos(trex_file, data, error)
+
+pure function same_cgto(lhs, rhs) result(same)
+   !> First CGTO to compare
+   type(cgto_type), intent(in) :: lhs
+   !> Second CGTO to compare
+   type(cgto_type), intent(in) :: rhs
+   !> Flag to indicate equal CGTOs
+   logical :: same
+
+   real(wp), parameter :: tol = 1000.0_wp * epsilon(1.0_wp)
+
+   same = .false.
+
+   if (lhs%ang /= rhs%ang) return
+   if (lhs%nprim /= rhs%nprim) return
+
+   if (lhs%nprim < 0) return
+   if (lhs%nprim > size(lhs%alpha) .or. lhs%nprim > size(rhs%alpha)) return
+   if (lhs%nprim > size(lhs%coeff) .or. lhs%nprim > size(rhs%coeff)) return
+
+   if (lhs%nprim == 0) then
+      same = .true.
+      return
+   end if
+
+   if (any(abs(lhs%alpha(:lhs%nprim) - rhs%alpha(:lhs%nprim)) > tol)) return
+   if (any(abs(lhs%coeff(:lhs%nprim) - rhs%coeff(:lhs%nprim)) > tol)) return
+
+   same = .true.
+end function same_cgto
+
+
+subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Data read from the TREXIO file
-   type(trexio_data_type), intent(inout) :: data
+   !> Molecular structure data loaded from TREXIO
+   type(structure_type), intent(in) :: mol
+   !> Basis set information loaded from TREXIO
+   type(basis_type), intent(in) :: bas
+   !> Wavefunction data loaded from TREXIO
+   type(wavefunction_type), intent(out) :: wfn
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   
+   integer :: nao, nmo
+   logical :: cartesian
+   real(wp), allocatable :: mo_occupation(:), mo_energy(:), mo_coefficient(:, :)
+   integer, allocatable :: ecp_z_core(:), ao_shell(:), mo_spin(:)
+
+   integer :: nspin, ispin, imo, ish, iao, jsh, jat, jsp, js, jj, lj, imoflat
+   integer :: ncart, icart, isphr, nsphr
+   integer, allocatable :: ao_pos(:, :), ao_count(:), ao_expect(:), spin_count(:)
+   integer :: perm_cart(15), perm_sphr(9)
+   real(wp) :: ccart(15, 1), csphr(9, 1)
+
+   call read_ecp(trex_file, mol%nat, ecp_z_core, error)
+   if (.not.allocated(error)) call read_ao(trex_file, cartesian, nao, ao_shell, error)
+   if (.not.allocated(error)) call read_mo(trex_file, nao, nmo, mo_coefficient, &
+      & mo_occupation, mo_energy, mo_spin, error)
+
+   nspin = max(1, maxval(mo_spin) + 1)
+   if (cartesian) then
+      if (nao /= bas%nao_cart) then
+         call fatal_error(error, "TREXIO [AO] cartesian coefficient count does not match the basis")
+         return
+      end if
+   else
+      if (nao /= bas%nao) then
+         call fatal_error(error, "TREXIO [AO] spherical coefficient count does not match the basis")
+         return
+      end if
+   end if
+   if (nmo /= bas%nao * nspin) then
+      call fatal_error(error, "TREXIO [MO] block count does not match tshe spherical AO basis")
+      return
+   end if
+
+   ! Construct and check the AO to shell mapping
+   allocate(ao_expect(bas%nsh))
+   if (cartesian) then
+      ao_expect(:) = bas%nao_cart_sh
+   else
+      ao_expect(:) = bas%nao_sh
+   end if
+   allocate(ao_pos(maxval(ao_expect), bas%nsh), ao_count(bas%nsh))
+   ao_pos(:, :) = 0
+   ao_count(:) = 0
+   do iao = 1, nao
+      ish = ao_shell(iao) + 1
+      if (ish < 1 .or. ish > bas%nsh) then
+         call fatal_error(error, "TREXIO [AO] shell map references an unknown shell")
+         return
+      end if
+
+      ao_count(ish) = ao_count(ish) + 1
+      ao_pos(ao_count(ish), ish) = iao
+   end do
+   if (any(ao_count /= ao_expect)) then
+      call fatal_error(error, "TREXIO [AO] shell map does not match the basis set")
+      return
+   end if
+
+   ! Set up new wavefunction object (by default 0K electronic temperature)
+   call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, nspin, 0.0_wp)
+
+   ! Set MO occupation and unpaired electrons
+   wfn%nocc = sum(mo_occupation)
+   wfn%nuhf = real(mol%uhf, wp)
+   wfn%nel(1) = sum(mo_occupation, mask=mo_spin == 0)
+   wfn%nel(2) = sum(mo_occupation, mask=mo_spin == 1)
+   if (wfn%nuhf /= abs(wfn%nel(1) - wfn%nel(2))) then
+      call fatal_error(error, "TREXIO [MO] occupation data has an inconsistent number of unpaired electrons")
+      return
+   end if
+
+   ! Set atomic reference occupation from ECP core orbitals
+   wfn%n0at(:) = real(mol%num(mol%id) - ecp_z_core, wp)
+
+   ! MO coefficients, energy, and occupation numbers
+   allocate(spin_count(nspin), source=0)
+   wfn%coeff(:, :, :) = 0.0_wp
+   do imoflat = 1, nmo
+      ispin = min(max(mo_spin(imoflat) + 1, 1), nspin)
+      spin_count(ispin) = spin_count(ispin) + 1
+      imo = spin_count(ispin)
+      if (imo > bas%nao) then
+         call fatal_error(error, "TREXIO [MO] contains too many orbitals for one spin channel")
+         return
+      end if
+
+      wfn%emo(imo, ispin) = mo_energy(imoflat)
+      wfn%focc(imo, ispin) = mo_occupation(imoflat)
+
+      do jsh = 1, bas%nsh
+         jat = bas%sh2at(jsh)
+         jsp = mol%id(jat)
+         js = bas%ish_at(jat)
+         lj = bas%cgto(jsh-js, jsp)%ang
+         jj = bas%iao_sh(jsh)
+
+         nsphr = bas%nao_sh(jsh)
+         if (cartesian) then
+            ! Reorder MO coefficients to match Cartesian AO ordering and transform
+            call get_trexio_to_tblite_cart_perm(lj, perm_cart, error)
+            if (allocated(error)) return
+
+            ncart = bas%nao_cart_sh(jsh)
+            ccart(:, :) = 0.0_wp
+            csphr(:, :) = 0.0_wp
+            do icart = 1, ncart
+               iao = ao_pos(icart, jsh)
+               ccart(perm_cart(icart), 1) = mo_coefficient(iao, imoflat)
+            end do
+
+            call transform0(lj, 0, ccart(:ncart, :1), csphr(:nsphr, :1))
+            wfn%coeff(jj+1:jj+nsphr, imo, ispin) = csphr(:nsphr, 1)
+         else
+            ! Reorder MO coefficients to match spherical AO ordering
+            call get_trexio_to_tblite_sphr_perm(lj, perm_sphr, error)
+            if (allocated(error)) return
+
+            do isphr = 1, nsphr
+               iao = ao_pos(isphr, jsh)
+               wfn%coeff(jj + perm_sphr(isphr), imo, ispin) = &
+                  & mo_coefficient(iao, imoflat)
+            end do
+         end if
+      end do
+   end do
+   if (any(spin_count /= bas%nao)) then
+      call fatal_error(error, "TREXIO [MO] data has inconsistent number of spin orbitals")
+      return
+   end if
+
+   ! Calculate density matrix from MO coefficients and occupation numbers
+   do ispin = 1, nspin
+      call get_density_matrix(wfn%focc(:, ispin), wfn%coeff(:, :, ispin), &
+         & wfn%density(:, :, ispin))
+   end do
+end subroutine load_wavefunction
+
+subroutine read_ecp(trex_file, nat, ecp_z_core, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Number of atoms
+   integer, intent(in) :: nat
+   !> Number of core electrons removed per atom
+   integer, allocatable, intent(out) :: ecp_z_core(:)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(c_double), allocatable :: mo_coeff(:, :), mo_energy(:), mo_occ(:)
    integer(trexio_exit_code) :: rc
-   integer :: iao, imo
 
-   rc = trexio_read_mo_num(trex_file, data%nmo)
+   allocate(ecp_z_core(nat))
+   rc = trexio_read_ecp_z_core(trex_file, ecp_z_core)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO Z ECP core")
+end subroutine read_ecp
+
+subroutine read_ao(trex_file, cartesian, nao, ao_shell, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Whether the AOs are in Cartesian (true) or spherical (false) form
+   logical, intent(out) :: cartesian
+   !> Number of atomic orbitals
+   integer, intent(out) :: nao
+   !> Shell index for each AO
+   integer, allocatable, intent(out) :: ao_shell(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer(trexio_exit_code) :: rc
+   integer :: cart
+
+   rc = trexio_read_ao_cartesian(trex_file, cart)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO cartesian flag")
+   if (allocated(error)) return
+   cartesian = cart /= 0
+
+   rc = trexio_read_ao_num(trex_file, nao)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO count")
+   if (allocated(error)) return
+
+   allocate(ao_shell(nao))
+   rc = trexio_read_ao_shell(trex_file, ao_shell)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO shell map")
+end subroutine read_ao
+
+subroutine read_mo(trex_file, nao, nmo, mo_coefficient, mo_occupation, mo_energy, &
+   & mo_spin, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Number of atomic orbitals
+   integer, intent(in) :: nao
+   !> Number of molecular orbitals
+   integer, intent(out) :: nmo
+   !> Molecular orbital coefficients
+   real(wp), allocatable, intent(out) :: mo_coefficient(:, :)
+   !> Molecular orbital occupations
+   real(wp), allocatable, intent(out) :: mo_occupation(:)
+   !> Molecular orbital energies
+   real(wp), allocatable, intent(out) :: mo_energy(:)
+   !> Molecular orbital spins
+   integer, allocatable, intent(out) :: mo_spin(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(c_double), allocatable :: mo_coeff(:, :), mo_ene(:), mo_occ(:)
+   integer(trexio_exit_code) :: rc
+   integer :: imo
+
+   rc = trexio_read_mo_num(trex_file, nmo)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO count")
    if (allocated(error)) return
 
-   allocate(mo_coeff(data%nao, data%nmo), mo_energy(data%nmo), mo_occ(data%nmo), data%mo_spin(data%nmo))
+   allocate(mo_coeff(nao, nmo), mo_coefficient(nao, nmo))
    rc = trexio_read_mo_coefficient(trex_file, mo_coeff)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO coefficients")
    if (allocated(error)) return
 
+   allocate(mo_occ(nmo), mo_occupation(nmo))
    rc = trexio_read_mo_occupation(trex_file, mo_occ)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO occupations")
    if (allocated(error)) return
 
-   rc = trexio_read_mo_energy(trex_file, mo_energy)
+   allocate(mo_ene(nmo), mo_energy(nmo))
+   rc = trexio_read_mo_energy(trex_file, mo_ene)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO energies")
    if (allocated(error)) return
 
-   rc = trexio_read_mo_spin(trex_file, data%mo_spin)
+   allocate(mo_spin(nmo))
+   rc = trexio_read_mo_spin(trex_file, mo_spin)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO spins")
    if (allocated(error)) return
 
-   allocate(data%mo_coefficient(data%nmo, data%nao))
-   do imo = 1, data%nmo
-      do iao = 1, data%nao
-         data%mo_coefficient(imo, iao) = real(mo_coeff(iao, imo), wp)
-      end do
+   do imo = 1, nmo
+      mo_coefficient(:, imo) = real(mo_coeff(:, imo), wp)
    end do
-   data%mo_occupation = real(mo_occ, wp)
-   data%mo_energy = real(mo_energy, wp)
-end subroutine read_mos
+   mo_occupation = real(mo_occ, wp)
+   mo_energy = real(mo_ene, wp)
+end subroutine read_mo
+
+!> Spherical AO order permutation from TREXIO (0, ... l, -l) to tblite (-l, ..., 0, ..., l)
+subroutine get_trexio_to_tblite_sphr_perm(l, perm, error)
+   !> Angular momentum quantum number
+   integer, intent(in)  :: l
+   !> Permutation array
+   integer, intent(out) :: perm(9)
+   !> Error handling
+   type(error_type), intent(out), allocatable :: error
+
+   perm = 0
+   select case(l)
+   case(0)
+      perm(1) = 1
+   case(1)
+      perm(1:3) = [2, 3, 1]
+   case(2)
+      perm(1:5) = [3, 4, 2, 5, 1]
+   case(3)
+      perm(1:7) = [4, 5, 3, 6, 2, 7, 1]
+   case(4)
+      perm(1:9) = [5, 6, 4, 7, 3, 8, 2, 9, 1]
+   case default
+      call fatal_error(error, "TREXIO reader only supports angular momenta up to g")
+      return
+   end select
+end subroutine get_trexio_to_tblite_sphr_perm
+
+!> Spherical AO order perumation from TREXIO (alphabetical) to tblite
+subroutine get_trexio_to_tblite_cart_perm(l, perm, error)
+   !> Angular momentum quantum number
+   integer, intent(in) :: l
+   !> Permutation array
+   integer, intent(out) :: perm(15)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   perm = 0
+   select case(l)
+   case(0)
+      perm(1) = 1
+   case(1)
+      perm(1:3) = [2, 3, 1]
+   case(2)
+      perm(1:6) = [1, 4, 5, 2, 6, 3]
+   case(3)
+      perm(1:10) = [1, 4, 5, 6, 10, 8, 2, 7, 9, 3]
+   case(4)
+      perm(1:15) = [1, 4, 5, 10, 13, 11, 14, 8, 15, 3, 2, 12, 6, 7, 9]
+   case default
+      call fatal_error(error, "TREXIO reader only supports angular momenta up to g")
+      return
+   end select
+end subroutine get_trexio_to_tblite_cart_perm
+
 
 subroutine write_nucleus(trex_file, mol, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
-   !> Molecular structure
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -379,12 +891,13 @@ subroutine write_nucleus(trex_file, mol, error)
    real(c_double), allocatable :: charge(:), coord(:, :)
    character(len=8), allocatable :: label(:)
    integer(trexio_exit_code) :: rc
-   integer :: iat
+   integer :: iat, isp
 
    allocate(charge(mol%nat), coord(3, mol%nat), label(mol%nat))
    do iat = 1, mol%nat
-      charge(iat) = real(mol%num(mol%id(iat)), c_double)
-      label(iat) = mol%sym(mol%id(iat))
+      isp = mol%id(iat)
+      charge(iat) = real(mol%num(isp), c_double)
+      label(iat) = mol%sym(isp)
    end do
    coord = real(mol%xyz, c_double)
 
@@ -404,7 +917,43 @@ subroutine write_nucleus(trex_file, mol, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO nuclear labels")
 end subroutine write_nucleus
 
-subroutine write_electrons(trex_file, wfn, error)
+subroutine write_cell(trex_file, mol, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   real(c_double) :: a(3), b(3), c(3)
+   integer(trexio_exit_code) :: rc
+
+   if (.not. allocated(mol%periodic) .or. .not. allocated(mol%lattice)) return
+   if (.not. any(mol%periodic)) return
+
+   if (mol%periodic(1)) then
+      a = real(mol%lattice(:, 1), c_double)
+      rc = trexio_write_cell_a(trex_file, a)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO cell_a")
+      if (allocated(error)) return
+   end if
+
+   if (mol%periodic(2)) then
+      b = real(mol%lattice(:, 2), c_double)
+      rc = trexio_write_cell_b(trex_file, b)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO cell_b")
+      if (allocated(error)) return
+   end if
+
+   if (mol%periodic(3)) then
+      c = real(mol%lattice(:, 3), c_double)
+      rc = trexio_write_cell_c(trex_file, c)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO cell_c")
+      if (allocated(error)) return
+   end if
+end subroutine write_cell
+
+subroutine write_electron(trex_file, wfn, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
    !> Converged wavefunction
@@ -436,7 +985,7 @@ subroutine write_electrons(trex_file, wfn, error)
 
    rc = trexio_write_electron_dn_num(trex_file, dn_num)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO beta electron count")
-end subroutine write_electrons
+end subroutine write_electron
 
 subroutine write_state(trex_file, energy, error)
    !> Open TREXIO file handle
@@ -460,25 +1009,30 @@ subroutine write_state(trex_file, energy, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO state energy")
 end subroutine write_state
 
-subroutine write_basis(trex_file, bas, error)
+subroutine write_basis(trex_file, mol, bas, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
    !> Basis metadata used by the calculation
    type(basis_type), intent(in) :: bas
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer, allocatable :: shell_ang_mom(:), ao_shell(:)
    integer(trexio_exit_code) :: rc
-   integer :: iao, ish, offset
+   integer, allocatable :: shell_ang_mom(:), basis_shell_index(:)
+   real(c_double), allocatable :: d_alpha(:), d_coeff(:), d_s_factor(:), d_p_factor(:)
+   integer :: iao, iat, isp, is, ish, iprim, nprim, jprim
 
-   allocate(shell_ang_mom(bas%nsh), ao_shell(bas%nao))
+   allocate(shell_ang_mom(bas%nsh), d_s_factor(bas%nsh))
+   nprim = 0
    do ish = 1, bas%nsh
-      shell_ang_mom(ish) = (bas%nao_sh(ish) - 1) / 2
-      offset = bas%iao_sh(ish)
-      do iao = 1, bas%nao_sh(ish)
-         ao_shell(offset + iao) = ish
-      end do
+      iat = bas%sh2at(ish)
+      isp = mol%id(iat)
+      is = bas%ish_at(iat)
+      shell_ang_mom(ish) = bas%cgto(ish - is, isp)%ang
+      nprim = nprim + bas%cgto(ish - is, isp)%nprim
+      d_s_factor(ish) = 1.0_wp
    end do
 
    rc = trexio_write_basis_type(trex_file, "Gaussian", 16)
@@ -489,13 +1043,80 @@ subroutine write_basis(trex_file, bas, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell count")
    if (allocated(error)) return
 
-   rc = trexio_write_basis_nucleus_index(trex_file, bas%sh2at)
+   rc = trexio_write_basis_nucleus_index(trex_file, bas%sh2at-1)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell atom map")
    if (allocated(error)) return
 
    rc = trexio_write_basis_shell_ang_mom(trex_file, shell_ang_mom)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell angular momenta")
    if (allocated(error)) return
+
+   rc = trexio_write_basis_shell_factor(trex_file, d_s_factor)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell factor")
+   if (allocated(error)) return
+
+   rc = trexio_write_basis_prim_num(trex_file, nprim)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive count")
+   if (allocated(error)) return
+
+   allocate(basis_shell_index(nprim), d_alpha(nprim), d_coeff(nprim), d_p_factor(nprim))
+   jprim = 1
+   do ish = 1, bas%nsh
+      iat = bas%sh2at(ish)
+      isp = mol%id(iat)
+      is = bas%ish_at(iat)
+      associate(p_cgto => bas%cgto(ish - is, isp))
+         do iprim = 1, p_cgto%nprim
+            basis_shell_index(jprim) = ish - 1
+            d_alpha(jprim) = real(p_cgto%alpha(iprim), c_double)
+            d_coeff(jprim) = real(p_cgto%coeff(iprim), c_double)
+            d_p_factor(jprim) = 1.0_c_double
+            jprim = jprim + 1
+         end do
+      end associate
+   end do
+
+   rc = trexio_write_basis_shell_index(trex_file, basis_shell_index)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive shell map")
+
+   rc = trexio_write_basis_exponent(trex_file, d_alpha)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive exponent")
+
+   rc = trexio_write_basis_coefficient(trex_file, d_coeff)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive coefficient")
+
+   rc = trexio_write_basis_prim_factor(trex_file, d_p_factor)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive factor")
+end subroutine write_basis
+
+subroutine write_ecp(trex_file, mol, wfn, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Converged wavefunction
+   type(wavefunction_type), intent(in) :: wfn
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer(trexio_exit_code) :: rc
+   integer, allocatable :: ecp_z_core(:)
+
+   allocate(ecp_z_core(mol%nat))
+   ecp_z_core = nint(mol%num(mol%id) - wfn%n0at)
+   rc = trexio_write_ecp_z_core(trex_file, ecp_z_core)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO Z ECP core")
+end subroutine write_ecp
+
+subroutine write_ao(trex_file, bas, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Basis metadata used by the calculation
+   type(basis_type), intent(in) :: bas
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer(trexio_exit_code) :: rc
 
    rc = trexio_write_ao_cartesian(trex_file, 0)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO cartesian flag")
@@ -505,13 +1126,17 @@ subroutine write_basis(trex_file, bas, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO count")
    if (allocated(error)) return
 
-   rc = trexio_write_ao_shell(trex_file, ao_shell)
+   rc = trexio_write_ao_shell(trex_file, bas%ao2sh-1)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO shell map")
-end subroutine write_basis
+end subroutine write_ao
 
-subroutine write_mos(trex_file, wfn, error)
+subroutine write_mo(trex_file, mol, bas, wfn, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Basis set information
+   class(basis_type), intent(in) :: bas
    !> Converged wavefunction
    type(wavefunction_type), intent(in) :: wfn
    !> Error handling
@@ -520,21 +1145,34 @@ subroutine write_mos(trex_file, wfn, error)
    real(c_double), allocatable :: mo_coeff(:, :), mo_energy(:), mo_occ(:)
    integer, allocatable :: mo_spin(:)
    integer(trexio_exit_code) :: rc
-   integer :: iao, imo, imoflat, ispin, nao, nspin
+   integer :: nmo, ispin, imo, imoflat, jsh, jat, jsp, js, jao_sphr, nsphr
+   integer :: idx_trexio, idx_tblite, perm(15)
 
-   nao = size(wfn%coeff, 1)
-   nspin = size(wfn%coeff, 3)
-   allocate(mo_coeff(nao, nao*nspin), mo_energy(nao*nspin), mo_occ(nao*nspin), mo_spin(nao*nspin))
+   nmo = bas%nao * wfn%nspin
+   allocate(mo_coeff(bas%nao, nmo), mo_energy(nmo), mo_occ(nmo), mo_spin(nmo))
 
+   ! Reorder MO coefficients to TREXIO ordering
    imoflat = 0
-   do ispin = 1, nspin
-      do imo = 1, nao
+   do ispin = 1, wfn%nspin
+      do imo = 1, bas%nao
          imoflat = imoflat + 1
          mo_energy(imoflat) = real(wfn%emo(imo, ispin), c_double)
-         mo_occ(imoflat) = real(wfn%focc(imo, min(ispin, size(wfn%focc, 2))), c_double)
+         mo_occ(imoflat) = real(wfn%focc(imo, ispin), c_double)
          mo_spin(imoflat) = ispin - 1
-         do iao = 1, nao
-            mo_coeff(iao, imoflat) = real(wfn%coeff(iao, imo, ispin), c_double)
+         idx_trexio = 0
+         do jsh = 1, bas%nsh
+            nsphr = bas%nao_sh(jsh)
+            jat = bas%sh2at(jsh)
+            jsp = mol%id(jat)
+            js = bas%ish_at(jat)
+            call get_trexio_to_tblite_sphr_perm(bas%cgto(jsh - js, jsp)%ang, perm, error)
+            if (allocated(error)) return
+            do jao_sphr = 1, nsphr
+               idx_trexio = idx_trexio + 1
+               idx_tblite = bas%iao_sh(jsh) + perm(jao_sphr)
+               mo_coeff(idx_trexio, imoflat) = real(wfn%coeff(idx_tblite, imo, ispin), &
+                  & c_double)
+            end do
          end do
       end do
    end do
@@ -543,7 +1181,7 @@ subroutine write_mos(trex_file, wfn, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO type")
    if (allocated(error)) return
 
-   rc = trexio_write_mo_num(trex_file, nao*nspin)
+   rc = trexio_write_mo_num(trex_file, nmo)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO count")
    if (allocated(error)) return
 
@@ -561,7 +1199,7 @@ subroutine write_mos(trex_file, wfn, error)
 
    rc = trexio_write_mo_spin(trex_file, mo_spin)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO spins")
-end subroutine write_mos
+end subroutine write_mo
 
 subroutine fatal_trexio(error, rc, context)
    !> Error handling
