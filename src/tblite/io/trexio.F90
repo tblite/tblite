@@ -166,7 +166,7 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error)
 
    call write_nucleus(trex_file, mol, error)
    if (.not.allocated(error)) call write_cell(trex_file, mol, error)
-   if (.not.allocated(error)) call write_electron(trex_file, wfn, error)
+   if (.not.allocated(error)) call write_electron(trex_file, mol, wfn, error)
    if (.not.allocated(error)) call write_state(trex_file, energy, error)
    if (.not.allocated(error)) call write_basis(trex_file, mol, bas, error)
    if (.not.allocated(error)) call write_ecp(trex_file, mol, wfn, error)
@@ -389,7 +389,7 @@ subroutine load_basis(trex_file, mol, bas, error)
    if (allocated(error)) return
 
    if (any(basis_shell_index < 0) .or. any(basis_shell_index >= nsh)) then
-      call fatal_error(error, "TREXIO [GTO] primitive references an unknown shell")
+      call fatal_error(error, "TREXIO primitive references an unknown shell")
       return
    end if
 
@@ -398,7 +398,7 @@ subroutine load_basis(trex_file, mol, bas, error)
    do ish = 1, nsh
       iat = basis_nucleus_index(ish) + 1
       if (iat <= 0 .or. iat > mol%nat) then
-         call fatal_error(error, "TREXIO [GTO] shell references an unknown atom")
+         call fatal_error(error, "TREXIO shell references an unknown atom")
          return
       end if
       sh2at(ish) = iat
@@ -418,7 +418,7 @@ subroutine load_basis(trex_file, mol, bas, error)
       end if
    end do
    if (any(nsh_id <= 0)) then
-      call fatal_error(error, "TREXIO [GTO] missing shells for at least one species")
+      call fatal_error(error, "TREXIO missing shells for at least one species")
       return
    end if
 
@@ -447,10 +447,11 @@ subroutine load_basis(trex_file, mol, bas, error)
             & * basis_primitive_coeff(iprim)
       end do
       if (ng <= 0 .or. ng > maxg) then
-         call fatal_error(error, "TREXIO [GTO] shell has no primitives")
+         call fatal_error(error, "TREXIO shell has no primitives or more primitives than supported")
          return
       end if
-      call new_cgto(tmp_cgto, ng, l, alpha, coeff, .true.)
+      ! Apply no additional normalization, already part of the coefficents and primitive factor
+      call new_cgto(tmp_cgto, ng, l, alpha, coeff, .false.)
       
       ! Check if current CGTO matches earlier CGTOs for the same species
       if (.not. seen_cgto(jsh, isp)) then
@@ -607,17 +608,17 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    nspin = max(1, maxval(mo_spin) + 1)
    if (cartesian) then
       if (nao /= bas%nao_cart) then
-         call fatal_error(error, "TREXIO [AO] cartesian coefficient count does not match the basis")
+         call fatal_error(error, "TREXIO cartesian coefficient count does not match the basis")
          return
       end if
    else
       if (nao /= bas%nao) then
-         call fatal_error(error, "TREXIO [AO] spherical coefficient count does not match the basis")
+         call fatal_error(error, "TREXIO spherical coefficient count does not match the basis")
          return
       end if
    end if
    if (nmo /= bas%nao * nspin) then
-      call fatal_error(error, "TREXIO [MO] block count does not match tshe spherical AO basis")
+      call fatal_error(error, "TREXIO MO count does not match the spherical AO basis")
       return
    end if
 
@@ -634,7 +635,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    do iao = 1, nao
       ish = ao_shell(iao) + 1
       if (ish < 1 .or. ish > bas%nsh) then
-         call fatal_error(error, "TREXIO [AO] shell map references an unknown shell")
+         call fatal_error(error, "TREXIO shell map references an unknown shell")
          return
       end if
 
@@ -642,7 +643,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
       ao_pos(ao_count(ish), ish) = iao
    end do
    if (any(ao_count /= ao_expect)) then
-      call fatal_error(error, "TREXIO [AO] shell map does not match the basis set")
+      call fatal_error(error, "TREXIO shell map does not match the basis set")
       return
    end if
 
@@ -655,7 +656,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    wfn%nel(1) = sum(mo_occupation, mask=mo_spin == 0)
    wfn%nel(2) = sum(mo_occupation, mask=mo_spin == 1)
    if (wfn%nuhf /= abs(wfn%nel(1) - wfn%nel(2))) then
-      call fatal_error(error, "TREXIO [MO] occupation data has an inconsistent number of unpaired electrons")
+      call fatal_error(error, "TREXIO occupation data has an inconsistent number of unpaired electrons")
       return
    end if
 
@@ -670,7 +671,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
       spin_count(ispin) = spin_count(ispin) + 1
       imo = spin_count(ispin)
       if (imo > bas%nao) then
-         call fatal_error(error, "TREXIO [MO] contains too many orbitals for one spin channel")
+         call fatal_error(error, "TREXIO contains too many orbitals for one spin channel")
          return
       end if
 
@@ -714,7 +715,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
       end do
    end do
    if (any(spin_count /= bas%nao)) then
-      call fatal_error(error, "TREXIO [MO] data has inconsistent number of spin orbitals")
+      call fatal_error(error, "TREXIO data has an inconsistent number of spin orbitals")
       return
    end if
 
@@ -953,26 +954,33 @@ subroutine write_cell(trex_file, mol, error)
    end if
 end subroutine write_cell
 
-subroutine write_electron(trex_file, wfn, error)
+subroutine write_electron(trex_file, mol, wfn, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
    !> Converged wavefunction
    type(wavefunction_type), intent(in) :: wfn
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer(trexio_exit_code) :: rc
-   integer :: electron_num, up_num, dn_num
+   integer :: core_num, core_up_num, core_dn_num, electron_num, up_num, dn_num
    real(wp) :: nalp, nbet
 
-   electron_num = nint(wfn%nocc)
+   ! Add back the neglected core electrons
+   core_num = nint(sum(mol%num(mol%id) - wfn%n0at))
+   core_up_num = core_num / 2
+   core_dn_num = core_num / 2
+
+   electron_num = nint(wfn%nocc) + core_num
    if (wfn%nspin == 2 .and. size(wfn%nel) >= 2) then
-      up_num = nint(wfn%nel(1))
-      dn_num = nint(wfn%nel(2))
+      up_num = nint(wfn%nel(1)) + core_up_num
+      dn_num = nint(wfn%nel(2)) + core_dn_num
    else
       call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, nalp, nbet)
-      up_num = nint(nalp)
-      dn_num = nint(nbet)
+      up_num = nint(nalp) + core_up_num
+      dn_num = nint(nbet) + core_dn_num
    end if
 
    rc = trexio_write_electron_num(trex_file, electron_num)
@@ -1070,6 +1078,7 @@ subroutine write_basis(trex_file, mol, bas, error)
             basis_shell_index(jprim) = ish - 1
             d_alpha(jprim) = real(p_cgto%alpha(iprim), c_double)
             d_coeff(jprim) = real(p_cgto%coeff(iprim), c_double)
+            ! Coefficients already include normalization factors
             d_p_factor(jprim) = 1.0_c_double
             jprim = jprim + 1
          end do
