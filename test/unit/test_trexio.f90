@@ -140,6 +140,8 @@ subroutine check_structure(error, actual, expected)
    !> Reference structure data
    type(structure_type), intent(in) :: expected
 
+   integer :: i
+
    call check(error, actual%nat, expected%nat)
    if (allocated(error)) return
    call check(error, all(actual%num(actual%id) == expected%num(expected%id)), &
@@ -148,13 +150,20 @@ subroutine check_structure(error, actual, expected)
    call check(error, all(abs(actual%xyz - expected%xyz) <= epsilon(1.0_wp)), &
       & "Nuclear coordinates changed in TREXIO round trip")
    if (allocated(error)) return
-   call check(error, trim(actual%sym(1)) == "H" .and. trim(actual%sym(2)) == "O", &
-      & "Nuclear labels changed in TREXIO round trip")
+   call check(error, size(actual%sym) == size(expected%sym), &
+      & "Nuclear symbol table size changed in TREXIO round trip")
+   if (allocated(error)) return
+   do i = 1, size(expected%sym)
+      call check(error, trim(actual%sym(i)) == trim(expected%sym(i)), &
+         & "Nuclear symbol " // trim(expected%sym(i)) // " changed in TREXIO round trip")
+      if (allocated(error)) return
+   end do
    call check(error, abs(actual%charge - expected%charge) <= epsilon(1.0_wp), &
       & "Molecular charge changed in TREXIO round trip")
    if (allocated(error)) return
    call check(error, actual%uhf, expected%uhf, &
       & "Molecular spin multiplicity changed in TREXIO round trip")
+   if (allocated(error)) return
    if (allocated(expected%periodic)) then
       if (.not. allocated(actual%periodic)) then
          call fatal_error(error, "Periodicity missing in TREXIO round trip")
@@ -252,9 +261,9 @@ subroutine make_roundtrip_data(mol, bas, wfn)
    integer, allocatable :: nshell(:)
    type(cgto_type), allocatable :: cgto(:, :)
 
-   call new(mol, [1, 8], reshape([ &
+   call new(mol, [1, 4], reshape([ &
       & 0.0_wp, 0.0_wp, 0.0_wp, &
-      & 0.0_wp, 0.0_wp, 1.4_wp], [3, 2]), charge=6.0_wp, uhf=1)
+      & 0.0_wp, 0.0_wp, 1.4_wp], [3, 2]), charge=0.0_wp, uhf=1)
 
    allocate(nshell(mol%nid), cgto(1, mol%nid))
    nshell(:) = 1
@@ -276,8 +285,8 @@ subroutine make_roundtrip_data(mol, bas, wfn)
    wfn%nocc = 3.0_wp
    wfn%nuhf = 1.0_wp
    wfn%nel = [2.0_wp, 1.0_wp]
-   wfn%n0at = [1.0_wp, 8.0_wp]
-   wfn%n0sh = [1.0_wp, 8.0_wp]
+   wfn%n0at = [1.0_wp, 2.0_wp]
+   wfn%n0sh = [1.0_wp, 2.0_wp]
    wfn%emo(:, 1) = [-0.5_wp, 0.2_wp]
    wfn%emo(:, 2) = [-0.4_wp, 0.3_wp]
    wfn%focc(:, 1) = [1.5_wp, 0.5_wp]

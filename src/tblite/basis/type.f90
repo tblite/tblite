@@ -193,7 +193,7 @@ subroutine new_cgto(self, ng, l, expos, coeffs, norm)
    type(cgto_type), intent(out) :: self
    !> Number of primitive Gaussian functions
    integer, intent(in) :: ng
-   !> Azimudal quantum number of shell
+   !> Azimuthal quantum number of shell
    integer, intent(in) :: l
    !> Exponent of Gaussian function
    real(wp), intent(in) :: expos(:)

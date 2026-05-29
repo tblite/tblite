@@ -388,7 +388,7 @@ subroutine load_basis(trex_file, mol, bas, error)
       & basis_primitive_coeff, basis_primitive_factor, error)
    if (allocated(error)) return
 
-   if (any(basis_shell_index < 0) .or. any(basis_shell_index >= nsh)) then
+   if (any(basis_shell_index < 1) .or. any(basis_shell_index > nsh)) then
       call fatal_error(error, "TREXIO primitive references an unknown shell")
       return
    end if
@@ -396,8 +396,8 @@ subroutine load_basis(trex_file, mol, bas, error)
    ! Shell count per atom and shell to atom mapping
    allocate(nsh_at(mol%nat), sh2at(nsh), source=0)
    do ish = 1, nsh
-      iat = basis_nucleus_index(ish) + 1
-      if (iat <= 0 .or. iat > mol%nat) then
+      iat = basis_nucleus_index(ish)
+      if (iat < 1 .or. iat > mol%nat) then
          call fatal_error(error, "TREXIO shell references an unknown atom")
          return
       end if
@@ -440,7 +440,7 @@ subroutine load_basis(trex_file, mol, bas, error)
       coeff(:) = 0.0_wp
       ng = 0
       do iprim = 1, nprim
-         if (basis_shell_index(iprim) /= ish - 1) cycle
+         if (basis_shell_index(iprim) /= ish) cycle
          ng = ng + 1
          alpha(ng) = basis_primitive_alpha(iprim)
          coeff(ng) = basis_shell_factor(ish) * basis_primitive_factor(iprim) &
@@ -633,7 +633,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    ao_pos(:, :) = 0
    ao_count(:) = 0
    do iao = 1, nao
-      ish = ao_shell(iao) + 1
+      ish = ao_shell(iao)
       if (ish < 1 .or. ish > bas%nsh) then
          call fatal_error(error, "TREXIO shell map references an unknown shell")
          return
@@ -1030,7 +1030,7 @@ subroutine write_basis(trex_file, mol, bas, error)
    integer(trexio_exit_code) :: rc
    integer, allocatable :: shell_ang_mom(:), basis_shell_index(:)
    real(c_double), allocatable :: d_alpha(:), d_coeff(:), d_s_factor(:), d_p_factor(:)
-   integer :: iao, iat, isp, is, ish, iprim, nprim, jprim
+   integer :: iat, isp, is, ish, iprim, nprim, jprim
 
    allocate(shell_ang_mom(bas%nsh), d_s_factor(bas%nsh))
    nprim = 0
@@ -1051,7 +1051,7 @@ subroutine write_basis(trex_file, mol, bas, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell count")
    if (allocated(error)) return
 
-   rc = trexio_write_basis_nucleus_index(trex_file, bas%sh2at-1)
+   rc = trexio_write_basis_nucleus_index(trex_file, bas%sh2at)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO shell atom map")
    if (allocated(error)) return
 
@@ -1075,7 +1075,7 @@ subroutine write_basis(trex_file, mol, bas, error)
       is = bas%ish_at(iat)
       associate(p_cgto => bas%cgto(ish - is, isp))
          do iprim = 1, p_cgto%nprim
-            basis_shell_index(jprim) = ish - 1
+            basis_shell_index(jprim) = ish
             d_alpha(jprim) = real(p_cgto%alpha(iprim), c_double)
             d_coeff(jprim) = real(p_cgto%coeff(iprim), c_double)
             ! Coefficients already include normalization factors
@@ -1135,7 +1135,7 @@ subroutine write_ao(trex_file, bas, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO count")
    if (allocated(error)) return
 
-   rc = trexio_write_ao_shell(trex_file, bas%ao2sh-1)
+   rc = trexio_write_ao_shell(trex_file, bas%ao2sh)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO shell map")
 end subroutine write_ao
 
