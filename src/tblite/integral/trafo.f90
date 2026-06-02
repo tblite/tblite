@@ -100,7 +100,7 @@ contains
 
 !> Transformation from the cartesian to the spherical harmonic basis 
 !> for a shell pair block.
-pure subroutine transform0(lj, li, cart, sphr)
+pure subroutine transform0(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i
    integer, intent(in) :: li
    !> Angular momentum of bra shell j
@@ -109,7 +109,49 @@ pure subroutine transform0(lj, li, cart, sphr)
    real(wp), intent(in) :: cart(:, :)
    !> Spherical harmonic representation of the integral [bra j, ket i]
    real(wp), intent(out) :: sphr(:, :)
+   !> Flag for transformation of the bra dimension
+   logical, intent(in) :: bra
+   !> Flag for transformation of the ket dimension
+   logical, intent(in) :: ket
 
+   if (.not. bra .and. .not. ket) then
+      sphr = cart
+      return
+   end if
+
+   if (.not. bra .and. ket) then
+       select case(li)
+       case(0, 1)
+          sphr = cart
+       case(2)
+          sphr = matmul(cart, transpose(dtrafo))
+       case(3)
+          sphr = matmul(cart, transpose(ftrafo))
+       case(4)
+          sphr = matmul(cart, transpose(gtrafo))
+       case default
+          error stop "[Fatal] Moments higher than g are not supported"
+       end select
+       return
+   end if
+
+   if (bra .and. .not. ket) then
+       select case(lj)
+       case(0, 1)
+          sphr = cart
+       case(2)
+          sphr = matmul(dtrafo, cart)
+       case(3)
+          sphr = matmul(ftrafo, cart)
+       case(4)
+          sphr = matmul(gtrafo, cart)
+       case default
+          error stop "[Fatal] Moments higher than g are not supported"
+       end select
+       return
+   end if
+
+   ! Transform both dimensions
    select case(li)
    case(0, 1)
       select case(lj)
@@ -205,7 +247,7 @@ end subroutine transform0
 
 !> Transformation from the cartesian to the spherical harmonic basis 
 !> for a vector of shell pair block.
-pure subroutine transform1(lj, li, cart, sphr)
+pure subroutine transform1(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i
    integer, intent(in) :: li
    !> Angular momentum of bra shell j
@@ -214,17 +256,21 @@ pure subroutine transform1(lj, li, cart, sphr)
    real(wp), intent(in) :: cart(:, :, :)
    !> Spherical harmonic representation of the integral [:, bra j, ket i]
    real(wp), intent(out) :: sphr(:, :, :)
+   !> Flag for transformation of the bra dimension
+   logical, intent(in) :: bra
+   !> Flag for transformation of the ket dimension
+   logical, intent(in) :: ket
 
    integer :: k
 
    do k = 1, size(cart, 1)
-      call transform0(lj, li, cart(k, :, :), sphr(k, :, :))
+      call transform0(lj, li, cart(k, :, :), sphr(k, :, :), bra, ket)
    end do
 end subroutine transform1
 
 !> Transformation from the cartesian to the spherical harmonic basis 
 !> for a matrix of shell pair block.
-pure subroutine transform2(lj, li, cart, sphr)
+pure subroutine transform2(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i
    integer, intent(in) :: li
    !> Angular momentum of bra shell j
@@ -233,12 +279,16 @@ pure subroutine transform2(lj, li, cart, sphr)
    real(wp), intent(in) :: cart(:, :, :, :)
    !> Spherical harmonic representation of the integral [:, :, bra j, ket i]
    real(wp), intent(out) :: sphr(:, :, :, :)
+   !> Flag for transformation of the bra dimension
+   logical, intent(in) :: bra
+   !> Flag for transformation of the ket dimension
+   logical, intent(in) :: ket
 
    integer :: k, l
 
    do l = 1, size(cart, 2)
       do k = 1, size(cart, 1)
-         call transform0(lj, li, cart(k, l, :, :), sphr(k, l, :, :))
+         call transform0(lj, li, cart(k, l, :, :), sphr(k, l, :, :), bra, ket)
       end do
    end do
 end subroutine transform2

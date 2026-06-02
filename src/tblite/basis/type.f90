@@ -22,7 +22,7 @@ module tblite_basis_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use tblite_integral_trafo, only : adjoint_transform0
+   use tblite_integral_trafo, only : adjoint_transform0, transform0
    implicit none
    private
 
@@ -50,6 +50,9 @@ module tblite_basis_type
       !> Contraction coefficients of the primitive Gaussian functions,
       !> might contain normalization
       real(wp) :: coeff(maxg) = 0.0_wp
+   contains
+      !> Compare with a second CGTOs for equality
+      procedure :: compare
    end type cgto_type
 
    !> Collection of information regarding the basis set of a system
@@ -92,6 +95,8 @@ module tblite_basis_type
    contains
       !> Transform matrix dimension from spherical to cartesian basis
       procedure :: spherical_to_cartesian_trafo
+      !> Transform matrix dimension from cartesian to spherical basis
+      procedure :: cartesian_to_spherical_trafo
    end type basis_type
 
    !> Get optimal real space cutoff for integral evaluation
@@ -291,11 +296,74 @@ subroutine spherical_to_cartesian_trafo(self, mol, sphr, cart)
 
          ! Transform all matrix columns for the current shell
          call adjoint_transform0(li, 0, sphr(ii+1:ii+ni, :), &
-            & cart(iicart+1:iicart+nicart, :), &
-            & bra=.true., ket=.false.)
+            & cart(iicart+1:iicart+nicart, :), bra=.true., ket=.false.)
       end do
    end do
 
 end subroutine spherical_to_cartesian_trafo
+
+!> Transform matrix dimension from cartesian to spherical basis
+subroutine cartesian_to_spherical_trafo(self, mol, cart, sphr)
+   !> Instance of the basis set data
+   class(basis_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Matrix with first index in the cartesian basis
+   real(wp), intent(in) :: cart(:, :)
+   !> Matrix with first index in the spherical basis
+   real(wp), intent(out) :: sphr(:, :)
+
+   integer :: iat, izp, ish, is, li, ii, ni, iicart, nicart
+
+   !$omp parallel do default(none) schedule(runtime) &
+   !$omp shared(self, mol, sphr, cart) &
+   !$omp private(iat, izp, is, ish, li, ii, ni, iicart, nicart)
+   do iat = 1, mol%nat
+      izp = mol%id(iat)
+      is = self%ish_at(iat)
+      do ish = 1, self%nsh_at(iat)
+         li = self%cgto(ish, izp)%ang
+
+         ii = self%iao_sh(is+ish)
+         ni = self%nao_sh(is+ish)
+         iicart = self%iao_cart_sh(is+ish)
+         nicart = self%nao_cart_sh(is+ish)
+
+         ! Transform all matrix columns for the current shell
+         call transform0(li, 0, cart(iicart+1:iicart+nicart, :), &
+            & sphr(ii+1:ii+ni, :), bra=.true., ket=.false.)
+      end do
+   end do
+
+end subroutine cartesian_to_spherical_trafo
+
+!> Compare with a second CGTOs for equality
+pure function compare(self, rhs) result(same)
+   !> First CGTO to compare
+   class(cgto_type), intent(in) :: self
+   !> Second CGTO to compare
+   type(cgto_type), intent(in) :: rhs
+   !> Flag to indicate equal CGTOs
+   logical :: same
+
+   real(wp), parameter :: tol = 1000.0_wp * epsilon(1.0_wp)
+
+   same = .false.
+   if (self%ang /= rhs%ang) return
+   if (self%nprim /= rhs%nprim) return
+
+   if (self%nprim < 0) return
+   if (self%nprim > size(self%alpha) .or. self%nprim > size(rhs%alpha)) return
+   if (self%nprim > size(self%coeff) .or. self%nprim > size(rhs%coeff)) return
+   if (self%nprim == 0) then
+      same = .true.
+      return
+   end if
+
+   if (any(abs(self%alpha(:self%nprim) - rhs%alpha(:self%nprim)) > tol)) return
+   if (any(abs(self%coeff(:self%nprim) - rhs%coeff(:self%nprim)) > tol)) return
+
+   same = .true.
+end function compare
 
 end module tblite_basis_type

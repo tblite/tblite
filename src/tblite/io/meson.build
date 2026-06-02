@@ -20,6 +20,7 @@ subdir('numpy')
 srcs += files(
   'data.f90',
   'hdf5.F90',
+  'molden.f90',
   'numpy.f90',
   'tag.f90',
   'trexio.F90',

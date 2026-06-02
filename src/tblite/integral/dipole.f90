@@ -364,8 +364,8 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
 
 end subroutine dipole_cgto
 
@@ -425,8 +425,8 @@ pure subroutine dipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
 
    ! Write the cgto overlap into the diatomic matrix
    block_overlap = 0.0_wp
@@ -505,10 +505,10 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
-   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap)
-   call transform2(cgtoj%ang, cgtoi%ang, dd3d, ddpint)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
+   call transform2(cgtoj%ang, cgtoi%ang, dd3d, ddpint, .true., .true.)
 
 end subroutine dipole_grad_cgto
 

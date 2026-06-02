@@ -145,18 +145,7 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    sphr1 = sphr1 - 0.5_wp
 
    ! Transformation from cartesian to spherical
-   if (bra .and. ket) then
-      call transform0(lj, li, cart1, sphr2)
-
-   else if (bra .and. .not. ket) then
-      call transform0(lj, 0, cart1, sphr2)
-
-   else if (.not. bra .and. ket) then
-      call transform0(0, li, cart1, sphr2)
-
-   else
-      sphr2 = cart1
-   end if
+   call transform0(lj, li, cart1, sphr2, bra, ket)
 
    ! Adjoint transformation from spherical to cartesian
    call adjoint_transform0(lj, li, sphr1, cart2, bra, ket)

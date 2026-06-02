@@ -52,7 +52,7 @@ module tblite_io_trexio
       & trexio_read_ao_num, trexio_read_ao_cartesian, trexio_read_ao_shell, &
       & trexio_read_mo_num, trexio_read_mo_coefficient, &
       & trexio_read_mo_occupation, trexio_read_mo_energy, trexio_read_mo_spin, &
-      & trexio_read_basis_prim_num, trexio_read_basis_exponent, &
+      & trexio_has_mo_spin, trexio_read_basis_prim_num, trexio_read_basis_exponent, &
       & trexio_read_basis_coefficient, trexio_read_basis_shell_factor, &
       & trexio_read_basis_shell_index, trexio_read_basis_prim_factor, &
       & trexio_write_nucleus_num, trexio_write_nucleus_charge, &
@@ -226,6 +226,7 @@ subroutine load_structure(trex_file, mol, error)
    if (.not.allocated(error)) call read_cell(trex_file, periodic, lattice, error)
    if (.not.allocated(error)) call read_electron(trex_file, electron_num, &
       & electron_up_num, electron_dn_num, error)
+   if (allocated(error)) return
 
    ! Total charge and multiplicity
    charge = sum(nuclear_charge) - real(electron_num, wp)
@@ -457,7 +458,7 @@ subroutine load_basis(trex_file, mol, bas, error)
       if (.not. seen_cgto(jsh, isp)) then
          cgto(jsh, isp) = tmp_cgto
          seen_cgto(jsh, isp) = .true.
-      else if (.not. same_cgto(cgto(jsh, isp), tmp_cgto)) then
+      else if (.not.cgto(jsh, isp)%compare(tmp_cgto)) then
          call fatal_error(error, "TREXIO basis differs between atoms of the same species")
          return
       end if
@@ -546,37 +547,6 @@ subroutine read_basis(trex_file, nsh, nprim, basis_nucleus_index, basis_shell_an
 end subroutine read_basis
 
 
-pure function same_cgto(lhs, rhs) result(same)
-   !> First CGTO to compare
-   type(cgto_type), intent(in) :: lhs
-   !> Second CGTO to compare
-   type(cgto_type), intent(in) :: rhs
-   !> Flag to indicate equal CGTOs
-   logical :: same
-
-   real(wp), parameter :: tol = 1000.0_wp * epsilon(1.0_wp)
-
-   same = .false.
-
-   if (lhs%ang /= rhs%ang) return
-   if (lhs%nprim /= rhs%nprim) return
-
-   if (lhs%nprim < 0) return
-   if (lhs%nprim > size(lhs%alpha) .or. lhs%nprim > size(rhs%alpha)) return
-   if (lhs%nprim > size(lhs%coeff) .or. lhs%nprim > size(rhs%coeff)) return
-
-   if (lhs%nprim == 0) then
-      same = .true.
-      return
-   end if
-
-   if (any(abs(lhs%alpha(:lhs%nprim) - rhs%alpha(:lhs%nprim)) > tol)) return
-   if (any(abs(lhs%coeff(:lhs%nprim) - rhs%coeff(:lhs%nprim)) > tol)) return
-
-   same = .true.
-end function same_cgto
-
-
 subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
@@ -594,18 +564,19 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    real(wp), allocatable :: mo_occupation(:), mo_energy(:), mo_coefficient(:, :)
    integer, allocatable :: ecp_z_core(:), ao_shell(:), mo_spin(:)
 
-   integer :: nspin, ispin, imo, ish, iao, jsh, jat, jsp, js, jj, lj, imoflat
+   integer :: nspin, spin, imo, ish, iao, jsh, jat, jsp, js, jj, lj, imoflat
    integer :: ncart, icart, isphr, nsphr
    integer, allocatable :: ao_pos(:, :), ao_count(:), ao_expect(:), spin_count(:)
    integer :: perm_cart(15), perm_sphr(9)
    real(wp) :: ccart(15, 1), csphr(9, 1)
+   real(wp), allocatable :: tmp_focc(:)
 
    call read_ecp(trex_file, mol%nat, ecp_z_core, error)
    if (.not.allocated(error)) call read_ao(trex_file, cartesian, nao, ao_shell, error)
    if (.not.allocated(error)) call read_mo(trex_file, nao, nmo, mo_coefficient, &
       & mo_occupation, mo_energy, mo_spin, error)
+   if (allocated(error)) return
 
-   nspin = max(1, maxval(mo_spin) + 1)
    if (cartesian) then
       if (nao /= bas%nao_cart) then
          call fatal_error(error, "TREXIO cartesian coefficient count does not match the basis")
@@ -617,7 +588,17 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
          return
       end if
    end if
-   if (nmo /= bas%nao * nspin) then
+   if (nmo == bas%nao) then
+      ! Restricted TREXIO representation with one spatial MO list
+      nspin = 1
+   else if (nmo == 2 * bas%nao) then
+      ! UHF TREXIO representation with alpha and beta spin-orbitals
+      nspin = 2
+      if (.not. any(mo_spin == 0) .or. .not. any(mo_spin == 1)) then
+         call fatal_error(error, "TREXIO UHF MO data is missing alpha or beta spin labels")
+         return
+      end if
+   else
       call fatal_error(error, "TREXIO MO count does not match the spherical AO basis")
       return
    end if
@@ -653,9 +634,13 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    ! Set MO occupation and unpaired electrons
    wfn%nocc = sum(mo_occupation)
    wfn%nuhf = real(mol%uhf, wp)
-   wfn%nel(1) = sum(mo_occupation, mask=mo_spin == 0)
-   wfn%nel(2) = sum(mo_occupation, mask=mo_spin == 1)
-   if (wfn%nuhf /= abs(wfn%nel(1) - wfn%nel(2))) then
+   if (nspin == 1) then
+      call get_alpha_beta_occupation(wfn%nocc, wfn%nuhf, wfn%nel(1), wfn%nel(2))
+   else
+      wfn%nel(1) = sum(mo_occupation, mask=mo_spin == 0)
+      wfn%nel(2) = sum(mo_occupation, mask=mo_spin == 1)
+   end if
+   if (abs(wfn%nuhf - abs(wfn%nel(1) - wfn%nel(2))) > epsilon(1.0_wp)) then
       call fatal_error(error, "TREXIO occupation data has an inconsistent number of unpaired electrons")
       return
    end if
@@ -667,16 +652,22 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    allocate(spin_count(nspin), source=0)
    wfn%coeff(:, :, :) = 0.0_wp
    do imoflat = 1, nmo
-      ispin = min(max(mo_spin(imoflat) + 1, 1), nspin)
-      spin_count(ispin) = spin_count(ispin) + 1
-      imo = spin_count(ispin)
+      spin = min(max(mo_spin(imoflat) + 1, 1), nspin)
+      spin_count(spin) = spin_count(spin) + 1
+      imo = spin_count(spin)
       if (imo > bas%nao) then
          call fatal_error(error, "TREXIO contains too many orbitals for one spin channel")
          return
       end if
 
-      wfn%emo(imo, ispin) = mo_energy(imoflat)
-      wfn%focc(imo, ispin) = mo_occupation(imoflat)
+      wfn%emo(imo, spin) = mo_energy(imoflat)
+      if (nspin == 1) then
+         ! Distribute restricted occupation equally between alpha and beta
+         wfn%focc(imo, 1) = 0.5_wp * mo_occupation(imoflat)
+         wfn%focc(imo, 2) = 0.5_wp * mo_occupation(imoflat)
+      else
+         wfn%focc(imo, spin) = mo_occupation(imoflat)
+      end if
 
       do jsh = 1, bas%nsh
          jat = bas%sh2at(jsh)
@@ -699,8 +690,9 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
                ccart(perm_cart(icart), 1) = mo_coefficient(iao, imoflat)
             end do
 
-            call transform0(lj, 0, ccart(:ncart, :1), csphr(:nsphr, :1))
-            wfn%coeff(jj+1:jj+nsphr, imo, ispin) = csphr(:nsphr, 1)
+            call transform0(lj, 0, ccart(:ncart, :1), csphr(:nsphr, :1), &
+               & .true., .false.)
+            wfn%coeff(jj+1:jj+nsphr, imo, spin) = csphr(:nsphr, 1)
          else
             ! Reorder MO coefficients to match spherical AO ordering
             call get_trexio_to_tblite_sphr_perm(lj, perm_sphr, error)
@@ -708,7 +700,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
 
             do isphr = 1, nsphr
                iao = ao_pos(isphr, jsh)
-               wfn%coeff(jj + perm_sphr(isphr), imo, ispin) = &
+               wfn%coeff(jj + perm_sphr(isphr), imo, spin) = &
                   & mo_coefficient(iao, imoflat)
             end do
          end if
@@ -720,10 +712,17 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    end if
 
    ! Calculate density matrix from MO coefficients and occupation numbers
-   do ispin = 1, nspin
-      call get_density_matrix(wfn%focc(:, ispin), wfn%coeff(:, :, ispin), &
-         & wfn%density(:, :, ispin))
-   end do
+   if (nspin == 1) then
+      allocate(tmp_focc(size(wfn%focc, 1)))
+      tmp_focc(:) = wfn%focc(:, 1) + wfn%focc(:, 2)
+      call get_density_matrix(tmp_focc, wfn%coeff(:, :, 1), &
+         & wfn%density(:, :, 1))
+   else
+      do spin = 1, nspin
+         call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, spin), &
+            & wfn%density(:, :, spin))
+      end do
+   end if
 end subroutine load_wavefunction
 
 subroutine read_ecp(trex_file, nat, ecp_z_core, error)
@@ -814,10 +813,13 @@ subroutine read_mo(trex_file, nao, nmo, mo_coefficient, mo_occupation, mo_energy
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO energies")
    if (allocated(error)) return
 
-   allocate(mo_spin(nmo))
-   rc = trexio_read_mo_spin(trex_file, mo_spin)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO spins")
-   if (allocated(error)) return
+   allocate(mo_spin(nmo), source=0)
+   rc = trexio_has_mo_spin(trex_file)
+   if (rc == TREXIO_SUCCESS) then
+      rc = trexio_read_mo_spin(trex_file, mo_spin)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO spins")
+      if (allocated(error)) return
+   end if
 
    do imo = 1, nmo
       mo_coefficient(:, imo) = real(mo_coeff(:, imo), wp)
@@ -853,7 +855,7 @@ subroutine get_trexio_to_tblite_sphr_perm(l, perm, error)
    end select
 end subroutine get_trexio_to_tblite_sphr_perm
 
-!> Spherical AO order perumation from TREXIO (alphabetical) to tblite
+!> Cartesian AO order permutation from TREXIO (alphabetical) to tblite
 subroutine get_trexio_to_tblite_cart_perm(l, perm, error)
    !> Angular momentum quantum number
    integer, intent(in) :: l
@@ -1040,6 +1042,7 @@ subroutine write_basis(trex_file, mol, bas, error)
       is = bas%ish_at(iat)
       shell_ang_mom(ish) = bas%cgto(ish - is, isp)%ang
       nprim = nprim + bas%cgto(ish - is, isp)%nprim
+      ! Normalization of the contracted basis function is included in the coefficients
       d_s_factor(ish) = 1.0_wp
    end do
 
@@ -1087,12 +1090,15 @@ subroutine write_basis(trex_file, mol, bas, error)
 
    rc = trexio_write_basis_shell_index(trex_file, basis_shell_index)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive shell map")
+   if (allocated(error)) return
 
    rc = trexio_write_basis_exponent(trex_file, d_alpha)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive exponent")
+   if (allocated(error)) return
 
    rc = trexio_write_basis_coefficient(trex_file, d_coeff)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive coefficient")
+   if (allocated(error)) return
 
    rc = trexio_write_basis_prim_factor(trex_file, d_p_factor)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO primitive factor")
@@ -1154,20 +1160,41 @@ subroutine write_mo(trex_file, mol, bas, wfn, error)
    real(c_double), allocatable :: mo_coeff(:, :), mo_energy(:), mo_occ(:)
    integer, allocatable :: mo_spin(:)
    integer(trexio_exit_code) :: rc
-   integer :: nmo, ispin, imo, imoflat, jsh, jat, jsp, js, jao_sphr, nsphr
-   integer :: idx_trexio, idx_tblite, perm(15)
+   integer :: nmo, imo, imoflat, jsh, jat, jsp, js, jao_sphr, nsphr
+   integer :: nspin_mo, spin, cspin, idx_trexio, idx_tblite, perm(15)
+   logical :: spin_resolved_mo
 
-   nmo = bas%nao * wfn%nspin
-   allocate(mo_coeff(bas%nao, nmo), mo_energy(nmo), mo_occ(nmo), mo_spin(nmo))
+   ! Represent only restricted closed-shell MOs as one spin-summed MO list
+   ! and both restricted open-shell and unrestricted MOs with two spin channels
+   spin_resolved_mo = wfn%nspin > 1 .or. abs(wfn%nuhf) > epsilon(1.0_wp)
+   if (spin_resolved_mo) then
+      nspin_mo = 2
+      nmo = bas%nao * nspin_mo
+      allocate(mo_coeff(bas%nao, nmo), mo_energy(nmo), mo_occ(nmo), mo_spin(nmo))
+   else
+      nspin_mo = 1
+      nmo = bas%nao
+      allocate(mo_coeff(bas%nao, nmo), mo_energy(nmo), mo_occ(nmo))
+   end if
+
+   mo_coeff(:, :) = 0.0_c_double
+   mo_energy(:) = 0.0_c_double
+   mo_occ(:) = 0.0_c_double
+   if (allocated(mo_spin)) mo_spin(:) = 0
 
    ! Reorder MO coefficients to TREXIO ordering
    imoflat = 0
-   do ispin = 1, wfn%nspin
+   do spin = 1, nspin_mo
+      cspin = min(spin, wfn%nspin)
       do imo = 1, bas%nao
          imoflat = imoflat + 1
-         mo_energy(imoflat) = real(wfn%emo(imo, ispin), c_double)
-         mo_occ(imoflat) = real(wfn%focc(imo, ispin), c_double)
-         mo_spin(imoflat) = ispin - 1
+         mo_energy(imoflat) = real(wfn%emo(imo, cspin), c_double)
+         if (spin_resolved_mo) then
+            mo_occ(imoflat) = real(wfn%focc(imo, spin), c_double)
+            mo_spin(imoflat) = spin - 1
+         else
+            mo_occ(imoflat) = real(wfn%focc(imo, 1) + wfn%focc(imo, 2), c_double)
+         end if
          idx_trexio = 0
          do jsh = 1, bas%nsh
             nsphr = bas%nao_sh(jsh)
@@ -1179,7 +1206,7 @@ subroutine write_mo(trex_file, mol, bas, wfn, error)
             do jao_sphr = 1, nsphr
                idx_trexio = idx_trexio + 1
                idx_tblite = bas%iao_sh(jsh) + perm(jao_sphr)
-               mo_coeff(idx_trexio, imoflat) = real(wfn%coeff(idx_tblite, imo, ispin), &
+               mo_coeff(idx_trexio, imoflat) = real(wfn%coeff(idx_tblite, imo, cspin), &
                   & c_double)
             end do
          end do
@@ -1206,8 +1233,10 @@ subroutine write_mo(trex_file, mol, bas, wfn, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO energies")
    if (allocated(error)) return
 
-   rc = trexio_write_mo_spin(trex_file, mo_spin)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO spins")
+   if (allocated(mo_spin)) then
+      rc = trexio_write_mo_spin(trex_file, mo_spin)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO spins")
+   end if
 end subroutine write_mo
 
 subroutine fatal_trexio(error, rc, context)

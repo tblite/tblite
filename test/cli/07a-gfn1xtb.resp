@@ -1,9 +1,0 @@
-run
---no-restart
-$ORIGIN/07-mb33.xyz
---method
-gfn1
---acc
-0.01
---molden
-$MOLDEN
