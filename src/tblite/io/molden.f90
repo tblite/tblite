@@ -730,7 +730,7 @@ subroutine parse_shell_header(line, l, nprim, stat)
    nprim = 0
    scale = 1.0_wp
 
-   ! Check for Molden shell header: label nprim [scale]
+   ! Check for Molden shell header (ignoring scale): label nprim [scale]
    read(line, *, iostat=stat) label, nprim, scale
    if (stat /= 0) then
       read(line, *, iostat=stat) label, nprim
@@ -793,6 +793,12 @@ subroutine build_wavefunction(unit, mo_position, core, pseudo, nval, &
    call read_core(core, mol, nvalence, error)
    if (.not. allocated(error)) call read_pseudo(pseudo, mol, nvalence, error)
    if (.not. allocated(error)) call read_nval(nval, mol, nvalence, error)
+   if (.not. allocated(error) .and. allocated(nvalence)) then
+      if (any(nvalence <= 0)) then
+         call fatal_error(error, "No valence electrons assigned for at least one atom")
+         return
+      end if
+   end if
    if (allocated(error)) return
 
    ! Select Cartesian (default) or spherical AO basis
@@ -1344,6 +1350,8 @@ subroutine write_cell(unit, mol, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer :: ilat
+
+   if (.not. allocated(mol%periodic) .or. .not. allocated(mol%lattice)) return
 
    if (any(mol%periodic)) then
       write(unit,'(A)') '[Cell] AU'

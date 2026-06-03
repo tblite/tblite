@@ -46,7 +46,7 @@ subroutine collect_molden(testsuite)
       new_unittest("roundtrip", test_roundtrip), &
       new_unittest("reordered-sections", test_reordered_sections), &
       new_unittest("restart", test_restart_from_molden), &
-      new_unittest("restart-unrestriced", test_restart_uhf_from_molden), &
+      new_unittest("restart-unrestricted", test_restart_uhf_from_molden), &
       new_unittest("num-prim-fail", test_num_prim_fail, should_fail=.true.), &
       new_unittest("ang-mom-fail", test_angmom_fail, should_fail=.true.), &
       new_unittest("missing-atoms-fail", test_missing_atoms_fail, should_fail=.true.), &

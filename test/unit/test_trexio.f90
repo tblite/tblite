@@ -47,8 +47,8 @@ subroutine collect_trexio(testsuite)
             new_unittest("roundtrip-hdf5", test_roundtrip_hdf5), &
             new_unittest("restart-text", test_restart_from_trexio_text), &
             new_unittest("restart-hdf5", test_restart_from_trexio_hdf5), &
-            new_unittest("restart-unrestriced-text", test_restart_uhf_from_trexio_text), &
-            new_unittest("restart-unrestriced-hdf5", test_restart_uhf_from_trexio_hdf5), &
+            new_unittest("restart-unrestricted-text", test_restart_uhf_from_trexio_text), &
+            new_unittest("restart-unrestricted-hdf5", test_restart_uhf_from_trexio_hdf5), &
             new_unittest("ao-shell-fail-text", test_ao_shell_fail_text, should_fail=.true.), &
             new_unittest("ao-shell-fail-hdf5", test_ao_shell_fail_hdf5, should_fail=.true.), &
             new_unittest("num-prim-fail-text", test_num_prim_fail_text, should_fail=.true.), &
@@ -60,7 +60,7 @@ subroutine collect_trexio(testsuite)
          testsuite = [ &
             new_unittest("roundtrip-text", test_roundtrip_text), &
             new_unittest("restart-text", test_restart_from_trexio_text), &
-            new_unittest("restart-unrestriced-text", test_restart_uhf_from_trexio_text), &
+            new_unittest("restart-unrestricted-text", test_restart_uhf_from_trexio_text), &
             new_unittest("ao-shell-fail-text", test_ao_shell_fail_text, should_fail=.true.), &
             new_unittest("num-prim-fail-text", test_num_prim_fail_text, should_fail=.true.), &
             new_unittest("mo-occ-fail-text", test_mo_occ_fail_text, should_fail=.true.) &
