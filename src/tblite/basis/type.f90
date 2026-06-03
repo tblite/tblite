@@ -51,7 +51,7 @@ module tblite_basis_type
       !> might contain normalization
       real(wp) :: coeff(maxg) = 0.0_wp
    contains
-      !> Compare with a second CGTOs for equality
+      !> Compare with a second CGTO for equality
       procedure :: compare
    end type cgto_type
 
@@ -337,7 +337,7 @@ subroutine cartesian_to_spherical_trafo(self, mol, cart, sphr)
 
 end subroutine cartesian_to_spherical_trafo
 
-!> Compare with a second CGTOs for equality
+!> Compare with a second CGTO for equality
 pure function compare(self, rhs) result(same)
    !> First CGTO to compare
    class(cgto_type), intent(in) :: self

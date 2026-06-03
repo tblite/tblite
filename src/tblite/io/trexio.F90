@@ -711,12 +711,11 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
       return
    end if
 
-   ! Calculate density matrix from MO coefficients and occupation numbers
+   ! Calculate the density matrix from MO coefficients and occupation numbers
    if (nspin == 1) then
       allocate(tmp_focc(size(wfn%focc, 1)))
       tmp_focc(:) = wfn%focc(:, 1) + wfn%focc(:, 2)
-      call get_density_matrix(tmp_focc, wfn%coeff(:, :, 1), &
-         & wfn%density(:, :, 1))
+      call get_density_matrix(tmp_focc, wfn%coeff(:, :, 1), wfn%density(:, :, 1))
    else
       do spin = 1, nspin
          call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, spin), &

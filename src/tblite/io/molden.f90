@@ -37,8 +37,8 @@
 !>   https://www.theochem.ru.nl/molden/molden_format.html
 !> 
 !> The non-standard `[Cell]` section (consistent with Multiwfn and CP2K)
-!> specifies periodic information lacking in the Molden Format. 
-!> Contains cartesian lattice vectors assuming full three-dimensional periodicity:
+!> specifies periodic information lacking in the Molden Format, and 
+!> contains cartesian lattice vectors assuming three-dimensional periodicity:
 !> 
 !> ```
 !> [Cell] AU
@@ -47,7 +47,7 @@
 !>   cx cy cz
 !> ```
 !>
-!> The Molden writer/reader follow the official specification for the ordering 
+!> The Molden writer and reader follow the official specification for the ordering 
 !> of cartesian/spherical atomic orbitals in the `[GTO]` section:
 !>
 !> ```
@@ -63,7 +63,7 @@
 !>
 !> 15G  : xxxx, yyyy, zzzz, xxxy, xxxz, xyyy, yyyz, xzzz, yzzz,
 !>        xxyy, xxzz, yyzz, xxyz, xyyz, xyzz
-!> 9G  : 0, +1, -1, +2, -2, +3, -3, +4, -4
+!> 9G   : 0, +1, -1, +2, -2, +3, -3, +4, -4
 !> ```
 !>
 !> The writer always emits Cartesian AO coefficients in `[MO]` and declares
@@ -78,15 +78,15 @@
 !>
 !> The number of valence electrons and the effective atomic charge is specified via
 !> the non-standard `[Core]` section (consistent with Molden2AIM and PySCF), 
-!> the non-standard `[Pseudo]` section (consistent with Molden and Orca),
-!> the non-standard `[Nval]` section (consistent with CP2K). 
+!> the non-standard `[Pseudo]` section (consistent with Molden, CP2K, and Orca),
+!> the non-standard `[Nval]` section (consistent with Multiwfn). 
 !>
 !> In the `[MO]` section, restricted closed-shell wavefunctions are written as 
 !> spatial orbitals, while restricted open-shell and unrestricted wavefunctions
-!> are written as separate alpha and beta spin channels.
+!> are written as separate alpha and beta spin orbitals.
 !> 
-!> The Molden reader constructs a `structure_type`, `basis_type`, and 
-!> `wavefunction_type` object from the corresponding sections of the Molden file.
+!> The Molden reader constructs tblite internal `structure_type`, `basis_type`, and 
+!> `wavefunction_type` objects from the corresponding sections of the Molden file.
 
 !> Implementation of Molden file I/O
 module tblite_io_molden
@@ -156,7 +156,7 @@ end subroutine push_back
 
 !> Read Molden file and construct structure, basis, and wavefunction objects.
 subroutine load_molden(filename, mol, bas, wfn, error)
-   !> Input file name
+   !> Input Molden file name
    character(len=*), intent(in) :: filename
    !> Molecular structure data loaded from Molden file
    type(structure_type), intent(out) :: mol
@@ -206,7 +206,7 @@ subroutine load_molden(filename, mol, bas, wfn, error)
       ! Check for section header
       if (len_trim(section_id(line)) == 0) cycle
 
-      ! Check for specificiations in the header line (e.g. units)
+      ! Check for unit specificiations in the header line
       spec = section_spec(line)
 
       ! Read individual sections into line buffers excluding the section header
@@ -244,12 +244,12 @@ subroutine load_molden(filename, mol, bas, wfn, error)
       case("15g")
          use_15g = .true.
       case default
-         ! Skipping sections like [Molden Format], [Title], [Freq], [Geom]
+         ! Skipping sections like [Molden Format], [Title], [Freq], and [Geom]
          call skip_section(unit, pending, pending_line, error)
       end select
       if (allocated(error)) exit
    end do
-   ! Check for missing required sections
+   ! Check for missing required [MO] section
    if (.not. has_mo) then
       call fatal_error(error, "Molden input is missing required [MO] section")
    end if
@@ -345,7 +345,7 @@ end subroutine skip_section
 
 !> Write tblite singlepoint data to a Molden file.
 subroutine save_molden(filename, mol, bas, wfn, error)
-   !> Output file name
+   !> Output Molden file name
    character(len=*), intent(in) :: filename
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -442,7 +442,7 @@ subroutine read_cell(buffer, spec, periodic, lattice, error)
 
    if (buffer%count == 0) return
 
-   ! Read optional unit specifier from the Header
+   ! Read optional unit specifier from the header
    conversion = 1.0_wp
    if (len_trim(spec) > 0) then
       select case(trim(spec))
@@ -481,7 +481,6 @@ subroutine read_cell(buffer, spec, periodic, lattice, error)
    end if
 end subroutine read_cell
 
-
 !> Read required [Atoms] section for atomic numbers and coordinates from buffered lines.
 subroutine read_atoms(buffer, spec, nat, atomic_number, nuclear_coord, error)
    !> Buffered [Atoms] section
@@ -507,7 +506,7 @@ subroutine read_atoms(buffer, spec, nat, atomic_number, nuclear_coord, error)
       return
    end if
 
-   ! Read optional unit specifier from the Header
+   ! Read optional unit specifier from the header
    conversion = 1.0_wp
    if (len_trim(spec) > 0) then
       select case(trim(spec))
@@ -521,10 +520,7 @@ subroutine read_atoms(buffer, spec, nat, atomic_number, nuclear_coord, error)
       end select
    end if
 
-   ! First pass to count the number of atoms
    nat = buffer%count
-
-   ! Second pass to parse the atom lines
    allocate(atomic_number(nat), nuclear_coord(3, nat))
    do iline = 1, buffer%count
       line = buffer%lines(iline)
@@ -543,7 +539,7 @@ subroutine read_atoms(buffer, spec, nat, atomic_number, nuclear_coord, error)
 end subroutine read_atoms
 
 
-!> Build basis set from [GTO] section.
+!> Build basis set from buffered [GTO] section.
 subroutine build_basis(gto, mol, bas, error)
    !> Buffered [GTO] section
    type(line_buffer_type), intent(in) :: gto
@@ -630,7 +626,7 @@ subroutine read_gto(buffer, mol, nsh, nsh_id, cgto, error)
       return
    end do
 
-   ! Check for identical shell counts for all atoms of a species
+   ! Check for identical shell counts for all atoms of a given species
    allocate(nsh_id(mol%nid))
    nsh_id(:) = -1
    do iat = 1, mol%nat
@@ -675,7 +671,7 @@ subroutine read_gto(buffer, mol, nsh, nsh_id, cgto, error)
          end if
       end do
 
-      ! Normalization is already included in the coefficients
+      ! Assume normalization is already included in the coefficients
       call new_cgto(tmp_cgto, nprim, l, alpha, coeff, .false.)
 
       ! Check if current CGTO matches earlier CGTOs for the same species
@@ -701,8 +697,7 @@ subroutine parse_atom_index(line, iat, stat)
    !> Status of the parsing
    integer, intent(out) :: stat
 
-   integer :: tmp_iat
-   integer :: dummy
+   integer :: tmp_iat, dummy
 
    ! Check for Molden atom header: atom_index 0
    read(line, *, iostat=stat) tmp_iat, dummy
@@ -756,7 +751,8 @@ subroutine parse_shell_header(line, l, nprim, stat)
 end subroutine parse_shell_header
 
 
-!> Build wavefunction from [Core], [Pseudo], [Nval], and [MO] sections.
+!> Build wavefunction from buffered [Core], [Pseudo], and [Nval] sections
+!> while reading the [MO] section on-the-fly.
 subroutine build_wavefunction(unit, mo_position, core, pseudo, nval, &
    & use_6d, use_10f, use_15g, mol, bas, wfn, error)
    !> Open Molden file unit
@@ -836,18 +832,18 @@ subroutine build_wavefunction(unit, mo_position, core, pseudo, nval, &
    wfn%emo(:, :) = emo(:, 1:nspin)
    wfn%focc(:, :) = focc
 
-   ! Set atomic reference occupation from ECP core orbitals
+   ! Set atomic reference occupation from valence electron count
    if (allocated(nvalence)) then
       wfn%n0at(:) = nvalence
    else
       wfn%n0at(:) = mol%num(mol%id)
    end if
 
-   ! Update unpaired electrons and charge also for structure type
+   ! Update unpaired electrons and charge also for the structure type
    mol%uhf = nint(wfn%nuhf)
    mol%charge = sum(real(wfn%n0at, wp)) - sum(wfn%nel)
 
-   ! Transform MO coefficients to spherical tblite ordering
+   ! Transform reordered MO coefficients to spherical basis if necessary
    if (cartesian) then
       do spin = 1, nspin
          call bas%cartesian_to_spherical_trafo(mol, coeff(:, :, spin), &
@@ -859,12 +855,11 @@ subroutine build_wavefunction(unit, mo_position, core, pseudo, nval, &
       end do
    end if
 
-   ! Calculate density matrix from MO coefficients and occupation numbers
+   ! Calculate the density matrix from MO coefficients and occupation numbers
    if (nspin == 1) then
       allocate(tmp_focc(size(wfn%focc, 1)))
       tmp_focc(:) = wfn%focc(:, 1) + wfn%focc(:, 2)
-      call get_density_matrix(tmp_focc, wfn%coeff(:, :, 1), &
-         & wfn%density(:, :, 1))
+      call get_density_matrix(tmp_focc, wfn%coeff(:, :, 1), wfn%density(:, :, 1))
    else
       do spin = 1, nspin
          call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, spin), &
@@ -891,7 +886,7 @@ subroutine read_core(buffer, mol, nvalence, error)
 
    if (buffer%count == 0) return
 
-   ! Check consistency, if valence electrons were read before from a different section
+   ! Check for consistency, if valence electrons were also read in a different section
    if (.not. allocated(nvalence)) then
       check = .false.
       allocate(nvalence(mol%nat), source=0)
@@ -917,7 +912,7 @@ subroutine read_core(buffer, mol, nvalence, error)
       end if
 
       if (by_index) then
-         ! Core electrons provided for atom indices
+         ! Core electrons provided for atom index
          if (iat < 1 .or. iat > mol%nat) then
             call fatal_error(error, "[Core] atom index out of range: "//trim(line))
             return
@@ -972,7 +967,7 @@ subroutine read_pseudo(buffer, mol, nvalence, error)
 
    if (buffer%count == 0) return
 
-   ! Check consistency, if valence electrons were read before from a different section
+   ! Check for consistency, if valence electrons were also read in a different section
    if (.not. allocated(nvalence)) then
       check = .false.
       allocate(nvalence(mol%nat), source=0)
@@ -992,6 +987,7 @@ subroutine read_pseudo(buffer, mol, nvalence, error)
          call fatal_error(error, "[Pseudo] atom index out of range: "//trim(line))
          return
       end if
+      ! Valence electrons provided for atom index and atom label
       isp = mol%id(iat)
       if (trim(lower_string(adjustl(sym))) /= &
          & trim(lower_string(adjustl(mol%sym(isp))))) then
@@ -1024,7 +1020,7 @@ subroutine read_nval(buffer, mol, nvalence, error)
 
    if (buffer%count == 0) return
 
-   ! Check consistency, if valence electrons were read before from a different section
+   ! Check for consistency, if valence electrons were also read in a different section
    if (.not. allocated(nvalence)) then
       check = .false.
       allocate(nvalence(mol%nat), source=0)
@@ -1342,7 +1338,7 @@ end subroutine get_molden_to_tblite_cart_perm
 
 !> Write optional [Cell] section in atomic units
 subroutine write_cell(unit, mol, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1363,7 +1359,7 @@ end subroutine write_cell
 
 !> Write [Atoms] section in atomic units
 subroutine write_atoms(unit, mol, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1384,7 +1380,7 @@ end subroutine write_atoms
 
 !> Write [Core] section: core electrons per species.
 subroutine write_core(unit, mol, wfn, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1408,7 +1404,7 @@ end subroutine write_core
 
 !> Write [Pseudo] section: valence electrons per atom.
 subroutine write_pseudo(unit, mol, wfn, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1430,7 +1426,7 @@ end subroutine write_pseudo
 
 !> Write [Nval] section: valence electrons per species.
 subroutine write_nval(unit, mol, wfn, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1454,7 +1450,7 @@ end subroutine write_nval
 
 !> Write [GTO] section.
 subroutine write_gto(unit, mol, bas, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1500,7 +1496,7 @@ end subroutine write_gto
 
 !> Write [MO] section with spherical-to-Cartesian transformation.
 subroutine write_mo(unit, mol, bas, wfn, error)
-   !> Output file unit
+   !> Output Molden file unit
    integer, intent(in) :: unit
    !> Molecular structure
    type(structure_type), intent(in) :: mol
@@ -1511,8 +1507,8 @@ subroutine write_mo(unit, mol, bas, wfn, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: iao_cart, iat, ii, imo, is, ish
-   integer :: spin, cspin, nspin_mo, isp, jao, li, perm(15)
+   integer :: iao_cart, iat, isp, ii, imo, is, ish, li, jao
+   integer :: spin, cspin, nspin_mo, perm(15)
    logical :: spin_resolved_mo
    real(wp), allocatable :: coeff_cart(:, :, :)
 
@@ -1525,6 +1521,7 @@ subroutine write_mo(unit, mol, bas, wfn, error)
       nspin_mo = 1
    end if
 
+   ! Transform MO coefficients to the Cartesian AO basis
    allocate(coeff_cart(bas%nao_cart, bas%nao, wfn%nspin))
    do spin = 1, wfn%nspin
       call bas%spherical_to_cartesian_trafo(mol, wfn%coeff(:, :, spin), &
