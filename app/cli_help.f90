@@ -168,6 +168,7 @@ module tblite_cli_help
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
       "      --trexio [file]      Dump results as TREXIO output (default: tblite.trexio)."//nl//&
       "                           Use .h5/.hdf5 for TREXIO HDF5 when available."//nl//&
+      "      --molden [file]      Dump results as Molden output (default: tblite.molden)"//nl//&
       "  -i, --input <format>     Hint for the format of the input file"//nl//&
       "  -v, --verbose            Increase verbosity of printout"//nl//&
       "  -s, --silent             Reduce verbosity of printout"//nl//&

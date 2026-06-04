@@ -23,6 +23,7 @@ list(
   APPEND srcs
   "${dir}/data.f90"
   "${dir}/hdf5.F90"
+  "${dir}/molden.f90"
   "${dir}/numpy.f90"
   "${dir}/tag.f90"
   "${dir}/trexio.F90"

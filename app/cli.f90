@@ -74,6 +74,10 @@ module tblite_cli
       logical :: trexio = .false.
       !> File for TREXIO output
       character(len=:), allocatable :: trexio_output
+      !> Create Molden file
+      logical :: molden = .false.
+      !> File for output of Molden file
+      character(len=:), allocatable :: molden_output
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
@@ -627,6 +631,20 @@ subroutine get_run_arguments(config, list, start, error)
                cycle
             end if
             call move_alloc(arg, config%trexio_output)
+         end if
+
+      case("--molden")
+         config%molden = .true.
+         config%molden_output = "tblite.molden"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%molden_output)
          end if
       end select
    end do

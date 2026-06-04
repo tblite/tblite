@@ -47,6 +47,8 @@ subroutine collect_trexio(testsuite)
             new_unittest("roundtrip-hdf5", test_roundtrip_hdf5), &
             new_unittest("restart-text", test_restart_from_trexio_text), &
             new_unittest("restart-hdf5", test_restart_from_trexio_hdf5), &
+            new_unittest("restart-unrestricted-text", test_restart_uhf_from_trexio_text), &
+            new_unittest("restart-unrestricted-hdf5", test_restart_uhf_from_trexio_hdf5), &
             new_unittest("ao-shell-fail-text", test_ao_shell_fail_text, should_fail=.true.), &
             new_unittest("ao-shell-fail-hdf5", test_ao_shell_fail_hdf5, should_fail=.true.), &
             new_unittest("num-prim-fail-text", test_num_prim_fail_text, should_fail=.true.), &
@@ -58,6 +60,7 @@ subroutine collect_trexio(testsuite)
          testsuite = [ &
             new_unittest("roundtrip-text", test_roundtrip_text), &
             new_unittest("restart-text", test_restart_from_trexio_text), &
+            new_unittest("restart-unrestricted-text", test_restart_uhf_from_trexio_text), &
             new_unittest("ao-shell-fail-text", test_ao_shell_fail_text, should_fail=.true.), &
             new_unittest("num-prim-fail-text", test_num_prim_fail_text, should_fail=.true.), &
             new_unittest("mo-occ-fail-text", test_mo_occ_fail_text, should_fail=.true.) &
@@ -169,8 +172,13 @@ subroutine check_structure(error, actual, expected)
          call fatal_error(error, "Periodicity missing in TREXIO round trip")
          return
       end if
-      call check(error, any(actual%periodic .and. expected%periodic), &
+      call check(error, all(actual%periodic .eqv. expected%periodic), &
          & "Periodicity changed in TREXIO round trip")
+      if (allocated(error)) return
+   else
+      call check(error, .not. allocated(actual%periodic), &
+         & "Unexpected periodicity in TREXIO round trip")
+      if (allocated(error)) return
    end if
    if (allocated(expected%lattice)) then
       if (.not. allocated(actual%lattice)) then
@@ -179,6 +187,9 @@ subroutine check_structure(error, actual, expected)
       end if
       call check(error, all(abs(actual%lattice - expected%lattice) <= epsilon(1.0_wp)), &
          & "Lattice vectors changed in TREXIO round trip")
+   else
+      call check(error, .not. allocated(actual%lattice), &
+         & "Unexpected lattice vectors in TREXIO round trip")
    end if
 end subroutine check_structure
 
@@ -189,6 +200,8 @@ subroutine check_basis(error, actual, expected)
    type(basis_type), intent(in) :: actual
    !> Reference basis set information
    type(basis_type), intent(in) :: expected
+
+   integer :: isp, ish, nprim
 
    call check(error, actual%nsh, expected%nsh, &
       & "Basis shell count changed in TREXIO round trip")
@@ -216,6 +229,28 @@ subroutine check_basis(error, actual, expected)
    if (allocated(error)) return
    call check(error, all(actual%ao2at == expected%ao2at), &
       & "Basis AO atom map changed in TREXIO round trip")
+         if (allocated(error)) return
+
+   ! Check CGTO primitives
+   do isp = 1, size(expected%cgto, 2)
+      do ish = 1, expected%nsh_id(isp)
+         call check(error, actual%cgto(ish, isp)%ang, expected%cgto(ish, isp)%ang, &
+            & "Shell angular momentum changed in TREXIO round trip")
+         if (allocated(error)) return
+         call check(error, actual%cgto(ish, isp)%nprim, expected%cgto(ish, isp)%nprim, &
+            & "Shell primitive count changed in TREXIO round trip")
+         nprim = expected%cgto(ish, isp)%nprim
+         if (allocated(error)) return
+         call check(error, all(abs(actual%cgto(ish, isp)%alpha(:nprim) - &
+            & expected%cgto(ish, isp)%alpha(:nprim)) <= epsilon(1.0_wp)), &
+            & "Primitive exponents changed in TREXIO round trip")
+         if (allocated(error)) return
+         call check(error, all(abs(actual%cgto(ish, isp)%coeff(:nprim) - &
+            & expected%cgto(ish, isp)%coeff(:nprim)) <= epsilon(1.0_wp)), &
+            & "Primitive coefficients changed in TREXIO round trip")
+         if (allocated(error)) return
+      end do
+   end do
 end subroutine check_basis
 
 subroutine check_wavefunction(error, actual, expected)
@@ -340,19 +375,35 @@ subroutine test_restart_from_trexio_text(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   call check_restart_from_trexio(".trexio-restart.trexio", error)
+   call check_restart_from_trexio(".trexio-restart.trexio", 1, error)
 end subroutine test_restart_from_trexio_text
 
 subroutine test_restart_from_trexio_hdf5(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   call check_restart_from_trexio(".trexio-restart.h5", error)
+   call check_restart_from_trexio(".trexio-restart.h5", 1, error)
 end subroutine test_restart_from_trexio_hdf5
 
-subroutine check_restart_from_trexio(filename, error)
+subroutine test_restart_uhf_from_trexio_text(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call check_restart_from_trexio(".trexio-restart-uhf.trexio", 2, error)
+end subroutine test_restart_uhf_from_trexio_text
+
+subroutine test_restart_uhf_from_trexio_hdf5(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call check_restart_from_trexio(".trexio-restart-uhf.h5", 2, error)
+end subroutine test_restart_uhf_from_trexio_hdf5
+
+subroutine check_restart_from_trexio(filename, nspin, error)
    !> TREXIO file name
    character(len=*), intent(in) :: filename
+   !> Number of spin channels in the wavefunction to test
+   integer, intent(in) :: nspin
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -364,7 +415,7 @@ subroutine check_restart_from_trexio(filename, error)
    real(wp) :: energy, energy_loaded
 
    ! Perform GFN2-xTB calculation to save in trexio
-   call make_restart_data(mol, bas, wfn, energy)
+   call make_restart_data(nspin, mol, bas, wfn, energy)
 
    ! Remove existing TREXIO output before test and leave the test output for inspection
    call remove_trexio_output(filename)
@@ -400,7 +451,9 @@ subroutine check_restart_from_trexio(filename, error)
       & "Calculation did not converge in < 3 iterations with TREXIO guess")
 end subroutine check_restart_from_trexio
 
-subroutine make_restart_data(mol, bas, wfn, energy)
+subroutine make_restart_data(nspin, mol, bas, wfn, energy)
+   !> Number of spin channels
+   integer, intent(in) :: nspin
    !> Molecular structure data
    type(structure_type), intent(out) :: mol
    !> Basis set information
@@ -417,7 +470,7 @@ subroutine make_restart_data(mol, bas, wfn, energy)
    call get_structure(mol, "X23", "oxacb")
 
    call new_gfn2_calculator(calc, mol, error)
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 2, kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, nspin, kt)
    call eeq_guess(mol, calc, wfn, error)
 
    energy = 0.0_wp

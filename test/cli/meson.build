@@ -112,6 +112,18 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
 endforeach
 
 test(
+  'molden', 
+  tblite_exe, 
+  args: [
+    'run', 
+    '--no-restart',
+    '--molden',
+    files('07-mb33.xyz')
+  ], 
+  suite: 'cli',
+)
+
+test(
   'post-processing-str', 
   tblite_exe, 
   args: [

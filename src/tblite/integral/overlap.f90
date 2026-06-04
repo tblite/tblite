@@ -24,7 +24,7 @@ module tblite_integral_overlap
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
    use tblite_integral_diat_trafo, only: diat_trafo, diat_trafo_grad
-   use tblite_integral_trafo, only : transform0, transform1, transform2
+   use tblite_integral_trafo, only : transform0, transform1
    implicit none
    private
 
@@ -335,7 +335,7 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
 
 end subroutine overlap_cgto
 
@@ -390,7 +390,7 @@ pure subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
 
    ! Write the cgto overlap and gradient into the diatomic matrix
    block_overlap = 0.0_wp
@@ -458,8 +458,8 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
 
 end subroutine overlap_grad_cgto
 
@@ -525,8 +525,8 @@ pure subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
 
    ! Write the cgto overlap and gradient into the diatomic matrix
    block_overlap = 0.0_wp
