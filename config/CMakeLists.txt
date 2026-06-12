@@ -16,12 +16,39 @@
 
 option(BUILD_SHARED_LIBS "Whether the libraries built should be shared" FALSE)
 
-option(WITH_API "Enable export of C-API" TRUE)
-option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" TRUE)
-option(WITH_DDX "Enable support for DDX" TRUE)
-option(WITH_HDF5 "Enable support for HDF5" FALSE)
-option(WITH_TREXIO "Enable support for TREXIO output" FALSE)
-option(WITH_TESTS "Enable compilation of unit tests" TRUE)
+if(NOT DEFINED WITH_API)
+  set(WITH_API TRUE)
+endif()
+if(NOT DEFINED WITH_OpenMP)
+  set(WITH_OpenMP TRUE)
+endif()
+if(NOT DEFINED WITH_API)
+  set(WITH_API TRUE)
+endif()
+if(NOT DEFINED WITH_DDX)
+  set(WITH_DDX FALSE)
+endif()
+if(NOT DEFINED WITH_HDF5)
+  set(WITH_HDF5 FALSE)
+endif()
+if(NOT DEFINED WITH_TREXIO)
+  set(WITH_TREXIO FALSE)
+endif()
+if(NOT DEFINED WITH_TESTS)
+  set(WITH_TESTS TRUE)
+endif()
+option(TBLITE_WITH_API "Enable export of C-API" ${WITH_API})
+option(TBLITE_WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" ${WITH_OpenMP})
+option(TBLITE_WITH_DDX "Enable support for DDX" ${WITH_DDX})
+option(TBLITE_WITH_HDF5 "Enable support for HDF5" ${WITH_HDF5})
+option(TBLITE_WITH_TREXIO "Enable support for TREXIO output" ${WITH_TREXIO})
+option(TBLITE_WITH_TESTS "Enable compilation of unit tests" ${WITH_TESTS})
+set(TBLITE_USE_MCTCLIB TRUE)
+set(TBLITE_USE_MULTICHARGE TRUE)
+set(TBLITE_USE_TOMLF TRUE)
+set(TBLITE_USE_SDFTD3 TRUE)
+set(TBLITE_USE_DFTD4 TRUE)
+set(TBLITE_USE_DDX ${TBLITE_WITH_DDX})
 if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   set(
     "${PROJECT_NAME}-dependency-method"
@@ -75,7 +102,7 @@ install(
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/template.cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/template-config.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
   INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
 )
