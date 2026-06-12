@@ -30,7 +30,7 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
 
-if(NOT WITH_TESTS)
+if(NOT TBLITE_WITH_TESTS)
   # toml-f uses BUILD_TESTING instead of WITH_TESTS.
   set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
   set(BUILD_TESTING OFF)
