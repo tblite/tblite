@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-if(WITH_API)
+if(TBLITE_WITH_API)
   add_subdirectory("api")
 endif()
 add_subdirectory("basis")
