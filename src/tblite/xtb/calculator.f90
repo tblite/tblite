@@ -39,6 +39,7 @@ module tblite_xtb_calculator
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
+   use tblite_scf_mixer_input, only : mixer_input
    use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
@@ -47,12 +48,6 @@ module tblite_xtb_calculator
 
    public :: new_xtb_calculator
    public :: param_h0spec, xtb_config
-
-   !> Default value for self-consistent iteration mixing
-   real(wp), parameter :: mixer_damping_default = 0.4_wp
-
-   !> Default maximum number of self-consistent iterations
-   integer, parameter :: max_iter_default = 250
 
    !> Extended tight-binding calculator
    type, public :: xtb_calculator
@@ -72,10 +67,8 @@ module tblite_xtb_calculator
       type(halogen_correction), allocatable :: halogen
       !> London-dispersion interaction
       class(dispersion_type), allocatable :: dispersion
-      !> Parameter for self-consistent iteration mixing
-      real(wp) :: mixer_damping = mixer_damping_default
-      !> Maximum number of self-consistent iteractions
-      integer :: max_iter = max_iter_default
+      !> Input for self-consistent iteration mixing
+      type(mixer_input) :: mixer_input
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
       !> List of additional interaction containers

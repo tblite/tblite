@@ -40,7 +40,25 @@ typedef enum {
    TBLITE_GUESS_SAD = 0,
    /// Use partial charges obtained by electronegativity equilibration as guess.
    TBLITE_GUESS_EEQ = 1,
+   /// Use partial charges with bond-charge corrections from electronegativity equilibration as guess.
+   TBLITE_GUESS_EEQBC = 2,
 } tblite_guess;
+
+/// Available self-consistent-field mixers.
+typedef enum {
+   /// Use modified Broyden mixing.
+   TBLITE_MIXER_BROYDEN = 1,
+} tblite_mixer;
+
+/// Available trial strategies for the SCF mixer.
+typedef enum {
+   /// Do not use a trial strategy.
+   TBLITE_MIXER_TRIAL_DEFAULT = 10,
+   /// Use ODA-style trial damping.
+   TBLITE_MIXER_TRIAL_ODA = 11,
+   /// Use MESA-style trial damping.
+   TBLITE_MIXER_TRIAL_MESA = 12,
+} tblite_mixer_trial;
 
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
@@ -132,6 +150,52 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_mixer_damping(tblite_context ctx,
                                     tblite_calculator calc,
                                     double damping);
+
+/// Set number of previous SCF steps retained by the mixer in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param memory: Number of previous SCF steps retained by the mixer
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer_memory(tblite_context ctx,
+                                   tblite_calculator calc,
+                                   int memory);
+
+/// Set number of standard SCF cycles before trial strategies are enabled
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param offset: Number of standard SCF cycles before ODA/MESA trial strategies
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer_trial_start(tblite_context ctx,
+                                        tblite_calculator calc,
+                                        int offset);
+
+/// Set SCF mixer and optional trial strategy in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mixer: SCF mixer to use
+/// @param trial: Trial strategy to use with the mixer
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer(tblite_context ctx,
+                            tblite_calculator calc,
+                            tblite_mixer mixer,
+                            tblite_mixer_trial trial);
+
+/// Set electronic temperature annealing schedule for the calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param initial_etemp: Initial electronic temperature in Hartree
+/// @param hold: Number of SCF cycles to keep the initial temperature
+/// @param cycles: Number of SCF cycles to lower to the calculation temperature
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_temperature_annealing(tblite_context ctx,
+                                            tblite_calculator calc,
+                                            double initial_etemp,
+                                            int hold,
+                                            int cycles);
 
 /// Set initial guess for creating new wavefunction objects
 ///

@@ -25,6 +25,7 @@ module test_gfn2_xtb
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
+   use tblite_scf_mixer_input, only : anneal_input
    implicit none
    private
 
@@ -49,6 +50,8 @@ subroutine collect_gfn2_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
+      new_unittest("annealing", test_annealing), &
+      new_unittest("finite-memory", test_finite_memory), &
       new_unittest("gradient-mol", test_g_mb02), &
       new_unittest("convergence", test_convergence) &
       ]
@@ -295,6 +298,70 @@ subroutine test_e_mb01(error)
    call check(error, energy, ref, thr=1e-7_wp)
 
 end subroutine test_e_mb01
+
+
+subroutine test_annealing(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   real(wp), parameter :: ref = -30.348902328491_wp  ! value calculated by xtb
+
+   call get_structure(mol, "MB16-43", "01")
+
+   energy = 0.0_wp
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   calc%mixer_input%anneal = anneal_input( &
+      & initial_kt = 5000.0_wp/300.0_wp*kt, &
+      & hold = 5, &
+      & cycles = 5 &
+   )
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+
+   call check(error, .not.ctx%failed(), message="Annealed SCF does not converge")
+   if (allocated(error)) return
+   call check(error, energy, ref, thr=1e-7_wp)
+   if (allocated(error)) return
+   call check(error, wfn%kt, kt, thr=epsilon(1.0_wp))
+
+end subroutine test_annealing
+
+
+subroutine test_finite_memory(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   real(wp), parameter :: ref = -30.348902328491_wp  ! value calculated by xtb
+
+   call get_structure(mol, "MB16-43", "01")
+
+   energy = 0.0_wp
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   calc%mixer_input%memory = 4
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+
+   call check(error, .not.ctx%failed(), message="Finite-memory Broyden SCF does not converge")
+   if (allocated(error)) return
+   call check(error, energy, ref, thr=1e-7_wp)
+
+end subroutine test_finite_memory
 
 
 subroutine test_g_mb02(error)

@@ -478,9 +478,13 @@ class Calculator(Structure):
         "accuracy": library.set_calculator_accuracy,
         "guess": library.set_calculator_guess,
         "max-iter": library.set_calculator_max_iter,
+        "mixer": library.set_calculator_mixer,
         "mixer-damping": library.set_calculator_mixer_damping,
+        "mixer-memory": library.set_calculator_mixer_memory,
+        "mixer-trial-start": library.set_calculator_mixer_trial_start,
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
+        "annealing": library.set_calculator_temperature_annealing,
         "verbosity": library.set_calculator_verbosity,
     }
     _getter = {
@@ -544,9 +548,13 @@ class Calculator(Structure):
          accuracy          Numerical thresholds for SCC         1.0
          guess             Initial guess for wavefunction       0 (SAD)
          max-iter          Maximum number of SCC iterations     250
+         mixer             SCC mixer and trial strategy         broyden
          mixer-damping     Parameter for the SCC mixer          0.4
+         mixer-memory      Number of SCC mixer history vectors  max-iter
+         mixer-trial-start Standard cycles before ODA/MESA      4
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
+         annealing         Start or (start, hold, cycles)       None
          verbosity         Set verbosity of printout            1
         ================= ==================================== =================
 

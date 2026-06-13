@@ -1,0 +1,9 @@
+$ORIGIN/08-gh131.gen
+--method
+gfn2
+--config
+smooth_cutoff=0
+--mixer
+broyden:oda
+--iterations
+20

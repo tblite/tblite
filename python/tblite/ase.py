@@ -117,8 +117,12 @@ class TBLite(ase.calculators.calculator.Calculator):
      accuracy                 1.0               Numerical accuracy of the calculation
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
+     mixer                    "broyden"         Self-consistent mixer, optionally with :oda/:mesa
+     mixer_memory             0                 Number of mixer history vectors (0 uses max_iterations)
+     mixer_trial_start        4                 Standard SCF cycles before ODA/MESA trials
      initial_guess            "sad"             Initial guess for wavefunction (sad, eeq, or eeqbc)
      mixer_damping            0.4               Damping parameter for self-consistent mixer
+     annealing                None              Initial temperature or (initial, hold, cycles)
      electric_field           None              Uniform electric field vector (in V/A)
      spin_polarization        None              Spin polarization (scaling factor)
      solvation                None              Solvation model to use (see below for details)
@@ -198,7 +202,11 @@ class TBLite(ase.calculators.calculator.Calculator):
         "accuracy": 1.0,
         "guess": "sad",
         "max_iterations": 250,
+        "mixer": "broyden",
+        "mixer_memory": 0,
+        "mixer_trial_start": 4,
         "mixer_damping": 0.4,
+        "annealing": None,
         "electric_field": None,
         "spin_polarization": None,
         "solvation": None,
@@ -255,6 +263,7 @@ class TBLite(ase.calculators.calculator.Calculator):
             or "electric_field" in changed_parameters
             or "spin_polarization" in changed_parameters
             or "solvation" in changed_parameters
+            or "annealing" in changed_parameters
             or "xtb_config" in changed_parameters
         ):
             self._xtb = None
@@ -274,6 +283,15 @@ class TBLite(ase.calculators.calculator.Calculator):
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
+            if "mixer" in changed_parameters:
+                self._xtb.set("mixer", self.parameters.mixer)
+
+            if "mixer_memory" in changed_parameters:
+                self._xtb.set("mixer-memory", self.parameters.mixer_memory)
+
+            if "mixer_trial_start" in changed_parameters:
+                self._xtb.set("mixer-trial-start", self.parameters.mixer_trial_start)
+
             if "initial_guess" in changed_parameters:
                 self._xtb.set(
                     "guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess]
@@ -281,6 +299,13 @@ class TBLite(ase.calculators.calculator.Calculator):
 
             if "mixer_damping" in changed_parameters:
                 self._xtb.set("mixer-damping", self.parameters.mixer_damping)
+
+            if "annealing" in changed_parameters:
+                if self.parameters.annealing is not None:
+                    self._xtb.set(
+                        "annealing",
+                        self.parameters.annealing,
+                    )
 
             if (
                 "charge" in changed_parameters or "multiplicity" in changed_parameters
@@ -421,8 +446,13 @@ def _create_api_calculator(
             parameters.electronic_temperature * kB / Hartree,
         )
         calc.set("max-iter", parameters.max_iterations)
+        calc.set("mixer", parameters.mixer)
+        calc.set("mixer-memory", parameters.mixer_memory)
+        calc.set("mixer-trial-start", parameters.mixer_trial_start)
         calc.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[parameters.guess])
         calc.set("mixer-damping", parameters.mixer_damping)
+        if parameters.annealing is not None:
+            calc.set("annealing", parameters.annealing)
         calc.set("verbosity", parameters.verbosity)
         if parameters.electric_field is not None:
             calc.add(
