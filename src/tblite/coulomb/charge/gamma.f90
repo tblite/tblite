@@ -23,13 +23,10 @@ module tblite_coulomb_charge_gamma
    use mctc_io, only : structure_type
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
-   use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_charge_type, only : coulomb_charge_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wignerseitz, only : wignerseitz_cell
    implicit none
    private
@@ -41,8 +38,6 @@ module tblite_coulomb_charge_gamma
    type, public, extends(coulomb_charge_type) :: gamma_coulomb
       !> Chemical hardness for each shell and species
       real(wp), allocatable :: hubbard(:, :)
-      !> Long-range cutoff
-      real(wp) :: rcut
    contains
       !> Evaluate Coulomb matrix
       procedure :: get_coulomb_matrix
@@ -125,7 +120,7 @@ subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
 
    if (any(mol%periodic)) then
       call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, &
-         & self%rcut, cache%wsc, cache%alpha, amat)
+         & cache%wsc, cache%alpha, amat)
    else
       call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, amat)
    end if
@@ -220,7 +215,7 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, amat)
 end subroutine get_amat_0d
 
 !> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
+subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
@@ -229,8 +224,6 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
    integer, intent(in) :: offset(:)
    !> Hardness of the shells
    real(wp), intent(in) :: hubbard(:, :)
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Wigner-Seitz cell
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence factor
@@ -247,7 +240,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, amat)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, wsc, dtrans, rtrans, alpha, vol, rcut) &
+   !$omp shared(mol, nshell, offset, hubbard, wsc, dtrans, rtrans, alpha, vol) &
    !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, ui, uj, wsw, vec, dtmp, rtmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -357,44 +350,6 @@ subroutine get_amat_rec_3d(rij, vol, alp, trans, amat)
 
 end subroutine get_amat_rec_3d
 
-function fsmooth(r1, rcut) result(fcut)
-   real(wp), intent(in) :: r1
-   real(wp), intent(in) :: rcut
-   real(wp) :: fcut
-
-   real(wp), parameter :: offset = 1.0_wp
-   real(wp), parameter :: c(*) = [-6.0_wp, 15.0_wp, -10.0_wp, 1.0_wp]
-   real(wp) :: xrel
-
-   if (r1 < rcut - offset) then
-      fcut = 1.0_wp
-   else if (r1 > rcut) then
-      fcut = 0.0_wp
-   else
-      xrel = (r1 - (rcut - offset)) / offset
-      fcut = c(1)*xrel**5 + c(2)*xrel**4 + c(3)*xrel**3 + c(4)
-   end if
-end function fsmooth
-
-function dsmooth(r1, rcut) result(dcut)
-   real(wp), intent(in) :: r1
-   real(wp), intent(in) :: rcut
-   real(wp) :: dcut
-
-   real(wp), parameter :: offset = 1.0_wp
-   real(wp), parameter :: c(*) = [-6.0_wp, 15.0_wp, -10.0_wp, 1.0_wp]
-   real(wp) :: xrel
-
-   if (r1 < rcut - offset .or. r1 > rcut) then
-      dcut = 0.0_wp
-   else
-      xrel = (r1 - (rcut - offset)) / offset
-      dcut = (5*c(1)*xrel**4 + 4*c(2)*xrel**3 + 3*c(3)*xrel**2) / offset
-   end if
-
-end function dsmooth
-
-
 !> Evaluate uncontracted derivatives of Coulomb matrix
 subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mic)
    !> Instance of the electrostatic container
@@ -418,7 +373,7 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mi
 
    if (any(mol%periodic)) then
       call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, &
-         & self%rcut, cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+         & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
    else
       call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, qsh, &
          & dadr, dadL, atrace)
@@ -447,7 +402,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, qvec, dadr, dadL, atrace)
    real(wp), intent(out) :: atrace(:, :)
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
-   real(wp) :: vec(3), r1, gam, arg, dtmp, dG(3), dS(3, 3)
+   real(wp) :: vec(3), r1, gam, dtmp, dG(3), dS(3, 3)
    real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
 
    atrace(:, :) = 0.0_wp
@@ -456,7 +411,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, qvec, dadr, dadL, atrace)
 
    !$omp parallel default(none) &
    !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp, arg) &
+   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp) &
    !$omp private(itrace, didr, didL)
    itrace = atrace
    didr = dadr
@@ -496,7 +451,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, qvec, dadr, dadL, atrace)
 end subroutine get_damat_0d
 
 !> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system
-subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
+subroutine get_damat_3d(mol, nshell, offset, hubbard, wsc, alpha, qvec, &
       & dadr, dadL, atrace)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -506,8 +461,6 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
    integer, intent(in) :: offset(:)
    !> Chemical hardness for each shell and species
    real(wp), intent(in) :: hubbard(:, :)
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Wigner-Seitz image information
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence factor for Ewald sum
@@ -536,7 +489,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, rcut, wsc, alpha, qvec, &
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
-   !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, rcut) &
+   !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset) &
    !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, ui, uj, wsw, vec, dG, dS, &
    !$omp& dGr, dSr, dGd, dSd, itrace, didr, didL)
    itrace = atrace
