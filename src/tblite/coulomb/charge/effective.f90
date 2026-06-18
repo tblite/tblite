@@ -25,7 +25,7 @@ module tblite_coulomb_charge_effective
    use mctc_io_constants, only : pi
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
+   use tblite_coulomb_ewald, only : get_rec_cutoff
    use tblite_coulomb_charge_type, only : coulomb_charge_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_scf_potential, only : potential_type
@@ -44,8 +44,6 @@ module tblite_coulomb_charge_effective
       real(wp), allocatable :: hubbard(:, :, :, :)
       !> Exponent of Coulomb kernel
       real(wp) :: gexp
-      !> Long-range cutoff
-      real(wp) :: rcut
    contains
       !> Evaluate Coulomb matrix
       procedure :: get_coulomb_matrix
@@ -111,7 +109,6 @@ subroutine new_effective_coulomb(self, mol, gexp, hubbard, average, nshell)
    end do
 
    self%gexp = gexp
-   self%rcut = 10.0_wp
 
    if (present(nshell)) then
       allocate(self%hubbard(mshell, mshell, mol%nid, mol%nid))
@@ -181,7 +178,7 @@ end function geometric_average
 
 
 !> Evaluate coulomb matrix
-subroutine get_coulomb_matrix(self, mol, cache, amat)
+subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
    !> Instance of the electrostatic container
    class(effective_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -190,33 +187,30 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
    type(coulomb_cache), intent(inout) :: cache
    !> Coulomb matrix
    real(wp), contiguous, intent(out) :: amat(:, :)
+   !> Use minimum-image convention for periodic systems
+   logical, intent(in), optional :: mic
+
+   logical :: use_mic
+
+   use_mic = .true.
+   if (present(mic)) use_mic = mic
 
    amat(:, :) = 0.0_wp
 
    if (any(mol%periodic)) then
-      call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-         & self%rcut, cache%wsc, cache%alpha, amat)
+      if (use_mic) then
+         call get_amat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+            & cache%wsc, amat)
+      else
+         call get_amat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+            & cache%wsc, amat)
+      end if
    else
       call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat)
    end if
 
 end subroutine get_coulomb_matrix
 
-
-!> Get real lattice vectors
-subroutine get_dir_trans(lattice, alpha, conv, trans)
-   !> Lattice parameters
-   real(wp), intent(in) :: lattice(:, :)
-   !> Parameter for Ewald summation
-   real(wp), intent(in) :: alpha
-   !> Tolerance for Ewald summation
-   real(wp), intent(in) :: conv
-   !> Translation vectors
-   real(wp), allocatable, intent(out) :: trans(:, :)
-
-   call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, conv), trans)
-
-end subroutine get_dir_trans
 
 !> Get reciprocal lattice translations
 subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
@@ -238,6 +232,90 @@ subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
    trans = trans(:, 2:)
 
 end subroutine get_rec_trans
+
+!> Get maximum distance represented by Wigner-Seitz images
+subroutine get_wsc_pair_range(mol, wsc, rmax, rvec)
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Wigner-Seitz cell
+   type(wignerseitz_cell), intent(in) :: wsc
+   !> Maximum Wigner-Seitz pair distance
+   real(wp), intent(out) :: rmax
+   !> Vector corresponding to the maximum Wigner-Seitz pair distance
+   real(wp), intent(out), optional :: rvec(3)
+
+   integer :: iat, jat, img
+   real(wp) :: vec(3), r1
+
+   rmax = 0.0_wp
+   if (present(rvec)) rvec(:) = 0.0_wp
+
+   do iat = 1, mol%nat
+      do jat = 1, iat-1
+         do img = 1, wsc%nimg(jat, iat)
+            vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
+            r1 = norm2(vec)
+            if (r1 > rmax) then
+               rmax = r1
+               if (present(rvec)) rvec(:) = vec
+            end if
+         end do
+      end do
+      do img = 1, wsc%nimg(iat, iat)
+         vec(:) = wsc%trans(:, wsc%tridx(img, iat, iat))
+         r1 = norm2(vec)
+         if (r1 > rmax) then
+            rmax = r1
+            if (present(rvec)) rvec(:) = vec
+         end if
+      end do
+   end do
+
+end subroutine get_wsc_pair_range
+
+!> Select Ewald splitting parameter matching direct accuracy at Wigner-Seitz range
+function get_alpha_mic(rmax, conv) result(alpha)
+   !> Maximum direct-space interaction range
+   real(wp), intent(in) :: rmax
+   !> Target accuracy
+   real(wp), intent(in) :: conv
+   !> Ewald splitting parameter
+   real(wp) :: alpha
+
+   integer :: iter
+   real(wp) :: alpl, alpr
+   integer, parameter :: miter = 60
+   real(wp), parameter :: alpha0 = sqrt(epsilon(0.0_wp))
+   real(wp), parameter :: alpha_step = 1.0e-4_wp
+
+   if (rmax <= eps) then
+      alpha = 0.25_wp
+      return
+   end if
+
+   alpha = alpha0
+   do while (erfc(alpha*rmax)/rmax > conv .and. alpha <= 0.5_wp*huge(alpha))
+      alpha = 2.0_wp * alpha
+   end do
+
+   if (alpha > 0.5_wp*huge(alpha)) then
+      alpha = 0.25_wp
+      return
+   end if
+
+   alpl = max(alpha0, 0.5_wp*alpha)
+   alpr = alpha
+   do iter = 1, miter
+      alpha = 0.5_wp * (alpl + alpr)
+      if (erfc(alpha*rmax)/rmax > conv) then
+         alpl = alpha
+      else
+         alpr = alpha
+      end if
+   end do
+   alpha = ceiling(alpr/alpha_step) * alpha_step
+
+end function get_alpha_mic
 
 
 !> Evaluate Coulomb matrix for finite systems
@@ -291,8 +369,8 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
 
 end subroutine get_amat_0d
 
-!> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, amat)
+!> Evaluate the coulomb matrix for 3D systems using minimum-image convention
+subroutine get_amat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, amat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
@@ -303,25 +381,22 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
    real(wp), intent(in) :: hubbard(:, :, :, :)
    !> Exponent of the interaction kernel
    real(wp), intent(in) :: gexp
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Wigner-Seitz cell
    type(wignerseitz_cell), intent(in) :: wsc
-   !> Convergence factor
-   real(wp), intent(in) :: alpha
    !> Coulomb matrix
    real(wp), intent(inout) :: amat(:, :)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
-   real(wp) :: vec(3), gam, wsw, dtmp, rtmp, vol, aval
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp) :: vec(3), gam, wsw, dtmp, rtmp, vol, aval, alpha_mic, rmax
+   real(wp), allocatable :: rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
+   call get_wsc_pair_range(mol, wsc, rmax)
+   alpha_mic = get_alpha_mic(rmax, conv)
+   call get_rec_trans(mol%lattice, alpha_mic, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, rcut) &
+   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, rtrans, alpha_mic, vol) &
    !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, wsw, vec, dtmp, rtmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -332,11 +407,11 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
          wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
-            call get_amat_rec_3d(vec, vol, alpha, 0.0_wp, rtrans, rtmp)
+            call get_amat_rec_3d(vec, vol, alpha_mic, 0.0_wp, rtrans, rtmp)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
-                  call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
+                  call get_amat_dir_3d(vec, gam, gexp, alpha_mic, dtmp)
                   aval = (dtmp + rtmp) * wsw
                   amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
                   amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
@@ -348,18 +423,18 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_amat_rec_3d(vec, vol, alpha, 0.0_wp, rtrans, rtmp)
-         rtmp = rtmp - 2 * alpha / sqrtpi
+         call get_amat_rec_3d(vec, vol, alpha_mic, 0.0_wp, rtrans, rtmp)
+         rtmp = rtmp - 2 * alpha_mic / sqrtpi
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
-               call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
+               call get_amat_dir_3d(vec, gam, gexp, alpha_mic, dtmp)
                aval = (dtmp + rtmp + gam) * wsw
                amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
                amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
             end do
             gam = hubbard(ish, ish, izp, izp)
-            call get_amat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dtmp)
+            call get_amat_dir_3d(vec, gam, gexp, alpha_mic, dtmp)
             aval = (dtmp + rtmp + gam) * wsw
             amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
@@ -367,39 +442,49 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, ama
 
    end do
 
-end subroutine get_amat_3d
+end subroutine get_amat_3d_mic
 
-!> Calculate real space contributions for a pair under 3D periodic boundary conditions
-subroutine get_amat_dir_3d(rij, gam, gexp, rcut, alp, trans, amat)
+!> Stub for Ewald coulomb matrix for 3D systems
+subroutine get_amat_3d_ewald(mol, nshell, offset, hubbard, gexp, wsc, amat)
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Number of shells per atom
+   integer, intent(in) :: nshell(:)
+   !> Index offset for each atom
+   integer, intent(in) :: offset(:)
+   !> Hubbard parameter of the shells
+   real(wp), intent(in) :: hubbard(:, :, :, :)
+   !> Exponent of the interaction kernel
+   real(wp), intent(in) :: gexp
+   !> Wigner-Seitz cell
+   type(wignerseitz_cell), intent(in) :: wsc
+   !> Coulomb matrix
+   real(wp), intent(inout) :: amat(:, :)
+
+   amat(:, :) = 0.0_wp
+
+end subroutine get_amat_3d_ewald
+
+!> Calculate real space contribution for a pair under 3D periodic boundary conditions
+subroutine get_amat_dir_3d(rij, gam, gexp, alp, amat)
    !> Distance between pair
    real(wp), intent(in) :: rij(3)
    !> Hubbard parameter
    real(wp), intent(in) :: gam
    !> Exponent for interaction kernel
    real(wp), intent(in) :: gexp
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Convergence factor
    real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
    !> Interaction matrix element
    real(wp), intent(out) :: amat
 
-   integer :: itr
-   real(wp) :: vec(3), r1, tmp, fcut
+   real(wp) :: r1
 
    amat = 0.0_wp
 
-   do itr = 1, size(trans, 2)
-      vec(:) = rij + trans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      fcut = fsmooth(r1, rcut)
-      tmp = fcut/(r1**gexp + gam**(-gexp))**(1.0_wp/gexp) + (1.0_wp-fcut)/r1 &
-         & - erf(alp*r1)/r1
-      amat = amat + tmp
-   end do
+   r1 = norm2(rij)
+   if (r1 < eps) return
+   amat = 1.0_wp/(r1**gexp + gam**(-gexp))**(1.0_wp/gexp) - erf(alp*r1)/r1
 
 end subroutine get_amat_dir_3d
 
@@ -436,46 +521,9 @@ subroutine get_amat_rec_3d(rij, vol, alp, qpc, trans, amat)
 
 end subroutine get_amat_rec_3d
 
-function fsmooth(r1, rcut) result(fcut)
-   real(wp), intent(in) :: r1
-   real(wp), intent(in) :: rcut
-   real(wp) :: fcut
-
-   real(wp), parameter :: offset = 1.0_wp
-   real(wp), parameter :: c(*) = [-6.0_wp, 15.0_wp, -10.0_wp, 1.0_wp]
-   real(wp) :: xrel
-
-   if (r1 < rcut - offset) then
-      fcut = 1.0_wp
-   else if (r1 > rcut) then
-      fcut = 0.0_wp
-   else
-      xrel = (r1 - (rcut - offset)) / offset
-      fcut = c(1)*xrel**5 + c(2)*xrel**4 + c(3)*xrel**3 + c(4)
-   end if
-end function fsmooth
-
-function dsmooth(r1, rcut) result(dcut)
-   real(wp), intent(in) :: r1
-   real(wp), intent(in) :: rcut
-   real(wp) :: dcut
-
-   real(wp), parameter :: offset = 1.0_wp
-   real(wp), parameter :: c(*) = [-6.0_wp, 15.0_wp, -10.0_wp, 1.0_wp]
-   real(wp) :: xrel
-
-   if (r1 < rcut - offset .or. r1 > rcut) then
-      dcut = 0.0_wp
-   else
-      xrel = (r1 - (rcut - offset)) / offset
-      dcut = (5*c(1)*xrel**4 + 4*c(2)*xrel**3 + 3*c(3)*xrel**2) / offset
-   end if
-
-end function dsmooth
-
 
 !> Evaluate uncontracted derivatives of Coulomb matrix
-subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
+subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mic)
    !> Instance of the electrostatic container
    class(effective_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -492,19 +540,36 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    real(wp), contiguous, intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
+   !> Use minimum-image convention for periodic systems
+   logical, intent(in), optional :: mic
+
+   logical :: use_mic
+
+   use_mic = .true.
+   if (present(mic)) use_mic = mic
 
    if(self%shell_resolved) then
       if (any(mol%periodic)) then
-         call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-            & self%rcut, cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+         if (use_mic) then
+            call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+               & cache%wsc, qsh, dadr, dadL, atrace)
+         else
+            call get_damat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+               & cache%wsc, qsh, dadr, dadL, atrace)
+         end if
       else
          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
             & dadr, dadL, atrace)
       end if
    else
       if (any(mol%periodic)) then
-         call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-            & self%rcut, cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
+         if (use_mic) then
+            call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+               & cache%wsc, qat, dadr, dadL, atrace)
+         else
+            call get_damat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+               & cache%wsc, qat, dadr, dadL, atrace)
+         end if
       else
          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
             & dadr, dadL, atrace)
@@ -586,8 +651,8 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
 
 end subroutine get_damat_0d
 
-!> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system
-subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qvec, &
+!> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system using minimum-image convention
+subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, qvec, &
       & dadr, dadL, atrace)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -599,12 +664,8 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    real(wp), intent(in) :: hubbard(:, :, :, :)
    !> Exponent of Coulomb kernel
    real(wp), intent(in) :: gexp
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Wigner-Seitz image information
    type(wignerseitz_cell), intent(in) :: wsc
-   !> Convergence factor for Ewald sum
-   real(wp), intent(in) :: alpha
    !> Partial charge vector
    real(wp), intent(in) :: qvec(:)
    !> Derivative of interactions with respect to cartesian displacements
@@ -615,22 +676,23 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    real(wp), intent(out) :: atrace(:, :)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
-   real(wp) :: vol, gam, wsw, vec(3), dG(3), dS(3, 3)
-   real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3)
+   real(wp) :: vol, alpha_mic, gam, wsw, vec(3), dG(3), dS(3, 3)
+   real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3), rmax
    real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp), allocatable :: rtrans(:, :)
 
    atrace(:, :) = 0.0_wp
    dadr(:, :, :) = 0.0_wp
    dadL(:, :, :) = 0.0_wp
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
+   call get_wsc_pair_range(mol, wsc, rmax)
+   alpha_mic = get_alpha_mic(rmax, conv)
+   call get_rec_trans(mol%lattice, alpha_mic, vol, conv, rtrans)
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
-   !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp, &
-   !$omp& rcut) private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS, &
+   !$omp shared(mol, wsc, alpha_mic, vol, rtrans, qvec, hubbard, nshell, offset, gexp) &
+   !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS, &
    !$omp& dGr, dSr, dGd, dSd, itrace, didr, didL)
    allocate(itrace, source=atrace)
    allocate(didr, source=dadr)
@@ -645,11 +707,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
             wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
-            call get_damat_rec_3d(vec, vol, alpha, 0.0_wp, rtrans, dGr, dSr)
+            call get_damat_rec_3d(vec, vol, alpha_mic, 0.0_wp, rtrans, dGr, dSr)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
-                  call get_damat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dGd, dSd)
+                  call get_damat_dir_3d(vec, gam, gexp, alpha_mic, dGd, dSd)
                   dG = (dGd + dGr) * wsw
                   dS = (dSd + dSr) * wsw
                   itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
@@ -666,17 +728,17 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_damat_rec_3d(vec, vol, alpha, 0.0_wp, rtrans, dGr, dSr)
+         call get_damat_rec_3d(vec, vol, alpha_mic, 0.0_wp, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
-               call get_damat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dGd, dSd)
+               call get_damat_dir_3d(vec, gam, gexp, alpha_mic, dGd, dSd)
                dS = (dSd + dSr) * wsw
                didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
                didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
             end do
             gam = hubbard(ish, ish, izp, izp)
-            call get_damat_dir_3d(vec, gam, gexp, rcut, alpha, dtrans, dGd, dSd)
+            call get_damat_dir_3d(vec, gam, gexp, alpha_mic, dGd, dSd)
             dS = (dSd + dSr) * wsw
             didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
          end do
@@ -690,49 +752,67 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, rcut, wsc, alpha, qv
    deallocate(didL, didr, itrace) 
    !$omp end parallel
 
-end subroutine get_damat_3d
+end subroutine get_damat_3d_mic
 
-!> Calculate real space contributions for a pair under 3D periodic boundary conditions
-subroutine get_damat_dir_3d(rij, gam, gexp, rcut, alp, trans, dg, ds)
+!> Stub for uncontracted derivatives of Coulomb matrix for 3D periodic system
+subroutine get_damat_3d_ewald(mol, nshell, offset, hubbard, gexp, wsc, qvec, &
+      & dadr, dadL, atrace)
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Number of shells for each atom
+   integer, intent(in) :: nshell(:)
+   !> Index offset for each shell
+   integer, intent(in) :: offset(:)
+   !> Hubbard parameter for each shell and species
+   real(wp), intent(in) :: hubbard(:, :, :, :)
+   !> Exponent of Coulomb kernel
+   real(wp), intent(in) :: gexp
+   !> Wigner-Seitz image information
+   type(wignerseitz_cell), intent(in) :: wsc
+   !> Partial charge vector
+   real(wp), intent(in) :: qvec(:)
+   !> Derivative of interactions with respect to cartesian displacements
+   real(wp), intent(out) :: dadr(:, :, :)
+   !> Derivative of interactions with respect to strain deformations
+   real(wp), intent(out) :: dadL(:, :, :)
+   !> On-site derivatives with respect to cartesian displacements
+   real(wp), intent(out) :: atrace(:, :)
+
+   atrace(:, :) = 0.0_wp
+   dadr(:, :, :) = 0.0_wp
+   dadL(:, :, :) = 0.0_wp
+
+end subroutine get_damat_3d_ewald
+
+!> Calculate real space contribution for a pair under 3D periodic boundary conditions
+subroutine get_damat_dir_3d(rij, gam, gexp, alp, dg, ds)
    !> Distance between pair
    real(wp), intent(in) :: rij(3)
    !> Hubbard parameter
    real(wp), intent(in) :: gam
    !> Exponent for interaction kernel
    real(wp), intent(in) :: gexp
-   !> Long-range cutoff
-   real(wp), intent(in) :: rcut
    !> Convergence factor
    real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
    !> Derivative with respect to cartesian displacements
    real(wp), intent(out) :: dg(3)
    !> Derivative with respect to strain deformations
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr
-   real(wp) :: vec(3), r1, r2, gtmp, atmp, alp2, fcut, dcut
+   real(wp) :: r1, r2, gtmp, atmp, alp2
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp
 
+   r1 = norm2(rij)
+   if (r1 < eps) return
+   r2 = r1*r1
    alp2 = alp*alp
-
-   do itr = 1, size(trans, 2)
-      vec(:) = rij + trans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      r2 = r1*r1
-      fcut = fsmooth(r1, rcut)
-      dcut = dsmooth(r1, rcut)
-      gtmp = 1.0_wp / (r1**gexp + gam**(-gexp))
-      gtmp = -r1**(gexp-2.0_wp) * gtmp * gtmp**(1.0_wp/gexp) * fcut - (1.0_wp-fcut)/(r2*r1) &
-         & + dcut * (gtmp**(1.0_wp/gexp) * r1 - 1.0_wp) / r2
-      atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2) + erf(r1*alp)/(r2*r1)
-      dg(:) = dg + (gtmp + atmp) * vec
-      ds(:, :) = ds + (gtmp + atmp) * spread(vec, 1, 3) * spread(vec, 2, 3)
-   end do
+   gtmp = 1.0_wp / (r1**gexp + gam**(-gexp))
+   gtmp = -r1**(gexp-2.0_wp) * gtmp * gtmp**(1.0_wp/gexp)
+   atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2) + erf(r1*alp)/(r2*r1)
+   dg(:) = (gtmp + atmp) * rij
+   ds(:, :) = (gtmp + atmp) * spread(rij, 1, 3) * spread(rij, 2, 3)
 
 end subroutine get_damat_dir_3d
 
