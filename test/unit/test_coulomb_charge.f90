@@ -950,7 +950,7 @@ subroutine test_effective_mic_switch(error)
 
    type(structure_type) :: mol
    class(coulomb_charge_type), allocatable :: coulomb
-   type(coulomb_cache) :: cache
+   type(coulomb_cache) :: cache_default, cache_mic, cache_ewald
    integer :: ndim
    real(wp), allocatable :: qvec(:)
    real(wp), allocatable :: amat_default(:, :), amat_mic(:, :), amat_ewald(:, :)
@@ -960,7 +960,10 @@ subroutine test_effective_mic_switch(error)
 
    call get_structure(mol, "X23", "oxacb")
    call make_coulomb_e2(coulomb, mol, .false.)
-   call cache%update(mol)
+   cache_ewald%mic = .false.
+   call cache_default%update(mol)
+   call cache_mic%update(mol)
+   call cache_ewald%update(mol)
 
    ndim = sum(coulomb%nshell)
    allocate(amat_default(ndim, ndim), amat_mic(ndim, ndim), amat_ewald(ndim, ndim))
@@ -970,9 +973,9 @@ subroutine test_effective_mic_switch(error)
    allocate(atrace_default(3, ndim), atrace_mic(3, ndim), atrace_ewald(3, ndim))
    allocate(qvec(ndim), source=1.0_wp)
 
-   call coulomb%get_coulomb_matrix(mol, cache, amat_default)
-   call coulomb%get_coulomb_matrix(mol, cache, amat_mic, mic=.true.)
-   call coulomb%get_coulomb_matrix(mol, cache, amat_ewald, mic=.false.)
+   call coulomb%get_coulomb_matrix(mol, cache_default, amat_default)
+   call coulomb%get_coulomb_matrix(mol, cache_mic, amat_mic)
+   call coulomb%get_coulomb_matrix(mol, cache_ewald, amat_ewald)
 
    if (any(abs(amat_default - amat_mic) > thr)) then
       call test_failed(error, "Default Coulomb matrix is not MIC matrix")
@@ -983,12 +986,12 @@ subroutine test_effective_mic_switch(error)
       return
    end if
 
-   call coulomb%get_coulomb_derivs(mol, cache, qvec, qvec, dadr_default, dadL_default, &
+   call coulomb%get_coulomb_derivs(mol, cache_default, qvec, qvec, dadr_default, dadL_default, &
       & atrace_default)
-   call coulomb%get_coulomb_derivs(mol, cache, qvec, qvec, dadr_mic, dadL_mic, &
-      & atrace_mic, mic=.true.)
-   call coulomb%get_coulomb_derivs(mol, cache, qvec, qvec, dadr_ewald, dadL_ewald, &
-      & atrace_ewald, mic=.false.)
+   call coulomb%get_coulomb_derivs(mol, cache_mic, qvec, qvec, dadr_mic, dadL_mic, &
+      & atrace_mic)
+   call coulomb%get_coulomb_derivs(mol, cache_ewald, qvec, qvec, dadr_ewald, dadL_ewald, &
+      & atrace_ewald)
 
    if (any(abs(dadr_default - dadr_mic) > thr) .or. &
       & any(abs(dadL_default - dadL_mic) > thr) .or. &

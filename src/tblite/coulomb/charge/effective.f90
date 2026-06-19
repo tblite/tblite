@@ -65,7 +65,7 @@ module tblite_coulomb_charge_effective
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
-   real(wp), parameter :: conv = eps
+   real(wp), parameter :: conv = epsilon(0.0_wp)
    character(len=*), parameter :: label = "isotropic Klopman-Ohno-Mataga-Nishimoto electrostatics"
 
 contains
@@ -327,10 +327,11 @@ subroutine get_amat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
          jzp = mol%id(jat)
          jj = offset(jat)
          wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
+         call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
-            call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
-            call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
@@ -344,11 +345,12 @@ subroutine get_amat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
       end do
 
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
+      vec = 0.0_wp
+      call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
+      call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+      rtmp = rtmp - 2 * alpha / sqrtpi
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
-         call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
-         rtmp = rtmp - 2 * alpha / sqrtpi
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
@@ -630,8 +632,8 @@ subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
    !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp) &
-   !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS, &
-   !$omp& dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
+   !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS) &
+   !$omp private(dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
    allocate(itrace, source=atrace)
    allocate(didr, source=dadr)
    allocate(didL, source=dadL)
@@ -642,11 +644,12 @@ subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec
       do jat = 1, iat-1
          jzp = mol%id(jat)
          jj = offset(jat)
+         vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
+         call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
-            wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
-            call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
-            call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
@@ -665,10 +668,11 @@ subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec
       end do
 
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
+      vec = 0.0_wp
+      call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
+      call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
-         call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
