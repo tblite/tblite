@@ -104,7 +104,7 @@ end subroutine new_gamma_coulomb
 
 
 !> Evaluate coulomb matrix
-subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
+subroutine get_coulomb_matrix(self, mol, cache, amat)
    !> Instance of the electrostatic container
    class(gamma_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -113,9 +113,6 @@ subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
    type(coulomb_cache), intent(inout) :: cache
    !> Coulomb matrix
    real(wp), contiguous, intent(out) :: amat(:, :)
-   !> Use minimum-image convention for periodic systems
-   logical, intent(in), optional :: mic
-
    amat(:, :) = 0.0_wp
 
    if (any(mol%periodic)) then
@@ -351,7 +348,7 @@ subroutine get_amat_rec_3d(rij, vol, alp, trans, amat)
 end subroutine get_amat_rec_3d
 
 !> Evaluate uncontracted derivatives of Coulomb matrix
-subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mic)
+subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    !> Instance of the electrostatic container
    class(gamma_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -368,9 +365,6 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mi
    real(wp), contiguous, intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
-   !> Use minimum-image convention for periodic systems
-   logical, intent(in), optional :: mic
-
    if (any(mol%periodic)) then
       call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, &
          & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)

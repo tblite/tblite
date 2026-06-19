@@ -175,7 +175,7 @@ end function geometric_average
 
 
 !> Evaluate coulomb matrix
-subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
+subroutine get_coulomb_matrix(self, mol, cache, amat)
    !> Instance of the electrostatic container
    class(effective_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -184,18 +184,10 @@ subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
    type(coulomb_cache), intent(inout) :: cache
    !> Coulomb matrix
    real(wp), contiguous, intent(out) :: amat(:, :)
-   !> Use minimum-image convention for periodic systems
-   logical, intent(in), optional :: mic
-
-   logical :: use_mic
-
-   use_mic = .true.
-   if (present(mic)) use_mic = mic
-
    amat(:, :) = 0.0_wp
 
    if (any(mol%periodic)) then
-      if (use_mic) then
+      if (cache%mic) then
          call get_amat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
             & cache%wsc, cache%alpha, amat)
       else
@@ -476,7 +468,7 @@ end subroutine get_amat_rec_3d
 
 
 !> Evaluate uncontracted derivatives of Coulomb matrix
-subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mic)
+subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    !> Instance of the electrostatic container
    class(effective_coulomb), intent(in) :: self
    !> Molecular structure data
@@ -493,17 +485,9 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mi
    real(wp), contiguous, intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
-   !> Use minimum-image convention for periodic systems
-   logical, intent(in), optional :: mic
-
-   logical :: use_mic
-
-   use_mic = .true.
-   if (present(mic)) use_mic = mic
-
    if(self%shell_resolved) then
       if (any(mol%periodic)) then
-         if (use_mic) then
+         if (cache%mic) then
             call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
                & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
          else
@@ -516,7 +500,7 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mi
       end if
    else
       if (any(mol%periodic)) then
-         if (use_mic) then
+         if (cache%mic) then
             call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
                & cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
          else

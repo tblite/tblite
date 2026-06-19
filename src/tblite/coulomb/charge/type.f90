@@ -60,7 +60,7 @@ module tblite_coulomb_charge_type
 
    abstract interface
       !> Evaluate coulomb matrix
-      subroutine get_coulomb_matrix(self, mol, cache, amat, mic)
+      subroutine get_coulomb_matrix(self, mol, cache, amat)
          import :: coulomb_charge_type, structure_type, coulomb_cache, wp
          !> Instance of the electrostatic container
          class(coulomb_charge_type), intent(in) :: self
@@ -70,12 +70,10 @@ module tblite_coulomb_charge_type
          type(coulomb_cache), intent(inout) :: cache
          !> Coulomb matrix
          real(wp), contiguous, intent(out) :: amat(:, :)
-         !> Use minimum-image convention for periodic systems
-         logical, intent(in), optional :: mic
       end subroutine get_coulomb_matrix
 
       !> Evaluate uncontracted derivatives of Coulomb matrix
-      subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace, mic)
+      subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
          import :: coulomb_charge_type, structure_type, coulomb_cache, wp
          !> Instance of the electrostatic container
          class(coulomb_charge_type), intent(in) :: self
@@ -93,8 +91,6 @@ module tblite_coulomb_charge_type
          real(wp), contiguous, intent(out) :: dadL(:, :, :)
          !> On-site derivatives with respect to cartesian displacements
          real(wp), contiguous, intent(out) :: atrace(:, :)
-         !> Use minimum-image convention for periodic systems
-         logical, intent(in), optional :: mic
       end subroutine get_coulomb_derivs
    end interface
 
