@@ -49,7 +49,7 @@ module tblite_coulomb_charge_gamma
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
-   real(wp), parameter :: conv = eps
+   real(wp), parameter :: conv = epsilon(0.0_wp)
    character(len=*), parameter :: label = "isotropic DFTB-γ electrostatics"
 
 contains

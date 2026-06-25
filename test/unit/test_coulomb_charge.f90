@@ -76,6 +76,8 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("energy-atom-pbc-e2", test_e_effective_oxacb), &
       new_unittest("mic-switch-e2", test_effective_mic_switch), &
       new_unittest("energy-atom-sc-e2", test_e_effective_oxacb_sc), &
+      new_unittest("energy-atom-pbc-g1", test_e_gamma_urea), &
+      new_unittest("energy-atom-sc-g1", test_e_gamma_urea_sc), &
       new_unittest("energy-atom-g1", test_e_effective_m10), &
       new_unittest("energy-shell-g2", test_e_effective_m13), &
       new_unittest("gradient-atom-e1", test_g_effective_m03), &
@@ -938,7 +940,8 @@ subroutine test_e_effective_oxacb(error)
    real(wp), allocatable :: qsh(:)
 
    call get_structure(mol, "X23", "oxacb")
-   call test_generic(error, mol, qat, qsh, make_coulomb_e2, 0.08942208013902159_wp, 1.0e-4_wp)
+   call test_generic(error, mol, qat, qsh, make_coulomb_e2, &
+      & 0.10361965109930950_wp, thr2)
 
 end subroutine test_e_effective_oxacb
 
@@ -1028,9 +1031,56 @@ subroutine test_e_effective_oxacb_sc(error)
    call get_structure(mol, "X23", "oxacb")
    call make_supercell(mol, supercell)
    call test_generic(error, mol, qat, qsh, make_coulomb_e2, &
-      & 0.69672312343726239_wp, 1.0e-4_wp)
+      & 0.10361965109930950_wp * real(product(supercell), wp), thr2)
 
 end subroutine test_e_effective_oxacb_sc
+
+
+subroutine test_e_gamma_urea(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 5.55723890858218E-1_wp, 5.55765354442035E-1_wp, 2.50200231242017E-1_wp,&
+      & 2.50282053284422E-1_wp, 2.39786980460652E-1_wp, 2.39895142481200E-1_wp,&
+      & 2.50103678240412E-1_wp, 2.50425041601730E-1_wp, 2.39464477136495E-1_wp,&
+      & 2.40360053062669E-1_wp,-4.38369096728919E-1_wp,-4.38451412936599E-1_wp,&
+      &-4.38310020776279E-1_wp,-4.38617373848238E-1_wp,-6.59141030224988E-1_wp,&
+      &-6.59117968294813E-1_wp]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "urea")
+   call test_generic(error, mol, qat, qsh, make_coulomb_g1, &
+      & 0.12692010121051550_wp, thr2)
+
+end subroutine test_e_gamma_urea
+
+
+subroutine test_e_gamma_urea_sc(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat1(*) = [&
+      & 5.55723890858218E-1_wp, 5.55765354442035E-1_wp, 2.50200231242017E-1_wp,&
+      & 2.50282053284422E-1_wp, 2.39786980460652E-1_wp, 2.39895142481200E-1_wp,&
+      & 2.50103678240412E-1_wp, 2.50425041601730E-1_wp, 2.39464477136495E-1_wp,&
+      & 2.40360053062669E-1_wp,-4.38369096728919E-1_wp,-4.38451412936599E-1_wp,&
+      &-4.38310020776279E-1_wp,-4.38617373848238E-1_wp,-6.59141030224988E-1_wp,&
+      &-6.59117968294813E-1_wp]
+   integer, parameter :: supercell(*) = [2, 2, 2]
+   real(wp), parameter :: qat(*) = [spread(qat1, 2, product(supercell))]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "urea")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat, qsh, make_coulomb_g1, &
+      & 0.12692010121051550_wp * real(product(supercell), wp), thr2)
+
+end subroutine test_e_gamma_urea_sc
 
 
 subroutine make_supercell(mol, rep)
