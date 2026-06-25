@@ -24,7 +24,7 @@ module tblite_coulomb_charge_gamma
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
+   use tblite_coulomb_ewald, only : get_rec_cutoff
    use tblite_coulomb_charge_type, only : coulomb_charge_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_wignerseitz, only : wignerseitz_cell
@@ -125,21 +125,6 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
 end subroutine get_coulomb_matrix
 
 
-!> Get real lattice vectors
-subroutine get_dir_trans(lattice, alpha, conv, trans)
-   !> Lattice parameters
-   real(wp), intent(in) :: lattice(:, :)
-   !> Parameter for Ewald summation
-   real(wp), intent(in) :: alpha
-   !> Tolerance for Ewald summation
-   real(wp), intent(in) :: conv
-   !> Translation vectors
-   real(wp), allocatable, intent(out) :: trans(:, :)
-
-   call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, conv), trans)
-
-end subroutine get_dir_trans
-
 !> Get reciprocal lattice translations
 subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
    !> Lattice parameters
@@ -230,14 +215,13 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
    real(wp) :: vec(3), ui, uj, wsw, dtmp, rtmp, vol, aval
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp), allocatable :: rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, wsc, dtrans, rtrans, alpha, vol) &
+   !$omp shared(mol, nshell, offset, hubbard, wsc, rtrans, alpha, vol) &
    !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, ui, uj, wsw, vec, dtmp, rtmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -246,14 +230,15 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat)
          jzp = mol%id(jat)
          jj = offset(jat)
          wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
-            call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   ui = hubbard(ish, izp)
                   uj = hubbard(jsh, jzp)
-                  call get_amat_dir_3d(vec, ui, uj, alpha, dtrans, dtmp)
+                  call get_amat_dir_3d(vec, ui, uj, alpha, dtmp)
                   aval = (dtmp + rtmp) * wsw
                   amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
                   amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
@@ -263,21 +248,22 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat)
       end do
 
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
+      vec = 0.0_wp
+      call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+      rtmp = rtmp - 2 * alpha / sqrtpi
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
-         rtmp = rtmp - 2 * alpha / sqrtpi
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                ui = hubbard(ish, izp)
                uj = hubbard(jsh, izp)
-               call get_amat_dir_3d(vec, ui, uj, alpha, dtrans, dtmp)
+               call get_amat_dir_3d(vec, ui, uj, alpha, dtmp)
                aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, uj)) * wsw
                amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
                amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
             end do
             ui = hubbard(ish, izp)
-            call get_amat_dir_3d(vec, ui, ui, alpha, dtrans, dtmp)
+            call get_amat_dir_3d(vec, ui, ui, alpha, dtmp)
             aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, ui)) * wsw
             amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
@@ -288,31 +274,24 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat)
 end subroutine get_amat_3d
 
 !> Calculate real space contributions for a pair under 3D periodic boundary conditions
-subroutine get_amat_dir_3d(rij, ui, uj, alp, trans, amat)
+subroutine get_amat_dir_3d(rij, ui, uj, alp, amat)
    !> Distance between pair
    real(wp), intent(in) :: rij(3)
    !> Chemical hardness
    real(wp), intent(in) :: ui, uj
    !> Convergence factor
    real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
    !> Interaction matrix element
    real(wp), intent(out) :: amat
 
-   integer :: itr
-   real(wp) :: vec(3), r1, tmp
+   real(wp) :: r1
 
    amat = 0.0_wp
 
-   do itr = 1, size(trans, 2)
-      vec(:) = rij + trans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      tmp = 1.0_wp / r1 - exp_gamma(r1, ui, uj) &
-         & - erf(alp*r1)/r1
-      amat = amat + tmp
-   end do
+   r1 = norm2(rij)
+   if (r1 < eps) return
+   amat = 1.0_wp / r1 - exp_gamma(r1, ui, uj) &
+      & - erf(alp*r1)/r1
 
 end subroutine get_amat_dir_3d
 
@@ -472,18 +451,17 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, wsc, alpha, qvec, &
    real(wp) :: vol, ui, uj, wsw, vec(3), dG(3), dS(3, 3)
    real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3)
    real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp), allocatable :: rtrans(:, :)
 
    atrace(:, :) = 0.0_wp
    dadr(:, :, :) = 0.0_wp
    dadL(:, :, :) = 0.0_wp
 
    vol = abs(matdet_3x3(mol%lattice))
-   call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
-   !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset) &
+   !$omp shared(mol, wsc, alpha, vol, rtrans, qvec, hubbard, nshell, offset) &
    !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, ui, uj, wsw, vec, dG, dS, &
    !$omp& dGr, dSr, dGd, dSd, itrace, didr, didL)
    itrace = atrace
@@ -496,15 +474,16 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, wsc, alpha, qvec, &
       do jat = 1, iat-1
          jzp = mol%id(jat)
          jj = offset(jat)
+         vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
-            wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
-            call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   ui = hubbard(ish, izp)
                   uj = hubbard(jsh, jzp)
-                  call get_damat_dir_3d(vec, ui, uj, alpha, dtrans, dGd, dSd)
+                  call get_damat_dir_3d(vec, ui, uj, alpha, dGd, dSd)
                   dG = (dGd + dGr) * wsw
                   dS = (dSd + dSr) * wsw
                   itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
@@ -519,20 +498,21 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, wsc, alpha, qvec, &
       end do
 
       wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
+      vec = 0.0_wp
+      call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                ui = hubbard(ish, izp)
                uj = hubbard(jsh, izp)
-               call get_damat_dir_3d(vec, ui, uj, alpha, dtrans, dGd, dSd)
+               call get_damat_dir_3d(vec, ui, uj, alpha, dGd, dSd)
                dS = (dSd + dSr) * wsw
                didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
                didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
             end do
             ui = hubbard(ish, izp)
-            call get_damat_dir_3d(vec, ui, ui, alpha, dtrans, dGd, dSd)
+            call get_damat_dir_3d(vec, ui, ui, alpha, dGd, dSd)
             dS = (dSd + dSr) * wsw
             didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
          end do
@@ -548,38 +528,32 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, wsc, alpha, qvec, &
 end subroutine get_damat_3d
 
 !> Calculate real space contributions for a pair under 3D periodic boundary conditions
-subroutine get_damat_dir_3d(rij, ui, uj, alp, trans, dg, ds)
+subroutine get_damat_dir_3d(rij, ui, uj, alp, dg, ds)
    !> Distance between pair
    real(wp), intent(in) :: rij(3)
    !> Chemical hardness
    real(wp), intent(in) :: ui, uj
    !> Convergence factor
    real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
    !> Derivative with respect to cartesian displacements
    real(wp), intent(out) :: dg(3)
    !> Derivative with respect to strain deformations
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr
-   real(wp) :: vec(3), r1, r2, gtmp, atmp, alp2
+   real(wp) :: r1, r2, gtmp, atmp, alp2
 
    dg(:) = 0.0_wp
    ds(:, :) = 0.0_wp
 
    alp2 = alp*alp
 
-   do itr = 1, size(trans, 2)
-      vec(:) = rij + trans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      r2 = r1*r1
-      gtmp = -1.0_wp/(r2*r1) - dexp_gamma(r1, ui, uj)/r1
-      atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2) + erf(r1*alp)/(r2*r1)
-      dg(:) = dg + (gtmp + atmp) * vec
-      ds(:, :) = ds + (gtmp + atmp) * spread(vec, 1, 3) * spread(vec, 2, 3)
-   end do
+   r1 = norm2(rij)
+   if (r1 < eps) return
+   r2 = r1*r1
+   gtmp = -1.0_wp/(r2*r1) - dexp_gamma(r1, ui, uj)/r1
+   atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2) + erf(r1*alp)/(r2*r1)
+   dg(:) = (gtmp + atmp) * rij
+   ds(:, :) = (gtmp + atmp) * spread(rij, 1, 3) * spread(rij, 2, 3)
 
 end subroutine get_damat_dir_3d
 
