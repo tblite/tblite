@@ -638,9 +638,9 @@ pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat
       k_q(6) =          vec(3) * vec(3)
 
       amat_sd(:) = amat_sd + vec * sink
-      amat_dd(:, 1) = amat_dd + vec * vec(1) * cosk
-      amat_dd(:, 2) = amat_dd + vec * vec(2) * cosk
-      amat_dd(:, 3) = amat_dd + vec * vec(3) * cosk
+      amat_dd(:, 1) = amat_dd(:, 1) + vec * vec(1) * cosk
+      amat_dd(:, 2) = amat_dd(:, 2) + vec * vec(2) * cosk
+      amat_dd(:, 3) = amat_dd(:, 3) + vec * vec(3) * cosk
       amat_sq(:) = amat_sq - cosk / 3.0_wp * k_q
    end do
 
