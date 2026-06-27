@@ -685,7 +685,9 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
 
       tmp = fdmp3 * g3 + e1
       amat_sd = amat_sd + vec * tmp
-      amat_dd(:, :) = amat_dd(:, :) + unity * tmp
+      amat_dd(1, 1) = amat_dd(1, 1) + tmp
+      amat_dd(2, 2) = amat_dd(2, 2) + tmp
+      amat_dd(3, 3) = amat_dd(3, 3) + tmp
       tmp = fdmp5 * g5 + e2
       amat_dd(:, 1) = amat_dd(:, 1) - vec * vec(1) * (3 * tmp)
       amat_dd(:, 2) = amat_dd(:, 2) - vec * vec(2) * (3 * tmp)
