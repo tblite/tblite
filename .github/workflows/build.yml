@@ -233,7 +233,7 @@ jobs:
          --no-rebuild
          --num-processes 1
          --suite tblite
-         -t 2
+         -t 10
       env:
         OMP_NUM_THREADS: 1,2,1
 
