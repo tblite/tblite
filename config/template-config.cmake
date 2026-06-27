@@ -16,9 +16,8 @@ enable_language("Fortran")
 enable_language("C")
 
 if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
-  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
-
   include(CMakeFindDependencyMacro)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
   if(NOT TARGET "OpenMP::OpenMP_Fortran" AND TBLITE_WITH_OpenMP)
     find_dependency("OpenMP")
@@ -59,4 +58,7 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   if(NOT TARGET "s-dftd3::s-dftd3" AND TBLITE_USE_SDFTD3)
     find_dependency("s-dftd3")
   endif()
+
+  list(REMOVE_AT CMAKE_MODULE_PATH -1)
+  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
 endif()
