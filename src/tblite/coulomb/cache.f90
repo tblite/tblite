@@ -31,6 +31,7 @@ module tblite_coulomb_cache
 
    type :: coulomb_cache
       real(wp) :: alpha
+      real(wp) :: alpha_multipole
       type(wignerseitz_cell) :: wsc
       real(wp), allocatable :: amat(:, :)
       real(wp), allocatable :: vvec(:)
@@ -61,6 +62,7 @@ subroutine update(self, mol)
    if (any(mol%periodic)) then
       call new_wignerseitz_cell(self%wsc, mol)
       call get_alpha(mol%lattice, self%alpha, .false.)
+      call get_alpha(mol%lattice, self%alpha_multipole, .true.)
    end if
 
 end subroutine update
