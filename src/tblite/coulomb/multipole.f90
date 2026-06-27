@@ -638,7 +638,9 @@ pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat
       k_q(6) =          vec(3) * vec(3)
 
       amat_sd(:) = amat_sd + vec * sink
-      amat_dd(:, :) = amat_dd + spread(vec, 1, 3) * spread(vec, 2, 3) * cosk
+      amat_dd(:, 1) = amat_dd + vec * vec(1) * cosk
+      amat_dd(:, 2) = amat_dd + vec * vec(2) * cosk
+      amat_dd(:, 3) = amat_dd + vec * vec(3) * cosk
       amat_sq(:) = amat_sq - cosk / 3.0_wp * k_q
    end do
 
@@ -683,8 +685,11 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
 
       tmp = fdmp3 * g3 + e1
       amat_sd = amat_sd + vec * tmp
-      amat_dd(:, :) = amat_dd(:, :) + unity * (fdmp5*g3 + e1) &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3) * (3 * (g5*fdmp5 + e2))
+      amat_dd(:, :) = amat_dd(:, :) + unity * tmp
+      tmp = fdmp5 * g5 + e2
+      amat_dd(:, 1) = amat_dd(:, 1) - vec * vec(1) * (3 * tmp)
+      amat_dd(:, 2) = amat_dd(:, 2) - vec * vec(2) * (3 * tmp)
+      amat_dd(:, 3) = amat_dd(:, 3) - vec * vec(3) * (3 * tmp)
       amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
       amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*(g5*fdmp5 + e2)
       amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
