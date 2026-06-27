@@ -26,7 +26,7 @@ import tblite
 
 project = "tblite"
 author = "Sebastian Ehlert"
-copyright = f"2021-2023, {author}"
+copyright = f"2021-2026, {author}"
 
 version = "{}.{}.{}".format(*get_version())
 release = version
