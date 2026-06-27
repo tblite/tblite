@@ -62,6 +62,7 @@ run_testcases = [
   '05e-gfn2xtb-solv',
   '06a-gfn1xtb',
   '07f-ceh',
+  '09a-gfn2xtb-anneal',
 ]
 foreach case: run_testcases
   test(
@@ -73,6 +74,7 @@ foreach case: run_testcases
       files('@0@.resp'.format(case)),
     ],
     suite: 'cli',
+    timeout: 300,
   )
 endforeach
 

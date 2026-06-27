@@ -1,0 +1,7 @@
+$ORIGIN/09-gh106.xyz
+--method
+gfn2
+--etemp-anneal
+5000,2,2
+--iterations
+200

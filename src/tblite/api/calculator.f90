@@ -28,6 +28,7 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
+   use tblite_scf_mixer_input, only : anneal_input, scf_version
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
@@ -44,7 +45,9 @@ module tblite_api_calculator
    public :: vp_calculator, delete_calculator_api
    public :: new_gfn2_calculator_api, new_ipea1_calculator_api, new_gfn1_calculator_api, &
       & new_xtb_calculator_api
-   public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
+   public :: set_calculator_mixer_api, set_calculator_mixer_damping_api, &
+      & set_calculator_mixer_memory_api, set_calculator_max_iter_api, &
+      & set_calculator_temperature_annealing_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
       & set_calculator_save_integrals_api
    public :: get_singlepoint_api
@@ -58,6 +61,10 @@ module tblite_api_calculator
          tblite_guess_eeqbc = 2_c_int
    end enum
 
+   enum, bind(c)
+      enumerator :: &
+         tblite_mixer_broyden = 1_c_int
+   end enum
 
    type, bind(c) :: xtb_config_struct
       real(wp) :: smooth_cutoff
@@ -262,8 +269,66 @@ subroutine set_calculator_mixer_damping_api(vctx, vcalc, damping) &
    end if
    call c_f_pointer(vcalc, calc)
 
-   calc%ptr%mixer_damping = damping
+   calc%ptr%mixer_input%damping = damping
 end subroutine set_calculator_mixer_damping_api
+
+
+subroutine set_calculator_mixer_memory_api(vctx, vcalc, memory) &
+      & bind(C, name=namespace//"set_calculator_mixer_memory")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: memory
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_mixer_memory"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%ptr%mixer_input%memory = memory
+end subroutine set_calculator_mixer_memory_api
+
+
+subroutine set_calculator_mixer_api(vctx, vcalc, mixer) &
+      & bind(C, name=namespace//"set_calculator_mixer")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: mixer
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_mixer"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   select case(mixer)
+   case(tblite_mixer_broyden)
+      calc%ptr%mixer_input%scf = scf_version%broyden
+   case default
+      call fatal_error(error, "Unknown SCF mixer selected")
+      call ctx%ptr%set_error(error)
+      return
+   end select
+
+end subroutine set_calculator_mixer_api
 
 
 subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
@@ -288,6 +353,7 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
    call c_f_pointer(vcalc, calc)
 
    calc%ptr%max_iter = max_iter
+   calc%ptr%mixer_input%max_iter = max_iter
 end subroutine set_calculator_max_iter_api
 
 
@@ -364,6 +430,33 @@ subroutine set_calculator_temperature_api(vctx, vcalc, etemp) &
 
    calc%etemp = etemp
 end subroutine set_calculator_temperature_api
+
+
+subroutine set_calculator_temperature_annealing_api(vctx, vcalc, initial_etemp, hold, cycles) &
+      & bind(C, name=namespace//"set_calculator_temperature_annealing")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   real(c_double), value :: initial_etemp
+   integer(c_int), value :: hold
+   integer(c_int), value :: cycles
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_temperature_annealing"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%ptr%mixer_input%anneal = anneal_input(initial_etemp, hold, cycles)
+end subroutine set_calculator_temperature_annealing_api
 
 
 subroutine set_calculator_save_integrals_api(vctx, vcalc, save_integrals) &
