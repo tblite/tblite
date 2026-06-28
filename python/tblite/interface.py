@@ -461,6 +461,14 @@ class Calculator(Structure):
     >>> res.get("energy")  # Results in atomic units
     -31.716159156026254
 
+    A parametrization mapping can also be passed directly instead of selecting
+    a built-in method:
+
+    >>> params = {"charge": {"effective": {"average": "arithmetic", "gexp": 2.0}}}
+    >>> calc = Calculator(params, numbers[:2], np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]]))
+    >>> calc.singlepoint().get("energy")
+    -0.7589101818032
+
     Raises
     ------
     TBLiteValueError
@@ -509,7 +517,7 @@ class Calculator(Structure):
 
     def __init__(
         self,
-        method: str,
+        method: Union[str, Dict[str, Any]],
         numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
@@ -530,12 +538,20 @@ class Calculator(Structure):
         Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
         self._ctx = library.new_context(**context_kwargs)
-        if method not in self._loader:
-            raise TBLiteValueError(
-                f"Method '{method}' is not available for this calculator"
-            )
-        self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
-        self._method = method
+        if isinstance(method, dict):
+            params = library.new_param()
+            table = library.dict_to_table(method)
+            library.load_param(params, table)
+            self._calc = library.new_xtb_calculator(self._ctx, self._mol, params, xtb_config)
+            self._param = params
+            self._method = "xTB"
+        else:
+            if method not in self._loader:
+                raise TBLiteValueError(
+                    f"Method '{method}' is not available for this calculator"
+                )
+            self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
+            self._method = method
 
     def set(self, attribute: str, value) -> None:
         """
