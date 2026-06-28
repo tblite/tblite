@@ -77,7 +77,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
+          - macos-15
           - macos-15-intel
           # windows-latest
 
@@ -112,7 +112,7 @@ jobs:
           # libgomp1 is part of gcc-runtime and present on every supported distro.
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: 'auditwheel repair -w {dest_dir} {wheel} --exclude libgomp.so.1'
           CIBW_ARCHS: auto64
-          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-15' && 'arm64' || 'x86_64' }}
           # MM: Package installation (yum install ...) works differently on musllinux
           CIBW_SKIP: "{cp38-macosx_arm64,cp39-macosx_arm64,*musllinux*}"
           # Include all PyPy versions

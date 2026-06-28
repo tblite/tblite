@@ -1141,6 +1141,95 @@ err:
     return 1;
 }
 
+int test_table_array_roundtrip(void)
+{
+    printf("Start test: table-array-roundtrip\n");
+    tblite_error error = NULL;
+    tblite_table table = NULL;
+    tblite_table child = NULL;
+    tblite_array array = NULL;
+    const int nvalues = 3;
+    double values[3] = { 1.0, 2.5, -3.25 };
+    double value = 0.0;
+    double scale = 0.75;
+    int nkeys = 0;
+    int itype = 0;
+    int atype = 0;
+
+    error = tblite_new_error();
+    table = tblite_new_table(NULL);
+    array = tblite_new_array();
+
+    for (int i = 0; i < nvalues; ++i) {
+        tblite_array_push_back_double(error, array, values[i]);
+        if (tblite_check(error))
+            goto err;
+    }
+
+    tblite_table_set_array(error, table, "values", array);
+    if (tblite_check(error))
+        goto err;
+
+    child = tblite_table_add_table(error, table, "meta");
+    if (tblite_check(error))
+        goto err;
+    tblite_table_set_double(error, child, "scale", &scale, 0);
+    if (tblite_check(error))
+        goto err;
+
+    nkeys = tblite_table_get_n_keys(error, table);
+    if (!check_int(nkeys, 2, "Check number of table entries"))
+        goto err;
+
+    itype = tblite_table_get_type(error, table, "values");
+    if (!check_int(itype, TBLITE_TABLE_VALUE_TYPE_ARRAY, "Check table entry kind"))
+        goto err;
+
+    array = tblite_table_get_array(error, table, "values");
+    if (!array)
+        goto err;
+
+    if (!check_int(tblite_array_size(error, array), nvalues, "Check array size"))
+        goto err;
+
+    for (int i = 0; i < nvalues; ++i) {
+        tblite_array_get_double(error, array, i + 1, &value);
+        if (tblite_check(error))
+            goto err;
+        if (!check_double(value, values[i], 1.0e-12, "Check array value"))
+            goto err;
+        atype = tblite_array_get_type(error, array, i + 1);
+        if (!check_int(atype, TBLITE_TABLE_VALUE_TYPE_DOUBLE, "Check array entry kind"))
+            goto err;
+    }
+
+    itype = tblite_table_get_type(error, table, "meta");
+    if (!check_int(itype, TBLITE_TABLE_VALUE_TYPE_TABLE, "Check nested table entry kind"))
+        goto err;
+
+    child = tblite_table_get_table(error, table, "meta");
+    if (!child)
+        goto err;
+    tblite_table_get_double(error, child, "scale", &value);
+    if (tblite_check(error))
+        goto err;
+    if (!check_double(value, scale, 1.0e-12, "Check nested table value"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete_table(&table);
+    tblite_delete_array(&array);
+    tblite_delete_table(&child);
+    return 0;
+
+err:
+    tblite_delete(error);
+    tblite_delete_table(&table);
+    tblite_delete_array(&array);
+    tblite_delete_table(&child);
+    return 1;
+}
+
 int test_calc_restart(void)
 {
     printf("Start test: calculator-restart\n");
@@ -3940,6 +4029,7 @@ int main(void)
     stat += test_invalid_structure();
     stat += test_table_builder();
     stat += test_param_load();
+    stat += test_table_array_roundtrip();
     stat += test_gfn2_si5h12();
     stat += test_ipea1_ch4();
     stat += test_gfn1_co2();

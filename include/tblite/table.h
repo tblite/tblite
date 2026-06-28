@@ -35,6 +35,20 @@
 /// into an existing table, which returns a reference to the newly created table.
 typedef struct _tblite_table* tblite_table;
 
+/// Handle for holding an array data structure
+typedef struct _tblite_array* tblite_array;
+
+/// Supported value kinds for table entries
+enum tblite_table_value_type {
+    TBLITE_TABLE_VALUE_TYPE_NONE = 0,
+    TBLITE_TABLE_VALUE_TYPE_BOOL = 1,
+    TBLITE_TABLE_VALUE_TYPE_INT = 2,
+    TBLITE_TABLE_VALUE_TYPE_DOUBLE = 3,
+    TBLITE_TABLE_VALUE_TYPE_CHAR = 4,
+    TBLITE_TABLE_VALUE_TYPE_ARRAY = 5,
+    TBLITE_TABLE_VALUE_TYPE_TABLE = 6
+};
+
 /// Create new data table object
 ///
 /// @param table: Table object to reference in new table (optional)
@@ -114,6 +128,155 @@ TBLITE_API_ENTRY tblite_table TBLITE_API_CALL
 tblite_table_add_table(tblite_error error,
                        tblite_table table,
                        char key[]);
+
+/// Create new data array object
+TBLITE_API_ENTRY tblite_array TBLITE_API_CALL
+tblite_new_array(void);
+
+/// Delete a data array object
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_delete_array(tblite_array* array);
+
+/// Append a double value to a data array
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_push_back_double(tblite_error error,
+                              tblite_array array,
+                              double value);
+
+/// Append an integer value to a data array
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_push_back_int64_t(tblite_error error,
+                               tblite_array array,
+                               int64_t value);
+
+/// Append a boolean value to a data array
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_push_back_bool(tblite_error error,
+                            tblite_array array,
+                            bool value);
+
+/// Append a character string to a data array
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_push_back_char(tblite_error error,
+                            tblite_array array,
+                            char value[]);
+
+/// Return the number of entries in a data array
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_array_size(tblite_error error,
+                  tblite_array array);
+
+/// Return the value kind of an array entry
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_array_get_type(tblite_error error,
+                      tblite_array array,
+                      int index);
+
+/// Return an array entry as a double value
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_get_double(tblite_error error,
+                        tblite_array array,
+                        int index,
+                        double* value);
+
+/// Return an array entry as an integer value
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_get_int64_t(tblite_error error,
+                         tblite_array array,
+                         int index,
+                         int64_t* value);
+
+/// Return an array entry as a boolean value
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_get_bool(tblite_error error,
+                       tblite_array array,
+                       int index,
+                       bool* value);
+
+/// Return an array entry as a character string
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_array_get_char(tblite_error error,
+                      tblite_array array,
+                      int index,
+                      char value[],
+                      int n);
+
+/// Set the value of a table entry to a data array
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_set_array(tblite_error error,
+                       tblite_table table,
+                       char key[],
+                       tblite_array array);
+
+/// Return the value kind of a table entry
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_table_get_type(tblite_error error,
+                      tblite_table table,
+                      char key[]);
+
+/// Return a scalar bool value from a table entry
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_get_bool(tblite_error error,
+                      tblite_table table,
+                      char key[],
+                      bool* value);
+
+/// Return a scalar integer value from a table entry
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_get_int64_t(tblite_error error,
+                         tblite_table table,
+                         char key[],
+                         int64_t* value);
+
+/// Return a scalar floating point value from a table entry
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_get_double(tblite_error error,
+                        tblite_table table,
+                        char key[],
+                        double* value);
+
+/// Return a scalar character value from a table entry
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_get_char(tblite_error error,
+                      tblite_table table,
+                      char key[],
+                      char value[],
+                      int n);
+
+/// Return a child table from a table entry
+TBLITE_API_ENTRY tblite_table TBLITE_API_CALL
+tblite_table_get_table(tblite_error error,
+                       tblite_table table,
+                       char key[]);
+
+/// Return an array value from a table entry
+TBLITE_API_ENTRY tblite_array TBLITE_API_CALL
+tblite_table_get_array(tblite_error error,
+                       tblite_table table,
+                       char key[]);
+
+/// Return the number of entries in a table
+TBLITE_API_ENTRY int TBLITE_API_CALL
+tblite_table_get_n_keys(tblite_error error,
+                        tblite_table table);
+
+/// Return the key of a table entry at the given index
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_table_get_key(tblite_error error,
+                     tblite_table table,
+                     int index,
+                     char key[],
+                     int n);
+
+/// Serialize a data table to a TOML file
+///
+/// @param error: Error handle
+/// @param table: Table data structure
+/// @param filename: Output file name
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_dump_table(tblite_error error,
+                  tblite_table table,
+                  char filename[]);
 
 /*
  * Type generic macros

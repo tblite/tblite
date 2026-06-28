@@ -169,11 +169,114 @@ def new_table():
     return ffi.gc(lib.tblite_new_table(ffi.NULL), _delete_table)
 
 
+def _delete_array(array) -> None:
+    """Delete a tblite data array object"""
+    ptr = ffi.new("tblite_array *")
+    ptr[0] = array
+    lib.tblite_delete_array(ptr)
+
+
+def new_array():
+    """Create a tblite data array object"""
+    return ffi.gc(lib.tblite_new_array(), _delete_array)
+
+
 table_set_double = error_check(lib.tblite_table_set_double)
 table_set_int64_t = error_check(lib.tblite_table_set_int64_t)
 table_set_bool = error_check(lib.tblite_table_set_bool)
 table_set_char = error_check(lib.tblite_table_set_char)
-table_add_table = error_check(lib.tblite_table_add_table)
+table_set_array = error_check(lib.tblite_table_set_array)
+table_get_type = error_check(lib.tblite_table_get_type)
+table_get_n_keys = error_check(lib.tblite_table_get_n_keys)
+table_get_table = error_check(lib.tblite_table_get_table)
+table_get_array = error_check(lib.tblite_table_get_array)
+array_push_back_double = error_check(lib.tblite_array_push_back_double)
+array_push_back_int64_t = error_check(lib.tblite_array_push_back_int64_t)
+array_push_back_bool = error_check(lib.tblite_array_push_back_bool)
+array_push_back_char = error_check(lib.tblite_array_push_back_char)
+array_size = error_check(lib.tblite_array_size)
+array_get_type = error_check(lib.tblite_array_get_type)
+
+
+def table_get_bool(table, key):
+    """Read a boolean value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("bool *")
+    error_check(lib.tblite_table_get_bool)(table, key, value)
+    return bool(value[0])
+
+
+def table_get_int64_t(table, key):
+    """Read an integer value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("int64_t *")
+    error_check(lib.tblite_table_get_int64_t)(table, key, value)
+    return int(value[0])
+
+
+def table_get_double(table, key):
+    """Read a floating-point value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("double *")
+    error_check(lib.tblite_table_get_double)(table, key, value)
+    return float(value[0])
+
+
+def table_get_char(table, key):
+    """Read a string value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_table_get_char)(table, key, value, 512)
+    return ffi.string(value).decode("utf-8")
+
+
+def table_get_key(table, index):
+    """Read a key name from a tblite table by index."""
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_table_get_key)(table, index, value, 512)
+    return ffi.string(value)
+
+
+def array_get_double(array, index):
+    """Read a floating-point value from a tblite array entry."""
+    value = ffi.new("double *")
+    error_check(lib.tblite_array_get_double)(array, index, value)
+    return float(value[0])
+
+
+def array_get_int64_t(array, index):
+    """Read an integer value from a tblite array entry."""
+    value = ffi.new("int64_t *")
+    error_check(lib.tblite_array_get_int64_t)(array, index, value)
+    return int(value[0])
+
+
+def array_get_bool(array, index):
+    """Read a boolean value from a tblite array entry."""
+    value = ffi.new("bool *")
+    error_check(lib.tblite_array_get_bool)(array, index, value)
+    return bool(value[0])
+
+
+def array_get_char(array, index):
+    """Read a string value from a tblite array entry."""
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_array_get_char)(array, index, value, 512)
+    return ffi.string(value).decode("utf-8")
+
+
+def table_add_table(table, key):
+    """Create a child table attached to an existing table object."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    return ffi.gc(
+        error_check(lib.tblite_table_add_table)(table, key),
+        _delete_table,
+    )
 
 
 def _delete_param(param) -> None:
@@ -190,9 +293,165 @@ def new_param():
 
 load_param = error_check(lib.tblite_load_param)
 dump_param = error_check(lib.tblite_dump_param)
+dump_table = error_check(lib.tblite_dump_table)
 export_gfn2_param = error_check(lib.tblite_export_gfn2_param)
 export_gfn1_param = error_check(lib.tblite_export_gfn1_param)
 export_ipea1_param = error_check(lib.tblite_export_ipea1_param)
+
+
+def _is_scalar(value) -> bool:
+    """Check whether a value should be treated as a scalar for table conversion."""
+    return isinstance(value, (str, bytes, bool, int, float, np.integer, np.floating, np.bool_))
+
+
+def _to_python_scalar(value):
+    """Convert numpy scalar values to plain Python scalars."""
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _set_scalar(table, key, value) -> None:
+    """Set a scalar value in a table."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    if isinstance(value, bool) or isinstance(value, np.bool_):
+        ptr = ffi.new("bool[]", [bool(value)])
+        table_set_bool(table, key, ptr, 0)
+    elif isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+        ptr = ffi.new("int64_t[]", [int(value)])
+        table_set_int64_t(table, key, ptr, 0)
+    elif isinstance(value, (float, np.floating)):
+        ptr = ffi.new("double[]", [float(value)])
+        table_set_double(table, key, ptr, 0)
+    elif isinstance(value, (str, bytes)):
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        ptr = ffi.new("char[]", value.encode("utf-8"))
+        table_set_char(table, key, ffi.cast("char(*)[]", ptr), 0)
+    else:
+        raise TBLiteValueError(f"Unsupported scalar type {type(value)!r}")
+
+
+def _set_sequence(table, key, values) -> None:
+    """Set a sequence of scalars as a table array entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    if len(values) == 0:
+        raise TBLiteValueError("Empty sequences are not supported in parametrization tables")
+
+    normalized = []
+    for value in values:
+        if isinstance(value, np.ndarray):
+            if value.ndim == 0:
+                value = value.item()
+            else:
+                raise TBLiteValueError("Only one-dimensional arrays are supported")
+        if isinstance(value, (list, tuple)):
+            raise TBLiteValueError("Nested sequences are not supported in parametrization tables")
+        normalized.append(_to_python_scalar(value))
+
+    if all(isinstance(value, bool) or isinstance(value, np.bool_) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            array_push_back_bool(array, bool(value))
+        table_set_array(table, key, array)
+    elif all(isinstance(value, (int, np.integer)) and not isinstance(value, bool) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            array_push_back_int64_t(array, int(value))
+        table_set_array(table, key, array)
+    elif all(isinstance(value, (float, np.floating)) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            array_push_back_double(array, float(value))
+        table_set_array(table, key, array)
+    elif all(isinstance(value, (str, bytes)) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            if isinstance(value, str):
+                value = value.encode("utf-8")
+            array_push_back_char(array, ffi.new("char[]", value))
+        table_set_array(table, key, array)
+    else:
+        raise TBLiteValueError("Mixed or unsupported sequence types are not supported")
+
+
+def dict_to_table(data: Dict[str, Any]) -> Any:
+    """Convert a nested Python mapping into a tblite table object."""
+    if not isinstance(data, dict):
+        raise TBLiteValueError("Expected a dictionary for parametrization data")
+
+    table = new_table()
+
+    def _populate(target, mapping):
+        for key, value in mapping.items():
+            if isinstance(value, dict):
+                child = table_add_table(target, str(key))
+                _populate(child, value)
+            elif isinstance(value, (list, tuple, np.ndarray)):
+                _set_sequence(target, str(key), list(value))
+            elif _is_scalar(value):
+                _set_scalar(target, str(key), value)
+            else:
+                raise TBLiteValueError(f"Unsupported value type {type(value)!r}")
+
+    _populate(table, data)
+    return table
+
+
+def _table_to_python(table: Any) -> Any:
+    """Convert a tblite table object into nested Python data structures."""
+    if table is None:
+        raise TBLiteValueError("Table object is missing")
+
+    nkeys = table_get_n_keys(table)
+    data = {}
+    for index in range(1, nkeys + 1):
+        key = table_get_key(table, index)
+        kind = table_get_type(table, key)
+
+        if kind == 0:
+            raise TBLiteValueError(f"Unsupported table entry type for key {key!r}")
+        if kind == 1:
+            value = table_get_bool(table, key)
+        elif kind == 2:
+            value = table_get_int64_t(table, key)
+        elif kind == 3:
+            value = table_get_double(table, key)
+        elif kind == 4:
+            value = table_get_char(table, key)
+        elif kind == 5:
+            array = table_get_array(table, key)
+            size = array_size(array)
+            values = []
+            for entry in range(1, size + 1):
+                entry_kind = array_get_type(array, entry)
+                if entry_kind == 1:
+                    values.append(array_get_bool(array, entry))
+                elif entry_kind == 2:
+                    values.append(array_get_int64_t(array, entry))
+                elif entry_kind == 3:
+                    values.append(array_get_double(array, entry))
+                elif entry_kind == 4:
+                    values.append(array_get_char(array, entry))
+                else:
+                    raise TBLiteValueError("Only scalar array entries are supported")
+            value = values
+        elif kind == 6:
+            child = table_get_table(table, key)
+            value = _table_to_python(child)
+        else:
+            raise TBLiteValueError(f"Unsupported table entry kind {kind}")
+
+        data[key.decode("utf-8") if isinstance(key, bytes) else key] = value
+
+    return data
+
+
+def table_to_dict(table: Any) -> Dict[str, Any]:
+    """Convert a tblite table object into a nested Python mapping."""
+    return _table_to_python(table)
 
 
 def _delete_result(result) -> None:
