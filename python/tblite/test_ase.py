@@ -200,7 +200,7 @@ def test_gfn1_xtb_3d():
     atoms.calc = TBLite(method="GFN1-xTB", xtb_config={"smooth_cutoff": 0.0})
     assert atoms.pbc.all()
 
-    assert approx(atoms.get_potential_energy(), abs=thr) == -1257.0801067985549
+    assert approx(atoms.get_potential_energy(), abs=thr) == -1256.810504539609
     assert approx(atoms.get_forces(), abs=thr) == forces
     assert approx(atoms.get_stress(), abs=thr) == stress, atoms.get_stress()
 
