@@ -30,8 +30,6 @@ module tblite_coulomb_cache
 
 
    type :: coulomb_cache
-      !> Use minimum-image convention for periodic systems
-      logical :: mic = .true.
       real(wp) :: alpha
       type(wignerseitz_cell) :: wsc
       real(wp), allocatable :: amat(:, :)

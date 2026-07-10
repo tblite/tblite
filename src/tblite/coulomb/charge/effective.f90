@@ -186,15 +186,10 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
    real(wp), contiguous, intent(out) :: amat(:, :)
    amat(:, :) = 0.0_wp
 
-   if (any(mol%periodic)) then
-      if (cache%mic) then
-         call get_amat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-            & cache%wsc, cache%alpha, amat)
-      else
-         call get_amat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-            & cache%wsc, amat)
-      end if
-   else
+    if (any(mol%periodic)) then
+       call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+          & cache%wsc, cache%alpha, amat)
+    else
       call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat)
    end if
 
@@ -290,8 +285,8 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
 
 end subroutine get_amat_0d
 
-!> Evaluate the coulomb matrix for 3D systems using minimum-image convention
-subroutine get_amat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
+!> Evaluate the coulomb matrix for 3D systems
+subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
@@ -368,28 +363,7 @@ subroutine get_amat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
 
    end do
 
-end subroutine get_amat_3d_mic
-
-!> Stub for Ewald coulomb matrix for 3D systems
-subroutine get_amat_3d_ewald(mol, nshell, offset, hubbard, gexp, wsc, amat)
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Number of shells per atom
-   integer, intent(in) :: nshell(:)
-   !> Index offset for each atom
-   integer, intent(in) :: offset(:)
-   !> Hubbard parameter of the shells
-   real(wp), intent(in) :: hubbard(:, :, :, :)
-   !> Exponent of the interaction kernel
-   real(wp), intent(in) :: gexp
-   !> Wigner-Seitz cell
-   type(wignerseitz_cell), intent(in) :: wsc
-   !> Coulomb matrix
-   real(wp), intent(inout) :: amat(:, :)
-
-   amat(:, :) = 0.0_wp
-
-end subroutine get_amat_3d_ewald
+end subroutine get_amat_3d
 
 !> Calculate direct space Ewald contribution for a pair under 3D periodic boundary conditions
 subroutine get_amat_dir_3d(rij, alp, trans, amat)
@@ -487,33 +461,23 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    real(wp), contiguous, intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
-   if(self%shell_resolved) then
-      if (any(mol%periodic)) then
-         if (cache%mic) then
-            call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-               & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
-         else
-            call get_damat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-               & cache%wsc, qsh, dadr, dadL, atrace)
-         end if
-      else
-         call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
-            & dadr, dadL, atrace)
-      end if
-   else
-      if (any(mol%periodic)) then
-         if (cache%mic) then
-            call get_damat_3d_mic(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-               & cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
-         else
-            call get_damat_3d_ewald(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-               & cache%wsc, qat, dadr, dadL, atrace)
-         end if
-      else
-         call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
-            & dadr, dadL, atrace)
-      end if
-   end if 
+    if(self%shell_resolved) then
+       if (any(mol%periodic)) then
+          call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+             & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+       else
+          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
+             & dadr, dadL, atrace)
+       end if
+    else
+       if (any(mol%periodic)) then
+          call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+             & cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
+       else
+          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
+             & dadr, dadL, atrace)
+       end if
+    end if 
 
 end subroutine get_coulomb_derivs
 
@@ -590,8 +554,8 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
 
 end subroutine get_damat_0d
 
-!> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system using minimum-image convention
-subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
+!> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system
+subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
       & dadr, dadL, atrace)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -696,37 +660,7 @@ subroutine get_damat_3d_mic(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec
    deallocate(didL, didr, itrace)
    !$omp end parallel
 
-end subroutine get_damat_3d_mic
-
-!> Stub for uncontracted derivatives of Coulomb matrix for 3D periodic system
-subroutine get_damat_3d_ewald(mol, nshell, offset, hubbard, gexp, wsc, qvec, &
-      & dadr, dadL, atrace)
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Number of shells for each atom
-   integer, intent(in) :: nshell(:)
-   !> Index offset for each shell
-   integer, intent(in) :: offset(:)
-   !> Hubbard parameter for each shell and species
-   real(wp), intent(in) :: hubbard(:, :, :, :)
-   !> Exponent of Coulomb kernel
-   real(wp), intent(in) :: gexp
-   !> Wigner-Seitz image information
-   type(wignerseitz_cell), intent(in) :: wsc
-   !> Partial charge vector
-   real(wp), intent(in) :: qvec(:)
-   !> Derivative of interactions with respect to cartesian displacements
-   real(wp), intent(out) :: dadr(:, :, :)
-   !> Derivative of interactions with respect to strain deformations
-   real(wp), intent(out) :: dadL(:, :, :)
-   !> On-site derivatives with respect to cartesian displacements
-   real(wp), intent(out) :: atrace(:, :)
-
-   atrace(:, :) = 0.0_wp
-   dadr(:, :, :) = 0.0_wp
-   dadL(:, :, :) = 0.0_wp
-
-end subroutine get_damat_3d_ewald
+end subroutine get_damat_3d
 
 !> Calculate direct space Ewald contribution for a pair under 3D periodic boundary conditions
 subroutine get_damat_dir_3d(rij, alp, trans, dg, ds)

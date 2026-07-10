@@ -74,7 +74,7 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("energy-atom-e2", test_e_effective_m02), &
       new_unittest("energy-shell-e1", test_e_effective_m07), &
       new_unittest("energy-atom-pbc-e2", test_e_effective_oxacb), &
-      new_unittest("mic-switch-e2", test_effective_mic_switch), &
+
       ! new_unittest("energy-atom-sc-e2", test_e_effective_oxacb_sc), & ! perfect scaling can currently not be expected
       new_unittest("energy-atom-pbc-g1", test_e_gamma_urea), &
       ! new_unittest("energy-atom-sc-g1", test_e_gamma_urea_sc), &
@@ -946,69 +946,7 @@ subroutine test_e_effective_oxacb(error)
 end subroutine test_e_effective_oxacb
 
 
-subroutine test_effective_mic_switch(error)
 
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(structure_type) :: mol
-   class(coulomb_charge_type), allocatable :: coulomb
-   type(coulomb_cache) :: cache_default, cache_mic, cache_ewald
-   integer :: ndim
-   real(wp), allocatable :: qvec(:)
-   real(wp), allocatable :: amat_default(:, :), amat_mic(:, :), amat_ewald(:, :)
-   real(wp), allocatable :: dadr_default(:, :, :), dadr_mic(:, :, :), dadr_ewald(:, :, :)
-   real(wp), allocatable :: dadL_default(:, :, :), dadL_mic(:, :, :), dadL_ewald(:, :, :)
-   real(wp), allocatable :: atrace_default(:, :), atrace_mic(:, :), atrace_ewald(:, :)
-
-   call get_structure(mol, "X23", "oxacb")
-   call make_coulomb_e2(coulomb, mol, .false.)
-   cache_ewald%mic = .false.
-   call cache_default%update(mol)
-   call cache_mic%update(mol)
-   call cache_ewald%update(mol)
-
-   ndim = sum(coulomb%nshell)
-   allocate(amat_default(ndim, ndim), amat_mic(ndim, ndim), amat_ewald(ndim, ndim))
-   allocate(dadr_default(3, mol%nat, ndim), dadr_mic(3, mol%nat, ndim), &
-      & dadr_ewald(3, mol%nat, ndim))
-   allocate(dadL_default(3, 3, ndim), dadL_mic(3, 3, ndim), dadL_ewald(3, 3, ndim))
-   allocate(atrace_default(3, ndim), atrace_mic(3, ndim), atrace_ewald(3, ndim))
-   allocate(qvec(ndim), source=1.0_wp)
-
-   call coulomb%get_coulomb_matrix(mol, cache_default, amat_default)
-   call coulomb%get_coulomb_matrix(mol, cache_mic, amat_mic)
-   call coulomb%get_coulomb_matrix(mol, cache_ewald, amat_ewald)
-
-   if (any(abs(amat_default - amat_mic) > thr)) then
-      call test_failed(error, "Default Coulomb matrix is not MIC matrix")
-      return
-   end if
-   if (any(abs(amat_ewald) > thr)) then
-      call test_failed(error, "Ewald Coulomb matrix stub is not zero")
-      return
-   end if
-
-   call coulomb%get_coulomb_derivs(mol, cache_default, qvec, qvec, dadr_default, dadL_default, &
-      & atrace_default)
-   call coulomb%get_coulomb_derivs(mol, cache_mic, qvec, qvec, dadr_mic, dadL_mic, &
-      & atrace_mic)
-   call coulomb%get_coulomb_derivs(mol, cache_ewald, qvec, qvec, dadr_ewald, dadL_ewald, &
-      & atrace_ewald)
-
-   if (any(abs(dadr_default - dadr_mic) > thr) .or. &
-      & any(abs(dadL_default - dadL_mic) > thr) .or. &
-      & any(abs(atrace_default - atrace_mic) > thr)) then
-      call test_failed(error, "Default Coulomb derivatives are not MIC derivatives")
-      return
-   end if
-   if (any(abs(dadr_ewald) > thr) .or. any(abs(dadL_ewald) > thr) .or. &
-      & any(abs(atrace_ewald) > thr)) then
-      call test_failed(error, "Ewald Coulomb derivative stub is not zero")
-      return
-   end if
-
-end subroutine test_effective_mic_switch
 
 
 ! subroutine test_e_effective_oxacb_sc(error)
