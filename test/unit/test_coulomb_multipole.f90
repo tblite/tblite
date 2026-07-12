@@ -147,6 +147,25 @@ subroutine make_multipole2(multipole, mol, error)
 end subroutine make_multipole2
 
 
+!> Factory with distinct inverse-cubic and inverse-quintic GFN2 damping exponents
+subroutine make_multipole2_dmp5(multipole, mol, error)
+
+   !> New electrostatic object
+   type(damped_multipole), intent(out) :: multipole
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call make_multipole2(multipole, mol, error)
+   if (allocated(error)) return
+   multipole%kdmp5 = 4.0_wp
+
+end subroutine make_multipole2_dmp5
+
+
 !> Inspect container cache and reallocate it in case of type mismatch
 subroutine taint(cache, ptr)
    !> Instance of the container cache
@@ -957,6 +976,8 @@ subroutine test_s_effective_m05(error)
 
    call get_structure(mol, "MB16-43", "05")
    call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
+   if (allocated(error)) return
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2_dmp5)
 
 end subroutine test_s_effective_m05
 
