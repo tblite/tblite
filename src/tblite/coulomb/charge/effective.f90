@@ -27,7 +27,7 @@ module tblite_coulomb_charge_effective
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_charge_type, only : coulomb_charge_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_wignerseitz, only : wignerseitz_cell
+   use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
 
@@ -305,7 +305,8 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
    real(wp), intent(inout) :: amat(:, :)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
-   real(wp) :: vec(3), gam, wsw, dtmp, rtmp, stmp, vol, aval
+   real(wp) :: vec(3), gam, dtmp, rtmp, stmp, vol, aval
+   real(wp) :: weight(size(wsc%tridx, 1))
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
@@ -314,15 +315,15 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
    !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol) &
-   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, wsw, vec, dtmp, rtmp, stmp, aval)
+   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, weight, vec, dtmp, rtmp, stmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
       do jat = 1, iat-1
          jzp = mol%id(jat)
          jj = offset(jat)
-         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_wignerseitz_weights(wsc, jat, iat, vec, weight)
          call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
          call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
          do img = 1, wsc%nimg(jat, iat)
@@ -331,7 +332,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
                   call get_amat_wsc_3d(vec, gam, gexp, stmp)
-                  aval = (dtmp + rtmp + stmp) * wsw
+                  aval = (dtmp + rtmp + stmp) * weight(img)
                   amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
                   amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
                end do
@@ -339,8 +340,8 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
          end do
       end do
 
-      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       vec = 0.0_wp
+      call get_wignerseitz_weights(wsc, iat, iat, vec, weight)
       call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
       call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
       rtmp = rtmp - 2 * alpha / sqrtpi
@@ -350,13 +351,13 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
                call get_amat_wsc_3d(vec, gam, gexp, stmp)
-               aval = (dtmp + rtmp + stmp + gam) * wsw
+               aval = (dtmp + rtmp + stmp + gam) * weight(img)
                amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
                amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
             end do
             gam = hubbard(ish, ish, izp, izp)
             call get_amat_wsc_3d(vec, gam, gexp, stmp)
-            aval = (dtmp + rtmp + stmp + gam) * wsw
+            aval = (dtmp + rtmp + stmp + gam) * weight(img)
             amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
       end do
@@ -581,8 +582,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
    real(wp), intent(out) :: atrace(:, :)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
-   real(wp) :: vol, gam, wsw, vec(3), dG(3), dS(3, 3)
+   logical :: need_weight_energy
+   real(wp) :: vol, gam, stmp, vec(3), dG(3), dS(3, 3)
    real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3), dGw(3), dSw(3, 3)
+   real(wp) :: weight(size(wsc%tridx, 1))
+   real(wp) :: dwdr(3, size(wsc%tridx, 1)), dwdL(3, 3, size(wsc%tridx, 1))
    real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
@@ -596,8 +600,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
    !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp) &
-   !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, wsw, vec, dG, dS) &
-   !$omp private(dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
+   !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, stmp, need_weight_energy) &
+   !$omp private(weight, dwdr, dwdL) &
+   !$omp private(vec, dG, dS, dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
    allocate(itrace, source=atrace)
    allocate(didr, source=dadr)
    allocate(didL, source=dadL)
@@ -609,7 +614,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
-         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         call get_wignerseitz_weights(wsc, jat, iat, vec, weight, dwdr, dwdL)
+         need_weight_energy = any(dwdr(:, :wsc%nimg(jat, iat)) /= 0.0_wp) &
+            & .or. any(dwdL(:, :, :wsc%nimg(jat, iat)) /= 0.0_wp)
          call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
          call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
          do img = 1, wsc%nimg(jat, iat)
@@ -617,9 +624,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
             do ish = 1, nshell(iat)
                do jsh = 1, nshell(jat)
                   gam = hubbard(jsh, ish, jzp, izp)
+                  stmp = 0.0_wp
+                  if (need_weight_energy) call get_amat_wsc_3d(vec, gam, gexp, stmp)
                   call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
-                  dG = (dGd + dGr + dGw) * wsw
-                  dS = (dSd + dSr + dSw) * wsw
+                  dG = (dGd + dGr + dGw) * weight(img) + stmp*dwdr(:, img)
+                  dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
                   itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
                   itrace(:, jj+jsh) = -dG*qvec(ii+ish) + itrace(:, jj+jsh)
                   didr(:, iat, jj+jsh) = +dG*qvec(ii+ish) + didr(:, iat, jj+jsh)
@@ -631,8 +640,9 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
          end do
       end do
 
-      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       vec = 0.0_wp
+      call get_wignerseitz_weights(wsc, iat, iat, vec, weight, dwdr, dwdL)
+      need_weight_energy = any(dwdL(:, :, :wsc%nimg(iat, iat)) /= 0.0_wp)
       call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
       call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
       do img = 1, wsc%nimg(iat, iat)
@@ -640,14 +650,18 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
          do ish = 1, nshell(iat)
             do jsh = 1, ish-1
                gam = hubbard(jsh, ish, izp, izp)
+               stmp = 0.0_wp
+               if (need_weight_energy) call get_amat_wsc_3d(vec, gam, gexp, stmp)
                call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
-               dS = (dSd + dSr + dSw) * wsw
+               dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
                didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
                didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
             end do
             gam = hubbard(ish, ish, izp, izp)
+            stmp = 0.0_wp
+            if (need_weight_energy) call get_amat_wsc_3d(vec, gam, gexp, stmp)
             call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
-            dS = (dSd + dSr + dSw) * wsw
+            dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
             didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
          end do
       end do

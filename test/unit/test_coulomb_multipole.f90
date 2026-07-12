@@ -18,7 +18,7 @@ module test_coulomb_multipole
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use mctc_io, only : structure_type
+   use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
@@ -92,9 +92,11 @@ subroutine collect_coulomb_multipole(testsuite)
       new_unittest("gradient-1", test_g_effective_m03), &
       new_unittest("gradient-2", test_g_effective_m04), &
       new_unittest("gradient-pbc", test_g_effective_urea), &
+      new_unittest("gradient-pbc-wsc-threshold", test_g_effective_wsc_threshold), &
       new_unittest("sigma-1", test_s_effective_m05), &
       new_unittest("sigma-2", test_s_effective_m06), &
       new_unittest("sigma-pbc", test_s_effective_oxacb), &
+      new_unittest("sigma-pbc-wsc-threshold", test_s_effective_wsc_threshold), &
       new_unittest("potential-1", test_v_effective_m07), &
       new_unittest("potential-2", test_v_effective_m08) &
       ]
@@ -887,6 +889,56 @@ subroutine test_g_effective_urea(error)
 end subroutine test_g_effective_urea
 
 
+subroutine get_wsc_threshold_data(mol, qat, dpat, qpat)
+   type(structure_type), intent(out) :: mol
+   real(wp), intent(out) :: qat(4), dpat(3, 4), qpat(6, 4)
+   real(wp), parameter :: lattice(3, 3) = reshape([&
+      & 9.8443924339969069e+00_wp, 0.0000000000000000e+00_wp, 0.0000000000000000e+00_wp, &
+      & 1.8324217570963925e-16_wp, 1.2929891210164604e+01_wp, 0.0000000000000000e+00_wp, &
+      &-3.4292776664769895e+00_wp,-1.3187722729054068e-16_wp, 7.0843328473678850e+00_wp], &
+      & [3, 3])
+   real(wp), parameter :: xyz(3, 4) = reshape([&
+      & 2.5327971360119164e+00_wp, 7.6865328842348353e+00_wp, 5.1068512324386246e+00_wp, &
+      & 4.8435816439599995e+00_wp, 5.0704351897845639e+00_wp, 1.8525511712619473e+00_wp, &
+      & 2.4980557992878332e+00_wp, 5.1301598052837294e+00_wp, 1.8231523180369940e+00_wp, &
+      & 3.2834913393893967e+00_wp, 1.1595530801406255e+01_wp, 1.6390839879163304e+00_wp], &
+      & [3, 4])
+
+   qat = [0.50_wp, -0.50_wp, 0.35_wp, -0.35_wp]
+   dpat = reshape([&
+      & 0.12_wp, -0.08_wp,  0.03_wp, &
+      &-0.05_wp,  0.09_wp,  0.11_wp, &
+      & 0.07_wp,  0.02_wp, -0.13_wp, &
+      &-0.14_wp, -0.03_wp, -0.01_wp], [3, 4])
+   qpat = reshape([&
+      & 0.04_wp,  0.010_wp, -0.03_wp,  0.020_wp, -0.015_wp, -0.01_wp, &
+      &-0.02_wp, -0.015_wp,  0.05_wp, -0.010_wp,  0.020_wp, -0.03_wp, &
+      & 0.03_wp,  0.012_wp, -0.01_wp, -0.008_wp,  0.016_wp, -0.02_wp, &
+      &-0.05_wp, -0.007_wp, -0.01_wp, -0.002_wp, -0.021_wp,  0.06_wp], [6, 4])
+   call new(mol, [1, 8, 1, 8], xyz, lattice=lattice)
+end subroutine get_wsc_threshold_data
+
+
+subroutine test_g_effective_wsc_threshold(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   real(wp) :: qat(4), dpat(3, 4), qpat(6, 4)
+
+   call get_wsc_threshold_data(mol, qat, dpat, qpat)
+   call test_numgrad(error, mol, qat, dpat, qpat, make_multipole2)
+end subroutine test_g_effective_wsc_threshold
+
+
+subroutine test_s_effective_wsc_threshold(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   real(wp) :: qat(4), dpat(3, 4), qpat(6, 4)
+
+   call get_wsc_threshold_data(mol, qat, dpat, qpat)
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
+end subroutine test_s_effective_wsc_threshold
+
+
 subroutine test_s_effective_m05(error)
 
    !> Error handling
@@ -1301,8 +1353,8 @@ submodule (test_coulomb_multipole) test_supercell_scaling
       & -1.18646463864190E-01_wp,  1.18587233297690E-01_wp,  1.19626167010667E-04_wp],&
       & shape(qpat1))
 
-   real(wp), parameter :: e02 = 1.5016169607148633E-2_wp, e11 = -3.5486703953320990E-3_wp, &
-      & e01 = 1.5706712259423678E-2_wp - e02 - e11
+   real(wp), parameter :: e02 = 1.5016170263588339E-2_wp, e11 = -3.5486704129999375E-3_wp, &
+      & e01 = 1.5707032644207228E-2_wp - e02 - e11
 
 contains
 

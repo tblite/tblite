@@ -32,7 +32,7 @@ module tblite_coulomb_multipole
    use tblite_cutoff, only : get_lattice_points
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_wignerseitz, only : wignerseitz_cell
+   use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
 
@@ -556,8 +556,9 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    real(wp), intent(inout) :: amat_sq(:, :, :)
 
    integer :: iat, jat, img, k
-   real(wp) :: vec(3), rr, wsw, vol
+   real(wp) :: vec(3), rij(3), rr, vol
    real(wp) :: d_sd(3), d_dd(3, 3), d_sq(6), r_sd(3), r_dd(3, 3), r_sq(6)
+   real(wp) :: weight(size(wsc%tridx, 1))
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
@@ -567,20 +568,21 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(amat_sd, amat_dd, amat_sq) &
    !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5) &
-   !$omp private(iat, jat, img, vec, rr, wsw, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq)
+   !$omp private(iat, jat, img, vec, rij, rr, weight, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq)
    do iat = 1, mol%nat
       do jat = 1, mol%nat
-         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         rij = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_wignerseitz_weights(wsc, jat, iat, rij, weight)
          do img = 1, wsc%nimg(jat, iat)
-            vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
+            vec = rij - wsc%trans(:, wsc%tridx(img, jat, iat))
 
             rr = 0.5_wp * (rad(jat) + rad(iat))
             call get_amat_sdq_rec_3d(vec, vol, alpha, rtrans, r_sd, r_dd, r_sq)
             call get_amat_sdq_dir_3d(vec, rr, kdmp3, kdmp5, alpha, dtrans, d_sd, d_dd, d_sq)
 
-            amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + wsw * (d_sd + r_sd)
-            amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) + wsw * (r_dd + d_dd)
-            amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + wsw * (r_sq + d_sq)
+            amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + weight(img) * (d_sd + r_sd)
+            amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) + weight(img) * (r_dd + d_dd)
+            amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + weight(img) * (r_sq + d_sq)
          end do
       end do
    end do
@@ -864,8 +866,12 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    integer :: iat, jat, img
-   real(wp) :: vec(3), dG(3), dGr(3), dGd(3), dS(3, 3), dSr(3, 3), dSd(3, 3)
-   real(wp) :: wsw, vol, rr, dE, dEd
+   logical :: need_weight_energy
+   real(wp) :: vec(3), rij(3), dG(3), dGr(3), dGd(3), dS(3, 3), dSr(3, 3), dSd(3, 3)
+   real(wp) :: vol, rr, dE, dEd, eimg
+   real(wp) :: d_sd(3), d_dd(3, 3), d_sq(6), r_sd(3), r_dd(3, 3), r_sq(6)
+   real(wp) :: weight(size(wsc%tridx, 1)), dwdr(3, size(wsc%tridx, 1))
+   real(wp) :: dwdL(3, 3, size(wsc%tridx, 1))
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    vol = abs(matdet_3x3(mol%lattice))
@@ -874,24 +880,35 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
-   !$omp private(iat, jat, dE, dG, dS, wsw, img, vec, rr, dEd, dGd, dGr, dSd, dSr)
+   !$omp private(iat, jat, dE, dG, dS, img, vec, rij, rr, dEd, dGd, dGr, dSd, dSr) &
+   !$omp private(eimg, need_weight_energy, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq, weight, dwdr, dwdL)
    do iat = 1, mol%nat
       do jat = 1, iat - 1
          dE = 0.0_wp
          dG(:) = 0.0_wp
          dS(:, :) = 0.0_wp
-         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
+         rij = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_wignerseitz_weights(wsc, jat, iat, rij, weight, dwdr, dwdL)
+         need_weight_energy = any(dwdr(:, :wsc%nimg(jat, iat)) /= 0.0_wp) &
+            & .or. any(dwdL(:, :, :wsc%nimg(jat, iat)) /= 0.0_wp)
          do img = 1, wsc%nimg(jat, iat)
-            vec(:) = mol%xyz(:, jat)-mol%xyz(:, iat) + wsc%trans(:, wsc%tridx(img, jat, iat))
+            vec(:) = -rij + wsc%trans(:, wsc%tridx(img, jat, iat))
             rr = 0.5_wp * (rad(jat) + rad(iat))
 
             call get_damat_sdq_rec_3d(vec, qat(iat), qat(jat), dpat(:, iat), dpat(:, jat), &
                & qpat(:, iat), qpat(:, jat), vol, alpha, rtrans, dGr, dSr)
             call get_damat_sdq_dir_3d(vec, qat(iat), qat(jat), dpat(:, iat), dpat(:, jat), &
                & qpat(:, iat), qpat(:, jat), rr, kdmp3, kdmp5, alpha, dtrans, dEd, dGd, dSd)
-            dE = dE + dEd * wsw
-            dG = dG + (dGd + dGr) * wsw
-            dS = dS + (dSd + dSr) * wsw
+            eimg = 0.0_wp
+            if (need_weight_energy) then
+               call get_amat_sdq_rec_3d(vec, vol, alpha, rtrans, r_sd, r_dd, r_sq)
+               call get_amat_sdq_dir_3d(vec, rr, kdmp3, kdmp5, alpha, dtrans, d_sd, d_dd, d_sq)
+               eimg = get_sdq_pair_energy(qat(iat), qat(jat), dpat(:, iat), dpat(:, jat), &
+                  & qpat(:, iat), qpat(:, jat), d_sd + r_sd, d_dd + r_dd, d_sq + r_sq)
+            end if
+            dE = dE + dEd * weight(img)
+            dG = dG + (dGd + dGr) * weight(img) + eimg*dwdr(:, img)
+            dS = dS + (dSd + dSr) * weight(img) + eimg*dwdL(:, :, img)
          end do
          dEdr(iat) = dEdr(iat) + dE
          dEdr(jat) = dEdr(jat) + dE
@@ -903,11 +920,14 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
-   !$omp private(iat, jat, dE, dG, dS, wsw, img, vec, rr, dEd, dGd, dGr, dSd, dSr)
+   !$omp private(iat, jat, dE, dG, dS, img, vec, rij, rr, dEd, dGd, dGr, dSd, dSr) &
+   !$omp private(eimg, need_weight_energy, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq, weight, dwdr, dwdL)
    do iat = 1, mol%nat
       dE = 0.0_wp
       dS(:, :) = 0.0_wp
-      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
+      rij(:) = 0.0_wp
+      call get_wignerseitz_weights(wsc, iat, iat, rij, weight, dwdr, dwdL)
+      need_weight_energy = any(dwdL(:, :, :wsc%nimg(iat, iat)) /= 0.0_wp)
       do img = 1, wsc%nimg(iat, iat)
          vec(:) = wsc%trans(:, wsc%tridx(img, iat, iat))
          rr = rad(iat)
@@ -916,13 +936,33 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
             & qpat(:, iat), qpat(:, iat), vol, alpha, rtrans, dGr, dSr)
          call get_damat_sdq_dir_3d(vec, qat(iat), qat(iat), dpat(:, iat), dpat(:, iat), &
             & qpat(:, iat), qpat(:, iat), rr, kdmp3, kdmp5, alpha, dtrans, dEd, dGd, dSd)
-         dE = dE + dEd * wsw
-         dS = dS + (dSd + dSr) * wsw
+         eimg = 0.0_wp
+         if (need_weight_energy) then
+            call get_amat_sdq_rec_3d(vec, vol, alpha, rtrans, r_sd, r_dd, r_sq)
+            call get_amat_sdq_dir_3d(vec, rr, kdmp3, kdmp5, alpha, dtrans, d_sd, d_dd, d_sq)
+            eimg = get_sdq_pair_energy(qat(iat), qat(iat), dpat(:, iat), dpat(:, iat), &
+               & qpat(:, iat), qpat(:, iat), d_sd + r_sd, d_dd + r_dd, d_sq + r_sq)
+         end if
+         dE = dE + dEd * weight(img)
+         dS = dS + (dSd + dSr) * weight(img) + eimg*dwdL(:, :, img)
       end do
       dEdr(iat) = dEdr(iat) + dE
       sigma = sigma + 0.5_wp * dS
    end do
 end subroutine get_multipole_gradient_3d
+
+
+!> Contract a periodic image interaction with the atomic multipoles
+pure function get_sdq_pair_energy(qi, qj, mi, mj, ti, tj, amat_sd, amat_dd, amat_sq) &
+      & result(energy)
+   real(wp), intent(in) :: qi, qj, mi(3), mj(3), ti(6), tj(6)
+   real(wp), intent(in) :: amat_sd(3), amat_dd(3, 3), amat_sq(6)
+   real(wp) :: energy
+
+   energy = dot_product(qj*mi - qi*mj, amat_sd) &
+      & + dot_product(mi, matmul(amat_dd, mj)) &
+      & + dot_product(qi*tj + qj*ti, amat_sq)
+end function get_sdq_pair_energy
 
 pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, trans, dg, ds)
    real(wp), intent(in) :: rij(3)
