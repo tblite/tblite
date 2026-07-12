@@ -20,7 +20,7 @@ from tempfile import NamedTemporaryFile
 import numpy as np
 from pytest import approx, raises
 from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
-from tblite.interface import Calculator, Result, symbols_to_numbers
+from tblite.interface import Calculator, Result, symbols_to_numbers, library
 
 THR = 1.0e-6
 
@@ -479,6 +479,97 @@ def test_spgfn1_orbital_occupations_and_coefficients():
 
     assert pa_reconstruct == approx(pa, abs=THR)
     assert pb_reconstruct == approx(pb, abs=THR)
+
+
+def test_table_to_dict_without_toml_dependency(monkeypatch):
+    """Test that table conversion works without requiring TOML parsing support."""
+    monkeypatch.setattr(library, "tomllib", None, raising=False)
+
+    table = library.dict_to_table({"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}})
+    data = library.table_to_dict(table)
+
+    assert data == {"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}}
+
+
+def test_param_roundtrip_via_python_mapping():
+    """Test that parametrization data can be round-tripped through Python dict/list mappings."""
+    param = library.new_param()
+    library.export_gfn2_param(param)
+
+    table = library.new_table()
+    library.dump_param(param, table)
+    data = library.table_to_dict(table)
+
+    assert isinstance(data, dict)
+    assert len(data) > 0
+
+    table2 = library.dict_to_table(data)
+    param2 = library.new_param()
+    library.load_param(param2, table2)
+
+    table3 = library.new_table()
+    library.dump_param(param2, table3)
+    data2 = library.table_to_dict(table3)
+
+    assert data2 == data
+
+
+def test_nested_python_mapping_roundtrip_via_table_api():
+    """Test that nested dict/list structures round-trip through the table API."""
+    data = {
+        "alpha": [1, 2, 3],
+        "beta": {
+            "gamma": [True, False],
+            "delta": "value",
+            "epsilon": np.array([1.5, 2.5, 3.5]),
+        },
+        "zeta": np.array(["x", "y"], dtype=str),
+        "eta": np.array([True, False, True]),
+    }
+
+    table = library.dict_to_table(data)
+    data2 = library.table_to_dict(table)
+
+    assert data2 == {
+        "alpha": [1, 2, 3],
+        "beta": {
+            "gamma": [True, False],
+            "delta": "value",
+            "epsilon": [1.5, 2.5, 3.5],
+        },
+        "zeta": ["x", "y"],
+        "eta": [True, False, True],
+    }
+
+
+def test_calculator_accepts_param_dict():
+    """Test that a Calculator can be constructed directly from a parametrization dict."""
+    param = library.new_param()
+    library.export_gfn2_param(param)
+
+    table = library.new_table()
+    library.dump_param(param, table)
+    params = library.table_to_dict(table)
+
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]])
+
+    calc = Calculator(params, numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-0.7589101818032, abs=1.0e-6)
+
+
+def test_dict_to_table_rejects_unsupported_sequences():
+    """Test that unsupported sequence shapes raise a clear error."""
+    with raises(TBLiteValueError, match="Nested sequences are not supported"):
+        library.dict_to_table({"bad": [[1, 2], [3, 4]]})
+
+    with raises(TBLiteValueError, match="Empty sequences are not supported"):
+        library.dict_to_table({"empty": []})
+
+    with raises(TBLiteValueError, match="Mixed or unsupported sequence types"):
+        library.dict_to_table({"mixed": [1, True]})
 
 
 def test_post_processing_api():

@@ -461,6 +461,14 @@ class Calculator(Structure):
     >>> res.get("energy")  # Results in atomic units
     -31.716159156026254
 
+    A parametrization mapping can also be passed directly instead of selecting
+    a built-in method:
+
+    >>> params = {"charge": {"effective": {"average": "arithmetic", "gexp": 2.0}}}
+    >>> calc = Calculator(params, numbers[:2], np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]]))
+    >>> calc.singlepoint().get("energy")
+    -0.7589101818032
+
     Raises
     ------
     TBLiteValueError
@@ -478,9 +486,12 @@ class Calculator(Structure):
         "accuracy": library.set_calculator_accuracy,
         "guess": library.set_calculator_guess,
         "max-iter": library.set_calculator_max_iter,
+        "mixer": library.set_calculator_mixer,
         "mixer-damping": library.set_calculator_mixer_damping,
+        "mixer-memory": library.set_calculator_mixer_memory,
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
+        "annealing": library.set_calculator_temperature_annealing,
         "verbosity": library.set_calculator_verbosity,
     }
     _getter = {
@@ -506,7 +517,7 @@ class Calculator(Structure):
 
     def __init__(
         self,
-        method: str,
+        method: Union[str, Dict[str, Any]],
         numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
@@ -527,12 +538,20 @@ class Calculator(Structure):
         Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
         self._ctx = library.new_context(**context_kwargs)
-        if method not in self._loader:
-            raise TBLiteValueError(
-                f"Method '{method}' is not available for this calculator"
-            )
-        self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
-        self._method = method
+        if isinstance(method, dict):
+            params = library.new_param()
+            table = library.dict_to_table(method)
+            library.load_param(params, table)
+            self._calc = library.new_xtb_calculator(self._ctx, self._mol, params, xtb_config)
+            self._param = params
+            self._method = "xTB"
+        else:
+            if method not in self._loader:
+                raise TBLiteValueError(
+                    f"Method '{method}' is not available for this calculator"
+                )
+            self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
+            self._method = method
 
     def set(self, attribute: str, value) -> None:
         """
@@ -544,9 +563,12 @@ class Calculator(Structure):
          accuracy          Numerical thresholds for SCC         1.0
          guess             Initial guess for wavefunction       0 (SAD)
          max-iter          Maximum number of SCC iterations     250
+         mixer             SCC mixer                            broyden
          mixer-damping     Parameter for the SCC mixer          0.4
+         mixer-memory      Number of SCC mixer history vectors  max-iter
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
+         annealing         Start or (start, hold, cycles)       None
          verbosity         Set verbosity of printout            1
         ================= ==================================== =================
 
@@ -572,17 +594,17 @@ class Calculator(Structure):
         """
         Add an interaction to the calculator instance. Supported interactions are
 
-        =================== =========================== =========================================
-         name                description                 Arguments
-        =================== =========================== =========================================
-         electric-field      Uniform electric field      Field vector (3,)
-         spin-polarization   Spin polarization           Scaling factor
-         alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
-         gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
-         ddX-solvation       dd-based implicit solvation Epsilon / Solvent name, model
-         gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
-         gb-solvation        GB implicit solvation       Epsilon, Born kernel
-        =================== =========================== =========================================
+        =================== ============================= =========================================
+         name                description                   Arguments
+        =================== ============================= =========================================
+         electric-field      Uniform electric field        Field vector (3,)
+         spin-polarization   Spin polarization             Scaling factor
+         alpb-solvation      ALPB implicit solvation       Solvent name, solution state (optional)
+         gbsa-solvation      GBSA implicit solvation       Solvent name, solution state (optional)
+         ddX-solvation       dd-based implicit solvation   Epsilon / Solvent name, model
+         gbe-solvation       GBε implicit solvation        Epsilon, Born kernel
+         gb-solvation        GB implicit solvation         Epsilon, Born kernel
+        =================== ============================= =========================================
 
         .. note::
 

@@ -35,6 +35,14 @@ A more pythonic interface is provided in the ``tblite.interface`` module which c
    print(res.get("energy"))  # Results in atomic units
    # => -31.716159156026254
 
+Alternatively, a parametrization mapping can be passed directly to the calculator:
+
+.. code:: python
+
+   params = {"charge": {"effective": {"average": "arithmetic", "gexp": 2.0}}}
+   calc = Calculator(params, np.array([1, 1]), np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]]))
+   print(calc.singlepoint().get("energy"))
+
 
 Building the extension module
 -----------------------------

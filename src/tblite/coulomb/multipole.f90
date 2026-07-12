@@ -430,7 +430,8 @@ subroutine get_dir_trans(lattice, alpha, conv, trans)
    !> Translation vectors
    real(wp), allocatable, intent(out) :: trans(:, :)
 
-   call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, conv), trans)
+   ! call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, conv), trans)
+   call get_lattice_points([.true.], lattice, 100.0_wp, trans)
 
 end subroutine get_dir_trans
 
@@ -451,7 +452,6 @@ subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
 
    rec_lat = twopi*transpose(matinv_3x3(lattice))
    call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, conv), trans)
-   trans = trans(:, 2:)
 
 end subroutine get_rec_trans
 
@@ -476,7 +476,7 @@ subroutine get_multipole_matrix(self, mol, cache, amat_sd, amat_dd, amat_sq)
    amat_sq(:, :, :) = 0.0_wp
    if (any(mol%periodic)) then
       call get_multipole_matrix_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & cache%wsc, cache%alpha, amat_sd, amat_dd, amat_sq)
+         & cache%wsc, cache%alpha_multipole, amat_sd, amat_dd, amat_sq)
    else
       call get_multipole_matrix_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
          & amat_sd, amat_dd, amat_sq)
@@ -613,17 +613,19 @@ pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat
    real(wp), intent(out) :: amat_sq(:)
 
    integer :: itr
-   real(wp) :: fac, vec(3), g2, expk, sink, cosk, gv
+   real(wp) :: fac, vec(3), g2, expk, sink, cosk, gv, rtmp, k_q(6)
 
    amat_sd = 0.0_wp
    amat_dd = 0.0_wp
    amat_sq = 0.0_wp
    fac = 4*pi/vol
 
-   amat_dd(1, 1) = fac/6.0_wp
-   amat_dd(2, 2) = fac/6.0_wp
-   amat_dd(3, 3) = fac/6.0_wp
-   amat_sq([1, 3, 6]) = -fac/9.0_wp
+   ! Not needed assuming conducting boundary conditions
+   ! which is reasonable assuming tblite supports 3d pbc only
+   ! amat_dd(1, 1) = fac/6.0_wp
+   ! amat_dd(2, 2) = fac/6.0_wp
+   ! amat_dd(3, 3) = fac/6.0_wp
+   ! amat_sq([1, 3, 6]) = -fac/9.0_wp
 
    do itr = 1, size(trans, 2)
       vec(:) = trans(:, itr)
@@ -634,14 +636,19 @@ pure subroutine get_amat_sdq_rec_3d(rij, vol, alp, trans, amat_sd, amat_dd, amat
       sink = sin(gv)*expk
       cosk = cos(gv)*expk
 
-      amat_sd(:) = amat_sd + 2*vec*sink
-      amat_dd(:, :) = amat_dd + spread(vec, 1, 3) * spread(vec, 2, 3) * cosk
-      amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*cosk
-      amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*cosk
-      amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*cosk
-      amat_sq(4) = amat_sq(4) + 2*vec(1)*vec(3)*cosk
-      amat_sq(5) = amat_sq(5) + 2*vec(2)*vec(3)*cosk
-      amat_sq(6) = amat_sq(6) +   vec(3)*vec(3)*cosk
+      ! packed quadratic basis
+      k_q(1) =          vec(1) * vec(1)
+      k_q(2) = 2.0_wp * vec(1) * vec(2)
+      k_q(3) =          vec(2) * vec(2)
+      k_q(4) = 2.0_wp * vec(1) * vec(3)
+      k_q(5) = 2.0_wp * vec(2) * vec(3)
+      k_q(6) =          vec(3) * vec(3)
+
+      amat_sd(:) = amat_sd + vec * sink
+      amat_dd(:, 1) = amat_dd(:, 1) + vec * vec(1) * cosk
+      amat_dd(:, 2) = amat_dd(:, 2) + vec * vec(2) * cosk
+      amat_dd(:, 3) = amat_dd(:, 3) + vec * vec(3) * cosk
+      amat_sq(:) = amat_sq - cosk / 3.0_wp * k_q
    end do
 
 end subroutine get_amat_sdq_rec_3d
@@ -685,8 +692,13 @@ pure subroutine get_amat_sdq_dir_3d(rij, rr, kdmp3, kdmp5, alp, trans, &
 
       tmp = fdmp3 * g3 + e1
       amat_sd = amat_sd + vec * tmp
-      amat_dd(:, :) = amat_dd(:, :) + unity * (fdmp5*g3 + e1) &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3) * (3 * (g5*fdmp5 + e2))
+      amat_dd(1, 1) = amat_dd(1, 1) + tmp
+      amat_dd(2, 2) = amat_dd(2, 2) + tmp
+      amat_dd(3, 3) = amat_dd(3, 3) + tmp
+      tmp = fdmp5 * g5 + e2
+      amat_dd(:, 1) = amat_dd(:, 1) - vec * vec(1) * (3 * tmp)
+      amat_dd(:, 2) = amat_dd(:, 2) - vec * vec(2) * (3 * tmp)
+      amat_dd(:, 3) = amat_dd(:, 3) - vec * vec(3) * (3 * tmp)
       amat_sq(1) = amat_sq(1) +   vec(1)*vec(1)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
       amat_sq(2) = amat_sq(2) + 2*vec(1)*vec(2)*(g5*fdmp5 + e2)
       amat_sq(3) = amat_sq(3) +   vec(2)*vec(2)*(g5*fdmp5 + e2) - (fdmp5*g3 + e1)/3.0_wp
@@ -721,7 +733,7 @@ subroutine get_multipole_gradient(self, mol, cache, qat, dpat, qpat, dEdr, gradi
 
    if (any(mol%periodic)) then
       call get_multipole_gradient_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & qat, dpat, qpat, cache%wsc, cache%alpha, dEdr, gradient, sigma)
+         & qat, dpat, qpat, cache%wsc, cache%alpha_multipole, dEdr, gradient, sigma)
    else
       call get_multipole_gradient_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
          & qat, dpat, qpat, dEdr, gradient, sigma)
@@ -994,12 +1006,12 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
       dpiqj = dot_product(vec, mi)*qj
       qidpj = dot_product(vec, mj)*qi
 
-      dg(:) = dg - 2*vec*cosk * (dpiqj - qidpj)
+      dg(:) = dg - vec*cosk * (dpiqj - qidpj)
       do b = 1, 3
          do a = 1, 3
             ds(a, b) = ds(a, b) &
-               & + 2 * sink * (dpiqj - qidpj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
-               & - sink*(vec(a)*(qj*mi(b) - qi*mj(b)) + vec(b)*(qj*mi(a) - qi*mj(a)))
+               & + sink * (dpiqj - qidpj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
+               & - 0.5_wp*sink*(vec(a)*(qj*mi(b) - qi*mj(b)) + vec(b)*(qj*mi(a) - qi*mj(a)))
          end do
       end do
 
@@ -1026,12 +1038,12 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, vol, alp, tran
          & tj(2)*vec(1) + tj(3)*vec(2) + tj(5)*vec(3), &
          & tj(4)*vec(1) + tj(5)*vec(2) + tj(6)*vec(3)]
 
-      dg(:) = dg + vec * sink * (qiqpj + qpiqj)
+      dg(:) = dg - (vec * sink * (qiqpj + qpiqj)) / 3.0_wp
       do b = 1, 3
          do a = 1, 3
             ds(a, b) = ds(a, b) &
-               & + cosk * (qiqpj + qpiqj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b)) &
-               & - cosk*(vec(a)*(qi*tjv(b) + qj*tiv(b)) + vec(b)*(qi*tjv(a) + qj*tiv(a)))
+               & - (cosk * (qiqpj + qpiqj) * ((2.0_wp/g2 + 0.5_wp/alp2) * vec(a)*vec(b) - unity(a, b))) / 3.0_wp &
+               & + (cosk*(vec(a)*(qi*tjv(b) + qj*tiv(b)) + vec(b)*(qi*tjv(a) + qj*tiv(a)))) / 3.0_wp
          end do
       end do
    end do

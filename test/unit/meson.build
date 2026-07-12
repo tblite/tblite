@@ -47,6 +47,7 @@ tests = [
   'integral-multipole',
   'integral-trafo',
   'ipea1-xtb',
+  'molden',
   'npy',
   'npz',
   'post-processing',

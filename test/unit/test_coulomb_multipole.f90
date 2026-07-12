@@ -86,9 +86,9 @@ subroutine collect_coulomb_multipole(testsuite)
       new_unittest("energy-pbc", test_e_effective_co2), &
       new_unittest("energy-pbc-qp", test_e_effective_co2_qp), &
       new_unittest("energy-pbc-dp", test_e_effective_co2_dp), &
-      !new_unittest("energy-sc", test_e_effective_co2_sc), &
-      !new_unittest("energy-sc-qp", test_e_effective_co2_sc_qp), &
-      !new_unittest("energy-sc-dp", test_e_effective_co2_sc_dp), &
+      new_unittest("energy-sc", test_e_effective_co2_sc), &
+      new_unittest("energy-sc-qp", test_e_effective_co2_sc_qp), &
+      new_unittest("energy-sc-dp", test_e_effective_co2_sc_dp), &
       new_unittest("gradient-1", test_g_effective_m03), &
       new_unittest("gradient-2", test_g_effective_m04), &
       new_unittest("gradient-pbc", test_g_effective_urea), &
@@ -187,7 +187,7 @@ subroutine view(cache, ptr)
 end subroutine view
 
 
-subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
+subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref, thr_in)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -210,18 +210,20 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    !> Reference value to check against
    real(wp), intent(in) :: ref
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    type(damped_multipole) :: multipole
    type(container_cache) :: cache
    type(coulomb_cache), pointer :: ccache
-   real(wp) :: energy(mol%nat), sigma(3, 3)
-   real(wp), allocatable :: gradient(:, :), numgrad(:, :)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp) :: energy(mol%nat)
+   real(wp) :: thr_
    type(wavefunction_type) :: wfn
 
-   allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
+
    energy = 0.0_wp
-   gradient(:, :) = 0.0_wp
-   sigma(:, :) = 0.0_wp
    wfn%qat = reshape(qat, [size(qat), 1])
    wfn%dpat = reshape(dpat, [shape(dpat), 1])
    wfn%qpat = reshape(qpat, [shape(qpat), 1])
@@ -232,7 +234,7 @@ subroutine test_generic(error, mol, qat, dpat, qpat, make_multipole, ref)
    call multipole%update(mol, cache)
    call multipole%get_energy(mol, cache, wfn, energy)
 
-   call check(error, sum(energy), ref, thr=thr)
+   call check(error, sum(energy), ref, thr=thr_)
    if (allocated(error)) then
       print *, ref, sum(energy)
    end if
@@ -1150,7 +1152,7 @@ subroutine test_s_effective_oxacb(error)
       & shape(qpat))
 
    call get_structure(mol, "X23", "oxacb")
-   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2, 1.0e-6_wp)
+   call test_numsigma(error, mol, qat, dpat, qpat, make_multipole2)
 
 end subroutine test_s_effective_oxacb
 
@@ -1353,9 +1355,6 @@ submodule (test_coulomb_multipole) test_supercell_scaling
       & -1.18646463864190E-01_wp,  1.18587233297690E-01_wp,  1.19626167010667E-04_wp],&
       & shape(qpat1))
 
-   real(wp), parameter :: e02 = 1.5016170263588339E-2_wp, e11 = -3.5486704129999375E-3_wp, &
-      & e01 = 1.5707032644207228E-2_wp - e02 - e11
-
 contains
 
 module subroutine test_e_effective_co2(error)
@@ -1369,7 +1368,8 @@ module subroutine test_e_effective_co2(error)
    real(wp), parameter :: qpat(6, nat) = qpat1
 
    call get_structure(mol, "X23", "CO2")
-   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, e01+e02+e11)
+   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, &
+      & 1.1845308372646145E-002_wp)
 end subroutine test_e_effective_co2
 
 module subroutine test_e_effective_co2_dp(error)
@@ -1383,7 +1383,8 @@ module subroutine test_e_effective_co2_dp(error)
    real(wp), parameter :: qpat0(6, nat) = 0.0_wp
 
    call get_structure(mol, "X23", "CO2")
-   call test_generic(error, mol, qat0, dpat, qpat0, make_multipole2, e11)
+   call test_generic(error, mol, qat0, dpat, qpat0, make_multipole2, &
+      & -3.5484082012240958E-003_wp)
 end subroutine test_e_effective_co2_dp
 
 module subroutine test_e_effective_co2_qp(error)
@@ -1397,7 +1398,8 @@ module subroutine test_e_effective_co2_qp(error)
    real(wp), parameter :: qpat(6, nat) = qpat1
 
    call get_structure(mol, "X23", "CO2")
-   call test_generic(error, mol, qat, dpat0, qpat, make_multipole2, e02)
+   call test_generic(error, mol, qat, dpat0, qpat, make_multipole2, &
+      & 1.4924275071375163E-002_wp)
 end subroutine test_e_effective_co2_qp
 
 
@@ -1407,17 +1409,10 @@ module subroutine test_e_effective_co2_sc(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
-   integer, parameter :: supercell(3) = [2, 2, 2]
-   integer, parameter :: nsc = product(supercell)
-   real(wp), parameter :: qat(nsc*nat) = [spread(qat1, 2, nsc)]
-   real(wp), parameter :: dpat(3, nsc*nat) = &
-      & reshape([dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1], shape(dpat))
-   real(wp), parameter :: qpat(6, nsc*nat) = &
-      & reshape([qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1], shape(qpat))
 
    call get_structure(mol, "X23", "CO2")
-   call make_supercell(mol, supercell)
-   call test_generic(error, mol, qat, dpat, qpat, make_multipole2, product(supercell)*(e01+e02+e11))
+   call test_energy_sc(error, mol, qat1, dpat1, qpat1, [2, 2, 2], &
+      & make_multipole2, thr_in=100*thr2)
 end subroutine test_e_effective_co2_sc
 
 
@@ -1427,16 +1422,12 @@ module subroutine test_e_effective_co2_sc_dp(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
-   integer, parameter :: supercell(3) = [2, 2, 2]
-   integer, parameter :: nsc = product(supercell)
-   real(wp), parameter :: qat0(nsc*nat) = 0.0_wp
-   real(wp), parameter :: dpat(3, nsc*nat) = &
-      & reshape([dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1, dpat1], shape(dpat))
-   real(wp), parameter :: qpat0(6, nsc*nat) = 0.0_wp
+   real(wp), parameter :: qat0(nat) = 0.0_wp
+   real(wp), parameter :: qpat0(6, nat) = 0.0_wp
 
    call get_structure(mol, "X23", "CO2")
-   call make_supercell(mol, supercell)
-   call test_generic(error, mol, qat0, dpat, qpat0, make_multipole2, product(supercell)*e11)
+   call test_energy_sc(error, mol, qat0, dpat1, qpat0, [2, 2, 2], &
+      & make_multipole2, thr_in=10*thr2)
 end subroutine test_e_effective_co2_sc_dp
 
 
@@ -1446,17 +1437,116 @@ module subroutine test_e_effective_co2_sc_qp(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
-   integer, parameter :: supercell(3) = [2, 2, 2]
-   integer, parameter :: nsc = product(supercell)
-   real(wp), parameter :: qat(nsc*nat) = [spread(qat1, 2, nsc)]
-   real(wp), parameter :: dpat0(3, nsc*nat) = 0.0_wp
-   real(wp), parameter :: qpat(6, nsc*nat) = &
-      & reshape([qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1, qpat1], shape(qpat))
+   real(wp), parameter :: dpat0(3, nat) = 0.0_wp
 
    call get_structure(mol, "X23", "CO2")
-   call make_supercell(mol, supercell)
-   call test_generic(error, mol, qat, dpat0, qpat, make_multipole2, product(supercell)*e02)
+   call test_energy_sc(error, mol, qat1, dpat0, qpat1, [2, 2, 2], &
+      & make_multipole2, thr_in=thr2)
 end subroutine test_e_effective_co2_sc_qp
+
+
+!> Evaluate the multipole energy and return its value without comparing to a reference.
+!> Used to dynamically obtain a unit cell energy for supercell scaling checks.
+subroutine compute_energy(error, mol, qat, dpat, qpat, make_multipole, energy_out)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Atomic partial charges for this structure
+   real(wp), contiguous, intent(in) :: qat(:)
+
+   !> Atomic dipole moments for this structure
+   real(wp), contiguous, intent(in) :: dpat(:, :)
+
+   !> Atomic quadrupole moments for this structure
+   real(wp), contiguous, intent(in) :: qpat(:, :)
+
+   !> Factory to create new electrostatic objects
+   procedure(multipole_maker) :: make_multipole
+
+   !> Total energy of the system
+   real(wp), intent(out) :: energy_out
+
+   type(damped_multipole) :: multipole
+   type(container_cache) :: cache
+   type(coulomb_cache), pointer :: ccache
+   type(wavefunction_type) :: wfn
+   real(wp), allocatable :: energy(:)
+
+   allocate(energy(mol%nat))
+   energy = 0.0_wp
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%dpat = reshape(dpat, [shape(dpat), 1])
+   wfn%qpat = reshape(qpat, [shape(qpat), 1])
+   call taint(cache, ccache)
+   call ccache%update(mol)
+   call make_multipole(multipole, mol, error)
+   if (allocated(error)) return
+   call multipole%update(mol, cache)
+   call multipole%get_energy(mol, cache, wfn, energy)
+   energy_out = sum(energy)
+
+end subroutine compute_energy
+
+
+!> Generic supercell scaling test for multipole electrostatics.
+!> Dynamically computes the unit cell energy, builds a supercell,
+!> and checks that the supercell energy equals nsc * unit_cell_energy.
+subroutine test_energy_sc(error, mol, qat, dpat, qpat, supercell, make_multipole, thr_in)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data (unit cell, will be modified)
+   type(structure_type), intent(inout) :: mol
+
+   !> Atomic partial charges for the unit cell
+   real(wp), contiguous, intent(in) :: qat(:)
+
+   !> Atomic dipole moments for the unit cell
+   real(wp), contiguous, intent(in) :: dpat(:, :)
+
+   !> Atomic quadrupole moments for the unit cell
+   real(wp), contiguous, intent(in) :: qpat(:, :)
+
+   !> Supercell replication factors along each lattice vector
+   integer, intent(in) :: supercell(3)
+
+   !> Factory to create new electrostatic objects
+   procedure(multipole_maker) :: make_multipole
+
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
+   type(structure_type) :: mol_sc
+   integer :: nsc, nat_uc
+   real(wp) :: eref
+   real(wp), allocatable :: qat_sc(:), dpat_sc(:,:), qpat_sc(:,:)
+
+   nsc = product(supercell)
+   nat_uc = mol%nat
+
+   !> Compute unit cell energy as reference
+   call compute_energy(error, mol, qat, dpat, qpat, make_multipole, eref)
+   if (allocated(error)) return
+
+   !> Tile multipole moments over the supercell
+   qat_sc = [spread(qat, 2, nsc)]
+   dpat_sc = reshape(spread(dpat, 3, nsc), [3, nat_uc * nsc])
+   qpat_sc = reshape(spread(qpat, 3, nsc), [6, nat_uc * nsc])
+
+   !> Build supercell
+   mol_sc = mol
+   call make_supercell(mol_sc, supercell)
+
+   !> Compute supercell energy and compare
+   call test_generic(error, mol_sc, qat_sc, dpat_sc, qpat_sc, make_multipole, &
+      & nsc * eref, thr_in)
+
+end subroutine test_energy_sc
 
 
 subroutine make_supercell(mol, rep)

@@ -405,9 +405,9 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
-   call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint, .true., .true.)
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
    do mli = 1, msao(cgtoi%ang)
@@ -486,9 +486,9 @@ pure subroutine multipole_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint)
-   call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, q3d, qpint, .true., .true.)
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
    do mli = 1, msao(cgtoi%ang)
@@ -606,14 +606,14 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
       end do
    end do
 
-   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap)
-   call transform1(cgtoj%ang, cgtoi%ang, d3dj, dpint)
-   call transform1(cgtoj%ang, cgtoi%ang, q3dj, qpint)
-   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap)
-   call transform2(cgtoj%ang, cgtoi%ang, dd3dj, ddpintj)
-   call transform2(cgtoj%ang, cgtoi%ang, dq3dj, dqpintj)
-   call transform2(cgtoj%ang, cgtoi%ang, dd3di, ddpinti)
-   call transform2(cgtoj%ang, cgtoi%ang, dq3di, dqpinti)
+   call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, d3dj, dpint, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, q3dj, qpint, .true., .true.)
+   call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
+   call transform2(cgtoj%ang, cgtoi%ang, dd3dj, ddpintj, .true., .true.)
+   call transform2(cgtoj%ang, cgtoi%ang, dq3dj, dqpintj, .true., .true.)
+   call transform2(cgtoj%ang, cgtoi%ang, dd3di, ddpinti, .true., .true.)
+   call transform2(cgtoj%ang, cgtoi%ang, dq3di, dqpinti, .true., .true.)
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
    do mli = 1, msao(cgtoi%ang)

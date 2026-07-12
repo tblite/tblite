@@ -24,11 +24,11 @@
 module tblite_basis
    use tblite_basis_ortho, only : orthogonalize
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type, only : basis_type, new_basis, get_cutoff, cgto_type
+   use tblite_basis_type, only : basis_type, new_basis, get_cutoff, new_cgto, cgto_type
    implicit none
    private
 
-   public :: basis_type, new_basis, get_cutoff, cgto_type
+   public :: basis_type, new_basis, get_cutoff, cgto_type, new_cgto
    public :: orthogonalize
    public :: slater_to_gauss
 end module tblite_basis

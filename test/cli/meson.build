@@ -62,6 +62,7 @@ run_testcases = [
   '05e-gfn2xtb-solv',
   '06a-gfn1xtb',
   '07f-ceh',
+  '09a-gfn2xtb-anneal',
 ]
 foreach case: run_testcases
   test(
@@ -73,6 +74,7 @@ foreach case: run_testcases
       files('@0@.resp'.format(case)),
     ],
     suite: 'cli',
+    timeout: 300,
   )
 endforeach
 
@@ -110,6 +112,18 @@ foreach m : ['gfn2', 'gfn1', 'ipea1']
     suite: 'cli',
   )
 endforeach
+
+test(
+  'molden', 
+  tblite_exe, 
+  args: [
+    'run', 
+    '--no-restart',
+    '--molden',
+    files('07-mb33.xyz')
+  ], 
+  suite: 'cli',
+)
 
 test(
   'post-processing-str', 

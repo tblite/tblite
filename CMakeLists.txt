@@ -29,12 +29,8 @@ include(GNUInstallDirs)
 # General configuration information
 add_subdirectory("config")
 
-if(WITH_DDX)
-  enable_language("CXX")
-endif()
-
 if(NOT TARGET "OpenMP::OpenMP_Fortran")
-  if (WITH_OpenMP)
+  if(TBLITE_WITH_OpenMP)
     find_package("OpenMP" REQUIRED)
   else()
     # Create dummy library
@@ -42,10 +38,10 @@ if(NOT TARGET "OpenMP::OpenMP_Fortran")
   endif()
 endif()
 
-if(WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
+if(TBLITE_WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
   find_package("HDF5" REQUIRED COMPONENTS Fortran)
 endif()
-if(WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
+if(TBLITE_WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
   find_path(
     TREXIO_INCLUDE_DIR
     NAMES "trexio_f.f90"
@@ -77,7 +73,7 @@ endif()
 if(NOT TARGET "mctc-lib::mctc-lib")
   find_package("mctc-lib" REQUIRED)
 endif()
-if(NOT TARGET "mstore::mstore" AND WITH_TESTS)
+if(NOT TARGET "mstore::mstore" AND TBLITE_WITH_TESTS)
   find_package("mstore" REQUIRED)
 endif()
 if(NOT TARGET "multicharge::multicharge")
@@ -89,9 +85,8 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
-if(WITH_DDX AND NOT TARGET "ddx::ddx")
-  set(EXAMPLES OFF CACHE BOOL "Disable ddx examples" FORCE)
-  find_package("ddx" REQUIRED)
+if(TBLITE_WITH_DDX AND NOT TARGET "ddx")
+  find_package("ddX" CONFIG REQUIRED)
 endif()
   
 set(
@@ -114,6 +109,7 @@ add_library(
   "${PROJECT_NAME}-lib"
   "${srcs}"
 )
+add_library("${PROJECT_NAME}::${PROJECT_NAME}-lib" ALIAS "${PROJECT_NAME}-lib")
 set_target_properties(
   "${PROJECT_NAME}-lib"
   PROPERTIES
@@ -129,11 +125,11 @@ target_link_libraries(
   PUBLIC
   "${lib-deps}"
 )
-if(WITH_DDX)
+if(TBLITE_WITH_DDX)
   target_link_libraries(
     "${PROJECT_NAME}-lib"
     PUBLIC
-    "ddx::ddx"
+    "ddx"
   )
   target_compile_definitions(
     "${PROJECT_NAME}-lib"
@@ -141,7 +137,7 @@ if(WITH_DDX)
     "TBLITE_HAS_DDX=1"
   )
 endif()
-if(WITH_HDF5)
+if(TBLITE_WITH_HDF5)
   target_link_libraries(
     "${PROJECT_NAME}-lib"
     PUBLIC
@@ -153,7 +149,7 @@ if(WITH_HDF5)
     "TBLITE_HAS_HDF5=1"
   )
 endif()
-if(WITH_TREXIO)
+if(TBLITE_WITH_TREXIO)
   target_link_libraries(
     "${PROJECT_NAME}-lib"
     PUBLIC
@@ -177,38 +173,12 @@ if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
 endif()
 
-if(WITH_DDX)
-  set(ddx_module_dir)
-  if(DEFINED DDX_BINARY_DIR)
-    set(ddx_module_dir "${DDX_BINARY_DIR}/src")
-  elseif(DEFINED ddX_BINARY_DIR)
-    set(ddx_module_dir "${ddX_BINARY_DIR}/src")
-  elseif(TARGET ddx)
-    get_target_property(ddx_module_dir ddx Fortran_MODULE_DIRECTORY)
-    if(NOT ddx_module_dir)
-      get_target_property(ddx_module_dir ddx BINARY_DIR)
-    endif()
-  endif()
-  if(ddx_module_dir)
-    add_library(ddx_includes INTERFACE)
-    install(TARGETS ddx_includes EXPORT "${PROJECT_NAME}-targets")
-    target_include_directories(ddx_includes
-      INTERFACE
-        $<BUILD_INTERFACE:${ddx_module_dir}>
-        $<INSTALL_INTERFACE:include/ddx>
-    )
-    install(DIRECTORY "${ddx_module_dir}/"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ddx
-            FILES_MATCHING PATTERN "*.mod")
-    target_link_libraries("${PROJECT_NAME}-lib" PUBLIC ddx_includes)
-  endif()
-endif()
-
 # Add example application
 add_subdirectory("app")
 
 # Export targets for other projects
 add_library("${PROJECT_NAME}" INTERFACE)
+add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 target_link_libraries("${PROJECT_NAME}" INTERFACE "${PROJECT_NAME}-lib")
 install(
   TARGETS
@@ -246,7 +216,7 @@ install(
 
 
 # add the testsuite
-if (WITH_TESTS)
+if (TBLITE_WITH_TESTS)
   enable_testing()
   add_subdirectory("test")
 endif()

@@ -77,7 +77,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
+          - macos-15
           - macos-15-intel
           # windows-latest
 
@@ -107,8 +107,12 @@ jobs:
         env:
           CIBW_PLAT: ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           CIBW_CONFIG_SETTINGS: setup-args="-Dtblite:openmp=false"
+          # Exclude libgomp from the manylinux wheel so it doesn't collide with
+          # another wheel's bundled libgomp (e.g. torch <= 2.6, see #340).
+          # libgomp1 is part of gcc-runtime and present on every supported distro.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: 'auditwheel repair -w {dest_dir} {wheel} --exclude libgomp.so.1'
           CIBW_ARCHS: auto64
-          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-latest' && 'arm64' || 'x86_64' }}
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-15' && 'arm64' || 'x86_64' }}
           # MM: Package installation (yum install ...) works differently on musllinux
           CIBW_SKIP: "{cp38-macosx_arm64,cp39-macosx_arm64,*musllinux*}"
           # Include all PyPy versions
@@ -141,6 +145,33 @@ jobs:
           name: tblite-python-${{ matrix.os }}
           path: ./*.whl
           retention-days: 5
+
+  # Regression test for #340: install the freshly built manylinux wheel
+  # together with a torch release known to ship a colliding bundled libgomp
+  # (any 2.4 <= torch <= 2.6). The bundled-libgomp pathology breaks SCF
+  # non-deterministically; a fixed wheel must converge bit-identically.
+  regression-libgomp-collision:
+    needs: wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+      - uses: actions/download-artifact@v4
+        with:
+          name: tblite-python-ubuntu-latest
+      - name: Install built wheel alongside torch 2.6.0+cpu
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./tblite-*cp311*manylinux*.whl numpy \
+            'torch==2.6.0+cpu' \
+            --extra-index-url https://download.pytorch.org/whl/cpu
+
+      - name: Five identical singlepoints (with torch loaded) must be deterministic or fail loudly
+        run: python .github/regressions/test_libgomp_collision.py
 
   release:
     needs:
@@ -185,6 +216,7 @@ jobs:
     needs:
       - sdist
       - wheels
+      - regression-libgomp-collision
     runs-on: ubuntu-latest
     environment:
       name: pypi

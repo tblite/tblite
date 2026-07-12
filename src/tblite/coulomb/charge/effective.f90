@@ -478,7 +478,7 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
           call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
              & dadr, dadL, atrace)
        end if
-    end if 
+    end if
 
 end subroutine get_coulomb_derivs
 

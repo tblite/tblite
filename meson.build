@@ -102,6 +102,51 @@ if install
     subdirs: ['', module_id],
   )
 
+  cmake_data = configuration_data({
+    'PROJECT_NAME': meson.project_name(),
+    'PROJECT_VERSION': meson.project_version(),
+    'PACKAGE_INIT': '',
+    'CMAKE_INSTALL_PREFIX': get_option('prefix'),
+    'CMAKE_INSTALL_INCLUDEDIR': get_option('includedir'),
+    'CMAKE_INSTALL_LIBDIR': get_option('libdir'),
+    'TBLITE_WITH_API': get_option('api') ? 'ON' : 'OFF',
+    'TBLITE_WITH_OpenMP': get_option('openmp') ? 'ON' : 'OFF',
+    'TBLITE_WITH_DDX': get_option('ddx') ? 'ON' : 'OFF',
+    'TBLITE_WITH_TREXIO': trexio_dep.found() ? 'ON' : 'OFF',
+    'TBLITE_WITH_HDF5': hdf5_dep.found() ? 'ON' : 'OFF',
+    'TBLITE_USE_MCTCLIB': mctc_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'TBLITE_USE_MULTICHARGE': multicharge_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'TBLITE_USE_TOMLF': tomlf_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'TBLITE_USE_SDFTD3': sdftd3_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'TBLITE_USE_DFTD4': dftd4_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'TBLITE_USE_DDX': get_option('ddx') and ddx_dep.type_name() != 'internal' ? 'ON' : 'OFF',
+    'module-dir': module_id,
+  })
+  cmake_files = [
+    configure_file(
+      input: files('config'/'template-config.cmake'),
+      output: meson.project_name() + '-config.cmake',
+      configuration: cmake_data,
+    ),
+    configure_file(
+      input: files('config'/'template-targets.cmake'),
+      output: meson.project_name() + '-targets.cmake',
+      configuration: cmake_data,
+    ),
+    files('config'/'cmake'/'Finddftd4.cmake'),
+    files('config'/'cmake'/'Findmctc-lib.cmake'),
+    files('config'/'cmake'/'Findmstore.cmake'),
+    files('config'/'cmake'/'Findmulticharge.cmake'),
+    files('config'/'cmake'/'Finds-dftd3.cmake'),
+    files('config'/'cmake'/'Findtoml-f.cmake'),
+    files('config'/'cmake'/'tblite-utils.cmake'),
+  ]
+  install_data(
+    cmake_files,
+    install_dir: get_option('libdir')/'cmake'/meson.project_name(),
+    install_tag: 'devel',
+  )
+
   asciidoc = find_program('asciidoctor', required: false)
   if asciidoc.found()
     man_srcs = files(

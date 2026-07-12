@@ -12,6 +12,7 @@ module test_xtbml
    use tblite_context_type, only : context_type
    use tblite_data_spin, only : get_spin_constant
    use tblite_double_dictionary, only : double_dictionary_type
+   use tblite_features, only : get_tblite_feature
    use tblite_integral_type, only : integral_type
    use tblite_param_post_processing, only : post_processing_record_list, &
       & post_processing_record, xtbml_record
@@ -1165,6 +1166,8 @@ subroutine test_energy_sum_up_gfn1(error)
    &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
    &/),shape=(/3,nat/))
    integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
+
+   if (.not.get_tblite_feature("ddx")) return
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn1_calculator(calc,mol,error)

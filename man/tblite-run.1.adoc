@@ -46,6 +46,11 @@ Supported geometry input formats are:
 *--etemp* _real_::
      Electronic temperature for calculation in Kelvin (default: 300K).
 
+*--etemp-anneal* _real[,integer,integer]_::
+     Initial electronic temperature for SCF annealing in Kelvin.
+     If set above the calculation temperature, the SCF starts at this temperature and lowers it during the early iterations.
+     The optional second and third values set the number of hold cycles and annealing cycles, respectively (defaults: 50, 50).
+
 *--guess* _string_::
      Guess for the initial populations, possible options:
      _sad_ (default), _eeq_, _eeqbc_, and _ceh_.
@@ -64,6 +69,24 @@ Supported geometry input formats are:
 
 *--etemp-guess* _real_::
      Electronic temperature for ceh-guess in Kelvin (default: 4000K).
+
+*--mixer* _string[:string]_::
+     Electronic mixer to use, supported is _broyden_ (default).
+     Append `:oda` or `:mesa` to use trial-damped SCF with the selected mixer,
+     for example _broyden:oda_ or _broyden:mesa_.
+
+*--mixer* _option=value_::
+     Set mixer specific settings using <option>=<value> syntax.
+
+*--mixer* _memory_=_integer_::
+     Number of previous SCF steps retained by the electronic mixer.
+     By default, the mixer can use up to the maximum number of SCF iterations.
+
+*--mixer* _damping_=_real_::
+     Damping parameter for the electronic mixer (default: 0.4).
+
+*--mixer* _trial-start_=_integer_::
+     Number of standard SCF cycles before ODA/MESA trial strategies are enabled (default: 4).
 
 *--efield* _real_,_real_,_real_::
      Homogeneous electric field in V/Å, takes three comma separated real values.
@@ -142,6 +165,9 @@ Supported geometry input formats are:
 *--trexio* [_file_]::
      Dump results as TREXIO output to _file_ (default: tblite.trexio).
      Files ending in .h5 or .hdf5 are written with the TREXIO HDF5 backend when TREXIO and HDF5 support are available.
+
+*--molden* [_file_]::
+     Dump results as Molden output to _file_ (default: tblite.molden)
 
 *-i, --input* _format_::
      Hint for the format of the input file

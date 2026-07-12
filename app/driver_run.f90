@@ -27,11 +27,14 @@ module tblite_driver_run
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_io_molden, only : save_molden
    use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
-   use tblite_output_ascii
+   use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
+      & ascii_quadrupole_moments, tagged_result, json_results
    use tblite_param, only : param_record
    use tblite_results, only : results_type
+   use tblite_scf_mixer_input, only : anneal_input
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
@@ -70,7 +73,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin
+   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps
    logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
@@ -153,7 +156,7 @@ subroutine run_main(config, error)
    end if
    if (allocated(error)) return
 
-   if (allocated(config%max_iter)) calc%max_iter = config%max_iter
+   calc%mixer_input = config%mixer
 
    use_guess = .true.
    restart_exist = .false.
@@ -352,6 +355,15 @@ subroutine run_main(config, error)
          call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
       end if
    end if
+
+   if (config%molden) then
+      call save_molden(config%molden_output, mol, calc%bas, wfn, error)
+      if (allocated(error)) return
+      if (config%verbosity > 0) then
+         call info(ctx, "Molden file written to '"//config%molden_output//"'")
+      end if
+   end if
+
 end subroutine run_main
 
 

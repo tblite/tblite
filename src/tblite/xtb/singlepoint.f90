@@ -36,6 +36,7 @@ module tblite_xtb_singlepoint
    use tblite_results, only : results_type
    use tblite_scf, only : mixer_type, new_mixer, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
+   use tblite_scf_mixer_input, only : scf_version_to_string
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, get_density_matrix, &
@@ -70,7 +71,7 @@ contains
 
 !> Entry point for performing single point calculation using the xTB calculator
 subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
-      & verbosity, results, post_process)
+   & verbosity, results, post_process)
    !> Calculation context
    type(context_type), intent(inout) :: ctx
    !> Molecular structure data
@@ -94,9 +95,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    !> List of post-processing methods
    type(post_processing_list), intent(inout), optional :: post_process
    
-   logical :: grad, converged, econverged, pconverged
+   logical :: grad, converged, econverged, pconverged, tconverged
    integer :: prlevel
-   real(wp) :: econv, pconv, cutoff, elast, nel
+   real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
+   real(wp) :: pnorm
+   integer :: anneal_hold, anneal_steps
+   integer, parameter :: default_anneal_hold = 50, default_anneal_steps = 50
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :), wdensity(:, :, :)
@@ -233,6 +237,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
 
    call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
+   target_kt = wfn%kt
+   elevated_kt = target_kt
+   anneal_hold = default_anneal_hold
+   anneal_steps = default_anneal_steps
+   if (allocated(calc%mixer_input%anneal)) then
+      elevated_kt = calc%mixer_input%anneal%initial_kt
+      anneal_hold = max(0, calc%mixer_input%anneal%hold)
+      anneal_steps = max(0, calc%mixer_input%anneal%cycles)
+   end if
    call timer%pop
 
    call timer%push("scc")
@@ -240,8 +253,24 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_mixer(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
-      & calc%mixer_damping)
+
+   if (prlevel > 1) then
+      call ctx%message(scf_version_to_string(calc%mixer_input%scf))
+      call ctx%message("Mixer memory             " // format_string(calc%mixer_input%memory, "(i16)"))
+      call ctx%message("Mixer damping            " // format_string(calc%mixer_input%damping, real_format))
+      if (allocated(calc%mixer_input%anneal)) then
+      call ctx%message("Annealing initial kt     " // format_string(elevated_kt, real_format) // " Eh")
+      call ctx%message("Annealing hold cycles    " // format_string(anneal_hold, "(i16)"))
+      call ctx%message("Annealing cycles         " // format_string(anneal_steps, "(i16)"))
+      end if
+   end if
+   call new_mixer(mixer, calc%mixer_input, &
+      & wfn%nspin*get_mixer_dimension(mol, calc%bas, info), error)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("  cycle        total energy    energy error   density error")
@@ -249,19 +278,32 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
+      if (elevated_kt > target_kt) then
+         if (iscf < anneal_hold) then
+            wfn%kt = elevated_kt
+         else if (anneal_steps > 0 .and. iscf < anneal_hold + anneal_steps) then
+            anneal_fraction = real(iscf - anneal_hold + 1, wp)/real(anneal_steps, wp)
+            wfn%kt = elevated_kt + anneal_fraction*(target_kt - elevated_kt)
+         else
+            wfn%kt = target_kt
+         end if
+         solver%kt = wfn%kt
+      end if
       call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
          & ccache, dcache, icache, eelec, error)
       econverged = abs(sum(eelec) - elast) < econv
-      pconverged = mixer%get_error() < pconv
-      converged = econverged .and. pconverged
+      pnorm = mixer%get_error()
+      pconverged = pnorm < pconv
+      tconverged = wfn%kt <= target_kt
+      converged = econverged .and. pconverged .and. tconverged
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
             & format_string(sum(eelec + energies), "(g24.13)") // &
             & escape(merge(ctx%terminal%green, ctx%terminal%red, econverged)) // &
             & format_string(sum(eelec) - elast, "(es16.7)") // &
             & escape(merge(ctx%terminal%green, ctx%terminal%red, pconverged)) // &
-            & format_string(mixer%get_error(), "(es16.7)") // &
+            & format_string(pnorm, "(es16.7)") // &
             & escape(ctx%terminal%reset))
       end if
       if (allocated(error)) then
@@ -269,6 +311,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          exit
       end if
    end do
+   wfn%kt = target_kt
+   solver%kt = target_kt
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("")
