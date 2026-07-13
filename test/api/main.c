@@ -1826,7 +1826,7 @@ int test_gfn1_co2(void)
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -46.203659007308, thr, "energy error"))
+    if (!check(energy, -46.188736081207, thr, "energy error"))
         goto err;
 
     tblite_save_result_wavefunction(error, res, ".test-co2-gfn1.npz");
@@ -1852,7 +1852,7 @@ int test_gfn1_co2(void)
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -46.203659007308, thr, "energy error"))
+    if (!check(energy, -46.188736081207, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
