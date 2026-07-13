@@ -240,7 +240,7 @@ jobs:
     - name: Download osx/aarch64 wheels
       uses: actions/download-artifact@v4
       with:
-        name: tblite-python-macos-latest
+        name: tblite-python-macos-15
         path: dist/
 
     - name: Download osx/x86_64 wheels
