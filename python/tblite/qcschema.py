@@ -27,7 +27,7 @@ works with QCSchema v2 due to Pydantic restrictions.
 
 The model support the following methods:
 
-- **GFN2-xTB**: 
+- **GFN2-xTB**:
   Self-consistent extended tight binding Hamiltonian with
   anisotropic second order electrostatic contributions,
   third order on-site contributions and self-consistent D4 dispersion.
@@ -113,43 +113,37 @@ SUPPORTED_DRIVERS = {
 if qcel_v1 is not None:
 
     @overload
-    def get_provenance(schema_version: Literal[1]) -> "qcel_v1.Provenance":
-        ...
+    def get_provenance(schema_version: Literal[1]) -> "qcel_v1.Provenance": ...
 
     @overload
     def get_error(
         input_data: "qcel_v1.AtomicInput",
         error: Union[Dict[str, Any], "qcel_v1.ComputeError"],
         schema_version: int,
-    ) -> "qcel_v1.AtomicResult":
-        ...
+    ) -> "qcel_v1.AtomicResult": ...
 
     @overload
     def run_schema(
         input_data: Union[Dict[str, Any], "qcel_v1.AtomicInput"],
-    ) -> Union["qcel_v1.AtomicResult", "qcel_v1.FailedOperation"]:
-        ...
+    ) -> Union["qcel_v1.AtomicResult", "qcel_v1.FailedOperation"]: ...
 
 
 if qcel_v2 is not None:
 
     @overload
-    def get_provenance(schema_version: Literal[2]) -> "qcel_v2.Provenance":
-        ...
+    def get_provenance(schema_version: Literal[2]) -> "qcel_v2.Provenance": ...
 
     @overload
     def get_error(
         input_data: "qcel_v2.AtomicInput",
         error: Union[Dict[str, Any], "qcel_v2.ComputeError"],
         schema_version: int,
-    ) -> "qcel_v2.FailedOperation":
-        ...
+    ) -> "qcel_v2.FailedOperation": ...
 
     @overload
     def run_schema(
         input_data: Union[Dict[str, Any], "qcel_v2.AtomicInput"],
-    ) -> Union["qcel_v2.AtomicResult", "qcel_v2.FailedOperation"]:
-        ...
+    ) -> Union["qcel_v2.AtomicResult", "qcel_v2.FailedOperation"]: ...
 
 
 def get_provenance(schema_version: Literal[1, 2]):

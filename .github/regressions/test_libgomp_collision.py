@@ -14,6 +14,7 @@ singlepoints. Acceptable outcomes are:
 Any other outcome -- TBLiteRuntimeError, LAPACK info != 0, non-deterministic
 energies -- is the silent-corruption class this regression exists to prevent.
 """
+
 import subprocess
 import sys
 import textwrap

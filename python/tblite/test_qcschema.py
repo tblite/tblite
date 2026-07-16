@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """Tests for the qcelemental interface."""
-from typing import Any, Dict, Optional
+
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -31,6 +32,10 @@ v1_available = pytest.mark.skipif(
 v2_available = pytest.mark.skipif(
     qcel_v2 is None, reason="QCSchema v2 not available in current QCElemental"
 )
+
+if TYPE_CHECKING:
+    Molecule = qcel_v1.Molecule if qcel_v1 is not None else qcel_v2.Molecule
+    AtomicInput = qcel_v1.AtomicInput if qcel_v1 is not None else qcel_v2.AtomicInput
 
 
 @pytest.fixture(

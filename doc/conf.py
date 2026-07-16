@@ -18,11 +18,10 @@ import os
 import subprocess
 import sys
 
-_dir = os.path.abspath(os.path.dirname(__file__))
-
 from tblite.library import get_version
 
-import tblite
+_dir = os.path.abspath(os.path.dirname(__file__))
+
 
 project = "tblite"
 author = "Sebastian Ehlert"
