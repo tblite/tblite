@@ -18,11 +18,14 @@ from logging import Logger
 from tempfile import NamedTemporaryFile
 
 import numpy as np
+import pytest
 from pytest import approx, raises
 from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
 from tblite.interface import Calculator, Result, symbols_to_numbers, library
 
 THR = 1.0e-6
+
+has_ddx = library.get_feature("ddx")
 
 
 def get_ala(conf):
@@ -649,6 +652,7 @@ def test_xtbml_api():
     assert len(dict_.keys()) == 130
 
 
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
 def test_solvation_gfn2_ddcosmo():
     """Test (ddX) COSMO solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
@@ -661,6 +665,7 @@ def test_solvation_gfn2_ddcosmo():
     assert energy == approx(-28.43789851640, abs=THR)
 
 
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
 def test_solvation_gfn2_ddcpcm():
     """Test (ddX) CPCM solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
@@ -673,6 +678,7 @@ def test_solvation_gfn2_ddcpcm():
     assert energy == approx(-28.43800959099, abs=THR)
 
 
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
 def test_solvation_gfn2_ddpcm():
     """Test (ddX) PCM solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()

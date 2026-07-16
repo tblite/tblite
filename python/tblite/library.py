@@ -50,6 +50,18 @@ def get_version() -> tuple:
     )
 
 
+def get_feature(flag: str) -> bool:
+    """Query whether a specific feature is available
+
+    Args:
+        flag (str): Feature flag to query
+
+    Returns:
+        bool: True if the feature is available, False otherwise
+    """
+    return bool(lib.tblite_get_feature(flag.encode()))
+
+
 def _delete_error(error) -> None:
     """Delete a tblite error handler object"""
     ptr = ffi.new("tblite_error *")
