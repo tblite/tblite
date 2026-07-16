@@ -542,7 +542,9 @@ class Calculator(Structure):
             params = library.new_param()
             table = library.dict_to_table(method)
             library.load_param(params, table)
-            self._calc = library.new_xtb_calculator(self._ctx, self._mol, params, xtb_config)
+            self._calc = library.new_xtb_calculator(
+                self._ctx, self._mol, params, xtb_config
+            )
             self._param = params
             self._method = "xTB"
         else:

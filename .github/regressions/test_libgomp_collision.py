@@ -18,7 +18,8 @@ import subprocess
 import sys
 import textwrap
 
-CHILD = textwrap.dedent("""
+CHILD = textwrap.dedent(
+    """
     import torch  # noqa: F401
     import numpy as np
     from tblite.interface import Calculator
@@ -33,13 +34,12 @@ CHILD = textwrap.dedent("""
         energies.append(float(calc.singlepoint().get("energy")))
     assert len(set(energies)) == 1, f"non-deterministic: {energies}"
     assert -10.0 < energies[0] < 0.0, energies[0]
-""")
+"""
+)
 
 
 def main() -> int:
-    proc = subprocess.run(
-        [sys.executable, "-c", CHILD], capture_output=True, text=True
-    )
+    proc = subprocess.run([sys.executable, "-c", CHILD], capture_output=True, text=True)
     err = proc.stderr
 
     if proc.returncode == 0:

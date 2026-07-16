@@ -28,7 +28,10 @@ class approx:
     def __eq__(self, other):
         def compare(a, b, ctx):
             if isinstance(a, list) and isinstance(b, list):
-                return all(compare(x, y, f"{ctx}[{idx}]") for idx, (x, y) in enumerate(zip(a, b)))
+                return all(
+                    compare(x, y, f"{ctx}[{idx}]")
+                    for idx, (x, y) in enumerate(zip(a, b))
+                )
 
             if isinstance(a, dict) and isinstance(b, dict):
                 try:
@@ -60,7 +63,7 @@ prog = sys.argv[1]
 outp = sys.argv[2]
 with open(sys.argv[3]) as fd:
     wdir = os.path.dirname(fd.name)
-    args = [arg.replace('$ORIGIN', wdir) for arg in fd.read().strip().split("\n")]
+    args = [arg.replace("$ORIGIN", wdir) for arg in fd.read().strip().split("\n")]
 
 stat = subprocess.call(
     [prog, *args, "--json", os.path.basename(outp)],
