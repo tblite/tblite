@@ -23,26 +23,25 @@ module tblite_ceh_singlepoint
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
-   use tblite_cutoff, only : get_lattice_points
    use tblite_basis_type, only : get_cutoff
-   use tblite_context, only : context_type
-   use tblite_output_format, only: format_string
-   use tblite_integral_type, only : integral_type, new_integral
-   use tblite_wavefunction, only : wavefunction_type, &
-   & get_alpha_beta_occupation
-   use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
-   & get_mulliken_atomic_multipoles
-   use tblite_scf_iterator, only: next_density, get_qat_from_qsh
-   use tblite_scf, only: new_potential, potential_type 
-   use tblite_container, only : container_cache
-   use tblite_scf_potential, only: add_pot_to_h1
-   use tblite_scf_solver, only : solver_type
    use tblite_blas, only : gemv
-   use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
    use tblite_ceh_ceh, only : get_effective_qat
-   use tblite_xtb_spec, only : tb_h0spec 
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_container, only : container_cache
+   use tblite_context, only : context_type
+   use tblite_cutoff, only : get_lattice_points
+   use tblite_integral_type, only : integral_type, new_integral
+   use tblite_output_format, only: format_string
+   use tblite_scf_iterator, only: next_density, get_qat_from_qsh
+   use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1
    use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type, &
+      & get_alpha_beta_occupation
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
+      & get_mulliken_atomic_multipoles
+   use tblite_scf_solver, only : solver_type
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_h0, only : get_hamiltonian, get_selfenergy, get_occupation
+   use tblite_xtb_spec, only : tb_h0spec 
    implicit none
    private
 
@@ -99,9 +98,8 @@ contains
 
       integer :: prlevel
 
-      ! coordination number related arrays
-      real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
-      ! self energy related arrays
+      real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
+      real(wp), allocatable :: cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
       real(wp), allocatable :: selfenergy(:), dsedcn(:), dsedcn_en(:), lattr(:, :)
 
       call timer%push("total CEH")
@@ -149,9 +147,10 @@ contains
       end if
 
       ! calculate the scaled self energies
-      allocate(selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
-      call get_scaled_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, cn_en=cn_en, &
-      & selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
+      allocate(selfenergy(calc%bas%nsh))
+      if (grad) allocate(dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
+      call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
+         & cn_en=cn_en, selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
 
       cutoff = get_cutoff(calc%bas, accuracy)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
@@ -165,7 +164,7 @@ contains
       ! Get Hamiltonian and integrals
       call new_integral(ints, calc%bas%nao)
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
       call timer%pop
 
       ! Get initial potential for external fields and Coulomb

@@ -38,8 +38,6 @@ module tblite_integral_type
       real(wp), allocatable :: dipole(:, :, :)
       !> Quadrupole moment integrals, moment operator is centered on last index
       real(wp), allocatable :: quadrupole(:, :, :)
-      !> Diatomic frame scaled overlap integrals
-      real(wp), allocatable :: overlap_diat(:, :)
    end type integral_type
 
 contains
@@ -55,7 +53,6 @@ subroutine new_integral(self, nao)
    allocate(self%overlap(nao, nao), source = 0.0_wp)
    allocate(self%dipole(3, nao, nao), source = 0.0_wp)
    allocate(self%quadrupole(6, nao, nao), source = 0.0_wp)
-   allocate(self%overlap_diat(nao, nao), source = 0.0_wp)
 end subroutine new_integral
 
 end module tblite_integral_type

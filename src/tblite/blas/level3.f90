@@ -36,6 +36,10 @@ module tblite_blas_level3
    !>
    !> where alpha and beta are scalars, and A, B and C are matrices
    !> with op( A ) an m by k matrix, op( B ) a k by n matrix and C an m by n matrix.
+   !> Optionally, the transpose matrix of op( A ) and/or op( B ) can be specified
+   !> with `transa` and `transb`, respectively.
+   !> Matrix dimensions are inferred from the matrix size or can be optionally 
+   !> specified with `m`, `n`, and `k`.
    interface wrap_gemm
       module procedure :: wrap_sgemm
       module procedure :: wrap_dgemm
@@ -199,17 +203,18 @@ module tblite_blas_level3
 contains
 
 
-pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta)
-   real(sp), intent(in) :: amat(:, :)
-   real(sp), intent(in) :: bmat(:, :)
-   real(sp), intent(inout) :: cmat(:, :)
+pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, k)
+   real(sp), intent(in), contiguous :: amat(:, :)
+   real(sp), intent(in), contiguous :: bmat(:, :)
+   real(sp), intent(inout), contiguous :: cmat(:, :)
    character(len=1), intent(in), optional :: transa
    character(len=1), intent(in), optional :: transb
    real(sp), intent(in), optional :: alpha
    real(sp), intent(in), optional :: beta
+   integer, intent(in), optional :: m, n, k
    character(len=1) :: tra, trb
    real(sp) :: a, b
-   integer :: m, n, k, lda, ldb, ldc
+   integer :: mm, nn, kk, lda, ldb, ldc
    if (present(alpha)) then
       a = alpha
    else
@@ -230,31 +235,42 @@ pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta)
    else
       trb = 'n'
    end if
-   if ((tra.eq.'n'.or.tra.eq.'N')) then
-      k = size(amat, 2)
+   if (present(m)) then 
+      mm = m
    else
-      k = size(amat, 1)
+      mm = size(cmat, 1)
+   end if
+   if (present(n)) then
+      nn = n
+   else
+      nn = size(cmat, 2)
+   end if
+   if (present(k)) then
+      kk = k
+   else if ((tra.eq.'n'.or.tra.eq.'N')) then
+      kk = size(amat, 2)
+   else
+      kk = size(amat, 1)
    end if
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    ldc = max(1, size(cmat, 1))
-   m = size(cmat, 1)
-   n = size(cmat, 2)
-   call blas_gemm(tra, trb, m, n, k, a, amat, lda, bmat, ldb, b, cmat, ldc)
+   call blas_gemm(tra, trb, mm, nn, kk, a, amat, lda, bmat, ldb, b, cmat, ldc)
 end subroutine wrap_sgemm
 
 
-pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta)
-   real(dp), intent(in) :: amat(:, :)
-   real(dp), intent(in) :: bmat(:, :)
-   real(dp), intent(inout) :: cmat(:, :)
+pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, k)
+   real(dp), intent(in), contiguous :: amat(:, :)
+   real(dp), intent(in), contiguous :: bmat(:, :)
+   real(dp), intent(inout), contiguous :: cmat(:, :)
    character(len=1), intent(in), optional :: transa
    character(len=1), intent(in), optional :: transb
    real(dp), intent(in), optional :: alpha
    real(dp), intent(in), optional :: beta
+   integer, intent(in), optional :: m, n, k
    character(len=1) :: tra, trb
    real(dp) :: a, b
-   integer :: m, n, k, lda, ldb, ldc
+   integer :: mm, nn, kk, lda, ldb, ldc
    if (present(alpha)) then
       a = alpha
    else
@@ -275,17 +291,27 @@ pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta)
    else
       trb = 'n'
    end if
-   if ((tra.eq.'n'.or.tra.eq.'N')) then
-      k = size(amat, 2)
+   if (present(m)) then 
+      mm = m
    else
-      k = size(amat, 1)
+      mm = size(cmat, 1)
+   end if
+   if (present(n)) then
+      nn = n
+   else
+      nn = size(cmat, 2)
+   end if
+   if (present(k)) then
+      kk = k
+   else if ((tra.eq.'n'.or.tra.eq.'N')) then
+      kk = size(amat, 2)
+   else
+      kk = size(amat, 1)
    end if
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
    ldc = max(1, size(cmat, 1))
-   m = size(cmat, 1)
-   n = size(cmat, 2)
-   call blas_gemm(tra, trb, m, n, k, a, amat, lda, bmat, ldb, b, cmat, ldc)
+   call blas_gemm(tra, trb, mm, nn, kk, a, amat, lda, bmat, ldb, b, cmat, ldc)
 end subroutine wrap_dgemm
 
 

@@ -23,13 +23,16 @@ module tblite_xtb_h0
    use mctc_io, only : structure_type
    use tblite_adjlist, only : adjacency_list
    use tblite_basis_type, only : basis_type
-   use tblite_integral_multipole, only : multipole_cgto, multipole_grad_cgto, maxl, msao
+   use tblite_integral_diat_trafo, only : diat_trafo_cache, setup_diat_trafo, &
+      & diat_trafo
+   use tblite_integral_multipole, only : multipole_cgto, multipole_grad_cgto, &
+      & msao, smap, sdim
    use tblite_scf_potential, only : potential_type
    use tblite_xtb_spec, only : tb_h0spec
    implicit none
    private
 
-   public ::  new_hamiltonian
+   public :: new_hamiltonian
    public :: get_selfenergy, get_hamiltonian, get_occupation, get_hamiltonian_gradient
 
 
@@ -58,6 +61,8 @@ module tblite_xtb_h0
       real(wp), allocatable :: kpi(:, :)
       !> Diatomic frame scaling of delta bonding contribution
       real(wp), allocatable :: kdel(:, :)
+      !> Perform diatomic frame scaling for the overlap in the Hamiltonian
+      logical :: do_diat_scale = .false.
    end type tb_hamiltonian
 
 
@@ -66,9 +71,13 @@ contains
 
 !> Constructor for a new Hamiltonian object, consumes a Hamiltonian specification
 subroutine new_hamiltonian(self, mol, bas, spec)
+   !> Hamiltonian object
    type(tb_hamiltonian), intent(out) :: self
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Basis set information
    type(basis_type), intent(in) :: bas
+   !> Hamiltonian specification
    class(tb_h0spec), intent(in) :: spec
 
    integer :: mshell
@@ -95,20 +104,35 @@ subroutine new_hamiltonian(self, mol, bas, spec)
 
    allocate(self%ksig(mol%nid, mol%nid), self%kpi(mol%nid, mol%nid), &
       & self%kdel(mol%nid, mol%nid))
-   call spec%get_diat_scale(mol, bas, self%ksig, self%kpi, self%kdel)
+   call spec%get_diat_scale(mol, bas, self%ksig, self%kpi, self%kdel, &
+      & self%do_diat_scale)
 
 end subroutine new_hamiltonian
 
 
-subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, dsedq)
+subroutine get_selfenergy(h0, id, ish_at, nshell, cn, cn_en, qat, selfenergy, &
+   & dsedcn, dsedcn_en, dsedq)
+   !> Hamiltonian object
    type(tb_hamiltonian), intent(in) :: h0
+   !> Species identifiers
    integer, intent(in) :: id(:)
+   !> Index of first shell per atom
    integer, intent(in) :: ish_at(:)
+   !> Number of shells per element
    integer, intent(in) :: nshell(:)
+   !> Optional coordination number
    real(wp), intent(in), optional :: cn(:)
+   !> Optional electronegativity scaled coordination number
+   real(wp), intent(in), optional :: cn_en(:)
+   !> Optional atomic partial charge
    real(wp), intent(in), optional :: qat(:)
+   !> Reference energy levels 
    real(wp), intent(out) :: selfenergy(:)
+   !> Derivative of energy levels w.r.t. coordination number
    real(wp), intent(out), optional :: dsedcn(:)
+   !> Derivative of energy levels w.r.t. EN-scaled coordination number
+   real(wp), intent(out), optional :: dsedcn_en(:)
+   !> Derivative of energy levels w.r.t. atomic charge
    real(wp), intent(out), optional :: dsedq(:)
 
    integer :: iat, izp, ish, ii
@@ -129,7 +153,8 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, d
             izp = id(iat)
             ii = ish_at(iat)
             do ish = 1, nshell(izp)
-               selfenergy(ii+ish) = selfenergy(ii+ish) - h0%kcn(ish, izp) * cn(iat)
+               selfenergy(ii+ish) = selfenergy(ii+ish) &
+                  & - h0%kcn(ish, izp) * cn(iat)
                dsedcn(ii+ish) = -h0%kcn(ish, izp)
             end do
          end do
@@ -138,7 +163,30 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, d
             izp = id(iat)
             ii = ish_at(iat)
             do ish = 1, nshell(izp)
-               selfenergy(ii+ish) = selfenergy(ii+ish) - h0%kcn(ish, izp) * cn(iat)
+               selfenergy(ii+ish) = selfenergy(ii+ish) &
+                  & - h0%kcn(ish, izp) * cn(iat)
+            end do
+         end do
+      end if
+   end if
+   if (present(cn_en)) then
+      if (present(dsedcn_en)) then
+         do iat = 1, size(id)
+            izp = id(iat)
+            ii = ish_at(iat)
+            do ish = 1, nshell(izp)
+               selfenergy(ii+ish) = selfenergy(ii+ish) &
+                  & - h0%kcn_en(ish, izp) * cn_en(iat)
+               dsedcn_en(ii+ish) = -h0%kcn_en(ish, izp)
+            end do
+         end do
+      else
+         do iat = 1, size(id)
+            izp = id(iat)
+            ii = ish_at(iat)
+            do ish = 1, nshell(izp)
+               selfenergy(ii+ish) = selfenergy(ii+ish) &
+                  & - h0%kcn_en(ish, izp) * cn_en(iat)
             end do
          end do
       end if
@@ -169,8 +217,8 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, qat, selfenergy, dsedcn, d
 end subroutine get_selfenergy
 
 
-subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint, qpint, &
-      & hamiltonian)
+subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
+   & dpint, qpint, hamiltonian)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -193,45 +241,65 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
    real(wp), intent(out) :: hamiltonian(:, :)
 
    integer :: iat, jat, izp, jzp, itr, img, inl
-   integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
-   real(wp) :: rr, r2, vec(3), hij, shpoly, dtmpj(3), qtmpj(6)
-   real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :)
+   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij, iaosh, jaosh
+   real(wp) :: rr, r2, vec(3), hij, shpolyi, shpoly, dtmpj(3), qtmpj(6)
+   real(wp) :: mod_h0_fraction
+   real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :), block_overlap(:, :)
+   type(diat_trafo_cache) :: dt_cache
 
    overlap(:, :) = 0.0_wp
    dpint(:, :, :) = 0.0_wp
    qpint(:, :, :) = 0.0_wp
    hamiltonian(:, :) = 0.0_wp
 
-   allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), qtmpi(6, msao(bas%maxl)**2))
+   ! Select if we construct the Hamiltonian with modifications
+   mod_h0_fraction = 0.0_wp
+   if(h0%do_diat_scale) then
+      mod_h0_fraction = 1.0_wp
+   end if
+
+   allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), &
+      & qtmpi(6, msao(bas%maxl)**2), block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
 
    !$omp parallel do schedule(runtime) default(none) &
+   !$omp firstprivate(mod_h0_fraction) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij) &
-   !$omp private(r2, vec, stmp, dtmpi, qtmpi, dtmpj, qtmpj, hij, shpoly, rr, inl, img)
+   !$omp private(iat, jat, izp, jzp, itr, inl, img, is, js, ish, jsh, nsi, nsj, ii, jj) &
+   !$omp private(iao, jao, iaosh, jaosh, nao, ij, r2, vec, hij, shpolyi, shpoly, rr) &
+   !$omp private(stmp, dtmpi, qtmpi, dtmpj, qtmpj, block_overlap, dt_cache)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
+      nsi = bas%nsh_id(izp)
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
+         nsj = bas%nsh_id(jzp)
          vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
          r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
          rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-         do ish = 1, bas%nsh_id(izp)
+         ! Get the overlap and multipole integrals for the current diatomic pair
+         if (h0%do_diat_scale) block_overlap = 0.0_wp
+         do ish = 1, nsi
             ii = bas%iao_sh(is+ish)
-            do jsh = 1, bas%nsh_id(jzp)
+            iaosh = smap(ish-1)
+
+            ! Shell polynomial enhancement factor
+            shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
+            do jsh = 1, nsj
                jj = bas%iao_sh(js+jsh)
+               jaosh = smap(jsh-1)
                call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                   & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
 
-               shpoly = (1.0_wp + h0%shpoly(ish, izp)*rr) &
-                  * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
+               shpoly = shpolyi * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
 
-               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
-                  * h0%hscale(jsh, ish, jzp, izp) * shpoly
+               hij = 0.5_wp * (1.0_wp - mod_h0_fraction) &
+                  & * (selfenergy(is+ish) + selfenergy(js+jsh)) &
+                  & * h0%hscale(jsh, ish, jzp, izp) * shpoly
 
                nao = msao(bas%cgto(jsh, jzp)%ang)
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
@@ -239,6 +307,10 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
                      ij = jao + nao*(iao-1)
                      call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
                         & dtmpj, qtmpj)
+
+                     ! Save overlap for possible diatomic frame trafo
+                     if (h0%do_diat_scale) block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
+
                      overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                         + stmp(ij)
 
@@ -270,20 +342,61 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, dpint
             end do
          end do
 
-      end do
-   end do
+         ! Optional diatomic frame transformation and scaling of the overlap
+         if (h0%do_diat_scale) then
+            call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
+            call diat_trafo(dt_cache, h0%ksig(izp, jzp), h0%kpi(izp, jzp), &
+               & h0%kdel(izp, jzp), block_overlap)
+         end if
 
-   !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, bas, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp private(iat, izp, is, ish, jsh, ii, jj, iao, jao, nao, ij) &
-   !$omp private(vec, stmp, dtmpi, qtmpi, hij)
-   do iat = 1, mol%nat
-      izp = mol%id(iat)
-      is = bas%ish_at(iat)
+         ! Optional repeated setup of the Hamiltonian after modifications
+         if (h0%do_diat_scale) then
+            do ish = 1, nsi
+               ii = bas%iao_sh(is+ish)
+               iaosh = smap(ish-1)
+
+               ! Recalculate shell polynomial enhancement factor
+               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
+
+               do jsh = 1, nsj
+                  jj = bas%iao_sh(js+jsh)
+                  jaosh = smap(jsh-1)
+
+                  ! Recalculate shell polynomial enhancement factor
+                  shpoly = shpolyi * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
+
+                  ! Recalculate Hamiltonian elements for modified H0
+                  hij = 0.5_wp * mod_h0_fraction &
+                     & * (selfenergy(is+ish) + selfenergy(js+jsh)) &
+                     & * h0%hscale(jsh, ish, jzp, izp) * shpoly
+
+                  ! Distribute shell block to Hamiltonian matrix
+                  nao = msao(bas%cgto(jsh, jzp)%ang)
+                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
+                     do jao = 1, nao
+                        ij = jao + nao*(iao-1)
+
+                        ! Add modified Hamiltonian contribution
+                        hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
+                           + block_overlap(jaosh+jao, iaosh+iao) * hij
+
+                        if (iat /= jat) then
+                           hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
+                              + block_overlap(jaosh+jao, iaosh+iao) * hij
+                        end if
+                     end do
+                  end do
+
+               end do
+            end do
+         end if
+      end do
+
+      ! Onsite contribution to the Hamiltonian
       vec(:) = 0.0_wp
-      do ish = 1, bas%nsh_id(izp)
+      do ish = 1, nsi
          ii = bas%iao_sh(is+ish)
-         do jsh = 1, bas%nsh_id(izp)
+         do jsh = 1, nsi
             jj = bas%iao_sh(is+jsh)
             call multipole_cgto(bas%cgto(jsh, izp), bas%cgto(ish, izp), &
                & 0.0_wp, vec, bas%intcut, stmp, dtmpi, qtmpi)
@@ -347,49 +460,67 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    real(wp), intent(inout) :: sigma(:, :)
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
-   integer :: ish, jsh, is, js, ii, jj, iao, jao, nao, ij
+   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, iaosh, jaosh, nao, ij
    real(wp) :: rr, r2, vec(3), hij, dG(3), hscale, hs
    real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
-   real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij
+   real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij, mod_h0_fraction
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)
    real(wp), allocatable :: dstmp(:, :), ddtmpi(:, :, :), dqtmpi(:, :, :)
    real(wp), allocatable :: ddtmpj(:, :, :), dqtmpj(:, :, :)
+   real(wp), allocatable :: block_overlap(:, :), block_doverlap(:, :, :)
+   type(diat_trafo_cache) :: dt_cache
 
    nspin = size(pmat, 3)
+
+   ! Select if we construct the Hamiltonian with modifications
+   mod_h0_fraction = 0.0_wp
+   if(h0%do_diat_scale) then
+      mod_h0_fraction = 1.0_wp 
+   end if
 
    allocate(stmp(msao(bas%maxl)**2), dstmp(3, msao(bas%maxl)**2), &
       & dtmp(3, msao(bas%maxl)**2), ddtmpi(3, 3, msao(bas%maxl)**2), &
       & qtmp(6, msao(bas%maxl)**2), dqtmpi(3, 6, msao(bas%maxl)**2), &
-      & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2))
+      & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2), &
+      & block_overlap(sdim(bas%maxl), sdim(bas%maxl)), &
+      & block_doverlap(sdim(bas%maxl), sdim(bas%maxl), 3))
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
-   !$omp shared(mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list, nspin) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, iao, jao, nao, ij, spin, &
-   !$omp& r2, vec, stmp, dtmp, qtmp, dstmp, ddtmpi, dqtmpi, ddtmpj, dqtmpj, hij, &
-   !$omp& dG, dcni, dcnj, dhdcni, dhdcnj, hpij, rr, sval, hscale, pij, inl, img, &
-   !$omp& hs, shpolyi, shpolyj, shpoly, dshpoly, dsv)
+   !$omp shared(nspin, mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
+   !$omp firstprivate(mod_h0_fraction) &
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj, ii, jj) &
+   !$omp private(iaosh, jaosh, iao, jao, nao, ij, inl, img, spin, r2, vec) &
+   !$omp private(stmp, dstmp, dtmp, ddtmpi, ddtmpj, qtmp, dqtmpi, dqtmpj) &
+   !$omp private(dG, sval, hscale, hs, hij, hpij, pij, dcni, dcnj, dhdcni, dhdcnj) &
+   !$omp private(rr, shpolyi, shpolyj, shpoly, dshpoly, dsv) &
+   !$omp private(block_overlap, block_doverlap, dt_cache)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
+      nsi = bas%nsh_id(izp)
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
+         nsj = bas%nsh_id(jzp)
          vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
          r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
          if (r2 <= epsilon(1.0_wp)) cycle
          rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-         do ish = 1, bas%nsh_id(izp)
+         block_overlap(:, :) = 0.0_wp
+         block_doverlap(:, :, :) = 0.0_wp
+         do ish = 1, nsi
             ii = bas%iao_sh(is+ish)
-            do jsh = 1, bas%nsh_id(jzp)
+            iaosh = smap(ish-1)
+            shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
+            do jsh = 1, nsj
                jj = bas%iao_sh(js+jsh)
+               jaosh = smap(jsh-1)
                call multipole_grad_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                   & r2, vec, bas%intcut, stmp, dtmp, qtmp, dstmp, ddtmpj, dqtmpj, &
                   & ddtmpi, dqtmpi)
-               
-               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
                shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr
                shpoly = shpolyi * shpolyj
                dshpoly = (shpolyi * h0%shpoly(jsh, jzp) + shpolyj * &
@@ -397,7 +528,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                dsv(:) = dshpoly / shpoly * vec
 
                hscale = h0%hscale(jsh, ish, jzp, izp)
-               hs = hscale * shpoly
+               hs = hscale * shpoly * (1.0_wp - mod_h0_fraction)
                hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs 
 
                dhdcni = dsedcn(is+ish) * hs
@@ -410,6 +541,12 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
+
+                     ! Overlap and derivatives for possible diatomic frame trafo
+                     if (h0%do_diat_scale) then
+                        block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
+                        block_doverlap(jaosh+jao, iaosh+iao, :) = dstmp(:, ij)
+                     end if
                      do spin = 1, nspin
                         pij = pmat(jj+jao, ii+iao, spin)
                         sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
@@ -450,15 +587,65 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
             end do
          end do
 
-      end do
-   end do
+         ! Optional diatomic frame scaling transformation for overlap and derivatives
+         if (h0%do_diat_scale) then
+            call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1, grad=.true.)
+            call diat_trafo(dt_cache, h0%ksig(izp, jzp), h0%kpi(izp, jzp), &
+               & h0%kdel(izp, jzp), block_overlap, block_doverlap)
+         end if
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn) &
-   !$omp shared(mol, bas, dsedcn, pmat, nspin) &
-   !$omp private(iat, izp, jzp, is, ish, ii, iao, dcni, dhdcni, spin)
-   do iat = 1, mol%nat
-      izp = mol%id(iat)
-      is = bas%ish_at(iat)
+         ! Optional repeated setup of the Hamiltonian after modifications        
+         if (h0%do_diat_scale) then
+            do ish = 1, nsi
+               ii = bas%iao_sh(is+ish)
+               iaosh = smap(ish-1) 
+
+               ! Recalculate shell polynomial enhancement factor and derivative
+               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
+
+               do jsh = 1, nsj
+                  jj = bas%iao_sh(js+jsh)
+                  jaosh = smap(jsh-1) 
+
+                  ! Recalculate shell polynomial enhancement factor and derivative
+                  shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr
+                  shpoly = shpolyi * shpolyj
+                  dshpoly = (shpolyi * h0%shpoly(jsh, jzp) + shpolyj * &
+                  & h0%shpoly(ish, izp)) * 0.5_wp * rr / r2
+
+                  dsv(:) = dshpoly / shpoly * vec
+
+                  ! Recalculate Hamiltonian elements
+                  hscale = h0%hscale(jsh, ish, jzp, izp)
+                  hs = hscale * shpoly * mod_h0_fraction
+                  hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs
+
+                  nao = msao(bas%cgto(jsh, jzp)%ang)
+                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
+                     do jao = 1, nao
+                        ij = jao + nao*(iao-1)
+
+                        ! Add only H0 gradient with the modified overlap
+                        pij = pmat(jj+jao, ii+iao, 1)
+                        hpij = 2*pij * hij
+
+                        ! Accumulate gradient from overlap and shell-polynomials
+                        dG(:) = dG + hpij * (block_doverlap(jaosh+jao, iaosh+iao, :) &
+                           + block_overlap(jaosh+jao, iaosh+iao) * dsv)
+
+                        ! Accumulate CN derivatives
+                        dcni = dcni + dhdcni * pij * block_overlap(jaosh+jao, iaosh+iao)
+                        dcnj = dcnj + dhdcnj * pij * block_overlap(jaosh+jao, iaosh+iao)
+                     end do
+                  end do
+
+               end do
+            end do
+         end if
+
+      end do
+
+      ! Onsite contributions
       do ish = 1, bas%nsh_id(izp)
          ii = bas%iao_sh(is+ish)
          dhdcni = dsedcn(is+ish)

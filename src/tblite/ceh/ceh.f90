@@ -22,12 +22,12 @@ module tblite_ceh_ceh
    use mctc_io, only: structure_type
    use mctc_ncoord, only : new_ncoord, cn_count
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : cgto_type, new_basis, basis_type
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & arithmetic_average
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
-   use tblite_basis_type, only : cgto_type, new_basis, basis_type
-   use tblite_output_format, only: format_string
    use tblite_integral_type, only : integral_type
+   use tblite_output_format, only: format_string
    use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
@@ -1114,7 +1114,7 @@ contains
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do ish = 1, bas%nsh_id(isp)
-            kcn(ish, isp) = p_ceh_kcn(ish, izp)
+            kcn(ish, isp) = -p_ceh_kcn(ish, izp)
          end do
       end do
 
@@ -1139,7 +1139,7 @@ contains
       do isp = 1, mol%nid
          izp = mol%num(isp)
          do ish = 1, bas%nsh_id(isp)
-            kcn_en(ish, isp) = p_ceh_kcn_en(ish, izp)
+            kcn_en(ish, isp) = -p_ceh_kcn_en(ish, izp)
          end do
       end do
 
@@ -1204,21 +1204,25 @@ contains
 
 
    !> Stub implementation of the diatomic frame scaling factor generator
-   subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel)
+   subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel, do_diat_scale)
       !> Instance of the Hamiltonian specification
       class(ceh_h0spec), intent(in) :: self
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Basis set information
       type(basis_type), intent(in) :: bas
-      !> Quadratic partial charge dependent shift
+      !> Diatomic frame scaling of sigma bonding contribution
       real(wp), intent(out) :: ksig(:, :)
-      !> Quadratic partial charge dependent shift
+      !> Diatomic frame scaling of pi bonding contribution
       real(wp), intent(out) :: kpi(:, :)
-      !> Quadratic partial charge dependent shift
+      !> Diatomic frame scaling of delta bonding contribution
       real(wp), intent(out) :: kdel(:, :)
+      !> Flag to indicate if the diatomic frame scaling is used
+      logical, intent(out) :: do_diat_scale
 
       integer :: isp, izp, jsp, jzp
+
+      do_diat_scale = .true.
 
       ksig(:, :) = 0.0_wp
       kpi(:, :) = 0.0_wp
