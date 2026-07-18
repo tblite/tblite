@@ -509,8 +509,13 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
          r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
          if (r2 <= epsilon(1.0_wp)) cycle
          rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
-         block_overlap(:, :) = 0.0_wp
-         block_doverlap(:, :, :) = 0.0_wp
+         if (h0%do_diat_scale) then
+            block_overlap(:, :) = 0.0_wp
+            block_doverlap(:, :, :) = 0.0_wp
+         end if
+         dG(:) = 0.0_wp
+         dcni = 0.0_wp
+         dcnj = 0.0_wp
          do ish = 1, nsi
             ii = bas%iao_sh(is+ish)
             iaosh = smap(ish-1)
@@ -534,9 +539,6 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                dhdcni = dsedcn(is+ish) * hs
                dhdcnj = dsedcn(js+jsh) * hs
 
-               dG(:) = 0.0_wp
-               dcni = 0.0_wp
-               dcnj = 0.0_wp
                nao = msao(bas%cgto(jsh, jzp)%ang)
                do iao = 1, msao(bas%cgto(ish, izp)%ang)
                   do jao = 1, nao
@@ -568,22 +570,6 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                      dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, 1) * stmp(ij)
                   end do
                end do
-               if (iat == jat) then
-                  dEdcn(iat) = dEdcn(iat) + 0.5_wp * (dcni + dcnj)
-               else
-                  dEdcn(iat) = dEdcn(iat) + dcni
-                  dEdcn(jat) = dEdcn(jat) + dcnj
-               end if
-               gradient(:, iat) = gradient(:, iat) + dG
-               gradient(:, jat) = gradient(:, jat) - dG
-               if (iat == jat) then
-                  sigma(:, :) = sigma + 0.25_wp * (spread(vec, 1, 3) &
-                     & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
-               else
-                  sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) &
-                     & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
-               end if
-
             end do
          end do
 
@@ -620,6 +606,10 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                   hs = hscale * shpoly * mod_h0_fraction
                   hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs
 
+                  ! CN derivative of modified Hamiltonian elements
+                  dhdcni = dsedcn(is+ish) * hs
+                  dhdcnj = dsedcn(js+jsh) * hs
+
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
@@ -641,6 +631,22 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
                end do
             end do
+         end if
+
+         if (iat == jat) then
+            dEdcn(iat) = dEdcn(iat) + 0.5_wp * (dcni + dcnj)
+         else
+            dEdcn(iat) = dEdcn(iat) + dcni
+            dEdcn(jat) = dEdcn(jat) + dcnj
+         end if
+         gradient(:, iat) = gradient(:, iat) + dG
+         gradient(:, jat) = gradient(:, jat) - dG
+         if (iat == jat) then
+            sigma(:, :) = sigma + 0.25_wp * (spread(vec, 1, 3) &
+               & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
+         else
+            sigma(:, :) = sigma + 0.5_wp * (spread(vec, 1, 3) &
+               & * spread(dG, 2, 3) + spread(dG, 1, 3) * spread(vec, 2, 3))
          end if
 
       end do
