@@ -210,5 +210,4 @@ subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel, do_diat_scale)
    do_diat_scale = .false.
 end subroutine get_diat_scale
 
-
 end module tblite_xtb_spec

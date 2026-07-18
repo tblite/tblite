@@ -687,11 +687,11 @@ subroutine get_multipole_integrals_diat_lat(mol, trans, cutoff, bas, &
    !> Basis set information
    type(basis_type), intent(in) :: bas
    !> Scaling factors for the diatomic frame for sigma orbitals
-   real(wp), allocatable, intent(in) :: ksig(:, :)
+   real(wp), intent(in) :: ksig(:, :)
    !> Scaling factors for the diatomic frame for pi orbitals
-   real(wp), allocatable, intent(in) :: kpi(:, :)
+   real(wp), intent(in) :: kpi(:, :)
    !> Scaling factors for the diatomic frame for delta orbitals
-   real(wp), allocatable, intent(in) :: kdel(:, :)
+   real(wp), intent(in) :: kdel(:, :)
    !> Overlap matrix
    real(wp), intent(out) :: overlap(:, :)
    !> Overlap matrix with diatomic frame scaled elements
