@@ -188,7 +188,7 @@ end subroutine get_rad
 
 
 !> Stub implementation of the diatomic frame scaling factor generator
-subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel)
+subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel, do_diat_scale)
    !> Instance of the Hamiltonian specification
    class(tb_h0spec), intent(in) :: self
    !> Molecular structure data
@@ -201,11 +201,13 @@ subroutine get_diat_scale(self, mol, bas, ksig, kpi, kdel)
    real(wp), intent(out) :: kpi(:, :)
    !> Diatomic frame scaling of delta bonding contribution
    real(wp), intent(out) :: kdel(:, :)
+   !> Flag indicating if the diatomic frame scaling is applied
+   logical, intent(out) :: do_diat_scale
 
    ksig(:, :) = 0.0_wp
    kpi(:, :) = 0.0_wp
    kdel(:, :) = 0.0_wp
+   do_diat_scale = .false.
 end subroutine get_diat_scale
-
 
 end module tblite_xtb_spec

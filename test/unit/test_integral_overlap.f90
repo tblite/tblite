@@ -20,17 +20,21 @@ module test_integral_overlap
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, cgto_type, get_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_overlap
+   use tblite_integral_diat_trafo, only : setup_diat_trafo, diat_trafo_cache, &
+      & diat_trafo
+   use tblite_integral_overlap, only : overlap_cgto, overlap_grad_cgto, msao, &
+      & smap, get_overlap
 
    implicit none
    private
 
    public :: collect_integral_overlap
 
-   real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
+   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: thr1 = 1e5*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 
 contains
@@ -84,138 +88,106 @@ end subroutine collect_integral_overlap
 
 
 subroutine make_basis(bas, mol, ng)
+   !> Basis set information
    type(basis_type), intent(out) :: bas
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Number of primitive Gaussians
    integer, intent(in) :: ng
 
 
-   integer, parameter :: nsh(86) = [&
-   & 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3, & ! 1-20
-   & 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, & ! 21-40
-   & 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 4, 3, 3, & ! 41-60
-   & 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, & ! 61-80
-   & 3, 3, 3, 3, 3, 3]
-   integer, parameter :: lsh(4, 86) = reshape([&
-   & 0, 0, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0, & ! 1-6
-   & 0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0, & ! 7-12
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 13-18
-   & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 19-24
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 25-30
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 31-36
-   & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 37-42
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 43-48
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 49-54
-   & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 3,  0, 1, 2, 0,  0, 1, 2, 0, & ! 55-60
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 61-66
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 67-72
-   & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 73-78
-   & 0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 79-84
-   & 0, 1, 2, 0,  0, 1, 2, 0], &
+   integer, parameter :: nsh(60) = [&
+      & 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3, & ! 1-20
+      & 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, & ! 21-40
+      & 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 3, 3, 4, 3, 3] ! 41-60
+
+   integer, parameter :: lsh(4, 60) = reshape([&
+      & 0, 0, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0, & ! 1-6
+      & 0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0, & ! 7-12
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 13-18
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 19-24
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 25-30
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 31-36
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 37-42
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 43-48
+      & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 49-54
+      & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 3,  0, 1, 2, 0,  0, 1, 2, 0],& ! 55-60
       & shape(lsh))
-   integer, parameter :: pqn(4, 86) = reshape([&
-   & 1, 0, 0, 0,  1, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0, & ! 1-6
-   & 2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 3, 0,  3, 3, 0, 0,  3, 3, 3, 0, & ! 7-12
-   & 3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0, & ! 13-18
-   & 4, 4, 0, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0, & ! 19-24
-   & 4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 0, 0, & ! 25-30
-   & 4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0, & ! 31-36
-   & 5, 5, 0, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0, & ! 37-42
-   & 5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 0, 0, & ! 43-48
-   & 5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0, & ! 49-54
-   & 6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 4,  6, 6, 5, 0,  6, 6, 5, 0, & ! 55-60
-   & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 61-66
-   & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 67-72
-   & 6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 73-78
-   & 6, 6, 5, 0,  6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 0, & ! 79-84
-   & 6, 6, 5, 0,  6, 6, 5, 0], &
+
+   integer, parameter :: pqn(4, 60) = reshape([&
+      & 1, 0, 0, 0,  1, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0, & ! 1-6
+      & 2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 0, 0,  2, 2, 3, 0,  3, 3, 0, 0,  3, 3, 3, 0, & ! 7-12
+      & 3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0,  3, 3, 3, 0, & ! 13-18
+      & 4, 4, 0, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0, & ! 19-24
+      & 4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 3, 0,  4, 4, 0, 0, & ! 25-30
+      & 4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0,  4, 4, 4, 0, & ! 31-36
+      & 5, 5, 0, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0, & ! 37-42
+      & 5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 4, 0,  5, 5, 0, 0, & ! 43-48
+      & 5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0,  5, 5, 5, 0, & ! 49-54
+      & 6, 6, 0, 0,  6, 6, 5, 0,  6, 6, 5, 0,  6, 6, 5, 4,  6, 6, 5, 0,  6, 6, 5, 0],& ! 55-60
       & shape(pqn))
-   real(wp), parameter :: zeta(4, 86) = reshape([&
-   & 1.230000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.669667_wp, 1.500000_wp, 0.000000_wp, 0.000000_wp, & ! 2
-   & 0.750060_wp, 0.557848_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.034720_wp, 0.949332_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.479444_wp, 1.479805_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.096432_wp, 1.800000_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.339881_wp, 2.014332_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.439742_wp, 2.137023_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.416361_wp, 2.308399_wp, 0.000000_wp, 0.000000_wp, &
-   & 3.084104_wp, 2.312051_wp, 2.815609_wp, 0.000000_wp, & ! 10
-   & 0.763787_wp, 0.573553_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.184203_wp, 0.717769_wp, 1.300000_wp, 0.000000_wp, &
-   & 1.352531_wp, 1.391201_wp, 1.000000_wp, 0.000000_wp, &
-   & 1.773917_wp, 1.718996_wp, 1.250000_wp, 0.000000_wp, &
-   & 1.816945_wp, 1.903247_wp, 1.167533_wp, 0.000000_wp, &
-   & 1.981333_wp, 2.025643_wp, 1.702555_wp, 0.000000_wp, &
-   & 2.485265_wp, 2.199650_wp, 2.476089_wp, 0.000000_wp, &
-   & 2.329679_wp, 2.149419_wp, 1.950531_wp, 0.000000_wp, & ! 18
-   & 0.875961_wp, 0.631694_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.267130_wp, 0.786247_wp, 1.380000_wp, 0.000000_wp, &
-   & 2.224492_wp, 1.554183_wp, 2.009535_wp, 0.000000_wp, &
-   & 2.588796_wp, 0.994410_wp, 1.885617_wp, 0.000000_wp, &
-   & 3.043706_wp, 4.030076_wp, 1.663291_wp, 0.000000_wp, &
-   & 2.250127_wp, 2.706815_wp, 1.675019_wp, 0.000000_wp, &
-   & 2.206053_wp, 2.820197_wp, 1.861022_wp, 0.000000_wp, &
-   & 1.572970_wp, 1.986214_wp, 2.837906_wp, 0.000000_wp, &
-   & 1.808266_wp, 1.736758_wp, 2.797674_wp, 0.000000_wp, &
-   & 2.007589_wp, 2.250756_wp, 2.982916_wp, 0.000000_wp, &
-   & 2.181599_wp, 2.384590_wp, 3.095025_wp, 0.000000_wp, &
-   & 2.263767_wp, 2.203629_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.638221_wp, 2.067523_wp, 2.113616_wp, 0.000000_wp, &
-   & 2.528919_wp, 2.194417_wp, 1.776619_wp, 0.000000_wp, &
-   & 3.556676_wp, 2.420754_wp, 1.465797_wp, 0.000000_wp, &
-   & 2.896526_wp, 2.454218_wp, 2.278836_wp, 0.000000_wp, &
-   & 3.289210_wp, 2.565269_wp, 1.645016_wp, 0.000000_wp, &
-   & 5.209881_wp, 2.843367_wp, 2.758388_wp, 0.000000_wp, & ! 36
-   & 1.269729_wp, 1.887305_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.868807_wp, 1.785463_wp, 2.160122_wp, 0.000000_wp, &
-   & 0.920018_wp, 1.457324_wp, 2.229013_wp, 0.000000_wp, &
-   & 6.506473_wp, 1.432023_wp, 2.119714_wp, 0.000000_wp, &
-   & 2.109733_wp, 2.799447_wp, 2.018973_wp, 0.000000_wp, &
-   & 2.584133_wp, 3.027953_wp, 2.087336_wp, 0.000000_wp, &
-   & 2.621415_wp, 3.134876_wp, 2.132598_wp, 0.000000_wp, &
-   & 2.739844_wp, 2.181678_wp, 2.546096_wp, 0.000000_wp, &
-   & 1.840571_wp, 2.974826_wp, 3.106937_wp, 0.000000_wp, &
-   & 1.756228_wp, 3.394247_wp, 3.202653_wp, 0.000000_wp, &
-   & 3.050188_wp, 2.349519_wp, 3.353329_wp, 0.000000_wp, &
-   & 2.419991_wp, 2.288929_wp, 0.000000_wp, 0.000000_wp, &
-   & 2.878139_wp, 2.446597_wp, 2.757735_wp, 0.000000_wp, &
-   & 3.038232_wp, 2.320821_wp, 1.775133_wp, 0.000000_wp, &
-   & 2.687507_wp, 2.385653_wp, 2.125961_wp, 0.000000_wp, &
-   & 2.810717_wp, 2.452747_wp, 2.018718_wp, 0.000000_wp, &
-   & 2.906869_wp, 2.493771_wp, 1.900737_wp, 0.000000_wp, &
-   & 4.175313_wp, 2.869379_wp, 2.968948_wp, 0.000000_wp, & ! 54
-   & 1.242993_wp, 1.991420_wp, 0.000000_wp, 0.000000_wp, &
-   & 1.314003_wp, 1.164384_wp, 2.127596_wp, 0.000000_wp, &
-   & 2.817373_wp, 1.698633_wp, 2.273697_wp, 0.000000_wp, &
-   & 2.845039_wp, 1.460181_wp, 2.534989_wp, 2.534989_wp, &
-   & 2.816971_wp, 1.475453_wp, 2.543502_wp, 0.000000_wp, &
-   & 2.788903_wp, 1.490724_wp, 2.552016_wp, 0.000000_wp, &
-   & 2.760835_wp, 1.505995_wp, 2.560529_wp, 0.000000_wp, &
-   & 2.732767_wp, 1.521266_wp, 2.569042_wp, 0.000000_wp, &
-   & 2.704699_wp, 1.536537_wp, 2.577556_wp, 0.000000_wp, &
-   & 2.676631_wp, 1.551808_wp, 2.586069_wp, 0.000000_wp, &
-   & 2.648563_wp, 1.567079_wp, 2.594583_wp, 0.000000_wp, &
-   & 2.620495_wp, 1.582351_wp, 2.603096_wp, 0.000000_wp, &
-   & 2.592427_wp, 1.597622_wp, 2.611609_wp, 0.000000_wp, &
-   & 2.564359_wp, 1.612893_wp, 2.620123_wp, 0.000000_wp, &
-   & 2.536291_wp, 1.628164_wp, 2.628636_wp, 0.000000_wp, &
-   & 2.508223_wp, 1.643435_wp, 2.637150_wp, 0.000000_wp, &
-   & 2.480155_wp, 1.658706_wp, 2.645663_wp, 0.000000_wp, &
-   & 3.195377_wp, 2.248538_wp, 2.414921_wp, 0.000000_wp, &
-   & 3.141220_wp, 2.487234_wp, 2.219335_wp, 0.000000_wp, &
-   & 3.176612_wp, 3.395385_wp, 2.375027_wp, 0.000000_wp, &
-   & 3.145383_wp, 2.583611_wp, 2.471393_wp, 0.000000_wp, &
-   & 1.815656_wp, 2.481062_wp, 3.185853_wp, 0.000000_wp, &
-   & 2.117984_wp, 2.858570_wp, 3.470484_wp, 0.000000_wp, &
-   & 2.712412_wp, 3.378860_wp, 3.641249_wp, 0.000000_wp, &
-   & 2.805724_wp, 2.825702_wp, 3.720644_wp, 0.000000_wp, &
-   & 2.619513_wp, 2.696078_wp, 0.000000_wp, 0.000000_wp, &
-   & 3.053831_wp, 2.616838_wp, 3.321796_wp, 0.000000_wp, &
-   & 3.021350_wp, 2.592502_wp, 4.246744_wp, 0.000000_wp, &
-   & 3.164052_wp, 2.632387_wp, 3.046255_wp, 0.000000_wp, &
-   & 2.961334_wp, 2.713884_wp, 2.310225_wp, 0.000000_wp, &
-   & 2.982405_wp, 2.959607_wp, 2.437783_wp, 0.000000_wp, &
-   & 3.079362_wp, 2.685897_wp, 2.103113_wp, 0.000000_wp], & ! 86
+
+   real(wp), parameter :: zeta(4, 60) = reshape([&
+      & 1.230000_wp, 0.000000_wp, 0.000000_wp, 0.000000_wp, & !1
+      & 1.669667_wp, 1.500000_wp, 0.000000_wp, 0.000000_wp, & !2
+      & 0.750060_wp, 0.557848_wp, 0.000000_wp, 0.000000_wp, & !3
+      & 1.034720_wp, 0.949332_wp, 0.000000_wp, 0.000000_wp, & !4
+      & 1.479444_wp, 1.479805_wp, 0.000000_wp, 0.000000_wp, & !5
+      & 2.096432_wp, 1.800000_wp, 0.000000_wp, 0.000000_wp, & !6
+      & 2.339881_wp, 2.014332_wp, 0.000000_wp, 0.000000_wp, & !7
+      & 2.439742_wp, 2.137023_wp, 0.000000_wp, 0.000000_wp, & !8
+      & 2.416361_wp, 2.308399_wp, 0.000000_wp, 0.000000_wp, & !9
+      & 3.084104_wp, 2.312051_wp, 2.815609_wp, 0.000000_wp, & !10
+      & 0.763787_wp, 0.573553_wp, 0.000000_wp, 0.000000_wp, & !11
+      & 1.184203_wp, 0.717769_wp, 1.300000_wp, 0.000000_wp, & !12
+      & 1.352531_wp, 1.391201_wp, 1.000000_wp, 0.000000_wp, & !13
+      & 1.773917_wp, 1.718996_wp, 1.250000_wp, 0.000000_wp, & !14
+      & 1.816945_wp, 1.903247_wp, 1.167533_wp, 0.000000_wp, & !15
+      & 1.981333_wp, 2.025643_wp, 1.702555_wp, 0.000000_wp, & !16
+      & 2.485265_wp, 2.199650_wp, 2.476089_wp, 0.000000_wp, & !17
+      & 2.329679_wp, 2.149419_wp, 1.950531_wp, 0.000000_wp, & !18
+      & 0.875961_wp, 0.631694_wp, 0.000000_wp, 0.000000_wp, & !19
+      & 1.267130_wp, 0.786247_wp, 1.380000_wp, 0.000000_wp, & !20
+      & 2.224492_wp, 1.554183_wp, 2.009535_wp, 0.000000_wp, & !21
+      & 2.588796_wp, 0.994410_wp, 1.885617_wp, 0.000000_wp, & !22
+      & 3.043706_wp, 4.030076_wp, 1.663291_wp, 0.000000_wp, & !23
+      & 2.250127_wp, 2.706815_wp, 1.675019_wp, 0.000000_wp, & !24
+      & 2.206053_wp, 2.820197_wp, 1.861022_wp, 0.000000_wp, & !25
+      & 1.572970_wp, 1.986214_wp, 2.837906_wp, 0.000000_wp, & !26
+      & 1.808266_wp, 1.736758_wp, 2.797674_wp, 0.000000_wp, & !27
+      & 2.007589_wp, 2.250756_wp, 2.982916_wp, 0.000000_wp, & !28
+      & 2.181599_wp, 2.384590_wp, 3.095025_wp, 0.000000_wp, & !29
+      & 2.263767_wp, 2.203629_wp, 0.000000_wp, 0.000000_wp, & !30
+      & 2.638221_wp, 2.067523_wp, 2.113616_wp, 0.000000_wp, & !31
+      & 2.528919_wp, 2.194417_wp, 1.776619_wp, 0.000000_wp, & !32
+      & 3.556676_wp, 2.420754_wp, 1.465797_wp, 0.000000_wp, & !33
+      & 2.896526_wp, 2.454218_wp, 2.278836_wp, 0.000000_wp, & !34
+      & 3.289210_wp, 2.565269_wp, 1.645016_wp, 0.000000_wp, & !35
+      & 5.209881_wp, 2.843367_wp, 2.758388_wp, 0.000000_wp, & !36
+      & 1.269729_wp, 1.887305_wp, 0.000000_wp, 0.000000_wp, & !37
+      & 1.868807_wp, 1.785463_wp, 2.160122_wp, 0.000000_wp, & !38
+      & 0.920018_wp, 1.457324_wp, 2.229013_wp, 0.000000_wp, & !39
+      & 6.506473_wp, 1.432023_wp, 2.119714_wp, 0.000000_wp, & !40
+      & 2.109733_wp, 2.799447_wp, 2.018973_wp, 0.000000_wp, & !41
+      & 2.584133_wp, 3.027953_wp, 2.087336_wp, 0.000000_wp, & !42
+      & 2.621415_wp, 3.134876_wp, 2.132598_wp, 0.000000_wp, & !43
+      & 2.739844_wp, 2.181678_wp, 2.546096_wp, 0.000000_wp, & !44
+      & 1.840571_wp, 2.974826_wp, 3.106937_wp, 0.000000_wp, & !45
+      & 1.756228_wp, 3.394247_wp, 3.202653_wp, 0.000000_wp, & !46
+      & 3.050188_wp, 2.349519_wp, 3.353329_wp, 0.000000_wp, & !47
+      & 2.419991_wp, 2.288929_wp, 0.000000_wp, 0.000000_wp, & !48
+      & 2.878139_wp, 2.446597_wp, 2.757735_wp, 0.000000_wp, & !49
+      & 3.038232_wp, 2.320821_wp, 1.775133_wp, 0.000000_wp, & !50
+      & 2.687507_wp, 2.385653_wp, 2.125961_wp, 0.000000_wp, & !51
+      & 2.810717_wp, 2.452747_wp, 2.018718_wp, 0.000000_wp, & !52
+      & 2.906869_wp, 2.493771_wp, 1.900737_wp, 0.000000_wp, & !53
+      & 4.175313_wp, 2.869379_wp, 2.968948_wp, 0.000000_wp, & !54
+      & 1.242993_wp, 1.991420_wp, 0.000000_wp, 0.000000_wp, & !55
+      & 1.314003_wp, 1.164384_wp, 2.127596_wp, 0.000000_wp, & !56
+      & 2.817373_wp, 1.698633_wp, 2.273697_wp, 0.000000_wp, & !57
+      & 2.845039_wp, 1.460181_wp, 2.534989_wp, 2.534989_wp, & !58
+      & 2.816971_wp, 1.475453_wp, 2.543502_wp, 0.000000_wp, & !59
+      & 2.788903_wp, 1.490724_wp, 2.552016_wp, 0.000000_wp],& !60
       & shape(zeta))
 
    integer :: isp, izp, ish, stat
@@ -237,18 +209,27 @@ subroutine make_basis(bas, mol, ng)
 end subroutine make_basis
 
 
-subroutine test_overlap_mol(error, mol, ref)
+subroutine test_overlap_mol(error, mol, diat_scale, ref)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Flag whether the diatomic scaling is applied
+   logical, intent(in) :: diat_scale
+   !> Reference value to check against
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
-   real(wp), allocatable :: lattr(:, :), overlap(:, :)
+   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
    real(wp) :: cutoff
    integer :: ii, jj
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:) 
+
+   allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
+   ksig = 1.2_wp
+   kpi = 1.2_wp
+   kdel = 1.2_wp
 
    call make_basis(bas, mol, 6)
    call check(error, bas%nao, size(ref, 1))
@@ -258,56 +239,36 @@ subroutine test_overlap_mol(error, mol, ref)
    call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
 
    allocate(overlap(bas%nao, bas%nao))
-   call get_overlap(mol, lattr, cutoff, bas, overlap)
+   if (diat_scale) then
+      allocate(overlap_diat(bas%nao, bas%nao))
+      call get_overlap(mol, lattr, cutoff, bas, ksig, kpi, kdel, &
+         & overlap, overlap_diat)
 
-   !where(abs(overlap) < thr) overlap = 0.0_wp
-   !print '(*(6x,"&", 3(es20.14e1, "_wp":, ","), "&", /))', overlap
+      !where(abs(overlap_diat) < thr) overlap_diat = 0.0_wp
+      !print '(*(6x,"&", 3(es20.14e1, "_wp":, ","), "&", /))', overlap_diat
 
-   do ii = 1, size(overlap, 2)
-      do jj = 1, size(overlap, 1)
-         call check(error, overlap(jj, ii), ref(jj, ii), thr=thr)
-         if (allocated(error)) return
+      do ii = 1, size(overlap_diat, 2)
+         do jj = 1, size(overlap_diat, 1)
+            call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr1*10)
+            if (allocated(error)) return
+         end do
       end do
-   end do
+   else
+      call get_overlap(mol, lattr, cutoff, bas, overlap)
+
+      !where(abs(overlap) < thr) overlap = 0.0_wp
+      !print '(*(6x,"&", 3(es20.14e1, "_wp":, ","), "&", /))', overlap
+
+      do ii = 1, size(overlap, 2)
+         do jj = 1, size(overlap, 1)
+            call check(error, overlap(jj, ii), ref(jj, ii), thr=thr1)
+            if (allocated(error)) return
+         end do
+      end do
+   end if
 
 
 end subroutine test_overlap_mol
-
-subroutine test_overlap_diat_mol(error, mol, ref)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(structure_type), intent(in) :: mol
-   real(wp), intent(in) :: ref(:, :)
-
-   type(basis_type) :: bas
-   real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
-   real(wp) :: cutoff
-   integer :: ii, jj
-   real(wp) :: scalfac(3,86)
-
-   scalfac = 1.2_wp
-
-   call make_basis(bas, mol, 6)
-   call check(error, bas%nao, size(ref, 1))
-   if (allocated(error)) return
-
-   cutoff = get_cutoff(bas)
-   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
-
-   allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
-   call get_overlap(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat)
-
-   do ii = 1, size(overlap_diat, 2)
-      do jj = 1, size(overlap_diat, 1)
-         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
-         if (allocated(error)) return
-      end do
-   end do
-
-
-end subroutine test_overlap_diat_mol
 
 subroutine test_overlap_alh3(error)
 
@@ -369,7 +330,7 @@ subroutine test_overlap_alh3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_alh3
 
@@ -433,7 +394,7 @@ subroutine test_overlap_diat_alh3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_diat_mol(error, mol, overlap_diat)
+   call test_overlap_mol(error, mol, .true., overlap_diat)
 
 end subroutine test_overlap_diat_alh3
 
@@ -465,7 +426,7 @@ subroutine test_overlap_bh3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "BH3")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_bh3
 
@@ -493,7 +454,7 @@ subroutine test_overlap_beh2(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "BeH2")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_beh2
 
@@ -530,7 +491,7 @@ subroutine test_overlap_ch4(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "CH4")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_ch4
 
@@ -654,7 +615,7 @@ subroutine test_overlap_cl2(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "Cl2")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_cl2
 
@@ -778,7 +739,7 @@ subroutine test_overlap_diat_cl2(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "Cl2")
-   call test_overlap_diat_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .true., overlap)
 
 end subroutine test_overlap_diat_cl2
 
@@ -815,7 +776,7 @@ subroutine test_overlap_f2(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "F2")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_f2
 
@@ -832,7 +793,7 @@ subroutine test_overlap_h2(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "H2")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_h2
 
@@ -857,7 +818,7 @@ subroutine test_overlap_lih(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "LiH")
-   call test_overlap_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .false., overlap)
 
 end subroutine test_overlap_lih
 
@@ -1490,7 +1451,7 @@ subroutine test_overlap_diat_cecl3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "f-block", "CeCl3")
-   call test_overlap_diat_mol(error, mol, overlap)
+   call test_overlap_mol(error, mol, .true., overlap)
 
 end subroutine test_overlap_diat_cecl3
 
@@ -1504,7 +1465,7 @@ subroutine test_overlap_grad_ss(error)
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3), r2
    real(wp) :: overlap(1, 1), doverlapi(3, 1, 1), doverlapj(3, 1, 1), sr(1, 1), sl(1, 1)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    call slater_to_gauss(ng, 2, 0, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 1, 0, 1.0_wp, cgtoj, .true., stat)
@@ -1522,7 +1483,7 @@ subroutine test_overlap_grad_ss(error)
    call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, overlap, doverlapi)
 
    do i = 1, 3
-      call check(error, doverlapi(i, 1, 1), -doverlapj(i, 1, 1), thr=thr)
+      call check(error, doverlapi(i, 1, 1), -doverlapj(i, 1, 1), thr=thr1*10)
       if (allocated(error)) exit
    end do
    if (allocated(error)) return
@@ -1539,7 +1500,7 @@ subroutine test_overlap_grad_ss(error)
    end do
 
    do i = 1, 3
-      call check(error, doverlapi(i, 1, 1), doverlapj(i, 1, 1), thr=thr)
+      call check(error, doverlapi(i, 1, 1), doverlapj(i, 1, 1), thr=thr1*10)
       if (allocated(error)) exit
    end do
    if (allocated(error)) return
@@ -1557,7 +1518,7 @@ subroutine test_overlap_grad_pp(error)
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3), r2
    real(wp) :: overlap(3, 3), doverlapi(3, 3, 3), doverlapj(3, 3, 3), sr(3, 3), sl(3, 3)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    call slater_to_gauss(ng, 3, 1, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 2, 1, 1.0_wp, cgtoj, .true., stat)
@@ -1577,7 +1538,7 @@ subroutine test_overlap_grad_pp(error)
    lp: do i = 1, 3
       do j = 1, 3
          do k = 1, 3
-            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr)
+            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr1*10)
             if (allocated(error)) exit
          end do
       end do
@@ -1598,7 +1559,7 @@ subroutine test_overlap_grad_pp(error)
    num: do i = 1, 3
       do j = 1, 3
          do k = 1, 3
-            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr)
+            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr1*10)
             if (allocated(error)) exit num
          end do
       end do
@@ -1618,7 +1579,7 @@ subroutine test_overlap_grad_dd(error)
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3), r2
    real(wp) :: overlap(5, 5), doverlapi(3, 5, 5), doverlapj(3, 5, 5), sl(5, 5), sr(5, 5)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    call slater_to_gauss(ng, 4, 2, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 3, 2, 1.0_wp, cgtoj, .true., stat)
@@ -1638,7 +1599,7 @@ subroutine test_overlap_grad_dd(error)
    lp: do i = 1, 3
       do j = 1, 5
          do k = 1, 5
-            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr)
+            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr1*10)
             if (allocated(error)) exit lp
          end do
       end do
@@ -1659,7 +1620,7 @@ subroutine test_overlap_grad_dd(error)
    num: do i = 1, 3
       do j = 1, 5
          do k = 1, 5
-            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr)
+            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr1*10)
             if (allocated(error)) exit num
          end do
       end do
@@ -1679,7 +1640,7 @@ subroutine test_overlap_grad_ff(error)
    type(cgto_type) :: cgtoi, cgtoj
    real(wp) :: vec(3), r2
    real(wp) :: overlap(7, 7), doverlapi(3, 7, 7), doverlapj(3, 7, 7), sl(7, 7), sr(7, 7)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    call slater_to_gauss(ng, 5, 3, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 4, 3, 1.0_wp, cgtoj, .true., stat)
@@ -1699,7 +1660,7 @@ subroutine test_overlap_grad_ff(error)
    lp: do i = 1, 3
       do j = 1, 7
          do k = 1, 7
-            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr)
+            call check(error, doverlapi(i, j, k), -doverlapj(i, k, j), thr=thr1*10)
             if (allocated(error)) exit lp
          end do
       end do
@@ -1720,7 +1681,7 @@ subroutine test_overlap_grad_ff(error)
    num: do i = 1, 3
       do j = 1, 7
          do k = 1, 7
-            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr)
+            call check(error, doverlapi(i, j, k), doverlapj(i, j, k), thr=thr1*10)
             if (allocated(error)) exit num
          end do
       end do
@@ -1742,25 +1703,24 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    integer :: i, j, k
    real(wp) :: r2
    real(wp) :: overlap(msao(cgtoi%ang), msao(cgtoj%ang)), overlap_diat(msao(cgtoi%ang), msao(cgtoj%ang)), &
-   & sl(msao(cgtoj%ang), msao(cgtoi%ang)), sr(msao(cgtoj%ang), msao(cgtoi%ang)), &
-   & sl_diat(msao(cgtoj%ang), msao(cgtoi%ang)), sr_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+      & sl(msao(cgtoj%ang), msao(cgtoi%ang)), sr(msao(cgtoj%ang), msao(cgtoi%ang)), &
+      & sl_diat(msao(cgtoj%ang), msao(cgtoi%ang)), sr_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: doverlapi(3, msao(cgtoi%ang), msao(cgtoj%ang)), doverlapi_diat(3, msao(cgtoi%ang), msao(cgtoj%ang)), &
+      & doverlapj(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlapj_diat(3, msao(cgtoj%ang), msao(cgtoi%ang)), &
+      & doverlaptmp(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlaptmp_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   real(wp) :: doverlapi(3, msao(cgtoi%ang), msao(cgtoj%ang)),  doverlapi_diat(3, msao(cgtoi%ang), msao(cgtoj%ang)), &
-   & doverlapj(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlapj_diat(3, msao(cgtoj%ang), msao(cgtoi%ang)), &
-   & doverlaptmp(3, msao(cgtoj%ang), msao(cgtoi%ang)), doverlaptmp_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
-
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    r2 = sum(vec**2)
 
    ! Test antisymmetry w.r.t. the exchange of the two centers
    call overlap_grad_cgto_diat(cgtoi, cgtoj, r2, vec, 100.0_wp, &
-   & ksig, kpi, kdel, overlap, doverlapi, overlap_diat, doverlapi_diat)
+      & ksig, kpi, kdel, overlap, doverlapi, overlap_diat, doverlapi_diat)
 
    vec(:) = -vec
 
    call overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, 100.0_wp, &
-   & ksig, kpi, kdel, overlap, doverlapj, overlap_diat, doverlapj_diat)
+      & ksig, kpi, kdel, overlap, doverlapj, overlap_diat, doverlapj_diat)
 
    lp: do i = 1, 3
       do j = 1, msao(cgtoi%ang)
@@ -1774,17 +1734,17 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    end do lp
    if (allocated(error)) return
 
-   ! Test the analytical againts the numerical gradient
+   ! Test the analytical against the numerical gradient
    do i = 1, 3
       vec(i) = vec(i) + step
       r2 = sum(vec**2)
-      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec,&
-      & 100.0_wp, ksig, kpi, kdel, sr, sr_diat)
+      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec, &
+         & 100.0_wp, ksig, kpi, kdel, sr, sr_diat)
 
       vec(i) = vec(i) - 2*step
       r2 = sum(vec**2)
-      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec,&
-      & 100.0_wp, ksig, kpi, kdel, sl, sl_diat)
+      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec, &
+         & 100.0_wp, ksig, kpi, kdel, sl, sl_diat)
 
       vec(i) = vec(i) + step
       doverlaptmp(i, :, :) = 0.5_wp * (sr - sl) / step
@@ -1810,6 +1770,96 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    if (allocated(error)) return
 
 end subroutine test_overlap_diat_grad_gen
+
+!> Helper function for diatomic frame scaled overlap of a single CGTO pair
+subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
+   ksig, kpi, kdel, overlap, overlap_diat)
+   !> CGTOs for the tested diatomic frame overlap calculation
+   type(cgto_type), intent(in) :: cgtoj, cgtoi
+   !> Square of the interatomic distance
+   real(wp), intent(in) :: r2
+   !> Interatomic vector
+   real(wp), intent(in) :: vec(3)
+   !> Integral screening cutoff
+   real(wp), intent(in) :: intcut
+   !> Scaling factors for the diatomic frame overlap
+   real(wp), intent(in) :: ksig, kpi, kdel
+   !> Overlap matrix
+   real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Diatomic frame scaled overlap matrix
+   real(wp), intent(out) :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+
+   integer :: mapj, mapi, nj, ni
+   real(wp), allocatable :: block_overlap(:, :)
+   type(diat_trafo_cache) :: dt_cache
+
+   mapj = smap(cgtoj%ang)
+   mapi = smap(cgtoi%ang)
+   nj = msao(cgtoj%ang)
+   ni = msao(cgtoi%ang)
+   allocate(block_overlap(mapj + nj, mapi + ni), source = 0.0_wp)
+
+   call overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
+
+   ! Place the overlap into the correct subblock of the diatomic matrix
+   block_overlap(mapj + 1:mapj + nj, mapi + 1:mapi + ni) = overlap
+   ! Transform and scale full overlap block
+   call setup_diat_trafo(dt_cache, vec, cgtoj%ang, cgtoi%ang)
+   call diat_trafo(dt_cache, ksig, kpi, kdel, block_overlap)
+   ! Extract the scaled overlap for the given CGTO pair
+   overlap_diat = block_overlap(mapj+1:mapj+nj, mapi+1:mapi+ni)
+end subroutine overlap_cgto_diat
+
+!> Helper function for diatomic frame scaled overlap derivatives of a single CGTO pair
+subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
+   & ksig, kpi, kdel, overlap, doverlap, overlap_diat, doverlap_diat)
+   !> CGTOs for the tested diatomic frame overlap calculation
+   type(cgto_type), intent(in) :: cgtoj, cgtoi
+   !> Square of interatomic distance
+   real(wp), intent(in) :: r2
+   !> Interatomic vector
+   real(wp), intent(in) :: vec(3)
+   !> Integral screening cutoff
+   real(wp), intent(in) :: intcut
+   !> Scaling factors for the diatomic frame overlap
+   real(wp), intent(in) :: ksig, kpi, kdel
+   !> Overlap matrix
+   real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Gradient of the overlap w.r.t. the position of center j
+   real(wp), intent(out) :: doverlap(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Diatomic frame scaled overlap matrix
+   real(wp), intent(out) :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Gradient of the diatomic frame scaled overlap w.r.t. the position of center j
+   real(wp), intent(out) :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
+
+   integer :: mapj, mapi, nj, ni, ic
+   real(wp), allocatable :: block_overlap(:, :), block_doverlap(:, :, :)
+   type(diat_trafo_cache) :: dt_cache
+
+   mapj = smap(cgtoj%ang)
+   mapi = smap(cgtoi%ang)
+   nj = msao(cgtoj%ang)
+   ni = msao(cgtoi%ang)
+   allocate(block_overlap(mapj+nj, mapi+ni), block_doverlap(mapj+nj, mapi+ni, 3), &
+      & source = 0.0_wp)
+
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, &
+      & overlap, doverlap)
+
+   ! Place the overlap and derivative into the correct subblock of the diatomic matrix
+   block_overlap(mapj+1:mapj+nj, mapi+1:mapi+ni) = overlap
+   do ic = 1, 3
+      block_doverlap(mapj+1:mapj+nj, mapi+1:mapi+ni, ic) = doverlap(ic, :, :)
+   end do
+   ! Transform and scale full overlap block and derivatives
+   call setup_diat_trafo(dt_cache, vec, cgtoj%ang, cgtoi%ang, grad=.true.)
+   call diat_trafo(dt_cache, ksig, kpi, kdel, block_overlap, block_doverlap)
+   ! Extract the scaled overlap and derivatives for the given CGTO pair
+   overlap_diat = block_overlap(mapj+1:mapj+nj, mapi+1:mapi+ni)
+   do ic = 1, 3
+      doverlap_diat(ic, :, :) = block_doverlap(mapj+1:mapj+nj, mapi+1:mapi+ni, ic)
+   end do
+end subroutine overlap_grad_cgto_diat
 
 subroutine test_overlap_diat_grad_ss(error)
 
