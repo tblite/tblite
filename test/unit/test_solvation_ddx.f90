@@ -20,14 +20,14 @@ module test_solvation_ddx
       & test_failed
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
+   use tblite_basis_type, only : basis_type
    use tblite_container, only : container_cache
+   use tblite_context_type, only : context_type
+   use tblite_features, only : get_tblite_feature
+   use tblite_integral_type, only : integral_type
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, ddx_input, new_ddx
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
-   use tblite_basis_type, only : basis_type
-   use tblite_integral_type, only : integral_type
-   use tblite_context_type, only : context_type
-   use tblite_features, only : get_tblite_feature
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
@@ -116,14 +116,14 @@ subroutine test_e(error, model, mol, qat, ref)
 
    if (abs(sum(energy) - ref) > thr) then
       call test_failed(error, "Energy does not match reference")
-      print '(a)', 'Energy:'
-      print '(3es20.13)', sum(energy)
-      print '(a)', "---"
-      print '(a)', 'Reference:'
-      print '(3es20.13)', ref
-      print '(a)', "---"
-      print '(a)', 'Difference:'
-      print '(3es20.13)', sum(energy) - ref
+      print "(a)", "Energy:"
+      print "(3es20.13)", sum(energy)
+      print "(a)", "---"
+      print "(a)", "Reference:"
+      print "(3es20.13)", ref
+      print "(a)", "---"
+      print "(a)", "Difference:"
+      print "(3es20.13)", sum(energy) - ref
    end if
 end subroutine test_e
 
@@ -149,7 +149,7 @@ subroutine test_g(error, model, mol, qat)
    real(wp), parameter :: eps = 80.0_wp
    integer, parameter :: nang = 302
    real(wp), parameter :: step = 1.0e-4_wp
-   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp)) 
+   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
@@ -190,11 +190,11 @@ subroutine test_g(error, model, mol, qat)
 
    if (any(abs(gradient - numg) > thr)) then
       call test_failed(error, "Gradient does not match")
-      print '(3es20.13)', gradient
-      print '(a)', "---"
-      print '(3es20.13)', numg
-      print '(a)', "---"
-      print '(3es20.13)', gradient - numg
+      print "(3es20.13)", gradient
+      print "(a)", "---"
+      print "(3es20.13)", numg
+      print "(a)", "---"
+      print "(3es20.13)", gradient - numg
    end if
 end subroutine test_g
 
@@ -256,14 +256,14 @@ subroutine test_p(error, model, mol, qat)
 
    if (any(abs([pot%vat] - vat) > thr)) then
       call test_failed(error, "Potential does not match")
-      print '(a)', 'analytical'
-      print '(3es20.13)', pot%vat
-      print '(a)', "---"
-      print '(a)', 'numerical'
-      print '(3es20.13)', vat
-      print '(a)', "---"
-      print '(a)', 'diff'
-      print '(3es20.13)', [pot%vat] - vat
+      print "(a)", "analytical"
+      print "(3es20.13)", pot%vat
+      print "(a)", "---"
+      print "(a)", "numerical"
+      print "(3es20.13)", vat
+      print "(a)", "---"
+      print "(a)", "diff"
+      print "(3es20.13)", [pot%vat] - vat
    end if
 end subroutine test_p
 

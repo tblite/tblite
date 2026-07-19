@@ -326,11 +326,11 @@ subroutine test_numgrad(error, mol, qat, dpat, qpat, make_multipole)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', numgrad
+      print"(3es21.14)", numgrad
       print'("---")'
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_numgrad
@@ -420,11 +420,11 @@ subroutine test_numsigma(error, mol, qat, dpat, qpat, make_multipole, threshold)
 
    if (any(abs(sigma - numsigma) > thr_sigma)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma
+      print"(3es21.14)", sigma
       print'("---")'
-      print'(3es21.14)', numsigma
+      print"(3es21.14)", numsigma
       print'("---")'
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_numsigma
@@ -493,11 +493,11 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
 
    if (any(abs(pot%vat(:, 1) - vat) > thr2)) then
       call test_failed(error, "Charge-dependent potential does not match")
-      print'(3es21.14)', pot%vat
+      print"(3es21.14)", pot%vat
       print'("---")'
-      print'(3es21.14)', vat
+      print"(3es21.14)", vat
       print'("---")'
-      print'(3es21.14)', pot%vat(:, 1) - vat
+      print"(3es21.14)", pot%vat(:, 1) - vat
       return
    end if
 
@@ -516,11 +516,11 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
 
    if (any(abs(pot%vdp(:, :, 1) - vdp) > thr2)) then
       call test_failed(error, "Dipole-dependent potential does not match")
-      print'(3es21.14)', pot%vdp
+      print"(3es21.14)", pot%vdp
       print'("---")'
-      print'(3es21.14)', vdp
+      print"(3es21.14)", vdp
       print'("---")'
-      print'(3es21.14)', pot%vdp(:, :, 1) - vdp
+      print"(3es21.14)", pot%vdp(:, :, 1) - vdp
       return
    end if
 
@@ -539,11 +539,11 @@ subroutine test_numpot(error, mol, qat, dpat, qpat, make_multipole)
 
    if (any(abs(pot%vqp(:, :, 1) - vqp) > thr2)) then
       call test_failed(error, "Quadrupole-dependent potential does not match")
-      print'(3es21.14)', pot%vqp
+      print"(3es21.14)", pot%vqp
       print'("---")'
-      print'(3es21.14)', vqp
+      print"(3es21.14)", vqp
       print'("---")'
-      print'(3es21.14)', pot%vqp(:, :, 1) - vqp
+      print"(3es21.14)", pot%vqp(:, :, 1) - vqp
       return
    end if
 
@@ -1599,4 +1599,4 @@ subroutine make_supercell(mol, rep)
 end subroutine make_supercell
 
 
-end submodule
+end submodule test_supercell_scaling

@@ -24,8 +24,8 @@ module tblite_post_processing_xtbml_features
    use tblite_integral_type, only : integral_type
    use tblite_post_processing_xtbml_cache, only : xtbml_cache
    use tblite_post_processing_xtbml_convolution, only : xtbml_convolution
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 

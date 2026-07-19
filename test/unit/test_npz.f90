@@ -200,15 +200,17 @@ subroutine test_write_npz_i4_rank1_multi(error)
    input = [(i*(i-1), i=size(input), 1, -1)]
    call save_npz(filename, "array1", input, stat, msg)
 
-   if (stat == 0) &
-      call save_npz(filename, "arr2", input, stat, msg)
+   if (stat == 0) then
+     call save_npz(filename, "arr2", input, stat, msg)
+   end if
 
    call check(error, stat, "Writing of npz file failed", msg)
    if (allocated(error)) return
 
    call load_npz(filename, "array1", output1, stat, msg)
-   if (stat == 0) &
-      call load_npz(filename, "arr2", output2, stat, msg)
+   if (stat == 0) then
+     call load_npz(filename, "arr2", output2, stat, msg)
+   end if
    call delete_file(filename)
 
    call check(error, stat, "Reading of npz file failed", msg)
@@ -240,15 +242,17 @@ subroutine test_write_npz_rdp_rank1_multi(error)
    call random_number(input)
    call save_npz(filename, "array1", input, stat, msg)
 
-   if (stat == 0) &
-      call save_npz(filename, "arr2", input, stat, msg)
+   if (stat == 0) then
+     call save_npz(filename, "arr2", input, stat, msg)
+   end if
 
    call check(error, stat, "Writing of npz file failed", msg)
    if (allocated(error)) return
 
    call load_npz(filename, "array1", output1, stat, msg)
-   if (stat == 0) &
-      call load_npz(filename, "arr2", output2, stat, msg)
+   if (stat == 0) then
+     call load_npz(filename, "arr2", output2, stat, msg)
+   end if
    call delete_file(filename)
 
    call check(error, stat, "Reading of npz file failed", msg)
@@ -280,15 +284,17 @@ subroutine test_write_npz_rdp_rank2_multi(error)
    call random_number(input)
    call save_npz(filename, "array1", input, stat, msg)
 
-   if (stat == 0) &
-      call save_npz(filename, "arr2", input, stat, msg)
+   if (stat == 0) then
+     call save_npz(filename, "arr2", input, stat, msg)
+   end if
 
    call check(error, stat, "Writing of npz file failed", msg)
    if (allocated(error)) return
 
    call load_npz(filename, "array1", output1, stat, msg)
-   if (stat == 0) &
-      call load_npz(filename, "arr2", output2, stat, msg)
+   if (stat == 0) then
+     call load_npz(filename, "arr2", output2, stat, msg)
+   end if
    call delete_file(filename)
 
    call check(error, stat, "Reading of npz file failed", msg)
@@ -320,15 +326,17 @@ subroutine test_write_npz_rdp_rank3_multi(error)
    call random_number(input)
    call save_npz(filename, "array1", input, stat, msg)
 
-   if (stat == 0) &
-      call save_npz(filename, "arr2", input, stat, msg)
+   if (stat == 0) then
+     call save_npz(filename, "arr2", input, stat, msg)
+   end if
 
    call check(error, stat, "Writing of npz file failed", msg)
    if (allocated(error)) return
 
    call load_npz(filename, "array1", output1, stat, msg)
-   if (stat == 0) &
-      call load_npz(filename, "arr2", output2, stat, msg)
+   if (stat == 0) then
+     call load_npz(filename, "arr2", output2, stat, msg)
+   end if
    call delete_file(filename)
 
    call check(error, stat, "Reading of npz file failed", msg)
@@ -542,8 +550,8 @@ contains
       integer(i4), intent(in) :: expected
 
       if (computed /= expected) then
-         call test_failed(error, "CRC32 hash mismatch, expected "//format_string(expected, '(z08)')//&
-            & " got "//format_string(computed, '(z08)'))
+         call test_failed(error, "CRC32 hash mismatch, expected "//format_string(expected, "(z08)")//&
+            & " got "//format_string(computed, "(z08)"))
       end if
    end subroutine check_hash
 end subroutine test_crc32
@@ -968,18 +976,18 @@ subroutine hexdump(filename)
       '(z0.8, 1x, 8(1x, z0.2), 1x, 7(1x, z0.2), t61, "|", 15a, "|")', &
       '(z0.8, 1x, 8(1x, z0.2), 1x, 8(1x, z0.2), t61, "|", 16a, "|")']
 
-   print '(3a)', "Hexdump of file '", filename, "'"
+   print "(3a)", "Hexdump of file '", filename, "'"
    open(newunit=io, file=filename, form="unformatted", access="stream", status="old")
    line = 0
    skip = .false.
    read(io, iostat=stat) chunk
    do while(stat == 0)
-      if (all(chunk == ' ')) then
-         if (.not.skip) print '(A)', "*"
+      if (all(chunk == " ")) then
+         if (.not.skip) print "(A)", "*"
          skip = .true.
       else
          print hex_format(16), &
-            & line, chunk, merge(chunk, '.', is_printable(chunk))
+            & line, chunk, merge(chunk, ".", is_printable(chunk))
          skip = .false.
       end if
       line = line + 16
@@ -989,7 +997,7 @@ subroutine hexdump(filename)
       read(io, pos=line + i, iostat=stat) chunk(i)
       if (stat /= 0) then
          print hex_format(i-1), &
-            & line, chunk(:i-1), merge(chunk(:i-1), '.', is_printable(chunk(:i-1)))
+            & line, chunk(:i-1), merge(chunk(:i-1), ".", is_printable(chunk(:i-1)))
          exit
       end if
    end do
@@ -1001,7 +1009,7 @@ elemental logical function is_printable(c)
    integer :: ic
    ic = iachar(c)
    !The character is printable if it's between ' ' and '~' in the ASCII table
-   is_printable = ic >= iachar(' ') .and. ic <= int(z'7E')
+   is_printable = ic >= iachar(" ") .and. ic <= int(z'7E')
 end function is_printable
 
 end module test_npz

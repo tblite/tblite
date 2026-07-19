@@ -245,7 +245,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
 
          if (.not.(ijov .or. jiov)) then
             ! nonoverlaping spheres
-            if(abs(rhoi-rhoj) < 1.e-8_wp) then
+            if(abs(rhoi-rhoj) < 1.0e-8_wp) then
                ! equal reduced radii
                r1 = 1.0_wp/r
                ap = r+rhoj

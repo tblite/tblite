@@ -33,6 +33,8 @@ module tblite_xtb_singlepoint
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
    use tblite_output_format, only : format_string
+   use tblite_post_processing_list, only : post_processing_list
+   use tblite_post_processing_type, only : collect_containers_caches
    use tblite_results, only : results_type
    use tblite_scf, only : mixer_type, new_mixer, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
@@ -45,8 +47,6 @@ module tblite_xtb_singlepoint
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
-   use tblite_post_processing_type, only : collect_containers_caches
-   use tblite_post_processing_list, only : post_processing_list
    implicit none
    private
 
@@ -94,7 +94,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(results_type), intent(out), optional :: results
    !> List of post-processing methods
    type(post_processing_list), intent(inout), optional :: post_process
-   
+
    logical :: grad, converged, econverged, pconverged, tconverged
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
@@ -114,7 +114,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
    type(cache_list), allocatable :: caches
-   
+
    integer :: iscf, spin
 
    call timer%push("total")
@@ -125,8 +125,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       prlevel = ctx%verbosity
    end if
 
-   econv = 1.e-6_wp*accuracy
-   pconv = 2.e-5_wp*accuracy
+   econv = 1.0e-6_wp*accuracy
+   pconv = 2.0e-5_wp*accuracy
 
    grad = present(gradient) .and. present(sigma)
 
@@ -160,8 +160,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(hcache)
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_halogen // format_string(sum(exbond), real_format) // " Eh")
+      if (prlevel > 1) then
+        call ctx%message(label_halogen // format_string(sum(exbond), real_format) // " Eh")
+      end if
       energies(:) = energies + exbond
       call timer%pop
    end if
@@ -171,8 +172,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(rcache)
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_repulsion // format_string(sum(erep), real_format) // " Eh")
+      if (prlevel > 1) then
+        call ctx%message(label_repulsion // format_string(sum(erep), real_format) // " Eh")
+      end if
       energies(:) = energies + erep
       call timer%pop
    end if
@@ -182,8 +184,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dcache)
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_dispersion // format_string(sum(edisp), real_format) // " Eh")
+      if (prlevel > 1) then
+        call ctx%message(label_dispersion // format_string(sum(edisp), real_format) // " Eh")
+      end if
       energies(:) = energies + edisp
       call timer%pop
    end if
@@ -193,8 +196,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(icache)
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_other // format_string(sum(eint), real_format) // " Eh")
+      if (prlevel > 1) then
+        call ctx%message(label_other // format_string(sum(eint), real_format) // " Eh")
+      end if
       energies(:) = energies + eint
       call timer%pop
    end if
@@ -207,8 +211,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
-   if (prlevel > 1) &
-      call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
+   if (prlevel > 1) then
+     call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
+   end if
 
    call timer%push("hamiltonian")
    if (allocated(calc%ncoord)) then
@@ -413,14 +418,14 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
             stime = timer%get(label(it))
             if (stime <= epsilon(0.0_wp)) cycle
             call ctx%message(" - "//label(it)//format_time(stime) &
-               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+               & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
          end do
          call ctx%message("")
       end if
    end block
 
    if (.not.converged) then
-      call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
+      call fatal_error(error, "SCF not converged in "//format_string(iscf, "(i0)")//" cycles")
       call ctx%set_error(error)
    end if
 

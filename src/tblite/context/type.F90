@@ -110,7 +110,7 @@ subroutine message(self, msg)
          call self%set_error(error)
       end if
    else
-      write(self%unit, '(a)') msg
+      write(self%unit, "(a)") msg
    end if
 end subroutine message
 
@@ -161,7 +161,7 @@ subroutine delete_solver(self, solver)
    if (allocated(self%solver)) then
       call self%solver%delete(solver)
    end if
-#if WITH_MKL 
+#if WITH_MKL
    call mkl_free_buffers()
 #endif
    if (allocated(solver)) deallocate(solver)

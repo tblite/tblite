@@ -21,11 +21,11 @@
 module tblite_coulomb_charge_effective
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
+   use mctc_io_math, only : matdet_3x3, matinv_3x3
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_charge_type, only : coulomb_charge_type
+   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_cutoff, only : get_lattice_points
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none

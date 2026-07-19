@@ -398,7 +398,7 @@ subroutine test_invalid_character(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 305, "Expected error code 305 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 305, "Expected error code 305 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_character
 
 subroutine test_invalid_true(error)
@@ -424,7 +424,7 @@ subroutine test_invalid_true(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 321, "Expected error code 305 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 321, "Expected error code 305 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_true
 
 subroutine test_invalid_false(error)
@@ -450,7 +450,7 @@ subroutine test_invalid_false(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 321, "Expected error code 305 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 321, "Expected error code 305 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_false
 
 subroutine test_invalid_magic_number(error)
@@ -476,7 +476,7 @@ subroutine test_invalid_magic_number(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 201, "Expected error code 201 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 201, "Expected error code 201 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_magic_number
 
 subroutine test_invalid_magic_string(error)
@@ -502,7 +502,7 @@ subroutine test_invalid_magic_string(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 202, "Expected error code 202 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 202, "Expected error code 202 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_magic_string
 
 subroutine test_invalid_major_version(error)
@@ -528,7 +528,7 @@ subroutine test_invalid_major_version(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 203,"Expected error code 203 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 203,"Expected error code 203 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_major_version
 
 subroutine test_invalid_minor_version(error)
@@ -554,7 +554,7 @@ subroutine test_invalid_minor_version(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 204, "Expected error code 204 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 204, "Expected error code 204 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_minor_version
 
 subroutine test_invalid_header_len(error)
@@ -580,7 +580,7 @@ subroutine test_invalid_header_len(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 101, "Expected error code 101 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 101, "Expected error code 101 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_header_len
 
 subroutine test_invalid_nul_byte(error)
@@ -606,7 +606,7 @@ subroutine test_invalid_nul_byte(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 102, "Expected error code 102 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 102, "Expected error code 102 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_nul_byte
 
 subroutine test_invalid_key(error)
@@ -632,7 +632,7 @@ subroutine test_invalid_key(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 304, "Expected error code 304 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 304, "Expected error code 304 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_key
 
 subroutine test_invalid_comma(error)
@@ -659,7 +659,7 @@ subroutine test_invalid_comma(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 301, "Expected error code 301 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 301, "Expected error code 301 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_comma
 
 subroutine test_invalid_string(error)
@@ -687,7 +687,7 @@ subroutine test_invalid_string(error)
    call load_npy(filename, array, stat, msg)
    call delete_file(filename)
 
-   call check(error, stat, 302, "Expected error code 302 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 302, "Expected error code 302 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_string
 
 subroutine test_invalid_tuple_literal(error)
@@ -715,7 +715,7 @@ subroutine test_invalid_tuple_literal(error)
    call load_npy(filename, array, stat, msg)
    call delete_file(filename)
 
-   call check(error, stat, 311, "Expected error code 311 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 311, "Expected error code 311 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_tuple_literal
 
 subroutine test_invalid_tuple_comma(error)
@@ -743,7 +743,7 @@ subroutine test_invalid_tuple_comma(error)
    call load_npy(filename, array, stat, msg)
    call delete_file(filename)
 
-   call check(error, stat, 312, "Expected error code 312 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 312, "Expected error code 312 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_tuple_comma
 
 subroutine test_invalid_tuple(error)
@@ -771,7 +771,7 @@ subroutine test_invalid_tuple(error)
    call load_npy(filename, array, stat, msg)
    call delete_file(filename)
 
-   call check(error, stat, 313, "Expected error code 313 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 313, "Expected error code 313 got "//format_string(stat, "(i0)"))
 end subroutine test_invalid_tuple
 
 subroutine test_type_mismatch(error)
@@ -802,17 +802,17 @@ subroutine test_type_mismatch(error)
 
    if (.not.allocated(error)) then
       call load_npy(filename, rarray1, stat, msg)
-      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, '(i0)'))
+      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, "(i0)"))
    end if
 
    if (.not.allocated(error)) then
       call load_npy(filename, rarray2, stat, msg)
-      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, '(i0)'))
+      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, "(i0)"))
    end if
 
    if (.not.allocated(error)) then
       call load_npy(filename, rarray3, stat, msg)
-      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, '(i0)'))
+      call check(error, stat, 11, "Expected error code 11 got "//format_string(stat, "(i0)"))
    end if
    call delete_file(filename)
 end subroutine test_type_mismatch
@@ -840,7 +840,7 @@ subroutine test_rank_mismatch_i4(error)
    close(io)
 
    call load_npy(filename, iarray1, stat, msg)
-   call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, "(i0)"))
 
    call delete_file(filename)
 end subroutine test_rank_mismatch_i4
@@ -868,16 +868,16 @@ subroutine test_rank_mismatch_rdp(error)
    close(io)
 
    call load_npy(filename, rarray1, stat, msg)
-   call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, "(i0)"))
 
    if (.not.allocated(error)) then
       call load_npy(filename, rarray2, stat, msg)
-      call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, '(i0)'))
+      call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, "(i0)"))
    end if
 
    if (.not.allocated(error)) then
       call load_npy(filename, rarray3, stat, msg)
-      call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, '(i0)'))
+      call check(error, stat, 12, "Expected error code 12 got "//format_string(stat, "(i0)"))
    end if
 
    call delete_file(filename)
@@ -907,7 +907,7 @@ subroutine test_duplicate_descr(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 303, "Expected error code 303 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 303, "Expected error code 303 got "//format_string(stat, "(i0)"))
 end subroutine test_duplicate_descr
 
 subroutine test_missing_descr(error)
@@ -933,7 +933,7 @@ subroutine test_missing_descr(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 306, "Expected error code 306 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 306, "Expected error code 306 got "//format_string(stat, "(i0)"))
 end subroutine test_missing_descr
 
 subroutine test_missing_fortran_order(error)
@@ -959,7 +959,7 @@ subroutine test_missing_fortran_order(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 308, "Expected error code 308 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 308, "Expected error code 308 got "//format_string(stat, "(i0)"))
 end subroutine test_missing_fortran_order
 
 subroutine test_missing_shape(error)
@@ -985,7 +985,7 @@ subroutine test_missing_shape(error)
    call load_npy(filename, array, stat)
    call delete_file(filename)
 
-   call check(error, stat, 307, "Expected error code 307 got "//format_string(stat, '(i0)'))
+   call check(error, stat, 307, "Expected error code 307 got "//format_string(stat, "(i0)"))
 end subroutine test_missing_shape
 
 subroutine test_iomsg_deallocated(error)

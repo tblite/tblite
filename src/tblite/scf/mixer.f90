@@ -24,8 +24,8 @@
 module tblite_scf_mixer
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_scf_mixer_broyden, only : broyden_mixer, broyden_input, new_broyden
-   use tblite_scf_mixer_type, only : mixer_type
    use tblite_scf_mixer_input, only : mixer_input, scf_version
+   use tblite_scf_mixer_type, only : mixer_type
    implicit none
    private
 

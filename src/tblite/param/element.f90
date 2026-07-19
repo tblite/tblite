@@ -19,9 +19,9 @@
 
 !> Definition of the element specific parameter records
 module tblite_param_element
+   use mctc_data_paulingen, only : get_pauling_en
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io_symbols, only : to_number, symbol_length
-   use mctc_data_paulingen, only : get_pauling_en
    use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, toml_array, get_value, set_value, add_array, len
    implicit none
@@ -47,7 +47,7 @@ module tblite_param_element
    !> Representation of the element specific parameters
    type, public, extends(serde_record) :: element_record
       !> Element symbol of specie represented by this record
-      character(len=symbol_length) :: sym = ''
+      character(len=symbol_length) :: sym = ""
       !> Atomic number of the specie represented by this record
       integer :: num = 0
 
@@ -108,13 +108,13 @@ module tblite_param_element
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type element_record
 
 
    !> Masking for the element record
    type, public :: element_mask
       !> Element symbol of specie represented by this record
-      character(len=symbol_length) :: sym = ''
+      character(len=symbol_length) :: sym = ""
       !> Atomic number of the specie represented by this record
       integer :: num = 0
 

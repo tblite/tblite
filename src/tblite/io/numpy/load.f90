@@ -355,10 +355,10 @@ subroutine get_npy_descriptor(reader, vtype, vshape, stat, msg)
    character(len=8) :: header
    character :: buf4(4), buf2(2)
    logical :: fortran_order
-   
+
    ! stat should be zero if no error occurred
    stat = 0
-   
+
    call read(reader, header, stat)
    if (stat /= 0) return
 
@@ -424,7 +424,7 @@ subroutine parse_header(header, major, stat, msg)
 
    if (header(1:1) /= magic_number) then
        stat = 201
-       msg = "Expected z'93' but got z'"//format_string(ichar(header(1:1)), '(i0)')//"' "//&
+       msg = "Expected z'93' but got z'"//format_string(ichar(header(1:1)), "(i0)")//"' "//&
            & "as first byte"
        return
    end if
@@ -438,7 +438,7 @@ subroutine parse_header(header, major, stat, msg)
    major = ichar(header(7:7))
    if (.not.any(major == [1, 2, 3])) then
        stat = 203
-       msg = "Unsupported format major version number '"//format_string(major, '(i0)')//"'"
+       msg = "Unsupported format major version number '"//format_string(major, "(i0)")//"'"
        return
    end if
 
@@ -446,7 +446,7 @@ subroutine parse_header(header, major, stat, msg)
    if (minor /= 0) then
        stat = 204
        msg = "Unsupported format version "// &
-           & "'"//format_string(major, '(i0)')//"."//format_string(minor, '(i0)')//"'"
+           & "'"//format_string(major, "(i0)")//"."//format_string(minor, "(i0)")//"'"
        return
    end if
 end subroutine parse_header
@@ -586,10 +586,10 @@ pure function make_message(filename, input, first, last, message) result(str)
    !> Final output message
    character(len=:), allocatable :: str
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    str = message // nl // &
-       & " --> " // filename // ":1:" // format_string(first, '(i0)') // "-" // format_string(last, '(i0)') // nl // &
+       & " --> " // filename // ":1:" // format_string(first, "(i0)") // "-" // format_string(last, "(i0)") // nl // &
        & "  |" // nl // &
        & "1 | " // input // nl // &
        & "  |" // repeat(" ", first) // repeat("^", last - first + 1) // nl // &
@@ -791,8 +791,8 @@ pure function rank_error(filename, vshape, rank) result(msg)
    character(len=:), allocatable :: msg
 
    msg = "File '"//filename//"' contains data of rank "//&
-      & format_string(size(vshape), '(i0)')//", but expected "//&
-      & format_string(rank, '(i0)')
+      & format_string(size(vshape), "(i0)")//", but expected "//&
+      & format_string(rank, "(i0)")
 end function rank_error
 
 !> Create an error message for a failed allocation
@@ -805,7 +805,7 @@ pure function allocation_error(vtype, vshape) result(msg)
    character(len=:), allocatable :: msg
 
    msg = "Failed to allocate array of type '"//vtype//"' "//&
-      & "with total size of "//format_string(product(vshape), '(i0)')
+      & "with total size of "//format_string(product(vshape), "(i0)")
 end function allocation_error
 
 !> Handle the iostat of the read operation

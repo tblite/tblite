@@ -25,12 +25,9 @@ module tblite_post_processing_xtbml
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
+   use tblite_output_format, only : format_string
    use tblite_param_post_processing_xtbml, only : xtbml_record
    use tblite_post_processing_type, only : post_processing_type
-   use tblite_output_format, only : format_string
-   use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_post_processing_xtbml_cache, only : xtbml_cache
    use tblite_post_processing_xtbml_convolution, only : xtbml_convolution, &
       & new_xtbml_convolution
@@ -42,6 +39,9 @@ module tblite_post_processing_xtbml
       & new_xtbml_geometry_features
    use tblite_post_processing_xtbml_orbital, only : xtbml_orbital_features, &
       & new_xtbml_orbital_features
+   use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
@@ -111,8 +111,8 @@ subroutine new_xtbml_features(self, mol, param, error)
       allocate(self%conv)
       if (allocated(param%xtbml_a)) then
          rcov_scale = param%xtbml_a
-      else 
-         rcov_scale = (/1.0_wp/)
+      else
+         rcov_scale = [1.0_wp]
       end if
 
       call new_xtbml_convolution(self%conv, mol, rcov_scale, error)
@@ -234,7 +234,7 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
          call timer%pop()
       end if
    end if
-   
+
    ! Store the number of xTB-ML features also in the dictionary
    call dict%add_entry("n_features", [real(n_features, wp)])
 
@@ -252,7 +252,7 @@ pure function info(self, verbosity, indent) result(str)
    !> Information on the container
    character(len=:), allocatable :: str
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
    character(len=:), allocatable :: category_indent
 
    if (allocated(self%label)) then
@@ -310,7 +310,7 @@ subroutine print_timer(self, timer, prlevel, ctx)
          stime = timer%get(labels(it))
          if (stime <= epsilon(0.0_wp)) cycle
          call ctx%message(" - "//labels(it)//format_time(stime) &
-         & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+         & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
       end do
       call ctx%message("")
    end if

@@ -190,11 +190,11 @@ subroutine test_d_mb03(error)
 
    if (any(abs(dipole - numdip) > thr2)) then
       call test_failed(error, "Numerical dipole moment does not match")
-      print '(3es21.14)', dipole
+      print "(3es21.14)", dipole
       print '("---")'
-      print '(3es21.14)', numdip
+      print "(3es21.14)", numdip
       print '("---")'
-      print '(3es21.14)', dipole - numdip
+      print "(3es21.14)", dipole - numdip
    end if
 
 end subroutine test_d_mb03
@@ -249,11 +249,11 @@ subroutine test_d_mb04(error)
 
    if (any(abs(dipole - numdip) > thr2)) then
       call test_failed(error, "Numerical dipole moment does not match")
-      print '(3es21.14)', dipole
+      print "(3es21.14)", dipole
       print '("---")'
-      print '(3es21.14)', numdip
+      print "(3es21.14)", numdip
       print '("---")'
-      print '(3es21.14)', dipole - numdip
+      print "(3es21.14)", dipole - numdip
    end if
 
 end subroutine test_d_mb04

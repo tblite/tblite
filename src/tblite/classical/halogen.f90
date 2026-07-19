@@ -22,9 +22,9 @@
 
 !> Classical correction term for halogen bonding contributions
 module tblite_classical_halogen
+   use mctc_data_atomicrad, only : get_atomic_rad
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use mctc_data_atomicrad, only : get_atomic_rad
    use tblite_container, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_repulsion_type, only : repulsion_type

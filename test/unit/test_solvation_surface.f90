@@ -119,7 +119,7 @@ subroutine test_mb01(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -155,7 +155,7 @@ subroutine test_mb02(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -191,7 +191,7 @@ subroutine test_mb03(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -242,7 +242,7 @@ subroutine test_mb04(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 

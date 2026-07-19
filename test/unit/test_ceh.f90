@@ -15,8 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_ceh
-   use mctc_data_paulingen, only : get_pauling_en
    use mctc_data_covrad, only : get_covalent_rad
+   use mctc_data_paulingen, only : get_pauling_en
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, &
       & check, test_failed
@@ -24,8 +24,8 @@ module test_ceh
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type
    use tblite_blas, only: gemv
    use tblite_ceh_ceh, only : ceh_h0spec, new_ceh_calculator
    use tblite_ceh_singlepoint, only : ceh_singlepoint
@@ -312,7 +312,7 @@ subroutine test_scaled_selfenergy_mol(error, mol, ref)
    do ii = 1, size(selfenergy, 1)
       call check(error, selfenergy(ii), ref(ii), thr=thr2)
       if (allocated(error)) then
-         print '(2es20.13)', selfenergy(ii), ref(ii)
+         print "(2es20.13)", selfenergy(ii), ref(ii)
          return
       end if
    end do
@@ -379,7 +379,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
       do jj = 1, size(hamiltonian, 1)
          call check(error, hamiltonian(jj, ii), ref(jj, ii), thr=thr2)
          if (allocated(error)) then
-            print '(3es21.13)', hamiltonian(jj, ii), ref(jj, ii), &
+            print "(3es21.13)", hamiltonian(jj, ii), ref(jj, ii), &
             & hamiltonian(jj, ii) - ref(jj, ii)
             return
          end if
@@ -428,11 +428,11 @@ subroutine test_q_gen(error, mol, ref, thr_in)
    do iat = 1, mol%nat
       call check(error, wfn%qat(iat, 1), ref(iat), thr=thr_)
       if (allocated(error)) then
-         print '(3es21.13)',  wfn%qat(iat, 1), ref(iat), &
+         print "(3es21.13)",  wfn%qat(iat, 1), ref(iat), &
          & wfn%qat(iat, 1) - ref(iat)
          return
       end if
-   enddo
+   end do
 
 end subroutine test_q_gen
 
@@ -444,7 +444,7 @@ subroutine test_scaled_selfenergy_h2(error)
 
    integer, parameter :: nsh = 2
    real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -5.2057326046758E-01_wp, -5.2057326046758E-01_wp & 
+      & -5.2057326046758E-01_wp, -5.2057326046758E-01_wp &
       &],shape(scaled_selfenergy))
 
    type(structure_type) :: mol
@@ -478,7 +478,7 @@ subroutine test_scaled_selfenergy_s2(error)
 
    integer, parameter :: nsh = 6
    real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -6.9008304496671E-01_wp, -5.6274208401578E-01_wp, -5.7343694597688E-02_wp, & 
+      & -6.9008304496671E-01_wp, -5.6274208401578E-01_wp, -5.7343694597688E-02_wp, &
       & -6.9008304496671E-01_wp, -5.6274208401578E-01_wp, -5.7343694597688E-02_wp &
       &], shape(scaled_selfenergy))
 
@@ -496,7 +496,7 @@ subroutine test_scaled_selfenergy_sih4(error)
 
    integer, parameter :: nsh = 7
    real(wp), parameter :: scaled_selfenergy(nsh) = reshape([&
-      & -7.0849504464403E-01_wp, -4.7605638972741E-01_wp, -1.8541704653682E-01_wp, & 
+      & -7.0849504464403E-01_wp, -4.7605638972741E-01_wp, -1.8541704653682E-01_wp, &
       & -4.8652644697198E-01_wp, -4.8652644697198E-01_wp, -4.8652644697198E-01_wp, &
       & -4.8652644697198E-01_wp], shape(scaled_selfenergy))
 
@@ -774,7 +774,7 @@ subroutine test_q_h2(error)
 
    type(structure_type) :: mol
    ! calculated with GP3 standalone (full matrix diagonalization)
-   real(wp), parameter :: charges(2) = reshape([ & 
+   real(wp), parameter :: charges(2) = reshape([ &
       & 0.0000000000000_wp, 0.00000000000000_wp], &
       & shape(charges))
 
@@ -865,9 +865,9 @@ subroutine test_q_mb01(error)
    type(structure_type) :: mol
    ! calculated with GP3 standalone (full matrix diagonalization)
    real(wp), parameter :: charges(16) = reshape([ &
-      &  0.50933743182523_wp, -0.063950757122457_wp, -0.447396210062547_wp, &     
+      &  0.50933743182523_wp, -0.063950757122457_wp, -0.447396210062547_wp, &
       & -0.06007626073194_wp, -0.228995347028063_wp,  0.081936572631240_wp, &
-      & -0.04029707489635_wp, -0.384822906853029_wp, -0.214508333206973_wp, &     
+      & -0.04029707489635_wp, -0.384822906853029_wp, -0.214508333206973_wp, &
       &  0.14648324095015_wp,  0.090840217217610_wp,  0.034875957186194_wp, &
       & -0.05930815144452_wp,  0.133798380818110_wp, -0.063944989141738_wp, &
       &  0.56602822987298_wp], shape(charges))
@@ -906,8 +906,8 @@ subroutine test_q_mb03(error)
       & 0.079458459812547_wp, -0.514984986958578_wp,  0.027119814956294_wp, &
       & 0.294936546309030_wp,  0.396051282334921_wp,  0.033859363521586_wp, &
       &-0.261951753885935_wp,  0.026314869404998_wp,  0.037212079428442_wp, &
-      &-0.005505860141304_wp, -0.364181487304452_wp, -0.142392172388313_wp, &     
-      &-0.286416123354516_wp,  0.100899051623118_wp,  0.558735071392839_wp, &     
+      &-0.005505860141304_wp, -0.364181487304452_wp, -0.142392172388313_wp, &
+      &-0.286416123354516_wp,  0.100899051623118_wp,  0.558735071392839_wp, &
       & 0.020845845249307_wp], shape(charges))
 
    call get_structure(mol, "MB16-43", "03")
@@ -944,7 +944,7 @@ subroutine test_q_ef_chrg_mb01(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
    real(wp), parameter :: accuracy = 1e-8_wp
-   class(container_type), allocatable :: cont      
+   class(container_type), allocatable :: cont
    ! calculated with GP3 standalone (full matrix diagonalization)
    real(wp), parameter :: ref(16) = reshape([ &
       &-5.42237346896788_wp, -0.77304500586496_wp,   2.5895850175165_wp, &
@@ -978,7 +978,7 @@ subroutine test_q_ef_chrg_mb01(error)
       call check(error, wfn%qat(i,1), ref(i), thr=5e-6_wp, &
          & message="Calculated charge does not match reference")
       if (allocated(error)) return
-   enddo
+   end do
 
 end subroutine test_q_ef_chrg_mb01
 
@@ -1016,11 +1016,11 @@ subroutine test_d_mb01(error)
 
    if (any(abs(dipole - ref) > 1e-5_wp)) then
       call test_failed(error, "Numerical dipole moment does not match")
-      print '(3es21.14)', dipole
+      print "(3es21.14)", dipole
       print '("---")'
-      print '(3es21.14)', ref
+      print "(3es21.14)", ref
       print '("---")'
-      print '(3es21.14)', dipole - ref
+      print "(3es21.14)", dipole - ref
    end if
 
 end subroutine test_d_mb01
@@ -1037,7 +1037,7 @@ subroutine test_d_field_mb04(error)
    real(wp) :: energy, efield(3), dipole(3), tmp(3)
    real(wp), parameter :: accuracy = 1e-8_wp
    ! calculated with GP3 standalone (full matrix diagonalization)
-   real(wp), parameter :: ref(3) = reshape([ & 
+   real(wp), parameter :: ref(3) = reshape([ &
       & -7.6402587223855_wp,  83.5065044491344_wp,  0.55047274934631_wp], &
       & shape(ref))
 
@@ -1066,11 +1066,11 @@ subroutine test_d_field_mb04(error)
 
    if (any(abs(dipole - ref) > 1e-5_wp)) then
       call test_failed(error, "Numerical dipole moment does not match")
-      print '(3es21.14)', dipole
+      print "(3es21.14)", dipole
       print '("---")'
-      print '(3es21.14)', ref
+      print "(3es21.14)", ref
       print '("---")'
-      print '(3es21.14)', dipole - ref
+      print "(3es21.14)", dipole - ref
    end if
 
 end subroutine test_d_field_mb04
@@ -1136,11 +1136,11 @@ subroutine test_d_hcn(error)
 
    if (any(abs(dip1 - dip2) > 1e-7_wp)) then
       call test_failed(error, "Numerical dipole moment does not match")
-      print '(3es21.14)', dip1
+      print "(3es21.14)", dip1
       print '("---")'
-      print '(3es21.14)', dip2
+      print "(3es21.14)", dip2
       print '("---")'
-      print '(3es21.14)', dip1 - dip2
+      print "(3es21.14)", dip1 - dip2
    end if
 
 end subroutine test_d_hcn

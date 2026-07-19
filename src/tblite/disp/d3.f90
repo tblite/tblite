@@ -19,6 +19,7 @@
 
 !> Semiclassical DFT-D3 dispersion correction
 module tblite_disp_d3
+   use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
@@ -26,7 +27,6 @@ module tblite_disp_d3
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
-   use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
    implicit none
    private
 

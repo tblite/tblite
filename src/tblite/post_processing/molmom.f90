@@ -29,16 +29,16 @@ module tblite_post_processing_molmom
    use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_xtb_calculator, only : xtb_calculator
    use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
+   use tblite_wavefunction_type, only : wavefunction_type
+   use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
 
    public :: molecular_moments, new_molecular_moments
 
-   !> Molecular moments as post-processing method  
+   !> Molecular moments as post-processing method
    type, extends(post_processing_type) :: molecular_moments
       !> Perform dipole moment calculation
       logical :: comp_dipm = .true.
@@ -60,7 +60,7 @@ subroutine new_molecular_moments(self, param)
    type(molecular_moments), intent(out) :: self
    !> Molecular multipole parameterization
    type(molmom_record), intent(in) :: param
-   
+
    self%label = label
 
    self%comp_dipm = param%moldipm
@@ -132,7 +132,7 @@ subroutine print_timer(self, timer, prlevel, ctx)
          stime = timer%get(labels(it))
          if (stime <= epsilon(0.0_wp)) cycle
          call ctx%message(" - "//labels(it)//format_time(stime) &
-            & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+            & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
       end do
       call ctx%message("")
    end if

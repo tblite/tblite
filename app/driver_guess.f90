@@ -21,8 +21,10 @@ module tblite_driver_guess
    use mctc_io, only : structure_type, read_structure, filetype
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : aatoau, ctoau
-   use tblite_cli, only : guess_config
    use tblite_basis_type, only : basis_type
+   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
+   use tblite_cli, only : guess_config
    use tblite_container, only : container_type
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_external_field, only : electric_field
@@ -31,8 +33,6 @@ module tblite_driver_guess
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment
    use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_ceh_singlepoint, only : ceh_singlepoint
-   use tblite_ceh_ceh, only : new_ceh_calculator
 
    implicit none
    private
@@ -91,8 +91,9 @@ contains
          if (exists(filename)) then
             call read_file(filename, charge, error)
             if (allocated(error)) return
-            if (config%verbosity > 0) &
-            & call info(ctx, "Molecular charge read from '"//filename//"'")
+            if (config%verbosity > 0) then
+              call info(ctx, "Molecular charge read from '"//filename//"'")
+            end if
             mol%charge = charge
          end if
       end if
@@ -105,8 +106,9 @@ contains
          if (exists(filename)) then
             call read_file(filename, unpaired, error)
             if (allocated(error)) return
-            if (config%verbosity > 0) &
-            & call info(ctx, "Molecular spin read from '"//filename//"'")
+            if (config%verbosity > 0) then
+              call info(ctx, "Molecular spin read from '"//filename//"'")
+            end if
             mol%uhf = unpaired
          end if
       end if
@@ -242,9 +244,9 @@ contains
       character :: filesep
 
       if (is_windows()) then
-         filesep = '\'
+         filesep = "\"
       else
-         filesep = '/'
+         filesep = "/"
       end if
 
       path = a1 // filesep // a2
@@ -271,15 +273,16 @@ contains
 
       lnum = 0
 
-      open(file=filename, newunit=io, status='old', iostat=stat)
+      open(file=filename, newunit=io, status="old", iostat=stat)
       if (stat /= 0) then
          call fatal_error(error, "Error: Could not open file '"//filename//"'")
          return
       end if
 
       call next_line(io, line, pos, lnum, stat)
-      if (stat == 0) &
-         call read_next_token(line, pos, token, val, stat)
+      if (stat == 0) then
+        call read_next_token(line, pos, token, val, stat)
+      end if
       if (stat /= 0) then
          call io_error(error, "Cannot read value from file", line, token, &
             filename, lnum, "expected integer value")

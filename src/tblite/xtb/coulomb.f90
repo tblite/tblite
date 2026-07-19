@@ -212,7 +212,7 @@ pure function info(self, verbosity, indent) result(str)
    !> Information on the container
    character(len=:), allocatable :: str
 
-   character(len=*), parameter :: nl = new_line('a'), marker = " * "
+   character(len=*), parameter :: nl = new_line("a"), marker = " * "
 
    if (allocated(self%label)) then
       str = self%label

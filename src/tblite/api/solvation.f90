@@ -22,21 +22,21 @@ module tblite_api_solvation
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type
-   use tblite_api_version, only : namespace
    use tblite_api_container, only : vp_container
    use tblite_api_error, only : vp_error
    use tblite_api_structure, only : vp_structure
+   use tblite_api_utils, only: c_f_character
+   use tblite_api_version, only : namespace
    use tblite_basis, only : basis_type
    use tblite_container, only : container_type, container_list
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_features, only : get_tblite_feature
-   use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : solvation_input, ddx_input, alpb_input, &
       & solvent_data, get_solvent_data, solvation_type, new_solvation, solution_state, &
       & new_solvation_cds, new_solvation_shift, cds_input, shift_input, born_kernel, &
       & ddx_solvation_model
-   use tblite_api_utils, only: c_f_character
+   use tblite_spin, only : spin_polarization, new_spin_polarization
    implicit none
    private
 
@@ -109,10 +109,10 @@ function new_ddx_solvation_epsilon_api(verr, vmol, eps, model) result(vcont) &
    solvmodel%ddx = ddx_input(ddx_model=model_int, dielectric_const=eps)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
-   
+
    allocate(cont)
    call move_alloc(solv, cont%ptr)
-   
+
    vcont = c_loc(cont)
 end function new_ddx_solvation_epsilon_api
 
@@ -223,10 +223,10 @@ function new_gb_solvation_epsilon_api(verr, vmol, eps, version, born_type) resul
    solvmodel%alpb = alpb_input(eps, alpb=alpb, kernel=born_type)
    call new_solvation(solv, mol%ptr, solvmodel, err%ptr)
    if (allocated(err%ptr)) return
-   
+
    allocate(cont)
    call move_alloc(solv, cont%ptr)
-   
+
    vcont = c_loc(cont)
 end function new_gb_solvation_epsilon_api
 
@@ -296,7 +296,7 @@ function new_alpb_solvation_solvent_api(verr, vmol, csolvstr, version, crefstate
    if (allocated(err%ptr)) return
    call move_alloc(solv, tmp_cont)
    call list%push_back(tmp_cont)
-   
+
    call new_solvation_cds(cds, mol%ptr, solvmodel, err%ptr, method)
    if (allocated(err%ptr)) return
    call move_alloc(cds, tmp_cont)

@@ -115,7 +115,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    lswork = size(self%swork)
    liwork = size(self%iwork)
 
-   call lapack_sygvd(1, 'v', 'u', self%n, hmat, self%n, self%sbmat, self%n, eval, &
+   call lapack_sygvd(1, "v", "u", self%n, hmat, self%n, self%sbmat, self%n, eval, &
       & self%swork, lswork, self%iwork, liwork, info)
 
    call handle_info(error, info)
@@ -143,7 +143,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
 
-   call lapack_sygvd(1, 'v', 'u', self%n, hmat, self%n, self%dbmat, self%n, eval, &
+   call lapack_sygvd(1, "v", "u", self%n, hmat, self%n, self%dbmat, self%n, eval, &
       & self%dwork, ldwork, self%iwork, liwork, info)
 
    call handle_info(error, info)
@@ -156,7 +156,7 @@ subroutine handle_info(error, info)
 
    if (info /= 0) then
       call fatal_error(error, "(sygvd) failed to solve eigenvalue problem.&
-         & info="//format_string(info, '(i0)'))
+         & info="//format_string(info, "(i0)"))
    end if
 end subroutine handle_info
 

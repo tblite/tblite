@@ -22,8 +22,8 @@ module tblite_api_table
    use, intrinsic :: iso_c_binding
    use mctc_env, only : fatal_error
    use tblite_api_error, only : vp_error
-   use tblite_api_version, only : namespace
    use tblite_api_utils, only : c_f_character, f_c_character, strlen
+   use tblite_api_version, only : namespace
    use tblite_toml, only : toml_table, toml_array, toml_key, toml_value, add_array, set_value, get_value, len, toml_error, toml_dump
    implicit none
    private
@@ -1076,7 +1076,7 @@ subroutine dump_table_api(verror, vtable, cfilename) &
    call c_f_pointer(vtable, table)
    call c_f_character(cfilename, filename)
 
-   open(newunit=unit, file=filename, status='replace', action='write')
+   open(newunit=unit, file=filename, status="replace", action="write")
    call toml_dump(table%ptr, unit, ser_error)
    close(unit)
 

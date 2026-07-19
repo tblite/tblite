@@ -27,7 +27,7 @@ program main_driver
 
    call get_arguments(config, error)
    if (allocated(error)) then
-      write(error_unit, '(a)') error%message
+      write(error_unit, "(a)") error%message
       error stop
    end if
 
@@ -44,7 +44,7 @@ program main_driver
       call main(config, error)
    end select
    if (allocated(error)) then
-      write(error_unit, '(a)') error%message
+      write(error_unit, "(a)") error%message
       error stop
    end if
 end program main_driver

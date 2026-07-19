@@ -22,11 +22,11 @@ module tblite_driver_fit
    use mctc_io_resize, only : resize
    use tblite_cli, only : fit_config
    use tblite_context_type, only : context_type
-   use tblite_output_format, only : format_string
-   use tblite_param, only : param_record, count
    use tblite_fit_newuoa, only : newuoa
    use tblite_fit_settings, only : fit_settings
    use tblite_os, only : setenv, file_exists, delete_file
+   use tblite_output_format, only : format_string
+   use tblite_param, only : param_record, count
    implicit none
    private
 
@@ -105,11 +105,11 @@ subroutine summary(unit, config, set)
    type(fit_config), intent(in) :: config
    type(fit_settings), intent(in) :: set
 
-   write(unit, '(a, t30, a)') &
+   write(unit, "(a, t30, a)") &
       & "Optimization method", set%method, &
-      & "Max. function evaluations", format_string(count(set%mask)*set%max_iter, '(i0)'), &
-      & "Number of parameters", format_string(count(set%mask), '(i0)'), &
-      & "Initial trust radius", format_string(set%trustr, '(f8.6)'), &
+      & "Max. function evaluations", format_string(count(set%mask)*set%max_iter, "(i0)"), &
+      & "Number of parameters", format_string(count(set%mask), "(i0)"), &
+      & "Initial trust radius", format_string(set%trustr, "(f8.6)"), &
       & "Initial parameter file", config%param, &
       & "Script command", "'"//set%script//"'"
 end subroutine summary

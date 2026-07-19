@@ -18,7 +18,7 @@
 !> Provides transformation from cartesian to spherical harmonic basis functions
 
 !> Implementation of transformations from cartesian to spherical harmonic basis functions
-!> and adjoint transformation for contravariant vectors from spherical harmonic 
+!> and adjoint transformation for contravariant vectors from spherical harmonic
 !> to cartesian basis functions.
 !>
 !> Spherical harmonics use standard ordering, *i.e.* [-l, ..., 0, ..., l].
@@ -78,27 +78,27 @@ module tblite_integral_trafo
    real(wp), parameter :: s315_16 = sqrt(315.0_wp/16.0_wp)
    real(wp), parameter :: gtrafo(9, 15) = reshape([&
       !  -4     -3     -2     -1       0    1      2       3        4
-      &  0._wp, 0._wp, 0._wp, 0._wp,   d38, 0._wp,-s5_16,  0._wp,  s35_64, & ! xxxx
-      &  0._wp, 0._wp, 0._wp, 0._wp,   d38, 0._wp, s5_16,  0._wp,  s35_64, & ! yyyy
-      &  0._wp, 0._wp, 0._wp, 0._wp, 1._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! zzzz
-      &  s35_4, 0._wp,-s10_8, 0._wp, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! xxxy
-      &  0._wp, 0._wp, 0._wp, 0._wp, 0._wp,-s45_8, 0._wp,  s35_8,   0._wp, & ! xxxz
-      & -s35_4, 0._wp,-s10_8, 0._wp, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! xyyy
-      &  0._wp,-s35_8, 0._wp,-s45_8, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! yyyz
-      &  0._wp, 0._wp, 0._wp, 0._wp, 0._wp,   s10, 0._wp,  0._wp,   0._wp, & ! xzzz
-      &  0._wp, 0._wp, 0._wp,   s10, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! yzzz
-      &  0._wp, 0._wp, 0._wp, 0._wp,   d34, 0._wp, 0._wp,  0._wp,-s315_16, & ! xxyy
-      &  0._wp, 0._wp, 0._wp, 0._wp,-3._wp, 0._wp, s45_4,  0._wp,   0._wp, & ! xxzz
-      &  0._wp, 0._wp, 0._wp, 0._wp,-3._wp, 0._wp,-s45_4,  0._wp,   0._wp, & ! yyzz
-      &  0._wp,s315_8, 0._wp,-s45_8, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp, & ! xxyz
-      &  0._wp, 0._wp, 0._wp, 0._wp, 0._wp,-s45_8, 0._wp,-s315_8,   0._wp, & ! xyyz
-      &  0._wp, 0._wp,   s45, 0._wp, 0._wp, 0._wp, 0._wp,  0._wp,   0._wp],& ! xyzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp,-s5_16,  0.0_wp,  s35_64, & ! xxxx
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp, s5_16,  0.0_wp,  s35_64, & ! yyyy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! zzzz
+      &  s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxxy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,  s35_8,   0.0_wp, & ! xxxz
+      & -s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyyy
+      &  0.0_wp,-s35_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yyyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp,  0.0_wp,   0.0_wp, & ! xzzz
+      &  0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yzzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d34, 0.0_wp, 0.0_wp,  0.0_wp,-s315_16, & ! xxyy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp, s45_4,  0.0_wp,   0.0_wp, & ! xxzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp,-s45_4,  0.0_wp,   0.0_wp, & ! yyzz
+      &  0.0_wp,s315_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,-s315_8,   0.0_wp, & ! xyyz
+      &  0.0_wp, 0.0_wp,   s45, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp],& ! xyzz
       &  shape(gtrafo))
 
 contains
 
 
-!> Transformation from the cartesian to the spherical harmonic basis 
+!> Transformation from the cartesian to the spherical harmonic basis
 !> for a shell pair block.
 pure subroutine transform0(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i
@@ -245,7 +245,7 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
 
 end subroutine transform0
 
-!> Transformation from the cartesian to the spherical harmonic basis 
+!> Transformation from the cartesian to the spherical harmonic basis
 !> for a vector of shell pair block.
 pure subroutine transform1(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i
@@ -268,7 +268,7 @@ pure subroutine transform1(lj, li, cart, sphr, bra, ket)
    end do
 end subroutine transform1
 
-!> Transformation from the cartesian to the spherical harmonic basis 
+!> Transformation from the cartesian to the spherical harmonic basis
 !> for a matrix of shell pair block.
 pure subroutine transform2(lj, li, cart, sphr, bra, ket)
    !> Angular momentum of ket shell i

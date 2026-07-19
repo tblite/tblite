@@ -46,7 +46,7 @@ module tblite_param_repulsion
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type repulsion_record
 
 
    !> Provides a mask for the repulsion model

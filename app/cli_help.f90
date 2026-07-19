@@ -22,7 +22,7 @@ module tblite_cli_help
    public :: prog_name, help_text, help_text_run, help_text_param, help_text_fit, &
       & help_text_tagdiff, help_text_guess
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    !> Name of the main executable
    character(len=*), parameter :: prog_name = "tblite"
@@ -160,7 +160,7 @@ module tblite_cli_help
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
       "      --pcm <real>/<name>  Use polarizable continuum solvation model (PCM)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --solv-state <name>  Solution state correction: gsolv (default), bar1mol, reference."//nl//& 
+      "      --solv-state <name>  Solution state correction: gsolv (default), bar1mol, reference."//nl//&
       "      --spin-polarized     Use spin-polarized xTB Hamiltonian"//nl//&
       "      --post-processing <file>"//nl//&
       "                           Add post processing methods to the calculation"//nl//&
@@ -169,7 +169,7 @@ module tblite_cli_help
       "                           Add post processing methods to the calculation,"//nl//&
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
       "                           Options: molmom (molecular multipole moments)"//nl//&
-      "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
+      "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//&
       "      --post-processing-output <file>"//nl//&
       "                           Output file for post processing results in npz format,"//nl//&
       "                           or HDF5 with .h5/.hdf5 when HDF5 is available."//nl//&

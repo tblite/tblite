@@ -31,15 +31,15 @@
 !> [6D]/[10F]/[15G]   optional explicit declaration of cartesian format
 !> [MO]
 !> ```
-!> 
+!>
 !> This format extends the official Molden specification documented at
 !>
 !>   https://www.theochem.ru.nl/molden/molden_format.html
-!> 
+!>
 !> The non-standard `[Cell]` section (consistent with Multiwfn and CP2K)
-!> specifies periodic information lacking in the Molden Format, and 
+!> specifies periodic information lacking in the Molden Format, and
 !> contains cartesian lattice vectors assuming three-dimensional periodicity:
-!> 
+!>
 !> ```
 !> [Cell] AU
 !>   ax ay az
@@ -47,7 +47,7 @@
 !>   cx cy cz
 !> ```
 !>
-!> The Molden writer and reader follow the official specification for the ordering 
+!> The Molden writer and reader follow the official specification for the ordering
 !> of cartesian/spherical atomic orbitals in the `[GTO]` section:
 !>
 !> ```
@@ -71,21 +71,21 @@
 !> The reader accepts both Cartesian and spherical Molden MO coefficient ordering.
 !>
 !> Primitive coefficients written in the `[GTO]` section contain normalization
-!> of the spherical harmonic Gaussian primitives, as well as normalization 
-!> of the contracted basis functions (the used expansion by Stewart of the STO-nG 
+!> of the spherical harmonic Gaussian primitives, as well as normalization
+!> of the contracted basis functions (the used expansion by Stewart of the STO-nG
 !> functions inherently contains contracted normalization). The reader assumes
 !> that the coefficients contain both primitive and contracted normalization.
 !>
 !> The number of valence electrons and the effective atomic charge is specified via
-!> the non-standard `[Core]` section (consistent with Molden2AIM and PySCF), 
+!> the non-standard `[Core]` section (consistent with Molden2AIM and PySCF),
 !> the non-standard `[Pseudo]` section (consistent with Molden, CP2K, and Orca),
-!> the non-standard `[Nval]` section (consistent with Multiwfn). 
+!> the non-standard `[Nval]` section (consistent with Multiwfn).
 !>
-!> In the `[MO]` section, restricted closed-shell wavefunctions are written as 
+!> In the `[MO]` section, restricted closed-shell wavefunctions are written as
 !> spatial orbitals, while restricted open-shell and unrestricted wavefunctions
 !> are written as separate alpha and beta spin orbitals.
-!> 
-!> The Molden reader constructs tblite internal `structure_type`, `basis_type`, and 
+!>
+!> The Molden reader constructs tblite internal `structure_type`, `basis_type`, and
 !> `wavefunction_type` objects from the corresponding sections of the Molden file.
 
 !> Implementation of Molden file I/O
@@ -96,9 +96,9 @@ module tblite_io_molden
    use mctc_io_convert, only : aatoau
    use tblite_basis_type, only : basis_type, cgto_type, new_basis, new_cgto
    use tblite_version, only : get_tblite_version
+   use tblite_wavefunction_spin, only : magnet_to_updown
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
       & get_density_matrix
-   use tblite_wavefunction_spin, only : magnet_to_updown
    implicit none
    private
 
@@ -174,8 +174,8 @@ subroutine load_molden(filename, mol, bas, wfn, error)
    type(line_buffer_type) :: cell, atoms, core, pseudo, nval, gto
    logical :: pending, has_mo, use_6d, use_10f, use_15g
 
-   open(newunit=unit, file=filename, status='old', action='read', &
-      & access='stream', form="formatted", iostat=stat, iomsg=errmsg)
+   open(newunit=unit, file=filename, status="old", action="read", &
+      & access="stream", form="formatted", iostat=stat, iomsg=errmsg)
    if (stat /= 0) then
       call fatal_error(error, "Failed to open Molden input '"//filename//"': "//trim(errmsg))
       return
@@ -194,7 +194,7 @@ subroutine load_molden(filename, mol, bas, wfn, error)
          pending = .false.
       else
          ! Read the next line keeping track of the file position
-         read(unit, '(A)', iostat=stat) line
+         read(unit, "(A)", iostat=stat) line
          ! Check for EOF and I/O errors
          if (stat == iostat_end) exit
          if (stat /= 0) then
@@ -292,7 +292,7 @@ subroutine collect_section_lines(unit, buffer, pending, pending_line, error)
    integer :: stat
 
    do
-      read(unit, '(A)', iostat=stat) line
+      read(unit, "(A)", iostat=stat) line
       ! Check for EOF and I/O errors
       if (stat == iostat_end) exit
       if (stat /= 0) then
@@ -326,7 +326,7 @@ subroutine skip_section(unit, pending, pending_line, error)
    integer :: stat
 
    do
-      read(unit, '(A)', iostat=stat) line
+      read(unit, "(A)", iostat=stat) line
       ! Check for EOF and I/O errors
       if (stat == iostat_end) exit
       if (stat /= 0) then
@@ -360,17 +360,17 @@ subroutine save_molden(filename, mol, bas, wfn, error)
    integer :: unit, stat
    character(len=:), allocatable :: version_string
 
-   open(newunit=unit, file=filename, status='replace', action='write', &
+   open(newunit=unit, file=filename, status="replace", action="write", &
       & iostat=stat, iomsg=errmsg)
    if (stat /= 0) then
       call fatal_error(error, "Failed to open Molden output '"//filename//"': "//trim(errmsg))
       return
    end if
 
-   write(unit,'(A)') '[Molden Format]'
-   write(unit,'(A)') '[Title]'
+   write(unit,"(A)") "[Molden Format]"
+   write(unit,"(A)") "[Title]"
    call get_tblite_version(string=version_string)
-   write(unit,'(A)') 'tblite version '//trim(version_string)
+   write(unit,"(A)") "tblite version "//trim(version_string)
 
    call write_cell(unit, mol, error)
    if (.not.allocated(error)) call write_atoms(unit, mol, error)
@@ -379,9 +379,9 @@ subroutine save_molden(filename, mol, bas, wfn, error)
    if (.not.allocated(error)) call write_nval(unit, mol, wfn, error)
    if (.not.allocated(error)) call write_gto(unit, mol, bas, error)
    if (.not.allocated(error)) then
-      if (bas%maxl >= 2) write(unit,'(A)') '[6D]'
-      if (bas%maxl >= 3) write(unit,'(A)') '[10F]'
-      if (bas%maxl >= 4) write(unit,'(A)') '[15G]'
+      if (bas%maxl >= 2) write(unit,"(A)") "[6D]"
+      if (bas%maxl >= 3) write(unit,"(A)") "[10F]"
+      if (bas%maxl >= 4) write(unit,"(A)") "[15G]"
    end if
    if (.not.allocated(error)) call write_mo(unit, mol, bas, wfn, error)
 
@@ -607,7 +607,7 @@ subroutine read_gto(buffer, mol, nsh, nsh_id, cgto, error)
       end if
       ! Check for shell header
       call parse_shell_header(line, l, nprim, stat)
-      if (stat == 0) then 
+      if (stat == 0) then
          if (iat < 1 .or. iat > mol%nat) then
             call fatal_error(error, "[GTO] shell before valid atom index")
             return
@@ -1136,7 +1136,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
    tmp_nao = 0
 
    ! Read the [MO] section starting from the first line after the header.
-   read(unit, '(A)', pos=mo_position, iostat=stat) line
+   read(unit, "(A)", pos=mo_position, iostat=stat) line
    do
       ! Check for end of file
       if (stat == iostat_end) exit
@@ -1149,7 +1149,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
       if (len_trim(section_id(line)) > 0) exit
       ! Ignore blank lines.
       if (len_trim(line) == 0) then
-         read(unit, '(A)', iostat=stat) line
+         read(unit, "(A)", iostat=stat) line
          cycle
       end if
 
@@ -1243,7 +1243,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
          tmp_coeff(ao_map(iao)) = tmp
       end if
       ! Read the next line
-      read(unit, '(A)', iostat=stat) line
+      read(unit, "(A)", iostat=stat) line
    end do
 
    ! Store the last block if it exists and check for consistent orbital counts
@@ -1350,9 +1350,9 @@ subroutine write_cell(unit, mol, error)
    if (.not. allocated(mol%periodic) .or. .not. allocated(mol%lattice)) return
 
    if (any(mol%periodic)) then
-      write(unit,'(A)') '[Cell] AU'
+      write(unit,"(A)") "[Cell] AU"
       do ilat = 1, 3
-         write(unit,'(3(1x,ES24.16))') mol%lattice(:, ilat)
+         write(unit,"(3(1x,ES24.16))") mol%lattice(:, ilat)
       end do
    end if
 end subroutine write_cell
@@ -1369,11 +1369,11 @@ subroutine write_atoms(unit, mol, error)
    character(len=2) :: sym
    integer :: iat, isp
 
-   write(unit,'(A)') '[Atoms] AU'
+   write(unit,"(A)") "[Atoms] AU"
    do iat = 1, mol%nat
       isp = mol%id(iat)
       sym = trim(mol%sym(isp))
-      write(unit,'(a2,1x,i6,1x,i6,3(1x,ES24.16))') sym, iat, mol%num(isp), &
+      write(unit,"(a2,1x,i6,1x,i6,3(1x,ES24.16))") sym, iat, mol%num(isp), &
          & mol%xyz(1, iat), mol%xyz(2, iat), mol%xyz(3, iat)
    end do
 end subroutine write_atoms
@@ -1392,13 +1392,13 @@ subroutine write_core(unit, mol, wfn, error)
    character(len=2) :: sym
    integer :: iat, isp
 
-   write(unit,'(A)') '[Core]'
+   write(unit,"(A)") "[Core]"
    do isp = 1, mol%nid
       sym = trim(mol%sym(isp))
       do iat = 1, mol%nat
          if (mol%id(iat) == isp) exit
       end do
-      write(unit,'(a2,1x,a,1x,i0)') sym, ':', mol%num(isp) - nint(wfn%n0at(iat))
+      write(unit,"(a2,1x,a,1x,i0)") sym, ":", mol%num(isp) - nint(wfn%n0at(iat))
    end do
 end subroutine write_core
 
@@ -1416,11 +1416,11 @@ subroutine write_pseudo(unit, mol, wfn, error)
    character(len=2) :: sym
    integer :: iat, isp
 
-   write(unit,'(A)') '[Pseudo]'
+   write(unit,"(A)") "[Pseudo]"
    do iat = 1, mol%nat
       isp = mol%id(iat)
       sym = trim(mol%sym(isp))
-      write(unit,'(a2,1x,i6,1x,i6)') sym, iat, nint(wfn%n0at(iat))
+      write(unit,"(a2,1x,i6,1x,i6)") sym, iat, nint(wfn%n0at(iat))
    end do
 end subroutine write_pseudo
 
@@ -1438,13 +1438,13 @@ subroutine write_nval(unit, mol, wfn, error)
    character(len=2) :: sym
    integer :: iat, isp
 
-   write(unit,'(A)') '[Nval]'
+   write(unit,"(A)") "[Nval]"
    do isp = 1, mol%nid
       sym = trim(mol%sym(isp))
       do iat = 1, mol%nat
          if (mol%id(iat) == isp) exit
       end do
-      write(unit,'(a2,1x,i6)') sym, nint(wfn%n0at(iat))
+      write(unit,"(a2,1x,i6)") sym, nint(wfn%n0at(iat))
    end do
 end subroutine write_nval
 
@@ -1462,31 +1462,31 @@ subroutine write_gto(unit, mol, bas, error)
    character(len=1) :: aang
    integer :: iat, iprim, ish
 
-   write(unit,'(A)') '[GTO]'
+   write(unit,"(A)") "[GTO]"
    do iat = 1, mol%nat
-      write(unit,'(i6,a)') iat, ' 0'
+      write(unit,"(i6,a)") iat, " 0"
       do ish = 1, bas%nsh_at(iat)
          associate(p_cgto => &
                & bas%cgto(ish, mol%id(iat)))
             select case(p_cgto%ang)
             case(0)
-               aang = 's'
+               aang = "s"
             case(1)
-               aang = 'p'
+               aang = "p"
             case(2)
-               aang = 'd'
+               aang = "d"
             case(3)
-               aang = 'f'
+               aang = "f"
             case(4)
-               aang = 'g'
+               aang = "g"
             case default
                call fatal_error(error, "Molden writer only supports angular momenta up to g")
                return
             end select
 
-            write(unit,'(a,1x,i6,1x,f8.2)') aang, p_cgto%nprim, 1.00_wp
+            write(unit,"(a,1x,i6,1x,f8.2)") aang, p_cgto%nprim, 1.00_wp
             do iprim = 1, p_cgto%nprim
-               write(unit,'(2(1x,ES24.16))') p_cgto%alpha(iprim), p_cgto%coeff(iprim)
+               write(unit,"(2(1x,ES24.16))") p_cgto%alpha(iprim), p_cgto%coeff(iprim)
             end do
          end associate
       end do
@@ -1528,37 +1528,37 @@ subroutine write_mo(unit, mol, bas, wfn, error)
          & coeff_cart(:, :, spin))
    end do
 
-   write(unit,'(A)') '[MO]'
+   write(unit,"(A)") "[MO]"
    do spin = 1, nspin_mo
       cspin = min(spin, wfn%nspin)
 
       do imo = 1, bas%nao
-         write(unit,'(A)', advance='no') 'Sym= '
+         write(unit,"(A)", advance="no") "Sym= "
          if (spin_resolved_mo) then
             if (spin == 1) then
-               write(unit,'(i5,a)') imo, 'a (alpha)'
+               write(unit,"(i5,a)") imo, "a (alpha)"
             else
-               write(unit,'(i5,a)') imo, 'a (beta)'
+               write(unit,"(i5,a)") imo, "a (beta)"
             end if
          else
-            write(unit,'(i5,a)') imo, 'a'
+            write(unit,"(i5,a)") imo, "a"
          end if
 
-         write(unit,'(A)', advance='no') 'Ene= '
+         write(unit,"(A)", advance="no") "Ene= "
          write(unit,*) wfn%emo(imo, cspin)
 
-         write(unit,'(A)', advance='no') 'Spin= '
+         write(unit,"(A)", advance="no") "Spin= "
          if (spin_resolved_mo .and. spin == 2) then
-            write(unit,'(A)') 'Beta'
+            write(unit,"(A)") "Beta"
          else
-            write(unit,'(A)') 'Alpha'
+            write(unit,"(A)") "Alpha"
          end if
 
-         write(unit,'(A)', advance='no') 'Occup= '
+         write(unit,"(A)", advance="no") "Occup= "
          if (spin_resolved_mo) then
-            write(unit,'(F14.8)') wfn%focc(imo, spin)
+            write(unit,"(F14.8)") wfn%focc(imo, spin)
          else
-            write(unit,'(F14.8)') wfn%focc(imo, 1) + wfn%focc(imo, 2)
+            write(unit,"(F14.8)") wfn%focc(imo, 1) + wfn%focc(imo, 2)
          end if
 
          jao = 0
@@ -1574,7 +1574,7 @@ subroutine write_mo(unit, mol, bas, wfn, error)
 
                do iao_cart = 1, bas%nao_cart_sh(is + ish)
                   jao = jao + 1
-                  write(unit,'(i6,1x,ES24.16)') jao, coeff_cart(ii + perm(iao_cart), &
+                  write(unit,"(i6,1x,ES24.16)") jao, coeff_cart(ii + perm(iao_cart), &
                      & imo, cspin)
                end do
             end do

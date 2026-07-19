@@ -21,13 +21,13 @@
 module tblite_api_result
    use, intrinsic :: iso_c_binding
    use mctc_env, only : wp, error_type, fatal_error
+   use tblite_api_double_dictionary, only : vp_double_dictionary
    use tblite_api_error, only : vp_error
    use tblite_api_utils, only : c_f_character
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_restart, only : load_wavefunction, save_wavefunction
-   use tblite_api_double_dictionary, only : vp_double_dictionary
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 

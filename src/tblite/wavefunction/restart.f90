@@ -20,9 +20,9 @@
 !> Implementation for reading and writing restart files
 module tblite_wavefunction_restart
    use mctc_env, only : wp, error_type, fatal_error
-   use tblite_io_numpy, only : load_npz, save_npz
-   use tblite_io_hdf5, only : load_hdf5, save_hdf5
    use tblite_io_data, only : iodata_type, open_iodata_handler
+   use tblite_io_hdf5, only : load_hdf5, save_hdf5
+   use tblite_io_numpy, only : load_npz, save_npz
    use tblite_output_format, only : format_string
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -128,13 +128,13 @@ subroutine load_wavefunction(wfn, filename, error, nat, nsh, nao, nspin)
    if (size(wfn%dpat, 1) /= 3) then
       call fatal_error(error, "Dimension mismatch in '"//filename//&
          & "' for atomic dipole moments "//&
-         & format_string(size(wfn%dpat, 1), '(i0)')//" != 3")
+         & format_string(size(wfn%dpat, 1), "(i0)")//" != 3")
       return
    end if
    if (size(wfn%qpat, 1) /= 6) then
       call fatal_error(error, "Dimension mismatch in '"//filename//&
          & "' for atomic quadrupole moments "//&
-         & format_string(size(wfn%qpat, 1), '(i0)')//" != 6")
+         & format_string(size(wfn%qpat, 1), "(i0)")//" != 6")
       return
    end if
    if (size(kt) /= 1) then

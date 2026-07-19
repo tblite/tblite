@@ -23,16 +23,16 @@ program tester
    use test_ceh, only : collect_ceh
    use test_cgto_ortho, only : collect_cgto_ortho
    use test_coulomb_charge, only : collect_coulomb_charge
-   use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_coulomb_multipole, only : collect_coulomb_multipole
-   use test_double_dictionary, only : collect_double_dictionary
+   use test_coulomb_thirdorder, only : collect_coulomb_thirdorder
    use test_dispersion, only : collect_dispersion
+   use test_double_dictionary, only : collect_double_dictionary
    use test_fit, only : collect_fit
    use test_gfn1_xtb, only : collect_gfn1_xtb
    use test_gfn2_xtb, only : collect_gfn2_xtb
+   use test_halogen, only : collect_halogen
    use test_hamiltonian, only : collect_hamiltonian
    use test_hdf5, only : collect_hdf5
-   use test_halogen, only : collect_halogen
    use test_integral_multipole, only : collect_integral_multipole
    use test_integral_overlap, only : collect_integral_overlap
    use test_integral_trafo, only : collect_integral_trafo
@@ -43,12 +43,12 @@ program tester
    use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
-   use test_spin, only : collect_spin
    use test_solvation_born, only : collect_solvation_born
-   use test_solvation_ddx, only : collect_solvation_ddx
-   use test_solvation_surface, only : collect_solvation_surface
    use test_solvation_cds, only: collect_solvation_cds
+   use test_solvation_ddx, only : collect_solvation_ddx
    use test_solvation_shift, only: collect_solvation_shift
+   use test_solvation_surface, only : collect_solvation_surface
+   use test_spin, only : collect_spin
    use test_tagged_io, only : collect_tagged_io
    use test_trexio, only : collect_trexio
    use test_wavefunction_restart, only : collect_wavefunction_restart
@@ -132,7 +132,7 @@ program tester
    end if
 
    if (stat > 0) then
-      write(error_unit, '(i0, 1x, a)') stat, "test(s) failed!"
+      write(error_unit, "(i0, 1x, a)") stat, "test(s) failed!"
       error stop 1
    end if
 

@@ -27,8 +27,8 @@ module test_xtb_param
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : export_gfn2_param, new_gfn2_calculator
    use tblite_xtb_gfn1, only : export_gfn1_param, new_gfn1_calculator
+   use tblite_xtb_gfn2, only : export_gfn2_param, new_gfn2_calculator
    use tblite_xtb_ipea1, only : export_ipea1_param, new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -98,7 +98,7 @@ subroutine test_param_minimal(error)
    type(param_record) :: param
 
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "[hamiltonian.xtb]", &
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
@@ -157,7 +157,7 @@ subroutine test_param_invalid(error)
    type(param_record) :: param
 
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "[hamiltonian.xtb]", &
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
@@ -292,7 +292,7 @@ subroutine test_mask_gfn2(error)
 
    mask1%ref => base%record
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "hamiltonian = {}", &
       "dispersion = {}", &
       "repulsion = {}", &
@@ -346,7 +346,7 @@ subroutine test_mask_gfn1(error)
 
    mask%ref => base%record
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "hamiltonian = {}", &
       "dispersion = {}", &
       "repulsion = {}", &
@@ -602,7 +602,7 @@ function get_name() result(name)
    real :: val
 
    call random_number(val)
-   write(name, '(a, z8.8)') "tblite-test-", int(val*1.0e9)
+   write(name, "(a, z8.8)") "tblite-test-", int(val*1.0e9)
 end function get_name
 
 

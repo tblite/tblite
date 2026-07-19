@@ -16,8 +16,8 @@
 !> @file tblite/post-processing/xtb-ml/convolution.f90
 !> Coordination number based convolution
 module tblite_post_processing_xtbml_convolution
-   use mctc_env, only : wp, error_type
    use mctc_data_covrad, only : get_covalent_rad
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count
    use tblite_post_processing_xtbml_cache, only : xtbml_cache
@@ -103,7 +103,7 @@ subroutine compute_kernel(self, mol, mlcache)
    type(structure_type), intent(in) :: mol
    !> Cache for xTB-ML features
    type(xtbml_cache), intent(inout) :: mlcache
-   
+
    integer :: isc
 
    if (.not. allocated(mlcache%conv_kernel)) then

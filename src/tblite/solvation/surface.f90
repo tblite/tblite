@@ -23,8 +23,8 @@ module tblite_solvation_surface
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use mctc_io_convert, only : aatoau
-   use tblite_mesh_lebedev, only : get_angular_grid, grid_size, list_bisection
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
+   use tblite_mesh_lebedev, only : get_angular_grid, grid_size, list_bisection
    implicit none
    private
 
@@ -49,7 +49,7 @@ module tblite_solvation_surface
    end type surface_integrator
 
    !> real space cut-offs
-   real(wp), parameter :: tolsesp = 1.e-6_wp
+   real(wp), parameter :: tolsesp = 1.0e-6_wp
 
    real(wp), parameter :: default_offset = 2.0_wp*aatoau
    real(wp), parameter :: default_smoothing = 0.3_wp*aatoau
@@ -88,8 +88,8 @@ subroutine new_surface_integrator(self, num, rad, probe, nang, offset, smoothing
    end if
    w3 = w*w*w
    self%ah0 = 0.5_wp
-   self%ah1 = 3._wp/(4.0_wp*w)
-   self%ah3 = -1._wp/(4.0_wp*w3)
+   self%ah1 = 3.0_wp/(4.0_wp*w)
+   self%ah3 = -1.0_wp/(4.0_wp*w3)
    do iat = 1, nat
       izp = num(iat)
       self%vdwsa(iat) = rad(izp) + probe

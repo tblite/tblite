@@ -23,10 +23,10 @@ module tblite_container_list
    use mctc_io, only : structure_type
    use tblite_container_cache, only : container_cache, resize
    use tblite_container_type, only : container_type
+   use tblite_output_format, only : format_string
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -285,7 +285,7 @@ pure function info(self, verbosity, indent) result(str)
    character(len=:), allocatable :: str
 
    integer :: ic
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    if (allocated(self%label)) then
       str = self%label

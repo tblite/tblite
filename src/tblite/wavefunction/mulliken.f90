@@ -220,7 +220,7 @@ subroutine get_mayer_bond_orders(mol, bas, smat, pmat, mbo)
                      end do
                   end do
                end do
-            end do 
+            end do
             mbo(jat, iat, spin) = pao * uhf_scale
             mbo(iat, jat, spin) = pao * uhf_scale
          end do

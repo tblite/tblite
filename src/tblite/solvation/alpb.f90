@@ -30,11 +30,11 @@ module tblite_solvation_alpb
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_solvation_born, only : born_integrator, new_born_integrator
+   use tblite_solvation_cm5, only : get_cm5_charges
    use tblite_solvation_data, only : get_vdw_rad_cosmo
    use tblite_solvation_type, only : solvation_type
-   use tblite_solvation_cm5, only : get_cm5_charges
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -157,15 +157,15 @@ function create_alpb_input(dielectric_const, solvent, alpb, kernel) result(self)
 
    self%dielectric_const = dielectric_const
 
-   if (present(solvent)) then 
+   if (present(solvent)) then
       self%solvent = solvent
    end if
 
-   if (present(alpb)) then 
+   if (present(alpb)) then
       self%alpb = alpb
    end if
 
-   if (present(kernel)) then 
+   if (present(kernel)) then
       self%kernel = kernel
    end if
 
@@ -190,8 +190,8 @@ subroutine new_alpb(self, mol, input, method)
    self%keps = (1.0_wp/input%dielectric_const - 1.0_wp) / (1.0_wp + self%alpbet)
    self%kernel = input%kernel
    if (allocated(input%solvent) .and. present(method)) then
-      self%useCM5 = trim(method) == 'gfn1'
-   endif
+      self%useCM5 = trim(method) == "gfn1"
+   end if
 
    if (allocated(input%rvdw)) then
       rvdw = input%rvdw
@@ -247,19 +247,19 @@ subroutine update(self, mol, cache)
    end if
    if (.not.allocated(ptr%qscratch))then
       allocate(ptr%qscratch(mol%nat))
-   endif 
+   end if
    if (self%useCM5)then
       if (.not.allocated(ptr%cm5))then
-         allocate(ptr%cm5(mol%nat)) 
-      endif
+         allocate(ptr%cm5(mol%nat))
+      end if
       if (.not.allocated(ptr%dcm5dr))then
          allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
-      endif
+      end if
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
-   endif
+   end if
    if (self%useCM5.and..not.allocated(ptr%scratch))then
       allocate(ptr%scratch(mol%nat))
-   endif
+   end if
 
    call self%gbobc%get_rad(mol, ptr%rad, ptr%draddr)
    ptr%jmat(:, :) = 0.0_wp
@@ -295,12 +295,12 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    type(alpb_cache), pointer :: ptr
 
    call view(cache, ptr)
-   
+
    if(self%useCM5)then
       ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
    else
       ptr%qscratch(:) = wfn%qat(:, 1)
-   endif
+   end if
 
    call symv(ptr%jmat, ptr%qscratch(:), ptr%vat, alpha=0.5_wp)
    energies(:) = energies + ptr%vat * ptr%qscratch(:)
@@ -328,7 +328,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
    else
       ptr%qscratch(:) = wfn%qat(:, 1)
-   endif
+   end if
 
    call symv(ptr%jmat, ptr%qscratch(:), pot%vat(:, 1), beta=1.0_wp)
 end subroutine get_potential
@@ -359,7 +359,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
       ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
    else
       ptr%qscratch(:) = wfn%qat(:, 1)
-   endif
+   end if
 
    select case(self%kernel)
    case(born_kernel%p16)
@@ -378,7 +378,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    if(self%useCM5)then
       call gemv(ptr%jmat, ptr%qscratch, ptr%scratch)
       call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
-   endif
+   end if
 
 end subroutine get_gradient
 
@@ -459,11 +459,11 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
 
          Amat(iat, jat) = keps*dfgb + Amat(iat, jat)
          Amat(jat, iat) = keps*dfgb + Amat(jat, iat)
-      enddo
+      end do
       ! self-energy part
       bp = 1.0_wp/brad(iat)
       Amat(iat, iat) = Amat(iat, iat) + keps*bp
-   enddo
+   end do
 
 end subroutine add_born_mat_p16
 
@@ -494,8 +494,8 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
 
    allocate(dEdbr(nat), source = 0.0_wp )
 
-   egb = 0._wp
-   dEdbr(:) = 0._wp
+   egb = 0.0_wp
+   dEdbr(:) = 0.0_wp
 
    ! GB energy and gradient
    ! omp parallel do default(none) reduction(+:egb, gradient, dEdbr) &
@@ -539,13 +539,13 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
       end do
 
       ! self-energy part
-      bp = 1._wp/brad(iat)
+      bp = 1.0_wp/brad(iat)
       qq = qat(iat)*bp
       egb = egb + 0.5_wp*qat(iat)*qq*keps
       dEdbri = -0.5_wp*keps*qq*bp
       dEdbr(iat) = dEdbr(iat) + dEdbri*qat(iat)
       !gradient = gradient + brdr(:, :, i) * dEdbri*qat(i)
-   enddo
+   end do
 
    ! contract with the Born radii derivatives
    call gemv(brdr, dEdbr, gradient, beta=1.0_wp)
@@ -587,12 +587,12 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
          dfgb = 1.0_wp/sqrt(fgb2)
          Amat(i, j) = keps*dfgb + Amat(i, j)
          Amat(j, i) = keps*dfgb + Amat(j, i)
-      enddo
+      end do
 
       ! self-energy part
-      bp = 1._wp/brad(i)
+      bp = 1.0_wp/brad(i)
       Amat(i, i) = Amat(i, i) + keps*bp
-   enddo
+   end do
 
 end subroutine add_born_mat_still
 
@@ -617,7 +617,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    real(wp), contiguous, intent(inout) :: gradient(:, :)
 
    integer :: i, j
-   real(wp), parameter :: a13=1._wp/3._wp
+   real(wp), parameter :: a13=1.0_wp/3.0_wp
    real(wp), parameter :: a4=0.25_wp
    real(wp) :: aa, r2, fgb2
    real(wp) :: qq, dd, expd, dfgb, dfgb2, dfgb3, egb, ap, bp
@@ -627,8 +627,8 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
 
    allocate(grddb(nat), source = 0.0_wp )
 
-   egb = 0._wp
-   grddb(:) = 0._wp
+   egb = 0.0_wp
+   grddb(:) = 0.0_wp
 
    ! GB energy and gradient
 
@@ -645,32 +645,32 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
          dd = a4*r2/aa
          expd = exp(-dd)
          fgb2 = r2+aa*expd
-         dfgb2 = 1._wp/fgb2
+         dfgb2 = 1.0_wp/fgb2
          dfgb = sqrt(dfgb2)
          dfgb3 = dfgb2*dfgb*keps
 
          egb = egb + qq*keps*dfgb
 
-         ap = (1._wp-a4*expd)*dfgb3
+         ap = (1.0_wp-a4*expd)*dfgb3
          dr = ap*vec
          gradient(:, i) = gradient(:, i) - dr*qq
          gradient(:, j) = gradient(:, j) + dr*qq
 
-         bp = -0.5_wp*expd*(1._wp+dd)*dfgb3
+         bp = -0.5_wp*expd*(1.0_wp+dd)*dfgb3
          grddbi = brad(j)*bp
          grddbj = brad(i)*bp
          grddb(i) = grddb(i) + grddbi*qq
          grddb(j) = grddb(j) + grddbj*qq
 
-      enddo
+      end do
 
       ! self-energy part
-      bp = 1._wp/brad(i)
+      bp = 1.0_wp/brad(i)
       qq = qat(i)*bp
       egb = egb + 0.5_wp*qat(i)*qq*keps
       grddbi = -0.5_wp*keps*qq*bp
       grddb(i) = grddb(i) + grddbi*qat(i)
-   enddo
+   end do
 
    ! contract with the Born radii derivatives
    call gemv(brdr, grddb, gradient, beta=1.0_wp)

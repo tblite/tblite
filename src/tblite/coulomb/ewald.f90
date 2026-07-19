@@ -143,7 +143,7 @@ subroutine search_alpha(lattice, rec_lat, volume, tolerance, dirv, recv, alpha)
    end do
    if (alpha > huge(1.0_wp)) then
       stat = 1
-   elseif (alpha == alpha0) then
+   else if (alpha == alpha0) then
       stat = 2
    end if
 

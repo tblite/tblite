@@ -22,8 +22,8 @@ module tblite_driver_param
    use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_toml, only : toml_table, merge_table
-   use tblite_xtb_gfn2, only : export_gfn2_param
    use tblite_xtb_gfn1, only : export_gfn1_param
+   use tblite_xtb_gfn2, only : export_gfn2_param
    use tblite_xtb_ipea1, only : export_ipea1_param
    implicit none
    private
@@ -85,16 +85,18 @@ subroutine param_main(config, error)
    if (allocated(error)) return
 
    if (config%verbosity > 1) then
-      if (allocated(param%name)) &
-         write(output_unit, '(a)') param%name
-      if (allocated(param%reference)) &
-         write(output_unit, '(a)') param%reference
+      if (allocated(param%name)) then
+        write(output_unit, "(a)") param%name
+      end if
+      if (allocated(param%reference)) then
+        write(output_unit, "(a)") param%reference
+      end if
    end if
 
    if (allocated(config%output)) then
       call param%dump(config%output, error)
       if (.not.allocated(error)) then
-         if (config%verbosity > 0) write(output_unit, '(a)') &
+         if (config%verbosity > 0) write(output_unit, "(a)") &
             "[Info] Parameter file written to '"//config%output//"'"
       end if
    end if

@@ -21,16 +21,16 @@ module test_coulomb_charge
    use mctc_io, only : structure_type, new
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type
+   use tblite_ceh_ceh, only : get_effective_qat
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_charge, only : coulomb_charge_type, effective_coulomb, &
       & new_effective_coulomb, harmonic_average, arithmetic_average, &
       & gamma_coulomb, new_gamma_coulomb
-   use tblite_scf, only: new_potential, potential_type
-   use tblite_ceh_ceh, only : get_effective_qat
    use tblite_cutoff, only : get_lattice_points
+   use tblite_scf, only: new_potential, potential_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
    private
@@ -454,14 +454,14 @@ subroutine get_charges_effceh(wfn, mol, nshell, error)
    &  3.9800000000_wp,  3.5124865506_wp,  2.3578254072_wp,  2.4225832022_wp, &
    &  2.1120078826_wp,  2.4607564741_wp,  2.7410779326_wp,  3.3517034720_wp, &
    &  4.1093492601_wp,  3.7979559518_wp,  2.4147937668_wp,  2.1974781961_wp]
-   
+
    real(wp), allocatable :: lattr(:, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
    class(ncoord_type), allocatable :: ncoord_en
    integer :: iat, ii, ish
 
    allocate(cn_en(mol%nat), dcn_endr(3, mol%nat, mol%nat), dcn_endL(3, 3, mol%nat))
 
-   ! Get electronegativity-weighted coordination number 
+   ! Get electronegativity-weighted coordination number
    call new_ncoord(ncoord_en, mol, cn_count%erf_en, error, &
       & rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
    if (allocated(error)) return
@@ -480,9 +480,9 @@ subroutine get_charges_effceh(wfn, mol, nshell, error)
             wfn%qsh(ii+ish, :) = wfn%qat(iat, :) / real(nshell(iat), wp)
             wfn%dqshdr(:, :, ii+ish, :) = wfn%dqatdr(:, :, iat, :) / real(nshell(iat), wp)
             wfn%dqshdL(:, :, ii+ish, :) = wfn%dqatdL(:, :, iat, :) / real(nshell(iat), wp)
-         end do 
+         end do
          ii = ii + nshell(iat)
-      end do 
+      end do
    end if
 
 end subroutine get_charges_effceh
@@ -600,7 +600,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_numgrad
@@ -632,7 +632,7 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
 
-   ! Setup potentials and wavefunction with dummy basis set 
+   ! Setup potentials and wavefunction with dummy basis set
    call make_basis(bas, mol, 6)
    call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
    call new_potential(potr, mol, bas, 1, .true.)
@@ -660,7 +660,7 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
          if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
-         
+
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
          if(shell) then
             numpotgrad(ic, iat, :) = 0.5_wp*(potr%vsh(:,1) - potl%vsh(:,1))/step
@@ -675,16 +675,16 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
    call coulomb%update(mol, cache)
    call coulomb%get_potential(mol, cache, wfn, potl)
    call coulomb%get_potential_gradient(mol, cache, wfn, potl)
-   
+
    if(shell) then
       if (any(abs(potl%dvshdr(:,:,:,1) - numpotgrad) > thr2)) then
          call test_failed(error, "Gradient of shell-resolved potential does not match")
-         print'(3es21.14)', potl%dvshdr(:,:,:,1) - numpotgrad
+         print"(3es21.14)", potl%dvshdr(:,:,:,1) - numpotgrad
       end if
    else
       if (any(abs(potl%dvatdr(:,:,:,1) - numpotgrad) > thr2)) then
          call test_failed(error, "Gradient of atom-resolved potential does not match")
-         print'(3es21.14)', potl%dvatdr(:,:,:,1) - numpotgrad
+         print"(3es21.14)", potl%dvatdr(:,:,:,1) - numpotgrad
       end if
    end if
 
@@ -759,7 +759,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_numsigma
@@ -796,7 +796,7 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
 
    allocate(xyz(3, mol%nat), source=0.0_wp)
 
-   ! Setup potentials and wavefunction with dummy basis set 
+   ! Setup potentials and wavefunction with dummy basis set
    call make_basis(bas, mol, 6)
    call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
    call new_potential(potr, mol, bas, 1, .true.)
@@ -851,12 +851,12 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
    if(shell) then
       if (any(abs(potl%dvshdL(:,:,:,1) - numpotsigma) > thr2)) then
          call test_failed(error, "Sigma of shell-resolved potential does not match")
-         print'(3es21.14)', potl%dvshdL(:,:,:,1) - numpotsigma
+         print"(3es21.14)", potl%dvshdL(:,:,:,1) - numpotsigma
       end if
    else
       if (any(abs(potl%dvatdL(:,:,:,1) - numpotsigma) > thr2)) then
          call test_failed(error, "Sigma of atom-resolved potential does not match")
-         print'(3es21.14)', potl%dvatdL(:,:,:,1) - numpotsigma
+         print"(3es21.14)", potl%dvatdL(:,:,:,1) - numpotsigma
       end if
    end if
 

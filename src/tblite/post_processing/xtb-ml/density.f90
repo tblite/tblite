@@ -22,10 +22,10 @@ module tblite_post_processing_xtbml_density
    use tblite_container_list, only : cache_list
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
+   use tblite_output_format, only : format_string
    use tblite_post_processing_xtbml_cache, only : xtbml_cache
    use tblite_post_processing_xtbml_convolution, only : xtbml_convolution
    use tblite_post_processing_xtbml_features, only : xtbml_feature_type
-   use tblite_output_format, only : format_string
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_multipoles
    use tblite_wavefunction_spin, only : magnet_to_updown
    use tblite_wavefunction_type, only : wavefunction_type
@@ -171,7 +171,7 @@ subroutine compute_features(self, mol, wfn, ints, calc, caches, mlcache, &
       ! Store shell dipole moment norms
       call add_shell_feature(mol, calc%bas, mlcache%dpsh_norm(:, spin), "dipm", &
          & empty, spin_label(spin), dict, n_features)
-      
+
       ! Optionally store shell dipole moment components
       if (self%return_xyz) then
          do ic = 1, size(dp_labels)
@@ -321,7 +321,7 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
       do isc = 1, convolution%nscale
 
          ! Suffix for combined spin and convolution
-         a_label = "_"//trim(adjustl(format_string(convolution%rcov_scale(isc), '(f12.2)')))
+         a_label = "_"//trim(adjustl(format_string(convolution%rcov_scale(isc), "(f12.2)")))
          if (a_label == "_1.00") a_label = empty
          conv_label = trim(spin_label(spin))//a_label
 
@@ -428,7 +428,7 @@ subroutine multipole_norm(dp, qp, dp_norm, qp_norm)
 end subroutine multipole_norm
 
 
-!> Add shell-resolved properties to dictionary in angular-momentum categories 
+!> Add shell-resolved properties to dictionary in angular-momentum categories
 subroutine add_shell_feature(mol, bas, shell_prop, prefix, postfix, &
    & spin_label, dict, n_features)
    !> Molecular structure data

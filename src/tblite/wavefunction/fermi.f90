@@ -83,7 +83,7 @@ subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
       total_dfermi = 0.0
       do iao = 1, size(emo)
          fermifunct = 0.0
-         if((emo(iao)-e_fermi)/kt.lt.50) then
+         if((emo(iao)-e_fermi)/kt<50) then
             fermifunct = 1.0/(exp((emo(iao)-e_fermi)/kt)+1.0)
             dfermifunct = exp((emo(iao)-e_fermi)/kt) / &
                & (kt*(exp((emo(iao)-e_fermi)/kt)+1.0)**2)

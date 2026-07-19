@@ -20,11 +20,11 @@
 !> @file tblite/double_dictionery.f90
 !> Implements double dictionary type
 module tblite_double_dictionary
-   use mctc_env_accuracy, only : wp, i8
    use mctc_env, only : error_type, fatal_error
+   use mctc_env_accuracy, only : wp, i8
+   use tblite_io_data, only : iodata_type, open_iodata_handler, iodata_record
    use tblite_toml, only : toml_array, toml_table, toml_key, add_table, set_value, toml_error
    use tblite_toml, only : toml_dump, add_array,  get_value, toml_parse
-   use tblite_io_data, only : iodata_type, open_iodata_handler, iodata_record
    implicit none
    private
 
@@ -111,7 +111,7 @@ pure function equal_record(lhs, rhs) result(equal)
       equal = all(lhs%array1 == rhs%array1)
       return
    end if
-      
+
    if (allocated(lhs%array2) .and. allocated(rhs%array2)) then
       equal = all(lhs%array2 == rhs%array2)
       return
@@ -233,7 +233,7 @@ subroutine dump_to_file(self, file, error)
    inquire(file=file, exist=exist)
    if (exist) then
       open(file=file, newunit=io)
-      close(io, status='delete')
+      close(io, status="delete")
    end if
 
    call open_iodata_handler(iodata, file, error)
@@ -275,7 +275,7 @@ pure subroutine remove_entry_index(self, index)
    call move_alloc(self%record, tmp)
    old_n = self%n
    self%n = self%n - 1
-   
+
    allocate(self%record(self%n))
    it = 1
    do i = 1, old_n
@@ -283,16 +283,16 @@ pure subroutine remove_entry_index(self, index)
       call move_record(tmp(i), self%record(it))
       it = it + 1
    end do
- 
+
 end subroutine remove_entry_index
 
 pure subroutine remove_entry_label(self, label)
    class(double_dictionary_type), intent(inout) :: self
    character(len=*), intent(in) :: label
-   integer :: it 
+   integer :: it
    it = return_label_index(self, label)
    if (it /= 0) then
-      call self%remove_entry_index(it) 
+      call self%remove_entry_index(it)
    end if
 end subroutine remove_entry_label
 
@@ -308,7 +308,7 @@ pure subroutine copy(to, from)
    integer :: n_entries, i
    to%n = from%n
    if (allocated(to%record)) deallocate(to%record)
-   if (from%n > 0) then 
+   if (from%n > 0) then
       allocate(to%record(size(from%record)))
       n_entries = from%n
 
@@ -317,7 +317,7 @@ pure subroutine copy(to, from)
       end do
    end if
 
-end subroutine
+end subroutine copy
 
 pure subroutine move_record(from, to)
    class(double_record), intent(inout) :: to
@@ -347,7 +347,7 @@ pure subroutine copy_record(to, from)
    if (allocated(from%array1)) to%array1 = from%array1
    if (allocated(from%array2)) to%array2 = from%array2
    if (allocated(from%array3)) to%array3 = from%array3
-end subroutine
+end subroutine copy_record
 
 pure subroutine concatenate_overwrite(self, dict2)
    class(double_dictionary_type), intent(inout) :: self
@@ -356,7 +356,7 @@ pure subroutine concatenate_overwrite(self, dict2)
    tmp_dict = self + dict2
    self = tmp_dict
 
-end subroutine
+end subroutine concatenate_overwrite
 
 pure function combine_dict(self, dict2) result(new_dict)
    class(double_dictionary_type), intent(in) :: self
@@ -373,7 +373,7 @@ pure function combine_dict(self, dict2) result(new_dict)
       end do
    end associate
 
-end function
+end function combine_dict
 
 pure subroutine update_1d(self, label, array)
    class(double_dictionary_type), intent(inout) :: self
@@ -393,7 +393,7 @@ pure subroutine update_1d(self, label, array)
    else
       return
    end if
-end subroutine
+end subroutine update_1d
 
 pure subroutine update_2d(self, label, array)
    class(double_dictionary_type), intent(inout) :: self
@@ -412,7 +412,7 @@ pure subroutine update_2d(self, label, array)
    else
       return
    end if
-end subroutine
+end subroutine update_2d
 
 pure subroutine update_3d(self, label, array)
    class(double_dictionary_type), intent(inout) :: self

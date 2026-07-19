@@ -33,15 +33,15 @@ module tblite_ceh_singlepoint
    use tblite_output_format, only: format_string
    use tblite_scf_iterator, only: next_density, get_qat_from_qsh
    use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1
+   use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, &
-      & get_alpha_beta_occupation
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
       & get_mulliken_atomic_multipoles
-   use tblite_scf_solver, only : solver_type
+   use tblite_wavefunction_type, only : wavefunction_type, &
+      & get_alpha_beta_occupation
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_hamiltonian, get_selfenergy, get_occupation
-   use tblite_xtb_spec, only : tb_h0spec 
+   use tblite_xtb_spec, only : tb_h0spec
    implicit none
    private
 
@@ -84,13 +84,13 @@ contains
       type(adjacency_list) :: list
       ! Potential type
       type(potential_type) :: pot
-      ! Restart data for interaction containers and coulomb 
+      ! Restart data for interaction containers and coulomb
       type(container_cache) :: icache, ccache
       ! Timer
       type(timer_type) :: timer
       ! Error container
       type(error_type), allocatable :: error
-      
+
       logical :: grad
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
@@ -112,7 +112,7 @@ contains
 
       if (prlevel > 1) then
          call ctx%message("CEH singlepoint")
-      endif
+      end if
       ! Gradient logical as future starting point (not implemented yet)
       ! Entry point could either be (i) modified wavefunction type (including derivatives),
       ! (iii) additional wavefunction derivative type (see old commits) or (ii) optional
@@ -177,14 +177,14 @@ contains
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
          call timer%pop
-      endif
+      end if
 
       ! Add potential due to Coulomb
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
          ! Use electronegativity-weighted CN as 0th-order charge guess
          call get_effective_qat(mol, cn_en, wfn%qat)
-      
+
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)
          call timer%pop
@@ -215,7 +215,7 @@ contains
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
 
       call timer%pop
-      
+
       block
          integer :: it
          real(wp) :: ttime, stime
@@ -230,7 +230,7 @@ contains
                stime = timer%get(label(it))
                if (stime <= epsilon(0.0_wp)) cycle
                call ctx%message(" - "//label(it)//format_time(stime) &
-                  & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+                  & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
             end do
             call ctx%message("")
          end if

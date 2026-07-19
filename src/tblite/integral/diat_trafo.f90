@@ -124,7 +124,7 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
 
    ! Transform the overlap submatrix to the diatomic frame: S' = O_j^T * S * O_i
    call gemm(amat=cache%rot, bmat=block_overlap, cmat=cache%tmpprod, &
-      & transa='T', m=cache%dimj, n=cache%dimi, k=cache%dimj)
+      & transa="T", m=cache%dimj, n=cache%dimi, k=cache%dimj)
    call gemm(amat=cache%tmpprod, bmat=cache%rot, cmat=cache%diat_overlap, &
       & m=cache%dimj, n=cache%dimi, k=cache%dimi)
 
@@ -150,17 +150,17 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
          & ksig, kpi, kdel)
    end if
 
-   ! Transform the diatomic-frame-scaled overlap back to the original frame: 
+   ! Transform the diatomic-frame-scaled overlap back to the original frame:
    ! Ssc = O_j Ssc' O_i^T
    call gemm(amat=cache%rot, bmat=cache%diat_overlap, cmat=cache%tmpprod, &
       & m=cache%dimj, n=cache%dimi, k=cache%dimj)
    call gemm(amat=cache%tmpprod, bmat=cache%rot, cmat=block_overlap, &
-      & transb='T', m=cache%dimj, n=cache%dimi, k=cache%dimi)
+      & transb="T", m=cache%dimj, n=cache%dimi, k=cache%dimi)
 
 end subroutine diat_trafo
 
 ! Calculate diatomic frame scaled overlap gradient for one cartesian component
-pure subroutine diat_trafo_grad_component(block_overlap, block_doverlap, & 
+pure subroutine diat_trafo_grad_component(block_overlap, block_doverlap, &
    & scaled_diat_overlap, rotation, drotation, tmpprod, diat_deriv, &
    & dimj, dimi, maxlj, maxli, ksig, kpi, kdel)
    !> Diatomic block of CGTO overlap to be transformed and scaled
@@ -196,7 +196,7 @@ pure subroutine diat_trafo_grad_component(block_overlap, block_doverlap, &
    call gemm(amat=block_overlap, bmat=rotation, cmat=tmpprod, &
       & m=dimj, n=dimi, k=dimi)
    call gemm(amat=drotation, bmat=tmpprod, cmat=diat_deriv, &
-      & transa='T', m=dimj, n=dimi, k=dimj)
+      & transa="T", m=dimj, n=dimi, k=dimj)
 
    ! diat_deriv += O_j^T (dS O_i + S dO_i)
    call gemm(amat=block_doverlap, bmat=rotation, cmat=tmpprod, &
@@ -204,7 +204,7 @@ pure subroutine diat_trafo_grad_component(block_overlap, block_doverlap, &
    call gemm(amat=block_overlap, bmat=drotation, cmat=tmpprod, &
       & beta=1.0_wp, m=dimj, n=dimi, k=dimi)
    call gemm(amat=rotation, bmat=tmpprod, cmat=diat_deriv, &
-      & transa='T', beta=1.0_wp, m=dimj, n=dimi, k=dimj)
+      & transa="T", beta=1.0_wp, m=dimj, n=dimi, k=dimj)
 
    ! Scale derivative in the diatomic frame
    call scale_diatomic_frame(diat_deriv, ksig, kpi, kdel, maxlj, maxli)
@@ -215,13 +215,13 @@ pure subroutine diat_trafo_grad_component(block_overlap, block_doverlap, &
    call gemm(amat=rotation, bmat=diat_deriv, cmat=tmpprod, &
       & beta=1.0_wp, m=dimj, n=dimi, k=dimj)
    call gemm(amat=tmpprod, bmat=rotation, cmat=block_doverlap, &
-      & transb='T', m=dimj, n=dimi, k=dimi)
+      & transb="T", m=dimj, n=dimi, k=dimi)
 
    ! dSsc += O_j (Ssc') dO_i^T
    call gemm(amat=rotation, bmat=scaled_diat_overlap, cmat=tmpprod, &
       & m=dimj, n=dimi, k=dimj)
    call gemm(amat=tmpprod, bmat=drotation, cmat=block_doverlap, &
-      & transb='T', beta=1.0_wp, m=dimj, n=dimi, k=dimi)
+      & transb="T", beta=1.0_wp, m=dimj, n=dimi, k=dimi)
 
 end subroutine diat_trafo_grad_component
 
@@ -242,7 +242,7 @@ pure subroutine harmtr(maxl, vec, trafomat)
    ! -----------------------------
    !  s functions (trafomat(1x1))
    ! -----------------------------
-   
+
    trafomat(1,1) = 1.0_wp
 
    if ( maxl == 0 ) return
@@ -253,13 +253,13 @@ pure subroutine harmtr(maxl, vec, trafomat)
 
    ! Prepare spherical coordinats
    cost = norm_vec(3)
-   if ( abs(cost) .eq. 1.0_wp ) then
+   if ( abs(cost) == 1.0_wp ) then
       ! Here, phi is arbitrary as the vector is parallel to the z-axis.
       ! We choose the x-axis as the arbitrary direction.
       sint = 0.0_wp
       cosp = 1.0_wp
       sinp = 0.0_wp
-   else if ( abs(cost) .eq. 0.0_wp ) then
+   else if ( abs(cost) == 0.0_wp ) then
       sint = 1.0_wp
       cosp = norm_vec(1)
       sinp = norm_vec(2)
@@ -267,7 +267,7 @@ pure subroutine harmtr(maxl, vec, trafomat)
       sint = sqrt(norm_vec(1)**2 + norm_vec(2)**2)
       cosp = norm_vec(1)/sint
       sinp = norm_vec(2)/sint
-   endif
+   end if
 
    ! -----------------------------
    !  p functions (trafomat(4x4))
@@ -291,7 +291,7 @@ pure subroutine harmtr(maxl, vec, trafomat)
    if ( maxl <= 1 ) return
 
    ! -----------------------------
-   !  d functions (trafomat(9x9)) 
+   !  d functions (trafomat(9x9))
    ! -----------------------------
 
    cos2t = cost**2 - sint**2
@@ -300,13 +300,13 @@ pure subroutine harmtr(maxl, vec, trafomat)
    sin2p = 2.0_wp * sinp*cosp
    sqrt3 = sqrt(3.0_wp)
 
-   ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
+   ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions
    ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
    ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
    ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
    ! (8,:)_MSINDO -> (dx2-y2,:) -> (5,:)_tblite
    ! (9,:)_MSINDO -> (dxy,:) -> (9,:)_tblite
-   
+
    trafomat(5, 5) = cost*cos2p
    trafomat(6, 5) = -sint*cosp
    trafomat(7, 5) = 0.0_wp
@@ -326,7 +326,7 @@ pure subroutine harmtr(maxl, vec, trafomat)
    trafomat(6, 8) = cos2t*sinp
    trafomat(7, 8) = -sqrt3*sin2t*0.5_wp
    trafomat(8, 8) = cos2t*cosp
-   trafomat(9, 8) = sin2t*cos2p*0.5_wp   
+   trafomat(9, 8) = sin2t*cos2p*0.5_wp
    trafomat(5, 9) = (1.0_wp + cost**2) * sin2p * 0.5_wp
    trafomat(6, 9) = -sin2t*sinp*0.5_wp
    trafomat(7, 9) = sqrt3*sint**2 * 0.5_wp
@@ -363,7 +363,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
    dtrafomat = 0.0_wp
 
    ! -----------------------------
-   !  s functions (trafomat(1x1)) 
+   !  s functions (trafomat(1x1))
    ! -----------------------------
 
    trafomat(1, 1) = 1.0_wp
@@ -378,17 +378,17 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
 
    ! Prepare spherical coordinats
    cost = norm_vec(3)
-   if ( abs(cost) .eq. 1.0_wp ) then
+   if ( abs(cost) == 1.0_wp ) then
       sint = 0.0_wp
       ! Here, phi is arbitrary as the vector is parallel to the z-axis.
       ! In turn, the derivative is ill defined and has to be evaluated
-      ! assuming either x or y orientation for the infinitesimal change. 
+      ! assuming either x or y orientation for the infinitesimal change.
       ! This is only require for the p- and d-functions, which are transformed.
       cosp = 1.0_wp
       sinp = 0.0_wp
       cospy = 0.0_wp
       sinpy = -1.0_wp
-   else if ( abs(cost) .eq. 0.0_wp ) then
+   else if ( abs(cost) == 0.0_wp ) then
       sint = 1.0_wp
       cosp = norm_vec(1)
       sinp = norm_vec(2)
@@ -400,24 +400,24 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
       sinp = norm_vec(2)/sint
       cospy = cosp
       sinpy = sinp
-   endif
+   end if
 
    ! Prepare sperical coordinate derivative
    ! In the case of (exactly) vec || z-axis, the phi derivative vanishes.
-   if( norm_vec(1)**2 + norm_vec(2)**2 .eq. 0.0_wp ) then
+   if( norm_vec(1)**2 + norm_vec(2)**2 == 0.0_wp ) then
       dpdx = 0.0_wp
       dpdy = 0.0_wp
    else
-      dpdx = -sinp / sqrt(vec(1)**2 + vec(2)**2) 
+      dpdx = -sinp / sqrt(vec(1)**2 + vec(2)**2)
       dpdy = cospy / sqrt(vec(1)**2 + vec(2)**2)
-   end if 
+   end if
    dpdz = 0.0_wp
    dtdx = cost * cosp / len
    dtdy = cost * sinpy / len
    dtdz = -sint / len
 
    ! -----------------------------
-   !  p functions (trafomat(4x4)) 
+   !  p functions (trafomat(4x4))
    ! -----------------------------
 
    ! Adapted to tblite ordering from MSINDO
@@ -481,7 +481,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
    if ( maxl <= 1 ) return
 
    ! -----------------------------
-   !  d functions (trafomat(9x9)) 
+   !  d functions (trafomat(9x9))
    ! -----------------------------
 
    sqrt3 = sqrt(3.0_wp)
@@ -491,7 +491,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
    sin2p = 2.0_wp * sinp*cosp
    cos2py = cospy**2 - sinpy**2
    sin2py = 2.0_wp * sinpy*cospy
-   
+
    dcos2t = -2.0_wp * sin2t
    dsin2t =  2.0_wp * cos2t
    dcos2p = -2.0_wp * sin2p
@@ -499,7 +499,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
    dcos2py = -2.0_wp * sin2py
    dsin2py =  2.0_wp * cos2py
 
-   ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
+   ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions
    ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
    ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
    ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
@@ -536,7 +536,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
    trafomat_y(6, 5) = -sint*cospy
    trafomat_y(7, 5) = 0.0_wp
    trafomat_y(8, 5) = sint*sinpy
-   trafomat_y(9, 5) = -cost*sin2py   
+   trafomat_y(9, 5) = -cost*sin2py
    trafomat_y(5, 6) = sint*cos2py
    trafomat_y(6, 6) = cost*cospy
    trafomat_y(7, 6) = 0.0_wp
@@ -651,12 +651,12 @@ pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
 
    diat_mat(1,1) = diat_mat(1,1)*ksig ! Sigma bond s   <-> s
    if(maxlj > 0) then
-      diat_mat(3,1) = diat_mat(3,1)*ksig ! Sigma bond pz  <-> s 
+      diat_mat(3,1) = diat_mat(3,1)*ksig ! Sigma bond pz  <-> s
    end if
    if(maxli > 0)  then
       diat_mat(1,3) = diat_mat(1,3)*ksig ! Sigma bond s   <-> pz
    end if
-   if(maxlj > 0 .and. maxli > 0) then 
+   if(maxlj > 0 .and. maxli > 0) then
       diat_mat(3,3) = diat_mat(3,3)*ksig ! Sigma bond pz  <-> pz
       diat_mat(4,4) = diat_mat(4,4)*kpi  ! Pi    bond px  <-> px
       diat_mat(2,2) = diat_mat(2,2)*kpi  ! Pi    bond py  <-> py
@@ -665,7 +665,7 @@ pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
          diat_mat(8,4) = diat_mat(8,4)*kpi  ! Pi    bond dxz <-> px
          diat_mat(6,2) = diat_mat(6,2)*kpi  ! Pi    bond dyz <-> py
       end if
-      if(maxli > 1) then         
+      if(maxli > 1) then
          diat_mat(3,7) = diat_mat(3,7)*ksig ! Sigma bond pz  <-> dz2
          diat_mat(4,8) = diat_mat(4,8)*kpi  ! Pi    bond px  <-> dxz
          diat_mat(2,6) = diat_mat(2,6)*kpi  ! Pi    bond py  <-> dyz
@@ -675,7 +675,7 @@ pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
       diat_mat(7,1) = diat_mat(7,1)*ksig ! Sigma bond dz2 <-> s
    end if
    if (maxli > 1) then
-      diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2   
+      diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2
    end if
    if (maxlj > 1 .and. maxli > 1) then
       diat_mat(7,7) = diat_mat(7,7)*ksig ! Sigma bond dz2 <-> dz2
@@ -683,7 +683,7 @@ pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
       diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dyz <-> dyz
       diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dxy <-> dxy
       diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dx2-y2 <-> dx2-y2
-   endif
+   end if
    ! f- and g-functions remain unscaled
 
 end subroutine scale_diatomic_frame

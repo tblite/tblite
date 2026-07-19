@@ -26,19 +26,19 @@ module tblite_api_calculator
    use tblite_api_param, only : vp_param
    use tblite_api_result, only : vp_result
    use tblite_api_structure, only : vp_structure
+   use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
+   use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
    use tblite_scf_mixer_input, only : anneal_input, scf_version
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator, xtb_config
-   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_api_utils, only : f_c_character, c_f_character
-   use tblite_post_processing_list, only : post_processing_list, add_post_processing
    implicit none
    private
 
@@ -68,7 +68,7 @@ module tblite_api_calculator
 
    type, bind(c) :: xtb_config_struct
       real(wp) :: smooth_cutoff
-   end type
+   end type xtb_config_struct
 
 
    !> Void pointer to calculator type
@@ -631,7 +631,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    type(vp_result), pointer :: res
    type(error_type), allocatable :: error
    character(len=:), allocatable :: f_char
-   
+
    if (debug) print '("[Info]", 1x, a)', "get_singlepoint"
 
    if (.not.c_associated(vctx)) return
@@ -663,10 +663,10 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
 
    call check_results(res%results)
-   
+
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
       & calc%nspin, calc%guess, error)
-   if (calc%post_proc%npp == 0) then 
+   if (calc%post_proc%npp == 0) then
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
@@ -682,14 +682,14 @@ end subroutine get_singlepoint_api
 
 subroutine check_results(res)
    type(results_type), allocatable, intent(inout) :: res
-   if (allocated(res)) then 
+   if (allocated(res)) then
       deallocate(res%dict)
    end if
 
-   if (.not.allocated(res)) then 
+   if (.not.allocated(res)) then
       allocate(res)
    end if
-end subroutine
+end subroutine check_results
 
 subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
@@ -743,7 +743,7 @@ call c_f_pointer(vctx, ctx)
 
 call c_f_character(charptr, config_str)
 
-if (.not.c_associated(vcalc)) then 
+if (.not.c_associated(vcalc)) then
    call fatal_error(error, "Calculator object is missing")
    call ctx%ptr%set_error(error)
    return
@@ -760,7 +760,7 @@ call c_f_pointer(vmol, mol)
 call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
-end subroutine
+end subroutine push_back_post_processing_str_api
 
 subroutine push_back_post_processing_param_api(vctx, vcalc, vmol, vparam) &
    & bind(C, name=namespace//"push_back_post_processing_param")
@@ -786,7 +786,7 @@ if (.not.(c_associated(vparam))) then
 end if
 call c_f_pointer(vparam, param)
 
-if (.not.c_associated(vcalc)) then 
+if (.not.c_associated(vcalc)) then
    call fatal_error(error, "Calculator object is missing")
    call ctx%ptr%set_error(error)
    return
@@ -803,7 +803,7 @@ call c_f_pointer(vmol, mol)
 call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
-end subroutine
+end subroutine push_back_post_processing_param_api
 
 pure function convert_config(config) result(cfg)
    type(xtb_config_struct), intent(in), optional :: config

@@ -129,15 +129,15 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
    character(len=:), allocatable :: tmp_label
    real(wp), allocatable ::  ext_cn(:, :)
    integer :: isc
-   
+
    allocate(ext_cn(mol%nat, convolution%nscale))
    call convolve_cn(mol, mlcache%cn, convolution%nscale, &
       & mlcache%conv_kernel, ext_cn)
-   
+
    do isc = 1, convolution%nscale
-      tmp_label = trim("ext_CN_A"//'_'//adjustl(format_string( &
-         & convolution%rcov_scale(isc), '(f12.2)')))
-      if (tmp_label .eq. "ext_CN_A_1.00") tmp_label = "ext_CN"
+      tmp_label = trim("ext_CN_A"//"_"//adjustl(format_string( &
+         & convolution%rcov_scale(isc), "(f12.2)")))
+      if (tmp_label == "ext_CN_A_1.00") tmp_label = "ext_CN"
       call dict%add_entry(tmp_label, ext_cn(:, isc))
       ! Count number of features
       n_features = n_features + 1

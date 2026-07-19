@@ -22,8 +22,8 @@
 
 !> Implementation of tagged input and output files
 module tblite_io_tag
-   use mctc_io_utils, only : getline
    use mctc_env, only : sp, dp
+   use mctc_io_utils, only : getline
    implicit none
    private
 
@@ -120,7 +120,7 @@ subroutine write_tagged(unit, val, stat)
    select type(raw => val%raw)
    type is(real(dp))
       write(unit, tag_header, iostat=stat) val%tag, "real", size(val%shape), val%shape
-      write(unit, '(3es24.16)') raw
+      write(unit, "(3es24.16)") raw
    end select
 end subroutine write_tagged
 

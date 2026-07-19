@@ -138,7 +138,7 @@ subroutine test_mb01(error)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
-      print '(es20.14e1)', rad
+      print "(es20.14e1)", rad
       return
    end if
 
@@ -172,7 +172,7 @@ subroutine test_mb02(error)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
-      print '(es20.14e1)', rad
+      print "(es20.14e1)", rad
       return
    end if
 
@@ -206,7 +206,7 @@ subroutine test_mb03(error)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
-      print '(es20.14e1)', rad
+      print "(es20.14e1)", rad
       return
    end if
 
@@ -248,7 +248,7 @@ subroutine test_e(error, mol, input, qat, ref, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then 
+   if (allocated(input%solvent) .and. present(method)) then
       call get_alpb_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No ALPB/GBSA parameters found for the method/solvent")
@@ -301,7 +301,7 @@ subroutine test_g(error, mol, input, qat, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then   
+   if (allocated(input%solvent) .and. present(method)) then
       call get_alpb_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No ALPB/GBSA parameters found for the method/solvent")
@@ -341,11 +341,11 @@ subroutine test_g(error, mol, input, qat, method)
 
    if (any(abs(gradient - numg) > thr2)) then
       call test_failed(error, "Gradient does not match")
-      print '(3es20.13)', gradient
-      print '(a)', "---"
-      print '(3es20.13)', numg
-      print '(a)', "---"
-      print '(3es20.13)', gradient - numg
+      print "(3es20.13)", gradient
+      print "(a)", "---"
+      print "(3es20.13)", numg
+      print "(a)", "---"
+      print "(3es20.13)", gradient - numg
    end if
 end subroutine test_g
 
@@ -382,14 +382,14 @@ subroutine test_p(error, mol, input, qat, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then   
+   if (allocated(input%solvent) .and. present(method)) then
       call get_alpb_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No ALPB/GBSA parameters found for the method/solvent")
          return
       end if
    end if
-   
+
    solv = alpb_solvation(mol, scratch_input, method)
 
    call solv%update(mol, cache)
@@ -417,11 +417,11 @@ subroutine test_p(error, mol, input, qat, method)
 
    if (any(abs([pot%vat] - vat) > thr2)) then
       call test_failed(error, "Potential does not match")
-      print '(3es20.13)', pot%vat
-      print '(a)', "---"
-      print '(3es20.13)', vat
-      print '(a)', "---"
-      print '(3es20.13)', [pot%vat] - vat
+      print "(3es20.13)", pot%vat
+      print "(a)", "---"
+      print "(3es20.13)", vat
+      print "(a)", "---"
+      print "(3es20.13)", [pot%vat] - vat
    end if
 end subroutine test_p
 
@@ -468,7 +468,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs(*) = [&
       &-9.52291351801132E-4_wp,-2.66014621365225E-3_wp,-2.81206079506230E-3_wp, &
       &-2.16891247905536E-3_wp,-2.07471669939404E-3_wp,-2.66920593654818E-3_wp, &
@@ -488,9 +488,9 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = alpb_input(solvent%eps, solvent=solvent%solvent, &
          & kernel=born_kernel%p16, alpb=.true.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn1')
+      call test_e(error, mol, input, qat, refs(i), method="gfn1")
       if(allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_alpb_gfn1_all_solvents
 
@@ -515,7 +515,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs(*) = [&
       &-2.57648699865429E-3_wp,-3.28866717415013E-3_wp,-3.88900453989673E-3_wp, &
       &-2.04759081304808E-3_wp,-2.69053080068258E-3_wp,-3.95180642311958E-3_wp, &
@@ -535,9 +535,9 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = alpb_input(solvent%eps, solvent=solvent%solvent, &
          & kernel=born_kernel%p16, alpb=.true.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn2")
       if(allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_alpb_gfn2_all_solvents
 
@@ -560,7 +560,7 @@ subroutine test_e_still(error)
    call get_structure(mol, "MB16-43", "05")
    call test_e(error, mol, alpb_input(feps, kernel=born_kernel%still, alpb=.false.), &
       & qat, -5.8170737856555370E-3_wp) ! cosmo radii
-             
+
 end subroutine test_e_still
 
 subroutine test_e_gbsa_gfn1_all_solvents(error)
@@ -581,7 +581,7 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    integer, parameter :: nsolvents = 12
    character(len=*), parameter :: solvents(*) = [character(len=nsolvents):: &
       & "acetone", "acetonitrile", "benzene", "ch2cl2", "chcl3", "cs2", &
-      & "dmso", "ether", "methanol", "thf", "toluene", "water"] 
+      & "dmso", "ether", "methanol", "thf", "toluene", "water"]
    real(wp), parameter :: refs(*) = [&
       &-7.27084470362122E-3_wp,-7.24038921758113E-3_wp,-5.71082502695492E-3_wp, &
       &-7.51692928907610E-3_wp,-7.51692928907610E-3_wp,-8.59114683994077E-3_wp, &
@@ -596,9 +596,9 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = alpb_input(solvent%eps, solvent=solvent%solvent, &
          & kernel=born_kernel%still, alpb=.false.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn1') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn1")
       if(allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_gbsa_gfn1_all_solvents
 
@@ -637,9 +637,9 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = alpb_input(solvent%eps, solvent=solvent%solvent, &
          & kernel=born_kernel%still, alpb=.false.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn2")
       if(allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_gbsa_gfn2_all_solvents
 
@@ -714,8 +714,8 @@ subroutine test_e_charged_alpb_gfn1(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%p16, alpb=.true.)
-   call test_e(error, mol, input, qat, -9.7339246821001216E-002_wp, method='gfn1')
-   
+   call test_e(error, mol, input, qat, -9.7339246821001216E-002_wp, method="gfn1")
+
 end subroutine test_e_charged_alpb_gfn1
 
 subroutine test_e_charged_alpb_gfn2(error)
@@ -752,8 +752,8 @@ subroutine test_e_charged_alpb_gfn2(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%p16, alpb=.true.)
-   call test_e(error, mol, input, qat, -0.10736560684364888_wp, method='gfn2')
-   
+   call test_e(error, mol, input, qat, -0.10736560684364888_wp, method="gfn2")
+
 end subroutine test_e_charged_alpb_gfn2
 
 subroutine test_e_charged_still(error)
@@ -826,8 +826,8 @@ subroutine test_e_charged_gbsa_gfn1(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%still, alpb=.false.)
-   call test_e(error, mol, input, qat, -0.11225040798405941_wp, method='gfn1')
-   
+   call test_e(error, mol, input, qat, -0.11225040798405941_wp, method="gfn1")
+
 end subroutine test_e_charged_gbsa_gfn1
 
 subroutine test_e_charged_gbsa_gfn2(error)
@@ -864,8 +864,8 @@ subroutine test_e_charged_gbsa_gfn2(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%still, alpb=.false.)
-   call test_e(error, mol, input, qat, -9.5967790364628852E-002_wp, method='gfn2')
-   
+   call test_e(error, mol, input, qat, -9.5967790364628852E-002_wp, method="gfn2")
+
 end subroutine test_e_charged_gbsa_gfn2
 
 
@@ -911,7 +911,7 @@ subroutine test_g_alpb(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%p16, alpb=.true.)
-   call test_g(error, mol, input, qat, method='gfn2')
+   call test_g(error, mol, input, qat, method="gfn2")
 
 end subroutine test_g_alpb
 
@@ -958,7 +958,7 @@ subroutine test_g_gbsa(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%still, alpb=.false.)
-   call test_g(error, mol, input, qat, method='gfn2')
+   call test_g(error, mol, input, qat, method="gfn2")
 
 end subroutine test_g_gbsa
 
@@ -1005,7 +1005,7 @@ subroutine test_p_alpb(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%p16, alpb=.true.)
-   call test_p(error, mol, input, qat, method='gfn2')
+   call test_p(error, mol, input, qat, method="gfn2")
 
 end subroutine test_p_alpb
 
@@ -1052,7 +1052,7 @@ subroutine test_p_gbsa(error)
    solvent = get_solvent_data("water")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%still, alpb=.false.)
-   call test_p(error, mol, input, qat, method='gfn2')
+   call test_p(error, mol, input, qat, method="gfn2")
 
 end subroutine test_p_gbsa
 
@@ -1079,7 +1079,7 @@ subroutine test_unsupported_solvent(error)
    solvent = get_solvent_data("aniline")
    input = alpb_input(solvent%eps, solvent=solvent%solvent, &
       & kernel=born_kernel%still, alpb=.false.)
-   call get_alpb_param(input, mol, 'gfn1', error)
+   call get_alpb_param(input, mol, "gfn1", error)
 
 end subroutine test_unsupported_solvent
 

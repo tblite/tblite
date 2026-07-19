@@ -263,7 +263,7 @@ subroutine lineq(a, c, info)
    if (info == 0) then
       ! generate inverse of a matrix given its LU decomposition
       call getrs(a, c, ipiv, info, trans="t")
-   endif
+   end if
 end subroutine lineq
 
 pure function get_error(self) result(error)

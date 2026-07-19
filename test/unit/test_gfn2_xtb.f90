@@ -21,11 +21,11 @@ module test_gfn2_xtb
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
+   use tblite_scf_mixer_input, only : anneal_input
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_scf_mixer_input, only : anneal_input
    implicit none
    private
 
@@ -406,11 +406,11 @@ subroutine test_g_mb02(error)
 
    if (any(abs(gradient - ref) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', ref
+      print"(3es21.14)", ref
       print'("---")'
-      print'(3es21.14)', gradient-ref
+      print"(3es21.14)", gradient-ref
    end if
 
 end subroutine test_g_mb02

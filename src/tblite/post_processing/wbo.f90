@@ -26,8 +26,8 @@ module tblite_post_processing_wbo
    use tblite_integral_type, only : integral_type
    use tblite_post_processing_type, only : post_processing_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_wavefunction_mulliken, only : get_mayer_bond_orders
+   use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
    private
@@ -96,17 +96,17 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict
 
       ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for open-shell case
       call get_mayer_bond_orders(mol, calc%bas, ints%overlap, pmat, wbo)
-      
+
       call dict%add_entry("bond-orders", wbo)
-      
+
    else
       ! Restricted closed-shell or unrestricted calculations
       allocate(wbo(mol%nat, mol%nat, wfn%nspin), source=0.0_wp)
-      
+
       ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for unrestricted
       call get_mayer_bond_orders(mol, calc%bas, ints%overlap, &
          & wfn%density, wbo)
-      
+
       call dict%add_entry("bond-orders", wbo)
    end if
 

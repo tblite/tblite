@@ -26,15 +26,15 @@ module tblite_solvation
    use mctc_io, only : structure_type
    use tblite_features, only : tblite_use_ddx
    use tblite_solvation_alpb, only : alpb_solvation, new_alpb, alpb_input, born_kernel
-   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
    use tblite_solvation_cds, only : cds_solvation, new_cds, cds_input
-   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solution_state
    use tblite_solvation_data, only : solvent_data, get_solvent_data
-   use tblite_solvation_input, only : solvation_input
-   use tblite_solvation_type, only : solvation_type
    use tblite_solvation_data_alpb, only: get_alpb_param
    use tblite_solvation_data_cds, only: get_cds_param
    use tblite_solvation_data_shift, only: get_shift_param
+   use tblite_solvation_ddx, only : ddx_solvation, ddx_solvation_model, new_ddx, ddx_input
+   use tblite_solvation_input, only : solvation_input
+   use tblite_solvation_shift, only : shift_solvation, new_shift, shift_input, solution_state
+   use tblite_solvation_type, only : solvation_type
    implicit none
    private
 

@@ -63,7 +63,7 @@ subroutine write_formatted(prop, unit, iotype, v_list, iostat, iomsg)
    integer, intent(out) :: iostat
    character(len=*), intent(inout) :: iomsg
 
-   write(unit, '(a, t25, es20.13, 1x, a)') prop%label, prop%value, prop%unit
+   write(unit, "(a, t25, es20.13, 1x, a)") prop%label, prop%value, prop%unit
 end subroutine write_formatted
 
 

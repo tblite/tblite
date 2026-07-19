@@ -32,11 +32,11 @@ module tblite_param
    use tblite_param_hamiltonian, only : hamiltonian_record
    use tblite_param_mask, only : param_mask, count
    use tblite_param_multipole, only : multipole_record
+   use tblite_param_post_processing, only : post_processing_record_list, &
+      & post_processing_record, molmom_record, xtbml_record
    use tblite_param_repulsion, only : repulsion_record
    use tblite_param_serde, only : serde_record
    use tblite_param_thirdorder, only : thirdorder_record
-   use tblite_param_post_processing, only : post_processing_record_list, &
-      & post_processing_record, molmom_record, xtbml_record
    use tblite_toml, only : toml_table, toml_key, get_value, set_value, add_table
    implicit none
    private
@@ -81,7 +81,7 @@ module tblite_param
       type(thirdorder_record), allocatable :: thirdorder
       !> Element specific parameter records
       type(element_record), allocatable :: record(:)
-      !> Abstract post processing class 
+      !> Abstract post processing class
       type(post_processing_record_list), allocatable :: post_proc
    contains
       generic :: load => load_from_array
@@ -174,7 +174,7 @@ subroutine load_from_toml(self, table, error)
    if (associated(child)) then
       allocate(self%post_proc)
       call self%post_proc%load(child, error)
-   end if 
+   end if
 
    call get_value(table, k_element, child)
    call records_from_table(self%record, child, error)

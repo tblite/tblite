@@ -22,9 +22,9 @@ module tblite_io_numpy_loadz
    use mctc_env, only : dp, i2, i4
    use tblite_io_numpy_constants, only : type_rdp, type_i4, &
       & zip_global_sig, zip_local_sig, zip_footer_sig, zip_min_version
+   use tblite_io_numpy_crc32, only : crc32_hash
    use tblite_io_numpy_load, only : load_npy, get_npy_descriptor
    use tblite_io_numpy_utils, only : reader_type, new_reader, delete_reader
-   use tblite_io_numpy_crc32, only : crc32_hash
    use tblite_output_format, only : format_string
    implicit none
    private
@@ -320,8 +320,8 @@ subroutine check_crc32(buffer, expected, filename, stat, msg)
    if (actual /= expected) then
       stat = 502
       msg = "CRC mismatch for " // filename // &
-         & " (expected: " // format_string(expected, '(z08)') // &
-         & " actual: " // format_string(actual, '(z08)') // ")"
+         & " (expected: " // format_string(expected, "(z08)") // &
+         & " actual: " // format_string(actual, "(z08)") // ")"
    end if
 end subroutine check_crc32
 

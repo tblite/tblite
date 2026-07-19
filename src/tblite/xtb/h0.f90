@@ -84,7 +84,7 @@ subroutine new_hamiltonian(self, mol, bas, spec)
 
    mshell = maxval(bas%nsh_id)
    allocate(self%selfenergy(mshell, mol%nid), &
-      & self%kcn(mshell, mol%nid), self%kcn_en(mshell, mol%nid), & 
+      & self%kcn(mshell, mol%nid), self%kcn_en(mshell, mol%nid), &
       & self%kq1(mshell, mol%nid), self%kq2(mshell, mol%nid))
    call spec%get_selfenergy(mol, bas, self%selfenergy)
    call spec%get_cnshift(mol, bas, self%kcn)
@@ -126,7 +126,7 @@ subroutine get_selfenergy(h0, id, ish_at, nshell, cn, cn_en, qat, selfenergy, &
    real(wp), intent(in), optional :: cn_en(:)
    !> Optional atomic partial charge
    real(wp), intent(in), optional :: qat(:)
-   !> Reference energy levels 
+   !> Reference energy levels
    real(wp), intent(out) :: selfenergy(:)
    !> Derivative of energy levels w.r.t. coordination number
    real(wp), intent(out), optional :: dsedcn(:)
@@ -475,7 +475,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    ! Select if we construct the Hamiltonian with modifications
    mod_h0_fraction = 0.0_wp
    if(h0%do_diat_scale) then
-      mod_h0_fraction = 1.0_wp 
+      mod_h0_fraction = 1.0_wp
    end if
 
    allocate(stmp(msao(bas%maxl)**2), dstmp(3, msao(bas%maxl)**2), &
@@ -534,7 +534,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
                hscale = h0%hscale(jsh, ish, jzp, izp)
                hs = hscale * shpoly * (1.0_wp - mod_h0_fraction)
-               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs 
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs
 
                dhdcni = dsedcn(is+ish) * hs
                dhdcnj = dsedcn(js+jsh) * hs
@@ -553,10 +553,10 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                         pij = pmat(jj+jao, ii+iao, spin)
                         sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
-                        dG(:) = dG + sval * dstmp(:, ij)  
+                        dG(:) = dG + sval * dstmp(:, ij)
                      end do
                      pij = pmat(jj+jao, ii+iao, 1)
-                     hpij = pij * hij 
+                     hpij = pij * hij
                      sval = 2*hpij - 2*xmat(jj+jao, ii+iao, 1)
 
                      dG(:) = dG + sval * dstmp(:, ij) &
@@ -580,18 +580,18 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                & h0%kdel(izp, jzp), block_overlap, block_doverlap)
          end if
 
-         ! Optional repeated setup of the Hamiltonian after modifications        
+         ! Optional repeated setup of the Hamiltonian after modifications
          if (h0%do_diat_scale) then
             do ish = 1, nsi
                ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1) 
+               iaosh = smap(ish-1)
 
                ! Recalculate shell polynomial enhancement factor and derivative
                shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
 
                do jsh = 1, nsj
                   jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1) 
+                  jaosh = smap(jsh-1)
 
                   ! Recalculate shell polynomial enhancement factor and derivative
                   shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr

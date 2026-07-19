@@ -16,11 +16,11 @@
 
 module tblite_lapack_sygvr
    use mctc_env, only : sp, dp, wp, error_type, fatal_error
+   use tblite_blas_level3, only : wrap_trsm
+   use tblite_lapack_potrf, only : wrap_potrf
+   use tblite_lapack_sygst, only : wrap_sygst
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
-   use tblite_lapack_sygst, only : wrap_sygst
-   use tblite_lapack_potrf, only : wrap_potrf
-   use tblite_blas_level3, only : wrap_trsm
    implicit none
    private
 
@@ -124,7 +124,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: itype = 1
-   character(len=1), parameter :: uplo = 'U'
+   character(len=1), parameter :: uplo = "U"
 
    logical :: upper
    integer :: info, lswork, liwork, m, ii, jj
@@ -135,7 +135,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
       self%n = size(hmat, 1)
    end if
    if (.not.allocated(self%swork)) then
-      lswork = query(self%n, uplo, 'S')
+      lswork = query(self%n, uplo, "S")
       allocate(self%swork(lswork))
    end if
    if (.not.allocated(self%iwork)) then
@@ -151,7 +151,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    self%sbmat = smat
    lswork = size(self%swork)
    liwork = size(self%iwork)
-   upper = (uplo == 'U' .or. uplo == 'u')
+   upper = (uplo == "U" .or. uplo == "u")
    abstol = slamch_s()
    info = 0
 
@@ -183,7 +183,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
       end do
    end if
 
-   call lapack_syevr('V', 'A', uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
+   call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
       & m, eval, self%sbmat, self%n, self%isuppz, self%swork, lswork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
@@ -194,13 +194,13 @@ subroutine solve_sp(self, hmat, smat, eval, error)
       hmat(ii, ii) = self%schole(ii)
    end do
 
-   uplo_new = merge('L', 'U', upper)
+   uplo_new = merge("L", "U", upper)
    upper = .not.upper
 
    ! For A*x=(lambda)*B*x
    ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge('N', 'T', upper)
-   call wrap_trsm(hmat, self%sbmat, side='L', uplo=uplo_new, transa=trans, diag='N')
+   trans = merge("N", "T", upper)
+   call wrap_trsm(hmat, self%sbmat, side="L", uplo=uplo_new, transa=trans, diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%sbmat(1:self%n, ii)
    end do
@@ -216,7 +216,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: itype = 1
-   character(len=1), parameter :: uplo = 'U'
+   character(len=1), parameter :: uplo = "U"
 
    logical :: upper
    integer :: info, ldwork, liwork, m, ii, jj
@@ -227,7 +227,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
       self%n = size(hmat, 1)
    end if
    if (.not.allocated(self%dwork)) then
-      ldwork = query(self%n, uplo, 'D')
+      ldwork = query(self%n, uplo, "D")
       allocate(self%dwork(ldwork))
    end if
    if (.not.allocated(self%iwork)) then
@@ -243,7 +243,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    self%dbmat = smat
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
-   upper = (uplo == 'U' .or. uplo == 'u')
+   upper = (uplo == "U" .or. uplo == "u")
    abstol = dlamch_s()
    info = 0
 
@@ -275,7 +275,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
       end do
    end if
 
-   call lapack_syevr('V', 'A', uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
+   call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
       & m, eval, self%dbmat, self%n, self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
@@ -286,13 +286,13 @@ subroutine solve_dp(self, hmat, smat, eval, error)
       hmat(ii, ii) = self%dchole(ii)
    end do
 
-   uplo_new = merge('L', 'U', upper)
+   uplo_new = merge("L", "U", upper)
    upper = .not.upper
 
    ! For A*x=(lambda)*B*x
    ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge('N', 'T', upper)
-   call wrap_trsm(hmat, self%dbmat, side='L', uplo=uplo_new, transa=trans, diag='N')
+   trans = merge("N", "T", upper)
+   call wrap_trsm(hmat, self%dbmat, side="L", uplo=uplo_new, transa=trans, diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%dbmat(1:self%n, ii)
    end do
@@ -318,8 +318,8 @@ pure function query(n, uplo, prefix) result(lwork)
    character(len=1), intent(in) :: prefix
    integer :: lwork
    integer :: nb
-   nb = ilaenv(1, prefix//'SYTRD', uplo, n, -1, -1, -1)
-   nb = max(nb, ilaenv(1, prefix//'ORMTR', uplo, n, -1, -1, -1))
+   nb = ilaenv(1, prefix//"SYTRD", uplo, n, -1, -1, -1)
+   nb = max(nb, ilaenv(1, prefix//"ORMTR", uplo, n, -1, -1, -1))
    lwork = max(1, 26 * n, (nb + 1)*n)
 end function query
 
@@ -327,7 +327,7 @@ pure function slamch_s() result(rmach)
    real(sp), parameter :: one = 1.0_sp, zero = 0.0_sp, rnd = one
    real(sp), parameter :: eps = merge(epsilon(zero), epsilon(zero) * 0.5_sp, one /= rnd)
    real(sp), parameter :: tinyz = tiny(zero), small = one / huge(zero)
-   real(sp), parameter :: sfmin = merge(small*(one + eps), tinyz, small.ge.tinyz)
+   real(sp), parameter :: sfmin = merge(small*(one + eps), tinyz, small>=tinyz)
    real(sp) :: rmach
    rmach = sfmin
 end function slamch_s
@@ -336,7 +336,7 @@ pure function dlamch_s() result(rmach)
    real(dp), parameter :: one = 1.0_dp, zero = 0.0_dp, rnd = one
    real(dp), parameter :: eps = merge(epsilon(zero), epsilon(zero) * 0.5_dp, one /= rnd)
    real(dp), parameter :: tinyz = tiny(zero), small = one / huge(zero)
-   real(dp), parameter :: sfmin = merge(small*(one + eps), tinyz, small.ge.tinyz)
+   real(dp), parameter :: sfmin = merge(small*(one + eps), tinyz, small>=tinyz)
    real(dp) :: rmach
    rmach = sfmin
 end function dlamch_s
@@ -347,7 +347,7 @@ subroutine handle_info(error, info)
 
    if (info /= 0) then
       call fatal_error(error, "(sygvr) failed to solve eigenvalue problem.&
-         & info="//format_string(info, '(i0)'))
+         & info="//format_string(info, "(i0)"))
    end if
 end subroutine handle_info
 

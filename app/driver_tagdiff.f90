@@ -59,7 +59,7 @@ subroutine tagdiff_main(config, error)
       call actual%get(reference%val(it)%tag, ptr)
       if (.not.associated(ptr)) then
          if (.not.config%fit) then
-            write(output_unit, '(a)') &
+            write(output_unit, "(a)") &
                & "Data field '"//reference%val(it)%tag//"' not found in actual data"
          end if
          stat = stat + 1
@@ -71,12 +71,12 @@ subroutine tagdiff_main(config, error)
          type is(real(wp))
             if (config%fit) then
                do iv = 1, size(rval)
-                  write(output_unit, '(2es24.16)') rval(iv), aval(iv)
+                  write(output_unit, "(2es24.16)") rval(iv), aval(iv)
                end do
             else
-               write(output_unit, '(a)') &
+               write(output_unit, "(a)") &
                   & "Difference in '"//reference%val(it)%tag//"' is "//&
-                  & format_string(norm2(rval - aval), '(f10.6)')
+                  & format_string(norm2(rval - aval), "(f10.6)")
             end if
          end select
       end select

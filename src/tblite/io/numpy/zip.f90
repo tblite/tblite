@@ -65,34 +65,39 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
    do while(stat == 0 .and. is_local_header(header_sig))
       irec = irec + 1
 
-      if (stat == 0) &
-         read(io, pos=pos+18, iostat=stat, iomsg=errmsg) nbytes_compressed
-      if (stat == 0) &
-         read(io, pos=pos+26, iostat=stat, iomsg=errmsg) path_size
-      if (stat == 0) &
-         read(io, pos=pos+28, iostat=stat, iomsg=errmsg) extra_field_size
+      if (stat == 0) then
+        read(io, pos=pos+18, iostat=stat, iomsg=errmsg) nbytes_compressed
+      end if
+      if (stat == 0) then
+        read(io, pos=pos+26, iostat=stat, iomsg=errmsg) path_size
+      end if
+      if (stat == 0) then
+        read(io, pos=pos+28, iostat=stat, iomsg=errmsg) extra_field_size
+      end if
 
       if (stat == 0) then
          if (allocated(path)) deallocate(path)
          allocate(character(len=path_size) :: path, stat=stat)
       end if
-      if (stat == 0) &
-         read(io, pos=pos+30, iostat=stat, iomsg=errmsg) path
+      if (stat == 0) then
+        read(io, pos=pos+30, iostat=stat, iomsg=errmsg) path
+      end if
 
       pos = pos + 30 + path_size + extra_field_size + nbytes_compressed
       read(io, pos=pos, iostat=stat, iomsg=errmsg) header_sig
    end do
    if (stat /= 0) then
       msg = "Failed to read local header block for '"//filename//"'"
-      if (len_trim(errmsg) > 0) &
-         msg = msg // " ("//trim(errmsg)//")"
+      if (len_trim(errmsg) > 0) then
+        msg = msg // " ("//trim(errmsg)//")"
+      end if
       return
    end if
 
    if (.not.is_global_header(header_sig)) then
       stat = 400
       msg = "Expected global header signature for '"//filename//"' got "// &
-         & format_string(header_sig, '(z0.8)')
+         & format_string(header_sig, "(z0.8)")
       return
    end if
 
@@ -103,19 +108,23 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
    do while(stat == 0 .and. is_global_header(header_sig))
       irec = irec + 1
 
-      if (stat == 0) &
-         read(io, pos=pos+28, iostat=stat, iomsg=errmsg) path_size
-      if (stat == 0) &
-         read(io, pos=pos+30, iostat=stat, iomsg=errmsg) extra_field_size
-      if (stat == 0) &
-         read(io, pos=pos+32, iostat=stat, iomsg=errmsg) comment_size
+      if (stat == 0) then
+        read(io, pos=pos+28, iostat=stat, iomsg=errmsg) path_size
+      end if
+      if (stat == 0) then
+        read(io, pos=pos+30, iostat=stat, iomsg=errmsg) extra_field_size
+      end if
+      if (stat == 0) then
+        read(io, pos=pos+32, iostat=stat, iomsg=errmsg) comment_size
+      end if
 
       if (stat == 0) then
          if (allocated(path)) deallocate(path)
          allocate(character(len=path_size) :: path, stat=stat)
       end if
-      if (stat == 0) &
-         read(io, pos=pos+46, iostat=stat, iomsg=errmsg) path
+      if (stat == 0) then
+        read(io, pos=pos+46, iostat=stat, iomsg=errmsg) path
+      end if
 
       zip%records(irec)%path = path
 
@@ -124,14 +133,15 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
    end do
    if (stat /= 0) then
       msg = "Failed to read global header block for '"//filename//"'"
-      if (len_trim(errmsg) > 0) &
-         msg = msg // " ("//trim(errmsg)//")"
+      if (len_trim(errmsg) > 0) then
+        msg = msg // " ("//trim(errmsg)//")"
+      end if
       return
    end if
    if (.not.is_footer_header(header_sig)) then
       stat = 401
       msg = "Expected footer signature for '"//filename//"' got "// &
-         & format_string(header_sig, '(z0.8)')
+         & format_string(header_sig, "(z0.8)")
       return
    end if
    ! global_header_size = pos - global_header_offset + 1
@@ -140,15 +150,18 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
       & disk_no, disk_start, nrecs_on_disk, zip%nrecs, &
       & global_header_size, zip%global_header_offset, comment_size
 
-   if (stat == 0) &
-      allocate(character(len=global_header_size) :: zip%global_header, stat=stat)
-   if (stat == 0) &
-      read(io, iostat=stat, pos=zip%global_header_offset+1) zip%global_header
+   if (stat == 0) then
+     allocate(character(len=global_header_size) :: zip%global_header, stat=stat)
+   end if
+   if (stat == 0) then
+     read(io, iostat=stat, pos=zip%global_header_offset+1) zip%global_header
+   end if
 
    if (stat /= 0) then
       msg = "Failed to read footer for '"//filename//"'"
-      if (len_trim(errmsg) > 0) &
-         msg = msg // " ("//trim(errmsg)//")"
+      if (len_trim(errmsg) > 0) then
+        msg = msg // " ("//trim(errmsg)//")"
+      end if
       return
    end if
 

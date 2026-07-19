@@ -33,7 +33,7 @@ module tblite_os
          import :: c_char, c_int
          character(len=c_char), intent(in) :: name(*)
          integer(c_int) :: stat
-      end function
+      end function sys_putenv
    end interface
 
 

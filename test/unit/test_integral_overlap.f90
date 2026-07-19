@@ -224,7 +224,7 @@ subroutine test_overlap_mol(error, mol, diat_scale, ref)
    real(wp), allocatable :: lattr(:, :), overlap(:, :), overlap_diat(:, :)
    real(wp) :: cutoff
    integer :: ii, jj
-   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:) 
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:)
 
    allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
    ksig = 1.2_wp

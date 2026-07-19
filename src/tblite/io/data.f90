@@ -23,9 +23,9 @@
 !> Factory module for selecting NPZ or HDF5 structured array handlers.
 module tblite_io_data
    use mctc_env, only : error_type, fatal_error
-   use tblite_io_data_type, only: iodata_type, iodata_record
    use tblite_io_data_hdf5, only: hdf5_data
    use tblite_io_data_npz, only: npz_data
+   use tblite_io_data_type, only: iodata_type, iodata_record
    implicit none
    private
 

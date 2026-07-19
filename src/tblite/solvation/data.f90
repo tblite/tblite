@@ -253,7 +253,7 @@ pure function get_solvent_data(solvent) result(data)
    case("aceticacid")
       data = solvent_data(6.2528_wp, 1.372_wp, 0.61_wp, 0.44_wp, 39.01_wp, 0.0_wp, 0.0_wp, "aceticacid")
    case("acetone")
-      data = solvent_data(20.493_wp, 1.3588_wp, 0.04_wp, 0.49_wp, 33.77_wp, 0.0_wp, 0.0_wp, "acetone") 
+      data = solvent_data(20.493_wp, 1.3588_wp, 0.04_wp, 0.49_wp, 33.77_wp, 0.0_wp, 0.0_wp, "acetone")
    case("acetonitrile","mecn")
       data = solvent_data(35.6881_wp, 1.3442_wp, 0.07_wp, 0.32_wp, 41.25_wp, 0.0_wp, 0.0_wp, "acetonitrile")
    case("acetophenone")
@@ -453,17 +453,17 @@ pure function compact(str) result(lcstr)
    character(len=:), allocatable :: lcstr
 
    integer :: ilen, i, j, iav
-   integer, parameter :: offset = iachar('A') - iachar('a')
+   integer, parameter :: offset = iachar("A") - iachar("a")
 
    ilen = len(str)
-   lcstr = ''
+   lcstr = ""
 
    j = 0
    do i = 1, ilen
       iav = iachar(str(i:i))
-      if (any(iav == [iachar('-'), iachar(','), iachar(' ')])) cycle
+      if (any(iav == [iachar("-"), iachar(","), iachar(" ")])) cycle
       j = j + 1
-      if (iav >= iachar('A') .and. iav <= iachar('Z')) then
+      if (iav >= iachar("A") .and. iav <= iachar("Z")) then
          lcstr = lcstr // achar(iav - offset)
       else
          lcstr = lcstr // str(i:i)
