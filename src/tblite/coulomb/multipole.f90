@@ -21,8 +21,8 @@
 module tblite_coulomb_multipole
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
-   use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_io_constants, only : pi
+   use mctc_io_math, only : matdet_3x3, matinv_3x3
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_container_cache, only : container_cache
@@ -74,7 +74,7 @@ module tblite_coulomb_multipole
       procedure :: get_potential
       !> Get derivatives of anisotropic electrostatics
       procedure :: get_gradient
-      ! These additional functions are necessary as the atomic contributions to AES are not 
+      ! These additional functions are necessary as the atomic contributions to AES are not
       ! the same in this implemntation and in the GFN2 paper,
       ! for details see https://github.com/tblite/tblite/pull/224/files#r1970341792
       !> Get only AXC part of the anisotropic electrostatics

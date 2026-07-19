@@ -27,7 +27,7 @@ module test_integral_trafo
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
-   use tblite_xtb_singlepoint, only : xtb_singlepoint  
+   use tblite_xtb_singlepoint, only : xtb_singlepoint
 
    implicit none
    private
@@ -177,7 +177,7 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    prod_cart = sum(cart1 * cart4(1, 1, :, :))
 
    call check(error, prod_sphr, prod_cart, thr=thr)
-   if (allocated(error)) return  
+   if (allocated(error)) return
 
 end subroutine test_trafo_adjoint
 
@@ -331,7 +331,7 @@ subroutine test_density_trafo(mol, calc, wfn, ref, error, thr_in)
    real(wp) :: energy, thr_
    real(wp), allocatable :: coeff_cart(:, :, :), focc(:), density_cart(:, :, :)
    type(context_type) :: ctx
-   
+
    thr_ = thr
    if (present(thr_in)) thr_ = thr_in
 
@@ -348,7 +348,7 @@ subroutine test_density_trafo(mol, calc, wfn, ref, error, thr_in)
          & coeff_cart(:, :, spin))
    end do
 
-   ! Calculate density matrix in the cartesian basis 
+   ! Calculate density matrix in the cartesian basis
    ! since the coefficients are sensitive to the phase
    allocate(focc(calc%bas%nao))
    allocate(density_cart(calc%bas%nao_cart, calc%bas%nao_cart, wfn%nspin))
@@ -365,11 +365,11 @@ subroutine test_density_trafo(mol, calc, wfn, ref, error, thr_in)
 
    if (any(abs(density_cart - ref) > thr_)) then
       call test_failed(error, "Cartesian density matrix does not match")
-      print'(3es21.14)', density_cart
+      print"(3es21.14)", density_cart
       print'("---")'
-      print'(3es21.14)', ref
+      print"(3es21.14)", ref
       print'("---")'
-      print'(3es21.14)', density_cart-ref
+      print"(3es21.14)", density_cart-ref
    end if
 
 end subroutine test_density_trafo

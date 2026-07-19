@@ -185,7 +185,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 end subroutine get_potential
 
 
-!> Evaluate gradient of the charge dependent potential shift 
+!> Evaluate gradient of the charge dependent potential shift
 subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
@@ -213,20 +213,20 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    if(self%shell_resolved) then
       ! Off-diagonal Coulomb matrix derivative
       pot%dvshdr(:, :, :, 1) = dadr
-      
-      do ic = 1, 3 
+
+      do ic = 1, 3
          do iat = 1, mol%nat
             ii = self%offset(iat)
             do ish = 1, self%nshell(iat)
                ! Diagonal Coulomb matrix derivative
                pot%dvshdr(ic, iat, ii+ish, 1) = - sum(dadr(ic, :, ii+ish))
-            end do 
+            end do
             ! Charge derivative
             tmpdq = wfn%dqshdr(ic, iat, :, 1)
             call symv(ptr%amat, tmpdq, pot%dvshdr(ic, iat, :, 1), beta=1.0_wp)
          end do
-         
-         ! Coulomb matrix derivative 
+
+         ! Coulomb matrix derivative
          pot%dvshdL(ic, :, :, 1) = pot%dvshdL(ic, :, :, 1) + dadL(ic, :, :)
          do jc = 1, 3
             ! Charge derivative
@@ -239,7 +239,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
       ! Off-diagonal Coulomb matrix derivative
       pot%dvatdr(:, :, :, 1) = dadr
 
-      do ic = 1, 3 
+      do ic = 1, 3
          do iat = 1, mol%nat
             ! Diagonal Coulomb matrix derivative
             pot%dvatdr(ic, iat, iat, 1) = - sum(dadr(ic, :, iat))
@@ -248,8 +248,8 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
             tmpdq = wfn%dqatdr(ic, iat, :, 1)
             call symv(ptr%amat, tmpdq, pot%dvatdr(ic, iat, :, 1), beta=1.0_wp)
          end do
-         
-         ! Coulomb matrix derivative 
+
+         ! Coulomb matrix derivative
          pot%dvatdL(ic, :, :, 1) = pot%dvatdL(ic, :, :, 1) + dadL(ic, :, :)
          do jc = 1, 3
             ! Charge derivative

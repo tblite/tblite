@@ -162,7 +162,7 @@ subroutine get_density_matrix(focc, coeff, pmat)
          scratch(jao, iao) = coeff(jao, iao) * focc(iao)
       end do
    end do
-   call gemm(scratch, coeff, pmat, transb='t')
+   call gemm(scratch, coeff, pmat, transb="t")
 end subroutine get_density_matrix
 
 !> Delete the solver instance

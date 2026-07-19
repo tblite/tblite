@@ -280,7 +280,7 @@ subroutine test_overlap_dipole_mol(error, mol, diat_scale, ref)
    real(wp), allocatable :: dipole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
-   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:) 
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:)
 
    allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
    ksig = 1.2_wp
@@ -399,7 +399,7 @@ subroutine test_overlap_multipole_mol(error, mol, diat_scale, ref)
    real(wp), allocatable :: dipole(:, :, :), quadrupole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
-   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:) 
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:)
 
    allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
    ksig = 1.2_wp
@@ -415,7 +415,7 @@ subroutine test_overlap_multipole_mol(error, mol, diat_scale, ref)
 
    allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
    allocate(dipole(3, bas%nao, bas%nao), quadrupole(6, bas%nao, bas%nao))
-   if(diat_scale) then 
+   if(diat_scale) then
       call get_multipole_integrals(mol, lattr, cutoff, bas, &
          & ksig, kpi, kdel, overlap, overlap_diat, dipole, quadrupole)
 

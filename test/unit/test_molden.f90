@@ -336,7 +336,7 @@ subroutine rewrite_reordered(input, output)
    nline = 0
    open(newunit=unit, file=input, status="old", action="read")
    do
-      read(unit, '(a)', iostat=ios) lines(nline + 1)
+      read(unit, "(a)", iostat=ios) lines(nline + 1)
       if (ios /= 0) exit
       nline = nline + 1
    end do
@@ -388,7 +388,7 @@ subroutine write_section(unit, lines, name)
    end do
 
    do iline = first, last
-      write(unit, '(a)') trim(lines(iline))
+      write(unit, "(a)") trim(lines(iline))
    end do
 end subroutine write_section
 
@@ -611,19 +611,22 @@ subroutine check_missing_section(filename, missing, error)
    nline = 0
    open(newunit=unit, file=filename, status="old", action="read")
    do
-      read(unit, '(a)', iostat=ios) lines(nline + 1)
+      read(unit, "(a)", iostat=ios) lines(nline + 1)
       if (ios /= 0) exit
       nline = nline + 1
    end do
    close(unit)
    ! Write new file with the specified section missing
    open(newunit=unit, file=input, status="replace", action="write")
-   if (trim(missing) /= "atoms") &
-      call write_section(unit, lines(:nline), "atoms")
-   if (trim(missing) /= "gto") &
-      call write_section(unit, lines(:nline), "gto")
-   if (trim(missing) /= "mo") &
-      call write_section(unit, lines(:nline), "mo")
+   if (trim(missing) /= "atoms") then
+     call write_section(unit, lines(:nline), "atoms")
+   end if
+   if (trim(missing) /= "gto") then
+     call write_section(unit, lines(:nline), "gto")
+   end if
+   if (trim(missing) /= "mo") then
+     call write_section(unit, lines(:nline), "mo")
+   end if
    close(unit)
 
    call load_molden(input, mol_loaded, bas_loaded, wfn_loaded, error)

@@ -19,25 +19,25 @@
 
 !> Implementation of the IPEA1-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_ipea1
+   use mctc_data_paulingen, only : get_pauling_en
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
    use mctc_ncoord, only : new_ncoord, cn_count
-   use mctc_data_paulingen, only : get_pauling_en
    use tblite_basis_ortho, only : orthogonalize
-   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_classical_halogen, only : new_halogen_correction
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & harmonic_average, coulomb_kernel
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : d3_dispersion, new_d3_dispersion
+   use tblite_output_format, only : format_string
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
    use tblite_xtb_calculator, only : xtb_calculator, xtb_config
    use tblite_xtb_h0, only : new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
-   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -545,7 +545,7 @@ subroutine new_ipea1_calculator(calc, mol, error, config)
 
    ! Check if all atoms of mol%nat are supported (Z <= 86)
    if (any(mol%num > max_elem)) then
-      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
+      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, "(i0)") // ".")
       return
    end if
 

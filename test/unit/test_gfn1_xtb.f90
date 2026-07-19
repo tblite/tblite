@@ -420,11 +420,11 @@ subroutine test_g_mb02(error)
 
    if (any(abs(gradient - ref) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', ref
+      print"(3es21.14)", ref
       print'("---")'
-      print'(3es21.14)', gradient-ref
+      print"(3es21.14)", gradient-ref
    end if
 
 end subroutine test_g_mb02
@@ -461,11 +461,11 @@ subroutine test_g_mb03(error)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match (numerical)")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', numgrad
+      print"(3es21.14)", numgrad
       print'("---")'
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_g_mb03
@@ -500,11 +500,11 @@ subroutine test_s_mb03(error)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma
+      print"(3es21.14)", sigma
       print'("---")'
-      print'(3es21.14)', numsigma
+      print"(3es21.14)", numsigma
       print'("---")'
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_s_mb03

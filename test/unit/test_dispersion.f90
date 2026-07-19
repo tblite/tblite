@@ -21,10 +21,10 @@ module test_dispersion
    use mctc_io, only : structure_type
    use mstore, only : get_structure
    use tblite_container, only : container_cache
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_disp, only : dispersion_type, new_d3_dispersion, &
       & new_d4_dispersion, new_d4s_dispersion, d3_dispersion, d4_dispersion
+   use tblite_scf_potential, only : potential_type
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -144,11 +144,11 @@ subroutine test_p(error, mol, disp, qat)
 
    if (any(abs([pot%vat] - vat) > thr2)) then
       call test_failed(error, "Potential does not match")
-      print '(3es20.13)', pot%vat
-      print '(a)', "---"
-      print '(3es20.13)', vat
-      print '(a)', "---"
-      print '(3es20.13)', [pot%vat] - vat
+      print "(3es20.13)", pot%vat
+      print "(a)", "---"
+      print "(3es20.13)", vat
+      print "(a)", "---"
+      print "(3es20.13)", [pot%vat] - vat
    end if
 end subroutine test_p
 
@@ -176,7 +176,7 @@ subroutine test_e_d3_mb01(error)
    allocate(d3)
    call new_d3_dispersion(d3, mol, s6=1.0_wp, s8=0.7875_wp, &
       & a1=0.4289_wp, a2=4.4407_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D3 model could not be created")
       return
    end if
@@ -209,7 +209,7 @@ subroutine test_e_d4_mb01(error)
    allocate(d4)
    call new_d4_dispersion(d4, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4 model could not be created")
       return
    end if
@@ -242,7 +242,7 @@ subroutine test_e_d4s_mb01(error)
    allocate(d4s)
    call new_d4s_dispersion(d4s, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4 model could not be created")
       return
    end if
@@ -275,7 +275,7 @@ subroutine test_e_d3_mb02(error)
    allocate(d3)
    call new_d3_dispersion(d3, mol, s6=1.0_wp, s8=0.7875_wp, &
       & a1=0.4289_wp, a2=4.4407_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D3 model could not be created")
       return
    end if
@@ -308,7 +308,7 @@ subroutine test_e_d4_mb02(error)
    allocate(d4)
    call new_d4_dispersion(d4, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4 model could not be created")
       return
    end if
@@ -341,7 +341,7 @@ subroutine test_e_d4s_mb02(error)
    allocate(d4s)
    call new_d4s_dispersion(d4s, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4S model could not be created")
       return
    end if
@@ -375,7 +375,7 @@ subroutine test_p_d4_mb03(error)
    allocate(d4)
    call new_d4_dispersion(d4, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4 model could not be created")
       return
    end if
@@ -403,12 +403,12 @@ subroutine test_p_d4s_mb03(error)
       & 4.63569783992096E+0_wp]
 
    call get_structure(mol, "MB16-43", "03")
-   
+
    ! PBE-D4S-ATM
    allocate(d4s)
    call new_d4s_dispersion(d4s, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4S model could not be created")
       return
    end if
@@ -436,12 +436,12 @@ subroutine test_p_d4_mb04(error)
       & 3.64255069977693E-2_wp]
 
    call get_structure(mol, "MB16-43", "04")
-   
+
    ! PBE-D4-ATM
    allocate(d4)
    call new_d4_dispersion(d4, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4 model could not be created")
       return
    end if
@@ -474,7 +474,7 @@ subroutine test_p_d4s_mb04(error)
    allocate(d4s)
    call new_d4s_dispersion(d4s, mol, s6=1.0_wp, s8=0.95948085_wp, &
       & a1=0.38574991_wp, a2=4.80688534_wp, s9=1.0_wp, error=error)
-   if(allocated(error)) then 
+   if(allocated(error)) then
       call test_failed(error, "D4S model could not be created")
       return
    end if

@@ -22,16 +22,16 @@ module tblite_api_container
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type
-   use tblite_api_version, only : namespace
    use tblite_api_calculator, only : vp_calculator
    use tblite_api_context, only : vp_context
    use tblite_api_structure, only : vp_structure
+   use tblite_api_utils, only: c_f_character
+   use tblite_api_version, only : namespace
    use tblite_basis, only : basis_type
    use tblite_container, only : container_type
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
    use tblite_spin, only : spin_polarization, new_spin_polarization
-   use tblite_api_utils, only: c_f_character
    implicit none
    private
 

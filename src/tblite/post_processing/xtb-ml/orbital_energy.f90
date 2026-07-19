@@ -24,10 +24,10 @@ module tblite_post_processing_xtbml_orbital
    use tblite_container_list, only : cache_list
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
+   use tblite_output_format, only : format_string
    use tblite_post_processing_xtbml_cache, only : xtbml_cache
    use tblite_post_processing_xtbml_convolution, only : xtbml_convolution
    use tblite_post_processing_xtbml_features, only : xtbml_feature_type
-   use tblite_output_format, only : format_string
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
@@ -199,8 +199,8 @@ subroutine compute_extended(self, mol, wfn, ints, calc, caches, mlcache, &
       call get_eluao_ext(ext_chempot, ext_egap, ext_eluao)
 
       do isc = 1, convolution%nscale
-         a_label = "_"//trim(adjustl(format_string(convolution%rcov_scale(isc), '(f12.2)')))
-         if (a_label .eq. "_1.00") a_label = ""
+         a_label = "_"//trim(adjustl(format_string(convolution%rcov_scale(isc), "(f12.2)")))
+         if (a_label == "_1.00") a_label = ""
          conv_label = trim(spin_label(spin))//a_label
 
          ! Add convoluted features to the dictionary
@@ -406,7 +406,7 @@ subroutine accumulate_properties(nocc, nvirt, iocc, ivirt, po, pv, &
 
    integer :: io, iv, iocc_mo, ivirt_mo, iat, nat
    real(wp) :: delta_eps, sum_eps, tmp
-   real(wp), allocatable :: response_kernel(:, :), response_weight(:, :) 
+   real(wp), allocatable :: response_kernel(:, :), response_weight(:, :)
    real(wp), allocatable :: chempot_kernel(:, :), chempot_weight(:, :)
    real(wp), allocatable :: gap_kernel(:, :), gap_weight(:, :)
 
@@ -506,7 +506,7 @@ subroutine accumulate_properties(nocc, nvirt, iocc, ivirt, po, pv, &
          response(iat) = dot(po(:, iat), response_weight(:, iat))
          chempot(iat) = dot(po(:, iat), chempot_weight(:, iat))
          egap(iat) = dot(po(:, iat), gap_weight(:, iat))
-      
+
          ! Normalize gap with response and invert after regularization
          egap(iat) = egap(iat) / (response(iat) + regularizer)
          egap(iat) = 1.0_wp / (egap(iat) + regularizer) - damp
@@ -565,7 +565,7 @@ end subroutine convolve_scalar
 subroutine get_ehoao_ext(ext_chempot, ext_egap, ext_ehoao)
    !> Extended chemical potential
    real(wp), intent(in) :: ext_chempot(:, :)
-   !> Extended gap 
+   !> Extended gap
    real(wp), intent(in) :: ext_egap(:, :)
    !> Extended highest occupied atomic orbital
    real(wp), intent(out) :: ext_ehoao(:, :)
@@ -588,7 +588,7 @@ end subroutine get_ehoao_ext
 subroutine get_eluao_ext(ext_chempot, ext_egap, ext_eluao)
    !> Extended chemical potential
    real(wp), intent(in) :: ext_chempot(:, :)
-   !> Extended gap 
+   !> Extended gap
    real(wp), intent(in) :: ext_egap(:, :)
    !> Extended lowest unoccupied atomic orbital
    real(wp), intent(out) :: ext_eluao(:, :)

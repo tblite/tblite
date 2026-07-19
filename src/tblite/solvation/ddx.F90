@@ -80,7 +80,7 @@ module tblite_solvation_ddx
       real(wp) :: rscale = 1.0_wp
       !> Number of grid points for each atom (default=110)
       integer :: nang = grid_size(8)
-      !> Regularization parameter / width of the switching function 
+      !> Regularization parameter / width of the switching function
       real(wp) :: eta = 0.1_wp
       !> Maximum angular momentum of basis functions
       integer :: lmax = 1
@@ -93,7 +93,7 @@ module tblite_solvation_ddx
 
    !> Definition of polarizable continuum model
    type, extends(solvation_type) :: ddx_solvation
-      !> ddX model 
+      !> ddX model
       integer :: ddx_model
       !> Dielectric function
       real(wp) :: feps
@@ -104,14 +104,14 @@ module tblite_solvation_ddx
       !> Accuracy for iterative solver
       real(wp) :: conv = 1.0e-10_wp
       !> Regularization parameter
-      real(wp) :: eta 
+      real(wp) :: eta
       !> Number of grid points for each atom (=110)
-      integer :: nang 
+      integer :: nang
       !> Maximum angular momentum of basis functions
-      integer :: lmax 
+      integer :: lmax
       !> Number of OMP threads
       integer :: nproc = 1
-      !> Shift of the switching function 
+      !> Shift of the switching function
       ! (default value depends on the model, for COSMO/CPCM it is -1)
       real(wp) :: shift
       !> Maximum number of iterations for the iterative solver
@@ -122,7 +122,7 @@ module tblite_solvation_ddx
       integer :: pm = 8
       !> Maximal degree of local spherical harmonics
       integer :: pl = 8
-      !> Handling of the sparse matrices 
+      !> Handling of the sparse matrices
       integer :: incore = 0
       !> 1 to use FMM acceleration and 0 otherwise
       integer :: enable_fmm = 1
@@ -143,10 +143,10 @@ module tblite_solvation_ddx
    type :: ddx_cache
 #if TBLITE_HAS_DDX
       !> ddX instance
-      type(ddx_type) :: ddx 
+      type(ddx_type) :: ddx
       !> ddX container with quantities common to all models
       type(ddx_state_type) :: ddx_state
-      !> ddX container for the electrostatic properties  
+      !> ddX container for the electrostatic properties
       type(ddx_electrostatics_type) :: ddx_electrostatics
       !> ddX error handling
       type(ddx_error_type) :: ddx_error
@@ -230,7 +230,7 @@ subroutine new_ddx(self, mol, input, error)
    type(error_type), allocatable, intent(out) :: error
 #if TBLITE_HAS_DDX
    integer :: iat, izp
-   real(wp) :: feps_param 
+   real(wp) :: feps_param
 
    ! Set label
    if (input%ddx_model == ddx_solvation_model%cosmo) then
@@ -244,7 +244,7 @@ subroutine new_ddx(self, mol, input, error)
       return
    end if
 
-   ! Set model 
+   ! Set model
    self%ddx_model = input%ddx_model
 
    ! Get number of OMP threads
@@ -270,16 +270,16 @@ subroutine new_ddx(self, mol, input, error)
    else if (input%ddx_model == ddx_solvation_model%cpcm) then
       feps_param = 0.0_wp
       self%feps = (self%dielectric_const - 1.0_wp) / (self%dielectric_const + feps_param)
-   else 
+   else
       self%feps = 1.0_wp
    end if
 
-   ! Initialize the shift of the switching function depending on the model: 
+   ! Initialize the shift of the switching function depending on the model:
    ! In ddX, ddCOSMO/ddCPCM uses an internal shift by default, ddPCM has a symmetric shift
    if (input%ddx_model == ddx_solvation_model%cosmo .or. &
       & input%ddx_model == ddx_solvation_model%cpcm) then
       self%shift = -1.0_wp
-   else 
+   else
       self%shift = 0.0_wp
    end if
 
@@ -343,7 +343,7 @@ subroutine update(self, mol, cache)
       & incore=self%incore, enable_fmm=self%enable_fmm)
    call check_error(ptr%ddx_error)
 
-   ! The state class contains all quantities that are explicitly solute-dependent. That will be the 
+   ! The state class contains all quantities that are explicitly solute-dependent. That will be the
    ! right-hand sides of the primal & adjoint linear systems (the spherical harmonics expansion of
    ! the solute potential and the spherical harmonics representation of the solute charges)
    ! as well as the relevant intermediates.
@@ -354,20 +354,20 @@ subroutine update(self, mol, cache)
    ! Allocate the multipole array that later contains the xTB Mulliken charges
    ! (We only pass monopoles)
    if (.not.allocated(ptr%multipoles))then
-         allocate(ptr%multipoles(1, mol%nat), source=0.0_wp) 
-   endif
+         allocate(ptr%multipoles(1, mol%nat), source=0.0_wp)
+   end if
 
    ! Allocate and compute the Coulomb matrix
    if (allocated(ptr%jmat))then
       deallocate(ptr%jmat)
-   endif
+   end if
    allocate(ptr%jmat(ptr%ddx%constants%ncav, mol%nat), source=0.0_wp)
    call get_coulomb_matrix(mol%xyz, ptr%ddx%constants%ccav, ptr%jmat)
 
    ! Allocate atom-resolved solvation potential contribution produced by get_potential
    if (.not.allocated(ptr%ddx_pot))then
-      allocate(ptr%ddx_pot(mol%nat), source=0.0_wp) 
-   endif
+      allocate(ptr%ddx_pot(mol%nat), source=0.0_wp)
+   end if
 
    ! Now we initialize the RHSs (they are zero in the first iteration)
    ! Given the monopole distribution...
@@ -436,7 +436,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    call check_error(ptr%ddx_error)
 
    ! Add solvation energy to total energy
-   energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1) 
+   energies(:) = energies + self%feps * 0.5_wp * sum(ptr%ddx_state%xs * ptr%ddx_state%psi, 1)
 #endif
 
 end subroutine get_energy
@@ -496,7 +496,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    ! (Again, see J. Chem. Theory Comput. 2013, 9, 3637−3648)
    ! Zeta is an intermediate in the computation of the latter and needs to be
    ! contracted with the Coulomb matrix in a last step.
-   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans='t')  
+   call gemv(ptr%jmat, ptr%ddx_state%zeta, ptr%ddx_pot(:), alpha=-1.0_wp, beta=1.0_wp, trans="t")
 
    ! Scale with 0.5 and feps, and get the Psi contribution to potential
    ptr%ddx_pot(:) = 0.5_wp * self%feps * (ptr%ddx_pot(:) + sqrt(4.0_wp*pi) * ptr%ddx_state%xs(1, :))
@@ -526,7 +526,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), allocatable :: force(:,:)
 
    type(ddx_cache), pointer :: ptr
-   
+
    call view(cache, ptr)
 
    allocate(force(3, mol%nat), source=0.0_wp)
@@ -543,7 +543,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    ! Add the dielectric factor to the gradient of the solvation energy
    ! (ddX computes the gradient without it)
-   force = self%feps * force 
+   force = self%feps * force
 
    ! Add the gradient of the solvation energy to the total gradient
    gradient =  gradient + force

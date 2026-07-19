@@ -15,19 +15,19 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_hamiltonian
+   use mctc_data_covrad, only : get_covalent_rad
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
-   use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_integral_overlap
+   use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_scf_potential, only : potential_type, new_potential
    use tblite_xtb_gfn2
    use tblite_xtb_h0
@@ -160,7 +160,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
       do jj = 1, size(hamiltonian, 1)
          call check(error, hamiltonian(jj, ii), ref(jj, ii), thr=thr2)
          if (allocated(error)) then
-            print '(2es20.13)', hamiltonian(jj, ii), ref(jj, ii), &
+            print "(2es20.13)", hamiltonian(jj, ii), ref(jj, ii), &
                & hamiltonian(jj, ii) - ref(jj, ii)
             return
          end if
@@ -232,31 +232,31 @@ subroutine test_hamiltonian_periodic_self(error)
 
    if (any(abs(dEdcn - numdEdcn) > cn_thr)) then
       call test_failed(error, "Periodic self-image CN derivative does not match")
-      print '(3es21.14)', dEdcn
+      print "(3es21.14)", dEdcn
       print '("---")'
-      print '(3es21.14)', numdEdcn
+      print "(3es21.14)", numdEdcn
       print '("---")'
-      print '(3es21.14)', dEdcn - numdEdcn
+      print "(3es21.14)", dEdcn - numdEdcn
       return
    end if
 
    if (any(abs(gradient - numgradient) > strict_thr)) then
       call test_failed(error, "Periodic self-image gradient does not cancel")
-      print '(3es21.14)', gradient
+      print "(3es21.14)", gradient
       print '("---")'
-      print '(3es21.14)', numgradient
+      print "(3es21.14)", numgradient
       print '("---")'
-      print '(3es21.14)', gradient - numgradient
+      print "(3es21.14)", gradient - numgradient
       return
    end if
 
    if (any(abs(sigma - numsigma) > strain_thr)) then
       call test_failed(error, "Periodic self-image strain derivative does not match")
-      print '(3es21.14)', sigma
+      print "(3es21.14)", sigma
       print '("---")'
-      print '(3es21.14)', numsigma
+      print "(3es21.14)", numsigma
       print '("---")'
-      print '(3es21.14)', sigma - numsigma
+      print "(3es21.14)", sigma - numsigma
    end if
 
 end subroutine test_hamiltonian_periodic_self

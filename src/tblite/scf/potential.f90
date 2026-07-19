@@ -33,7 +33,7 @@ module tblite_scf_potential
 
    !> Container for density dependent potential-shifts
    type, public :: potential_type
-      !> Flag if potential includes potential gradients 
+      !> Flag if potential includes potential gradients
       logical :: grad = .false.
       !> Atom-resolved charge-dependent potential shift
       real(wp), allocatable :: vat(:, :)

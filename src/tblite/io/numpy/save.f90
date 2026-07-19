@@ -115,8 +115,8 @@ pure function shape_str(vshape) result(str)
 
    str = "("
    do i = 1, size(vshape)
-      str = str//format_string(vshape(i), '(i0)')//", "
-   enddo
+      str = str//format_string(vshape(i), "(i0)")//", "
+   end do
    str = str//")"
 end function shape_str
 

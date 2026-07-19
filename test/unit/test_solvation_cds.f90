@@ -24,9 +24,9 @@ module test_solvation_cds
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_cds, only : cds_solvation, cds_input
-   use tblite_solvation_data_cds, only : get_cds_param
-   use tblite_solvation_data, only : solvent_data, get_solvent_data, & 
+   use tblite_solvation_data, only : solvent_data, get_solvent_data, &
       & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
+   use tblite_solvation_data_cds, only : get_cds_param
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -128,9 +128,9 @@ subroutine test_e(error, mol, input, qat, ref, method)
 
    if (abs(sum(energy) - ref) > thr) then
       call test_failed(error, "Energy does not match reference")
-      print '(es21.14)', sum(energy)
-      print '(es21.14)', ref
-      print '(a)', "---"
+      print "(es21.14)", sum(energy)
+      print "(es21.14)", ref
+      print "(a)", "---"
    end if
 end subroutine test_e
 
@@ -167,7 +167,7 @@ subroutine test_g(error, mol, input, qat, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then   
+   if (allocated(input%solvent) .and. present(method)) then
       call get_cds_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No CDS parameters found for the method/solvent")
@@ -207,11 +207,11 @@ subroutine test_g(error, mol, input, qat, method)
 
    if (any(abs(gradient - numg) > thr2)) then
       call test_failed(error, "Gradient does not match")
-      print '(3es20.13)', gradient
-      print '(a)', "---"
-      print '(3es20.13)', numg
-      print '(a)', "---"
-      print '(3es20.13)', gradient - numg
+      print "(3es20.13)", gradient
+      print "(a)", "---"
+      print "(3es20.13)", numg
+      print "(a)", "---"
+      print "(3es20.13)", gradient - numg
    end if
 end subroutine test_g
 
@@ -240,7 +240,7 @@ subroutine test_g_nonscf(error, mol, input, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then   
+   if (allocated(input%solvent) .and. present(method)) then
       call get_cds_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No CDS parameters found for the method/solvent")
@@ -276,11 +276,11 @@ subroutine test_g_nonscf(error, mol, input, method)
 
    if (any(abs(gradient - numg) > thr2)) then
       call test_failed(error, "Gradient does not match")
-      print '(3es20.13)', gradient
-      print '(a)', "---"
-      print '(3es20.13)', numg
-      print '(a)', "---"
-      print '(3es20.13)', gradient - numg
+      print "(3es20.13)", gradient
+      print "(a)", "---"
+      print "(3es20.13)", numg
+      print "(a)", "---"
+      print "(3es20.13)", gradient - numg
    end if
 end subroutine test_g_nonscf
 
@@ -316,7 +316,7 @@ subroutine test_p(error, mol, input, qat, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then   
+   if (allocated(input%solvent) .and. present(method)) then
       call get_cds_param(scratch_input, mol, method, error)
       if(allocated(error)) then
          call test_failed(error, "No CDS parameters found for the method/solvent")
@@ -351,11 +351,11 @@ subroutine test_p(error, mol, input, qat, method)
 
    if (any(abs([pot%vat] - vat) > thr)) then
       call test_failed(error, "Potential does not match")
-      print '(3es20.13)', pot%vat
-      print '(a)', "---"
-      print '(3es20.13)', vat
-      print '(a)', "---"
-      print '(3es20.13)', [pot%vat] - vat
+      print "(3es20.13)", pot%vat
+      print "(a)", "---"
+      print "(3es20.13)", vat
+      print "(a)", "---"
+      print "(3es20.13)", [pot%vat] - vat
    end if
 end subroutine test_p
 
@@ -471,7 +471,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs(*) = [&
       &-1.87575467176401E-2_wp, -2.19756935070354E-2_wp, -7.59897506913909E-3_wp, &
       &-1.28403478505020E-2_wp, -1.39686149805164E-2_wp, -1.08664447124936E-2_wp, &
@@ -490,9 +490,9 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
    do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
       input = cds_input(solvent=solvent%solvent, alpb=.true.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn1') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn1")
       if (allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_alpb_gfn1_all_solvents
 
@@ -517,7 +517,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs(*) = [&
       &-2.05399633856027E-2_wp, -1.76286670133248E-2_wp, -1.52489808627813E-2_wp, &
       &-1.61094315706730E-2_wp, -2.00524539538480E-2_wp, -2.04518654284223E-2_wp, &
@@ -536,9 +536,9 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
    do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
       input = cds_input(solvent=solvent%solvent, alpb=.true.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn2")
       if (allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_alpb_gfn2_all_solvents
 
@@ -560,7 +560,7 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    integer, parameter :: nsolvents = 12
    character(len=*), parameter :: solvents(*) = [character(len=nsolvents):: &
       & "acetone", "acetonitrile", "benzene", "ch2cl2", "chcl3", "cs2", &
-      & "dmso", "ether", "methanol", "thf", "toluene", "water"] 
+      & "dmso", "ether", "methanol", "thf", "toluene", "water"]
    real(wp), parameter :: refs(*) = [&
       &-2.16720081179071E-3_wp, -3.28426923492598E-2_wp, -2.52277980102607E-2_wp, &
       &-2.41431963258825E-2_wp, -2.41431963258825E-2_wp, -4.54197252450546E-3_wp, &
@@ -574,9 +574,9 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
    do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
       input = cds_input(solvent=solvent%solvent, alpb=.false.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn1') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn1")
       if (allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_gbsa_gfn1_all_solvents
 
@@ -614,9 +614,9 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
    do i = 1, nsolvents
       solvent = get_solvent_data(solvents(i))
       input = cds_input(solvent=solvent%solvent, alpb=.false.)
-      call test_e(error, mol, input, qat, refs(i), method='gfn2') 
+      call test_e(error, mol, input, qat, refs(i), method="gfn2")
       if (allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_gbsa_gfn2_all_solvents
 
@@ -654,7 +654,7 @@ subroutine test_e_charged_alpb_gfn1(error)
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_e(error, mol, input, qat, -1.74474048674407E-02_wp, method='gfn1')
+   call test_e(error, mol, input, qat, -1.74474048674407E-02_wp, method="gfn1")
 
 end subroutine test_e_charged_alpb_gfn1
 
@@ -691,7 +691,7 @@ subroutine test_e_charged_alpb_gfn2(error)
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_e(error, mol, input, qat, -7.40555251354138E-03_wp, method='gfn2')
+   call test_e(error, mol, input, qat, -7.40555251354138E-03_wp, method="gfn2")
 
 end subroutine test_e_charged_alpb_gfn2
 
@@ -728,7 +728,7 @@ subroutine test_e_charged_gbsa_gfn1(error)
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.false.)
-   call test_e(error, mol, input, qat, 8.78720929142896E-03_wp, method='gfn1')
+   call test_e(error, mol, input, qat, 8.78720929142896E-03_wp, method="gfn1")
 
 end subroutine test_e_charged_gbsa_gfn1
 
@@ -765,7 +765,7 @@ subroutine test_e_charged_gbsa_gfn2(error)
    call get_structure(mol, "UPU23", "0a")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.false.)
-   call test_e(error, mol, input, qat, -1.68750629525887E-02_wp, method='gfn2')
+   call test_e(error, mol, input, qat, -1.68750629525887E-02_wp, method="gfn2")
 
 end subroutine test_e_charged_gbsa_gfn2
 
@@ -789,7 +789,7 @@ subroutine test_g_cds(error)
    call get_structure(mol, "MB16-43", "06")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_g(error, mol, input, qat, method='gfn2')
+   call test_g(error, mol, input, qat, method="gfn2")
 
 end subroutine test_g_cds
 
@@ -806,7 +806,7 @@ subroutine test_g_cds_nonscf(error)
    call get_structure(mol, "MB16-43", "07")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_g_nonscf(error, mol, input, method='gfn2')
+   call test_g_nonscf(error, mol, input, method="gfn2")
 
 end subroutine test_g_cds_nonscf
 
@@ -830,7 +830,7 @@ subroutine test_p_cds(error)
    call get_structure(mol, "MB16-43", "08")
    solvent = get_solvent_data("water")
    input = cds_input(solvent=solvent%solvent, alpb=.true.)
-   call test_p(error, mol, input, qat, method='gfn2')
+   call test_p(error, mol, input, qat, method="gfn2")
 
 end subroutine test_p_cds
 
@@ -856,7 +856,7 @@ subroutine test_unsupported_solvent(error)
    ! Check GFN1/GBSA unavailable solvent
    solvent = get_solvent_data("aniline")
    input = cds_input(solvent=solvent%solvent, alpb=.false.)
-   call get_cds_param(input, mol, 'gfn1', error)
+   call get_cds_param(input, mol, "gfn1", error)
 
 end subroutine test_unsupported_solvent
 

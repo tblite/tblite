@@ -20,9 +20,9 @@ module tblite_cli
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : filetype, get_filetype, to_symbol
    use tblite_argument, only : argument_list, len
+   use tblite_cli_features, only : get_tblite_feature
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff, help_text_guess
-   use tblite_cli_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
    use tblite_scf_mixer_input, only : mixer_input, anneal_input, scf_version
    use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
@@ -184,7 +184,7 @@ subroutine get_arguments(config, error)
       call list%get(iarg, arg)
       select case(arg)
       case("--help")
-         write(output_unit, '(a)') help_text
+         write(output_unit, "(a)") help_text
          stop
       case("--version")
          call version(output_unit)
@@ -230,7 +230,7 @@ subroutine get_arguments(config, error)
    if (allocated(error)) return
 
    if (.not.allocated(config)) then
-      write(output_unit, '(a)') help_text
+      write(output_unit, "(a)") help_text
       error stop
    end if
 
@@ -296,7 +296,7 @@ subroutine get_run_arguments(config, list, start, error)
          getopts = .false.
 
       case("--help")
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, "(a)") help_text_run
          stop
 
       case("--version")
@@ -481,7 +481,7 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
-         end if 
+         end if
          parametrized_solvation = .false.
          alpb = arg == "--gbe"
 
@@ -503,7 +503,7 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
-         end if 
+         end if
          parametrized_solvation = .true.
          alpb = arg == "--alpb"
 
@@ -531,7 +531,7 @@ subroutine get_run_arguments(config, list, start, error)
          end if
 
       case("--post-processing")
-         iarg = iarg + 1 
+         iarg = iarg + 1
          call list%get(iarg, config%post_processing)
          if (.not.allocated(config%post_processing)) then
             call fatal_error(error, "Missing argument for post processing")
@@ -632,7 +632,7 @@ subroutine get_run_arguments(config, list, start, error)
          comma_count = 0
          if (allocated(arg)) then
             do ich = 1, len(arg)
-               if (arg(ich:ich) == ',') comma_count = comma_count + 1
+               if (arg(ich:ich) == ",") comma_count = comma_count + 1
             end do
          end if
 
@@ -731,7 +731,7 @@ subroutine get_run_arguments(config, list, start, error)
 
    if (.not.(allocated(config%input))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, "(a)") help_text_run
          error stop
       end if
    end if
@@ -767,7 +767,7 @@ subroutine get_run_arguments(config, list, start, error)
          end if
       else
          ! ddX solvation model
-         if (sol_state /= solution_state%gsolv) then 
+         if (sol_state /= solution_state%gsolv) then
             call fatal_error(error, "Solution state shift not supported for ddX solvation")
             return
          end if
@@ -821,7 +821,7 @@ subroutine get_guess_arguments(config, list, start, error)
          getopts = .false.
 
       case("--help")
-         write(output_unit, '(a)') help_text_guess
+         write(output_unit, "(a)") help_text_guess
          stop
 
       case("--version")
@@ -932,7 +932,7 @@ subroutine get_guess_arguments(config, list, start, error)
 
    if (.not.(allocated(config%input))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_guess
+         write(output_unit, "(a)") help_text_guess
          error stop
       end if
    end if
@@ -975,7 +975,7 @@ subroutine get_param_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_param
+         write(output_unit, "(a)") help_text_param
          stop
       case("--version")
          call version(output_unit)
@@ -1006,7 +1006,7 @@ subroutine get_param_arguments(config, list, start, error)
 
    if (.not.any([allocated(config%input), allocated(config%method)])) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_param
+         write(output_unit, "(a)") help_text_param
          error stop
       end if
    end if
@@ -1055,7 +1055,7 @@ subroutine get_fit_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_fit
+         write(output_unit, "(a)") help_text_fit
          stop
       case("--version")
          call version(output_unit)
@@ -1091,7 +1091,7 @@ subroutine get_fit_arguments(config, list, start, error)
 
    if (.not.allocated(config%input)) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_fit
+         write(output_unit, "(a)") help_text_fit
          error stop
       end if
    end if
@@ -1138,7 +1138,7 @@ subroutine get_tagdiff_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_tagdiff
+         write(output_unit, "(a)") help_text_tagdiff
          stop
       case("--version")
          call version(output_unit)
@@ -1161,7 +1161,7 @@ subroutine get_tagdiff_arguments(config, list, start, error)
 
    if (.not.(allocated(config%actual).and.allocated(config%reference))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_tagdiff
+         write(output_unit, "(a)") help_text_tagdiff
          error stop
       end if
    end if
@@ -1253,11 +1253,11 @@ subroutine version(unit)
    character(len=:), allocatable :: version_string
 
    call get_tblite_version(string=version_string)
-   write(unit, '(a, *(1x, a))') &
+   write(unit, "(a, *(1x, a))") &
       & prog_name, "version", version_string
-   write(unit, '(a, 1x, a)') "ddX support:", merge("enabled ", "disabled", get_tblite_feature("ddx"))
-   write(unit, '(a, 1x, a)') "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
-   write(unit, '(a, 1x, a)') "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
+   write(unit, "(a, 1x, a)") "ddX support:", merge("enabled ", "disabled", get_tblite_feature("ddx"))
+   write(unit, "(a, 1x, a)") "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
+   write(unit, "(a, 1x, a)") "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
 
 end subroutine version
 

@@ -21,14 +21,14 @@ module test_coulomb_thirdorder
    use mctc_io, only : structure_type, new
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_container_cache, only : container_cache
-   use tblite_coulomb_type, only : coulomb_type
-   use tblite_coulomb_thirdorder, only : onsite_thirdorder, new_onsite_thirdorder
-   use tblite_scf, only: new_potential, potential_type
+   use tblite_basis_type
    use tblite_ceh_ceh, only : get_effective_qat
+   use tblite_container_cache, only : container_cache
+   use tblite_coulomb_thirdorder, only : onsite_thirdorder, new_onsite_thirdorder
+   use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
+   use tblite_scf, only: new_potential, potential_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
    private
@@ -159,8 +159,8 @@ subroutine make_coulomb_o1(coulomb, mol, shell)
       & 0.000000_wp, 1.500000_wp, 1.027370_wp, 0.900554_wp, 1.300000_wp, &
       & 1.053856_wp, 0.042507_wp,-0.005102_wp, 1.615037_wp, 1.600000_wp, &
       & 1.200000_wp, 1.100000_wp, 1.200000_wp, 1.500000_wp, 1.500000_wp, &
-      & 1.500000_wp, 1.000000_wp, 0.829312_wp, 0.732923_wp, 1.116963_wp] 
-   
+      & 1.500000_wp, 1.000000_wp, 0.829312_wp, 0.732923_wp, 1.116963_wp]
+
    real(wp), allocatable :: hubbard_derivs(:, :)
    type(onsite_thirdorder), allocatable :: tmp
 
@@ -233,7 +233,7 @@ subroutine make_coulomb_oceh(coulomb, mol, shell)
       &  0.0126634714_wp, -0.0082561791_wp,  0.0992949802_wp, -0.0267387652_wp, &
       & -0.0632999086_wp, -1.0106414497_wp, -0.3492075197_wp, -0.3191627473_wp, &
       &  0.0467483747_wp, -0.0920002125_wp, -0.0728788864_wp, -0.0213909690_wp, &
-      & -0.0206065548_wp, -0.0432378706_wp, -0.0686554093_wp, -0.1671301006_wp] 
+      & -0.0206065548_wp, -0.0432378706_wp, -0.0686554093_wp, -0.1671301006_wp]
    integer, parameter :: shell_count(20) = [&
       & 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3]
 
@@ -291,7 +291,7 @@ subroutine get_charges_effceh(wfn, mol, nshell, error)
    &  3.9800000000_wp,  3.5124865506_wp,  2.3578254072_wp,  2.4225832022_wp, &
    &  2.1120078826_wp,  2.4607564741_wp,  2.7410779326_wp,  3.3517034720_wp, &
    &  4.1093492601_wp,  3.7979559518_wp,  2.4147937668_wp,  2.1974781961_wp]
-   
+
    real(wp), allocatable :: lattr(:, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
    class(ncoord_type), allocatable :: ncoord_en
    integer :: iat, ii, ish
@@ -317,9 +317,9 @@ subroutine get_charges_effceh(wfn, mol, nshell, error)
             wfn%qsh(ii+ish, :) = wfn%qat(iat, :) / real(nshell(iat), wp)
             wfn%dqshdr(:, :, ii+ish, :) = wfn%dqatdr(:, :, iat, :) / real(nshell(iat), wp)
             wfn%dqshdL(:, :, ii+ish, :) = wfn%dqatdL(:, :, iat, :) / real(nshell(iat), wp)
-         end do 
+         end do
          ii = ii + nshell(iat)
-      end do 
+      end do
    end if
 
 end subroutine get_charges_effceh
@@ -437,7 +437,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_numgrad
@@ -470,7 +470,7 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
 
-   ! Setup potentials and wavefunction with dummy basis set 
+   ! Setup potentials and wavefunction with dummy basis set
    call make_basis(bas, mol, 6)
    call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
    call new_potential(potr, mol, bas, 1, .true.)
@@ -484,7 +484,7 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
    else
       allocate(numpotgrad(3, mol%nat, mol%nat), source=0.0_wp)
    end if
-   
+
    do iat = 1, mol%nat
       do ic = 1, 3
          call potr%reset
@@ -500,7 +500,7 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
          if (allocated(error)) return
          call coulomb%update(mol, cache)
          call coulomb%get_potential(mol, cache, wfn, potl)
-         
+
          mol%xyz(ic, iat) = mol%xyz(ic, iat) + step
          if(shell) then
             numpotgrad(ic, iat, :) = 0.5_wp*(potr%vsh(:,1) - potl%vsh(:,1))/step
@@ -519,12 +519,12 @@ subroutine test_numpotgrad(error, mol, get_charges, make_coulomb, shell)
    if(shell) then
       if (any(abs(potl%dvshdr(:,:,:,1) - numpotgrad) > thr2)) then
          call test_failed(error, "Gradient of shell-resolved potential does not match")
-         print'(3es21.14)', potl%dvshdr(:,:,:,1) - numpotgrad
+         print"(3es21.14)", potl%dvshdr(:,:,:,1) - numpotgrad
       end if
    else
       if (any(abs(potl%dvatdr(:,:,:,1) - numpotgrad) > thr2)) then
          call test_failed(error, "Gradient of atom-resolved potential does not match")
-         print'(3es21.14)', potl%dvatdr(:,:,:,1) - numpotgrad
+         print"(3es21.14)", potl%dvatdr(:,:,:,1) - numpotgrad
       end if
    end if
 
@@ -598,7 +598,7 @@ subroutine test_numsigma(error, mol, qat, qsh, make_coulomb)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_numsigma
@@ -636,7 +636,7 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
 
    allocate(xyz(3, mol%nat), source=0.0_wp)
 
-   ! Setup potentials and wavefunction with dummy basis set 
+   ! Setup potentials and wavefunction with dummy basis set
    call make_basis(bas, mol, 6)
    call new_wavefunction(wfn, mol%nat, bas%nsh, bas%nao, 1, 0.0_wp, .true.)
    call new_potential(potr, mol, bas, 1, .true.)
@@ -693,12 +693,12 @@ subroutine test_numpotsigma(error, mol, get_charges, make_coulomb, shell)
    if(shell) then
       if (any(abs(potl%dvshdL(:,:,:,1) - numpotsigma) > thr2)) then
          call test_failed(error, "Sigma of shell-resolved potential does not match")
-         print'(3es21.14)', potl%dvshdL(:,:,:,1) - numpotsigma
+         print"(3es21.14)", potl%dvshdL(:,:,:,1) - numpotsigma
       end if
    else
       if (any(abs(potl%dvatdL(:,:,:,1) - numpotsigma) > thr2)) then
          call test_failed(error, "Sigma of atom-resolved potential does not match")
-         print'(3es21.14)', potl%dvatdL(:,:,:,1) - numpotsigma
+         print"(3es21.14)", potl%dvatdL(:,:,:,1) - numpotsigma
       end if
    end if
 
@@ -712,11 +712,11 @@ subroutine test_e_gfn1_m01(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat(*) = [&
-      & 0.80928533739041852_wp, -0.0985788702919893_wp, -1.1789498512968015_wp, & 
-      &-0.07630466864269804_wp, -0.5449852206782641_wp,  0.3220779574144627_wp, & 
-      &-0.02986669797918212_wp, -1.1079458022741191_wp, -0.6616262018005230_wp, & 
+      & 0.80928533739041852_wp, -0.0985788702919893_wp, -1.1789498512968015_wp, &
+      &-0.07630466864269804_wp, -0.5449852206782641_wp,  0.3220779574144627_wp, &
+      &-0.02986669797918212_wp, -1.1079458022741191_wp, -0.6616262018005230_wp, &
       & 0.56887324141215356_wp,  0.3231023443889342_wp,  0.0959376082660442_wp, &
-      & 0.27886474952257534_wp,  0.8972931001216102_wp, -0.3079177622577322_wp, & 
+      & 0.27886474952257534_wp,  0.8972931001216102_wp, -0.3079177622577322_wp, &
       & 0.71074073670510574_wp]
    real(wp), allocatable :: qsh(:)
 
@@ -759,7 +759,7 @@ subroutine test_e_gfn2_oxacb(error)
       & 0.90737069516079072_wp, 0.90712544694131525_wp,-0.77945631396614101_wp, &
       &-0.78097308159910250_wp,-0.78002089184600454_wp,-0.77924355344945684_wp, &
       &-0.55876993965122157_wp,-0.55823164158343652_wp,-0.55927229556741787_wp, &
-      &-0.55894500773303069_wp]   
+      &-0.55894500773303069_wp]
    real(wp), parameter :: qsh(*)=[&
       & 0.43142759318744994_wp, 0.43150967285357533_wp, 0.43146165224958366_wp, &
       & 0.43147407117646708_wp, 0.12631625958529813_wp, 0.78094397181364483_wp, &
@@ -926,7 +926,7 @@ subroutine test_e_gfn2_m07(error)
       & 0.459237705248708_wp, -0.6369517649821776_wp, -0.3853972301505781_wp, &
       & 0.318264950183372_wp]
    real(wp), parameter :: qsh(*) = [&
-      &-0.2372082175033831_wp, -2.7496123367484957_wp,  0.2133150304286247_wp, & 
+      &-0.2372082175033831_wp, -2.7496123367484957_wp,  0.2133150304286247_wp, &
       & 1.2459662589528724_wp, -0.0240124648404671_wp,  0.6375260915396232_wp, &
       & 0.6288673640786957_wp,  0.0427487776207620_wp, -0.4119239254478257_wp, &
       &-0.1101947476357790_wp,  0.1962526334754219_wp, -0.5774678408988283_wp, &

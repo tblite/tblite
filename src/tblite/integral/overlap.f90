@@ -82,7 +82,7 @@ elemental function overlap_1d(moment, alpha) result(overlap)
    real(wp), intent(in) :: alpha
    real(wp) :: overlap
    real(wp), parameter :: dfactorial(0:7) = & ! see OEIS A001147
-      & [1._wp,1._wp,3._wp,15._wp,105._wp,945._wp,10395._wp,135135._wp]
+      & [1.0_wp,1.0_wp,3.0_wp,15.0_wp,105.0_wp,945.0_wp,10395.0_wp,135135.0_wp]
 
    if (modulo(moment, 2) == 0) then
       overlap = (0.5_wp/alpha)**(moment/2) * dfactorial(moment/2)
@@ -120,16 +120,16 @@ pure subroutine form_product(a, b, la, lb, d)
    integer, intent(in) :: la, lb
    real(wp), intent(in) :: a(*), b(*)
    real(wp), intent(inout) :: d(*)
-   if(la.ge.4.or.lb.ge.4) goto 40
-   if(la.ge.3.or.lb.ge.3) goto 30
-   if(la.ge.2.or.lb.ge.2) goto 20
+   if(la>=4.or.lb>=4) goto 40
+   if(la>=3.or.lb>=3) goto 30
+   if(la>=2.or.lb>=2) goto 20
    ! <s|s> = <s>
    d(1)=a(1)*b(1)
-   if(la.eq.0.and.lb.eq.0) return
+   if(la==0.and.lb==0) return
    ! <s|p> = <s|*(|s>+|p>)
    !       = <s> + <p>
    d(2)=a(1)*b(2)+a(2)*b(1)
-   if(la.eq.0.or.lb.eq.0) return
+   if(la==0.or.lb==0) return
    ! <p|p> = (<s|+<p|)*(|s>+|p>)
    !       = <s> + <p> + <d>
    d(3)=a(2)*b(2)
@@ -140,12 +140,12 @@ pure subroutine form_product(a, b, la, lb, d)
    d(1)=a(1)*b(1)
    d(2)=a(1)*b(2)+a(2)*b(1)
    d(3)=a(1)*b(3)+a(3)*b(1)
-   if(la.eq.0.or.lb.eq.0) return
+   if(la==0.or.lb==0) return
    ! <p|d> = (<s|+<p|)*(|s>+|p>+|d>)
    !       = <s> + <p> + <d> + <f>
    d(3)=d(3)+a(2)*b(2)
    d(4)=a(2)*b(3)+a(3)*b(2)
-   if(la.le.1.or.lb.le.1) return
+   if(la<=1.or.lb<=1) return
    ! <d|d> = (<s|+<p|+<d|)*(|s>+|p>+|d>)
    !       = <s> + <p> + <d> + <f> + <g>
    d(5)=a(3)*b(3)
@@ -157,18 +157,18 @@ pure subroutine form_product(a, b, la, lb, d)
    d(2)=a(1)*b(2)+a(2)*b(1)
    d(3)=a(1)*b(3)+a(3)*b(1)
    d(4)=a(1)*b(4)+a(4)*b(1)
-   if(la.eq.0.or.lb.eq.0) return
+   if(la==0.or.lb==0) return
    ! <p|f> = (<s|+<p|)*(|s>+|p>+|d>+|f>)
    !       = <s> + <p> + <d> + <f> + <g>
    d(3)=d(3)+a(2)*b(2)
    d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
    d(5)=a(2)*b(4)+a(4)*b(2)
-   if(la.le.1.or.lb.le.1) return
+   if(la<=1.or.lb<=1) return
    ! <d|f> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>)
    !       = <s> + <p> + <d> + <f> + <g> + <h>
    d(5)=d(5)+a(3)*b(3)
    d(6)=a(3)*b(4)+a(4)*b(3)
-   if(la.le.2.or.lb.le.2) return
+   if(la<=2.or.lb<=2) return
    ! <f|f> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>)
    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
    d(7)=a(4)*b(4)
@@ -181,25 +181,25 @@ pure subroutine form_product(a, b, la, lb, d)
    d(3)=a(1)*b(3)+a(3)*b(1)
    d(4)=a(1)*b(4)+a(4)*b(1)
    d(5)=a(1)*b(5)+a(5)*b(1)
-   if(la.eq.0.or.lb.eq.0) return
+   if(la==0.or.lb==0) return
    ! <p|g> = (<s|+<p|)*(|s>+|p>+|d>+|f>+|g>)
    !       = <s> + <p> + <d> + <f> + <g> + <h>
    d(3)=d(3)+a(2)*b(2)
    d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
    d(5)=d(5)+a(2)*b(4)+a(4)*b(2)
    d(6)=a(2)*b(5)+a(5)*b(2)
-   if(la.le.1.or.lb.le.1) return
+   if(la<=1.or.lb<=1) return
    ! <d|g> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>+|g>)
    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
    d(5)=d(5)+a(3)*b(3)
    d(6)=d(6)+a(3)*b(4)+a(4)*b(3)
    d(7)=a(3)*b(5)+a(5)*b(3)
-   if(la.le.2.or.lb.le.2) return
+   if(la<=2.or.lb<=2) return
    ! <f|g> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>+|g>)
    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k>
    d(7)=d(7)+a(4)*b(4)
    d(8)=a(4)*b(5)+a(5)*b(4)
-   if(la.le.3.or.lb.le.3) return
+   if(la<=3.or.lb<=3) return
    ! <g|g> = (<s|+<p|+<d|+<f|+<g|)*(|s>+|p>+|d>+|f>+|g>)
    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k> + <l>
    d(9)=a(5)*b(5)

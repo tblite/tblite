@@ -75,7 +75,7 @@ subroutine new_wignerseitz_cell(self, mol)
    end do
 
    call move_alloc(trans, self%trans)
-   
+
 end subroutine new_wignerseitz_cell
 
 

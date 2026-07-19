@@ -19,9 +19,9 @@
 
 !> Definition of an abstract base class of the generator for the Hamiltonian.
 module tblite_xtb_spec
+   use mctc_data_atomicrad, only : get_atomic_rad
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use mctc_data_atomicrad, only : get_atomic_rad
    use tblite_basis_type, only : basis_type
    implicit none
    private

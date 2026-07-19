@@ -41,7 +41,7 @@ module tblite_param_post_processing_molmom
       procedure :: dump_to_toml
       !> Populate parametrization record with default values
       procedure :: populate_default_param
-   end type
+   end type molmom_record
 
    !> Masking for the molecular multipole moments post-processing
    type, public :: molmom_mask
@@ -60,7 +60,7 @@ subroutine populate_default_param(param)
    param%moldipm = .true.
    param%molqp= .true.
 
-end subroutine
+end subroutine populate_default_param
 
 !> Read parametrization data from TOML data structure
 subroutine load_from_toml(self, table, error)

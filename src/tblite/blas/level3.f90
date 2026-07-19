@@ -38,7 +38,7 @@ module tblite_blas_level3
    !> with op( A ) an m by k matrix, op( B ) a k by n matrix and C an m by n matrix.
    !> Optionally, the transpose matrix of op( A ) and/or op( B ) can be specified
    !> with `transa` and `transb`, respectively.
-   !> Matrix dimensions are inferred from the matrix size or can be optionally 
+   !> Matrix dimensions are inferred from the matrix size or can be optionally
    !> specified with `m`, `n`, and `k`.
    interface wrap_gemm
       module procedure :: wrap_sgemm
@@ -74,7 +74,7 @@ module tblite_blas_level3
    !>
    !>    C := alpha*B*A + beta*C,
    !>
-   !> where alpha and beta are scalars, A is a symmetric matrix 
+   !> where alpha and beta are scalars, A is a symmetric matrix
    !> and B and C are m by n matrices.
    interface wrap_symm
       module procedure :: wrap_ssymm
@@ -177,7 +177,7 @@ module tblite_blas_level3
    !>
    !>    C := alpha*B*A + beta*C,
    !>
-   !> where alpha and beta are scalars, A is a symmetric matrix 
+   !> where alpha and beta are scalars, A is a symmetric matrix
    !> and B and C are m by n matrices.
    interface blas_symm
       pure subroutine ssymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
@@ -228,14 +228,14 @@ pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, 
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (present(m)) then 
+   if (present(m)) then
       mm = m
    else
       mm = size(cmat, 1)
@@ -247,7 +247,7 @@ pure subroutine wrap_sgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, 
    end if
    if (present(k)) then
       kk = k
-   else if ((tra.eq.'n'.or.tra.eq.'N')) then
+   else if ((tra=="n".or.tra=="N")) then
       kk = size(amat, 2)
    else
       kk = size(amat, 1)
@@ -284,14 +284,14 @@ pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, 
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (present(m)) then 
+   if (present(m)) then
       mm = m
    else
       mm = size(cmat, 1)
@@ -303,7 +303,7 @@ pure subroutine wrap_dgemm(amat, bmat, cmat, transa, transb, alpha, beta, m, n, 
    end if
    if (present(k)) then
       kk = k
-   else if ((tra.eq.'n'.or.tra.eq.'N')) then
+   else if ((tra=="n".or.tra=="N")) then
       kk = size(amat, 2)
    else
       kk = size(amat, 1)
@@ -328,9 +328,9 @@ subroutine wrap_sgemm323(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
    else
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
@@ -353,9 +353,9 @@ subroutine wrap_sgemm233(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (any(trb == ['n', 'N'])) then
+   if (any(trb == ["n", "N"])) then
       bptr(1:size(bmat, 1), 1:size(bmat, 2)*size(bmat, 3)) => bmat
    else
       bptr(1:size(bmat, 1)*size(bmat, 2), 1:size(bmat, 3)) => bmat
@@ -378,19 +378,19 @@ subroutine wrap_sgemm332(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
    else
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
    end if
-   if (any(trb == ['n', 'N'])) then
+   if (any(trb == ["n", "N"])) then
       bptr(1:size(bmat, 1)*size(bmat, 2), 1:size(bmat, 3)) => bmat
    else
       bptr(1:size(bmat, 1), 1:size(bmat, 2)*size(bmat, 3)) => bmat
@@ -412,9 +412,9 @@ subroutine wrap_dgemm323(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
    else
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
@@ -437,9 +437,9 @@ subroutine wrap_dgemm233(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (any(trb == ['n', 'N'])) then
+   if (any(trb == ["n", "N"])) then
       bptr(1:size(bmat, 1), 1:size(bmat, 2)*size(bmat, 3)) => bmat
    else
       bptr(1:size(bmat, 1)*size(bmat, 2), 1:size(bmat, 3)) => bmat
@@ -462,19 +462,19 @@ subroutine wrap_dgemm332(amat, bmat, cmat, transa, transb, alpha, beta)
    if (present(transa)) then
       tra = transa
    else
-      tra = 'n'
+      tra = "n"
    end if
    if (present(transb)) then
       trb = transb
    else
-      trb = 'n'
+      trb = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
    else
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
    end if
-   if (any(trb == ['n', 'N'])) then
+   if (any(trb == ["n", "N"])) then
       bptr(1:size(bmat, 1)*size(bmat, 2), 1:size(bmat, 3)) => bmat
    else
       bptr(1:size(bmat, 1), 1:size(bmat, 2)*size(bmat, 3)) => bmat
@@ -497,13 +497,13 @@ pure subroutine wrap_strsm(amat, bmat, side, uplo, transa, diag, alpha)
 
    a = 1.0_sp
    if (present(alpha)) a = alpha
-   dga = 'n'
+   dga = "n"
    if (present(diag)) dga = diag
-   sda = 'l'
+   sda = "l"
    if (present(side)) sda = side
-   tra = 'n'
+   tra = "n"
    if (present(transa)) tra = transa
-   ula = 'u'
+   ula = "u"
    if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
@@ -527,13 +527,13 @@ pure subroutine wrap_dtrsm(amat, bmat, side, uplo, transa, diag, alpha)
 
    a = 1.0_dp
    if (present(alpha)) a = alpha
-   dga = 'n'
+   dga = "n"
    if (present(diag)) dga = diag
-   sda = 'l'
+   sda = "l"
    if (present(side)) sda = side
-   tra = 'n'
+   tra = "n"
    if (present(transa)) tra = transa
-   ula = 'u'
+   ula = "u"
    if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
@@ -560,9 +560,9 @@ pure subroutine wrap_ssymm(amat, bmat, cmat, side, uplo, alpha, beta)
    if (present(alpha)) a = alpha
    b = 0.0_sp
    if (present(beta))  b = beta
-   sda = 'l'
+   sda = "l"
    if (present(side))  sda = side
-   ula = 'u'
+   ula = "u"
    if (present(uplo))  ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
@@ -590,9 +590,9 @@ pure subroutine wrap_dsymm(amat, bmat, cmat, side, uplo, alpha, beta)
    if (present(alpha)) a = alpha
    b = 0.0_dp
    if (present(beta))  b = beta
-   sda = 'l'
+   sda = "l"
    if (present(side))  sda = side
-   ula = 'u'
+   ula = "u"
    if (present(uplo))  ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))

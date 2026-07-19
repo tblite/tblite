@@ -23,11 +23,11 @@
 !> Proxy module for rexport and list-type post-processing record container
 module tblite_param_post_processing
    use mctc_env, only : wp, error_type, fatal_error
-   use tblite_param_serde, only : serde_record
-   use tblite_toml, only : toml_table, toml_key
    use tblite_param_post_processing_molmom, only : molmom_record
    use tblite_param_post_processing_type, only : post_processing_record
    use tblite_param_post_processing_xtbml, only : xtbml_record
+   use tblite_param_serde, only : serde_record
+   use tblite_toml, only : toml_table, toml_key
    implicit none
    private
 
@@ -38,7 +38,7 @@ module tblite_param_post_processing
    type :: post_processing_record_container
       !> Actual post-processing record
       class(post_processing_record), allocatable :: record
-   end type
+   end type post_processing_record_container
 
    type :: post_processing_record_list
       !> List of post-processing records
@@ -53,16 +53,16 @@ module tblite_param_post_processing
       procedure, public :: get_n_records
       procedure :: load_from_toml
       procedure :: dump_to_toml
-   end type
+   end type post_processing_record_list
 
 contains
 
 function get_n_records(self) result(n)
    !> List of all post-processing records
    class(post_processing_record_list), intent(in) :: self
-   integer n
+   integer :: n
    n = self%n
-end function
+end function get_n_records
 
 subroutine push(self, record)
    !> List of all post-processing records
@@ -154,7 +154,7 @@ subroutine load_from_toml(self, table, error)
             type(molmom_record), allocatable :: tmp_record
             class(post_processing_record), allocatable :: cont
             allocate(tmp_record)
-            call tmp_record%load(table, error) 
+            call tmp_record%load(table, error)
             call move_alloc(tmp_record, cont)
             call self%push(cont)
          end block
@@ -163,7 +163,7 @@ subroutine load_from_toml(self, table, error)
             type(xtbml_record), allocatable :: tmp_record
             class(post_processing_record), allocatable :: cont
             allocate(tmp_record)
-            call tmp_record%load(table, error) 
+            call tmp_record%load(table, error)
             call move_alloc(tmp_record, cont)
             call self%push(cont)
          end block
@@ -171,7 +171,7 @@ subroutine load_from_toml(self, table, error)
          return
       end select
    end do
-   
+
    if (allocated(error)) return
 end subroutine load_from_toml
 

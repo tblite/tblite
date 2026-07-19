@@ -21,8 +21,10 @@ module tblite_driver_run
    use mctc_io, only : structure_type, read_structure, filetype
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : aatoau, ctoau
-   use tblite_cli, only : run_config
    use tblite_basis_type, only : basis_type
+   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
+   use tblite_cli, only : run_config
    use tblite_container, only : container_type
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
@@ -33,21 +35,19 @@ module tblite_driver_run
    use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
       & ascii_quadrupole_moments, tagged_result, json_results
    use tblite_param, only : param_record
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
    use tblite_scf_mixer_input, only : anneal_input
-   use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
+   use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, shell_partition, &
       & load_wavefunction, save_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
+   use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_singlepoint, only : ceh_singlepoint
-   use tblite_ceh_ceh, only : new_ceh_calculator
-   use tblite_post_processing_list, only : add_post_processing, post_processing_list
 
    implicit none
    private
@@ -107,8 +107,9 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, charge, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) &
-            & call info(ctx, "Molecular charge read from '"//filename//"'")
+         if (config%verbosity > 0) then
+           call info(ctx, "Molecular charge read from '"//filename//"'")
+         end if
          mol%charge = charge
       end if
    end if
@@ -121,8 +122,9 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, unpaired, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) &
-            & call info(ctx, "Molecular spin read from '"//filename//"'")
+         if (config%verbosity > 0) then
+           call info(ctx, "Molecular spin read from '"//filename//"'")
+         end if
          mol%uhf = unpaired
       end if
    end if
@@ -132,7 +134,7 @@ subroutine run_main(config, error)
    if (config%grad) then
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
-   
+
    if (allocated(error)) return
 
    if (allocated(config%param)) then
@@ -322,7 +324,7 @@ subroutine run_main(config, error)
       call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
       call results%dict%get_entry("molecular-dipole", dpmom)
       call results%dict%get_entry("molecular-quadrupole", qpmom)
-      
+
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
@@ -445,9 +447,9 @@ function join(a1, a2) result(path)
    character :: filesep
 
    if (is_windows()) then
-      filesep = '\'
+      filesep = "\"
    else
-      filesep = '/'
+      filesep = "/"
    end if
 
    path = a1 // filesep // a2
@@ -474,15 +476,16 @@ subroutine read_file(filename, val, error)
 
    lnum = 0
 
-   open(file=filename, newunit=io, status='old', iostat=stat)
+   open(file=filename, newunit=io, status="old", iostat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Error: Could not open file '"//filename//"'")
       return
    end if
 
    call next_line(io, line, pos, lnum, stat)
-   if (stat == 0) &
-      call read_next_token(line, pos, token, val, stat)
+   if (stat == 0) then
+     call read_next_token(line, pos, token, val, stat)
+   end if
    if (stat /= 0) then
       call io_error(error, "Cannot read value from file", line, token, &
          filename, lnum, "expected integer value")

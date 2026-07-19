@@ -217,7 +217,7 @@ subroutine new_cgto(self, ng, l, expos, coeffs, norm)
    if (norm) then
       normalizer(1:ng) = (top*self%alpha(1:ng))**0.75_wp &
          & * sqrt(4.0_wp*self%alpha(1:ng))**l / sqrt(dfactorial(l+1))
-   endif
+   end if
    self%coeff(1:ng) = coeffs(1:ng) * normalizer(1:ng)
 
 end subroutine new_cgto

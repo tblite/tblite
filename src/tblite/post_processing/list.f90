@@ -19,15 +19,15 @@
 module tblite_post_processing_list
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use tblite_context, only : context_type
    use tblite_container_list, only : cache_list
+   use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
    use tblite_param_post_processing, only : post_processing_record_list, &
       & post_processing_record, molmom_record, xtbml_record
-   use tblite_post_processing_wbo, only : new_wiberg_bond_orders, wiberg_bond_orders
    use tblite_post_processing_molmom, only : new_molecular_moments, molecular_moments
    use tblite_post_processing_type, only : post_processing_type
+   use tblite_post_processing_wbo, only : new_wiberg_bond_orders, wiberg_bond_orders
    use tblite_post_processing_xtbml, only : xtbml_type, new_xtbml_features
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type
@@ -128,7 +128,7 @@ pure function info(self, verbosity, indent) result(str)
    character(len=:), allocatable :: str
 
    integer :: ipp
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    str = "Post processing:"// nl
 
@@ -220,7 +220,7 @@ subroutine add_post_processing_cli(self, mol, config, error)
    case("xtbml-xyz","xtbml_xyz")
       block
          type(xtbml_record), allocatable :: ml_param
-         class(post_processing_record), allocatable :: cont 
+         class(post_processing_record), allocatable :: cont
          allocate(ml_param)
          call ml_param%populate_default_param(.true.)
          call move_alloc(ml_param, cont)
@@ -234,7 +234,7 @@ subroutine add_post_processing_cli(self, mol, config, error)
          type(toml_table), pointer :: child
 
          open(file=config, newunit=io, status="old")
-         
+
          call toml_parse(table, io, t_error)
          close(io)
          if (allocated(t_error)) then
@@ -247,8 +247,8 @@ subroutine add_post_processing_cli(self, mol, config, error)
          else
             call fatal_error(error, "Could not find post-processing key in toml file.")
          end if
-         
-      end block   
+
+      end block
    end select
 
    call add_post_processing(self, mol, param, error)
@@ -260,13 +260,13 @@ subroutine push(self, record)
    class(post_processing_list), intent(inout) :: self
    !> Instance of the post-processing method to be added
    class(post_processing_type), allocatable, intent(inout) :: record
-   
+
    if (.not.allocated(self%list)) call resize(self%list)
    if (is_duplicate(self, record)) return
    if (self%npp >= size(self%list)) then
       call resize(self%list)
    end if
-   
+
    self%npp = self%npp + 1
    call move_alloc(record, self%list(self%npp)%pproc)
 
@@ -277,7 +277,7 @@ function is_duplicate(self, record) result(duplicate)
    class(post_processing_list), intent(inout) :: self
    !> Instance of the post-processing method to be checked
    class(post_processing_type), allocatable, intent(inout) :: record
-   logical :: duplicate 
+   logical :: duplicate
    integer :: ipp
    duplicate = .false.
    do ipp = 1, self%npp

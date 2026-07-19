@@ -55,7 +55,7 @@ module tblite_param_hamiltonian
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type hamiltonian_record
 
 
    !> Masking for the Hamiltonian parameter record

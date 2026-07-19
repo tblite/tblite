@@ -56,30 +56,31 @@ subroutine ascii_levels(unit, verbosity, emo, focc, range)
    gap = emo(min(homo+1, nao), spin) - emo(max(homo, 1), spin)
 
    write(unit, '(66("-"))')
-   write(unit, '(a7, a14, a21, a21)') "#", "Occupation", "Energy/Eh", "Energy/eV"
+   write(unit, "(a7, a14, a21, a21)") "#", "Occupation", "Energy/Eh", "Energy/eV"
    write(unit, '(66("-"))')
    if (minorb > 1) then
       call write_line(1, focc(:, spin), emo(:, spin), homo)
-      if (minorb > 2) &
-         write(unit, '(a7, a14, a21, a21)') "...", "...", "...", "..."
-   endif
+      if (minorb > 2) then
+        write(unit, "(a7, a14, a21, a21)") "...", "...", "...", "..."
+      end if
+   end if
    do iorb = minorb, maxorb
       call write_line(iorb, focc(:, spin), emo(:, spin), homo)
-   enddo
+   end do
    if (maxorb < nao) then
       if (maxorb < nao-1) then
          if (focc(maxorb, spin) > sqrt(epsilon(1.0_wp))) then
-            write(unit, '(a7, a14, a21, a21)') "...", "...", "...", "..."
+            write(unit, "(a7, a14, a21, a21)") "...", "...", "...", "..."
          else
-            write(unit, '(a7, a14, a21, a21)') "...", "", "...", "..."
-         endif
-      endif
+            write(unit, "(a7, a14, a21, a21)") "...", "", "...", "..."
+         end if
+      end if
       call write_line(nao, focc(:, spin), emo(:, spin), homo)
-   endif
+   end if
    write(unit, '(66("-"))')
    write(unit, hlfmt) "HL-Gap", gap, gap*autoev
    write(unit, '(66("-"))')
-   write(unit, '(a)')
+   write(unit, "(a)")
    end do
 
 contains
@@ -88,20 +89,20 @@ contains
       integer, intent(in) :: ihomo
       real(wp), intent(in) :: focc(:)
       real(wp), intent(in) :: emo (:)
-      character(len=*), parameter :: mofmt = '(i7, f14.4, f21.7, f21.4)'
-      character(len=*), parameter :: vofmt = '(i7, 14x,  f21.7, f21.4)'
+      character(len=*), parameter :: mofmt = "(i7, f14.4, f21.7, f21.4)"
+      character(len=*), parameter :: vofmt = "(i7, 14x,  f21.7, f21.4)"
       if (focc(iorb) < 1.0e-7_wp) then
-         write(unit, vofmt, advance='no') iorb,             emo(iorb), emo(iorb)*autoev
+         write(unit, vofmt, advance="no") iorb,             emo(iorb), emo(iorb)*autoev
       else
-         write(unit, mofmt, advance='no') iorb, focc(iorb), emo(iorb), emo(iorb)*autoev
-      endif
+         write(unit, mofmt, advance="no") iorb, focc(iorb), emo(iorb), emo(iorb)*autoev
+      end if
       if (iorb == ihomo) then
          write(unit, '(1x, "(HOMO)")')
-      elseif (iorb == ihomo+1) then
+      else if (iorb == ihomo+1) then
          write(unit, '(1x, "(LUMO)")')
       else
-         write(unit, '(a)')
-      endif
+         write(unit, "(a)")
+      end if
    end subroutine write_line
 end subroutine ascii_levels
 
@@ -116,18 +117,18 @@ subroutine ascii_dipole_moments(unit, verbosity, mol, dpat, dpmom)
 
    write(unit, '(a,":")') "Atomic dipole moments (in atomic units)"
    write(unit, '(57("-"))')
-   write(unit, '(a6, 1x, a4, 5x, *(1x, a12))') &
+   write(unit, "(a6, 1x, a4, 5x, *(1x, a12))") &
       & "#", "Z", "x", "y", "z"
    write(unit, '(57("-"))')
    do iat = 1, mol%nat
       isp = mol%id(iat)
-      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f12.6))') &
+      write(unit, "(i6, 1x, i4, 1x, a4, *(1x, f12.6))") &
          & iat, mol%num(isp), mol%sym(isp), dpat(:, iat)
    end do
    write(unit, '(57("-"))')
-   write(unit, '(1x, a15, *(1x, f12.6))') "total", dpmom
+   write(unit, "(1x, a15, *(1x, f12.6))") "total", dpmom
    write(unit, '(57("-"))')
-   write(unit, '(a)')
+   write(unit, "(a)")
 end subroutine ascii_dipole_moments
 
 subroutine ascii_atomic_charges(unit, verbosity, mol, qat)
@@ -140,16 +141,16 @@ subroutine ascii_atomic_charges(unit, verbosity, mol, qat)
 
    write(unit, '(a,":")') "Atomic charges (in atomic units)"
    write(unit, '(57("-"))')
-   write(unit, '(a6, 1x, a4, 7x, *(1x, a10))') &
+   write(unit, "(a6, 1x, a4, 7x, *(1x, a10))") &
       & "#", "Z", "q"
    write(unit, '(57("-"))')
    do iat = 1, mol%nat
       isp = mol%id(iat)
-      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f12.6))') &
+      write(unit, "(i6, 1x, i4, 1x, a4, *(1x, f12.6))") &
          & iat, mol%num(isp), mol%sym(isp), qat(iat)
    end do
    write(unit, '(57("-"))')
-   write(unit, '(a)')
+   write(unit, "(a)")
 end subroutine ascii_atomic_charges
 
 subroutine ascii_quadrupole_moments(unit, verbosity, mol, qpat, qpmom)
@@ -163,18 +164,18 @@ subroutine ascii_quadrupole_moments(unit, verbosity, mol, qpat, qpmom)
 
    write(unit, '(a,":")') "Atomic quadrupole moments (in atomic units)"
    write(unit, '(83("-"))')
-   write(unit, '(a6, 1x, a4, 5x, *(1x, a10))') &
+   write(unit, "(a6, 1x, a4, 5x, *(1x, a10))") &
       & "#", "Z", "xx", "xy", "yy", "xz", "yz", "zz"
    write(unit, '(83("-"))')
    do iat = 1, mol%nat
       isp = mol%id(iat)
-      write(unit, '(i6, 1x, i4, 1x, a4, *(1x, f10.4))') &
+      write(unit, "(i6, 1x, i4, 1x, a4, *(1x, f10.4))") &
          & iat, mol%num(isp), mol%sym(isp), qpat(:, iat)
    end do
    write(unit, '(83("-"))')
-   write(unit, '(1x, a15, *(1x, f10.4))') "total", qpmom
+   write(unit, "(1x, a15, *(1x, f10.4))") "total", qpmom
    write(unit, '(83("-"))')
-   write(unit, '(a)')
+   write(unit, "(a)")
 end subroutine ascii_quadrupole_moments
 
 
@@ -196,44 +197,44 @@ subroutine json_results(unit, indentation, energy, gradient, sigma, energies, ch
       indent = indentation
    end if
 
-   write(unit, '("{")', advance='no')
-   if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-   write(unit, jsonkey, advance='no') 'version'
-   write(unit, '(1x,a)', advance='no') '"'//version_string//'"'
+   write(unit, '("{")', advance="no")
+   if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+   write(unit, jsonkey, advance="no") "version"
+   write(unit, "(1x,a)", advance="no") '"'//version_string//'"'
    if (present(energy)) then
-      write(unit, '(",")', advance='no')
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-      write(unit, jsonkey, advance='no') 'energy'
-      write(unit, '(1x,es25.16)', advance='no') energy
+      write(unit, '(",")', advance="no")
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+      write(unit, jsonkey, advance="no") "energy"
+      write(unit, "(1x,es25.16)", advance="no") energy
    end if
    if (present(energies)) then
-      write(unit, '(",")', advance='no')
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-      write(unit, jsonkey, advance='no') 'energies'
+      write(unit, '(",")', advance="no")
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+      write(unit, jsonkey, advance="no") "energies"
       call write_json_array(unit, energies, indent)
    end if
    if (present(sigma)) then
-      write(unit, '(",")', advance='no')
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-      write(unit, jsonkey, advance='no') 'virial'
+      write(unit, '(",")', advance="no")
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+      write(unit, jsonkey, advance="no") "virial"
       array = reshape(sigma, [size(sigma)])
       call write_json_array(unit, array, indent)
    end if
    if (present(gradient)) then
-      write(unit, '(",")', advance='no')
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-      write(unit, jsonkey, advance='no') 'gradient'
+      write(unit, '(",")', advance="no")
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+      write(unit, jsonkey, advance="no") "gradient"
       array = reshape(gradient, [size(gradient)])
       call write_json_array(unit, array, indent)
    end if
    if (present(charges)) then
-      write(unit, '(",")', advance='no')
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-      write(unit, jsonkey, advance='no') 'charges'
+      write(unit, '(",")', advance="no")
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+      write(unit, jsonkey, advance="no") "charges"
       array = reshape(charges, [size(charges)])
       call write_json_array(unit, array, indent)
    end if
-   if (allocated(indent)) write(unit, '(/)', advance='no')
+   if (allocated(indent)) write(unit, "(/)", advance="no")
    write(unit, '("}")')
 
 end subroutine json_results
@@ -244,14 +245,14 @@ subroutine write_json_array(unit, array, indent)
    real(wp), intent(in) :: array(:)
    character(len=:), allocatable, intent(in) :: indent
    integer :: i
-   write(unit, '("[")', advance='no')
+   write(unit, '("[")', advance="no")
    do i = 1, size(array)
-      if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 2)
-      write(unit, '(es23.16)', advance='no') array(i)
-      if (i /= size(array)) write(unit, '(",")', advance='no')
+      if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 2)
+      write(unit, "(es23.16)", advance="no") array(i)
+      if (i /= size(array)) write(unit, '(",")', advance="no")
    end do
-   if (allocated(indent)) write(unit, '(/,a)', advance='no') repeat(indent, 1)
-   write(unit, '("]")', advance='no')
+   if (allocated(indent)) write(unit, "(/,a)", advance="no") repeat(indent, 1)
+   write(unit, '("]")', advance="no")
 end subroutine write_json_array
 
 
@@ -266,19 +267,19 @@ subroutine tagged_result(unit, energy, gradient, sigma, energies)
 
    if (present(energy)) then
       write(unit, tag_header) "energy", "real", 0
-      write(unit, '(3es24.16)') energy
+      write(unit, "(3es24.16)") energy
    end if
    if (present(energies)) then
       write(unit, tag_header) "energies", "real", 1, shape(energies)
-      write(unit, '(3es24.16)') energies
+      write(unit, "(3es24.16)") energies
    end if
    if (present(gradient)) then
       write(unit, tag_header) "gradient", "real", 2, shape(gradient)
-      write(unit, '(3es24.16)') gradient
+      write(unit, "(3es24.16)") gradient
    end if
    if (present(sigma)) then
       write(unit, tag_header) "virial", "real", 2, shape(sigma)
-      write(unit, '(3es24.16)') sigma
+      write(unit, "(3es24.16)") sigma
    end if
 
 end subroutine tagged_result

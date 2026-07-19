@@ -23,6 +23,6 @@ module tblite_param_post_processing_type
 
    !> Abstract post-processing record base type
    type, public, abstract, extends(serde_record) :: post_processing_record
-   end type
+   end type post_processing_record
 
 end module tblite_param_post_processing_type

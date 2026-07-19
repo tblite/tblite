@@ -4,8 +4,8 @@ module test_halogen
       & test_failed
    use mctc_io_structure, only : structure_type, new
    use mstore, only : get_structure
-   use tblite_container, only : container_cache
    use tblite_classical_halogen
+   use tblite_container, only : container_cache
    implicit none
    private
 
@@ -135,7 +135,7 @@ subroutine test_br2och2(error)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of dispersion energy does not match")
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_br2och2
@@ -198,7 +198,7 @@ subroutine test_finch(error)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_finch

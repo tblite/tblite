@@ -4,8 +4,8 @@ module test_post_processing
       & test_failed
    use mctc_io, only : structure_type, new
    use tblite_context_type, only : context_type
-   use tblite_param_post_processing_molmom, only: molmom_record
    use tblite_param_post_processing, only : post_processing_record_list
+   use tblite_param_post_processing_molmom, only: molmom_record
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
    use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value
@@ -36,7 +36,7 @@ subroutine collect_post_processing(testsuite)
       new_unittest("molmom param dipm", test_molmom_dipm_param, should_fail=.true.), &
       new_unittest("molmom param qp", test_molmom_qp_param, should_fail=.true.) &
    ]
-end subroutine
+end subroutine collect_post_processing
 
 
 subroutine test_h2_wbo(error)
@@ -72,7 +72,7 @@ subroutine test_h2_wbo(error)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=0)
    call res%dict%get_entry("bond-orders", wbo)
-   
+
    allocate(wbo_exp(2, 2, 2))
    wbo_exp = reshape([&
       &0.000000_wp, +0.50000000_wp, &
@@ -80,12 +80,12 @@ subroutine test_h2_wbo(error)
       &0.000000_wp, +0.50000000_wp, &
       &0.500000000_wp, 0.00000000_wp],&
       & shape(wbo_exp))
-   
+
    if (any(abs(wbo - wbo_exp) > thr)) then
          call test_failed(error, "Gradient of energy does not match")
-         print'(3es21.14)', wbo
+         print"(3es21.14)", wbo
          print'("---")'
-         print'(3es21.14)', wbo_exp
+         print"(3es21.14)", wbo_exp
    end if
    if (allocated(error)) return
 
@@ -99,12 +99,12 @@ subroutine test_h2_wbo(error)
       &0.00000000_wp, +1.0000000_wp,&
       &+1.00000000_wp, 0.00000000_wp ],&
       & shape(wbo_exp))
-   
+
    if (any(abs(wbo - wbo_exp) > thr)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', wbo
+      print"(3es21.14)", wbo
       print'("---")'
-      print'(3es21.14)', wbo_exp
+      print"(3es21.14)", wbo_exp
    end if
    if (allocated(error)) return
 
@@ -116,16 +116,16 @@ subroutine test_h2_wbo(error)
    allocate(wbo_exp(2, 2, 2))
    wbo_exp = reshape([&
       &0.00000000_wp, +0.5000000_wp,&
-      &+0.50000000_wp, 0.00000000_wp, & 
+      &+0.50000000_wp, 0.00000000_wp, &
       &0.00000000_wp, -0.5000000_wp,&
       &-0.50000000_wp, 0.00000000_wp ],&
       & shape(wbo_exp))
-   
+
    if (any(abs(wbo - wbo_exp) > thr)) then
          call test_failed(error, "Gradient of energy does not match")
-         print'(3es21.14)', wbo
+         print"(3es21.14)", wbo
          print'("---")'
-         print'(3es21.14)', wbo_exp
+         print"(3es21.14)", wbo_exp
    end if
    if (allocated(error)) return
 
@@ -139,12 +139,12 @@ subroutine test_h2_wbo(error)
       &0.00000000_wp, +0.0000000_wp,&
       &+0.00000000_wp, 0.00000000_wp ],&
       & shape(wbo_exp))
-   
+
    if (any(abs(wbo - wbo_exp) > thr)) then
          call test_failed(error, "Gradient of energy does not match")
-         print'(3es21.14)', wbo
+         print"(3es21.14)", wbo
          print'("---")'
-         print'(3es21.14)', wbo_exp
+         print"(3es21.14)", wbo_exp
    end if
 
 end subroutine test_h2_wbo
@@ -167,7 +167,7 @@ subroutine test_timer_print(error)
       &+0.00000000_wp, +0.000000000_wp, +0.472429040_wp,&
       &+0.00000000_wp, +0.000000000_wp, -0.472429040_wp],&
       & shape(xyz))
-   
+
    call new(mol, atoms, xyz, charge=+1.0_wp, uhf=1)
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
@@ -184,7 +184,7 @@ subroutine test_timer_print(error)
    call eeq_guess(mol, calc, wfn, error)
    if (allocated(error)) return
    energy = 0.0_wp
-   
+
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, post_process=pproc, verbosity=3)
 
 end subroutine test_timer_print
@@ -198,15 +198,15 @@ subroutine test_molmom_dipm_param(error)
    call add_table(table_post_proc, "molecular-multipole", table_multipole)
    call set_value(table_multipole, "dipole", 5)
    call set_value(table_multipole, "quadrupole", .true.)
-   
+
    call param%load(table_post_proc, error)
    table_post_proc = toml_table()
    call add_table(table_post_proc, "molecular-multipole", table_multipole)
    call set_value(table_multipole, "dipole", .true.)
    call set_value(table_multipole, "quadrupole", 42)
-   
+
    call param%load(table_post_proc, error)
-   
+
 end subroutine test_molmom_dipm_param
 
 subroutine test_molmom_qp_param(error)
@@ -214,14 +214,14 @@ subroutine test_molmom_qp_param(error)
    type(toml_table), pointer :: table_multipole
    type(toml_table) :: table_post_proc
    type(molmom_record) :: param
-  
+
    table_post_proc = toml_table()
    call add_table(table_post_proc, "molecular-multipole", table_multipole)
    call set_value(table_multipole, "dipole", .true.)
    call set_value(table_multipole, "quadrupole", 42)
-   
+
    call param%load(table_post_proc, error)
-   
+
 end subroutine test_molmom_qp_param
 
 subroutine test_molmom_dump_param(error)
@@ -231,30 +231,30 @@ subroutine test_molmom_dump_param(error)
    type(toml_table) :: new_table
    type(toml_key), allocatable :: list(:)
    type(molmom_record) :: param
-  
+
    table_post_proc = toml_table()
    call add_table(table_post_proc, "molecular-multipole", table_multipole)
    call set_value(table_multipole, "dipole", .true.)
    call set_value(table_multipole, "quadrupole", .false.)
-   
+
    call param%load(table_post_proc, error)
    call check(error, param%moldipm, .true.)
    if (allocated(error)) return
    call check(error, param%molqp, .false.)
    if (allocated(error)) return
-   
+
    new_table = toml_table()
    call param%dump(new_table, error)
    call param%load(new_table, error)
    call new_table%get_keys(list)
-   
+
    call check(error, size(list), 1)
    if (allocated(error)) return
    call get_value(new_table, list(1)%key, child)
    call child%get_keys(list)
    call check(error, size(list), 2)
    if (allocated(error)) return
-   
+
 end subroutine test_molmom_dump_param
 
 subroutine test_pproc_load_param(error)
@@ -262,7 +262,7 @@ subroutine test_pproc_load_param(error)
    type(toml_table), pointer ::  table_entries
    type(toml_table) :: table_multipole
    type(post_processing_record_list) :: param
-  
+
    table_multipole = toml_table()
    call add_table(table_multipole, "molecular-multipole", table_entries)
    call set_value(table_entries, "dipole", .true.)
@@ -278,7 +278,7 @@ subroutine test_pproc_dump_param(error)
    type(toml_table) :: new_table
    type(toml_key), allocatable :: list(:)
    type(post_processing_record_list) :: param
-  
+
    table_multipole = toml_table()
    call add_table(table_multipole, "molecular-multipole", table_entries)
    call set_value(table_entries, "dipole", .true.)

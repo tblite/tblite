@@ -21,10 +21,10 @@
 module tblite_api_context
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error
-   use tblite_context, only : context_type, context_logger, context_terminal
    use tblite_api_error, only : vp_error
-   use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character
+   use tblite_api_version, only : namespace
+   use tblite_context, only : context_type, context_logger, context_terminal
    implicit none
    private
 

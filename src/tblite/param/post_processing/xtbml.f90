@@ -54,7 +54,7 @@ module tblite_param_post_processing_xtbml
       procedure :: dump_to_toml
       !> Populate parametrization record with default values
       procedure :: populate_default_param
-   end type
+   end type xtbml_record
 
    !> Masking for the xTB-ML features post-processing
    type, public :: xtbml_mask
@@ -91,7 +91,7 @@ subroutine populate_default_param(param, tensor)
    ! Scaling for logistic function, convolution over an array of values is supported
    param%xtbml_a = [1.0_wp]
 
-end subroutine
+end subroutine populate_default_param
 
 !> Read parametrization data from TOML data structure
 subroutine load_from_toml(self, table, error)

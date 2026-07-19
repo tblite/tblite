@@ -18,8 +18,8 @@ module test_slater_expansion
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use tblite_basis_type, only : cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : cgto_type
    use tblite_integral_overlap, only : overlap_cgto
    implicit none
    private
@@ -348,7 +348,7 @@ subroutine test_norm_p(error, n, ng)
       end do
    end do lp
    if (allocated(error)) then
-      print '(3es20.14e1)', overlap - reshape([1,0,0, 0,1,0, 0,0,1], [3,3])
+      print "(3es20.14e1)", overlap - reshape([1,0,0, 0,1,0, 0,0,1], [3,3])
    end if
 
 end subroutine test_norm_p
@@ -510,7 +510,7 @@ subroutine test_norm_d(error, n, ng)
       end do
    end do lp
    if (allocated(error)) then
-      print '(5es20.14e1)', overlap &
+      print "(5es20.14e1)", overlap &
          & - reshape([1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, &
          &            0,0,0,1,0, 0,0,0,0,1], [5,5])
    end if
@@ -639,7 +639,7 @@ subroutine test_norm_f(error, n, ng)
       end do
    end do lp
    if (allocated(error)) then
-      print '(7es20.14e1)', overlap &
+      print "(7es20.14e1)", overlap &
          & - reshape([1,0,0,0,0,0,0, 0,1,0,0,0,0,0, 0,0,1,0,0,0,0, &
          &            0,0,0,1,0,0,0, 0,0,0,0,1,0,0, 0,0,0,0,0,1,0, &
          &            0,0,0,0,0,0,1], [7,7])
@@ -739,7 +739,7 @@ subroutine test_norm_g(error, n, ng)
       end do
    end do lp
    if (allocated(error)) then
-      print '(9es20.14e1)', overlap
+      print "(9es20.14e1)", overlap
    end if
 
 end subroutine test_norm_g

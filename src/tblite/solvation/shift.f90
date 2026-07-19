@@ -20,16 +20,16 @@
 module tblite_solvation_shift
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use tblite_container_cache, only : container_cache
-   use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_solvation_type, only : solvation_type
    use mctc_io_codata2018, only : molar_gas_constant, atomic_unit_of_energy
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : kjtoau
+   use tblite_container_cache, only : container_cache
+   use tblite_scf_potential, only : potential_type
+   use tblite_solvation_type, only : solvation_type
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
- 
+
    public :: shift_solvation, new_shift, shift_input, solution_state
 
    type :: shift_input
@@ -38,7 +38,7 @@ module tblite_solvation_shift
       !> Solvent specific free energy shift
       real(wp) :: gshift = 0.0_wp
       !> Molar mass of solvent
-      real(wp), allocatable :: molar_mass 
+      real(wp), allocatable :: molar_mass
       !> Density of solvent
       real(wp), allocatable :: rho
       !> Temperature in Kelvin
@@ -74,7 +74,7 @@ module tblite_solvation_shift
 
    type, extends(solvation_type) :: shift_solvation
       !> total shift
-      real(wp) :: total_shift 
+      real(wp) :: total_shift
    contains
       !> Update cache from container
       procedure :: update
@@ -92,7 +92,7 @@ module tblite_solvation_shift
       real(wp) :: total_shift
    end type shift_cache
 
-   !> Identifier for container 
+   !> Identifier for container
    character(len=*), parameter :: label = "empirical free energy shift and standard state/solvent correction"
 
 contains
@@ -109,7 +109,7 @@ function create_shift_input(state, solvent, alpb, gshift, molar_mass, rho, tempe
    !> Solvent specific free energy shift
    real(wp), intent(in), optional :: gshift
    !> Molar mass of solvent
-   real(wp), allocatable, intent(in), optional :: molar_mass 
+   real(wp), allocatable, intent(in), optional :: molar_mass
    !> Density of solvent
    real(wp), allocatable, intent(in), optional :: rho
    !> Temperature in Kelvin
@@ -121,19 +121,19 @@ function create_shift_input(state, solvent, alpb, gshift, molar_mass, rho, tempe
       self%state = state
    end if
 
-   if (present(solvent)) then 
+   if (present(solvent)) then
       self%solvent = solvent
    end if
 
-   if (present(alpb)) then 
+   if (present(alpb)) then
       self%alpb = alpb
    end if
 
-   if (present(gshift)) then 
+   if (present(gshift)) then
       self%gshift = gshift
    end if
 
-   if (present(molar_mass)) then 
+   if (present(molar_mass)) then
       self%molar_mass = molar_mass
    end if
 
@@ -159,7 +159,7 @@ subroutine new_shift(self, input)
 
    self%label = label
    stateshift = get_stateshift(input%state, input%temperature, input%rho, input%molar_mass)
-   self%total_shift = input%gshift + stateshift 
+   self%total_shift = input%gshift + stateshift
 end subroutine new_shift
 
 !> Type constructor for shift
@@ -225,7 +225,7 @@ function get_stateshift(state, temperature, density, molecularMass) &
 
    ! Boltzmann constant in au/K
    real(wp) :: boltzmann = codata%kb / atomic_unit_of_energy
-   ! Ideal gas molar volume in m^3/mol 
+   ! Ideal gas molar volume in m^3/mol
    real(wp) :: idealGasMolVolume = molar_gas_constant * ambientTemperature / refPressure
 
    select case(state)

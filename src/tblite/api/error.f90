@@ -21,8 +21,8 @@
 module tblite_api_error
    use, intrinsic :: iso_c_binding
    use mctc_env, only : error_type, fatal_error
-   use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character, c_f_character
+   use tblite_api_version, only : namespace
    implicit none
    private
 

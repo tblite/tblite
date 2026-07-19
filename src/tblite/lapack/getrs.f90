@@ -80,7 +80,7 @@ subroutine wrap_sgetrs(amat, bmat, ipiv, info, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
@@ -101,7 +101,7 @@ subroutine wrap_dgetrs(amat, bmat, ipiv, info, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))

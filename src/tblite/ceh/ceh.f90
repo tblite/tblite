@@ -28,9 +28,9 @@ module tblite_ceh_ceh
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_integral_type, only : integral_type
    use tblite_output_format, only: format_string
-   use tblite_xtb_spec, only : tb_h0spec
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : new_hamiltonian
+   use tblite_xtb_spec, only : tb_h0spec
 
    implicit none
    private
@@ -41,9 +41,9 @@ module tblite_ceh_ceh
    integer, parameter, private :: max_shell = 4
 
    !> Number of shells # parameters TF May, 5 2024 - expansion to actinoids
-   integer, parameter :: nshell(max_elem) = [& 
+   integer, parameter :: nshell(max_elem) = [&
    & 1,                                                       1,& !He =s only
-   & 2, 2,                                     2, 2, 2, 2, 2, 2,& !Ne  sp 
+   & 2, 2,                                     2, 2, 2, 2, 2, 2,& !Ne  sp
    & 2, 3,                                     3, 3, 3, 3, 3, 3,& !Ar  spd
    & 2, 3, 3,       3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3,& !Kr  i.e. Ca-Ba are like TMs, Zn-Hg just sp
    & 2, 3, 3,       3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3,& !Xe
@@ -52,14 +52,14 @@ module tblite_ceh_ceh
    &                3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3,& !Rn
    & 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]           !Fr,Ra,Ac-No
 
-   !> Angular momentum of each shell 
+   !> Angular momentum of each shell
    ! 0 = s, 1 = p, 2 = d, 3 = f
    ! CAUTION: Ordering from original CEH model is taken for consistency with the parameterization
    ! I.e., the ordering of the shells is always: "s", "p", "d", "f"
    integer, parameter :: ang_shell(max_shell, max_elem) = reshape([&
    & 0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0, & ! 1-5
    & 0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0,  0, 1, 0, 0, & ! 6-10
-   & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 11-15 
+   & 0, 1, 0, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 11-15
    & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0,  0, 1, 2, 0, & ! 16-20
    & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0, & ! 21-25
    & 0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 2, 0,  0, 1, 0, 0, & ! 26-30
@@ -103,7 +103,7 @@ module tblite_ceh_ceh
    & 6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5, & ! 96-100
    & 6, 6, 5, 5,  6, 6, 5, 5,  6, 6, 5, 5], shape(principal_quantum_number)) ! 101-103
 
-   !> Number of primitive gaussians per shell 
+   !> Number of primitive gaussians per shell
    integer, parameter :: number_of_primitives(max_shell, max_elem) = reshape([&
    & 6, 0, 0, 0,  6, 0, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0, &  ! 1-5
    & 6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0,  6, 6, 0, 0, &  ! 6-10
@@ -183,7 +183,7 @@ module tblite_ceh_ceh
    & 2.0_wp, 0.0_wp, 0.0_wp, 15.0_wp], shape(reference_occ))            ! 103
 
 
-   !> Exponent of the Slater function 
+   !> Exponent of the Slater function
    real(wp), parameter :: slater_exponent(max_shell, max_elem) = reshape([&
    &  1.3492227515_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 1
    &  2.0297549295_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 2
@@ -290,7 +290,7 @@ module tblite_ceh_ceh
    &  1.0890670824_wp,  1.5796320669_wp,  2.3663752645_wp,  2.8009101314_wp],& ! 103
    & shape(slater_exponent))
 
-   !> Atomic shell energy level 
+   !> Atomic shell energy level
    real(wp), parameter :: p_ceh_selfenergy(max_shell, max_elem) = reshape([&
    & -0.5000000000_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 1
    & -0.6105701118_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 2
@@ -397,7 +397,7 @@ module tblite_ceh_ceh
    & -0.5346580039_wp, -0.2092033929_wp, -0.2455653560_wp, -0.4982781506_wp],& ! 103
    & shape(p_ceh_selfenergy))
 
-   !> Dependence of orbital shell energy level on standard CN (shell-resolved) 
+   !> Dependence of orbital shell energy level on standard CN (shell-resolved)
    real(wp), parameter :: p_ceh_kcn(max_shell, max_elem) = reshape([&
    & -0.0287030802_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 1
    & -0.7428586490_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 2
@@ -504,7 +504,7 @@ module tblite_ceh_ceh
    & -0.0119683527_wp, -0.0120856692_wp,  0.0541673079_wp, -0.0698020094_wp],& ! 103
    & shape(p_ceh_kcn))
 
-   !> Dependence of orbital shell energy level on EN-weighted CN (atom-resolved) 
+   !> Dependence of orbital shell energy level on EN-weighted CN (atom-resolved)
    real(wp), parameter :: p_ceh_kcn_en(max_shell, max_elem) = reshape([&
    & -0.1602781645_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 1
    & -1.8552984851_wp,  0.0000000000_wp,  0.0000000000_wp,  0.0000000000_wp, & ! 2
@@ -611,7 +611,7 @@ module tblite_ceh_ceh
    &  0.0748708088_wp, -0.0066490511_wp, -0.1497735592_wp, -0.2136153850_wp],& ! 103
    & shape(p_ceh_kcn_en))
 
-   !> Interaction type- and atom-wise resolved scal. fact. 
+   !> Interaction type- and atom-wise resolved scal. fact.
    !> for overlap mat. elements of sigma, pi, and delta type
    real(wp), parameter :: p_ceh_h0k(3, max_elem) = reshape([&
    &  2.3389142067_wp,  0.0000000000_wp,  3.0000000000_wp, & ! 1
@@ -722,7 +722,7 @@ module tblite_ceh_ceh
    !> Scaling factor for total charge in the estimate of atomic charges
    real(wp), parameter :: p_ceh_total_to_q = 0.2_wp
 
-   !> Scaling factor for the electronegativity-weighted CN in the estimate of atomic charges 
+   !> Scaling factor for the electronegativity-weighted CN in the estimate of atomic charges
    real(wp), parameter :: p_ceh_en_to_q(max_elem) = [&
    & -0.3821678086_wp, -1.5963362591_wp, -0.4777408938_wp, -0.3524644693_wp, & ! 1-4
    & -0.4953354727_wp, -0.3190181251_wp, -0.3983889327_wp, -0.3835108436_wp, & ! 5-8
@@ -755,7 +755,7 @@ module tblite_ceh_ceh
    !> CEH uses the pure Mataga-Nishimoto kernel (gexp=1)
    real(wp), parameter :: gexp = 1.0_wp
 
-   !> Hubbard U values for the second order ES correction in CEH. 
+   !> Hubbard U values for the second order ES correction in CEH.
    !> Values for Cs and Ba are used for Fr and Ra, respectively.
    !> Lanthanoids and actinoids are based on 3-point quadratic interpolation 1, 7, and 14 f-el.
    !> Actinoid values are scaled from the lanthanoid series by a constant factor of 2.55
@@ -781,11 +781,11 @@ module tblite_ceh_ceh
    &  0.36388048_wp,  0.38130586_wp,  0.39877476_wp,  0.41614298_wp, & ! 73-76
    &  0.43364510_wp,  0.45104014_wp,  0.46848986_wp,  0.48584550_wp, & ! 77-80
    &  0.12526730_wp,  0.14268677_wp,  0.16011615_wp,  0.17755889_wp, & ! 81-84
-   &  0.19497557_wp,  0.21240778_wp,  0.05019332_wp,  0.06762570_wp, & ! 85-88 Cs,Ba values for Fr,Ra 
+   &  0.19497557_wp,  0.21240778_wp,  0.05019332_wp,  0.06762570_wp, & ! 85-88 Cs,Ba values for Fr,Ra
    &  0.21686335_wp,  0.26131727_wp,  0.30577318_wp,  0.35018569_wp, & ! 89-92
    &  0.39464557_wp,  0.43906576_wp,  0.48351284_wp,  0.52797138_wp, & ! 93-96
    &  0.57239218_wp,  0.61683595_wp,  0.66127883_wp,  0.70574040_wp, & ! 97-100
-   &  0.75016489_wp,  0.79456947_wp,  0.83900799_wp]                   ! 101-103 
+   &  0.75016489_wp,  0.79456947_wp,  0.83900799_wp]                   ! 101-103
 
    !> Derivatives of the Hubbard U values for the 3rd order onsite ES correction in CEH
    real(wp), parameter :: p_ceh_hubbard_derivs(max_elem) = [&
@@ -875,7 +875,7 @@ module tblite_ceh_ceh
    &  3.6057113634_wp,  3.5287006179_wp,  3.3835130046_wp,  3.1701485235_wp, & ! 97-100
    &  2.8886071747_wp,  2.5388889580_wp,  2.1209938735_wp]                     ! 101-103
 
-   !> Angular momentum-specific scaling factors for H0 
+   !> Angular momentum-specific scaling factors for H0
    real(wp), parameter   :: kll(1:4) = [0.6379_wp, 0.9517_wp, 1.18_wp, 2.84_wp]
 
    !> Conversion constant
@@ -917,7 +917,7 @@ contains
 
       !> Check if all atoms of mol%nat are supported (Z <= 103)
       if (any(mol%num > max_elem)) then
-         call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
+         call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, "(i0)") // ".")
          return
       end if
 
@@ -974,7 +974,7 @@ contains
       type(structure_type), intent(in) :: mol
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
-      
+
       call new_ncoord(calc%ncoord, mol, cn_count_type=cn_count%erf, &
          & error=error, rcov=ceh_cov_radii(mol%num))
    end subroutine add_ncoord
@@ -986,7 +986,7 @@ contains
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
       !> Error handling
-      type(error_type), allocatable, intent(out) :: error    
+      type(error_type), allocatable, intent(out) :: error
 
       call new_ncoord(calc%ncoord_en, mol, cn_count_type=cn_count%erf_en, &
          & error=error, rcov=ceh_cov_radii(mol%num), en=pauling_en_ceh(mol%num))
@@ -1008,20 +1008,20 @@ contains
       type(xtb_calculator), intent(inout) :: calc
       !> Molecular structure data
       type(structure_type), intent(in) :: mol
-   
+
       real(wp), allocatable :: hardness(:, :), hubbard_derivs(:, :)
       type(effective_coulomb), allocatable :: es2
 
       allocate(calc%coulomb)
       allocate(es2)
       call get_atomic_hardness(mol, calc%bas, hardness)
-      call new_effective_coulomb(es2, mol, gexp, hardness, arithmetic_average) 
+      call new_effective_coulomb(es2, mol, gexp, hardness, arithmetic_average)
       call move_alloc(es2, calc%coulomb%es2)
-   
+
       allocate(calc%coulomb%es3)
       call get_hubbard_derivs(mol, calc%bas, hubbard_derivs)
       call new_onsite_thirdorder(calc%coulomb%es3, mol, hubbard_derivs)
-   
+
    end subroutine add_coulomb
 
    pure function new_ceh_h0spec(mol) result(self)
@@ -1233,9 +1233,9 @@ contains
          do jsp = 1, mol%nid
             jzp = mol%num(jsp)
             ! Geometric mean
-            ksig(isp, jsp) = (p_ceh_h0k(1,izp) * p_ceh_h0k(1,jzp))**0.5_wp 
-            kpi (isp, jsp) = (p_ceh_h0k(2,izp) * p_ceh_h0k(2,jzp))**0.5_wp 
-            kdel(isp, jsp) = (p_ceh_h0k(3,izp) * p_ceh_h0k(3,jzp))**0.5_wp 
+            ksig(isp, jsp) = (p_ceh_h0k(1,izp) * p_ceh_h0k(1,jzp))**0.5_wp
+            kpi (isp, jsp) = (p_ceh_h0k(2,izp) * p_ceh_h0k(2,jzp))**0.5_wp
+            kdel(isp, jsp) = (p_ceh_h0k(3,izp) * p_ceh_h0k(3,jzp))**0.5_wp
          end do
       end do
 
@@ -1272,7 +1272,7 @@ contains
       integer :: isp, izp
 
       ! no shell-resolution for the third order term
-      allocate(hubbard_derivs(1, mol%nid)) 
+      allocate(hubbard_derivs(1, mol%nid))
       hubbard_derivs(:, :) = 0.0_wp
       do isp = 1, mol%nid
          izp = mol%num(isp)
@@ -1328,8 +1328,8 @@ contains
                & + p_ceh_total_to_q * mol%charge/real(mol%nat, wp)
             end do
          end do
-      end if 
-   
+      end if
+
    end subroutine get_effective_qat
 
 

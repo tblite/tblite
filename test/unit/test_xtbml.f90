@@ -25,8 +25,8 @@ module test_xtbml
       & toml_array, add_array
    use tblite_wavefunction , only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
-   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_h0, only : get_hamiltonian
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -77,9 +77,9 @@ subroutine test_mulliken_charges_shell_h2p(error)
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
-   real(wp), parameter :: xyz(3, 2) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
-   &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
-   integer, parameter :: num(2) = (/1,1/)
+   real(wp), parameter :: xyz(3, 2) = reshape([0.0_wp,0.0_wp,0.35_wp,&
+   &0.0_wp,0.0_wp,-0.35_wp],shape=[3,2])
+   integer, parameter :: num(2) = [1,1]
 
    call new(mol, num, xyz*aatoau, uhf=1, charge=1.0_wp)
    call new_gfn2_calculator(calc, mol, error)
@@ -98,7 +98,7 @@ subroutine test_mulliken_charges_shell_h2p(error)
    call res%dict%get_entry("q_A", mulliken_shell)
    if (sum(mulliken_shell) - 1.0_wp > thr) then
       call test_failed(error, "Charge is not summing up to 1 electron for H2+")
-      print'(3es21.14)', mulliken_shell
+      print"(3es21.14)", mulliken_shell
    end if
 
 end subroutine test_mulliken_charges_shell_h2p
@@ -123,9 +123,9 @@ subroutine test_dipm_shell_h2p(error)
    real(wp), allocatable :: partial(:), ext_partial(:)
    real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat)
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.0_wp,0.0_wp,0.35_wp,&
-   &0.0_wp,0.0_wp,-0.35_wp/),shape=(/3,2/))
-   integer, parameter :: num(nat) = (/1,1/)
+   real(wp), parameter :: xyz(3, nat) = reshape([0.0_wp,0.0_wp,0.35_wp,&
+   &0.0_wp,0.0_wp,-0.35_wp],shape=[3,2])
+   integer, parameter :: num(nat) = [1,1]
    integer :: i
 
 
@@ -164,25 +164,25 @@ subroutine test_dipm_shell_h2p(error)
 
    do i= 1,2
       mol_dipm = mol_dipm+ dipm_xyz(:,i)+xyz(:,i)*partial(i)
-   enddo
+   end do
 
    if (sum(mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm")
-      print'(3es21.14)', mol_dipm
+      print"(3es21.14)", mol_dipm
    end if
    mol_dipm_delta = 0.0_wp
    do i= 1,2
       mol_dipm_delta = mol_dipm_delta + ext_dipm_xyz(:,i)+xyz(:,i)*ext_partial(i)
-   enddo
+   end do
 
    if (sum(mol_dipm_delta)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm_delta")
-      print'(3es21.14)', mol_dipm_delta
+      print"(3es21.14)", mol_dipm_delta
    end if
 
    if (sum(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
-      print'(3es21.14)', mol_dipm_delta-mol_dipm
+      print"(3es21.14)", mol_dipm_delta-mol_dipm
    end if
 
 end subroutine test_dipm_shell_h2p
@@ -208,10 +208,10 @@ subroutine test_dipm_shell_co2(error)
    real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat)
    integer :: i,j
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+   real(wp), parameter :: xyz(3, nat) = reshape([0.00000,0.00000,1.0000000,&
    &0.0000,0.00000,-1.0000000,&
-   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/8,8,6/)
+   &0.000000,0.000000,0.000000],shape=[3,nat])
+   integer, parameter :: num(nat) = [8,8,6]
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
 
@@ -253,28 +253,28 @@ subroutine test_dipm_shell_co2(error)
    do i= 1,nat
       do j = 1,3
          mol_dipm(j) = mol_dipm(j)+ dipm_xyz(j,i)+mol%xyz(j,i)*partial(i)
-      enddo
-   enddo
+      end do
+   end do
 
    if (norm2(mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm")
-      print'(3es21.14)', mol_dipm
+      print"(3es21.14)", mol_dipm
    end if
 
    do i= 1,nat
       do j = 1, 3
          mol_dipm_delta(j) = mol_dipm_delta(j) + ext_dipm_xyz(j,i)+mol%xyz(j,i)*ext_partial(i)
-      enddo
-   enddo
+      end do
+   end do
 
    if (norm2(mol_dipm_delta)  > thr) then
       call test_failed(error, "Molecular dipole moment is non zero, for dipm_delta")
-      print'(3es21.14)', mol_dipm_delta
+      print"(3es21.14)", mol_dipm_delta
    end if
 
    if (norm2(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
-      print'(3es21.14)', mol_dipm_delta-mol_dipm
+      print"(3es21.14)", mol_dipm_delta-mol_dipm
    end if
 
 end subroutine test_dipm_shell_co2
@@ -301,7 +301,7 @@ subroutine test_qp_shell_benz(error)
    real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat),mol_qm(6),ext_mol_qm(6)
    integer :: i,j
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/&
+   real(wp), parameter :: xyz(3, nat) = reshape([&
    &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
    &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
    &3.14559996373466,        0.73409173401801,        0.00008724271521,&
@@ -314,8 +314,8 @@ subroutine test_qp_shell_benz(error)
    &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
    &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
    &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-   &/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
+   &],shape=[3,nat])
+   integer, parameter :: num(nat) = [6,6,6,6,6,6,1,1,1,1,1,1]
 
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
@@ -402,18 +402,18 @@ subroutine test_qp_shell_benz(error)
    do i= 1,nat
       do j = 1,3
          mol_dipm(j) = mol_dipm(j)+dipm_xyz(j,i)+ mol%xyz(j,i)*partial(i)
-      enddo
-   enddo
+      end do
+   end do
    mol_dipm_delta = 0.0_wp
    do i= 1,nat
       do j =1,3
          mol_dipm_delta(j) = mol_dipm_delta(j) + ext_dipm_xyz(j,i)+mol%xyz(j,i)*ext_partial(i)
-      enddo
-   enddo
+      end do
+   end do
 
    if (norm2(mol_dipm_delta-mol_dipm)  > thr) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_dipm_delta-mol_dipm)
+      print"(3es21.14)", norm2(mol_dipm_delta-mol_dipm)
    end if
 
 
@@ -424,7 +424,7 @@ subroutine test_qp_shell_benz(error)
 
    if (norm2(mol_qm-ext_mol_qm)  > thr2) then
       call test_failed(error, "Molecular quadrupole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_qm-ext_mol_qm)
+      print"(3es21.14)", norm2(mol_qm-ext_mol_qm)
    end if
 end subroutine test_qp_shell_benz
 
@@ -449,7 +449,7 @@ subroutine test_qp_shell_benz_high_a(error)
    real(wp) :: ext_dipm_xyz(3,nat),ext_qm_xyz(6,nat),mol_qm(6),ext_mol_qm(6)
    integer :: i,j
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/&
+   real(wp), parameter :: xyz(3, nat) = reshape([&
    &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
    &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
    &3.14559996373466,        0.73409173401801,        0.00008724271521,&
@@ -462,8 +462,8 @@ subroutine test_qp_shell_benz_high_a(error)
    &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
    &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
    &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-   &/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
+   &],shape=[3,nat])
+   integer, parameter :: num(nat) = [6,6,6,6,6,6,1,1,1,1,1,1]
 
    mol_dipm = 0.0_wp
    mol_dipm_delta = 0.0_wp
@@ -551,12 +551,12 @@ subroutine test_qp_shell_benz_high_a(error)
    do i= 1,nat
       do j = 1,3
          mol_dipm(j) = mol_dipm(j)+dipm_xyz(j,i)+ mol%xyz(j,i)*partial(i)
-      enddo
-   enddo
+      end do
+   end do
    mol_dipm_delta = sum(ext_dipm_xyz,dim=2)
    if (norm2(mol_dipm_delta-mol_dipm)  > thr2) then
       call test_failed(error, "Molecular dipole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_dipm_delta-mol_dipm)
+      print"(3es21.14)", norm2(mol_dipm_delta-mol_dipm)
    end if
 
    call compute_traceless_mol_qm(mol%nat,mol%xyz,partial,dipm_xyz,qm_xyz,mol_qm)
@@ -565,7 +565,7 @@ subroutine test_qp_shell_benz_high_a(error)
 
    if (norm2(mol_qm-ext_mol_qm)  > thr2) then
       call test_failed(error, "Molecular quadrupole moment of extended and non-extended are not equal")
-      print'(3es21.14)', norm2(mol_qm-ext_mol_qm)
+      print"(3es21.14)", norm2(mol_qm-ext_mol_qm)
    end if
 end subroutine test_qp_shell_benz_high_a
 
@@ -582,11 +582,11 @@ subroutine test_rotation_co2(error)
    !> Error handling
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+   real(wp), parameter :: xyz(3, nat) = reshape([0.00000,0.00000,1.0000000,&
    &0.0000,0.00000,-1.0000000,&
-   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+   &0.000000,0.000000,0.000000],shape=[3,nat])
 
-   integer, parameter :: num(nat) = (/8,8,6/)
+   integer, parameter :: num(nat) = [8,8,6]
    type(results_type) :: res, res_
    real(wp) :: rot_matrix(3,3),xyz_rot(3,nat),energy, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
@@ -612,10 +612,10 @@ subroutine test_rotation_co2(error)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=3, results=res, post_process=pproc)
 
 
-   rot_matrix = (reshape((/&
+   rot_matrix = (reshape([&
    &1.0_wp,0.0_wp,0.0_wp,&
    &0.0_wp,0.52532_wp,-0.85090352453_wp,&
-   &0.0_wp,0.85090352453_wp,0.52532_wp/),shape=(/3,3/)))
+   &0.0_wp,0.85090352453_wp,0.52532_wp],shape=[3,3]))
    call gemm(rot_matrix,xyz,xyz_rot)
 
    call new(mol,num,xyz_rot*aatoau,uhf=0,charge=0.0_wp)
@@ -645,11 +645,11 @@ subroutine test_translation_co2(error)
    !> Error handling
    integer,parameter :: nat = 3
    type(error_type), allocatable, intent(out) :: error
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+   real(wp), parameter :: xyz(3, nat) = reshape([0.00000,0.00000,1.0000000,&
    &0.0000,0.00000,-1.0000000,&
-   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
+   &0.000000,0.000000,0.000000],shape=[3,nat])
 
-   integer, parameter :: num(nat) = (/8,8,6/)
+   integer, parameter :: num(nat) = [8,8,6]
    type(results_type) :: res, res_
    real(wp) :: energy = 0.0_wp, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
@@ -678,7 +678,7 @@ subroutine test_translation_co2(error)
 
    do i = 1,nat
       xyz_trans(1,i) = xyz_trans(1,i) +5.0_wp
-   enddo
+   end do
 
    call new(mol,num,xyz_trans*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn2_calculator(calc,mol, error)
@@ -713,7 +713,7 @@ subroutine test_orbital_energy_ref(error)
       & 0.000000_wp, 0.000000_wp, -1.0000000_wp,&
       & 0.000000_wp, 0.000000_wp,  0.0000000_wp], shape=shape(xyz))
 
-   integer, parameter :: num(nat) = (/8,8,6/)
+   integer, parameter :: num(nat) = [8,8,6]
    type(results_type) :: res, res_
    real(wp) :: energy = 0.0_wp
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
@@ -806,7 +806,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
                call lhs%get_label(i, label)
                write(*,*) "Entry ", label, " is diverging"
                return
-            endif
+            end if
             continue
          else
             return
@@ -821,7 +821,7 @@ function compare_dict(lhs, rhs, thr_) result(equal)
                call lhs%get_label(i, label)
                write(*,*) "Entry ", label, " is diverging"
                return
-            endif
+            end if
             continue
          else
             return
@@ -893,7 +893,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad key in geometry was accepted")
       return
-   endif
+   end if
 
    call add_table(table_post_proc, "xtbml", xtbml)
    call set_value(xtbml, "geometry", 7)
@@ -904,7 +904,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in geometry was accepted")
       return
-   endif
+   end if
    call set_value(xtbml, "geometry", .true.)
    call set_value(xtbml, "density", "str")
    call param%load(table_post_proc, error)
@@ -913,7 +913,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in density was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "density", .true.)
    call set_value(xtbml, "orbital", 42)
@@ -924,7 +924,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in orbital was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "orbital", .false.)
    call set_value(xtbml, "energy", 1)
@@ -935,7 +935,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in energy was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "energy", .false.)
    call set_value(xtbml, "tensorial-output", 7)
@@ -946,7 +946,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in tensorial was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "tensorial-output", .false.)
    call set_value(xtbml, "convolution", "Str")
@@ -957,7 +957,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in convolution was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "convolution", .true.)
    call set_value(xtbml, "a", "Str")
@@ -968,7 +968,7 @@ subroutine test_xtbml_param_bad_inp(error)
    else
       call fatal_error(error, "Bad input in a was accepted")
       return
-   endif
+   end if
 
    call set_value(xtbml, "a", 1.0)
    call param%load(table_post_proc, error)
@@ -1046,7 +1046,7 @@ subroutine test_energy_sum_up_gfn2(error)
    integer :: i,j
    character(len=:), allocatable :: label1
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/&
+   real(wp), parameter :: xyz(3, nat) = reshape([&
    &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
    &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
    &3.14559996373466,        0.73409173401801,        0.00008724271521,&
@@ -1059,8 +1059,8 @@ subroutine test_energy_sum_up_gfn2(error)
    &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
    &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
    &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-   &/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
+   &],shape=[3,nat])
+   integer, parameter :: num(nat) = [6,6,6,6,6,6,1,1,1,1,1,1]
 
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
 
@@ -1109,7 +1109,7 @@ subroutine test_energy_sum_up_gfn2(error)
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN2: Energy features don't add up to total energy.")
       write(*,*) "diff:"
-      print'(3es21.14)', abs(sum_energy-energy)
+      print"(3es21.14)", abs(sum_energy-energy)
    end if
 
    call res%dict%remove_entry("E_tot")
@@ -1127,7 +1127,7 @@ subroutine test_energy_sum_up_gfn2(error)
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN2: Energy features don't add up to total energy.")
       write(*,*) "diff:"
-      print'(3es21.14)', abs(sum_energy-energy)
+      print"(3es21.14)", abs(sum_energy-energy)
    end if
 
 end subroutine test_energy_sum_up_gfn2
@@ -1151,7 +1151,7 @@ subroutine test_energy_sum_up_gfn1(error)
    real(wp) :: energy = 1.0_wp, sum_energy = 0.0_wp
    integer :: i,j
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/&
+   real(wp), parameter :: xyz(3, nat) = reshape([&
    &1.06880660023529,       -0.46478030005927,        0.00009471732781,&
    &2.45331325533661,       -0.46484444142679,        0.00042084312846,&
    &3.14559996373466,        0.73409173401801,        0.00008724271521,&
@@ -1164,8 +1164,8 @@ subroutine test_energy_sum_up_gfn1(error)
    &2.99365942822711,        2.86866756976346,       -0.00166131228918,&
    &0.52879830433456,        2.86879139255056,       -0.00224874122149,&
    &-0.70367266962110,        0.73433126635962,       -0.00138296766859&
-   &/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/6,6,6,6,6,6,1,1,1,1,1,1/)
+   &],shape=[3,nat])
+   integer, parameter :: num(nat) = [6,6,6,6,6,6,1,1,1,1,1,1]
 
    if (.not.get_tblite_feature("ddx")) return
 
@@ -1203,7 +1203,7 @@ subroutine test_energy_sum_up_gfn1(error)
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
       write(*,*) "diff:"
-      print'(3es21.14)', abs(sum_energy-energy)
+      print"(3es21.14)", abs(sum_energy-energy)
    end if
 
    call res%dict%remove_entry("E_tot")
@@ -1220,7 +1220,7 @@ subroutine test_energy_sum_up_gfn1(error)
    if (abs(sum_energy-energy)  > thr) then
       call test_failed(error, "GFN1: Energy features don't add up to total energy.")
       write(*,*) "diff:"
-      print'(3es21.14)', abs(sum_energy-energy)
+      print"(3es21.14)", abs(sum_energy-energy)
    end if
 
 end subroutine test_energy_sum_up_gfn1
@@ -1245,10 +1245,10 @@ subroutine test_high_spin(error)
    integer :: i,j
    character(len=:), allocatable :: label1
 
-   real(wp), parameter :: xyz(3, nat) = reshape((/0.00000,0.00000,1.0000000,&
+   real(wp), parameter :: xyz(3, nat) = reshape([0.00000,0.00000,1.0000000,&
    &0.0000,0.00000,-1.0000000,&
-   &0.000000,0.000000,0.000000/),shape=(/3,nat/))
-   integer, parameter :: num(nat) = (/8,8,6/)
+   &0.000000,0.000000,0.000000],shape=[3,nat])
+   integer, parameter :: num(nat) = [8,8,6]
 
    call new(mol,num,xyz*aatoau,uhf=2,charge=0.0_wp)
 
@@ -1301,8 +1301,8 @@ subroutine test_orbital_energy_hp(error)
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
-   real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
-   integer, parameter :: num(1) = (/1/)
+   real(wp), parameter :: xyz(3, 1) = reshape([0.0_wp,0.0_wp,0.35_wp],shape=[3,1])
+   integer, parameter :: num(1) = [1]
 
    call new(mol, num, xyz*aatoau, uhf=0, charge=1.0_wp)
    call new_gfn2_calculator(calc, mol, error)
@@ -1321,7 +1321,7 @@ subroutine test_orbital_energy_hp(error)
    call res%dict%get_entry("HOAO", mulliken_shell)
    if (sum(mulliken_shell) > -10.0e10_wp) then
       call test_failed(error, "HOAO is occupied")
-      print'(3es21.14)', mulliken_shell
+      print"(3es21.14)", mulliken_shell
    end if
 
 end subroutine test_orbital_energy_hp
@@ -1340,8 +1340,8 @@ subroutine test_orbital_energy_he(error)
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
    real(wp) :: energy = 0.0_wp
-   real(wp), parameter :: xyz(3, 1) = reshape((/0.0_wp,0.0_wp,0.35_wp/),shape=(/3,1/))
-   integer, parameter :: num(1) = (/2/)
+   real(wp), parameter :: xyz(3, 1) = reshape([0.0_wp,0.0_wp,0.35_wp],shape=[3,1])
+   integer, parameter :: num(1) = [2]
 
    call new(mol, num, xyz*aatoau, uhf=0, charge=0.0_wp)
    call new_gfn1_calculator(calc, mol, error)
@@ -1360,7 +1360,7 @@ subroutine test_orbital_energy_he(error)
    call res%dict%get_entry("LUAO", mulliken_shell)
    if (sum(mulliken_shell) < 10.0e10_wp) then
       call test_failed(error, "LUAO is occupied")
-      print'(3es21.14)', mulliken_shell
+      print"(3es21.14)", mulliken_shell
    end if
 
 end subroutine test_orbital_energy_he
@@ -1382,9 +1382,9 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
             tma(l) = tma(l)+xyz(j,i)*xyz(k,i)*q(i)
             tmb(l) = tmb(l)+dipm(k,i)*xyz(j,i)+dipm(j,i)*xyz(k,i)
             tmc(l) = tmc(l)+qp(l,i)
-         enddo
-      enddo
-   enddo
+         end do
+      end do
+   end do
    ! remove traces and multiply with 3/2 in q and dip parts
    dum = tma(1)+tma(3)+tma(6)
    dum = 0.50_wp*dum
@@ -1393,7 +1393,7 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    do j = 1,3
       l = l+j
       tma(l) = tma(l)-dum
-   enddo
+   end do
    dum = tmb(1)+tmb(3)+tmb(6)
    dum = 0.50_wp*dum
    tmb = 1.50_wp*tmb
@@ -1401,9 +1401,9 @@ subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
    do j = 1,3
       l = l+j
       tmb(l) = tmb(l)-dum
-   enddo
+   end do
    mol_qm = tma+tmb+tmc
-end subroutine
+end subroutine compute_traceless_mol_qm
 
 !> this function returns the linear index of a matrix element
 pure elemental integer function lin(i1,i2)

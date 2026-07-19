@@ -25,8 +25,8 @@ module tblite_xtb_calculator
    use mctc_io, only : structure_type
    use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count, get_cn_count_id
    use tblite_basis_ortho, only : orthogonalize
-   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_type, container_list
    use tblite_coulomb_charge, only : coulomb_kernel, new_gamma_coulomb, gamma_coulomb, &
@@ -276,7 +276,7 @@ subroutine add_dispersion(calc, mol, param, error, smooth_cutoff)
          call move_alloc(d3, calc%dispersion)
       else
          allocate(d4)
-         if (par%smooth) then 
+         if (par%smooth) then
             call new_d4s_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
                & a1=par%a1, a2=par%a2, s9=par%s9, error=error, &
                & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
@@ -718,7 +718,7 @@ pure function info(self, verbosity, indent) result(str)
    !> Information on the container
    character(len=:), allocatable :: str
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    str = "xTB calculator"
 

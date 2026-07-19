@@ -110,7 +110,7 @@ subroutine load_trexio(filename, mol, bas, wfn, energy, error)
       return
    end if
 
-   trex_file = trexio_open(filename, 'r', backend, rc)
+   trex_file = trexio_open(filename, "r", backend, rc)
    if (rc /= TREXIO_SUCCESS) then
       call fatal_trexio(error, rc, "Failed to open TREXIO input '"//filename//"'")
       return
@@ -158,7 +158,7 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error)
       return
    end if
 
-   trex_file = trexio_open(filename, 'w', backend, rc)
+   trex_file = trexio_open(filename, "w", backend, rc)
    if (rc /= TREXIO_SUCCESS) then
       call fatal_trexio(error, rc, "Failed to open TREXIO output '"//filename//"'")
       return
@@ -453,7 +453,7 @@ subroutine load_basis(trex_file, mol, bas, error)
       end if
       ! Apply no additional normalization, already part of the coefficents and primitive factor
       call new_cgto(tmp_cgto, ng, l, alpha, coeff, .false.)
-      
+
       ! Check if current CGTO matches earlier CGTOs for the same species
       if (.not. seen_cgto(jsh, isp)) then
          cgto(jsh, isp) = tmp_cgto
@@ -526,13 +526,13 @@ subroutine read_basis(trex_file, nsh, nprim, basis_nucleus_index, basis_shell_an
    rc = trexio_read_basis_shell_index(trex_file, basis_shell_index)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive shell map")
    if (allocated(error)) return
-   
+
    allocate(d_alpha(nprim), basis_primitive_alpha(nprim))
    rc = trexio_read_basis_exponent(trex_file, d_alpha)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive exponent")
    if (allocated(error)) return
    basis_primitive_alpha = real(d_alpha, wp)
-   
+
    allocate(d_coeff(nprim), basis_primitive_coeff(nprim))
    rc = trexio_read_basis_coefficient(trex_file, d_coeff)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO primitive coefficient")
@@ -558,7 +558,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    type(wavefunction_type), intent(out) :: wfn
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   
+
    integer :: nao, nmo
    logical :: cartesian
    real(wp), allocatable :: mo_occupation(:), mo_energy(:), mo_coefficient(:, :)

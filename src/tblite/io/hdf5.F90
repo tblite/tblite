@@ -53,7 +53,7 @@ module tblite_io_hdf5
       module procedure save_hdf5_rdp_r3
    end interface save_hdf5
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
 contains
 

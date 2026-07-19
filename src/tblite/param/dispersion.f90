@@ -62,7 +62,7 @@ module tblite_param_dispersion
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type dispersion_record
 
 
    !> Masking for the dispersion model
@@ -159,7 +159,7 @@ subroutine dump_to_toml(self, table, error)
    type(toml_table), pointer :: child
 
    call add_table(table, merge(k_d3, k_d4, self%d3), child)
-   if (.not.self%d3) then 
+   if (.not.self%d3) then
       call set_value(child, k_sc, self%sc)
       call set_value(child, k_smooth, self%smooth)
    end if

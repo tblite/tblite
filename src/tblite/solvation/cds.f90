@@ -22,18 +22,18 @@ module tblite_solvation_cds
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
+   use mctc_io_convert, only : aatoau
    use mctc_io_math, only : matdet_3x3
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
    use tblite_scf_info, only : scf_info, atom_resolved, not_used
    use tblite_scf_potential, only : potential_type
-   use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
-   use tblite_solvation_data, only : get_vdw_rad_cosmo
-   use tblite_solvation_type, only : solvation_type
    use tblite_solvation_cm5, only : get_cm5_charges
-   use mctc_io_convert, only : aatoau
+   use tblite_solvation_data, only : get_vdw_rad_cosmo
+   use tblite_solvation_surface, only : surface_integrator, new_surface_integrator
+   use tblite_solvation_type, only : solvation_type
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -139,11 +139,11 @@ function create_cds_input(solvent, alpb, probe, nang, rad, tension, hbond) resul
 
    type(cds_input) :: self
 
-   if (present(solvent)) then 
+   if (present(solvent)) then
       self%solvent = solvent
    end if
 
-   if (present(alpb)) then 
+   if (present(alpb)) then
       self%alpb = alpb
    end if
 
@@ -191,14 +191,14 @@ subroutine new_cds(self, mol, input, method)
    end if
 
    self%tension = input%tension
-  
+
    if (allocated(input%hbond)) then
       self%hbond = input%hbond/(4*pi*(rad+input%probe)**2)
    end if
 
    if (allocated(input%solvent) .and. present(method))then
-      self%useCM5 = trim(method)=='gfn1'
-   endif
+      self%useCM5 = trim(method)=="gfn1"
+   end if
 
    call new_surface_integrator(self%sasa, mol%id, rad, input%probe, input%nang)
 end subroutine new_cds
@@ -241,16 +241,16 @@ subroutine update(self, mol, cache)
    end if
    if (.not.allocated(ptr%qscratch))then
       allocate(ptr%qscratch(mol%nat))
-   endif
+   end if
    if (self%useCM5)then
       if (.not.allocated(ptr%cm5))then
          allocate(ptr%cm5(mol%nat))
-      endif
+      end if
       if (.not.allocated(ptr%dcm5dr))then
          allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
-      endif
+      end if
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
-   endif
+   end if
 
    call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
 
@@ -283,10 +283,12 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    energies(:) = energies + ptr%surface * ptr%tension
 
    if (present(gradient)) then
-      if (allocated(ptr%dsdr)) &
-         call gemv(ptr%dsdr, ptr%tension, gradient, beta=1.0_wp)
-      if (allocated(ptr%dtdr)) &
-         call gemv(ptr%dtdr, ptr%surface, gradient, beta=1.0_wp)
+      if (allocated(ptr%dsdr)) then
+        call gemv(ptr%dsdr, ptr%tension, gradient, beta=1.0_wp)
+      end if
+      if (allocated(ptr%dtdr)) then
+        call gemv(ptr%dtdr, ptr%surface, gradient, beta=1.0_wp)
+      end if
    end if
 end subroutine get_engrad
 
@@ -313,7 +315,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
          ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
       else
          ptr%qscratch(:) = wfn%qat(:, 1)
-      endif
+      end if
       ptr%scratch(:) = ptr%hbond * ptr%surface * ptr%qscratch(:)**2
       energies(:) = energies + ptr%scratch
    end if
@@ -342,7 +344,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
          ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
       else
          ptr%qscratch(:) = wfn%qat(:, 1)
-      endif
+      end if
       ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)
       pot%vat(:, 1) = pot%vat(:, 1) + ptr%scratch(:)
    end if
@@ -373,14 +375,15 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
          ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
       else
          ptr%qscratch(:) = wfn%qat(:, 1)
-      endif
+      end if
       ptr%scratch(:) = ptr%hbond * ptr%qscratch(:)**2
-      if (allocated(ptr%dsdr)) &
-         call gemv(ptr%dsdr, ptr%scratch, gradient, beta=1.0_wp)
-      if(self%useCM5)then 
-        ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)  
-        call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp) 
-      endif  
+      if (allocated(ptr%dsdr)) then
+        call gemv(ptr%dsdr, ptr%scratch, gradient, beta=1.0_wp)
+      end if
+      if(self%useCM5)then
+        ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)
+        call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+      end if
    end if
 end subroutine get_gradient
 

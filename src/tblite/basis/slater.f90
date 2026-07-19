@@ -435,13 +435,13 @@ pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info)
          info = 2
          return
       end if
-   endif
+   end if
 
    ! Don't allow negative exponents in the first place
    if (zeta <= 0.0_wp) then
       info = 4
       return
-   endif
+   end if
 
    ! we have to use a little hack here,
    ! if you pass n and l correctly, everything is fine
@@ -503,7 +503,7 @@ pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info)
    if (norm) then
       coeff(:ng) = coeff(:ng) * (top*alpha(:ng))**0.75_wp &
          & * sqrt(4*alpha(:ng))**l / sqrt(dfactorial(l+1))
-   endif
+   end if
 
    ! success
    info = 0

@@ -19,22 +19,22 @@
 
 !> Generally applicable charge-dependent London-dispersion correction, DFT-D4.
 module tblite_disp_d4
-   use mctc_env, only : error_type, wp
-   use mctc_io, only : structure_type
-   use mctc_io_constants, only : pi
-   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use dftd4, only : dispersion_model, d4_model, d4s_model, &
       & damping_param, rational_damping_param, realspace_cutoff, &
       & new_d4_model, new_d4s_model
    use dftd4_cutoff, only : smooth_cutoff
    use dftd4_model, only : d4_qmod
+   use mctc_env, only : error_type, wp
+   use mctc_io, only : structure_type
+   use mctc_io_constants, only : pi
+   use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_blas, only : dot, gemv
    use tblite_container_cache, only : container_cache
+   use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_cutoff, only : get_lattice_points
    implicit none
    private
 
@@ -295,7 +295,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
             do iref = 1, self%model%ref(izp)
                do jref = 1, self%model%ref(jzp)
                   tmp_vat(iat) = tmp_vat(iat) + ptr%dispmat(iref, iat, jref, jat) * &
-                     & ptr%dgwdq(iref, iat, jat) * ptr%gwvec(jref, jat, iat) 
+                     & ptr%dgwdq(iref, iat, jat) * ptr%gwvec(jref, jat, iat)
                end do
             end do
          end do
