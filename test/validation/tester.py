@@ -66,8 +66,9 @@ for key in ref:
         raise RuntimeError("Missing '" + key + "' entry in results")
     _res = np.array(res[key])
     _ref = np.array(ref[key])
-    assert pytest.approx(_res, abs=thr) == _ref, \
-        f"mismatch for {key}:\n" \
-        f"+actual\n{_res}\n" \
-        f"-reference\n{_ref}\n" \
+    assert pytest.approx(_res, abs=thr) == _ref, (
+        f"mismatch for {key}:\n"
+        f"+actual\n{_res}\n"
+        f"-reference\n{_ref}\n"
         f"@difference\n{_res - _ref}"
+    )

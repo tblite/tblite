@@ -485,7 +485,9 @@ def test_table_to_dict_without_toml_dependency(monkeypatch):
     """Test that table conversion works without requiring TOML parsing support."""
     monkeypatch.setattr(library, "tomllib", None, raising=False)
 
-    table = library.dict_to_table({"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}})
+    table = library.dict_to_table(
+        {"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}}
+    )
     data = library.table_to_dict(table)
 
     assert data == {"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}}
@@ -669,6 +671,7 @@ def test_solvation_gfn2_ddcpcm():
 
     energy = calc.singlepoint().get("energy")
     assert energy == approx(-28.43800959099, abs=THR)
+
 
 def test_solvation_gfn2_ddpcm():
     """Test (ddX) PCM solvation with GFN2-xTB"""

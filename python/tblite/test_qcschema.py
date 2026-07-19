@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """Tests for the qcelemental interface."""
-from typing import Any, Dict, Optional
+
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -31,6 +32,10 @@ v1_available = pytest.mark.skipif(
 v2_available = pytest.mark.skipif(
     qcel_v2 is None, reason="QCSchema v2 not available in current QCElemental"
 )
+
+if TYPE_CHECKING:
+    Molecule = qcel_v1.Molecule if qcel_v1 is not None else qcel_v2.Molecule
+    AtomicInput = qcel_v1.AtomicInput if qcel_v1 is not None else qcel_v2.AtomicInput
 
 
 @pytest.fixture(
@@ -314,16 +319,18 @@ def test_qcschema(atomic_input: "AtomicInput", return_result: Any) -> None:
     assert pytest.approx(atomic_result.return_result) == return_result
 
 
-@pytest.fixture(params=[
-      {"cosmo-solvation": "methanol"},
-      {"cosmo-solvation": 7.0},
-      {"cpcm-solvation": 7.0}, 
-      {"pcm-solvation": 7.0},
-      {"alpb-solvation": ["water", "bar1mol"]},
-      {"gbsa-solvation": ["methanol", "reference"]},
-      {"gbe-solvation": [7.0, "p16"]},
-      {"gb-solvation": [7.0, "still"]},
-   ])
+@pytest.fixture(
+    params=[
+        {"cosmo-solvation": "methanol"},
+        {"cosmo-solvation": 7.0},
+        {"cpcm-solvation": 7.0},
+        {"pcm-solvation": 7.0},
+        {"alpb-solvation": ["water", "bar1mol"]},
+        {"gbsa-solvation": ["methanol", "reference"]},
+        {"gbe-solvation": [7.0, "p16"]},
+        {"gb-solvation": [7.0, "still"]},
+    ]
+)
 def solvation(request) -> dict:
     """Solvation fixture."""
     return request.param

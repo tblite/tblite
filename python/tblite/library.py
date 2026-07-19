@@ -301,7 +301,9 @@ export_ipea1_param = error_check(lib.tblite_export_ipea1_param)
 
 def _is_scalar(value) -> bool:
     """Check whether a value should be treated as a scalar for table conversion."""
-    return isinstance(value, (str, bytes, bool, int, float, np.integer, np.floating, np.bool_))
+    return isinstance(
+        value, (str, bytes, bool, int, float, np.integer, np.floating, np.bool_)
+    )
 
 
 def _to_python_scalar(value):
@@ -338,7 +340,9 @@ def _set_sequence(table, key, values) -> None:
     if isinstance(key, str):
         key = key.encode("utf-8")
     if len(values) == 0:
-        raise TBLiteValueError("Empty sequences are not supported in parametrization tables")
+        raise TBLiteValueError(
+            "Empty sequences are not supported in parametrization tables"
+        )
 
     normalized = []
     for value in values:
@@ -348,15 +352,22 @@ def _set_sequence(table, key, values) -> None:
             else:
                 raise TBLiteValueError("Only one-dimensional arrays are supported")
         if isinstance(value, (list, tuple)):
-            raise TBLiteValueError("Nested sequences are not supported in parametrization tables")
+            raise TBLiteValueError(
+                "Nested sequences are not supported in parametrization tables"
+            )
         normalized.append(_to_python_scalar(value))
 
-    if all(isinstance(value, bool) or isinstance(value, np.bool_) for value in normalized):
+    if all(
+        isinstance(value, bool) or isinstance(value, np.bool_) for value in normalized
+    ):
         array = new_array()
         for value in normalized:
             array_push_back_bool(array, bool(value))
         table_set_array(table, key, array)
-    elif all(isinstance(value, (int, np.integer)) and not isinstance(value, bool) for value in normalized):
+    elif all(
+        isinstance(value, (int, np.integer)) and not isinstance(value, bool)
+        for value in normalized
+    ):
         array = new_array()
         for value in normalized:
             array_push_back_int64_t(array, int(value))
@@ -696,10 +707,7 @@ def tblite_xtb_config(config: Optional[Dict[str, Any]] = None):
 
     return ffi.new(
         "tblite_xtb_config *",
-        {
-            key: config.get(key, default)
-            for key, default in SUPPORTED_KEYS.items()
-        }
+        {key: config.get(key, default) for key, default in SUPPORTED_KEYS.items()},
     )
 
 
@@ -809,7 +817,9 @@ def set_calculator_temperature_annealing(ctx, calc, annealing):
     """Set electronic-temperature annealing as start or (start, hold, cycles)."""
     if isinstance(annealing, (tuple, list)):
         if len(annealing) != 3:
-            raise TBLiteValueError("Expected annealing as start or (start, hold, cycles)")
+            raise TBLiteValueError(
+                "Expected annealing as start or (start, hold, cycles)"
+            )
         initial_etemp, hold, cycles = annealing
     else:
         initial_etemp, hold, cycles = annealing, 50, 50
@@ -861,7 +871,7 @@ _ddx_model_enum = {
     "cosmo": 100,
     "cpcm": 101,
     "pcm": 200,
-  }
+}
 
 
 def new_alpb_solvation(
@@ -900,7 +910,9 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
     )
 
 
-def new_ddx_solvation(ctx, mol, calc, solvent_or_epsilon: Union[str, float], model: str):
+def new_ddx_solvation(
+    ctx, mol, calc, solvent_or_epsilon: Union[str, float], model: str
+):
     """Create new tblite ddX (COSMO, CPCM, or PCM) solvation object"""
     if isinstance(solvent_or_epsilon, str):
         _solvent = ffi.new("char[]", solvent_or_epsilon.encode("ascii"))
