@@ -10,3 +10,8 @@ repos:
       # Run the formatter.
       - id: ruff-format
         args: [--config, python/pyproject.toml]
+  - repo: https://github.com/PlasmaFAIR/fortitude-pre-commit
+    rev: v0.9.0
+    hooks:
+      - id: fortitude
+        args: ["--fix", "--preview"]

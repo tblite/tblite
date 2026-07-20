@@ -33,6 +33,7 @@
 #include "tblite/container.h"
 #include "tblite/context.h"
 #include "tblite/double_dictionary.h"
+#include "tblite/features.h"
 #include "tblite/structure.h"
 #include "tblite/calculator.h"
 #include "tblite/solvation.h"
