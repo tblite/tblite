@@ -19,7 +19,7 @@
 
 !> API export for working with molecular structure data objects
 module tblite_api_structure
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_bool, c_double, c_f_pointer, c_int, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type, new
    use tblite_api_error, only : vp_error

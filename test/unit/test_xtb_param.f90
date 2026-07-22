@@ -386,6 +386,8 @@ subroutine export_gen_param(method, param)
       call export_gfn2_param(param)
    case("ipea1")
       call export_ipea1_param(param)
+   case default
+      continue
    end select
 end subroutine export_gen_param
 
@@ -402,6 +404,8 @@ subroutine new_gen_calculator(calc, method, mol, error)
       call new_gfn2_calculator(calc, mol, error)
    case("ipea1")
       call new_ipea1_calculator(calc, mol, error)
+   case default
+      continue
    end select
 end subroutine new_gen_calculator
 

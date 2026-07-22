@@ -95,6 +95,7 @@ end function overlap_1d
 pure subroutine horizontal_shift(ae, l, cfs)
    integer, intent(in) :: l
    real(wp), intent(in) :: ae
+   ! allow(C071): assumed-size retained from the reference integral kernels
    real(wp), intent(inout) :: cfs(*)
    select case(l)
    case(0) ! s
@@ -113,12 +114,16 @@ pure subroutine horizontal_shift(ae, l, cfs)
       cfs(2)=cfs(2)+ 4*ae*ae*ae*cfs(5)
       cfs(3)=cfs(3)+ 6*ae*ae*cfs(5)
       cfs(4)=cfs(4)+ 4*ae*cfs(5)
+   case default
+      continue
    end select
 end subroutine horizontal_shift
 
 pure subroutine form_product(a, b, la, lb, d)
    integer, intent(in) :: la, lb
+   ! allow(C071): assumed-size retained from the reference integral kernels
    real(wp), intent(in) :: a(*), b(*)
+   ! allow(C071): assumed-size retained from the reference integral kernels
    real(wp), intent(inout) :: d(*)
    if(la>=4.or.lb>=4) goto 40
    if(la>=3.or.lb>=3) goto 30

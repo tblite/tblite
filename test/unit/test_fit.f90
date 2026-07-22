@@ -110,6 +110,7 @@ end subroutine test_newuoa
 !> The Chebyquad test problem (Fletcher, 1965)
 function calfun_chebyquad(n, x, h, error) result(f)
    integer, intent(in) :: n
+   ! allow(C071): assumed-size matches the NEWUOA optimizer callback interface
    real(wp), intent(in) :: x(*)
    class(*), intent(in) :: h
    type(error_type), allocatable, intent(out) :: error

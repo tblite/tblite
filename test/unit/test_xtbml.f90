@@ -1370,9 +1370,10 @@ end subroutine test_orbital_energy_he
 
 !this function is copied from the xtb codebase
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
-   integer :: n,i,l,k,j
-   real(wp) :: xyz(3,n),dipm(3,n), qp(6,n),q(n)
-   real(wp) :: mol_qm(6)
+   integer, intent(in) :: n
+   integer :: i,l,k,j
+   real(wp), intent(in) :: xyz(3,n),dipm(3,n), qp(6,n),q(n)
+   real(wp), intent(out) :: mol_qm(6)
    real(wp) :: tma(6),tmb(6),tmc(6),dum
    tma = 0.0_wp
    tmb = 0.0_wp

@@ -47,7 +47,7 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
    character(len=*), intent(in) :: filename
    type(zip_file), intent(out) :: zip
    integer, intent(out) :: stat
-   character(len=:), allocatable :: msg
+   character(len=:), allocatable, intent(out) :: msg
 
    integer :: irec
    integer(i2) :: path_size, extra_field_size, comment_size
@@ -83,8 +83,10 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
         read(io, pos=pos+30, iostat=stat, iomsg=errmsg) path
       end if
 
-      pos = pos + 30 + path_size + extra_field_size + nbytes_compressed
-      read(io, pos=pos, iostat=stat, iomsg=errmsg) header_sig
+      if (stat == 0) then
+         pos = pos + 30 + path_size + extra_field_size + nbytes_compressed
+         read(io, pos=pos, iostat=stat, iomsg=errmsg) header_sig
+      end if
    end do
    if (stat /= 0) then
       msg = "Failed to read local header block for '"//filename//"'"
@@ -128,8 +130,10 @@ subroutine list_zip_file(io, filename, zip, stat, msg)
 
       zip%records(irec)%path = path
 
-      pos = pos + 46 + path_size + extra_field_size + comment_size
-      read(io, pos=pos, iostat=stat, iomsg=errmsg) header_sig
+      if (stat == 0) then
+         pos = pos + 46 + path_size + extra_field_size + comment_size
+         read(io, pos=pos, iostat=stat, iomsg=errmsg) header_sig
+      end if
    end do
    if (stat /= 0) then
       msg = "Failed to read global header block for '"//filename//"'"

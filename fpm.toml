@@ -42,12 +42,10 @@ source-dir = "test/unit"
 ignore = [
   "C002",  # interface without implicit none
   "C003",  # implicit none(external)
-  "C011",  # no default in select case
-  "C061",  # missing intent attribute
-  "C071",  # assumed size
-  "C072",  # assumed size character intent
-  "C121",  # use without explicit only
-  "C122",  # intrinsic missing for internal modules
-  "C181",  # iostat not checked
 ]
+per-file-ignores."src/tblite/api/*.f90" = ["C071", "C072"]
+per-file-ignores."src/tblite/blas/*.f90" = ["C071"]
+per-file-ignores."src/tblite/lapack/*.f90" = ["C071"]
+per-file-ignores."src/tblite/fit/newuoa.f90" = ["C071"]
+per-file-ignores."src/tblite/mesh/lebedev.f90" = ["C071"]
 line-length = 132

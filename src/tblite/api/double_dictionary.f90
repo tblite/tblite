@@ -20,12 +20,12 @@
 !> @file tblite/api/double_dictionery.f90
 !> Implements API calls to double dictionary.
 module tblite_api_double_dictionary
-   use iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_char, c_double, c_f_pointer, c_int, c_null_ptr, c_ptr
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
-   use tblite_double_dictionary
+   use tblite_double_dictionary, only : double_dictionary_type
    implicit none
    private
 
@@ -56,11 +56,11 @@ function get_n_entries_dict_api(verror, vdict) result(n) &
 end function get_n_entries_dict_api
 
 subroutine check_dict(verror, vdict, error, dict, ok)
-   type(vp_double_dictionary), pointer :: dict
+   type(vp_double_dictionary), pointer, intent(out) :: dict
    type(c_ptr), value :: vdict
    type(c_ptr), value :: verror
-   type(vp_error), pointer :: error
-   logical :: ok
+   type(vp_error), pointer, intent(out) :: error
+   logical, intent(out) :: ok
    ok = .false.
 
    if (.not.c_associated(verror)) return

@@ -19,7 +19,7 @@
 
 !> API export for the feature information of the library
 module tblite_api_features
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_char, c_int
    use tblite_api_utils, only : c_f_character
    use tblite_features, only : get_tblite_feature
    implicit none

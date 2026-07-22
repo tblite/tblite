@@ -19,7 +19,7 @@
 
 !> This module provides helper routines for numpy file handling
 module tblite_io_numpy_utils
-   use iso_fortran_env, only : iostat_end
+   use, intrinsic :: iso_fortran_env, only : iostat_end
    use mctc_env, only : sp, dp, i2, i4
    implicit none
    private
@@ -61,13 +61,14 @@ subroutine new_reader_from_file(reader, filename, stat)
       stat = 10
       return
    end if
+   ! allow(C181): stat is intent-out and returned to and checked by the caller
    open(newunit=reader%io, file=filename, form="unformatted", access="stream", iostat=stat)
    reader%filename = filename
 end subroutine new_reader_from_file
 
 subroutine new_reader_from_buffer(reader, buffer, filename)
    type(reader_type), intent(out) :: reader
-   character(len=1), allocatable :: buffer(:)
+   character(len=1), allocatable, intent(in) :: buffer(:)
    character(len=*), intent(in) :: filename
 
    reader%filename = filename
@@ -77,6 +78,7 @@ end subroutine new_reader_from_buffer
 
 subroutine read_char_r0(reader, var, stat)
    type(reader_type), intent(inout) :: reader
+   ! allow(C072): raw byte reader writes exactly len of var bytes into var
    character(len=*), intent(out) :: var
    integer, intent(out) :: stat
 
@@ -89,6 +91,7 @@ subroutine read_char_r0(reader, var, stat)
       var = transfer(reader%buffer(reader%pos+1:reader%pos+len(var)), var)
       reader%pos = reader%pos + len(var)
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_char_r0
@@ -120,6 +123,7 @@ subroutine read_char_r1(reader, var, stat)
       var = reader%buffer(reader%pos+1:reader%pos+size(var))
       reader%pos = reader%pos + size(var)
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_char_r1
@@ -138,6 +142,7 @@ subroutine read_i4_r1(reader, var, stat)
       var = transfer(reader%buffer(reader%pos+1:reader%pos+size(var)*4), var)
       reader%pos = reader%pos + size(var) * 4
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_i4_r1
@@ -156,6 +161,7 @@ subroutine read_rdp_r1(reader, var, stat)
       var = transfer(reader%buffer(reader%pos+1:reader%pos+size(var)*8), var)
       reader%pos = reader%pos + size(var) * 8
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_rdp_r1
@@ -174,6 +180,7 @@ subroutine read_rdp_r2(reader, var, stat)
       var = reshape(transfer(reader%buffer(reader%pos+1:reader%pos+size(var)*8), var), shape(var))
       reader%pos = reader%pos + size(var) * 8
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_rdp_r2
@@ -192,6 +199,7 @@ subroutine read_rdp_r3(reader, var, stat)
       var = reshape(transfer(reader%buffer(reader%pos+1:reader%pos+size(var)*8), var), shape(var))
       reader%pos = reader%pos + size(var) * 8
    else
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       read(reader%io, iostat=stat) var
    end if
 end subroutine read_rdp_r3

@@ -365,6 +365,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Strain derivatives of the repulsion energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
+   ! allow(C061): see https://github.com/PlasmaFAIR/fortitude/issues/695
    real(wp), allocatable :: dEdr(:)
    type(coulomb_cache), pointer :: ptr
 

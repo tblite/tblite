@@ -4,7 +4,7 @@ module test_halogen
       & test_failed
    use mctc_io_structure, only : structure_type, new
    use mstore, only : get_structure
-   use tblite_classical_halogen
+   use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_cache
    implicit none
    private

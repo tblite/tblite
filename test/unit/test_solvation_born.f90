@@ -22,8 +22,8 @@ module test_solvation_born
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
-   use tblite_solvation_alpb
-   use tblite_solvation_born
+   use tblite_solvation_alpb, only : alpb_input, alpb_solvation, born_kernel
+   use tblite_solvation_born, only : born_integrator, new_born_integrator
    use tblite_solvation_data, only : solvent_data, get_solvent_data, &
       & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
    use tblite_solvation_data_alpb, only: get_alpb_param

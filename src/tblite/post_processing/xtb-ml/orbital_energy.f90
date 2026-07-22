@@ -67,7 +67,7 @@ contains
 
 subroutine new_xtbml_orbital_features(self)
    !> Instance of the xTB-ML orbital energy features
-   class(xtbml_orbital_features) :: self
+   class(xtbml_orbital_features), intent(out) :: self
 
    self%label = label
 

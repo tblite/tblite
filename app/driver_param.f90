@@ -19,7 +19,6 @@ module tblite_driver_param
    use, intrinsic :: iso_fortran_env, only : output_unit
    use mctc_env, only : error_type, fatal_error, wp
    use tblite_cli, only : param_config
-   use tblite_output_ascii
    use tblite_param, only : param_record
    use tblite_toml, only : toml_table, merge_table
    use tblite_xtb_gfn1, only : export_gfn1_param

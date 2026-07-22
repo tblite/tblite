@@ -991,6 +991,7 @@ subroutine hexdump(filename)
          skip = .false.
       end if
       line = line + 16
+      ! allow(C181): stat is checked by the enclosing do-while stat == 0 loop condition
       read(io, pos=line + 1, iostat=stat) chunk
    end do
    do i = 1, 16

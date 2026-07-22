@@ -119,6 +119,7 @@ subroutine write_tagged(unit, val, stat)
 
    select type(raw => val%raw)
    type is(real(dp))
+      ! allow(C181): stat is intent-out and returned to and checked by the caller
       write(unit, tag_header, iostat=stat) val%tag, "real", size(val%shape), val%shape
       write(unit, "(3es24.16)") raw
    end select
@@ -159,6 +160,8 @@ subroutine read_tagged(unit, val, stat)
          read(unit, *) (tmp(i), i = 1, n)
          call move_alloc(tmp, val%raw)
       end block
+   case default
+      continue
    end select
 end subroutine read_tagged
 

@@ -25,7 +25,7 @@ module test_ceh
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type
+   use tblite_basis_type, only : basis_type, cgto_type, get_cutoff, new_basis
    use tblite_blas, only: gemv
    use tblite_ceh_ceh, only : ceh_h0spec, new_ceh_calculator
    use tblite_ceh_singlepoint, only : ceh_singlepoint

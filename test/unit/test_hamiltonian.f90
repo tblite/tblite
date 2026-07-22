@@ -24,13 +24,13 @@ module test_hamiltonian
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type
+   use tblite_basis_type, only : basis_type, cgto_type, get_cutoff, new_basis
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_overlap
+   use tblite_integral_overlap, only : msao
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_scf_potential, only : potential_type, new_potential
-   use tblite_xtb_gfn2
-   use tblite_xtb_h0
+   use tblite_xtb_gfn2, only : gfn2_h0spec
+   use tblite_xtb_h0, only : get_hamiltonian, get_hamiltonian_gradient, get_selfenergy, new_hamiltonian, tb_hamiltonian
    implicit none
    private
 

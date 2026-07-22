@@ -19,7 +19,7 @@
 
 !> Implementation of saving multidimensional arrays to npz files
 module tblite_io_numpy_savez
-   use iso_fortran_env, only : iostat_end
+   use, intrinsic :: iso_fortran_env, only : iostat_end
    use mctc_env, only : sp, dp, i2, i4, i1
    use tblite_io_numpy_constants, only : type_rdp, type_i4, &
       & zip_global_sig, zip_local_sig, zip_footer_sig, zip_min_version

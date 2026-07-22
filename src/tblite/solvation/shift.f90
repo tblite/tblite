@@ -150,7 +150,7 @@ end function create_shift_input
 !> Calculate the solvent and state shift
 subroutine new_shift(self, input)
    !> Instance of the solvation model
-   type(shift_solvation) :: self
+   type(shift_solvation), intent(out) :: self
    !> Input for shift solvation
    type(shift_input), intent(in) :: input
 

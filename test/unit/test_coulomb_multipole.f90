@@ -1400,6 +1400,7 @@ module subroutine test_e_effective_co2_dp(error)
 
    type(structure_type) :: mol
    real(wp), parameter :: qat0(nat) = 0.0_wp
+   ! allow(C061): https://github.com/PlasmaFAIR/fortitude/issues/695
    real(wp), parameter :: dpat(3, nat) = dpat1
    real(wp), parameter :: qpat0(6, nat) = 0.0_wp
 
@@ -1414,8 +1415,10 @@ module subroutine test_e_effective_co2_qp(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
+   ! allow(C061): https://github.com/PlasmaFAIR/fortitude/issues/695
    real(wp), parameter :: qat(nat) = qat1
    real(wp), parameter :: dpat0(3, nat) = 0.0_wp
+   ! allow(C061): https://github.com/PlasmaFAIR/fortitude/issues/695
    real(wp), parameter :: qpat(6, nat) = qpat1
 
    call get_structure(mol, "X23", "CO2")
