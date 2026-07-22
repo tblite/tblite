@@ -1092,12 +1092,13 @@ subroutine test_d_hcn(error)
       6, &
       1], shape(num))
    integer, parameter :: nat = 3
-   real(wp) :: xyz(3, nat) = reshape([ &
+   real(wp) :: xyz(3, nat)
+
+   xyz = reshape([ &
       & -0.09604091224796_wp,  0.0_wp, 0.0_wp, &
       &  2.09604091224796_wp,  0.0_wp, 0.0_wp, &
       &  4.10859879422050_wp,  0.0_wp, 0.0_wp], &
       & shape(xyz))
-
    ctx%verbosity = 0
    call new(mol1, num, xyz)
    efield = 0.0_wp

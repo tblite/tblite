@@ -46,7 +46,6 @@ ignore = [
   "C061",  # missing intent attribute
   "C071",  # assumed size
   "C072",  # assumed size character intent
-  "C081",  # implicit save
   "C101",  # pointer not initialized
   "C121",  # use without explicit only
   "C122",  # intrinsic missing for internal modules
