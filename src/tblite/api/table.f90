@@ -46,7 +46,7 @@ module tblite_api_table
    !> Void pointer to manage general data tables
    type :: vp_table
       !> Actual payload
-      type(toml_table), pointer :: ptr
+      type(toml_table), pointer :: ptr => null()
       !> Data is owned by the object
       logical :: owned
    end type vp_table
@@ -54,7 +54,7 @@ module tblite_api_table
    !> Void pointer to manage general data arrays
    type :: vp_array
       !> Actual payload
-      type(toml_array), pointer :: ptr
+      type(toml_array), pointer :: ptr => null()
       !> Data is owned by the object
       logical :: owned
    end type vp_array
