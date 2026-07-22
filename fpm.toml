@@ -48,7 +48,6 @@ ignore = [
   "C072",  # assumed size character intent
   "C121",  # use without explicit only
   "C122",  # intrinsic missing for internal modules
-  "C131",  # default module accessibility
   "C181",  # iostat not checked
 ]
 line-length = 132
