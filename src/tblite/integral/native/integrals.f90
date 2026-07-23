@@ -936,20 +936,6 @@ pure subroutine shift_operator(vec, s, di, qi, ds, ddi, dqi, ddj, dqj)
 end subroutine shift_operator
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
@@ -1271,7 +1257,7 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
       & doverlap, ddpintj, dqpintj, ddpinti, dqpinti)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
-      !> Description of contracted Gaussian function on center i
+   !> Description of contracted Gaussian function on center i
    type(cgto_type), intent(in) :: cgtoi
    !> Square distance between center i and j
    real(wp), intent(in) :: r2

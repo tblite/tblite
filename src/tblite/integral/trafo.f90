@@ -77,21 +77,21 @@ module tblite_integral_trafo
    real(wp), parameter :: s315_8 = sqrt(315.0_wp/8.0_wp)
    real(wp), parameter :: s315_16 = sqrt(315.0_wp/16.0_wp)
    real(wp), parameter :: gtrafo(9, 15) = reshape([&
-      !  -4     -3     -2     -1       0    1      2       3        4
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp,-s5_16,  0.0_wp,  s35_64, & ! xxxx
-      &  s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxxy
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,  s35_8,   0.0_wp, & ! xxxz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d34, 0.0_wp, 0.0_wp,  0.0_wp,-s315_16, & ! xxyy
-      &  0.0_wp,s315_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxyz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp, s45_4,  0.0_wp,   0.0_wp, & ! xxzz
-      & -s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyyy
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,-s315_8,   0.0_wp, & ! xyyz
-      &  0.0_wp, 0.0_wp,   s45, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyzz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp,  0.0_wp,   0.0_wp, & ! xzzz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp, s5_16,  0.0_wp,  s35_64, & ! yyyy
-      &  0.0_wp,-s35_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yyyz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp,-s45_4,  0.0_wp,   0.0_wp, & ! yyzz
-      &  0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yzzz
+      !   -4      -3      -2      -1        0      1       2        3         4
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d38, 0.0_wp, -s5_16,  0.0_wp,   s35_64, & ! xxxx
+      &   s35_4, 0.0_wp, -s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxxy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, -s45_8, 0.0_wp,   s35_8,   0.0_wp, & ! xxxz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d34, 0.0_wp, 0.0_wp,  0.0_wp, -s315_16, & ! xxyy
+      &  0.0_wp, s315_8, 0.0_wp, -s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp,  s45_4,  0.0_wp,   0.0_wp, & ! xxzz
+      &  -s35_4, 0.0_wp, -s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyyy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, -s45_8, 0.0_wp, -s315_8,   0.0_wp, & ! xyyz
+      &  0.0_wp, 0.0_wp,    s45, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    s10, 0.0_wp,  0.0_wp,   0.0_wp, & ! xzzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d38, 0.0_wp,  s5_16,  0.0_wp,   s35_64, & ! yyyy
+      &  0.0_wp, -s35_8, 0.0_wp, -s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yyyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp, -s45_4,  0.0_wp,   0.0_wp, & ! yyzz
+      &  0.0_wp, 0.0_wp, 0.0_wp,    s10, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yzzz
       &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp],& ! zzzz
       & shape(gtrafo))
 
@@ -122,37 +122,37 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
    end if
 
    if (.not. bra .and. ket) then
-       select case(li)
-       case(0, 1)
-          sphr = cart
-       case(2)
-          sphr = matmul(cart, transpose(dtrafo))
-       case(3)
-          sphr = matmul(cart, transpose(ftrafo))
-       case(4)
-          sphr = matmul(cart, transpose(gtrafo))
-       case default
-          error stop "[Fatal] Moments higher than g are not supported"
-       end select
-       if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+      select case(li)
+      case(0, 1)
+         sphr = cart
+      case(2)
+         sphr = matmul(cart, transpose(dtrafo))
+      case(3)
+         sphr = matmul(cart, transpose(ftrafo))
+      case(4)
+         sphr = matmul(cart, transpose(gtrafo))
+      case default
+         error stop "[Fatal] Moments higher than g are not supported"
+      end select
+      if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
       if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
       return
    end if
 
    if (bra .and. .not. ket) then
-       select case(lj)
-       case(0, 1)
-          sphr = cart
-       case(2)
-          sphr = matmul(dtrafo, cart)
-       case(3)
-          sphr = matmul(ftrafo, cart)
-       case(4)
-          sphr = matmul(gtrafo, cart)
-       case default
-          error stop "[Fatal] Moments higher than g are not supported"
-       end select
-       if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+      select case(lj)
+      case(0, 1)
+         sphr = cart
+      case(2)
+         sphr = matmul(dtrafo, cart)
+      case(3)
+         sphr = matmul(ftrafo, cart)
+      case(4)
+         sphr = matmul(gtrafo, cart)
+      case default
+         error stop "[Fatal] Moments higher than g are not supported"
+      end select
+      if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
       if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
       return
    end if
