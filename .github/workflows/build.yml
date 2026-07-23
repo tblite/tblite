@@ -291,7 +291,7 @@ jobs:
 
     - name: Upload package
       if: ${{ matrix.toolchain.build == 'meson' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.TBLITE_OUTPUT }}
         path: ${{ env.TBLITE_OUTPUT }}

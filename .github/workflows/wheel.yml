@@ -31,7 +31,7 @@ jobs:
         meson setup _build
         meson dist -C _build --no-tests --include-subprojects
         mv _build/meson-dist/*.tar.xz .
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: tblite-source
         path: ./*.tar.xz
@@ -62,7 +62,7 @@ jobs:
         git subtree add --prefix python/subprojects/tblite . HEAD
     - run: |
         python -m build python/ --sdist --outdir . -n -Cdist-args="--include-subprojects"
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: tblite-python-sdist
         path: ./*.tar.gz
@@ -140,7 +140,7 @@ jobs:
           CIBW_TEST_COMMAND: KMP_DUPLICATE_LIB_OK=TRUE python -c "import tblite.interface"
 
       # Upload the built wheels as artifacts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tblite-python-${{ matrix.os }}
           path: ./*.whl
