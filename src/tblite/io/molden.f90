@@ -1149,6 +1149,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
       if (len_trim(section_id(line)) > 0) exit
       ! Ignore blank lines.
       if (len_trim(line) == 0) then
+         ! allow(C181): stat is checked at the top of the enclosing loop after `cycle`
          read(unit, "(A)", iostat=stat) line
          cycle
       end if
@@ -1243,6 +1244,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
          tmp_coeff(ao_map(iao)) = tmp
       end if
       ! Read the next line
+      ! allow(C181): stat is checked at the top of the enclosing loop on the next iteration
       read(unit, "(A)", iostat=stat) line
    end do
 
@@ -1618,6 +1620,7 @@ pure function section_spec(line) result(spec)
    right = index(work, "]")
    if (right <= 0 .or. right >= len_trim(work)) return
    spec = adjustl(work(right+1:))
+   ! allow(C181): a failed list-directed parse intentionally leaves spec unchanged
    read(spec, *, iostat=stat) spec
    spec = lower_string(spec)
 end function section_spec

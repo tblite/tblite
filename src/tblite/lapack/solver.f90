@@ -85,6 +85,8 @@ subroutine new(self, solver, overlap, nel, kt)
          call new_sygvr(tmp, overlap, nel, kt)
          call move_alloc(tmp, solver)
       end block
+   case default
+      continue
    end select
 end subroutine new
 

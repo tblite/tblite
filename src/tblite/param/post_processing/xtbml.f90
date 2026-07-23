@@ -70,7 +70,7 @@ subroutine populate_default_param(param, tensor)
    !> Instance of the parametrization data
    class(xtbml_record), intent(inout) :: param
    !> Return vectorial information additional and norm of the corresponding multipole moments
-   logical, optional :: tensor
+   logical, intent(in), optional :: tensor
 
    ! Compute geometry-based xtbml features
    param%xtbml_geometry = .true.

@@ -19,7 +19,8 @@
 
 !> API export for managing data tables
 module tblite_api_table
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_bool, c_char, c_double, c_f_pointer, &
+      & c_int, c_int64_t, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_utils, only : c_f_character, f_c_character, strlen
@@ -46,7 +47,7 @@ module tblite_api_table
    !> Void pointer to manage general data tables
    type :: vp_table
       !> Actual payload
-      type(toml_table), pointer :: ptr
+      type(toml_table), pointer :: ptr => null()
       !> Data is owned by the object
       logical :: owned
    end type vp_table
@@ -54,7 +55,7 @@ module tblite_api_table
    !> Void pointer to manage general data arrays
    type :: vp_array
       !> Actual payload
-      type(toml_array), pointer :: ptr
+      type(toml_array), pointer :: ptr => null()
       !> Data is owned by the object
       logical :: owned
    end type vp_array
@@ -555,7 +556,7 @@ subroutine array_get_double_api(verror, varray, index, value) &
    type(c_ptr), value :: varray
    type(vp_array), pointer :: array
    integer(c_int), value :: index
-   real(c_double) :: value
+   real(c_double), intent(out) :: value
    integer :: stat
 
    if (debug) print '("[Info]", 1x, a)', "array_get_double"
@@ -582,7 +583,7 @@ subroutine array_get_int64_t_api(verror, varray, index, value) &
    type(c_ptr), value :: varray
    type(vp_array), pointer :: array
    integer(c_int), value :: index
-   integer(c_int64_t) :: value
+   integer(c_int64_t), intent(out) :: value
    integer :: stat
 
    if (debug) print '("[Info]", 1x, a)', "array_get_int64_t"
@@ -609,7 +610,7 @@ subroutine array_get_bool_api(verror, varray, index, value) &
    type(c_ptr), value :: varray
    type(vp_array), pointer :: array
    integer(c_int), value :: index
-   logical(c_bool) :: value
+   logical(c_bool), intent(out) :: value
    logical :: tmp
    integer :: stat
 
@@ -806,7 +807,7 @@ subroutine table_get_bool_api(verror, vtable, ckey, value) &
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key
-   logical(c_bool) :: value
+   logical(c_bool), intent(out) :: value
    logical :: tmp
    integer :: stat
 
@@ -837,7 +838,7 @@ subroutine table_get_int64_t_api(verror, vtable, ckey, value) &
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key
-   integer(c_int64_t) :: value
+   integer(c_int64_t), intent(out) :: value
    integer :: stat
 
    if (debug) print '("[Info]", 1x, a)', "table_get_int64_t"
@@ -866,7 +867,7 @@ subroutine table_get_double_api(verror, vtable, ckey, value) &
    type(vp_table), pointer :: table
    character(kind=c_char), intent(in) :: ckey(*)
    character(len=:), allocatable :: key
-   real(c_double) :: value
+   real(c_double), intent(out) :: value
    integer :: stat
 
    if (debug) print '("[Info]", 1x, a)', "table_get_double"

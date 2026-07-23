@@ -23,7 +23,7 @@
 
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
-   use iso_fortran_env, only : output_unit
+   use, intrinsic :: iso_fortran_env, only : output_unit
    use mctc_env, only : wp, error_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver

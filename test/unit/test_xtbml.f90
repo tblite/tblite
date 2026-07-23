@@ -76,7 +76,7 @@ subroutine test_mulliken_charges_shell_h2p(error)
    type(results_type) :: res
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
-   real(wp) :: energy = 0.0_wp
+   real(wp) :: energy
    real(wp), parameter :: xyz(3, 2) = reshape([0.0_wp,0.0_wp,0.35_wp,&
    &0.0_wp,0.0_wp,-0.35_wp],shape=[3,2])
    integer, parameter :: num(2) = [1,1]
@@ -201,7 +201,7 @@ subroutine test_dipm_shell_co2(error)
    type(post_processing_record_list), allocatable :: pparam
    class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=3
-   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy  = 0.0_wp
+   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
    real(wp), allocatable :: partial(:), ext_partial(:)
@@ -294,7 +294,7 @@ subroutine test_qp_shell_benz(error)
    type(post_processing_record_list), allocatable :: pparam
    class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
-   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy = 0.0_wp
+   real(wp) :: mol_dipm(3), mol_dipm_delta(3), energy
    real(wp) :: dipm_xyz(3,nat),qm_xyz(6,nat)
    real(wp), allocatable :: tmp_array(:)
    real(wp), allocatable :: partial(:), ext_partial(:)
@@ -651,7 +651,7 @@ subroutine test_translation_co2(error)
 
    integer, parameter :: num(nat) = [8,8,6]
    type(results_type) :: res, res_
-   real(wp) :: energy = 0.0_wp, xyz_trans(3,nat)
+   real(wp) :: energy, xyz_trans(3,nat)
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
 
@@ -715,7 +715,7 @@ subroutine test_orbital_energy_ref(error)
 
    integer, parameter :: num(nat) = [8,8,6]
    type(results_type) :: res, res_
-   real(wp) :: energy = 0.0_wp
+   real(wp) :: energy
    real(wp), allocatable :: xtbml(:,:),xtbml_rot(:,:),xtbml_trans(:,:)
    integer :: i
 
@@ -1042,7 +1042,7 @@ subroutine test_energy_sum_up_gfn2(error)
    class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
-   real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
+   real(wp) :: energy, sum_energy
    integer :: i,j
    character(len=:), allocatable :: label1
 
@@ -1062,6 +1062,7 @@ subroutine test_energy_sum_up_gfn2(error)
    &],shape=[3,nat])
    integer, parameter :: num(nat) = [6,6,6,6,6,6,1,1,1,1,1,1]
 
+   sum_energy = 0.0_wp
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
 
    call new_gfn2_calculator(calc, mol, error)
@@ -1148,7 +1149,7 @@ subroutine test_energy_sum_up_gfn1(error)
    class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=12
    real(wp), allocatable :: tmp_array(:)
-   real(wp) :: energy = 1.0_wp, sum_energy = 0.0_wp
+   real(wp) :: energy, sum_energy
    integer :: i,j
 
    real(wp), parameter :: xyz(3, nat) = reshape([&
@@ -1169,6 +1170,7 @@ subroutine test_energy_sum_up_gfn1(error)
 
    if (.not.get_tblite_feature("ddx")) return
 
+   sum_energy = 0.0_wp
    call new(mol,num,xyz*aatoau,uhf=0,charge=0.0_wp)
    call new_gfn1_calculator(calc,mol,error)
    if (allocated(error)) return
@@ -1241,7 +1243,7 @@ subroutine test_high_spin(error)
    class(post_processing_record), allocatable :: tmp_record
    integer, parameter :: nat=3
    real(wp), allocatable :: tmp_array(:)
-   real(wp) :: energy = 1.0_wp , sum_energy = 0.0_wp
+   real(wp) :: energy, sum_energy
    integer :: i,j
    character(len=:), allocatable :: label1
 
@@ -1250,6 +1252,7 @@ subroutine test_high_spin(error)
    &0.000000,0.000000,0.000000],shape=[3,nat])
    integer, parameter :: num(nat) = [8,8,6]
 
+   sum_energy = 0.0_wp
    call new(mol,num,xyz*aatoau,uhf=2,charge=0.0_wp)
 
    call new_gfn2_calculator(calc, mol, error)
@@ -1300,7 +1303,7 @@ subroutine test_orbital_energy_hp(error)
    type(results_type) :: res
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
-   real(wp) :: energy = 0.0_wp
+   real(wp) :: energy
    real(wp), parameter :: xyz(3, 1) = reshape([0.0_wp,0.0_wp,0.35_wp],shape=[3,1])
    integer, parameter :: num(1) = [1]
 
@@ -1339,7 +1342,7 @@ subroutine test_orbital_energy_he(error)
    type(results_type) :: res
    class(post_processing_record), allocatable :: tmp_record
    real(wp), allocatable :: mulliken_shell(:)
-   real(wp) :: energy = 0.0_wp
+   real(wp) :: energy
    real(wp), parameter :: xyz(3, 1) = reshape([0.0_wp,0.0_wp,0.35_wp],shape=[3,1])
    integer, parameter :: num(1) = [2]
 
@@ -1367,9 +1370,10 @@ end subroutine test_orbital_energy_he
 
 !this function is copied from the xtb codebase
 subroutine compute_traceless_mol_qm(n,xyz,q,dipm,qp,mol_qm)
-   integer :: n,i,l,k,j
-   real(wp) :: xyz(3,n),dipm(3,n), qp(6,n),q(n)
-   real(wp) :: mol_qm(6)
+   integer, intent(in) :: n
+   integer :: i,l,k,j
+   real(wp), intent(in) :: xyz(3,n),dipm(3,n), qp(6,n),q(n)
+   real(wp), intent(out) :: mol_qm(6)
    real(wp) :: tma(6),tmb(6),tmc(6),dum
    tma = 0.0_wp
    tmb = 0.0_wp

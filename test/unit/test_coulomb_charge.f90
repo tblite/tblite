@@ -22,7 +22,7 @@ module test_coulomb_charge
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use mstore, only : get_structure
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_basis_type
+   use tblite_basis_type, only : basis_type, cgto_type, new_basis
    use tblite_ceh_ceh, only : get_effective_qat
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache

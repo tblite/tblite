@@ -150,7 +150,7 @@ end function create_shift_input
 !> Calculate the solvent and state shift
 subroutine new_shift(self, input)
    !> Instance of the solvation model
-   type(shift_solvation) :: self
+   type(shift_solvation), intent(out) :: self
    !> Input for shift solvation
    type(shift_input), intent(in) :: input
 
@@ -224,9 +224,9 @@ function get_stateshift(state, temperature, density, molecularMass) &
    real(wp) :: stateshift
 
    ! Boltzmann constant in au/K
-   real(wp) :: boltzmann = codata%kb / atomic_unit_of_energy
+   real(wp), parameter :: boltzmann = codata%kb / atomic_unit_of_energy
    ! Ideal gas molar volume in m^3/mol
-   real(wp) :: idealGasMolVolume = molar_gas_constant * ambientTemperature / refPressure
+   real(wp), parameter :: idealGasMolVolume = molar_gas_constant * ambientTemperature / refPressure
 
    select case(state)
    case default

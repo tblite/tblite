@@ -493,6 +493,10 @@ subroutine read_file(filename, val, error)
    end if
 
    close(io, iostat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Error: Could not close file '"//filename//"'")
+      return
+   end if
 
 end subroutine read_file
 

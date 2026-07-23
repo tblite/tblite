@@ -19,7 +19,7 @@
 
 !> API export for managing calculation results
 module tblite_api_result
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_char, c_double, c_f_pointer, c_int, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_api_double_dictionary, only : vp_double_dictionary
    use tblite_api_error, only : vp_error

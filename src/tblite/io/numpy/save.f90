@@ -133,7 +133,7 @@ subroutine save_npy_i4_r1(filename, array, iostat, iomsg)
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_i4
-   integer :: io, stat
+   integer :: io, stat, close_stat
 
    open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
    if (stat == 0) then
@@ -142,7 +142,8 @@ subroutine save_npy_i4_r1(filename, array, iostat, iomsg)
    if (stat == 0) then
       write(io, iostat=stat) array
    end if
-   close(io, iostat=stat)
+   close(io, iostat=close_stat)
+   if (stat == 0 .and. close_stat /= 0) stat = close_stat
 
    call handle_iostat(stat, filename, iostat, iomsg)
 end subroutine save_npy_i4_r1
@@ -159,7 +160,7 @@ subroutine save_npy_rdp_r1(filename, array, iostat, iomsg)
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
-   integer :: io, stat
+   integer :: io, stat, close_stat
 
    open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
    if (stat == 0) then
@@ -168,7 +169,8 @@ subroutine save_npy_rdp_r1(filename, array, iostat, iomsg)
    if (stat == 0) then
       write(io, iostat=stat) array
    end if
-   close(io, iostat=stat)
+   close(io, iostat=close_stat)
+   if (stat == 0 .and. close_stat /= 0) stat = close_stat
 
    call handle_iostat(stat, filename, iostat, iomsg)
 end subroutine save_npy_rdp_r1
@@ -185,7 +187,7 @@ subroutine save_npy_rdp_r2(filename, array, iostat, iomsg)
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
-   integer :: io, stat
+   integer :: io, stat, close_stat
 
    open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
    if (stat == 0) then
@@ -194,7 +196,8 @@ subroutine save_npy_rdp_r2(filename, array, iostat, iomsg)
    if (stat == 0) then
       write(io, iostat=stat) array
    end if
-   close(io, iostat=stat)
+   close(io, iostat=close_stat)
+   if (stat == 0 .and. close_stat /= 0) stat = close_stat
 
    call handle_iostat(stat, filename, iostat, iomsg)
 end subroutine save_npy_rdp_r2
@@ -211,7 +214,7 @@ subroutine save_npy_rdp_r3(filename, array, iostat, iomsg)
    character(len=:), allocatable, intent(out), optional :: iomsg
 
    character(len=*), parameter :: vtype = type_rdp
-   integer :: io, stat
+   integer :: io, stat, close_stat
 
    open(newunit=io, file=filename, form="unformatted", access="stream", iostat=stat)
    if (stat == 0) then
@@ -220,7 +223,8 @@ subroutine save_npy_rdp_r3(filename, array, iostat, iomsg)
    if (stat == 0) then
       write(io, iostat=stat) array
    end if
-   close(io, iostat=stat)
+   close(io, iostat=close_stat)
+   if (stat == 0 .and. close_stat /= 0) stat = close_stat
 
    call handle_iostat(stat, filename, iostat, iomsg)
 end subroutine save_npy_rdp_r3

@@ -20,6 +20,7 @@
 module tblite_param_post_processing_type
    use tblite_param_serde, only : serde_record
    implicit none
+   private
 
    !> Abstract post-processing record base type
    type, public, abstract, extends(serde_record) :: post_processing_record

@@ -112,6 +112,8 @@ pure subroutine get_angular_grid(nang, grid, weights, stat)
    case(30); call ld4802(grid, weights, np)
    case(31); call ld5294(grid, weights, np)
    case(32); call ld5810(grid, weights, np)
+   case default
+      continue
    end select
 
    if (np == grid_size(nang)) then

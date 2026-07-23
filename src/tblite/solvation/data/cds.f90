@@ -121,6 +121,8 @@ subroutine get_cds_param(input, mol, method, error)
          case("thf","tetrahydrofuran");    param = gfn2_thf
          case("toluene");                  param = gfn2_toluene
          case("water","h2o");              param = gfn2_water
+         case default
+            continue
          end select
       else if (method == "gfn1") then
          select case(input%solvent)
@@ -137,6 +139,8 @@ subroutine get_cds_param(input, mol, method, error)
          case("thf","tetrahydrofuran");    param = gfn1_thf
          case("toluene");                  param = gfn1_toluene
          case("water","h2o");              param = gfn1_water
+         case default
+            continue
          end select
       end if
    case(.true.)
@@ -169,6 +173,8 @@ subroutine get_cds_param(input, mol, method, error)
          case("toluene");      param = gfn2_alpb_toluene
          case("water","h2o");  param = gfn2_alpb_water
          case("woctanol");     param = gfn2_alpb_woctanol
+         case default
+            continue
          end select
       else if (method == "gfn1") then
          select case(input%solvent)
@@ -199,8 +205,12 @@ subroutine get_cds_param(input, mol, method, error)
          case("toluene");      param = gfn1_alpb_toluene
          case("water","h2o");  param = gfn1_alpb_water
          case("woctanol");     param = gfn1_alpb_woctanol
+         case default
+            continue
          end select
       end if
+   case default
+      continue
    end select
 
    if (.not.allocated(param)) then

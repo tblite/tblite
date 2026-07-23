@@ -61,6 +61,7 @@ subroutine write_formatted(prop, unit, iotype, v_list, iostat, iomsg)
    character(len=*), intent(in) :: iotype
    integer, intent(in) :: v_list(:)
    integer, intent(out) :: iostat
+   ! allow(C072): iomsg signature is mandated by the derived-type I/O interface
    character(len=*), intent(inout) :: iomsg
 
    write(unit, "(a, t25, es20.13, 1x, a)") prop%label, prop%value, prop%unit

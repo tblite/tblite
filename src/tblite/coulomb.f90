@@ -31,6 +31,7 @@ module tblite_coulomb
    use tblite_coulomb_thirdorder, only : onsite_thirdorder, new_onsite_thirdorder
    use tblite_coulomb_type, only : coulomb_type
    implicit none
+   private
 
    public :: coulomb_type
    public :: coulomb_cache

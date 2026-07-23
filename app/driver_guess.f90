@@ -29,7 +29,7 @@ module tblite_driver_guess
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_external_field, only : electric_field
    use tblite_lapack_solver, only : lapack_solver
-   use tblite_output_ascii
+   use tblite_output_ascii, only : ascii_atomic_charges, ascii_dipole_moments, json_results
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment
    use tblite_xtb_calculator, only : xtb_calculator
@@ -290,6 +290,10 @@ contains
       end if
 
       close(io, iostat=stat)
+      if (stat /= 0) then
+         call fatal_error(error, "Error: Could not close file '"//filename//"'")
+         return
+      end if
 
    end subroutine read_file
 

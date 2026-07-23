@@ -1174,7 +1174,7 @@ subroutine get_argument_as_real(arg, val, error)
    !> Real value
    real(wp), intent(out) :: val
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
 
@@ -1197,7 +1197,7 @@ subroutine get_argument_as_realv(arg, val, error)
    !> Real value
    real(wp), intent(out) :: val(:)
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
    integer :: i
@@ -1231,7 +1231,7 @@ subroutine get_argument_as_int(arg, val, error)
    !> Real value
    integer, intent(out) :: val
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
 

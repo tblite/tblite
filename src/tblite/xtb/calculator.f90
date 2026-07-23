@@ -373,6 +373,8 @@ subroutine add_coulomb(calc, mol, param, irc, error)
             call new_gamma_coulomb(es2, mol, hardness, calc%bas%nsh_id)
             call move_alloc(es2, calc%coulomb%es2)
          end block
+      case default
+         continue
       end select
    end if
 

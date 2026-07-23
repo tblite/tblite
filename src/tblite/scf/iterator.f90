@@ -209,16 +209,22 @@ function get_mixer_dimension(mol, bas, info) result(ndim)
       ndim = ndim + mol%nat
    case(shell_resolved)
       ndim = ndim + bas%nsh
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       ndim = ndim + 3*mol%nat
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       ndim = ndim + 6*mol%nat
+   case default
+      continue
    end select
 end function get_mixer_dimension
 
@@ -233,16 +239,22 @@ subroutine set_mixer(mixer, wfn, info)
       call mixer%set(wfn%qat)
    case(shell_resolved)
       call mixer%set(wfn%qsh)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%set(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%set(wfn%qpat)
+   case default
+      continue
    end select
 end subroutine set_mixer
 
@@ -257,16 +269,22 @@ subroutine diff_mixer(mixer, wfn, info)
       call mixer%diff(wfn%qat)
    case(shell_resolved)
       call mixer%diff(wfn%qsh)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%diff(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%diff(wfn%qpat)
+   case default
+      continue
    end select
 end subroutine diff_mixer
 
@@ -283,16 +301,22 @@ subroutine get_mixer(mixer, bas, wfn, info)
    case(shell_resolved)
       call mixer%get(wfn%qsh)
       call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%get(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%get(wfn%qpat)
+   case default
+      continue
    end select
 end subroutine get_mixer
 

@@ -268,6 +268,8 @@ subroutine update(self, mol, cache)
       call add_born_mat_p16(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat)
    case(born_kernel%still)
       call add_born_mat_still(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat)
+   case default
+      continue
    end select
 
    if (self%alpbet > 0.0_wp) then
@@ -368,6 +370,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    case(born_kernel%still)
       call add_born_deriv_still(mol%nat, mol%xyz, &
          & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+   case default
+      continue
    end select
 
    if (self%alpbet > 0.0_wp) then

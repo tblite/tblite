@@ -19,7 +19,7 @@
 
 !> API export for managing interaction containers
 module tblite_api_solvation
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_char, c_double, c_f_pointer, c_int, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type
    use tblite_api_container, only : vp_container
