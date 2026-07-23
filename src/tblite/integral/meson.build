@@ -14,10 +14,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+subdir('native')
+
 srcs += files(
-  'dipole.f90',
-  'multipole.f90',
-  'overlap.f90',
   'trafo.f90',
   'type.f90',
   'diat_trafo.f90',

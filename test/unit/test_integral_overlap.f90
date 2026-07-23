@@ -25,8 +25,8 @@ module test_integral_overlap
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_diat_trafo, only : setup_diat_trafo, diat_trafo_cache, &
       & diat_trafo
-   use tblite_integral_overlap, only : overlap_cgto, overlap_grad_cgto, msao, &
-      & smap, get_overlap
+   use tblite_integral_native_integrals, only : overlap_cgto, overlap_grad_cgto, &
+      & msao, smap, get_overlap
 
    implicit none
    private
