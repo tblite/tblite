@@ -89,7 +89,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: ${{ env.PYTHON_V }}
 
@@ -123,7 +123,7 @@ jobs:
     - name: Cache Intel installation
       if: ${{ contains(matrix.toolchain.compiler, 'intel') }}
       id: cache-install
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: /opt/intel/oneapi
         key: install-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.toolchain.mkl_version }}-${{ matrix.os }}
@@ -326,7 +326,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python_v }}
 
@@ -390,7 +390,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.x'
 
