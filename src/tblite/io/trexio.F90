@@ -868,13 +868,13 @@ subroutine get_trexio_to_tblite_cart_perm(l, perm, error)
    case(0)
       perm(1) = 1
    case(1)
-      perm(1:3) = [2, 3, 1]
+      perm(1:3) = [1, 2, 3]
    case(2)
-      perm(1:6) = [1, 4, 5, 2, 6, 3]
+      perm(1:6) = [1, 2, 3, 4, 5, 6]
    case(3)
-      perm(1:10) = [1, 4, 5, 6, 10, 8, 2, 7, 9, 3]
+      perm(1:10) = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
    case(4)
-      perm(1:15) = [1, 4, 5, 10, 13, 11, 14, 8, 15, 3, 2, 12, 6, 7, 9]
+      perm(1:15) = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
    case default
       call fatal_error(error, "TREXIO reader only supports angular momenta up to g")
       return

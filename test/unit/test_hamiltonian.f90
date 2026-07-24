@@ -26,7 +26,7 @@ module test_hamiltonian
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : basis_type, cgto_type, get_cutoff, new_basis
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_overlap, only : msao
+   use tblite_integral_native_integrals, only : overlap_cgto, msao
    use tblite_lapack_sygvd, only : sygvd_solver
    use tblite_scf_potential, only : potential_type, new_potential
    use tblite_xtb_gfn2, only : gfn2_h0spec

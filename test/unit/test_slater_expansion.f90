@@ -20,7 +20,7 @@ module test_slater_expansion
       & test_failed
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : cgto_type
-   use tblite_integral_overlap, only : overlap_cgto
+   use tblite_integral_native_integrals, only : overlap_cgto
    implicit none
    private
 

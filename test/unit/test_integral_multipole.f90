@@ -23,10 +23,9 @@ module test_integral_multipole
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : basis_type, new_basis, cgto_type, get_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_dipole, only : dipole_cgto, dipole_grad_cgto, msao, &
-      & get_dipole_integrals
-   use tblite_integral_multipole, only : multipole_cgto, multipole_grad_cgto, &
-      & get_multipole_integrals
+   use tblite_integral_native_integrals, only : dipole_cgto, dipole_grad_cgto, &
+      & get_dipole_integrals, multipole_cgto, multipole_grad_cgto, &
+      & get_multipole_integrals, msao
    implicit none
    private
 

@@ -36,11 +36,11 @@ module tblite_integral_trafo
    real(wp), parameter :: dtrafo(5, 6) = reshape([&
       ! -2      -1       0       1       2
       & 0.0_wp, 0.0_wp, -0.5_wp, 0.0_wp,   s3_4, & ! xx
-      & 0.0_wp, 0.0_wp, -0.5_wp, 0.0_wp,  -s3_4, & ! yy
-      & 0.0_wp, 0.0_wp,  1.0_wp, 0.0_wp, 0.0_wp, & ! zz
       &     s3, 0.0_wp,  0.0_wp, 0.0_wp, 0.0_wp, & ! xy
       & 0.0_wp, 0.0_wp,  0.0_wp,     s3, 0.0_wp, & ! xz
-      & 0.0_wp,     s3,  0.0_wp, 0.0_wp, 0.0_wp],& ! yz
+      & 0.0_wp, 0.0_wp, -0.5_wp, 0.0_wp,  -s3_4, & ! yy
+      & 0.0_wp,     s3,  0.0_wp, 0.0_wp, 0.0_wp, & ! yz
+      & 0.0_wp, 0.0_wp,  1.0_wp, 0.0_wp, 0.0_wp],& ! zz
       & shape(dtrafo))
 
    real(wp), parameter :: d32 = 3.0_wp/2.0_wp
@@ -54,15 +54,15 @@ module tblite_integral_trafo
    real(wp), parameter :: ftrafo(7, 10) = reshape([&
       ! -3       -2       -1       0        1         2         3
       &  0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp,   -s3_8,   0.0_wp,     s5_8, & ! xxx
-      &   -s5_8,  0.0_wp,   -s3_8, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! yyy
-      &  0.0_wp,  0.0_wp,  0.0_wp, 1.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! zzz
       &   s45_8,  0.0_wp,   -s3_8, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! xxy
       &  0.0_wp,  0.0_wp,  0.0_wp,   -d32,  0.0_wp,    s15_4,   0.0_wp, & ! xxz
       &  0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp,   -s3_8,   0.0_wp,   -s45_8, & ! xyy
-      &  0.0_wp,  0.0_wp,  0.0_wp,   -d32,  0.0_wp,   -s15_4,   0.0_wp, & ! yyz
+      &  0.0_wp,     s15,  0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! xyz
       &  0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp,      s6,   0.0_wp,   0.0_wp, & ! xzz
+      &   -s5_8,  0.0_wp,   -s3_8, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! yyy
+      &  0.0_wp,  0.0_wp,  0.0_wp,   -d32,  0.0_wp,   -s15_4,   0.0_wp, & ! yyz
       &  0.0_wp,  0.0_wp,      s6, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp, & ! yzz
-      &  0.0_wp,     s15,  0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp,   0.0_wp],& ! xyz
+      &  0.0_wp,  0.0_wp,  0.0_wp, 1.0_wp,  0.0_wp,   0.0_wp,   0.0_wp],& ! zzz
       & shape(ftrafo))
 
    real(wp), parameter :: d38 = 3.0_wp/8.0_wp
@@ -77,25 +77,26 @@ module tblite_integral_trafo
    real(wp), parameter :: s315_8 = sqrt(315.0_wp/8.0_wp)
    real(wp), parameter :: s315_16 = sqrt(315.0_wp/16.0_wp)
    real(wp), parameter :: gtrafo(9, 15) = reshape([&
-      !  -4     -3     -2     -1       0    1      2       3        4
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp,-s5_16,  0.0_wp,  s35_64, & ! xxxx
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d38, 0.0_wp, s5_16,  0.0_wp,  s35_64, & ! yyyy
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! zzzz
-      &  s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxxy
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,  s35_8,   0.0_wp, & ! xxxz
-      & -s35_4, 0.0_wp,-s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyyy
-      &  0.0_wp,-s35_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yyyz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp,  0.0_wp,   0.0_wp, & ! xzzz
-      &  0.0_wp, 0.0_wp, 0.0_wp,   s10, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yzzz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,   d34, 0.0_wp, 0.0_wp,  0.0_wp,-s315_16, & ! xxyy
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp, s45_4,  0.0_wp,   0.0_wp, & ! xxzz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp,-s45_4,  0.0_wp,   0.0_wp, & ! yyzz
-      &  0.0_wp,s315_8, 0.0_wp,-s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxyz
-      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-s45_8, 0.0_wp,-s315_8,   0.0_wp, & ! xyyz
-      &  0.0_wp, 0.0_wp,   s45, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp],& ! xyzz
-      &  shape(gtrafo))
+      !   -4      -3      -2      -1        0      1       2        3         4
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d38, 0.0_wp, -s5_16,  0.0_wp,   s35_64, & ! xxxx
+      &   s35_4, 0.0_wp, -s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxxy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, -s45_8, 0.0_wp,   s35_8,   0.0_wp, & ! xxxz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d34, 0.0_wp, 0.0_wp,  0.0_wp, -s315_16, & ! xxyy
+      &  0.0_wp, s315_8, 0.0_wp, -s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xxyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp,  s45_4,  0.0_wp,   0.0_wp, & ! xxzz
+      &  -s35_4, 0.0_wp, -s10_8, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyyy
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, -s45_8, 0.0_wp, -s315_8,   0.0_wp, & ! xyyz
+      &  0.0_wp, 0.0_wp,    s45, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! xyzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    s10, 0.0_wp,  0.0_wp,   0.0_wp, & ! xzzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,    d38, 0.0_wp,  s5_16,  0.0_wp,   s35_64, & ! yyyy
+      &  0.0_wp, -s35_8, 0.0_wp, -s45_8, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yyyz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp,-3.0_wp, 0.0_wp, -s45_4,  0.0_wp,   0.0_wp, & ! yyzz
+      &  0.0_wp, 0.0_wp, 0.0_wp,    s10, 0.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp, & ! yzzz
+      &  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp, 0.0_wp,  0.0_wp,   0.0_wp],& ! zzzz
+      & shape(gtrafo))
 
 contains
+
 
 
 !> Transformation from the cartesian to the spherical harmonic basis
@@ -113,42 +114,47 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
    logical, intent(in) :: bra
    !> Flag for transformation of the ket dimension
    logical, intent(in) :: ket
-
    if (.not. bra .and. .not. ket) then
       sphr = cart
+      if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+      if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
       return
    end if
 
    if (.not. bra .and. ket) then
-       select case(li)
-       case(0, 1)
-          sphr = cart
-       case(2)
-          sphr = matmul(cart, transpose(dtrafo))
-       case(3)
-          sphr = matmul(cart, transpose(ftrafo))
-       case(4)
-          sphr = matmul(cart, transpose(gtrafo))
-       case default
-          error stop "[Fatal] Moments higher than g are not supported"
-       end select
-       return
+      select case(li)
+      case(0, 1)
+         sphr = cart
+      case(2)
+         sphr = matmul(cart, transpose(dtrafo))
+      case(3)
+         sphr = matmul(cart, transpose(ftrafo))
+      case(4)
+         sphr = matmul(cart, transpose(gtrafo))
+      case default
+         error stop "[Fatal] Moments higher than g are not supported"
+      end select
+      if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+      if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
+      return
    end if
 
    if (bra .and. .not. ket) then
-       select case(lj)
-       case(0, 1)
-          sphr = cart
-       case(2)
-          sphr = matmul(dtrafo, cart)
-       case(3)
-          sphr = matmul(ftrafo, cart)
-       case(4)
-          sphr = matmul(gtrafo, cart)
-       case default
-          error stop "[Fatal] Moments higher than g are not supported"
-       end select
-       return
+      select case(lj)
+      case(0, 1)
+         sphr = cart
+      case(2)
+         sphr = matmul(dtrafo, cart)
+      case(3)
+         sphr = matmul(ftrafo, cart)
+      case(4)
+         sphr = matmul(gtrafo, cart)
+      case default
+         error stop "[Fatal] Moments higher than g are not supported"
+      end select
+      if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+      if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
+      return
    end if
 
    ! Transform both dimensions
@@ -159,11 +165,11 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
          sphr = cart
       case(2)
          !sphr = matmul(dtrafo, cart)
-         sphr(3, :) = cart(3, :) - 0.5_wp * (cart(1, :) + cart(2, :))
-         sphr(4, :) = s3 * cart(5, :)
-         sphr(2, :) = s3 * cart(6, :)
-         sphr(5, :) = s3_4 * (cart(1, :) - cart(2, :))
-         sphr(1, :) = s3 * cart(4, :)
+         sphr(3, :) = cart(6, :) - 0.5_wp * (cart(1, :) + cart(4, :))
+         sphr(4, :) = s3 * cart(3, :)
+         sphr(2, :) = s3 * cart(5, :)
+         sphr(5, :) = s3_4 * (cart(1, :) - cart(4, :))
+         sphr(1, :) = s3 * cart(2, :)
       case(3)
          sphr = matmul(ftrafo, cart)
       case(4)
@@ -176,33 +182,33 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
       select case(lj)
       case(0, 1)
          !sphr = matmul(cart, transpose(dtrafo))
-         sphr(:, 3) = cart(:, 3) - 0.5_wp * (cart(:, 1) + cart(:, 2))
-         sphr(:, 4) = s3 * cart(:, 5)
-         sphr(:, 2) = s3 * cart(:, 6)
-         sphr(:, 5) = s3_4 * (cart(:, 1) - cart(:, 2))
-         sphr(:, 1) = s3 * cart(:, 4)
+         sphr(:, 3) = cart(:, 6) - 0.5_wp * (cart(:, 1) + cart(:, 4))
+         sphr(:, 4) = s3 * cart(:, 3)
+         sphr(:, 2) = s3 * cart(:, 5)
+         sphr(:, 5) = s3_4 * (cart(:, 1) - cart(:, 4))
+         sphr(:, 1) = s3 * cart(:, 2)
       case(2)
          !sphr = matmul(dtrafo, matmul(cart, transpose(dtrafo)))
-         sphr(3, 3) = cart(3, 3) &
-            & - 0.5_wp * (cart(3, 1) + cart(3, 2) + cart(1, 3) + cart(2, 3)) &
-            & + 0.25_wp * (cart(1, 1) + cart(1, 2) + cart(2, 1) + cart(2, 2))
-         sphr([4, 2, 1], 3) = s3 * cart([5, 6, 4], 3) &
-            & - s3_4 * (cart([5, 6, 4], 1) + cart([5, 6, 4], 2))
-         sphr(5, 3) = s3_4 * (cart(1, 3) - cart(2, 3)) &
-            & - s3 * 0.25_wp * (cart(1, 1) - cart(2, 1) + cart(1, 2) - cart(2, 2))
-         sphr(3, 4) = s3 * cart(3, 5) - s3_4 * (cart(1, 5) + cart(2, 5))
-         sphr([4, 2, 1], 4) = 3 * cart([5, 6, 4], 5)
-         sphr(5, 4) = 1.5_wp * (cart(1, 5) - cart(2, 5))
-         sphr(3, 2) = s3 * cart(3, 6) - s3_4 * (cart(1, 6) + cart(2, 6))
-         sphr([4, 2, 1], 2) = 3 * cart([5, 6, 4], 6)
-         sphr(5, 2) = 1.5_wp * (cart(1, 6) - cart(2, 6))
-         sphr(3, 5) = s3_4 * (cart(3, 1) - cart(3, 2)) &
-            & - s3 * 0.25_wp * (cart(1, 1) - cart(1, 2) + cart(2, 1) - cart(2, 2))
-         sphr([4, 2, 1], 5) = 1.5_wp * (cart([5, 6, 4], 1) - cart([5, 6, 4], 2))
-         sphr(5, 5) = 0.75_wp * (cart(1, 1) - cart(2, 1) - cart(1, 2) + cart(2, 2))
-         sphr(3, 1) = s3 * cart(3, 4) - s3_4 * (cart(1, 4) + cart(2, 4))
-         sphr([4, 2, 1], 1) = 3 * cart([5, 6, 4], 4)
-         sphr(5, 1) = 1.5_wp * (cart(1, 4) - cart(2, 4))
+         sphr(3, 3) = cart(6, 6) &
+            & - 0.5_wp * (cart(6, 1) + cart(6, 4) + cart(1, 6) + cart(4, 6)) &
+            & + 0.25_wp * (cart(1, 1) + cart(1, 4) + cart(4, 1) + cart(4, 4))
+         sphr([4, 2, 1], 3) = s3 * cart([3, 5, 2], 6) &
+            & - s3_4 * (cart([3, 5, 2], 1) + cart([3, 5, 2], 4))
+         sphr(5, 3) = s3_4 * (cart(1, 6) - cart(4, 6)) &
+            & - s3 * 0.25_wp * (cart(1, 1) - cart(4, 1) + cart(1, 4) - cart(4, 4))
+         sphr(3, 4) = s3 * cart(6, 3) - s3_4 * (cart(1, 3) + cart(4, 3))
+         sphr([4, 2, 1], 4) = 3 * cart([3, 5, 2], 3)
+         sphr(5, 4) = 1.5_wp * (cart(1, 3) - cart(4, 3))
+         sphr(3, 2) = s3 * cart(6, 5) - s3_4 * (cart(1, 5) + cart(4, 5))
+         sphr([4, 2, 1], 2) = 3 * cart([3, 5, 2], 5)
+         sphr(5, 2) = 1.5_wp * (cart(1, 5) - cart(4, 5))
+         sphr(3, 5) = s3_4 * (cart(6, 1) - cart(6, 4)) &
+            & - s3 * 0.25_wp * (cart(1, 1) - cart(1, 4) + cart(4, 1) - cart(4, 4))
+         sphr([4, 2, 1], 5) = 1.5_wp * (cart([3, 5, 2], 1) - cart([3, 5, 2], 4))
+         sphr(5, 5) = 0.75_wp * (cart(1, 1) - cart(4, 1) - cart(1, 4) + cart(4, 4))
+         sphr(3, 1) = s3 * cart(6, 2) - s3_4 * (cart(1, 2) + cart(4, 2))
+         sphr([4, 2, 1], 1) = 3 * cart([3, 5, 2], 2)
+         sphr(5, 1) = 1.5_wp * (cart(1, 2) - cart(4, 2))
       case(3)
          sphr = matmul(ftrafo, matmul(cart, transpose(dtrafo)))
       case(4)
@@ -242,6 +248,9 @@ pure subroutine transform0(lj, li, cart, sphr, bra, ket)
    case default
       error stop "[Fatal] Moments higher than g are not supported"
    end select
+
+   if (bra .and. lj == 1) sphr = sphr([2, 3, 1], :)
+   if (ket .and. li == 1) sphr = sphr(:, [2, 3, 1])
 
 end subroutine transform0
 
@@ -310,9 +319,10 @@ pure subroutine adjoint_transform0(lj, li, sphr, cart, bra, ket)
    logical, intent(in) :: bra
    !> Flag for transformation of the ket dimension
    logical, intent(in) :: ket
-
    if (.not. bra .and. .not. ket) then
       cart = sphr
+      if (bra .and. lj == 1) cart = cart([3, 1, 2], :)
+      if (ket .and. li == 1) cart = cart(:, [3, 1, 2])
       return
    end if
 
@@ -330,6 +340,8 @@ pure subroutine adjoint_transform0(lj, li, sphr, cart, bra, ket)
       case default
          error stop "[Fatal] Moments higher than g are not supported"
       end select
+      if (bra .and. lj == 1) cart = cart([3, 1, 2], :)
+      if (ket .and. li == 1) cart = cart(:, [3, 1, 2])
       return
    end if
 
@@ -347,6 +359,8 @@ pure subroutine adjoint_transform0(lj, li, sphr, cart, bra, ket)
       case default
          error stop "[Fatal] Moments higher than g are not supported"
       end select
+      if (bra .and. lj == 1) cart = cart([3, 1, 2], :)
+      if (ket .and. li == 1) cart = cart(:, [3, 1, 2])
       return
    end if
 
@@ -411,6 +425,8 @@ pure subroutine adjoint_transform0(lj, li, sphr, cart, bra, ket)
    case default
       error stop "[Fatal] Moments higher than g are not supported"
    end select
+   if (bra .and. lj == 1) cart = cart([3, 1, 2], :)
+   if (ket .and. li == 1) cart = cart(:, [3, 1, 2])
 
 end subroutine adjoint_transform0
 

@@ -1324,13 +1324,13 @@ subroutine get_molden_to_tblite_cart_perm(l, perm, error)
    case(0)
       perm(1) = 1
    case(1)
-      perm(1:3) = [3, 1, 2]
+      perm(1:3) = [1, 2, 3]
    case(2)
-      perm(1:6) = [1, 2, 3, 4, 5, 6]
+      perm(1:6) = [1, 4, 6, 2, 3, 5]
    case(3)
-      perm(1:10) = [1, 2, 3, 6, 4, 5, 8, 9, 7, 10]
+      perm(1:10) = [1, 7, 10, 4, 2, 3, 6, 9, 8, 5]
    case(4)
-      perm(1:15) = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+      perm(1:15) = [1, 11, 15, 2, 3, 7, 12, 10, 14, 4, 6, 13, 5, 8, 9]
    case default
       call fatal_error(error, "Molden reader only supports angular momenta up to g")
       return

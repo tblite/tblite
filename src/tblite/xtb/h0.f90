@@ -25,7 +25,7 @@ module tblite_xtb_h0
    use tblite_basis_type, only : basis_type
    use tblite_integral_diat_trafo, only : diat_trafo_cache, setup_diat_trafo, &
       & diat_trafo
-   use tblite_integral_multipole, only : multipole_cgto, multipole_grad_cgto, &
+   use tblite_integral_native_integrals, only : multipole_cgto, multipole_grad_cgto, &
       & msao, smap, sdim
    use tblite_scf_potential, only : potential_type
    use tblite_xtb_spec, only : tb_h0spec
