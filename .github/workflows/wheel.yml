@@ -97,7 +97,7 @@ jobs:
 
       # Download the source distribution from above
       - name: Download sdist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tblite-python-sdist
 
@@ -160,7 +160,7 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: pyproject.toml
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tblite-python-ubuntu-latest
       - name: Install built wheel alongside torch 2.6.0+cpu
@@ -181,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ github.workspace }}  # This will download all files
 
@@ -226,25 +226,25 @@ jobs:
 
     steps:
     - name: Download sdist
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: tblite-python-sdist
         path: dist/
 
     - name: Download manylinux wheels
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: tblite-python-ubuntu-latest
         path: dist/
 
     - name: Download osx/aarch64 wheels
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: tblite-python-macos-15
         path: dist/
 
     - name: Download osx/x86_64 wheels
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: tblite-python-macos-15-intel
         path: dist/
