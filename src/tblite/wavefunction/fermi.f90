@@ -29,11 +29,17 @@ module tblite_wavefunction_fermi
 contains
 
 subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi)
+   !> Number of electrons
    real(wp), intent(in) :: nel
+   !> Molecular orbital energy levels
    real(wp), intent(in) :: emo(:)
+   !> Electronic temperature in atomic units
    real(wp), intent(in) :: kt
+   !> Index of the highest occupied molecular orbital
    integer, intent(out) :: homo
+   !> Occupation numbers
    real(wp), intent(out) :: focc(:)
+   !> Fermi energy
    real(wp), intent(out) :: e_fermi
 
    real(wp) :: etmp
@@ -42,16 +48,21 @@ subroutine get_fermi_filling(nel, kt, emo, homo, focc, e_fermi)
 
    call get_aufbau_filling(nel, homo, focc)
 
-   if (homo > 0) then
-      call get_fermi_filling_(homo, kt, emo, focc, etmp)
-      e_fermi = 0.5_wp * etmp
+   ! Optimize the Fermilevel if there is a finite temperature
+   if (nel > 0.0_wp .and. kt > 0.0_wp) then
+      call get_fermi_filling_(nel, homo, kt, emo, focc, e_fermi)
+   else
+      e_fermi = 0.0_wp
    end if
 
 end subroutine get_fermi_filling
 
 subroutine get_aufbau_filling(nel, homo, occ)
+   !> Number of electrons
    real(wp), intent(in) :: nel
+   !> Index of the highest occupied molecular orbital
    integer, intent(out) :: homo
+   !> Occupation numbers
    real(wp), intent(out) :: occ(:)
 
    occ(:) = 0.0_wp
@@ -61,46 +72,56 @@ subroutine get_aufbau_filling(nel, homo, occ)
    homo = merge(homo+1, homo, mod(nel, 1.0_wp) > 0.5_wp)
 end subroutine get_aufbau_filling
 
-subroutine get_fermi_filling_(homo, kt, emo, occ, e_fermi)
+subroutine get_fermi_filling_(nel, homo, kt, emo, occ, e_fermi)
+   !> Number of electrons
+   real(wp), intent(in) :: nel
+   !> Index of the highest occupied molecular orbital
    integer, intent(in) :: homo
+   !> Molecular orbital energy levels
    real(wp), intent(in) :: emo(:)
+   !> Electronic temperature in atomic units
    real(wp), intent(in) :: kt
+   !> Occupation numbers
    real(wp), intent(out) :: occ(:)
+   !> Fermi energy
    real(wp), intent(out) :: e_fermi
 
-   real(wp) :: occt, total_number
-   real(wp) :: total_dfermi, dfermifunct, fermifunct, change_fermi
-   integer, parameter :: max_cycle = 200
-   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
-   real(wp), parameter :: sqrttiny = sqrt(tiny(1.0_wp))
+   real(wp) :: arg, total_number, total_dfermi, dfermifunct, fermifunct, change_fermi
    integer :: ncycle, iao
 
-   e_fermi = 0.5*(emo(max(homo, 1))+emo(min(homo+1, size(emo))))
-   occt = homo
+   integer, parameter :: max_cycle = 200
+   real(wp), parameter :: thr = min(sqrt(epsilon(1.0_wp)), 1e+5_wp*epsilon(1.0_wp))
+   real(wp), parameter :: sqrttiny = sqrt(tiny(1.0_wp))
 
+   e_fermi = 0.5_wp * (emo(max(homo, 1)) + emo(min(homo + 1, size(emo))))
    do ncycle = 1, max_cycle
-      total_number = 0.0
-      total_dfermi = 0.0
+      total_number = 0.0_wp
+      total_dfermi = 0.0_wp
+
       do iao = 1, size(emo)
-         fermifunct = 0.0
-         if((emo(iao)-e_fermi)/kt<50) then
-            fermifunct = 1.0/(exp((emo(iao)-e_fermi)/kt)+1.0)
-            dfermifunct = exp((emo(iao)-e_fermi)/kt) / &
-               & (kt*(exp((emo(iao)-e_fermi)/kt)+1.0)**2)
+         arg = (emo(iao) - e_fermi) / kt
+
+         if (arg > 50.0_wp) then
+            fermifunct = 0.0_wp
+            dfermifunct = 0.0_wp
+         else if (arg < -50.0_wp) then
+            fermifunct = 1.0_wp
+            dfermifunct = 0.0_wp
          else
-            dfermifunct = 0.0
+            fermifunct = 1.0_wp / (exp(arg) + 1.0_wp)
+            dfermifunct = fermifunct * (1.0_wp - fermifunct) / kt
          end if
          occ(iao) = fermifunct
          total_number = total_number + fermifunct
          total_dfermi = total_dfermi + dfermifunct
       end do
+      if (abs(nel - total_number) <= thr) exit
       if (total_dfermi > sqrttiny) then
-          change_fermi = (occt-total_number)/total_dfermi
+         change_fermi = (nel - total_number) / total_dfermi
+         e_fermi = e_fermi + change_fermi
       else
-          change_fermi = 0.0_wp
+         exit
       end if
-      e_fermi = e_fermi+change_fermi
-      if (abs(occt-total_number) <= thr) exit
    end do
 
 end subroutine get_fermi_filling_
