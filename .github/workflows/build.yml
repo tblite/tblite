@@ -298,7 +298,7 @@ jobs:
 
     - name: Upload coverage report
       if: ${{ matrix.toolchain.build == 'meson' && matrix.build-type == 'coverage' }}
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -380,7 +380,7 @@ jobs:
         DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}g
 
