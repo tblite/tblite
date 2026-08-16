@@ -131,6 +131,55 @@ To cutomize the output the ``context_logger`` abstract base class is available.
 It must implement a type bound ``message`` procedure, which is used by the context to create output.
 This type can be used to create callbacks for customizing or redirecting the output of the library.
 
+The context also carries the work partition of the calculation, see :ref:`work-partition`.
+
+
+.. _work-partition:
+
+Work partitioning
+-----------------
+
+The ``tblite_partition`` module provides the ``work_partition`` type, which assigns a disjoint share of the interaction loops to each part of a distributed calculation.
+Parts are zero based, every unit of work belongs to exactly one part, and summing the contributions of all parts reproduces the complete result.
+*tblite* performs no communication itself, the reduction is left to the caller.
+
+A partition is created with ``new_work_partition``, out of range parts are reported in the error handler.
+The default constructed partition, also available as the ``serial_work_partition`` constant, owns the complete work and is equivalent to not partitioning at all.
+
+.. code-block:: fortran
+
+   use mctc_env, only : error_type
+   use tblite_partition, only : work_partition, new_work_partition
+   implicit none
+   type(error_type), allocatable :: error
+   type(work_partition) :: partition
+
+   ! every rank holds the complete structure and evaluates its own share
+   call new_work_partition(error, partition, rank, nranks)
+
+The partition is applied to a calculator with the type bound ``set_partition`` procedure, which propagates it to every interaction container, including containers added later with ``push_back``.
+Alternatively the partition can be stored in the calculation context with ``ctx%set_partition(part, nparts, error)`` and handed to the calculator from there.
+
+.. code-block:: fortran
+
+   call calc%set_partition(partition)
+   call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
+
+   ! tblite performs no communication, the caller reduces the partial results
+   call mpi_allreduce(MPI_IN_PLACE, energy, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm)
+   call mpi_allreduce(MPI_IN_PLACE, gradient, size(gradient), MPI_DOUBLE_PRECISION, MPI_SUM, comm)
+
+.. note::
+
+   Structure dependent quantities such as coordination numbers, Born radii and the interaction caches are evaluated for the full system on every part.
+   Only the interaction loops are partitioned, so the speedup is bound by those loops.
+
+Contributions which are not expressible as an interaction loop are carried in full by the first part.
+This currently applies to the D3 and D4 dispersion corrections, which cannot partition their own loops yet, to the implicit solvation models, whose Born radii and cavity surfaces couple all atoms, and to the external electric field.
+
+Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the caller reduces the potential in every iteration.
+Without such a reduction the partition has to be used on the individual containers and building blocks rather than on the full self-consistent driver.
+
 
 High-level interface
 --------------------

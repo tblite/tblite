@@ -59,6 +59,7 @@ list(
   "${dir}/lapack.f90"
   "${dir}/os.F90"
   "${dir}/param.f90"
+  "${dir}/partition.f90"
   "${dir}/repulsion.f90"
   "${dir}/results.f90"
   "${dir}/scf.f90"

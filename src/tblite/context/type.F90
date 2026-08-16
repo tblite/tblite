@@ -28,6 +28,7 @@ module tblite_context_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
+   use tblite_partition, only : work_partition, new_work_partition
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -47,9 +48,13 @@ module tblite_context_type
       class(context_solver), allocatable :: solver
       !> Color support for output
       type(context_terminal) :: terminal = context_terminal()
+      !> Share of the interaction loops evaluated in this context
+      type(work_partition) :: partition
    contains
       !> Write a message to the output
       procedure :: message
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -64,6 +69,21 @@ module tblite_context_type
 
 
 contains
+
+
+!> Assign an externally managed share of the interaction loops to this context
+subroutine set_partition(self, part, nparts, error)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Zero-based index of this part
+   integer, intent(in) :: part
+   !> Total number of parts
+   integer, intent(in) :: nparts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call new_work_partition(error, self%partition, part, nparts)
+end subroutine set_partition
 
 
 !> Add an error message to the context

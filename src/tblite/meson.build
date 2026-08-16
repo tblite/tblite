@@ -56,6 +56,7 @@ srcs += files(
   'lapack.f90',
   'os.F90',
   'param.f90',
+  'partition.f90',
   'repulsion.f90',
   'results.f90',
   'scf.f90',

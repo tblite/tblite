@@ -40,6 +40,7 @@ program tester
    use test_molden, only : collect_molden
    use test_npy, only : collect_npy
    use test_npz, only : collect_npz
+   use test_partition, only : collect_partition
    use test_post_processing, only : collect_post_processing
    use test_repulsion, only : collect_repulsion
    use test_slater_expansion, only : collect_slater_expansion
@@ -70,6 +71,7 @@ program tester
       new_testsuite("repulsion", collect_repulsion), &
       new_testsuite("npy", collect_npy), &
       new_testsuite("npz", collect_npz), &
+      new_testsuite("partition", collect_partition), &
       new_testsuite("solvation-born", collect_solvation_born), &
       new_testsuite("solvation-ddx", collect_solvation_ddx), &
       new_testsuite("solvation-surface", collect_solvation_surface), &

@@ -28,6 +28,7 @@ module tblite_solvation_alpb
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
+   use tblite_partition, only : owns_index
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_born, only : born_integrator, new_born_integrator
@@ -296,6 +297,9 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    type(alpb_cache), pointer :: ptr
 
+   ! the Born radii couple all atoms, the first part carries the model whole
+   if (.not.owns_index(self%partition, 1)) return
+
    call view(cache, ptr)
 
    if(self%useCM5)then
@@ -323,6 +327,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(potential_type), intent(inout) :: pot
 
    type(alpb_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -353,6 +359,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    type(alpb_cache), pointer :: ptr
    real(wp) :: energy
+
+   if (.not.owns_index(self%partition, 1)) return
 
    energy = 0.0_wp
    call view(cache, ptr)

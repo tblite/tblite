@@ -27,6 +27,7 @@ module tblite_solvation_cds
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
+   use tblite_partition, only : owns_index
    use tblite_scf_info, only : scf_info, atom_resolved, not_used
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_cm5, only : get_cm5_charges
@@ -278,6 +279,9 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    type(cds_cache), pointer :: ptr
 
+   ! the solvent accessible surface couples all atoms, the first part carries it whole
+   if (.not.owns_index(self%partition, 1)) return
+
    call view(cache, ptr)
 
    energies(:) = energies + ptr%surface * ptr%tension
@@ -308,6 +312,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    type(cds_cache), pointer :: ptr
 
+   if (.not.owns_index(self%partition, 1)) return
+
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
@@ -336,6 +342,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(potential_type), intent(inout) :: pot
 
    type(cds_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -367,6 +375,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    type(cds_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
