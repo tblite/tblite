@@ -20,19 +20,26 @@ module test_partition
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
+   use tblite_adjlist, only : adjacency_list, new_adjacency_list
+   use tblite_basis_type, only : get_cutoff
    use tblite_container, only : container_cache, container_type
    use tblite_context, only : context_type
+   use tblite_cutoff, only : get_lattice_points
    use tblite_external_field, only : electric_field, new_electric_field
    use tblite_features, only : tblite_has_feature, tblite_has_mpi
+   use tblite_integral_type, only : integral_type, new_integral
    use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, &
       & mpi_allreduce_sum
    use tblite_partition, only : work_partition, new_work_partition, &
       & serial_work_partition, owns_index, owns_pair
    use tblite_scf_potential, only : potential_type, new_potential
+   use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
+      & new_solvation, new_solvation_cds
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
+   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
    private
@@ -76,6 +83,8 @@ subroutine collect_partition(testsuite)
       new_unittest("gfn2-mol", test_gfn2_mol), &
       new_unittest("gfn1-pbc", test_gfn1_pbc), &
       new_unittest("gfn2-pbc", test_gfn2_pbc), &
+      new_unittest("hamiltonian", test_hamiltonian), &
+      new_unittest("solvation", test_solvation), &
       new_unittest("field", test_field) &
       ]
 
@@ -306,6 +315,142 @@ subroutine test_mpi_mismatch(error)
    deallocate(error)
 
 end subroutine test_mpi_mismatch
+
+
+!> Summing the diatomic blocks of all parts has to reproduce the complete
+!> integral and core Hamiltonian matrices
+subroutine test_hamiltonian(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(work_partition) :: partition
+   type(adjacency_list) :: list
+   type(integral_type) :: full, part_ints, summed
+   real(wp) :: cutoff
+   real(wp), allocatable :: cn(:), selfenergy(:), lattr(:, :)
+   integer :: part
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   allocate(cn(mol%nat), selfenergy(calc%bas%nsh))
+   call calc%ncoord%get_cn(mol, cn)
+   call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy)
+
+   cutoff = get_cutoff(calc%bas, 1.0_wp)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+
+   call new_integral(full, calc%bas%nao)
+   call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
+      & full%overlap, full%dipole, full%quadrupole, full%hamiltonian)
+
+   call new_integral(summed, calc%bas%nao)
+   call new_integral(part_ints, calc%bas%nao)
+   summed%overlap(:, :) = 0.0_wp
+   summed%hamiltonian(:, :) = 0.0_wp
+   summed%dipole(:, :, :) = 0.0_wp
+   summed%quadrupole(:, :, :) = 0.0_wp
+
+   do part = 0, nparts - 1
+      call new_work_partition(error, partition, part, nparts)
+      if (allocated(error)) return
+      call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
+         & part_ints%overlap, part_ints%dipole, part_ints%quadrupole, &
+         & part_ints%hamiltonian, partition)
+      summed%overlap(:, :) = summed%overlap + part_ints%overlap
+      summed%hamiltonian(:, :) = summed%hamiltonian + part_ints%hamiltonian
+      summed%dipole(:, :, :) = summed%dipole + part_ints%dipole
+      summed%quadrupole(:, :, :) = summed%quadrupole + part_ints%quadrupole
+   end do
+
+   if (sum(abs(full%overlap)) < 1.0e-6_wp) then
+      call test_failed(error, "Overlap reference is empty")
+      return
+   end if
+
+   if (any(abs(summed%overlap - full%overlap) > thr) &
+      & .or. any(abs(summed%hamiltonian - full%hamiltonian) > thr) &
+      & .or. any(abs(summed%dipole - full%dipole) > thr) &
+      & .or. any(abs(summed%quadrupole - full%quadrupole) > thr)) then
+      call test_failed(error, "Partitioned integrals do not match")
+   end if
+
+end subroutine test_hamiltonian
+
+
+!> The Born interaction matrix and the solvent accessible surface are partitioned,
+!> the Born radii themselves are evaluated for the full system on every part
+subroutine test_solvation(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(work_partition) :: partition
+   type(container_output) :: full, summed, part_result
+   integer :: part
+
+   call get_structure(mol, "MB16-43", "04")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   call add_solvation(calc, mol, error)
+   if (allocated(error)) return
+
+   call evaluate(mol, calc, full)
+
+   do part = 0, nparts - 1
+      call new_work_partition(error, partition, part, nparts)
+      if (allocated(error)) return
+      call calc%set_partition(partition)
+      call evaluate(mol, calc, part_result)
+      if (part == 0) then
+         summed = part_result
+      else
+         call accumulate(summed, part_result)
+      end if
+   end do
+
+   call compare(error, summed, full, "Solvation")
+
+end subroutine test_solvation
+
+
+!> Attach an ALPB and a CDS container to the calculator
+subroutine add_solvation(calc, mol, error)
+
+   !> Single-point calculator
+   type(xtb_calculator), intent(inout) :: calc
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(solvation_input) :: input
+   class(solvation_type), allocatable :: solv
+   class(container_type), allocatable :: cont
+
+   input%alpb = alpb_input(80.2_wp, solvent="water", alpb=.true.)
+   call new_solvation(solv, mol, input, error, "gfn2")
+   if (allocated(error)) return
+   call move_alloc(solv, cont)
+   call calc%push_back(cont)
+
+   input%cds = cds_input(alpb=.true., solvent="water")
+   call new_solvation_cds(solv, mol, input, error, "gfn2")
+   if (allocated(error)) return
+   call move_alloc(solv, cont)
+   call calc%push_back(cont)
+
+end subroutine add_solvation
 
 
 !> Passing the serial partition must be identical to leaving it at its default

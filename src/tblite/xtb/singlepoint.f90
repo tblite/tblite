@@ -261,7 +261,18 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    call new_integral(ints, calc%bas%nao)
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
+
+   if (ctx%mpi) then
+      call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
+      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
+      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
+      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+   end if
 
    call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
    target_kt = wfn%kt
@@ -381,17 +392,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call timer%pop
       end if
 
-      ! the Hamiltonian gradient below is evaluated in full on every rank
-      if (ctx%mpi) then
-         call mpi_allreduce_sum(error, gradient, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, sigma, ctx%comm)
-         if (allocated(error)) then
-            call ctx%set_error(error)
-            call ctx%delete_solver(solver)
-            return
-         end if
-      end if
-
       call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
@@ -401,7 +401,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
+         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma, calc%partition)
       call magnet_to_updown(wfn%density)
 
       if (allocated(dcndr)) then
@@ -411,6 +411,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call gemv(dcndL, dEdcn, sigma, beta=1.0_wp)
       end if
       call timer%pop
+
+      if (ctx%mpi) then
+         call mpi_allreduce_sum(error, gradient, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, sigma, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            call ctx%delete_solver(solver)
+            return
+         end if
+      end if
    end if
 
    call ctx%delete_solver(solver)

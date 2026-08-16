@@ -21,7 +21,10 @@ program test_mpi_singlepoint
    use mctc_io, only : structure_type
    use mpi, only : MPI_COMM_WORLD, MPI_Abort, MPI_Finalize, MPI_Init
    use mstore, only : get_structure
+   use tblite_container, only : container_type
    use tblite_context, only : context_type
+   use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
+      & new_solvation, new_solvation_cds
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
@@ -68,6 +71,8 @@ contains
       ctx%verbosity = 0
       call new_gfn2_calculator(calc, mol, error)
       if (allocated(error)) return
+      call add_solvation(calc, mol, error)
+      if (allocated(error)) return
 
       if (distributed) then
          call ctx%set_mpi(error)
@@ -79,6 +84,28 @@ contains
       call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy, gradient, sigma)
       if (ctx%failed()) call ctx%get_error(error)
    end subroutine run
+
+   subroutine add_solvation(calc, mol, error)
+      type(xtb_calculator), intent(inout) :: calc
+      type(structure_type), intent(in) :: mol
+      type(error_type), allocatable, intent(out) :: error
+
+      type(solvation_input) :: input
+      class(solvation_type), allocatable :: solv
+      class(container_type), allocatable :: cont
+
+      input%alpb = alpb_input(80.2_wp, solvent="water", alpb=.true.)
+      call new_solvation(solv, mol, input, error, "gfn2")
+      if (allocated(error)) return
+      call move_alloc(solv, cont)
+      call calc%push_back(cont)
+
+      input%cds = cds_input(alpb=.true., solvent="water")
+      call new_solvation_cds(solv, mol, input, error, "gfn2")
+      if (allocated(error)) return
+      call move_alloc(solv, cont)
+      call calc%push_back(cont)
+   end subroutine add_solvation
 
    subroutine check_error(error)
       type(error_type), allocatable, intent(in) :: error

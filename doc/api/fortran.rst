@@ -174,8 +174,11 @@ Alternatively the partition can be stored in the calculation context with ``ctx%
    Structure dependent quantities such as coordination numbers, Born radii and the interaction caches are evaluated for the full system on every part.
    Only the interaction loops are partitioned, so the speedup is bound by those loops.
 
+The diatomic blocks of the overlap, multipole and core Hamiltonian integrals and of the Hamiltonian gradient are partitioned as well, as are the Born interaction matrix of the ALPB/GBSA model and the solvent accessible surface of the CDS term.
+
 Contributions which are not expressible as an interaction loop are carried in full by the first part.
-This currently applies to the D3 and D4 dispersion corrections, which cannot partition their own loops yet, to the implicit solvation models, whose Born radii and cavity surfaces couple all atoms, and to the external electric field.
+This currently applies to the D3 and D4 dispersion corrections, which cannot partition their own loops yet, to the ddX solvation models, to the analytical linearized Poisson-Boltzmann gradient, whose inertia tensor couples all atoms, and to the external electric field.
+The Born radii themselves enter non-linearly and are evaluated for the full system on every part.
 
 Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the potential is reduced in every iteration.
 Either let *tblite* do this over MPI, see :ref:`mpi`, or use the partition on the individual containers and building blocks rather than on the full self-consistent driver.
@@ -211,8 +214,12 @@ The partition still has to be handed to the calculator, a mismatch between the t
    call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
 
 The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
-The integrals, the Hamiltonian and the diagonalization are evaluated redundantly on every rank, only the interaction loops are distributed.
+The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is then performed redundantly on every rank.
 *tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
+
+.. note::
+
+   Reducing the integral matrices costs :math:`\mathcal{O}(N_\text{ao}^2)` communication per geometry and every rank still holds the full matrices, so memory does not scale with the number of ranks.
 
 
 High-level interface

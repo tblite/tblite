@@ -253,7 +253,7 @@ subroutine update(self, mol, cache)
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
    end if
 
-   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
+   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr, self%partition)
 
    ptr%tension = self%tension(mol%id)
    if (allocated(self%hbond)) then
@@ -278,9 +278,6 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
    type(cds_cache), pointer :: ptr
-
-   ! the solvent accessible surface couples all atoms, the first part carries it whole
-   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -312,8 +309,6 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    type(cds_cache), pointer :: ptr
 
-   if (.not.owns_index(self%partition, 1)) return
-
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
@@ -342,8 +337,6 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(potential_type), intent(inout) :: pot
 
    type(cds_cache), pointer :: ptr
-
-   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -375,8 +368,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    type(cds_cache), pointer :: ptr
-
-   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
