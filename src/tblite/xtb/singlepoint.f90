@@ -32,7 +32,9 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
+   use tblite_mpi_utils, only : mpi_allreduce_sum
    use tblite_output_format, only : format_string
+   use tblite_partition, only : same_work_partition
    use tblite_post_processing_list, only : post_processing_list
    use tblite_post_processing_type, only : collect_containers_caches
    use tblite_results, only : results_type
@@ -100,6 +102,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
    real(wp) :: pnorm
    integer :: anneal_hold, anneal_steps
+   ! unallocated selects the serial path of the self-consistent iterations
+   integer, allocatable :: comm
    integer, parameter :: default_anneal_hold = 50, default_anneal_steps = 50
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
@@ -127,6 +131,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    econv = 1.0e-6_wp*accuracy
    pconv = 2.0e-5_wp*accuracy
+
+   ! reducing unpartitioned contributions would multiply them by the rank count
+   if (ctx%mpi .and. .not.same_work_partition(calc%partition, ctx%partition)) then
+      call fatal_error(error, "Work partition of the calculator does not match the "//&
+         & "context, call calc%set_partition(ctx%partition) first")
+      call ctx%set_error(error)
+      return
+   end if
+   if (ctx%mpi) comm = ctx%comm
 
    grad = present(gradient) .and. present(sigma)
 
@@ -201,6 +214,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       energies(:) = energies + eint
       call timer%pop
+   end if
+
+   ! the non-selfconsistent contributions above are the partitioned ones
+   if (ctx%mpi) then
+      call mpi_allreduce_sum(error, energies, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
    end if
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
@@ -296,7 +318,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
-         & ccache, dcache, icache, eelec, error)
+         & ccache, dcache, icache, eelec, error, comm=comm)
       econverged = abs(sum(eelec) - elast) < econv
       pnorm = mixer%get_error()
       pconverged = pnorm < pconv
@@ -357,6 +379,17 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call timer%push("interactions")
          call calc%interactions%get_gradient(mol, icache, wfn, gradient, sigma)
          call timer%pop
+      end if
+
+      ! the Hamiltonian gradient below is evaluated in full on every rank
+      if (ctx%mpi) then
+         call mpi_allreduce_sum(error, gradient, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, sigma, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            call ctx%delete_solver(solver)
+            return
+         end if
       end if
 
       call timer%push("hamiltonian")

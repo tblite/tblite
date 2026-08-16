@@ -28,6 +28,7 @@ module tblite_context_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
+   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition
    use tblite_partition, only : work_partition, new_work_partition
    use tblite_scf_solver, only : solver_type
    implicit none
@@ -50,11 +51,17 @@ module tblite_context_type
       type(context_terminal) :: terminal = context_terminal()
       !> Share of the interaction loops evaluated in this context
       type(work_partition) :: partition
+      !> Whether partitioned results are reduced over an MPI communicator
+      logical :: mpi = .false.
+      !> Communicator used for the reduction, only meaningful with mpi enabled
+      integer :: comm = 0
    contains
       !> Write a message to the output
       procedure :: message
       !> Assign an externally managed share of the interaction loops
       procedure :: set_partition
+      !> Distribute the interaction loops over an MPI communicator
+      procedure :: set_mpi
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -84,6 +91,29 @@ subroutine set_partition(self, part, nparts, error)
 
    call new_work_partition(error, self%partition, part, nparts)
 end subroutine set_partition
+
+
+!> Distribute the interaction loops over an MPI communicator and reduce the
+!> partial results of every rank inside the library
+subroutine set_mpi(self, error, comm)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Communicator to distribute over, defaults to the global communicator
+   integer, intent(in), optional :: comm
+
+   integer :: local_comm
+
+   local_comm = get_mpi_comm_world()
+   if (present(comm)) local_comm = comm
+
+   call new_mpi_work_partition(error, self%partition, local_comm)
+   if (allocated(error)) return
+
+   self%comm = local_comm
+   self%mpi = .true.
+end subroutine set_mpi
 
 
 !> Add an error message to the context

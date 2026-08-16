@@ -112,6 +112,7 @@ if install
     'TBLITE_WITH_API': get_option('api') ? 'ON' : 'OFF',
     'TBLITE_WITH_OpenMP': get_option('openmp') ? 'ON' : 'OFF',
     'TBLITE_WITH_DDX': get_option('ddx') ? 'ON' : 'OFF',
+    'TBLITE_WITH_MPI': get_option('mpi') ? 'ON' : 'OFF',
     'TBLITE_WITH_TREXIO': trexio_dep.found() ? 'ON' : 'OFF',
     'TBLITE_WITH_HDF5': hdf5_dep.found() ? 'ON' : 'OFF',
     'TBLITE_USE_MCTCLIB': mctc_dep.type_name() != 'internal' ? 'ON' : 'OFF',

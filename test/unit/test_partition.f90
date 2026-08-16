@@ -23,6 +23,9 @@ module test_partition
    use tblite_container, only : container_cache, container_type
    use tblite_context, only : context_type
    use tblite_external_field, only : electric_field, new_electric_field
+   use tblite_features, only : tblite_has_feature, tblite_has_mpi
+   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, &
+      & mpi_allreduce_sum
    use tblite_partition, only : work_partition, new_work_partition, &
       & serial_work_partition, owns_index, owns_pair
    use tblite_scf_potential, only : potential_type, new_potential
@@ -30,6 +33,7 @@ module test_partition
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
+   use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
    private
 
@@ -64,6 +68,9 @@ subroutine collect_partition(testsuite)
       new_unittest("disjoint-index", test_disjoint_index), &
       new_unittest("disjoint-pair", test_disjoint_pair), &
       new_unittest("absent", test_absent), &
+      new_unittest("feature", test_feature), &
+      new_unittest("mpi-unavailable", test_mpi_unavailable), &
+      new_unittest("mpi-mismatch", test_mpi_mismatch), &
       new_unittest("serial", test_serial), &
       new_unittest("gfn1-mol", test_gfn1_mol), &
       new_unittest("gfn2-mol", test_gfn2_mol), &
@@ -207,6 +214,98 @@ subroutine test_absent(error)
    end if
 
 end subroutine test_absent
+
+
+!> The MPI feature must be queryable by name and as a compile time constant
+subroutine test_feature(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call check(error, tblite_has_feature("mpi"), tblite_has_mpi)
+   if (allocated(error)) return
+
+   call check(error, .not.tblite_has_feature("not-a-feature"))
+
+end subroutine test_feature
+
+
+!> Without MPI support the MPI entry points have to report an error rather than
+!> silently do nothing, the distributed calculation itself is covered in test/mpi
+subroutine test_mpi_unavailable(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(work_partition) :: partition
+   type(error_type), allocatable :: mpi_error
+   real(wp) :: val
+
+   ! this tester is not an MPI program and must not call into a live library
+   if (tblite_has_mpi) return
+
+   call ctx%set_mpi(mpi_error)
+   if (.not.allocated(mpi_error)) then
+      call test_failed(error, "Uninitialized MPI was accepted by the context")
+      return
+   end if
+
+   if (ctx%mpi) then
+      call test_failed(error, "Context enabled MPI without a usable library")
+      return
+   end if
+
+   deallocate(mpi_error)
+   call new_mpi_work_partition(mpi_error, partition, get_mpi_comm_world())
+   if (.not.allocated(mpi_error)) then
+      call test_failed(error, "Uninitialized MPI produced a work partition")
+      return
+   end if
+
+   deallocate(mpi_error)
+   val = 1.0_wp
+   call mpi_allreduce_sum(mpi_error, val, get_mpi_comm_world())
+   if (.not.allocated(mpi_error)) then
+      call test_failed(error, "Uninitialized MPI performed a reduction")
+   end if
+
+end subroutine test_mpi_unavailable
+
+
+!> Reducing results of a calculator that does not share the partition of the
+!> context would double count every contribution
+subroutine test_mpi_mismatch(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   call ctx%set_partition(1, nparts, error)
+   if (allocated(error)) return
+   ctx%mpi = .true.
+   ctx%verbosity = 0
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
+   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy)
+
+   if (.not.ctx%failed()) then
+      call test_failed(error, "Mismatched work partition was not reported")
+      return
+   end if
+   call ctx%get_error(error)
+   deallocate(error)
+
+end subroutine test_mpi_mismatch
 
 
 !> Passing the serial partition must be identical to leaving it at its default

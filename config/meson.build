@@ -208,6 +208,14 @@ sdftd3_dep = dependency(
 )
 lib_deps += sdftd3_dep
 
+if get_option('mpi')
+  mpi_dep = dependency('mpi', language: 'fortran', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_MPI=1'],
+    dependencies: [mpi_dep],
+  )
+endif
+
 # Create ddX library as subproject
 if get_option('ddx')
   ddx_dep = dependency(

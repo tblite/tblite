@@ -54,6 +54,7 @@ srcs += files(
   'disp.f90',
   'features.F90',
   'lapack.f90',
+  'mpi_utils.F90',
   'os.F90',
   'param.f90',
   'partition.f90',

@@ -57,6 +57,7 @@ list(
   "${dir}/disp.f90"
   "${dir}/features.F90"
   "${dir}/lapack.f90"
+  "${dir}/mpi_utils.F90"
   "${dir}/os.F90"
   "${dir}/param.f90"
   "${dir}/partition.f90"

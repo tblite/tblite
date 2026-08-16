@@ -64,6 +64,14 @@ option(
 )
 
 option(
+  'mpi',
+  type: 'boolean',
+  value: false,
+  yield: true,
+  description: 'distribute partitioned calculations over MPI ranks',
+)
+
+option(
   'api',
   type: 'boolean',
   value: true,

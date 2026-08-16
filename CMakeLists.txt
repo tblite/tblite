@@ -41,6 +41,9 @@ endif()
 if(TBLITE_WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
   find_package("HDF5" REQUIRED COMPONENTS Fortran)
 endif()
+if(TBLITE_WITH_MPI AND NOT TARGET "MPI::MPI_Fortran")
+  find_package("MPI" REQUIRED COMPONENTS Fortran)
+endif()
 if(TBLITE_WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
   find_path(
     TREXIO_INCLUDE_DIR
@@ -159,6 +162,18 @@ if(TBLITE_WITH_TREXIO)
     "${PROJECT_NAME}-lib"
     PUBLIC
     "TBLITE_HAS_TREXIO=1"
+  )
+endif()
+if(TBLITE_WITH_MPI)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "MPI::MPI_Fortran"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_MPI=1"
   )
 endif()
 target_include_directories(

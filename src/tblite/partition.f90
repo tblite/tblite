@@ -24,7 +24,7 @@ module tblite_partition
    private
 
    public :: work_partition, new_work_partition, serial_work_partition
-   public :: owns_index, owns_pair
+   public :: owns_index, owns_pair, same_work_partition
 
 
    !> Cyclic partition of the work of an interaction loop.
@@ -74,6 +74,20 @@ subroutine new_work_partition(error, partition, part, nparts)
    partition%nparts = nparts
 
 end subroutine new_work_partition
+
+
+!> Whether two partitions describe the same share of the work
+elemental function same_work_partition(lhs, rhs) result(same)
+
+   !> Work partitions to compare
+   type(work_partition), intent(in) :: lhs, rhs
+
+   !> Whether both partitions are equivalent
+   logical :: same
+
+   same = lhs%part == rhs%part .and. lhs%nparts == rhs%nparts
+
+end function same_work_partition
 
 
 !> Whether this part owns a one-dimensional unit of work

@@ -177,8 +177,42 @@ Alternatively the partition can be stored in the calculation context with ``ctx%
 Contributions which are not expressible as an interaction loop are carried in full by the first part.
 This currently applies to the D3 and D4 dispersion corrections, which cannot partition their own loops yet, to the implicit solvation models, whose Born radii and cavity surfaces couple all atoms, and to the external electric field.
 
-Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the caller reduces the potential in every iteration.
-Without such a reduction the partition has to be used on the individual containers and building blocks rather than on the full self-consistent driver.
+Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the potential is reduced in every iteration.
+Either let *tblite* do this over MPI, see :ref:`mpi`, or use the partition on the individual containers and building blocks rather than on the full self-consistent driver.
+
+
+.. _mpi:
+
+Distributing over MPI
+---------------------
+
+MPI support is opt-in and has to be requested at build time with ``-Dmpi=true`` (meson) or ``-DTBLITE_WITH_MPI=ON`` (CMake).
+Whether a build supports it can be queried at compile time with the ``tblite_has_mpi`` parameter and at runtime with ``tblite_has_feature("mpi")``, both from the ``tblite_features`` module.
+Without MPI support every entry point of the ``tblite_mpi_utils`` module reports an error instead of performing communication.
+
+.. code-block:: fortran
+
+   use tblite_features, only : tblite_has_mpi, tblite_has_feature
+
+   if (.not.tblite_has_feature("mpi")) error stop "tblite was built without MPI support"
+
+With MPI enabled the calculation context can distribute the interaction loops over a communicator and reduce the partial results inside the library.
+``set_mpi`` derives the work partition from the rank and size of the communicator, which defaults to ``MPI_COMM_WORLD``.
+The partition still has to be handed to the calculator, a mismatch between the two is reported rather than silently double counting every contribution.
+
+.. code-block:: fortran
+
+   call mpi_init(stat)
+
+   call ctx%set_mpi(error)                ! or ctx%set_mpi(error, comm)
+   call calc%set_partition(ctx%partition)
+
+   ! energy, gradient and virial are already reduced, every rank holds the total
+   call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
+
+The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
+The integrals, the Hamiltonian and the diagonalization are evaluated redundantly on every rank, only the interaction loops are distributed.
+*tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
 
 
 High-level interface
