@@ -4012,6 +4012,101 @@ err:
     return 1;
 }
 
+int test_partition_api(void)
+{
+    printf("Start test: work partition\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res = NULL;
+
+    const double thr = 5.0e-7;
+    double energy;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    tblite_set_context_verbosity(ctx, 0);
+
+    tblite_set_context_partition(ctx, 2, 2);
+    if (!tblite_check(ctx))
+        goto unexpected;
+
+    show(ctx);
+
+    /* without MPI support the request is rejected, with it an initialized
+       library would be required, which this tester never provides */
+    if (!tblite_get_feature("mpi")) {
+        tblite_set_context_mpi(ctx, NULL);
+        if (!tblite_check(ctx))
+            goto unexpected;
+
+        show(ctx);
+    }
+
+    mol = get_structure_4(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    /* a single part covers the complete work and must reproduce the serial result */
+    tblite_set_context_partition(ctx, 0, 1);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_energy(error, res, &energy);
+    if (tblite_check(error))
+        goto err;
+
+    if (!check(energy, -46.188736081207, thr, "energy error"))
+        goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 0;
+
+unexpected:
+    printf("[Fatal] Unexpected pass for work partition test\n");
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 1;
+
+err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 1;
+}
+
 int main(void)
 {
     int stat = 0;
@@ -4051,6 +4146,7 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
+    stat += test_partition_api();
     printf("Test finished with %d errors.\n", stat);
     return stat > 0 ? 1 : 0;
 }

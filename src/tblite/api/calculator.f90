@@ -674,6 +674,9 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
+   ! the context owns the work partition, this also covers containers added late
+   call calc%ptr%set_partition(ctx%ptr%partition)
+
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
       & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
       & post_process=calc%post_proc)
