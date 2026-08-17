@@ -101,8 +101,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
    real(wp) :: pnorm
    integer :: anneal_hold, anneal_steps
-   ! unallocated selects the serial path of the self-consistent iterations
-   integer, allocatable :: comm
    integer, parameter :: default_anneal_hold = 50, default_anneal_steps = 50
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
@@ -137,7 +135,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%set_error(error)
       return
    end if
-   if (ctx%mpi) comm = ctx%comm
 
    grad = present(gradient) .and. present(sigma)
 
@@ -215,7 +212,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    ! the non-selfconsistent contributions above are the partitioned ones
-   if (ctx%mpi) then
+   if (allocated(ctx%comm)) then
       call mpi_allreduce_sum(error, energies, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
@@ -261,11 +258,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
 
-   if (ctx%mpi) then
+   if (allocated(ctx%comm)) then
       call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
+      call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
+      call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
+      call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
          return
@@ -327,7 +324,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
-         & ccache, dcache, icache, eelec, error, comm=comm)
+         & ccache, dcache, icache, eelec, error, comm=ctx%comm)
       econverged = abs(sum(eelec) - elast) < econv
       pnorm = mixer%get_error()
       pconverged = pnorm < pconv
@@ -367,7 +364,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    ! a rank skipping the gradient on its own would deadlock the remaining ones
-   if (ctx%mpi) then
+   if (allocated(ctx%comm)) then
       block
          type(error_type), allocatable :: sync
          if (ctx%failed()) call fatal_error(sync, "Calculation failed on this rank")
@@ -406,7 +403,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
-      if (ctx%mpi) call mpi_sync_error(error, ctx%comm)
+      if (allocated(ctx%comm)) call mpi_sync_error(error, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
          call ctx%delete_solver(solver)
@@ -426,9 +423,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call timer%pop
 
-      if (ctx%mpi) then
+      if (allocated(ctx%comm)) then
          call mpi_allreduce_sum(error, gradient, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, sigma, ctx%comm)
+         call mpi_allreduce_sum(error, sigma, ctx%comm)
          if (allocated(error)) then
             call ctx%set_error(error)
             call ctx%delete_solver(solver)
@@ -443,7 +440,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (present(post_process) .and. present(results)) then
       ! the features are evaluated from the partitioned container caches and
       ! E_tot is normalized per atom, so partial results cannot be summed
-      if (ctx%mpi) then
+      if (allocated(ctx%comm)) then
          call fatal_error(error, "Post-processing is not available for a distributed "//&
             & "calculation")
          call ctx%set_error(error)

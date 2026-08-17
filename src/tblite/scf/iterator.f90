@@ -113,9 +113,9 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    if (present(comm)) then
       call mpi_allreduce_sum(error, pot%vat, comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vsh, comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vdp, comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vqp, comm)
+      call mpi_allreduce_sum(error, pot%vsh, comm)
+      call mpi_allreduce_sum(error, pot%vdp, comm)
+      call mpi_allreduce_sum(error, pot%vqp, comm)
       if (allocated(error)) return
    end if
 

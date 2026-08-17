@@ -144,7 +144,7 @@ Parts are zero based, every unit of work belongs to exactly one part, and summin
 *tblite* performs no communication itself, the reduction is left to the caller.
 
 A partition is created with ``new_work_partition``, out of range parts are reported in the error handler.
-The default constructed partition, also available as the ``serial_work_partition`` constant, owns the complete work and is equivalent to not partitioning at all.
+The default constructed partition owns the complete work and is equivalent to not partitioning at all.
 
 .. code-block:: fortran
 
@@ -191,14 +191,14 @@ Distributing over MPI
 ---------------------
 
 MPI support is opt-in and has to be requested at build time with ``-Dmpi=true`` (meson) or ``-DTBLITE_WITH_MPI=ON`` (CMake).
-Whether a build supports it can be queried at compile time with the ``tblite_has_mpi`` parameter and at runtime with ``tblite_has_feature("mpi")``, both from the ``tblite_features`` module.
+Whether a build supports it can be queried at compile time with the ``tblite_has_mpi`` parameter and at runtime with ``get_tblite_feature("mpi")``, both from the ``tblite_features`` module.
 Without MPI support every entry point of the ``tblite_mpi_utils`` module reports an error instead of performing communication.
 
 .. code-block:: fortran
 
-   use tblite_features, only : tblite_has_mpi, tblite_has_feature
+   use tblite_features, only : tblite_has_mpi, get_tblite_feature
 
-   if (.not.tblite_has_feature("mpi")) error stop "tblite was built without MPI support"
+   if (.not.get_tblite_feature("mpi")) error stop "tblite was built without MPI support"
 
 With MPI enabled the calculation context can distribute the interaction loops over a communicator and reduce the partial results inside the library.
 ``set_mpi`` derives the work partition from the rank and size of the communicator, which defaults to ``MPI_COMM_WORLD``.

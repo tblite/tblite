@@ -26,12 +26,12 @@ module test_partition
    use tblite_context, only : context_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_external_field, only : electric_field, new_electric_field
-   use tblite_features, only : tblite_has_feature, tblite_has_mpi
+   use tblite_features, only : get_tblite_feature, tblite_has_mpi
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, &
       & mpi_allreduce_sum
    use tblite_partition, only : work_partition, new_work_partition, &
-      & serial_work_partition, owns_index, owns_pair
+      & owns_index, owns_pair
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
    use tblite_scf_potential, only : potential_type, new_potential
@@ -222,7 +222,7 @@ subroutine test_absent(error)
       return
    end if
 
-   if (.not.owns_pair(serial_work_partition, 5, 3)) then
+   if (.not.owns_pair(work_partition(), 5, 3)) then
       call test_failed(error, "Serial partition does not own a pair")
    end if
 
@@ -235,10 +235,10 @@ subroutine test_feature(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   call check(error, tblite_has_feature("mpi"), tblite_has_mpi)
+   call check(error, get_tblite_feature("mpi"), tblite_has_mpi)
    if (allocated(error)) return
 
-   call check(error, .not.tblite_has_feature("not-a-feature"))
+   call check(error, .not.get_tblite_feature("not-a-feature"))
 
 end subroutine test_feature
 
@@ -253,7 +253,7 @@ subroutine test_mpi_unavailable(error)
    type(context_type) :: ctx
    type(work_partition) :: partition
    type(error_type), allocatable :: mpi_error
-   real(wp) :: val
+   real(wp) :: val(1)
 
    ! this tester is not an MPI program and must not call into a live library
    if (tblite_has_mpi) return
@@ -264,7 +264,7 @@ subroutine test_mpi_unavailable(error)
       return
    end if
 
-   if (ctx%mpi) then
+   if (allocated(ctx%comm)) then
       call test_failed(error, "Context enabled MPI without a usable library")
       return
    end if
@@ -305,7 +305,7 @@ subroutine test_mpi_mismatch(error)
 
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
-   ctx%mpi = .true.
+   ctx%comm = 0
    ctx%verbosity = 0
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
@@ -384,7 +384,7 @@ subroutine test_post_processing(error)
    ! the context reduces, so the calculator has to carry the same partition
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
-   ctx%mpi = .true.
+   ctx%comm = 0
    ctx%verbosity = 0
    call calc%set_partition(ctx%partition)
 
@@ -554,7 +554,7 @@ subroutine test_serial(error)
 
    call evaluate(mol, calc, full)
 
-   call calc%set_partition(serial_work_partition)
+   call calc%set_partition(work_partition())
    call evaluate(mol, calc, serial)
 
    call compare(error, serial, full, "Serial partition")

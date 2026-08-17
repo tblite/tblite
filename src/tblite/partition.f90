@@ -23,8 +23,8 @@ module tblite_partition
    implicit none
    private
 
-   public :: work_partition, new_work_partition, serial_work_partition
-   public :: owns_index, owns_pair, same_work_partition
+   public :: work_partition, new_work_partition
+   public :: owns_index, owns_pair
 
 
    !> Cyclic partition of the work of an interaction loop.
@@ -44,10 +44,6 @@ module tblite_partition
       !> Total number of parts
       integer :: nparts = 1
    end type work_partition
-
-   !> Complete work of an ordinary serial calculation, equivalent to omitting
-   !> the partition entirely
-   type(work_partition), parameter :: serial_work_partition = work_partition()
 
 
 contains
@@ -79,20 +75,6 @@ subroutine new_work_partition(error, partition, part, nparts)
 end subroutine new_work_partition
 
 
-!> Whether two partitions describe the same share of the work
-elemental function same_work_partition(lhs, rhs) result(same)
-
-   !> Work partitions to compare
-   type(work_partition), intent(in) :: lhs, rhs
-
-   !> Whether both partitions are equivalent
-   logical :: same
-
-   same = lhs%part == rhs%part .and. lhs%nparts == rhs%nparts
-
-end function same_work_partition
-
-
 !> Whether this part owns a one-dimensional unit of work
 elemental function owns_index(partition, idx) result(owned)
 
@@ -108,8 +90,7 @@ elemental function owns_index(partition, idx) result(owned)
    owned = .true.
    if (.not.present(partition)) return
 
-   owned = partition%nparts == 1 .or. &
-      & modulo(idx - 1, partition%nparts) == partition%part
+   owned = modulo(idx - 1, partition%nparts) == partition%part
 
 end function owns_index
 
@@ -130,7 +111,6 @@ elemental function owns_pair(partition, iat, jat) result(owned)
 
    owned = .true.
    if (.not.present(partition)) return
-   if (partition%nparts == 1) return
 
    ! zero-based index in the lower-triangular sequence (1,1), (2,1), (2,2), ...
    pair_index = int(iat - 1, i8)*int(iat, i8)/2_i8 + int(jat - 1, i8)

@@ -36,7 +36,6 @@ module tblite_features
    private
 
    public :: get_tblite_feature
-   public :: tblite_has_feature
    public :: tblite_use_ddx
    public :: tblite_use_hdf5
    public :: tblite_use_trexio
@@ -51,12 +50,6 @@ module tblite_features
    logical, parameter :: tblite_use_trexio = TBLITE_HAS_TREXIO /= 0
    !> Logical flag indicating if MPI support is available
    logical, parameter :: tblite_has_mpi = TBLITE_HAS_MPI /= 0
-
-
-   !> Alternative spelling of the feature query
-   interface tblite_has_feature
-      module procedure :: get_tblite_feature
-   end interface tblite_has_feature
 
 
 contains

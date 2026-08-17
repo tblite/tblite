@@ -29,7 +29,7 @@ module tblite_context_type
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
    use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition
-   use tblite_partition, only : work_partition, new_work_partition, same_work_partition
+   use tblite_partition, only : work_partition, new_work_partition
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -51,10 +51,9 @@ module tblite_context_type
       type(context_terminal) :: terminal = context_terminal()
       !> Share of the interaction loops evaluated in this context
       type(work_partition) :: partition
-      !> Whether partitioned results are reduced over an MPI communicator
-      logical :: mpi = .false.
-      !> Communicator used for the reduction, only meaningful with mpi enabled
-      integer :: comm = 0
+      !> Communicator the partial results are reduced over, unallocated unless
+      !> the library is asked to distribute the calculation itself
+      integer, allocatable :: comm
    contains
       !> Write a message to the output
       procedure :: message
@@ -114,7 +113,6 @@ subroutine set_mpi(self, error, comm)
    if (allocated(error)) return
 
    self%comm = local_comm
-   self%mpi = .true.
 end subroutine set_mpi
 
 
@@ -128,15 +126,12 @@ subroutine check_partition(self, partition, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   if (same_work_partition(partition, self%partition)) return
+   if (partition%part == self%partition%part &
+      & .and. partition%nparts == self%partition%nparts) return
 
-   if (self%mpi) then
-      call fatal_error(error, "Work partition of the calculator does not match the "//&
-         & "context, call calc%set_partition(ctx%partition) first")
-   else
-      call fatal_error(error, "Calculator is partitioned but the context does not "//&
-         & "reduce the partial results, enable MPI with ctx%set_mpi first")
-   end if
+   call fatal_error(error, "Work partition of the calculator does not match the "//&
+      & "context, call calc%set_partition(ctx%partition) after ctx%set_partition "//&
+      & "or ctx%set_mpi")
 end subroutine check_partition
 
 

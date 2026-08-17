@@ -42,9 +42,9 @@ module tblite_mpi_utils
    public :: get_mpi_comm_world, new_mpi_work_partition, mpi_allreduce_sum
    public :: mpi_sync_error
 
-   !> Sum a partitioned result over all ranks of a communicator, in place
+   !> Sum a partitioned result over all ranks of a communicator, in place.
+   !> A pending error is left untouched and skips the reduction.
    interface mpi_allreduce_sum
-      module procedure :: allreduce_sum_r0
       module procedure :: allreduce_sum_r1
       module procedure :: allreduce_sum_r2
       module procedure :: allreduce_sum_r3
@@ -141,31 +141,17 @@ subroutine mpi_sync_error(error, comm)
 end subroutine mpi_sync_error
 
 
-subroutine allreduce_sum_r0(error, val, comm)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-   !> Partial result of this rank, replaced by the sum over all ranks
-   real(wp), intent(inout) :: val
-   !> Communicator to reduce over
-   integer, intent(in) :: comm
-
-   real(wp) :: buffer(1)
-
-   buffer(1) = val
-   call allreduce_sum_r1(error, buffer, comm)
-   val = buffer(1)
-end subroutine allreduce_sum_r0
-
-
 subroutine allreduce_sum_r1(error, array, comm)
    !> Error handling
-   type(error_type), allocatable, intent(out) :: error
+   type(error_type), allocatable, intent(inout) :: error
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout) :: array(:)
    !> Communicator to reduce over
    integer, intent(in) :: comm
 
    integer :: stat
+
+   if (allocated(error)) return
 
 #if TBLITE_HAS_MPI
    call MPI_Allreduce(MPI_IN_PLACE, array, size(array), MPI_DOUBLE_PRECISION, &
@@ -179,7 +165,7 @@ end subroutine allreduce_sum_r1
 
 subroutine allreduce_sum_r2(error, array, comm)
    !> Error handling
-   type(error_type), allocatable, intent(out) :: error
+   type(error_type), allocatable, intent(inout) :: error
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout), target :: array(:, :)
    !> Communicator to reduce over
@@ -194,7 +180,7 @@ end subroutine allreduce_sum_r2
 
 subroutine allreduce_sum_r3(error, array, comm)
    !> Error handling
-   type(error_type), allocatable, intent(out) :: error
+   type(error_type), allocatable, intent(inout) :: error
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout), target :: array(:, :, :)
    !> Communicator to reduce over

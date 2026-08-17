@@ -174,11 +174,11 @@ contains
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
 
-      if (ctx%mpi) then
+      if (allocated(ctx%comm)) then
          call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
+         call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
+         call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
+         call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
          if (allocated(error)) then
             call ctx%set_error(error)
             return
@@ -210,11 +210,11 @@ contains
       end if
 
       ! Add effective Hamiltonian to potential
-      if (ctx%mpi) then
+      if (allocated(ctx%comm)) then
          call mpi_allreduce_sum(error, pot%vat, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vsh, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vdp, ctx%comm)
-         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vqp, ctx%comm)
+         call mpi_allreduce_sum(error, pot%vsh, ctx%comm)
+         call mpi_allreduce_sum(error, pot%vdp, ctx%comm)
+         call mpi_allreduce_sum(error, pot%vqp, ctx%comm)
          if (allocated(error)) then
             call ctx%set_error(error)
             return
@@ -228,7 +228,7 @@ contains
 
       ! Get the density matrix
       call next_density(wfn, solver, ints, elec_entropy, error)
-      if (ctx%mpi) call mpi_sync_error(error, ctx%comm)
+      if (allocated(ctx%comm)) call mpi_sync_error(error, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
