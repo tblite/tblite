@@ -32,6 +32,8 @@ module test_partition
       & mpi_allreduce_sum
    use tblite_partition, only : work_partition, new_work_partition, &
       & serial_work_partition, owns_index, owns_pair
+   use tblite_post_processing_list, only : post_processing_list, add_post_processing
+   use tblite_results, only : results_type
    use tblite_scf_potential, only : potential_type, new_potential
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
@@ -78,6 +80,8 @@ subroutine collect_partition(testsuite)
       new_unittest("feature", test_feature), &
       new_unittest("mpi-unavailable", test_mpi_unavailable), &
       new_unittest("mpi-mismatch", test_mpi_mismatch), &
+      new_unittest("unreduced", test_unreduced), &
+      new_unittest("post-processing", test_post_processing), &
       new_unittest("serial", test_serial), &
       new_unittest("gfn1-mol", test_gfn1_mol), &
       new_unittest("gfn2-mol", test_gfn2_mol), &
@@ -315,6 +319,87 @@ subroutine test_mpi_mismatch(error)
    deallocate(error)
 
 end subroutine test_mpi_mismatch
+
+
+!> A partitioned calculator without a context reducing the partial results
+!> would converge the SCF against an incomplete potential
+subroutine test_unreduced(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(work_partition) :: partition
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   call new_work_partition(error, partition, 1, nparts)
+   if (allocated(error)) return
+   call calc%set_partition(partition)
+   ctx%verbosity = 0
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
+   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy)
+
+   if (.not.ctx%failed()) then
+      call test_failed(error, "Unreduced work partition was not reported")
+      return
+   end if
+   call ctx%get_error(error)
+   deallocate(error)
+
+end subroutine test_unreduced
+
+
+!> The xTB-ML features are evaluated from the partitioned caches and cannot be
+!> summed afterwards, a distributed calculation has to reject them
+subroutine test_post_processing(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(results_type) :: res
+   type(post_processing_list) :: pproc
+   real(wp) :: energy
+   character(len=:), allocatable :: label
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   label = "xtbml"
+   call add_post_processing(pproc, mol, label, error)
+   if (allocated(error)) return
+
+   ! the context reduces, so the calculator has to carry the same partition
+   call ctx%set_partition(1, nparts, error)
+   if (allocated(error)) return
+   ctx%mpi = .true.
+   ctx%verbosity = 0
+   call calc%set_partition(ctx%partition)
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
+   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy, results=res, &
+      & post_process=pproc)
+
+   if (.not.ctx%failed()) then
+      call test_failed(error, "Post-processing of a distributed calculation was allowed")
+      return
+   end if
+   call ctx%get_error(error)
+   deallocate(error)
+
+end subroutine test_post_processing
 
 
 !> Summing the diatomic blocks of all parts has to reproduce the complete

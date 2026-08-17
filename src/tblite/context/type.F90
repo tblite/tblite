@@ -24,12 +24,12 @@
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use, intrinsic :: iso_fortran_env, only : output_unit
-   use mctc_env, only : wp, error_type
+   use mctc_env, only : wp, error_type, fatal_error
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
    use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition
-   use tblite_partition, only : work_partition, new_work_partition
+   use tblite_partition, only : work_partition, new_work_partition, same_work_partition
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -62,6 +62,8 @@ module tblite_context_type
       procedure :: set_partition
       !> Distribute the interaction loops over an MPI communicator
       procedure :: set_mpi
+      !> Reject a calculator that does not share the work partition of this context
+      procedure :: check_partition
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -114,6 +116,28 @@ subroutine set_mpi(self, error, comm)
    self%comm = local_comm
    self%mpi = .true.
 end subroutine set_mpi
+
+
+!> Reject a calculator that does not share the work partition of this context,
+!> partial results would otherwise be reduced twice or not at all
+subroutine check_partition(self, partition, error)
+   !> Instance of the calculation context
+   class(context_type), intent(in) :: self
+   !> Share of the interaction loops evaluated by the calculator
+   type(work_partition), intent(in) :: partition
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   if (same_work_partition(partition, self%partition)) return
+
+   if (self%mpi) then
+      call fatal_error(error, "Work partition of the calculator does not match the "//&
+         & "context, call calc%set_partition(ctx%partition) first")
+   else
+      call fatal_error(error, "Calculator is partitioned but the context does not "//&
+         & "reduce the partial results, enable MPI with ctx%set_mpi first")
+   end if
+end subroutine check_partition
 
 
 !> Add an error message to the context

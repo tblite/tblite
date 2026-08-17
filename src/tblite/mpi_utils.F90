@@ -41,6 +41,7 @@ module tblite_mpi_utils
 #endif
 
    public :: get_mpi_comm_world, new_mpi_work_partition, mpi_allreduce_sum
+   public :: mpi_sync_error
 
    !> Sum a partitioned result over all ranks of a communicator, in place
    interface mpi_allreduce_sum
@@ -111,6 +112,30 @@ subroutine new_mpi_work_partition(error, partition, comm)
 #endif
 
 end subroutine new_mpi_work_partition
+
+
+!> Make a failure on any rank of the communicator visible to all of them, a rank
+!> leaving a collective on its own would deadlock the remaining ones
+subroutine mpi_sync_error(error, comm)
+
+   !> Error handling, allocated on every rank if any rank failed
+   type(error_type), allocatable, intent(inout) :: error
+
+   !> Communicator to synchronize over
+   integer, intent(in) :: comm
+
+   type(error_type), allocatable :: sync_error
+   real(wp) :: failed
+
+   failed = merge(1.0_wp, 0.0_wp, allocated(error))
+   call mpi_allreduce_sum(sync_error, failed, comm)
+   if (allocated(sync_error)) failed = 1.0_wp
+
+   if (failed > 0.0_wp .and. .not.allocated(error)) then
+      call fatal_error(error, "Calculation failed on another rank")
+   end if
+
+end subroutine mpi_sync_error
 
 
 subroutine allreduce_sum_r0(error, val, comm)

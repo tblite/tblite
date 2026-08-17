@@ -201,7 +201,7 @@ Without MPI support every entry point of the ``tblite_mpi_utils`` module reports
 
 With MPI enabled the calculation context can distribute the interaction loops over a communicator and reduce the partial results inside the library.
 ``set_mpi`` derives the work partition from the rank and size of the communicator, which defaults to ``MPI_COMM_WORLD``.
-The partition still has to be handed to the calculator, a mismatch between the two is reported rather than silently double counting every contribution.
+The partition still has to be handed to the calculator, a calculator that does not share the partition of the context is rejected rather than silently double counting or dropping contributions.
 
 .. code-block:: fortran
 
@@ -215,7 +215,14 @@ The partition still has to be handed to the calculator, a mismatch between the t
 
 The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
 The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is then performed redundantly on every rank.
+A failure on any rank is made visible to all of them, a rank leaving a collective on its own would deadlock the remaining ones.
+``ceh_singlepoint`` supports the same distribution.
 *tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
+
+.. note::
+
+   Post-processing is rejected for a distributed calculation.
+   The xTB-ML features are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the ranks cannot be summed afterwards.
 
 .. note::
 

@@ -25,7 +25,7 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
-   use tblite_mpi_utils, only : mpi_allreduce_sum
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_scf_info, only : scf_info
    use tblite_scf_mixer, only : mixer_type
    use tblite_scf_potential, only : potential_type, add_pot_to_h1
@@ -93,6 +93,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    if (iscf > 0) then
       call mixer%next(error)
+      if (present(comm)) call mpi_sync_error(error, comm)
       if (allocated(error)) return
 
       call get_mixer(mixer, bas, wfn, info)
@@ -113,7 +114,6 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(comm)) then
       call mpi_allreduce_sum(error, pot%vat, comm)
       if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vsh, comm)
-      if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vao, comm)
       if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vdp, comm)
       if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vqp, comm)
       if (allocated(error)) return
@@ -124,6 +124,7 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    call set_mixer(mixer, wfn, info)
 
    call next_density(wfn, solver, ints, ts, error)
+   if (present(comm)) call mpi_sync_error(error, comm)
    if (allocated(error)) return
 
    call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &

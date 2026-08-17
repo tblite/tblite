@@ -17,12 +17,16 @@
 !> Distributing a single point calculation over MPI ranks must reproduce the
 !> serial result on every rank.
 program test_mpi_singlepoint
-   use mctc_env, only : wp, error_type
+   use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use mpi, only : MPI_COMM_WORLD, MPI_Abort, MPI_Finalize, MPI_Init
+   use mpi, only : MPI_COMM_WORLD, MPI_Abort, MPI_Comm_rank, MPI_Comm_size, &
+      & MPI_Finalize, MPI_Init
    use mstore, only : get_structure
+   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_container, only : container_type
    use tblite_context, only : context_type
+   use tblite_mpi_utils, only : mpi_sync_error
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
@@ -53,6 +57,9 @@ program test_mpi_singlepoint
    call assert(abs(mpi_energy - serial_energy) < thr, "energy")
    call assert(all(abs(mpi_gradient - serial_gradient) < thr), "gradient")
    call assert(all(abs(mpi_sigma - serial_sigma) < thr), "virial")
+
+   call check_sync_error()
+   call check_ceh()
 
    call MPI_Finalize(stat)
 
@@ -106,6 +113,65 @@ contains
       call move_alloc(solv, cont)
       call calc%push_back(cont)
    end subroutine add_solvation
+
+   !> A failure on the last rank alone has to become visible to every rank,
+   !> this call hangs instead of returning if the synchronization is missing
+   subroutine check_sync_error()
+      type(error_type), allocatable :: error
+      integer :: rank, nranks
+
+      call MPI_Comm_rank(MPI_COMM_WORLD, rank, stat)
+      call MPI_Comm_size(MPI_COMM_WORLD, nranks, stat)
+      if (rank == nranks - 1) call fatal_error(error, "Failure on the last rank")
+
+      call mpi_sync_error(error, MPI_COMM_WORLD)
+      call assert(allocated(error), "error synchronization")
+
+      deallocate(error)
+      call mpi_sync_error(error, MPI_COMM_WORLD)
+      call assert(.not.allocated(error), "error-free synchronization")
+   end subroutine check_sync_error
+
+   !> The CEH charges of a distributed run have to match the serial ones
+   subroutine check_ceh()
+      real(wp), allocatable :: serial_qat(:), mpi_qat(:)
+
+      call run_ceh(mol, .false., serial_qat, error)
+      call check_error(error)
+      call run_ceh(mol, .true., mpi_qat, error)
+      call check_error(error)
+
+      call assert(all(abs(mpi_qat - serial_qat) < thr), "CEH charges")
+   end subroutine check_ceh
+
+   subroutine run_ceh(mol, distributed, qat, error)
+      type(structure_type), intent(in) :: mol
+      logical, intent(in) :: distributed
+      real(wp), allocatable, intent(out) :: qat(:)
+      type(error_type), allocatable, intent(out) :: error
+
+      type(context_type) :: ctx
+      type(xtb_calculator) :: calc
+      type(wavefunction_type) :: wfn
+
+      ctx%verbosity = 0
+      call new_ceh_calculator(calc, mol, error)
+      if (allocated(error)) return
+
+      if (distributed) then
+         call ctx%set_mpi(error)
+         if (allocated(error)) return
+         call calc%set_partition(ctx%partition)
+      end if
+
+      call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 4000.0_wp)
+      call ceh_singlepoint(ctx, calc, mol, wfn, 1.0_wp)
+      if (ctx%failed()) then
+         call ctx%get_error(error)
+         return
+      end if
+      qat = wfn%qat(:, 1)
+   end subroutine run_ceh
 
    subroutine check_error(error)
       type(error_type), allocatable, intent(in) :: error

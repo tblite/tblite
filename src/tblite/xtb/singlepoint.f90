@@ -32,9 +32,8 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
-   use tblite_mpi_utils, only : mpi_allreduce_sum
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_output_format, only : format_string
-   use tblite_partition, only : same_work_partition
    use tblite_post_processing_list, only : post_processing_list
    use tblite_post_processing_type, only : collect_containers_caches
    use tblite_results, only : results_type
@@ -133,9 +132,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    pconv = 2.0e-5_wp*accuracy
 
    ! reducing unpartitioned contributions would multiply them by the rank count
-   if (ctx%mpi .and. .not.same_work_partition(calc%partition, ctx%partition)) then
-      call fatal_error(error, "Work partition of the calculator does not match the "//&
-         & "context, call calc%set_partition(ctx%partition) first")
+   call ctx%check_partition(calc%partition, error)
+   if (allocated(error)) then
       call ctx%set_error(error)
       return
    end if
@@ -368,6 +366,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
+   ! a rank skipping the gradient on its own would deadlock the remaining ones
+   if (ctx%mpi) then
+      block
+         type(error_type), allocatable :: sync
+         if (ctx%failed()) call fatal_error(sync, "Calculation failed on this rank")
+         call mpi_sync_error(sync, ctx%comm)
+         if (allocated(sync) .and. .not.ctx%failed()) call ctx%set_error(sync)
+      end block
+   end if
+
    if (ctx%failed()) then
       call ctx%delete_solver(solver)
       return
@@ -398,6 +406,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
+      if (ctx%mpi) call mpi_sync_error(error, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         call ctx%delete_solver(solver)
+         return
+      end if
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
@@ -427,6 +441,14 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (ctx%failed()) return
 
    if (present(post_process) .and. present(results)) then
+      ! the features are evaluated from the partitioned container caches and
+      ! E_tot is normalized per atom, so partial results cannot be summed
+      if (ctx%mpi) then
+         call fatal_error(error, "Post-processing is not available for a distributed "//&
+            & "calculation")
+         call ctx%set_error(error)
+         return
+      end if
       call timer%push("post processing")
       allocate(caches)
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)

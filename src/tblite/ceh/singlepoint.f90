@@ -30,6 +30,7 @@ module tblite_ceh_singlepoint
    use tblite_context, only : context_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_output_format, only: format_string
    use tblite_scf_iterator, only: next_density, get_qat_from_qsh
    use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1
@@ -110,6 +111,13 @@ contains
          prlevel = ctx%verbosity
       end if
 
+      ! reducing unpartitioned contributions would multiply them by the rank count
+      call ctx%check_partition(calc%partition, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+
       if (prlevel > 1) then
          call ctx%message("CEH singlepoint")
       end if
@@ -164,7 +172,18 @@ contains
       ! Get Hamiltonian and integrals
       call new_integral(ints, calc%bas%nao)
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
+
+      if (ctx%mpi) then
+         call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+      end if
       call timer%pop
 
       ! Get initial potential for external fields and Coulomb
@@ -191,6 +210,16 @@ contains
       end if
 
       ! Add effective Hamiltonian to potential
+      if (ctx%mpi) then
+         call mpi_allreduce_sum(error, pot%vat, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vsh, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vdp, ctx%comm)
+         if (.not.allocated(error)) call mpi_allreduce_sum(error, pot%vqp, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+      end if
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
       call timer%push("diagonalization")
@@ -199,6 +228,7 @@ contains
 
       ! Get the density matrix
       call next_density(wfn, solver, ints, elec_entropy, error)
+      if (ctx%mpi) call mpi_sync_error(error, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
       end if
