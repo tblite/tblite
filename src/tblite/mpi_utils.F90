@@ -25,20 +25,19 @@
 !>
 !> Without MPI support every entry point reports an error, the communicator
 !> handles are meaningless in that case.
+!>
+!> Communicators are passed as plain integer handles to keep the MPI types out
+!> of the rest of the library, ``MPI_Comm%MPI_VAL`` converts an mpi_f08 handle.
 module tblite_mpi_utils
    use mctc_env, only : wp, error_type, fatal_error
    use tblite_partition, only : work_partition, new_work_partition
 #if TBLITE_HAS_MPI
-   ! only the constants are taken from the module, the procedures are declared
-   ! external because not every MPI build exports explicit interfaces for them
-   use mpi, only : MPI_COMM_WORLD, MPI_DOUBLE_PRECISION, MPI_IN_PLACE, MPI_SUM
+   use mpi_f08, only : MPI_Comm, MPI_COMM_WORLD, MPI_DOUBLE_PRECISION, MPI_IN_PLACE, &
+      & MPI_LOGICAL, MPI_LOR, MPI_SUM, MPI_Allreduce, MPI_Comm_rank, MPI_Comm_size, &
+      & MPI_Initialized
 #endif
    implicit none
    private
-
-#if TBLITE_HAS_MPI
-   external :: MPI_Allreduce, MPI_Comm_rank, MPI_Comm_size, MPI_Initialized
-#endif
 
    public :: get_mpi_comm_world, new_mpi_work_partition, mpi_allreduce_sum
    public :: mpi_sync_error
@@ -64,7 +63,7 @@ function get_mpi_comm_world() result(comm)
    integer :: comm
 
 #if TBLITE_HAS_MPI
-   comm = MPI_COMM_WORLD
+   comm = MPI_COMM_WORLD%MPI_VAL
 #else
    comm = 0
 #endif
@@ -96,12 +95,12 @@ subroutine new_mpi_work_partition(error, partition, comm)
       return
    end if
 
-   call MPI_Comm_rank(comm, rank, stat)
+   call MPI_Comm_rank(MPI_Comm(comm), rank, stat)
    if (stat /= 0) then
       call fatal_error(error, "Could not determine the rank of this process")
       return
    end if
-   call MPI_Comm_size(comm, nranks, stat)
+   call MPI_Comm_size(MPI_Comm(comm), nranks, stat)
    if (stat /= 0) then
       call fatal_error(error, "Could not determine the size of the communicator")
       return
@@ -124,16 +123,20 @@ subroutine mpi_sync_error(error, comm)
    !> Communicator to synchronize over
    integer, intent(in) :: comm
 
-   type(error_type), allocatable :: sync_error
-   real(wp) :: failed
+   logical :: failed
+   integer :: stat
 
-   failed = merge(1.0_wp, 0.0_wp, allocated(error))
-   call mpi_allreduce_sum(sync_error, failed, comm)
-   if (allocated(sync_error)) failed = 1.0_wp
+#if TBLITE_HAS_MPI
+   failed = allocated(error)
+   call MPI_Allreduce(MPI_IN_PLACE, failed, 1, MPI_LOGICAL, MPI_LOR, MPI_Comm(comm), stat)
+   if (stat /= 0) failed = .true.
 
-   if (failed > 0.0_wp .and. .not.allocated(error)) then
+   if (failed .and. .not.allocated(error)) then
       call fatal_error(error, "Calculation failed on another rank")
    end if
+#else
+   if (.not.allocated(error)) call fatal_error(error, no_mpi)
+#endif
 
 end subroutine mpi_sync_error
 
@@ -166,7 +169,7 @@ subroutine allreduce_sum_r1(error, array, comm)
 
 #if TBLITE_HAS_MPI
    call MPI_Allreduce(MPI_IN_PLACE, array, size(array), MPI_DOUBLE_PRECISION, &
-      & MPI_SUM, comm, stat)
+      & MPI_SUM, MPI_Comm(comm), stat)
    if (stat /= 0) call fatal_error(error, "Could not reduce partitioned results")
 #else
    call fatal_error(error, no_mpi)

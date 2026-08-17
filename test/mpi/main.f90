@@ -19,7 +19,7 @@
 program test_mpi_singlepoint
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
-   use mpi, only : MPI_COMM_WORLD, MPI_Abort, MPI_Comm_rank, MPI_Comm_size, &
+   use mpi_f08, only : MPI_COMM_WORLD, MPI_Abort, MPI_Comm_rank, MPI_Comm_size, &
       & MPI_Finalize, MPI_Init
    use mstore, only : get_structure
    use tblite_ceh_ceh, only : new_ceh_calculator
@@ -124,11 +124,11 @@ contains
       call MPI_Comm_size(MPI_COMM_WORLD, nranks, stat)
       if (rank == nranks - 1) call fatal_error(error, "Failure on the last rank")
 
-      call mpi_sync_error(error, MPI_COMM_WORLD)
+      call mpi_sync_error(error, MPI_COMM_WORLD%MPI_VAL)
       call assert(allocated(error), "error synchronization")
 
       deallocate(error)
-      call mpi_sync_error(error, MPI_COMM_WORLD)
+      call mpi_sync_error(error, MPI_COMM_WORLD%MPI_VAL)
       call assert(.not.allocated(error), "error-free synchronization")
    end subroutine check_sync_error
 

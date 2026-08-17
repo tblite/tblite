@@ -213,6 +213,9 @@ The partition still has to be handed to the calculator, a calculator that does n
    ! energy, gradient and virial are already reduced, every rank holds the total
    call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
 
+Internally *tblite* uses the ``mpi_f08`` interfaces, but communicators cross the library boundary as plain integer handles so that no MPI types leak into the calculation context or the calculator.
+Users of ``mpi_f08`` pass ``comm%MPI_VAL``, users of the older ``mpi`` module pass the communicator directly.
+
 The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
 The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is then performed redundantly on every rank.
 A failure on any rank is made visible to all of them, a rank leaving a collective on its own would deadlock the remaining ones.
