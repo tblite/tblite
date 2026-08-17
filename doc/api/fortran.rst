@@ -174,7 +174,8 @@ Alternatively the partition can be stored in the calculation context with ``ctx%
    Structure dependent quantities such as coordination numbers, Born radii and the interaction caches are evaluated for the full system on every part.
    Only the interaction loops are partitioned, so the speedup is bound by those loops.
 
-The diatomic blocks of the overlap, multipole and core Hamiltonian integrals and of the Hamiltonian gradient are partitioned as well, as are the Born interaction matrix of the ALPB/GBSA model and the solvent accessible surface of the CDS term.
+The diatomic blocks of the overlap, multipole and core Hamiltonian integrals and of the Hamiltonian gradient are partitioned as well, following the entries of the neighbour list rather than the atom pairs, so the share of each part is even for sparse and periodic systems.
+The Born interaction matrix of the ALPB/GBSA model and the solvent accessible surface of the CDS term are partitioned over atom pairs and atoms, respectively.
 
 Contributions which are not expressible as an interaction loop are carried in full by the first part.
 This currently applies to the D3 and D4 dispersion corrections, which cannot partition their own loops yet, to the ddX solvation models, to the analytical linearized Poisson-Boltzmann gradient, whose inertia tensor couples all atoms, and to the external electric field.

@@ -27,7 +27,7 @@ module tblite_xtb_h0
       & diat_trafo
    use tblite_integral_native_integrals, only : multipole_cgto, multipole_grad_cgto, &
       & msao, smap, sdim
-   use tblite_partition, only : work_partition, owns_pair
+   use tblite_partition, only : work_partition, owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_xtb_spec, only : tb_h0spec
    implicit none
@@ -240,7 +240,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    real(wp), intent(out) :: qpint(:, :, :)
    !> Effective Hamiltonian
    real(wp), intent(out) :: hamiltonian(:, :)
-   !> Share of the diatomic blocks evaluated here, absent selects the complete work
+   !> Share of the neighbour list entries evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl
@@ -278,8 +278,8 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
-         ! both orderings of a pair have to stay together
-         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
+         ! the offset into the neighbour list enumerates the diatomic blocks
+         if (.not.owns_index(partition, img+inl)) cycle
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -399,7 +399,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       end do
 
       ! Onsite contribution to the Hamiltonian
-      if (.not.owns_pair(partition, iat, iat)) cycle
+      if (.not.owns_index(partition, iat)) cycle
       vec(:) = 0.0_wp
       do ish = 1, nsi
          ii = bas%iao_sh(is+ish)
@@ -466,7 +466,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    !> Derivative of the electronic energy w.r.t. strain deformations
    real(wp), intent(inout) :: sigma(:, :)
 
-   !> Share of the diatomic blocks evaluated here, absent selects the complete work
+   !> Share of the neighbour list entries evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
@@ -512,8 +512,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
-         ! both orderings of a pair have to stay together
-         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
+         ! the offset into the neighbour list enumerates the diatomic blocks
+         if (.not.owns_index(partition, img+inl)) cycle
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -665,7 +665,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       end do
 
       ! Onsite contributions
-      if (.not.owns_pair(partition, iat, iat)) cycle
+      if (.not.owns_index(partition, iat)) cycle
       do ish = 1, bas%nsh_id(izp)
          ii = bas%iao_sh(is+ish)
          dhdcni = dsedcn(is+ish)
