@@ -34,13 +34,13 @@ module tblite_mpi_utils
 #if TBLITE_HAS_MPI
    use mpi_f08, only : MPI_Comm, MPI_COMM_WORLD, MPI_DOUBLE_PRECISION, MPI_IN_PLACE, &
       & MPI_LOGICAL, MPI_LOR, MPI_SUM, MPI_Allreduce, MPI_Comm_rank, MPI_Comm_size, &
-      & MPI_Initialized
+      & MPI_Finalize, MPI_Init, MPI_Initialized
 #endif
    implicit none
    private
 
    public :: get_mpi_comm_world, new_mpi_work_partition, mpi_allreduce_sum
-   public :: mpi_sync_error
+   public :: mpi_sync_error, mpi_startup, mpi_shutdown
 
    !> Sum a partitioned result over all ranks of a communicator, in place.
    !> A pending error is left untouched and skips the reduction.
@@ -54,6 +54,30 @@ module tblite_mpi_utils
 
 
 contains
+
+
+!> Enter the MPI environment, a no-op without MPI support
+subroutine mpi_startup()
+
+#if TBLITE_HAS_MPI
+   integer :: stat
+
+   call MPI_Init(stat)
+#endif
+
+end subroutine mpi_startup
+
+
+!> Leave the MPI environment, a no-op without MPI support
+subroutine mpi_shutdown()
+
+#if TBLITE_HAS_MPI
+   integer :: stat
+
+   call MPI_Finalize(stat)
+#endif
+
+end subroutine mpi_shutdown
 
 
 !> Handle of the global communicator, meaningless without MPI support

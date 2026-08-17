@@ -223,10 +223,20 @@ A failure on any rank is made visible to all of them, a rank leaving a collectiv
 ``ceh_singlepoint`` supports the same distribution.
 *tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
 
+The ``tblite`` command line driver does this for you.
+An MPI enabled binary always enters the MPI environment and derives its work partition from ``MPI_COMM_WORLD``, so running it under ``mpiexec`` distributes the calculation without any further option.
+A single rank owns the complete work, which makes a normal invocation behave exactly as before.
+Only the first rank reports and writes result files, every rank holds the same reduced result.
+
+.. code-block:: shell
+
+   mpiexec -n 4 tblite run --method gfn2 --grad struc.xyz
+
 .. note::
 
-   Post-processing is rejected for a distributed calculation.
-   The xTB-ML features are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the ranks cannot be summed afterwards.
+   The xTB-ML features are rejected for a distributed calculation.
+   They are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the ranks cannot be summed afterwards.
+   Bond orders and multipole moments are computed from the reduced wavefunction and remain available.
 
 .. note::
 

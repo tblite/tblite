@@ -438,14 +438,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (ctx%failed()) return
 
    if (present(post_process) .and. present(results)) then
-      ! the features are evaluated from the partitioned container caches and
-      ! E_tot is normalized per atom, so partial results cannot be summed
-      if (allocated(ctx%comm)) then
-         call fatal_error(error, "Post-processing is not available for a distributed "//&
-            & "calculation")
-         call ctx%set_error(error)
-         return
-      end if
       call timer%push("post processing")
       allocate(caches)
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
