@@ -176,7 +176,7 @@ contains
    subroutine check_error(error)
       type(error_type), allocatable, intent(in) :: error
       if (allocated(error)) then
-         write(*, '(2a)') "[Fatal] ", error%message
+         write(*, "(2a)") "[Fatal] ", error%message
          call MPI_Abort(MPI_COMM_WORLD, 1, stat)
       end if
    end subroutine check_error
@@ -185,7 +185,7 @@ contains
       logical, intent(in) :: condition
       character(len=*), intent(in) :: label
       if (.not.condition) then
-         write(*, '(3a)') "[Fatal] Distributed ", label, " does not match the serial result"
+         write(*, "(3a)") "[Fatal] Distributed ", label, " does not match the serial result"
          call MPI_Abort(MPI_COMM_WORLD, 1, stat)
       end if
    end subroutine assert

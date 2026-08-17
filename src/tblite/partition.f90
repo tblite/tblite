@@ -32,8 +32,11 @@ module tblite_partition
    !> Parts are zero based. Every unit of work is assigned to exactly one part,
    !> summing the contributions of all parts reproduces the complete result.
    !> An absent or default constructed partition owns all of the work.
+   !>
+   !> The components are public because every interaction container carries a
+   !> partition, private ones would break structure constructors of containers
+   !> defined outside this module.
    type :: work_partition
-      private
 
       !> Zero-based index of this part
       integer :: part = 0
