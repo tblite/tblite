@@ -28,8 +28,8 @@ module tblite_driver_run
    use tblite_container, only : container_type
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
-   use tblite_features, only : tblite_has_mpi
    use tblite_external_field, only : electric_field
+   use tblite_features, only : tblite_has_mpi
    use tblite_io_molden, only : save_molden
    use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
