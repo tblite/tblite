@@ -216,6 +216,17 @@ if get_option('mpi')
   )
 endif
 
+if get_option('scalapack')
+  if not get_option('mpi')
+    error('scalapack option requires the mpi option')
+  endif
+  scalapack_dep = dependency('scalapack', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_SCALAPACK=1'],
+    dependencies: [scalapack_dep],
+  )
+endif
+
 # Create ddX library as subproject
 if get_option('ddx')
   ddx_dep = dependency(

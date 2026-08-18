@@ -26,6 +26,10 @@ program test_mpi_singlepoint
    use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_container, only : container_type
    use tblite_context, only : context_type
+   use tblite_features, only : tblite_has_scalapack
+   use tblite_lapack_scalapack, only : psygvd_solver, new_psygvd, &
+      & distribute_diagonalization
+   use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_mpi_utils, only : mpi_sync_error
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
@@ -60,6 +64,7 @@ program test_mpi_singlepoint
 
    call check_sync_error()
    call check_ceh()
+   call check_eigensolver()
 
    call MPI_Finalize(stat)
 
@@ -172,6 +177,50 @@ contains
       end if
       qat = wfn%qat(:, 1)
    end subroutine run_ceh
+
+   !> The distributed eigensolver has to reproduce the eigenvalues of the
+   !> replicated one for the block sizes and process grids it picks
+   subroutine check_eigensolver()
+      integer, parameter :: n = 37
+      real(wp) :: amat(n, n), bmat(n, n), work(n, n)
+      real(wp) :: hmat(n, n), eval(n), reference(n), nel(2)
+      type(sygvd_solver) :: serial
+      type(psygvd_solver) :: distributed
+      integer :: i, j
+
+      if (.not.tblite_has_scalapack) return
+
+      ! a diagonally dominant pair keeps the generalized problem well conditioned
+      do i = 1, n
+         do j = 1, n
+            work(j, i) = sin(real(i*j, wp))
+         end do
+      end do
+      amat(:, :) = 0.5_wp*(work + transpose(work))
+      bmat(:, :) = 0.0_wp
+      do i = 1, n
+         amat(i, i) = amat(i, i) + real(i, wp)
+         bmat(i, i) = 1.0_wp + 0.1_wp*real(modulo(i, 3), wp)
+      end do
+
+      nel = [real(n, wp), real(n, wp)]
+      hmat(:, :) = amat
+      call new_sygvd(serial, bmat, nel, 0.0_wp)
+      call serial%solve(hmat, bmat, reference, error)
+      call check_error(error)
+
+      hmat(:, :) = amat
+      call new_psygvd(distributed, bmat, nel, 0.0_wp, MPI_COMM_WORLD%MPI_VAL)
+      call distributed%solve(hmat, bmat, eval, error)
+      call check_error(error)
+      call distributed%delete()
+
+      call assert(all(abs(eval - reference) < 1.0e-8_wp), "eigenvalues")
+
+      ! a matrix this small is faster on a single rank
+      call assert(.not.distribute_diagonalization(4, MPI_COMM_WORLD%MPI_VAL), &
+         & "small matrix fallback")
+   end subroutine check_eigensolver
 
    subroutine check_error(error)
       type(error_type), allocatable, intent(in) :: error

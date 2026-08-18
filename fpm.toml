@@ -45,7 +45,7 @@ ignore = [
 ]
 per-file-ignores."src/tblite/api/*.f90" = ["C071", "C072"]
 per-file-ignores."src/tblite/blas/*.f90" = ["C071"]
-per-file-ignores."src/tblite/lapack/*.f90" = ["C071"]
+per-file-ignores."src/tblite/lapack/*" = ["C071"]
 per-file-ignores."src/tblite/fit/newuoa.f90" = ["C071"]
 per-file-ignores."src/tblite/mesh/lebedev.f90" = ["C071"]
 line-length = 132

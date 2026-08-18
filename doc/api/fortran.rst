@@ -218,7 +218,7 @@ Internally *tblite* uses the ``mpi_f08`` interfaces, but communicators cross the
 Users of ``mpi_f08`` pass ``comm%MPI_VAL``, users of the older ``mpi`` module pass the communicator directly.
 
 The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
-The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is then performed redundantly on every rank.
+The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is distributed if ScaLAPACK is available and performed redundantly on every rank otherwise, see :ref:`scalapack`.
 A failure on any rank is made visible to all of them, a rank leaving a collective on its own would deadlock the remaining ones.
 ``ceh_singlepoint`` supports the same distribution.
 *tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
@@ -241,6 +241,30 @@ Only the first rank reports and writes result files, every rank holds the same r
 .. note::
 
    Reducing the integral matrices costs :math:`\mathcal{O}(N_\text{ao}^2)` communication per geometry and every rank still holds the full matrices, so memory does not scale with the number of ranks.
+
+
+.. _scalapack:
+
+Distributing the diagonalization
+--------------------------------
+
+The diagonalization scales as :math:`\mathcal{O}(N_\text{ao}^3)` and dominates a distributed calculation once the interaction loops are shared out.
+Building with ``-Dscalapack=true`` (meson) or ``-DTBLITE_WITH_SCALAPACK=ON`` (CMake) distributes it over the same communicator, the option requires MPI support.
+Availability is reported by the ``tblite_has_scalapack`` parameter and by ``get_tblite_feature("scalapack")``.
+
+Nothing has to be requested at runtime, a context that distributes over a communicator picks the ScaLAPACK solver automatically.
+The ranks are arranged in the squarest possible process grid and the matrices are held in a block-cyclic layout.
+Because the Hamiltonian and overlap are replicated already, filling the local blocks costs no communication and only the eigenvectors are collected again.
+A single rank or a matrix too small to fill one block per process row falls back to the replicated solver, where the distribution would only add overhead.
+
+.. note::
+
+   The eigenvectors are gathered with a reduction over the full matrix, so the memory still holds the complete matrices on every rank.
+   Only the cost of the diagonalization is distributed, not its storage.
+
+.. note::
+
+   The process grid is derived from the global communicator, a context distributing over a subgroup is rejected by the ScaLAPACK solver.
 
 
 High-level interface

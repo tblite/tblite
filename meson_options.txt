@@ -72,6 +72,14 @@ option(
 )
 
 option(
+  'scalapack',
+  type: 'boolean',
+  value: false,
+  yield: true,
+  description: 'distribute the diagonalization over MPI ranks (requires mpi)',
+)
+
+option(
   'api',
   type: 'boolean',
   value: true,

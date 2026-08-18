@@ -216,7 +216,7 @@ subroutine new_solver(self, solver, overlap, nel, kt)
       self%solver = lapack_solver()
    end if
 
-   call self%solver%new(solver, overlap, nel, kt)
+   call self%solver%new(solver, overlap, nel, kt, self%comm)
 end subroutine new_solver
 
 

@@ -26,6 +26,9 @@
 #ifndef TBLITE_HAS_MPI
 #define TBLITE_HAS_MPI 0
 #endif
+#ifndef TBLITE_HAS_SCALAPACK
+#define TBLITE_HAS_SCALAPACK 0
+#endif
 
 !> @file tblite/features.f90
 !> Provides version and feature information
@@ -40,6 +43,7 @@ module tblite_features
    public :: tblite_use_hdf5
    public :: tblite_use_trexio
    public :: tblite_has_mpi
+   public :: tblite_has_scalapack
 
 
    !> Logical flag indicating if DDX solvation model support is available
@@ -50,6 +54,8 @@ module tblite_features
    logical, parameter :: tblite_use_trexio = TBLITE_HAS_TREXIO /= 0
    !> Logical flag indicating if MPI support is available
    logical, parameter :: tblite_has_mpi = TBLITE_HAS_MPI /= 0
+   !> Logical flag indicating if ScaLAPACK support is available
+   logical, parameter :: tblite_has_scalapack = TBLITE_HAS_SCALAPACK /= 0
 
 
 contains
@@ -69,6 +75,8 @@ pure function get_tblite_feature(flag) result(use_feature)
       use_feature = tblite_use_trexio
    case("mpi")
       use_feature = tblite_has_mpi
+   case("scalapack")
+      use_feature = tblite_has_scalapack
    case default
       use_feature = .false.
    end select
