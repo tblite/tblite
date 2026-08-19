@@ -305,7 +305,6 @@ subroutine test_mpi_mismatch(error)
 
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
-   ctx%comm = 0
    ctx%verbosity = 0
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
@@ -381,10 +380,9 @@ subroutine test_post_processing(error)
    call add_post_processing(pproc, mol, label, error)
    if (allocated(error)) return
 
-   ! the context reduces, so the calculator has to carry the same partition
+   ! the calculator has to carry the partition of the context to get that far
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
-   ctx%comm = 0
    ctx%verbosity = 0
    call calc%set_partition(ctx%partition)
 

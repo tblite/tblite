@@ -234,8 +234,8 @@ Only the first rank reports and writes result files, every rank holds the same r
 
 .. note::
 
-   The xTB-ML features are rejected for a distributed calculation.
-   They are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the ranks cannot be summed afterwards.
+   The xTB-ML features are rejected for a partitioned calculation.
+   They are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the parts cannot be summed afterwards.
    Bond orders and multipole moments are computed from the reduced wavefunction and remain available.
 
 .. note::
