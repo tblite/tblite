@@ -28,10 +28,14 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         build-type: [debug]
         toolchain:
-          - {compiler: gcc, version: '12', build: meson}
-          - {compiler: gcc, version: '12', build: cmake}
+          - {compiler: gcc, version: '12', build: meson, ddx: false}
+          - {compiler: gcc, version: '12', build: cmake, ddx: false}
 
         include:
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson, ddx: true}
+
           - os: ubuntu-latest
             build-type: coverage
             toolchain: {compiler: gcc, version: '10', build: meson}
@@ -198,6 +202,7 @@ jobs:
           ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
+          ${{ matrix.toolchain.ddx && '-Dddx=true' || '' }}
 
     - name: Configure build (CMake)
       if: ${{ matrix.toolchain.build == 'cmake' }}

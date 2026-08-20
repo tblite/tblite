@@ -25,6 +25,10 @@
 
 #include "tblite.h"
 
+#ifndef TBLITE_HAS_DDX
+#define TBLITE_HAS_DDX 0
+#endif
+
 #define check(x, ...)           \
     _Generic((x),               \
              int                \
@@ -3233,6 +3237,7 @@ int test_uninitialized_solvation()
     if (cont != NULL) goto unexpected;
     error = tblite_new_error();
 
+#if TBLITE_HAS_DDX
     // check if it fails when mol is not associated
     cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_solvation_ddcosmo);
     if (!tblite_check(error))
@@ -3261,6 +3266,7 @@ int test_uninitialized_solvation()
     if (cont != NULL)
         goto unexpected;
     show(error);
+#endif
 
     cont = tblite_new_alpb_solvation_solvent(error, mol, "ínvalid-solvent", tblite_solvation_alpb_gfn2, tblite_state_bar1mol);
     if (!tblite_check(error))
@@ -3287,6 +3293,7 @@ unexpected:
     return 1;
 }
 
+#if TBLITE_HAS_DDX
 int test_solvation_ddcosmo_eps()
 {
     printf("Start test: ddCOSMO Solvation\n");
@@ -3579,6 +3586,7 @@ err:
     tblite_delete(res);
     return 1;
 }
+#endif
 
 int test_solvation_alpb_eps()
 {
@@ -4042,10 +4050,12 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
+#if TBLITE_HAS_DDX
     stat += test_solvation_ddcosmo_eps();
     stat += test_solvation_ddcpcm_eps();
     stat += test_solvation_ddcpcm_solvent();
     stat += test_solvation_ddpcm_eps();
+#endif
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();
