@@ -38,12 +38,18 @@ jobs:
         retention-days: 5
 
   sdist:
+    needs:
+      - source
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash -l {0}
     steps:
     - uses: actions/checkout@v7
+    - name: Download source distribution
+      uses: actions/download-artifact@v8
+      with:
+        name: tblite-source
     - name: Setup Python
       uses: mamba-org/setup-micromamba@v3
       with:
@@ -59,9 +65,14 @@ jobs:
       run: |
         git config user.email ""
         git config user.name "dummy"
-        git subtree add --prefix python/subprojects/tblite . HEAD
+        mkdir -p python/subprojects/tblite
+        tar -xJf tblite-*.tar.xz \
+          --strip-components=1 \
+          -C python/subprojects/tblite
+        git add --force python/subprojects/tblite
+        git commit -m "Python dist"
     - run: |
-        python -m build python/ --sdist --outdir . -n -Cdist-args="--include-subprojects"
+        python -m build python/ --sdist --outdir . -n
     - uses: actions/upload-artifact@v7
       with:
         name: tblite-python-sdist

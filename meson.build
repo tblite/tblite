@@ -133,6 +133,7 @@ if install
       output: meson.project_name() + '-targets.cmake',
       configuration: cmake_data,
     ),
+    files('config'/'cmake'/'FindddX.cmake'),
     files('config'/'cmake'/'Finddftd4.cmake'),
     files('config'/'cmake'/'Findmctc-lib.cmake'),
     files('config'/'cmake'/'Findmstore.cmake'),

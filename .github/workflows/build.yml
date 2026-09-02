@@ -14,6 +14,7 @@ env:
     pytest
     pytest-cov
     cffi
+    setuptools
     numpy
     ase
     matplotlib
@@ -196,7 +197,7 @@ jobs:
         COVERAGE: ${{ matrix.build-type == 'coverage' }}
         MESON_ARGS: >-
           ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
-          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas -Dapi=false' || '' }}
+          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
 
     - name: Configure build (CMake)
@@ -207,6 +208,7 @@ jobs:
         -DCMAKE_BUILD_TYPE=Debug
         -DCMAKE_INSTALL_PREFIX=$PWD/_dist
         -DCMAKE_INSTALL_LIBDIR=lib
+        -DTBLITE_WITH_DDX=ON
 
     - name: Build library (fpm)
       if: ${{ matrix.toolchain.build == 'fpm' }}
@@ -281,16 +283,16 @@ jobs:
         meson compile -C ${{ env.BUILD_DIR }}/discover-meson
 
     - name: Create package
-      if: ${{ matrix.toolchain.build == 'meson' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
       run: |
         tar cvf ${{ env.OUTPUT }} _dist
         xz -T0 ${{ env.OUTPUT }}
         echo "TBLITE_OUTPUT=${{ env.OUTPUT }}.xz" >> $GITHUB_ENV
       env:
-        OUTPUT: tblite-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.os }}.tar
+        OUTPUT: tblite-${{ matrix.toolchain.build }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.os }}.tar
 
     - name: Upload package
-      if: ${{ matrix.toolchain.build == 'meson' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ env.TBLITE_OUTPUT }}
@@ -311,8 +313,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
+        build: [meson, cmake]
         gcc_v: ['12']
         python_v: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+
+        include:
+          - os: macos-latest
+            build: meson
+            gcc_v: '12'
+            python_v: '3.12'
+
+          - os: macos-latest
+            build: cmake
+            gcc_v: '12'
+            python_v: '3.12'
 
     env:
       FC: gfortran
@@ -320,7 +334,7 @@ jobs:
       GCC_V: ${{ matrix.gcc_v }}
       PYTHON_V: ${{ matrix.python_v }}
       OMP_NUM_THREADS: 2,1
-      TBLITE_OUTPUT: tblite-gcc-${{ matrix.gcc_v }}-${{ matrix.os }}.tar.xz
+      TBLITE_OUTPUT: tblite-${{ matrix.build }}-gcc-${{ matrix.gcc_v }}-${{ matrix.os }}.tar.xz
 
     steps:
     - name: Checkout code
@@ -354,8 +368,8 @@ jobs:
       if: ((matrix.python_v == '3.14') || (matrix.python_v == '3.13'))
       run: pip3 install "qcelemental>=0.50.0rc3"
 
-    - name: Install meson and test dependencies
-      run: pip3 install ${{ env.PIP_EXTRAS }}
+    - name: Install build and test dependencies
+      run: pip3 install ${{ env.PIP_PACKAGES }} ${{ env.PIP_EXTRAS }}
 
     - name: Download package
       uses: actions/download-artifact@v8
@@ -367,15 +381,47 @@ jobs:
         tar xvf ${{ env.TBLITE_OUTPUT }}
         echo "TBLITE_PREFIX=$PWD/_dist" >> $GITHUB_ENV
 
-    - name: Install Python extension module (pip)
+    - name: Install Python extension module (Meson)
+      if: ${{ matrix.build == 'meson' }}
       run: pip3 install . --user
       working-directory: python
       env:
         PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}:${{ env.TBLITE_PREFIX }}/lib/pkgconfig
 
-    - name: Test Python API
+    - name: Configure Python extension module (CMake)
+      if: ${{ matrix.build == 'cmake' }}
+      run: >-
+        cmake -S python -B ${{ env.BUILD_DIR }}-python
+        -GNinja
+        -DCMAKE_BUILD_TYPE=Debug
+        -DCMAKE_PREFIX_PATH=${{ env.TBLITE_PREFIX }}
+        -DCMAKE_INSTALL_PREFIX=$PWD/_python-dist
+        -DCMAKE_INSTALL_LIBDIR=lib
+        -DPython3_EXECUTABLE=$(which python3)
+
+    - name: Build Python extension module (CMake)
+      if: ${{ matrix.build == 'cmake' }}
+      run: cmake --build ${{ env.BUILD_DIR }}-python
+
+    - name: Install Python extension module (CMake)
+      if: ${{ matrix.build == 'cmake' }}
+      run: |
+        cmake --install ${{ env.BUILD_DIR }}-python
+        python_site=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib', vars={'base': '', 'platbase': '', 'platlibdir': 'lib'}).lstrip('/'))")
+        echo "TBLITE_PYTHONPATH=$PWD/_python-dist/$python_site" >> $GITHUB_ENV
+
+    - name: Test Python API (Meson)
+      if: ${{ matrix.build == 'meson' }}
       run: pytest --pyargs tblite --cov=tblite -vv
       env:
+        LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
+        DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
+
+    - name: Test Python API (CMake)
+      if: ${{ matrix.build == 'cmake' }}
+      run: pytest --pyargs tblite --cov=tblite -vv
+      env:
+        PYTHONPATH: ${{ env.TBLITE_PYTHONPATH }}
         LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
         DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
 

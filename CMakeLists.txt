@@ -86,7 +86,7 @@ if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
 if(TBLITE_WITH_DDX AND NOT TARGET "ddx")
-  find_package("ddX" CONFIG REQUIRED)
+  find_package("ddX" REQUIRED)
 endif()
   
 set(
@@ -180,6 +180,13 @@ add_subdirectory("app")
 add_library("${PROJECT_NAME}" INTERFACE)
 add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 target_link_libraries("${PROJECT_NAME}" INTERFACE "${PROJECT_NAME}-lib")
+
+if(TBLITE_WITH_PYTHON)
+  if(NOT TBLITE_WITH_API)
+    message(FATAL_ERROR "TBLITE_WITH_PYTHON requires TBLITE_WITH_API")
+  endif()
+  add_subdirectory("python")
+endif()
 install(
   TARGETS
   "${PROJECT_NAME}"
