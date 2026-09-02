@@ -32,6 +32,7 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_output_format, only : format_string
    use tblite_post_processing_list, only : post_processing_list
    use tblite_post_processing_type, only : collect_containers_caches
@@ -128,6 +129,13 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    econv = 1.0e-6_wp*accuracy
    pconv = 2.0e-5_wp*accuracy
 
+   ! reducing unpartitioned contributions would multiply them by the rank count
+   call ctx%check_partition(calc%partition, error)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
    grad = present(gradient) .and. present(sigma)
 
    allocate(energies(mol%nat), source=0.0_wp)
@@ -203,6 +211,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
+   ! the non-selfconsistent contributions above are the partitioned ones
+   if (allocated(ctx%comm)) then
+      call mpi_allreduce_sum(error, energies, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+   end if
+
    call new_potential(pot, mol, calc%bas, wfn%nspin)
    if (allocated(calc%coulomb)) then
       allocate(ccache)
@@ -239,7 +256,18 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
    call new_integral(ints, calc%bas%nao)
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
+
+   if (allocated(ctx%comm)) then
+      call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
+      call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
+      call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
+      call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+   end if
 
    call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
    target_kt = wfn%kt
@@ -296,7 +324,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
-         & ccache, dcache, icache, eelec, error)
+         & ccache, dcache, icache, eelec, error, comm=ctx%comm)
       econverged = abs(sum(eelec) - elast) < econv
       pnorm = mixer%get_error()
       pconverged = pnorm < pconv
@@ -335,6 +363,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
+   ! a rank skipping the gradient on its own would deadlock the remaining ones
+   if (allocated(ctx%comm)) then
+      block
+         type(error_type), allocatable :: sync
+         if (ctx%failed()) call fatal_error(sync, "Calculation failed on this rank")
+         call mpi_sync_error(sync, ctx%comm)
+         if (allocated(sync) .and. .not.ctx%failed()) call ctx%set_error(sync)
+      end block
+   end if
+
    if (ctx%failed()) then
       call ctx%delete_solver(solver)
       return
@@ -365,10 +403,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
+      if (allocated(ctx%comm)) call mpi_sync_error(error, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         call ctx%delete_solver(solver)
+         return
+      end if
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
+         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma, calc%partition)
       call magnet_to_updown(wfn%density)
 
       if (allocated(dcndr)) then
@@ -378,6 +422,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call gemv(dcndL, dEdcn, sigma, beta=1.0_wp)
       end if
       call timer%pop
+
+      if (allocated(ctx%comm)) then
+         call mpi_allreduce_sum(error, gradient, ctx%comm)
+         call mpi_allreduce_sum(error, sigma, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            call ctx%delete_solver(solver)
+            return
+         end if
+      end if
    end if
 
    call ctx%delete_solver(solver)

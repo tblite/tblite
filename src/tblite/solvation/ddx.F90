@@ -38,6 +38,7 @@ module tblite_solvation_ddx
    use tblite_blas, only: dot, gemv
    use tblite_container_cache, only: container_cache
    use tblite_mesh_lebedev, only: grid_size
+   use tblite_partition, only: owns_index
    use tblite_scf_info, only: atom_resolved, scf_info
    use tblite_scf_potential, only: potential_type
    use tblite_solvation_data, only: get_vdw_rad_cosmo
@@ -411,6 +412,9 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 #if TBLITE_HAS_DDX
    type(ddx_cache), pointer :: ptr
 
+   ! the ddX solver couples all atoms, the first part carries the model whole
+   if (.not.owns_index(self%partition, 1)) return
+
    call view(cache, ptr)
 
    ! Recalculate the solution of the ddX system with the new charges after diagonalization
@@ -455,6 +459,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(container_cache), intent(inout) :: cache
 #if TBLITE_HAS_DDX
    type(ddx_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -526,6 +532,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), allocatable :: force(:,:)
 
    type(ddx_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 

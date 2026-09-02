@@ -27,6 +27,7 @@ module tblite_classical_halogen
    use mctc_io, only : structure_type
    use tblite_container, only : container_cache
    use tblite_cutoff, only : get_lattice_points
+   use tblite_partition, only : work_partition, owns_index
    use tblite_repulsion_type, only : repulsion_type
    implicit none
    private
@@ -136,10 +137,10 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    if (present(gradient) .and. present(sigma)) then
       call get_xbond_derivs(mol, trans, list, self%damping, self%bond_strength, self%rad, &
-         & energies, gradient, sigma)
+         & energies, gradient, sigma, self%partition)
    else
       call get_xbond_energy(mol, trans, list, self%damping, self%bond_strength, self%rad, &
-         & energies)
+         & energies, self%partition)
    end if
 
 end subroutine get_engrad
@@ -244,7 +245,7 @@ end subroutine resize
 
 !> Get energy contributions from halogen bonding interactions
 subroutine get_xbond_energy(mol, trans, list, damping, bond_strength, rad, &
-      & energies)
+      & energies, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -259,12 +260,15 @@ subroutine get_xbond_energy(mol, trans, list, damping, bond_strength, rad, &
    real(wp), intent(in) :: rad(:)
    !> Repulsion energy
    real(wp), intent(inout) :: energies(:)
+   !> Share of the halogen bonds evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: ijk, jat, kat, xat, xzp, jzp, jtr, ktr
    real(wp) :: cc, r0jx, t13, t14, d2jx, rjx, term, aterm
    real(wp) :: xy, d2kx, d2jk, dxj(3), dxk(3), dkj(3)
 
    do ijk = 1, size(list, 2)
+      if (.not.owns_index(partition, ijk)) cycle
       xat = list(1, ijk)
       jat = list(2, ijk)
       kat = list(3, ijk)
@@ -295,7 +299,7 @@ end subroutine get_xbond_energy
 
 !> Get energy and its derivatives for halogen bonding interactions
 subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
-      & energies, gradient, sigma)
+      & energies, gradient, sigma, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -314,6 +318,8 @@ subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
    real(wp), intent(inout) :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
    real(wp), intent(inout) :: sigma(:, :)
+   !> Share of the halogen bonds evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: ijk, jat, kat, xat, xzp, jzp, jtr, ktr
    real(wp) :: cc, r0jx, t13, t14
@@ -322,6 +328,7 @@ subroutine get_xbond_derivs(mol, trans, list, damping, bond_strength, rad, &
    real(wp) :: dtermlj, termlj, prefactor, numerator, denominator
 
    do ijk = 1, size(list, 2)
+      if (.not.owns_index(partition, ijk)) cycle
       xat = list(1, ijk)
       jat = list(2, ijk)
       kat = list(3, ijk)

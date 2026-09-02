@@ -27,6 +27,7 @@ module tblite_solvation_cds
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
+   use tblite_partition, only : owns_index
    use tblite_scf_info, only : scf_info, atom_resolved, not_used
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_cm5, only : get_cm5_charges
@@ -252,7 +253,7 @@ subroutine update(self, mol, cache)
       call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
    end if
 
-   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr)
+   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr, self%partition)
 
    ptr%tension = self%tension(mol%id)
    if (allocated(self%hbond)) then

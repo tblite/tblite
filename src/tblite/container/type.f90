@@ -22,6 +22,7 @@ module tblite_container_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_container_cache, only : container_cache
+   use tblite_partition, only : work_partition
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -32,7 +33,11 @@ module tblite_container_type
    type, public, abstract :: container_type
       !> Label identifying this contribution
       character(len=:), allocatable :: label
+      !> Share of the interaction loops evaluated by this instance
+      type(work_partition) :: partition
    contains
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
       !> Update container cache
       procedure :: update
       !> Get information about density dependent quantities used in the energy
@@ -53,6 +58,17 @@ module tblite_container_type
 
 
 contains
+
+
+!> Assign an externally managed share of the interaction loops
+subroutine set_partition(self, partition)
+   !> Instance of the interaction container
+   class(container_type), intent(inout) :: self
+   !> Share of the interaction loops evaluated by this instance
+   type(work_partition), intent(in) :: partition
+
+   self%partition = partition
+end subroutine set_partition
 
 
 !> Update container cache

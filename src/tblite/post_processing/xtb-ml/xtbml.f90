@@ -19,7 +19,7 @@
 !> @file tblite/post-processing/xtb-ml.f90
 !> xTB-ML features as a post-processing method
 module tblite_post_processing_xtbml
-   use mctc_env, only : wp, error_type
+   use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
@@ -146,6 +146,15 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
    type(xtbml_cache) :: mlcache
    type(error_type), allocatable :: error
    integer :: n_features
+
+   ! the features are evaluated from the partitioned container caches and
+   ! E_tot is normalized per atom, so partial results cannot be summed
+   if (allocated(ctx%comm)) then
+      call fatal_error(error, "xTB-ML features are not available for a distributed "//&
+         & "calculation")
+      call ctx%set_error(error)
+      return
+   end if
 
    call timer%push("xtbML")
 

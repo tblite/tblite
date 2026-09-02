@@ -8,7 +8,7 @@ keywords = ["quantum-chemistry", "tight-binding", "xtb"]
 copyright = "Copyright 2021 S. Ehlert"
 
 [build]
-external-modules = ["ifport", "hdf5", "tblite_ext_trexio"]
+external-modules = ["ifport", "hdf5", "tblite_ext_trexio", "mpi_f08"]
 link = ["lapack", "blas"]
 auto-tests = false
 

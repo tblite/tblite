@@ -37,6 +37,7 @@ module tblite_xtb_calculator
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
       & new_d4s_dispersion, d3_dispersion, new_d3_dispersion
    use tblite_param, only : param_record
+   use tblite_partition, only : work_partition
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
    use tblite_scf_mixer_input, only : mixer_input
@@ -75,6 +76,8 @@ module tblite_xtb_calculator
       logical :: save_integrals = .false.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
+      !> Share of the interaction loops evaluated by this calculator
+      type(work_partition) :: partition
       !> string with method or "custom"
       character(len=:), allocatable :: method
    contains
@@ -82,6 +85,8 @@ module tblite_xtb_calculator
       procedure :: variable_info
       !> Information on calculator
       procedure :: info
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
       !> Add an interaction container
       procedure :: push_back
       !> Remove an interaction container
@@ -664,10 +669,28 @@ subroutine push_back(self, cont)
    !> Container to be added
    class(container_type), allocatable, intent(inout) :: cont
 
-   if (.not.allocated(self%interactions)) allocate(self%interactions)
+   if (.not.allocated(self%interactions)) then
+      allocate(self%interactions)
+      call self%interactions%set_partition(self%partition)
+   end if
 
    call self%interactions%push_back(cont)
 end subroutine push_back
+
+!> Assign an externally managed share of the interaction loops to every container
+subroutine set_partition(self, partition)
+   !> Instance of the tight-binding calculator
+   class(xtb_calculator), intent(inout) :: self
+   !> Share of the interaction loops evaluated by this calculator
+   type(work_partition), intent(in) :: partition
+
+   self%partition = partition
+   if (allocated(self%repulsion)) call self%repulsion%set_partition(partition)
+   if (allocated(self%coulomb)) call self%coulomb%set_partition(partition)
+   if (allocated(self%halogen)) call self%halogen%set_partition(partition)
+   if (allocated(self%dispersion)) call self%dispersion%set_partition(partition)
+   if (allocated(self%interactions)) call self%interactions%set_partition(partition)
+end subroutine set_partition
 
 
 !> Add a container

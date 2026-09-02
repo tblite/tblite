@@ -27,6 +27,7 @@ module tblite_coulomb_charge_effective
    use tblite_coulomb_charge_type, only : coulomb_charge_type
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_cutoff, only : get_lattice_points
+   use tblite_partition, only : work_partition, owns_pair
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
@@ -188,9 +189,10 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
 
     if (any(mol%periodic)) then
        call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-          & cache%wsc, cache%alpha, amat)
+          & cache%wsc, cache%alpha, amat, self%partition)
     else
-      call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat)
+      call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat, &
+         & self%partition)
    end if
 
 end subroutine get_coulomb_matrix
@@ -235,7 +237,7 @@ end subroutine get_rec_trans
 
 
 !> Evaluate Coulomb matrix for finite systems
-subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
+subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
@@ -248,17 +250,20 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
    real(wp), intent(in) :: gexp
    !> Coulomb matrix
    real(wp), intent(inout) :: amat(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), r1, r1g, gam, tmp
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat, mol, nshell, offset, hubbard, gexp) &
+   !$omp shared(amat, mol, nshell, offset, hubbard, gexp, partition) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, r1, r1g, tmp)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
       do jat = 1, iat-1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, jat) - mol%xyz(:, iat)
@@ -273,6 +278,7 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
             end do
          end do
       end do
+      if (.not.owns_pair(partition, iat, iat)) cycle
       do ish = 1, nshell(iat)
          do jsh = 1, ish-1
             gam = hubbard(jsh, ish, izp, izp)
@@ -286,7 +292,7 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat)
 end subroutine get_amat_0d
 
 !> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
+subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
@@ -303,6 +309,8 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
    real(wp), intent(in) :: alpha
    !> Coulomb matrix
    real(wp), intent(inout) :: amat(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
    real(wp) :: vec(3), gam, dtmp, rtmp, stmp, vol, aval
@@ -314,12 +322,13 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol) &
+   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, partition) &
    !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, weight, vec, dtmp, rtmp, stmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
       do jat = 1, iat-1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
@@ -340,6 +349,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat)
          end do
       end do
 
+      if (.not.owns_pair(partition, iat, iat)) cycle
       vec = 0.0_wp
       call get_wignerseitz_weights(wsc, iat, iat, vec, weight)
       call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
@@ -465,18 +475,18 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
     if(self%shell_resolved) then
        if (any(mol%periodic)) then
           call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-             & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace)
+             & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace, self%partition)
        else
           call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
-             & dadr, dadL, atrace)
+             & dadr, dadL, atrace, self%partition)
        end if
     else
        if (any(mol%periodic)) then
           call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-             & cache%wsc, cache%alpha, qat, dadr, dadL, atrace)
+             & cache%wsc, cache%alpha, qat, dadr, dadL, atrace, self%partition)
        else
           call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
-             & dadr, dadL, atrace)
+             & dadr, dadL, atrace, self%partition)
        end if
     end if
 
@@ -484,7 +494,8 @@ end subroutine get_coulomb_derivs
 
 
 !> Evaluate uncontracted derivatives of Coulomb matrix for finite system
-subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, atrace)
+subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, atrace, &
+      & partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
@@ -503,6 +514,8 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    real(wp), intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), intent(out) :: atrace(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), r1, gam, dtmp, dG(3), dS(3, 3)
@@ -513,7 +526,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    dadL(:, :, :) = 0.0_wp
 
    !$omp parallel default(none) &
-   !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset, gexp) &
+   !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset, gexp, partition) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp) &
    !$omp private(itrace, didr, didL)
    allocate(itrace, source=atrace)
@@ -524,6 +537,7 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
       izp = mol%id(iat)
       ii = offset(iat)
       do jat = 1, iat-1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
@@ -557,7 +571,7 @@ end subroutine get_damat_0d
 
 !> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system
 subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
-      & dadr, dadL, atrace)
+      & dadr, dadL, atrace, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
@@ -580,6 +594,8 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
    real(wp), intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), intent(out) :: atrace(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
    logical :: need_weight_energy
@@ -600,6 +616,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
 
    !$omp parallel default(none) shared(atrace, dadr, dadL) &
    !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp) &
+   !$omp shared(partition) &
    !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, stmp, need_weight_energy) &
    !$omp private(weight, dwdr, dwdL) &
    !$omp private(vec, dG, dS, dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
@@ -611,6 +628,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
       izp = mol%id(iat)
       ii = offset(iat)
       do jat = 1, iat-1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
@@ -640,6 +658,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
          end do
       end do
 
+      if (.not.owns_pair(partition, iat, iat)) cycle
       vec = 0.0_wp
       call get_wignerseitz_weights(wsc, iat, iat, vec, weight, dwdr, dwdL)
       need_weight_energy = any(dwdL(:, :, :wsc%nimg(iat, iat)) /= 0.0_wp)

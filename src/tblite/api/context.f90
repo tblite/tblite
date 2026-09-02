@@ -32,6 +32,7 @@ module tblite_api_context
    public :: vp_context
    public :: new_context_api, check_context_api, get_context_error_api, delete_context_api
    public :: set_context_logger_api, set_context_color_api, set_context_verbosity_api
+   public :: set_context_partition_api, set_context_mpi_api
 
 
    !> Void pointer to manage calculation context
@@ -172,6 +173,45 @@ subroutine set_context_verbosity_api(vctx, verbosity) &
       ctx%ptr%verbosity = verbosity
    end if
 end subroutine set_context_verbosity_api
+
+
+!> Assign an externally managed share of the interaction loops to the context
+subroutine set_context_partition_api(vctx, part, nparts) &
+      & bind(C, name=namespace//"set_context_partition")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   integer(c_int), value :: part
+   integer(c_int), value :: nparts
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_context_partition"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   call ctx%ptr%set_partition(part, nparts, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
+end subroutine set_context_partition_api
+
+
+!> Distribute the interaction loops over an MPI communicator, fails if tblite
+!> was built without MPI support
+subroutine set_context_mpi_api(vctx, comm) &
+      & bind(C, name=namespace//"set_context_mpi")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   !> Fortran handle of the communicator, absent selects the global communicator
+   integer(c_int), intent(in), optional :: comm
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_context_mpi"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   call ctx%ptr%set_mpi(error, comm)
+   if (allocated(error)) call ctx%ptr%set_error(error)
+end subroutine set_context_mpi_api
 
 
 !> Delete context object

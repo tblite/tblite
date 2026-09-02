@@ -27,6 +27,7 @@ module tblite_disp_d3
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
+   use tblite_partition, only : owns_index
    implicit none
    private
 
@@ -104,6 +105,9 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), allocatable :: gwvec(:, :), gwdcn(:, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :)
    real(wp), allocatable :: dEdcn(:), lattr(:, :)
+
+   ! s-dftd3 cannot partition its own loops yet, the first part carries them whole
+   if (.not.owns_index(self%partition, 1)) return
 
    mref = maxval(self%model%ref)
    grad = present(gradient).and.present(sigma)

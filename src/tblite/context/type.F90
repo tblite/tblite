@@ -24,10 +24,12 @@
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
    use, intrinsic :: iso_fortran_env, only : output_unit
-   use mctc_env, only : wp, error_type
+   use mctc_env, only : wp, error_type, fatal_error
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
+   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition
+   use tblite_partition, only : work_partition, new_work_partition
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -47,9 +49,20 @@ module tblite_context_type
       class(context_solver), allocatable :: solver
       !> Color support for output
       type(context_terminal) :: terminal = context_terminal()
+      !> Share of the interaction loops evaluated in this context
+      type(work_partition) :: partition
+      !> Communicator the partial results are reduced over, unallocated unless
+      !> the library is asked to distribute the calculation itself
+      integer, allocatable :: comm
    contains
       !> Write a message to the output
       procedure :: message
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
+      !> Distribute the interaction loops over an MPI communicator
+      procedure :: set_mpi
+      !> Reject a calculator that does not share the work partition of this context
+      procedure :: check_partition
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -64,6 +77,62 @@ module tblite_context_type
 
 
 contains
+
+
+!> Assign an externally managed share of the interaction loops to this context
+subroutine set_partition(self, part, nparts, error)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Zero-based index of this part
+   integer, intent(in) :: part
+   !> Total number of parts
+   integer, intent(in) :: nparts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call new_work_partition(error, self%partition, part, nparts)
+end subroutine set_partition
+
+
+!> Distribute the interaction loops over an MPI communicator and reduce the
+!> partial results of every rank inside the library
+subroutine set_mpi(self, error, comm)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Communicator to distribute over, defaults to the global communicator
+   integer, intent(in), optional :: comm
+
+   integer :: local_comm
+
+   local_comm = get_mpi_comm_world()
+   if (present(comm)) local_comm = comm
+
+   call new_mpi_work_partition(error, self%partition, local_comm)
+   if (allocated(error)) return
+
+   self%comm = local_comm
+end subroutine set_mpi
+
+
+!> Reject a calculator that does not share the work partition of this context,
+!> partial results would otherwise be reduced twice or not at all
+subroutine check_partition(self, partition, error)
+   !> Instance of the calculation context
+   class(context_type), intent(in) :: self
+   !> Share of the interaction loops evaluated by the calculator
+   type(work_partition), intent(in) :: partition
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   if (partition%part == self%partition%part &
+      & .and. partition%nparts == self%partition%nparts) return
+
+   call fatal_error(error, "Work partition of the calculator does not match the "//&
+      & "context, call calc%set_partition(ctx%partition) after ctx%set_partition "//&
+      & "or ctx%set_mpi")
+end subroutine check_partition
 
 
 !> Add an error message to the context

@@ -28,6 +28,7 @@ module tblite_solvation_alpb
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
+   use tblite_partition, only : work_partition, owns_index, owns_pair
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_born, only : born_integrator, new_born_integrator
@@ -265,18 +266,16 @@ subroutine update(self, mol, cache)
    ptr%jmat(:, :) = 0.0_wp
    select case(self%kernel)
    case(born_kernel%p16)
-      call add_born_mat_p16(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat)
+      call add_born_mat_p16(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat, self%partition)
    case(born_kernel%still)
-      call add_born_mat_still(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat)
+      call add_born_mat_still(mol%nat, mol%xyz, self%keps, ptr%rad, ptr%jmat, self%partition)
    case default
       continue
    end select
 
    if (self%alpbet > 0.0_wp) then
       call get_adet(mol%nat, mol%xyz, self%gbobc%vdwr, adet)
-
-      ptr%jmat(:mol%nat, :mol%nat) = ptr%jmat(:mol%nat, :mol%nat) &
-         & + self%keps * self%alpbet / adet
+      call add_born_shift(mol%nat, self%keps * self%alpbet / adet, ptr%jmat, self%partition)
    end if
 end subroutine update
 
@@ -366,15 +365,16 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    select case(self%kernel)
    case(born_kernel%p16)
       call add_born_deriv_p16(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
    case(born_kernel%still)
       call add_born_deriv_still(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
    case default
       continue
    end select
 
-   if (self%alpbet > 0.0_wp) then
+   ! the determinant of the inertia tensor couples all atoms
+   if (self%alpbet > 0.0_wp .and. owns_index(self%partition, 1)) then
       call get_adet_deriv(mol%nat, mol%xyz, self%gbobc%vdwr, self%kEps*self%alpbet, &
          & ptr%qscratch(:), gradient)
    end if
@@ -430,7 +430,7 @@ subroutine view(cache, ptr)
 end subroutine view
 
 
-subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
+subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -441,6 +441,8 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
    real(wp), intent(in) :: brad(:)
    !> Interaction matrix
    real(wp), intent(inout) :: Amat(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat
    real(wp) :: r1, ab, arg, fgb, dfgb, bp, vec(3)
@@ -449,6 +451,7 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
    ! omp private(kk, iat, jat, r1, ab, arg, fgb, dfgb)
    do iat = 1, nat
       do jat = 1, iat - 1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          vec(:) = xyz(:, iat) - xyz(:, jat)
          r1 = norm2(vec)
 
@@ -465,6 +468,7 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
          Amat(jat, iat) = keps*dfgb + Amat(jat, iat)
       end do
       ! self-energy part
+      if (.not.owns_pair(partition, iat, iat)) cycle
       bp = 1.0_wp/brad(iat)
       Amat(iat, iat) = Amat(iat, iat) + keps*bp
    end do
@@ -472,8 +476,33 @@ subroutine add_born_mat_p16(nat, xyz, keps, brad, Amat)
 end subroutine add_born_mat_p16
 
 
+!> Constant shift of the interaction matrix from the analytical linearized
+!> Poisson-Boltzmann correction
+subroutine add_born_shift(nat, shift, Amat, partition)
+   !> Number of atoms
+   integer, intent(in) :: nat
+   !> Shift applied to every pair of the interaction matrix
+   real(wp), intent(in) :: shift
+   !> Interaction matrix
+   real(wp), intent(inout) :: Amat(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
+
+   integer :: iat, jat
+
+   do iat = 1, nat
+      do jat = 1, iat
+         if (.not.owns_pair(partition, iat, jat)) cycle
+         Amat(iat, jat) = Amat(iat, jat) + shift
+         if (iat /= jat) Amat(jat, iat) = Amat(jat, iat) + shift
+      end do
+   end do
+
+end subroutine add_born_shift
+
+
 subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
-      & brad, brdr, energy, gradient)
+      & brad, brdr, energy, gradient, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -490,6 +519,8 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
    real(wp), intent(out) :: energy
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat
    real(wp) :: vec(3), r2, r1, ab, arg1, arg16, qq, fgb, dfgb, dfgb2, egb
@@ -508,6 +539,7 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
    ! omp shared(keps, qat, ntpair, ddpair, ppind, brad)
    do iat = 1, nat
       do jat = 1, iat - 1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          vec(:) = xyz(:, iat) - xyz(:, jat)
          r1 = norm2(vec)
          r2 = r1*r1
@@ -543,6 +575,7 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
       end do
 
       ! self-energy part
+      if (.not.owns_pair(partition, iat, iat)) cycle
       bp = 1.0_wp/brad(iat)
       qq = qat(iat)*bp
       egb = egb + 0.5_wp*qat(iat)*qq*keps
@@ -559,7 +592,7 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
 end subroutine add_born_deriv_p16
 
 
-pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
+pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -570,6 +603,8 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
    real(wp), intent(in) :: brad(:)
    !> Interaction matrix
    real(wp), intent(inout) :: Amat(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer  :: i, j
    real(wp), parameter :: a13=1.0_wp/3.0_wp
@@ -580,6 +615,7 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
 
    do i = 1, nat
       do j = 1, i - 1
+         if (.not.owns_pair(partition, i, j)) cycle
          vec(:) = xyz(:, i) - xyz(:, j)
          r1 = norm2(vec)
          r2 = r1*r1
@@ -594,6 +630,7 @@ pure subroutine add_born_mat_still(nat, xyz, keps, brad, Amat)
       end do
 
       ! self-energy part
+      if (.not.owns_pair(partition, i, i)) cycle
       bp = 1.0_wp/brad(i)
       Amat(i, i) = Amat(i, i) + keps*bp
    end do
@@ -602,7 +639,7 @@ end subroutine add_born_mat_still
 
 
 subroutine add_born_deriv_still(nat, xyz, qat, keps, &
-      & brad, brdr, energy, gradient)
+      & brad, brdr, energy, gradient, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -619,6 +656,8 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    real(wp), intent(out) :: energy
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: i, j
    real(wp), parameter :: a13=1.0_wp/3.0_wp
@@ -639,6 +678,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    ! compute energy and fgb direct and radii derivatives
    do i = 1, nat
       do j = 1, i - 1
+         if (.not.owns_pair(partition, i, j)) cycle
          vec(:) = xyz(:, i) - xyz(:, j)
          r1 = norm2(vec)
          r2 = r1*r1
@@ -669,6 +709,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
       end do
 
       ! self-energy part
+      if (.not.owns_pair(partition, i, i)) cycle
       bp = 1.0_wp/brad(i)
       qq = qat(i)*bp
       egb = egb + 0.5_wp*qat(i)*qq*keps

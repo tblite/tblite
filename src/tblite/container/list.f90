@@ -24,6 +24,7 @@ module tblite_container_list
    use tblite_container_cache, only : container_cache, resize
    use tblite_container_type, only : container_type
    use tblite_output_format, only : format_string
+   use tblite_partition, only : work_partition
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -45,6 +46,8 @@ module tblite_container_list
       !> Raw list of interaction containers
       type(container_node), allocatable :: list(:)
    contains
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
       !> Update container cache
       procedure :: update
       !> Get information about density dependent quantities used in the energy
@@ -82,6 +85,24 @@ module tblite_container_list
 
 
 contains
+
+
+!> Assign an externally managed share of the interaction loops to every container
+subroutine set_partition(self, partition)
+   !> Instance of the interaction container
+   class(container_list), intent(inout) :: self
+   !> Share of the interaction loops evaluated by this instance
+   type(work_partition), intent(in) :: partition
+
+   integer :: ic
+
+   self%partition = partition
+   do ic = 1, self%nc
+      if (allocated(self%list(ic)%raw)) then
+         call self%list(ic)%raw%set_partition(partition)
+      end if
+   end do
+end subroutine set_partition
 
 
 !> Update container cache
@@ -315,6 +336,7 @@ subroutine push_back(self, cont)
       if (self%nc >= size(self%list)) call resize(self%list)
       self%nc = self%nc + 1
       call move_alloc(cont, self%list(self%nc)%raw)
+      call self%list(self%nc)%raw%set_partition(self%partition)
    end if
 end subroutine push_back
 
