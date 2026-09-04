@@ -3233,34 +3233,36 @@ int test_uninitialized_solvation()
     if (cont != NULL) goto unexpected;
     error = tblite_new_error();
 
-    // check if it fails when mol is not associated
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_solvation_ddcosmo);
-    if (!tblite_check(error))
-        goto unexpected;
-    show(error);
-    cont = tblite_new_ddx_solvation_solvent(error, mol, "water", tblite_solvation_ddcosmo);
-    if (!tblite_check(error))
-        goto unexpected;
-    show(error);
+    if (tblite_get_feature("ddx")) {
+        // check if it fails when mol is not associated
+        cont = tblite_new_ddx_solvation_epsilon(error, mol, 0.0, tblite_solvation_ddcosmo);
+        if (!tblite_check(error))
+            goto unexpected;
+        show(error);
+        cont = tblite_new_ddx_solvation_solvent(error, mol, "water", tblite_solvation_ddcosmo);
+        if (!tblite_check(error))
+            goto unexpected;
+        show(error);
 
-    // check we get an error when the solvent name is not listed
-    mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
-    if (tblite_check(error))
-        goto unexpected;
-    cont = tblite_new_ddx_solvation_solvent(error, mol, "invalid-solvent", tblite_solvation_ddcosmo);
-    if (!tblite_check(error))
-        goto unexpected;
-    if (cont != NULL)
-        goto unexpected;
-    show(error);
+        // check we get an error when the solvent name is not listed
+        mol = tblite_new_structure(error, natoms, num, xyz, NULL, NULL, NULL, NULL);
+        if (tblite_check(error))
+            goto unexpected;
+        cont = tblite_new_ddx_solvation_solvent(error, mol, "invalid-solvent", tblite_solvation_ddcosmo);
+        if (!tblite_check(error))
+            goto unexpected;
+        if (cont != NULL)
+            goto unexpected;
+        show(error);
 
-    // check we get an error when the ddX model is not listed
-    cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, 999);
-    if (!tblite_check(error))
-        goto unexpected;
-    if (cont != NULL)
-        goto unexpected;
-    show(error);
+        // check we get an error when the ddX model is not listed
+        cont = tblite_new_ddx_solvation_epsilon(error, mol, 7.0, 999);
+        if (!tblite_check(error))
+            goto unexpected;
+        if (cont != NULL)
+            goto unexpected;
+        show(error);
+    }
 
     cont = tblite_new_alpb_solvation_solvent(error, mol, "ínvalid-solvent", tblite_solvation_alpb_gfn2, tblite_state_bar1mol);
     if (!tblite_check(error))
@@ -4042,10 +4044,12 @@ int main(void)
     stat += test_h2plus_wbo();
     stat += test_solvation_gb_eps();
     stat += test_solvation_alpb_eps();
-    stat += test_solvation_ddcosmo_eps();
-    stat += test_solvation_ddcpcm_eps();
-    stat += test_solvation_ddcpcm_solvent();
-    stat += test_solvation_ddpcm_eps();
+    if (tblite_get_feature("ddx")) {
+        stat += test_solvation_ddcosmo_eps();
+        stat += test_solvation_ddcpcm_eps();
+        stat += test_solvation_ddcpcm_solvent();
+        stat += test_solvation_ddpcm_eps();
+    }
     stat += test_solvation_gbsa_gfn2();
     stat += test_solvation_gbsa_gfn1();
     stat += test_solvation_alpb_gfn2();

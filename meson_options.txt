@@ -58,7 +58,7 @@ option(
 option(
   'ddx',
   type: 'boolean',
-  value: true,
+  value: false,
   yield: true,
   description: 'use ddX solvation models (requires a C++ compiler)',
 )
