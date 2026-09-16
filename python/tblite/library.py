@@ -660,6 +660,22 @@ get_orbital_coefficients = _get_ao_matrix(
 get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
 get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
+get_localized_orbital_coefficients = _get_ao_matrix(
+    lib.tblite_get_result_localized_orbital_coefficients, True
+)
+
+
+def get_localized_orbital_centers(res) -> np.ndarray:
+    """Retrieve localized molecular orbital centers from result container."""
+    _norb = get_number_of_orbitals(res)
+    _nspin = get_number_of_spins(res)
+    _centers = np.zeros((_nspin, _norb, 3))
+    error_check(lib.tblite_get_result_localized_orbital_centers)(
+        res, ffi.cast("double*", _centers.ctypes.data)
+    )
+    if _nspin == 1:
+        return np.squeeze(_centers, axis=0)
+    return _centers
 
 
 def _delete_calculator(calc) -> None:
@@ -845,6 +861,23 @@ def set_calculator_temperature_annealing(ctx, calc, annealing):
 def post_processing_push_back(ctx, calc, mol, s):
     _string = ffi.new("char[]", s.encode("ascii"))
     lib.tblite_push_back_post_processing_str(ctx, calc, mol, _string)
+
+
+LOCALIZATION_METHODS = {
+    "foster-boys": lib.TBLITE_LOCALIZATION_FOSTERBOYS,
+}
+
+@context_check
+def post_processing_push_back_localization(ctx, calc, mol, method: str = "foster-boys"):
+    """Add orbital localization post-processing with an explicit method choice"""
+    if method not in LOCALIZATION_METHODS:
+        raise TBLiteValueError(
+            f"Unknown orbital localization method '{method}'. "
+            f"Supported methods are: {list(LOCALIZATION_METHODS.keys())}"
+        )
+    lib.tblite_push_back_post_processing_localization(
+        ctx, calc, mol, LOCALIZATION_METHODS[method]
+    )
 
 
 @context_check

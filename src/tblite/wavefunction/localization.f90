@@ -14,18 +14,19 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @dir tblite/lapack
-!> Contains wrappers for linear algebra
+!> @dir tblite/wavefunction/localization
+!> Contains orbital localization method implementations
 
-!> @file tblite/lapack.f90
-!> Reexports of the high-level linear algebra wrappers
+!> @file tblite/wavefunction/localization.f90
+!> Provides reexports of orbital localization related types and procedures
 
-!> Proxy module to reexport high-level linear algebra package wrappers
-module tblite_lapack
-   use tblite_lapack_geqp3, only : geqp3 => wrap_geqp3
-   use tblite_lapack_getrf, only : getrf => wrap_getrf
-   use tblite_lapack_getri, only : getri => wrap_getri
-   use tblite_lapack_getrs, only : getrs => wrap_getrs
+!> Proxy module for wavefunction orbital localization types and procedures
+module tblite_wavefunction_localization
+   use tblite_wavefunction_localization_fosterboys, only : &
+      & fosterboys_localization_type, new_fosterboys_localization
+   use tblite_wavefunction_localization_type, only : localization_type, &
+      & localization_method, get_orbital_centers, get_localization_id
    implicit none
    public
-end module tblite_lapack
+
+end module tblite_wavefunction_localization
