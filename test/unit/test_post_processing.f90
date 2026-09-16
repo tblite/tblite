@@ -9,7 +9,8 @@ module test_post_processing
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
    use tblite_toml, only : toml_table, add_table, set_value, toml_key, get_value
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess, &
+      & get_density_matrix
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
@@ -34,7 +35,8 @@ subroutine collect_post_processing(testsuite)
       new_unittest("post proc param load", test_pproc_load_param), &
       new_unittest("post proc param dump", test_pproc_dump_param), &
       new_unittest("molmom param dipm", test_molmom_dipm_param, should_fail=.true.), &
-      new_unittest("molmom param qp", test_molmom_qp_param, should_fail=.true.) &
+      new_unittest("molmom param qp", test_molmom_qp_param, should_fail=.true.), &
+      new_unittest("check-m01-localization", test_m01_localization) &
    ]
 end subroutine collect_post_processing
 
@@ -297,5 +299,91 @@ subroutine test_pproc_dump_param(error)
    if (allocated(error)) return
 end subroutine test_pproc_dump_param
 
+
+subroutine test_m01_localization(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(context_type) :: ctx
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   type(post_processing_list) :: pproc
+   type(results_type) :: res
+   real(wp) :: energy
+   real(wp), allocatable :: lmo(:, :, :), pmat_can(:, :), pmat_loc(:, :), ortho(:, :)
+   character(len=:), allocatable :: label
+   integer :: nao, nocc, i
+
+   call get_structure(mol, "MB16-43", "01")
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   calc%save_integrals = .true.
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, &
+      & calc%default_etemp * kt)
+
+   label = "lmo-foster-boys"
+   call add_post_processing(pproc, mol, label, error)
+   if (allocated(error)) return
+
+   call eeq_guess(mol, calc, wfn, error)
+   if (allocated(error)) return
+   energy = 0.0_wp
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, &
+      & post_process=pproc, verbosity=0)
+
+   call res%dict%get_entry("localized-orbitals", lmo)
+   if (.not.allocated(lmo)) then
+      call test_failed(error, "No localized orbitals in the result dictionary")
+      return
+   end if
+
+   nao = calc%bas%nao
+   nocc = nint(wfn%nel(1))
+
+   call check(error, size(lmo, 1), nao)
+   if (allocated(error)) return
+   call check(error, size(lmo, 2), nao)
+   if (allocated(error)) return
+   call check(error, size(lmo, 3), wfn%nspin)
+   if (allocated(error)) return
+
+   ! The occupied block must actually have been rotated, not just copied
+   if (maxval(abs(lmo(:, :nocc, 1) - wfn%coeff(:, :nocc, 1))) < thr2) then
+      call test_failed(error, "Localization did not modify the occupied orbitals")
+   end if
+   if (allocated(error)) return
+
+   ! Virtual orbitals must remain identical to the canonical coefficients
+   if (any(abs(lmo(:, nocc+1:, 1) - wfn%coeff(:, nocc+1:, 1)) > thr)) then
+      call test_failed(error, "Virtual orbitals were changed by the localization")
+   end if
+   if (allocated(error)) return
+
+   ! Localized occupied orbitals must remain orthonormal with respect to the overlap
+   allocate(ortho(nocc, nocc))
+   ortho = matmul(transpose(lmo(:, :nocc, 1)), matmul(res%overlap, lmo(:, :nocc, 1)))
+   do i = 1, nocc
+      ortho(i, i) = ortho(i, i) - 1.0_wp
+   end do
+   if (maxval(abs(ortho)) > thr1) then
+      call test_failed(error, "Localized occupied orbitals are not orthonormal")
+   end if
+   if (allocated(error)) return
+
+   ! The occupied subspace, and hence the density matrix, must be unchanged.
+   allocate(pmat_can(nao, nao), pmat_loc(nao, nao))
+   pmat_can = wfn%density(:, :, 1)
+   call get_density_matrix(wfn%focc(:, 1) + wfn%focc(:, 2), lmo(:, :, 1), pmat_loc)
+   if (any(abs(pmat_can - pmat_loc) > thr2)) then
+      call test_failed(error, "Localization changed the occupied-space density matrix")
+      print '(3es21.14)', pmat_can
+      print '("---")'
+      print '(3es21.14)', pmat_loc
+   end if
+   if (allocated(error)) return
+
+end subroutine test_m01_localization
 
 end module test_post_processing

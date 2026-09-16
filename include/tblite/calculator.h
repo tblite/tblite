@@ -50,6 +50,12 @@ typedef enum {
    TBLITE_MIXER_BROYDEN = 1,
 } tblite_mixer;
 
+/// Available orbital localization methods.
+typedef enum {
+   /// Foster-Boys localization.
+   TBLITE_LOCALIZATION_FOSTERBOYS = 1,
+} tblite_localization_method;
+
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
 
@@ -290,3 +296,15 @@ tblite_push_back_post_processing_param(tblite_context ctx,
                                        tblite_calculator calc,
                                        tblite_structure mol,
                                        tblite_param param);
+
+/// Add orbital localization post processing with an explicit method choice
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
+/// @param method: Orbital localization method to use
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_push_back_post_processing_localization(tblite_context ctx,
+                                              tblite_calculator calc,
+                                              tblite_structure mol,
+                                              tblite_localization_method method);

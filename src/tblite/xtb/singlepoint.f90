@@ -442,7 +442,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(caches)
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
       allocate(results%dict)
-      call post_process%compute(mol, wfn, ints, calc, caches, ctx, timer, prlevel, results)
+      call post_process%compute(mol, wfn, ints, calc, caches, accuracy, ctx, &
+         & timer, prlevel, results)
       if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
       call post_process%print_timer(timer, prlevel, ctx)
       deallocate(caches)

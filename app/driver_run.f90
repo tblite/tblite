@@ -74,7 +74,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps, verbosity
+   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps, verbosity, idot
    logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
@@ -83,7 +83,7 @@ subroutine run_main(config, error)
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
    type(xtb_calculator) :: calc_ceh
-   type(wavefunction_type) :: wfn, wfn_ceh
+   type(wavefunction_type) :: wfn, wfn_ceh, wfn_loc
    type(results_type) :: results
    class(post_processing_list), allocatable :: post_proc
 
@@ -365,11 +365,34 @@ subroutine run_main(config, error)
       end if
    end if
 
+   if (config%lmo) then
+      wfn_loc = wfn
+      call results%dict%get_entry("localized-orbitals", wfn_loc%coeff)
+   end if
+
    if (config%trexio) then
       call save_trexio(config%trexio_output, mol, calc%bas, wfn, energy, error)
       if (allocated(error)) return
       if (verbosity > 0) then
          call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
+      end if
+
+      if (config%lmo) then
+         ! Add lmo tag to the trexio output filename
+         idot = index(config%trexio_output, ".", back=.true.)
+         if (idot > 1) then
+            filename = config%trexio_output(:idot-1)//"-lmo" &
+               & //config%trexio_output(idot:)
+         else
+            filename = config%trexio_output//"-lmo"
+         end if
+         ! Save localized molecular orbitals to TREXIO file
+         call save_trexio(filename, mol, calc%bas, results%bcache, wfn_loc, &
+            & energy, error)
+         if (allocated(error)) return
+         if (config%verbosity > 0) then
+            call info(ctx, "TREXIO localized MO output written to '"//filename//"'")
+         end if
       end if
    end if
 
@@ -378,6 +401,24 @@ subroutine run_main(config, error)
       if (allocated(error)) return
       if (verbosity > 0) then
          call info(ctx, "Molden file written to '"//config%molden_output//"'")
+      end if
+
+      if (config%lmo) then
+         ! Add lmo tag to the molden output filename
+         idot = index(config%molden_output, ".", back=.true.)
+         if (idot > 1) then
+            filename = config%molden_output(:idot-1)//"-lmo" &
+               & //config%molden_output(idot:)
+         else
+            filename = config%molden_output//"-lmo"
+         end if
+         ! Save localized molecular orbitals to Molden file
+         call save_molden(filename, mol, calc%bas, results%bcache, wfn_loc, &
+            & error)
+         if (allocated(error)) return
+         if (config%verbosity > 0) then
+            call info(ctx, "Molden localized MO file written to '"//filename//"'")
+         end if
       end if
    end if
 
