@@ -3397,6 +3397,12 @@ int test_localization_enum_api()
         goto err;
     show(ctx);
 
+    // Test with an unknown localization method identifier
+    tblite_push_back_post_processing_localization(ctx, calc, mol, (tblite_localization_method) 0);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
     tblite_push_back_post_processing_localization(ctx, calc, mol, TBLITE_LOCALIZATION_FOSTERBOYS);
     if (tblite_check(ctx))
         goto err;
@@ -3442,6 +3448,82 @@ int test_localization_enum_api()
     tblite_delete(calc);
     tblite_delete(res);
     tblite_delete(dict);
+    return 1;
+}
+
+int test_localization_missing_data()
+{
+    printf("Start test: Orbital localization missing data\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res = NULL;
+    double buf[1];
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    // Test on a result container that has not been populated by a singlepoint calculation
+    res = tblite_new_result();
+    tblite_get_result_localized_orbital_coefficients(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_get_result_localized_orbital_centers(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    // Test on a result from a singlepoint calculation without orbital localization requested
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_localized_orbital_coefficients(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_get_result_localized_orbital_centers(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 0;
+
+    err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
     return 1;
 }
 
@@ -4379,6 +4461,7 @@ int main(void)
     stat += test_xtbml_api();
     stat += test_localization_api();
     stat += test_localization_enum_api();
+    stat += test_localization_missing_data();
     stat += test_partition_api();
     printf("Test finished with %d errors.\n", stat);
     return stat > 0 ? 1 : 0;
