@@ -655,14 +655,18 @@ def test_localization_api():
     # Orbital centers beyond the occupied count must be zero
     assert np.allclose(centers[nocc:, :], 0.0)
 
-    # The method can also be selected explicitly, resolving to the same enum
+    # The method can also be selected explicitly.
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.set("save-integrals", True)
     calc.add("orbital-localization", "foster-boys")
     res_explicit = calc.singlepoint()
-    assert np.allclose(
-        res_explicit.get("localized-orbitals"), res.get("localized-orbitals")
-    )
+    cmo_explicit = res_explicit.get("localized-orbitals")
+
+    # Localized orbitals are only defined up to permutation and phase,
+    # so we check the overlap of the two set of localized orbitals
+    loc_overlap = cmo_loc[:, :nocc].T @ overlap @ cmo_explicit[:, :nocc]
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=0), 1.0)
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=1), 1.0)
 
     with raises(TBLiteValueError, match="Unknown orbital localization method"):
         calc = Calculator("GFN1-xTB", numbers, positions)
