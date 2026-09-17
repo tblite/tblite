@@ -537,7 +537,6 @@ subroutine test_localization_roundtrip(error)
    type(context_type) :: ctx
    type(structure_type) :: mol, mol_loaded
    type(basis_type) :: bas_loaded
-   logical :: partial_bas
    type(wavefunction_type) :: wfn, wfn_lmo, wfn_loaded
    type(xtb_calculator) :: calc
    type(post_processing_list) :: pproc
@@ -546,7 +545,7 @@ subroutine test_localization_roundtrip(error)
    real(wp) :: energy
 
    call get_structure(mol, "MB16-43", "01")
-   call new_gxtb_calculator(calc, mol, error)
+   call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -565,16 +564,16 @@ subroutine test_localization_roundtrip(error)
    call res%dict%get_entry("localized-orbitals", wfn_lmo%coeff)
 
    call remove_file(filename)
-   call save_molden(filename, mol, calc%bas, res%bcache, wfn_lmo, error)
+   call save_molden(filename, mol, calc%bas, wfn_lmo, error)
    if (allocated(error)) return
 
-   call load_molden(filename, mol_loaded, bas_loaded, partial_bas, wfn_loaded, error)
+   call load_molden(filename, mol_loaded, bas_loaded, wfn_loaded, error)
    if (allocated(error)) return
    call remove_file(filename)
 
    call check_structure(error, mol_loaded, mol)
    if (allocated(error)) return
-   call check_basis(error, bas_loaded, calc%bas, partial_bas)
+   call check_basis(error, bas_loaded, calc%bas)
    if (allocated(error)) return
 
    ! Localized orbitals span the same occupied subspace and must immediately converge
@@ -583,7 +582,7 @@ subroutine test_localization_roundtrip(error)
    wfn%emo = wfn_loaded%emo
    wfn%nocc = wfn_loaded%nocc
    wfn%nel = wfn_loaded%nel
-   calc%iterator%max_iter = 2
+   calc%max_iter = 2
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
    call check(error, .not.ctx%failed(), &
       & "Calculation did not converge in < 3 iterations with localized Molden guess")
