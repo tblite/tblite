@@ -379,9 +379,9 @@ subroutine test_m01_localization(error)
    call get_density_matrix(wfn%focc(:, 1) + wfn%focc(:, 2), lmo(:, :, 1), pmat_loc)
    if (any(abs(pmat_can - pmat_loc) > thr1)) then
       call test_failed(error, "Localization changed the occupied-space density matrix")
-      print '(3es21.14)', pmat_can
+      print "(3es21.14)", pmat_can
       print '("---")'
-      print '(3es21.14)', pmat_loc
+      print "(3es21.14)", pmat_loc
    end if
    if (allocated(error)) return
 

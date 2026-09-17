@@ -647,7 +647,7 @@ def test_localization_api():
     assert cmo_loc.shape == (norb, norb)
     assert centers.shape == (norb, 3)
 
-    # Virtual orbitals must remain identical to the canonical coefficients    
+    # Virtual orbitals must remain identical to the canonical coefficients
     assert np.allclose(cmo_loc[:, nocc:], cmo_can[:, nocc:])
     # Localized occupied orbitals must remain orthonormal with respect to overlap
     ortho = cmo_loc[:, :nocc].T @ overlap @ cmo_loc[:, :nocc]

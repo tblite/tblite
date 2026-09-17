@@ -867,6 +867,7 @@ LOCALIZATION_METHODS = {
     "foster-boys": lib.TBLITE_LOCALIZATION_FOSTERBOYS,
 }
 
+
 @context_check
 def post_processing_push_back_localization(ctx, calc, mol, method: str = "foster-boys"):
     """Add orbital localization post-processing with an explicit method choice"""

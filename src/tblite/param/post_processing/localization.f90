@@ -23,8 +23,6 @@ module tblite_param_post_processing_localization
    implicit none
    private
 
-   public :: orbital_localization_record
-
    character(len=*), parameter :: k_localization = "localization", k_method = "method"
 
    !> Default orbital localization method, used if none is specified
