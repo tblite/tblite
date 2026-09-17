@@ -37,6 +37,13 @@ The interaction kernel for the Klopman–Ohno electrostatic is given by
 
 where η:sub:`A/B` are the chemical hardness parameters of the respective shells and *g* is the exponent to manipulate the potential shape.
 
+For three-dimensional periodic systems with :math:`g=2`, tblite evaluates this
+kernel using the generalized Ewald partition of `Buccheri et al.
+<https://doi.org/10.1021/acs.jctc.4c01234>`_.  The long-range contribution is
+:math:`S_1-\frac12\eta^{-2}S_3`; the remaining
+:math:`\gamma-R^{-1}+\frac12\eta^{-2}R^{-3}` term is summed in real space.
+This replaces nearest-image Wigner–Seitz averaging for the Klopman–Ohno kernel.
+
 
 γ-functional kernel
 ^^^^^^^^^^^^^^^^^^^
