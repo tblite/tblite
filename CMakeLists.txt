@@ -74,6 +74,8 @@ if(NOT TARGET "LAPACK::LAPACK")
 endif()
 
 # Collect subprojects
+# subprojects read WITH_MPI to default their own MPI option
+set(WITH_MPI ${TBLITE_WITH_MPI})
 if(NOT TARGET "toml-f::toml-f")
   find_package("toml-f" REQUIRED)
 endif()
