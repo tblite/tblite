@@ -3,6 +3,7 @@ module test_post_processing
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type, new
+   use mstore, only : get_structure
    use tblite_context_type, only : context_type
    use tblite_param_post_processing, only : post_processing_record_list
    use tblite_param_post_processing_molmom, only: molmom_record
@@ -22,6 +23,7 @@ module test_post_processing
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
    real(wp), parameter :: acc = 0.01_wp
    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: thr1 = 1e5*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 contains
 
@@ -320,8 +322,7 @@ subroutine test_m01_localization(error)
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
    calc%save_integrals = .true.
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, &
-      & calc%default_etemp * kt)
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
 
    label = "lmo-foster-boys"
    call add_post_processing(pproc, mol, label, error)
@@ -376,7 +377,7 @@ subroutine test_m01_localization(error)
    allocate(pmat_can(nao, nao), pmat_loc(nao, nao))
    pmat_can = wfn%density(:, :, 1)
    call get_density_matrix(wfn%focc(:, 1) + wfn%focc(:, 2), lmo(:, :, 1), pmat_loc)
-   if (any(abs(pmat_can - pmat_loc) > thr2)) then
+   if (any(abs(pmat_can - pmat_loc) > thr1)) then
       call test_failed(error, "Localization changed the occupied-space density matrix")
       print '(3es21.14)', pmat_can
       print '("---")'

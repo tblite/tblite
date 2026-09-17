@@ -517,7 +517,7 @@ subroutine check_localization_roundtrip(filename, error)
    real(wp) :: energy, energy_loaded
 
    call get_structure(mol, "MB16-43", "01")
-   call new_gxtb_calculator(calc, mol, error)
+   call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
@@ -537,16 +537,16 @@ subroutine check_localization_roundtrip(filename, error)
 
    ! Remove existing TREXIO output before test
    call remove_trexio_output(filename)
-   call save_trexio(filename, mol, calc%bas, res%bcache, wfn_lmo, energy, error)
+   call save_trexio(filename, mol, calc%bas, wfn_lmo, energy, error)
    if (allocated(error)) return
 
-   call load_trexio(filename, mol_loaded, bas_loaded, partial_bas, wfn_loaded, &
+   call load_trexio(filename, mol_loaded, bas_loaded, wfn_loaded, &
       & energy_loaded, error)
    if (allocated(error)) return
 
    call check_structure(error, mol_loaded, mol)
    if (allocated(error)) return
-   call check_basis(error, bas_loaded, calc%bas, partial_bas)
+   call check_basis(error, bas_loaded, calc%bas)
    if (allocated(error)) return
 
    ! Localized orbitals span the same occupied subspace and must immediately converge
@@ -555,7 +555,7 @@ subroutine check_localization_roundtrip(filename, error)
    wfn%emo = wfn_loaded%emo
    wfn%nocc = wfn_loaded%nocc
    wfn%nel = wfn_loaded%nel
-   calc%iterator%max_iter = 2
+   calc%max_iter = 2
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
    call check(error, .not.ctx%failed(), &
       & "Calculation did not converge in < 3 iterations with localized TREXIO guess")
