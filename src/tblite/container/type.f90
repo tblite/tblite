@@ -34,7 +34,7 @@ module tblite_container_type
       !> Label identifying this contribution
       character(len=:), allocatable :: label
       !> Share of the interaction loops evaluated by this instance
-      type(work_partition) :: partition
+      type(work_partition) :: partition = work_partition()
    contains
       !> Assign an externally managed share of the interaction loops
       procedure :: set_partition

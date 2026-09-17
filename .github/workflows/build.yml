@@ -429,10 +429,7 @@ jobs:
         --print-errorlogs
         --no-rebuild
         --num-processes 1
-        --suite unit
-        --suite api
-        --suite cli
-        --suite mpi
+        --suite tblite
         -t 10
       env:
         OMP_NUM_THREADS: 1,2,1
