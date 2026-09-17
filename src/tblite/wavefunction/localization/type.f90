@@ -314,10 +314,8 @@ end subroutine get_orbital_centers
 subroutine get_localization_id(name, id, error)
    !> Name of the localization method
    character(len=*), intent(in) :: name
-
    !> Integer identifier of the localization method
    integer, intent(out) :: id
-
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
