@@ -116,7 +116,7 @@ subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
       & wfn%emo, wfn%nel(:wfn%nspin), accuracy, coeff_local, converged, error)
 
    if (.not.allocated(error)) then
-      if (.not.converged) then
+      if (.not.converged .and. prlevel > 0) then
          call ctx%message("Jacobi sweeps localization did not converge")
       end if
       call dict%add_entry("localized-orbitals", coeff_local)
