@@ -1258,6 +1258,7 @@ subroutine version(unit)
    write(unit, "(a, 1x, a)") "ddX support:", merge("enabled ", "disabled", get_tblite_feature("ddx"))
    write(unit, "(a, 1x, a)") "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
    write(unit, "(a, 1x, a)") "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
+   write(unit, "(a, 1x, a)") "MPI support:", merge("enabled ", "disabled", get_tblite_feature("mpi"))
 
 end subroutine version
 

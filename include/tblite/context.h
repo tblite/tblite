@@ -98,3 +98,27 @@ tblite_set_context_color(tblite_context ctx,
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_context_verbosity(tblite_context ctx,
                              int verbosity);
+
+/// Assign an externally managed share of the interaction loops to the context
+///
+/// The share is applied to the calculator when running a calculation, reducing
+/// the partial results of all parts is left to the caller.
+///
+/// @param ctx: Context handle
+/// @param part: Zero-based index of this part
+/// @param nparts: Total number of parts
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_partition(tblite_context ctx,
+                             int part,
+                             int nparts);
+
+/// Distribute the interaction loops over an MPI communicator and reduce the
+/// partial results inside the library. Fails if tblite was built without MPI
+/// support, check with tblite_get_feature("mpi"), or if MPI is not initialized.
+///
+/// @param ctx: Context handle
+/// @param comm: Fortran handle of the communicator as returned by MPI_Comm_c2f,
+///              NULL selects MPI_COMM_WORLD (optional)
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_context_mpi(tblite_context ctx,
+                       const int* comm);

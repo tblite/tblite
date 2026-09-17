@@ -33,6 +33,7 @@ module tblite_disp_d4
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
+   use tblite_partition, only : owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -206,6 +207,9 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    type(dispersion_cache), pointer :: ptr
 
+   ! dftd4 cannot partition its own loops yet, the first part carries them whole
+   if (.not.owns_index(self%partition, 1)) return
+
    call view(cache, ptr)
 
    call get_dispersion_nonsc(mol, self%model, self%param, self%cutoff, ptr, &
@@ -228,6 +232,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    type(dispersion_cache), pointer :: ptr
    integer :: iat, jat, izp, jzp, iref, jref
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -276,6 +282,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(dispersion_cache), pointer :: ptr
    integer :: iat, jat, izp, jzp, iref, jref
    real(wp), allocatable :: tmp_vat(:)
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 
@@ -332,6 +340,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), allocatable :: dEdcn(:), dEdq(:), energies(:)
    real(wp), allocatable :: lattr(:, :)
    type(dispersion_cache), pointer :: ptr
+
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
    mref = maxval(self%model%ref)

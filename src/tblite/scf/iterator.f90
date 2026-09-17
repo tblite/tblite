@@ -25,6 +25,7 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_scf_info, only : scf_info
    use tblite_scf_mixer, only : mixer_type
    use tblite_scf_potential, only : potential_type, add_pot_to_h1
@@ -45,7 +46,7 @@ contains
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
       & interactions, ints, pot, ccache, dcache, icache, &
-      & energies, error)
+      & energies, error, comm)
    !> Current iteration count
    integer, intent(inout) :: iscf
    !> Molecular structure data
@@ -84,11 +85,15 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp), allocatable :: eao(:)
+   !> Communicator to reduce the partitioned contributions over
+   integer, intent(in), optional :: comm
+
+   real(wp), allocatable :: eao(:), econt(:)
    real(wp) :: ts
 
    if (iscf > 0) then
       call mixer%next(error)
+      if (present(comm)) call mpi_sync_error(error, comm)
       if (allocated(error)) return
 
       call get_mixer(mixer, bas, wfn, info)
@@ -106,11 +111,20 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
 
+   if (present(comm)) then
+      call mpi_allreduce_sum(error, pot%vat, comm)
+      call mpi_allreduce_sum(error, pot%vsh, comm)
+      call mpi_allreduce_sum(error, pot%vdp, comm)
+      call mpi_allreduce_sum(error, pot%vqp, comm)
+      if (allocated(error)) return
+   end if
+
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
    call set_mixer(mixer, wfn, info)
 
    call next_density(wfn, solver, ints, ts, error)
+   if (present(comm)) call mpi_sync_error(error, comm)
    if (allocated(error)) return
 
    call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
@@ -130,15 +144,22 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    energies(:) = ts / size(energies)
    call reduce(energies, eao, bas%ao2at)
 
+   ! the container energies are partitioned, the electronic part is not
+   allocate(econt(size(energies)), source=0.0_wp)
    if (present(coulomb) .and. present(ccache)) then
-      call coulomb%get_energy(mol, ccache, wfn, energies)
+      call coulomb%get_energy(mol, ccache, wfn, econt)
    end if
    if (present(dispersion) .and. present(dcache)) then
-      call dispersion%get_energy(mol, dcache, wfn, energies)
+      call dispersion%get_energy(mol, dcache, wfn, econt)
    end if
    if (present(interactions) .and. present(icache)) then
-      call interactions%get_energy(mol, icache, wfn, energies)
+      call interactions%get_energy(mol, icache, wfn, econt)
    end if
+   if (present(comm)) then
+      call mpi_allreduce_sum(error, econt, comm)
+      if (allocated(error)) return
+   end if
+   energies(:) = energies + econt
 end subroutine next_scf
 
 

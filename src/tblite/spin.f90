@@ -27,6 +27,7 @@ module tblite_spin
    use tblite_blas, only : dot
    use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
+   use tblite_partition, only : owns_pair
    use tblite_scf_info, only : scf_info, shell_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -102,6 +103,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    do spin = 2, wfn%nspin
       do iat = 1, mol%nat
+         if (.not.owns_pair(self%partition, iat, iat)) cycle
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
@@ -132,6 +134,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    do spin = 2, wfn%nspin
       do iat = 1, mol%nat
+         if (.not.owns_pair(self%partition, iat, iat)) cycle
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)

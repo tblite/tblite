@@ -37,7 +37,7 @@ module tblite_context_solver
 
    abstract interface
       !> Create new electronic solver
-      subroutine new(self, solver, overlap, nel, kt)
+      subroutine new(self, solver, overlap, nel, kt, comm)
          import :: wp, context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
@@ -49,6 +49,8 @@ module tblite_context_solver
          real(wp), intent(in) :: kt
          !> Number of electrons per spin channel
          real(wp), intent(in) :: nel(:)
+         !> Communicator to distribute the diagonalization over, absent keeps it local
+         integer, intent(in), optional :: comm
       end subroutine new
 
       !> Delete electronic solver instance

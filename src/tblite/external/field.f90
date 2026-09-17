@@ -27,6 +27,7 @@ module tblite_external_field
    use tblite_blas, only : dot
    use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
+   use tblite_partition, only : owns_index
    use tblite_scf_info, only : scf_info, atom_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -117,6 +118,9 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    real(wp), allocatable :: vdp(:, :), vat(:)
 
+   ! the field couples to every atom individually, the first part carries it whole
+   if (.not.owns_index(self%partition, 1)) return
+
    vat = matmul(self%efield, mol%xyz)
    vdp = spread(self%efield, 2, mol%nat)
    energies(:) = energies - vat * wfn%qat(:, 1) - sum(vdp * wfn%dpat(:, :, 1), 1)
@@ -135,6 +139,8 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    type(wavefunction_type), intent(in) :: wfn
    !> Density dependent potential
    type(potential_type), intent(inout) :: pot
+
+   if (.not.owns_index(self%partition, 1)) return
 
    pot%vat(:, 1) = pot%vat(:, 1) - matmul(self%efield, mol%xyz)
    pot%vdp(:, :, 1) = pot%vdp(:, :, 1) - spread(self%efield, 2, mol%nat)
@@ -173,6 +179,8 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    real(wp), allocatable :: vdp(:, :), stmp(:, :)
+
+   if (.not.owns_index(self%partition, 1)) return
 
    vdp = spread(self%efield, 2, mol%nat)
    stmp = matmul(vdp, transpose(mol%xyz))

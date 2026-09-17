@@ -24,6 +24,7 @@ module tblite_solvation_shift
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : kjtoau
    use tblite_container_cache, only : container_cache
+   use tblite_partition, only : owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_solvation_type, only : solvation_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -203,6 +204,9 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
    type(shift_cache), pointer :: ptr
+
+   ! a global shift is not an interaction loop, the first part carries it whole
+   if (.not.owns_index(self%partition, 1)) return
 
    call view(cache, ptr)
 

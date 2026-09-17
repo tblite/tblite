@@ -27,6 +27,7 @@ module tblite_xtb_h0
       & diat_trafo
    use tblite_integral_native_integrals, only : multipole_cgto, multipole_grad_cgto, &
       & msao, smap, sdim
+   use tblite_partition, only : work_partition, owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_xtb_spec, only : tb_h0spec
    implicit none
@@ -218,7 +219,7 @@ end subroutine get_selfenergy
 
 
 subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
-   & dpint, qpint, hamiltonian)
+   & dpint, qpint, hamiltonian, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -239,6 +240,8 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    real(wp), intent(out) :: qpint(:, :, :)
    !> Effective Hamiltonian
    real(wp), intent(out) :: hamiltonian(:, :)
+   !> Share of the neighbour list entries evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl
    integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij, iaosh, jaosh
@@ -264,6 +267,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    !$omp parallel do schedule(runtime) default(none) &
    !$omp firstprivate(mod_h0_fraction) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
+   !$omp shared(partition) &
    !$omp private(iat, jat, izp, jzp, itr, inl, img, is, js, ish, jsh, nsi, nsj, ii, jj) &
    !$omp private(iao, jao, iaosh, jaosh, nao, ij, r2, vec, hij, shpolyi, shpoly, rr) &
    !$omp private(stmp, dtmpi, qtmpi, dtmpj, qtmpj, block_overlap, dt_cache)
@@ -274,6 +278,8 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
+         ! the offset into the neighbour list enumerates the diatomic blocks
+         if (.not.owns_index(partition, img+inl)) cycle
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -393,6 +399,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       end do
 
       ! Onsite contribution to the Hamiltonian
+      if (.not.owns_index(partition, iat)) cycle
       vec(:) = 0.0_wp
       do ish = 1, nsi
          ii = bas%iao_sh(is+ish)
@@ -430,7 +437,7 @@ end subroutine get_hamiltonian
 
 
 subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedcn, &
-      & pot, pmat, xmat, dEdcn, gradient, sigma)
+      & pot, pmat, xmat, dEdcn, gradient, sigma, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -458,6 +465,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    real(wp), intent(inout) :: gradient(:, :)
    !> Derivative of the electronic energy w.r.t. strain deformations
    real(wp), intent(inout) :: sigma(:, :)
+
+   !> Share of the neighbour list entries evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
    integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, iaosh, jaosh, nao, ij
@@ -487,6 +497,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
    !$omp shared(nspin, mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
+   !$omp shared(partition) &
    !$omp firstprivate(mod_h0_fraction) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj, ii, jj) &
    !$omp private(iaosh, jaosh, iao, jao, nao, ij, inl, img, spin, r2, vec) &
@@ -501,6 +512,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       inl = list%inl(iat)
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
+         ! the offset into the neighbour list enumerates the diatomic blocks
+         if (.not.owns_index(partition, img+inl)) cycle
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -652,6 +665,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       end do
 
       ! Onsite contributions
+      if (.not.owns_index(partition, iat)) cycle
       do ish = 1, bas%nsh_id(izp)
          ii = bas%iao_sh(is+ish)
          dhdcni = dsedcn(is+ish)

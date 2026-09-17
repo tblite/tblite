@@ -21,6 +21,8 @@
 module tblite_lapack_solver
    use mctc_env, only : wp
    use tblite_context_solver, only : context_solver
+   use tblite_lapack_scalapack, only : psygvd_solver, new_psygvd, &
+      & distribute_diagonalization
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
    use tblite_scf_solver, only : solver_type
@@ -58,7 +60,7 @@ contains
 
 
 !> Create new electronic solver
-subroutine new(self, solver, overlap, nel, kt)
+subroutine new(self, solver, overlap, nel, kt, comm)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
    !> New electronic solver
@@ -69,6 +71,21 @@ subroutine new(self, solver, overlap, nel, kt)
    real(wp), intent(in) :: nel(:)
    !> Electronic temperature
    real(wp), intent(in) :: kt
+   !> Communicator to distribute the diagonalization over, absent keeps it local
+   integer, intent(in), optional :: comm
+
+   ! the replicated diagonalization is the bottleneck of a distributed run
+   if (present(comm)) then
+      if (distribute_diagonalization(size(overlap, 1), comm)) then
+         block
+            type(psygvd_solver), allocatable :: tmp
+            allocate(tmp)
+            call new_psygvd(tmp, overlap, nel, kt, comm)
+            call move_alloc(tmp, solver)
+         end block
+         return
+      end if
+   end if
 
    select case(self%algorithm)
    case(lapack_algorithm%gvd)

@@ -29,6 +29,7 @@ module tblite_driver_run
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_features, only : tblite_has_mpi
    use tblite_io_molden, only : save_molden
    use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
@@ -73,7 +74,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps
+   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps, verbosity
    logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
@@ -88,6 +89,15 @@ subroutine run_main(config, error)
 
    ctx%terminal = context_terminal(config%color)
    ctx%solver = lapack_solver(config%solver)
+
+   ! a single rank owns the complete work, so this is a no-op outside mpiexec
+   if (tblite_has_mpi) then
+      call ctx%set_mpi(error)
+      if (allocated(error)) return
+   end if
+
+   verbosity = config%verbosity
+   if (ctx%partition%part > 0) verbosity = 0
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then
@@ -107,7 +117,7 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, charge, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) then
+         if (verbosity > 0) then
            call info(ctx, "Molecular charge read from '"//filename//"'")
          end if
          mol%charge = charge
@@ -122,7 +132,7 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, unpaired, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) then
+         if (verbosity > 0) then
            call info(ctx, "Molecular spin read from '"//filename//"'")
          end if
          mol%uhf = unpaired
@@ -211,7 +221,8 @@ subroutine run_main(config, error)
       case("eeqbc")
          call eeqbc_guess(mol, calc, wfn, error)
       case("ceh")
-         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
+         call calc_ceh%set_partition(ctx%partition)
+         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, verbosity)
          if (ctx%failed()) then
             call fatal(ctx, "CEH singlepoint calculation failed")
             do while(ctx%failed())
@@ -277,7 +288,7 @@ subroutine run_main(config, error)
    call add_post_processing(post_proc, mol, wbo_label, error)
    if (allocated(error)) return
 
-   if (config%verbosity > 2) then
+   if (verbosity > 2) then
       molmom_label = "molmom"
       call add_post_processing(post_proc, mol, molmom_label, error)
       if (allocated(error)) return
@@ -293,13 +304,14 @@ subroutine run_main(config, error)
       if (allocated(error)) return
    end if
 
-   if (config%verbosity > 0) then
-      call ctx%message(calc%info(config%verbosity, " | "))
+   if (verbosity > 0) then
+      call ctx%message(calc%info(verbosity, " | "))
       call ctx%message("")
    end if
 
+   call calc%set_partition(ctx%partition)
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
-      & config%verbosity, results, post_proc)
+      & verbosity, results, post_proc)
    if (ctx%failed()) then
       call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
@@ -308,6 +320,9 @@ subroutine run_main(config, error)
       end do
       error stop
    end if
+
+   ! every rank holds the same reduced result, writing it once is enough
+   if (ctx%partition%part > 0) return
 
    if (allocated(config%restart_file)) then
       call info(ctx, "Writing wavefunction information to '"//config%restart_file//"'")
@@ -320,8 +335,8 @@ subroutine run_main(config, error)
       if (allocated(error)) return
    end if
 
-   if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
+   if (verbosity > 2) then
+      call ascii_levels(ctx%unit, verbosity, wfn%emo, wfn%focc, 7)
       call results%dict%get_entry("molecular-dipole", dpmom)
       call results%dict%get_entry("molecular-quadrupole", qpmom)
 
@@ -335,7 +350,7 @@ subroutine run_main(config, error)
       open(file=config%grad_output, newunit=unit)
       call tagged_result(unit, energy, gradient, sigma, energies=results%energies)
       close(unit)
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "Tight-binding results written to '"//config%grad_output//"'")
       end if
    end if
@@ -345,7 +360,7 @@ subroutine run_main(config, error)
       call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma, &
          & energies=results%energies)
       close(unit)
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
    end if
@@ -353,7 +368,7 @@ subroutine run_main(config, error)
    if (config%trexio) then
       call save_trexio(config%trexio_output, mol, calc%bas, wfn, energy, error)
       if (allocated(error)) return
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
       end if
    end if
@@ -361,7 +376,7 @@ subroutine run_main(config, error)
    if (config%molden) then
       call save_molden(config%molden_output, mol, calc%bas, wfn, error)
       if (allocated(error)) return
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "Molden file written to '"//config%molden_output//"'")
       end if
    end if
