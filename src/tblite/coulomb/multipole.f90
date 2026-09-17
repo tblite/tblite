@@ -30,6 +30,7 @@ module tblite_coulomb_multipole
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
+   use tblite_partition, only : work_partition, owns_pair
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
@@ -219,8 +220,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    energies(:) = energies + sum(wfn%dpat(:, :, 1) * vd, 1) + sum(wfn%qpat(:, :, 1) * vq, 1)
 
-   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies)
-   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies)
+   call get_kernel_energy(mol, self%dkernel, wfn%dpat(:, :, 1), energies, self%partition)
+   call get_kernel_energy(mol, self%qkernel, wfn%qpat(:, :, 1), energies, self%partition)
 end subroutine get_energy
 
 !> Get anisotropic electrostatic energy
@@ -273,7 +274,7 @@ subroutine get_energy_aes(self, mol, cache, wfn, energies)
 end subroutine get_energy_aes
 
 !> Get multipolar anisotropic exchange-correlation kernel
-subroutine get_kernel_energy(mol, kernel, mpat, energies)
+subroutine get_kernel_energy(mol, kernel, mpat, energies, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole kernel
@@ -282,6 +283,8 @@ subroutine get_kernel_energy(mol, kernel, mpat, energies)
    real(wp), intent(in) :: mpat(:, :)
    !> Electrostatic energy
    real(wp), intent(inout) :: energies(:)
+   !> Share of the on-site terms evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, izp
    real(wp) :: mpt(size(mpat, 1)), mpscale(size(mpat, 1))
@@ -290,6 +293,7 @@ subroutine get_kernel_energy(mol, kernel, mpat, energies)
    if (size(mpat, 1) == 6) mpscale([2, 4, 5]) = 2
 
    do iat = 1, mol%nat
+      if (.not.owns_pair(partition, iat, iat)) cycle
       izp = mol%id(iat)
       mpt(:) = mpat(:, iat) * mpscale
       energies(iat) = energies(iat) + kernel(izp) * dot_product(mpt, mpat(:, iat))
@@ -321,13 +325,15 @@ subroutine get_potential(self, mol, cache, wfn, pot)
    call gemv(ptr%amat_sq, wfn%qat(:, 1), pot%vqp(:, :, 1), beta=1.0_wp)
    call gemv(ptr%amat_sq, wfn%qpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
 
-   call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1))
-   call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1))
+   call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), &
+      & self%partition)
+   call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1), &
+      & self%partition)
 end subroutine get_potential
 
 
 !> Get multipolar anisotropic potential contribution
-subroutine get_kernel_potential(mol, kernel, mpat, vm)
+subroutine get_kernel_potential(mol, kernel, mpat, vm, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole kernel
@@ -336,6 +342,8 @@ subroutine get_kernel_potential(mol, kernel, mpat, vm)
    real(wp), intent(in) :: mpat(:, :)
    !> Potential shoft on atomic multipole moment
    real(wp), intent(inout) :: vm(:, :)
+   !> Share of the on-site terms evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, izp
    real(wp) :: mpscale(size(mpat, 1))
@@ -344,6 +352,7 @@ subroutine get_kernel_potential(mol, kernel, mpat, vm)
    if (size(mpat, 1) == 6) mpscale([2, 4, 5]) = 2
 
    do iat = 1, mol%nat
+      if (.not.owns_pair(partition, iat, iat)) cycle
       izp = mol%id(iat)
       vm(:, iat) = vm(:, iat) + 2*kernel(izp) * mpat(:, iat) * mpscale
    end do
@@ -477,15 +486,16 @@ subroutine get_multipole_matrix(self, mol, cache, amat_sd, amat_dd, amat_sq)
    amat_sq(:, :, :) = 0.0_wp
    if (any(mol%periodic)) then
       call get_multipole_matrix_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & cache%wsc, cache%alpha_multipole, amat_sd, amat_dd, amat_sq)
+         & cache%wsc, cache%alpha_multipole, amat_sd, amat_dd, amat_sq, self%partition)
    else
       call get_multipole_matrix_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & amat_sd, amat_dd, amat_sq)
+         & amat_sd, amat_dd, amat_sq, self%partition)
    end if
 end subroutine get_multipole_matrix
 
 !> Calculate the multipole interaction matrix for finite systems
-subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, amat_sq)
+subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, amat_sq, &
+      & partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -500,16 +510,20 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
    real(wp), intent(inout) :: amat_dd(:, :, :, :)
    !> Interaction matrix for charges and quadrupoles
    real(wp), intent(inout) :: amat_sq(:, :, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat
    real(wp) :: r1, vec(3), g1, g3, g5, fdmp3, fdmp5, tc(6), rr
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, rad, kdmp3, kdmp5) &
+   !$omp shared(amat_sd, amat_dd, amat_sq, mol, rad, kdmp3, kdmp5, partition) &
    !$omp private(r1, vec, g1, g3, g5, fdmp3, fdmp5, tc, rr)
    do iat = 1, mol%nat
       do jat = 1, mol%nat
          if (iat == jat) cycle
+         ! both triangles of a pair belong to the same part
+         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
          vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat)
          r1 = norm2(vec)
          g1 = 1.0_wp / r1
@@ -536,7 +550,7 @@ end subroutine get_multipole_matrix_0d
 
 !> Evaluate multipole interaction matrix under 3D periodic boundary conditions
 subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
-      & amat_sd, amat_dd, amat_sq)
+      & amat_sd, amat_dd, amat_sq, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -555,6 +569,8 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    real(wp), intent(inout) :: amat_dd(:, :, :, :)
    !> Interation matrix for charges and quadrupoles
    real(wp), intent(inout) :: amat_sq(:, :, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, img, k
    real(wp) :: vec(3), rij(3), rr, vol
@@ -568,10 +584,12 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(amat_sd, amat_dd, amat_sq) &
-   !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5) &
+   !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5, partition) &
    !$omp private(iat, jat, img, vec, rij, rr, weight, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq)
    do iat = 1, mol%nat
       do jat = 1, mol%nat
+         ! both triangles of a pair belong to the same part
+         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
          rij = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_wignerseitz_weights(wsc, jat, iat, rij, weight)
          do img = 1, wsc%nimg(jat, iat)
@@ -589,8 +607,9 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    end do
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha) private(iat, rr, k)
+   !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha, partition) private(iat, rr, k)
    do iat = 1, mol%nat
+      if (.not.owns_pair(partition, iat, iat)) cycle
       ! dipole-dipole selfenergy: -2/3·α³/sqrt(π) Σ(i) μ²(i)
       rr = -2.0_wp/3.0_wp * alpha**3 / sqrtpi
       do k = 1, 3
@@ -735,16 +754,17 @@ subroutine get_multipole_gradient(self, mol, cache, qat, dpat, qpat, dEdr, gradi
 
    if (any(mol%periodic)) then
       call get_multipole_gradient_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & qat, dpat, qpat, cache%wsc, cache%alpha_multipole, dEdr, gradient, sigma)
+         & qat, dpat, qpat, cache%wsc, cache%alpha_multipole, dEdr, gradient, sigma, &
+         & self%partition)
    else
       call get_multipole_gradient_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & qat, dpat, qpat, dEdr, gradient, sigma)
+         & qat, dpat, qpat, dEdr, gradient, sigma, self%partition)
    end if
 end subroutine get_multipole_gradient
 
 !> Evaluate multipole derivatives for finite systems
 subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
-      & dEdr, gradient, sigma)
+      & dEdr, gradient, sigma, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -765,17 +785,20 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
    real(wp), contiguous, intent(inout) :: gradient(:, :)
    !> Derivative of the energy w.r.t. strain deformations
    real(wp), contiguous, intent(inout) :: sigma(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat
    real(wp) :: r1, r2, vec(3), rr, fdmp3, fdmp5, g1, g3, g5, g7, dG(3), dS(3, 3)
    real(wp) :: ddmp3, ddmp5, fddr, eq, edd, dpidpj, dpiv, dpjv, dpiqj, qidpj
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
-   !$omp shared(mol, kdmp3, kdmp5, rad, qat, dpat, qpat) &
+   !$omp shared(mol, kdmp3, kdmp5, rad, qat, dpat, qpat, partition) &
    !$omp private(iat, jat, r1, r2, vec, rr, fdmp3, fdmp5, g1, g3, g5, g7, dG, dS, &
    !$omp& ddmp3, ddmp5, fddr, eq, edd, dpidpj, dpiv, dpjv, dpiqj, qidpj)
    do iat = 1, mol%nat
       do jat = 1, iat - 1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          rr = 0.5_wp*(rad(iat)+rad(jat))
          vec(:) = mol%xyz(:, jat)-mol%xyz(:, iat)
          r1 = norm2(vec)
@@ -853,7 +876,7 @@ end subroutine get_multipole_gradient_0d
 
 !> Evaluate multipole derivatives under 3D periodic boundary conditions
 subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, wsc, alpha, &
-      & dEdr, gradient, sigma)
+      & dEdr, gradient, sigma, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -878,6 +901,8 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    real(wp), contiguous, intent(inout) :: gradient(:, :)
    !> Derivative of the energy w.r.t. strain deformations
    real(wp), contiguous, intent(inout) :: sigma(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, img
    logical :: need_weight_energy
@@ -894,10 +919,12 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, gradient, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
+   !$omp shared(partition) &
    !$omp private(iat, jat, dE, dG, dS, img, vec, rij, rr, dEd, dGd, dGr, dSd, dSr) &
    !$omp private(eimg, need_weight_energy, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq, weight, dwdr, dwdL)
    do iat = 1, mol%nat
       do jat = 1, iat - 1
+         if (.not.owns_pair(partition, iat, jat)) cycle
          dE = 0.0_wp
          dG(:) = 0.0_wp
          dS(:, :) = 0.0_wp
@@ -934,9 +961,11 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:dEdr, sigma) &
    !$omp shared(mol, wsc, kdmp3, kdmp5, vol, alpha, rtrans, dtrans, rad, qat, dpat, qpat) &
+   !$omp shared(partition) &
    !$omp private(iat, jat, dE, dG, dS, img, vec, rij, rr, dEd, dGd, dGr, dSd, dSr) &
    !$omp private(eimg, need_weight_energy, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq, weight, dwdr, dwdL)
    do iat = 1, mol%nat
+      if (.not.owns_pair(partition, iat, iat)) cycle
       dE = 0.0_wp
       dS(:, :) = 0.0_wp
       rij(:) = 0.0_wp

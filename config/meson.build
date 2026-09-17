@@ -202,11 +202,35 @@ lib_deps += multicharge_dep
 # Create DFT-D3 library as subproject
 sdftd3_dep = dependency(
   's-dftd3',
-  version: '>=1.4.0',
+  version: '>=1.6.0',
   fallback: ['s-dftd3', 'sdftd3_dep'],
-  default_options: ['default_library=static', 'api=false', 'python=false'],
+  default_options: [
+    'default_library=static',
+    'api=false',
+    'python=false',
+    'mpi=' + get_option('mpi').to_string(),
+  ],
 )
 lib_deps += sdftd3_dep
+
+if get_option('mpi')
+  mpi_dep = dependency('mpi', language: 'fortran', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_MPI=1'],
+    dependencies: [mpi_dep],
+  )
+endif
+
+if get_option('scalapack')
+  if not get_option('mpi')
+    error('scalapack option requires the mpi option')
+  endif
+  scalapack_dep = dependency('scalapack', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_SCALAPACK=1'],
+    dependencies: [scalapack_dep],
+  )
+endif
 
 # Create ddX library as subproject
 if get_option('ddx')

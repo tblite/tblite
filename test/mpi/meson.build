@@ -14,14 +14,19 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-subdir('unit')
-subdir('cli')
-subdir('validation')
+mpi_tester = executable(
+  'mpi-tester',
+  sources: files('main.f90'),
+  dependencies: [tblite_dep, mstore_dep, mpi_dep],
+  link_language: 'fortran',
+)
 
-if get_option('mpi')
-  subdir('mpi')
-endif
-
-if get_option('api')
-  subdir('api')
+mpirun = find_program('mpirun', 'mpiexec', required: false)
+if mpirun.found()
+  test(
+    'mpi-singlepoint',
+    mpirun,
+    args: ['-n', '2', mpi_tester.full_path()],
+    suite: 'mpi',
+  )
 endif

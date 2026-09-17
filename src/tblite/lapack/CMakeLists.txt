@@ -22,6 +22,7 @@ list(
   "${dir}/getri.f90"
   "${dir}/getrs.f90"
   "${dir}/potrf.f90"
+  "${dir}/scalapack.F90"
   "${dir}/solver.f90"
   "${dir}/sygst.f90"
   "${dir}/sygvd.f90"

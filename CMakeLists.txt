@@ -41,6 +41,13 @@ endif()
 if(TBLITE_WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
   find_package("HDF5" REQUIRED COMPONENTS Fortran)
 endif()
+if(TBLITE_WITH_MPI AND NOT TARGET "MPI::MPI_Fortran")
+  find_package("MPI" REQUIRED COMPONENTS Fortran)
+endif()
+if(TBLITE_WITH_SCALAPACK AND NOT TARGET "PkgConfig::SCALAPACK")
+  find_package("PkgConfig" REQUIRED)
+  pkg_check_modules("SCALAPACK" REQUIRED IMPORTED_TARGET "scalapack")
+endif()
 if(TBLITE_WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
   find_path(
     TREXIO_INCLUDE_DIR
@@ -67,6 +74,8 @@ if(NOT TARGET "LAPACK::LAPACK")
 endif()
 
 # Collect subprojects
+# subprojects read WITH_MPI to default their own MPI option
+set(WITH_MPI ${TBLITE_WITH_MPI})
 if(NOT TARGET "toml-f::toml-f")
   find_package("toml-f" REQUIRED)
 endif()
@@ -159,6 +168,30 @@ if(TBLITE_WITH_TREXIO)
     "${PROJECT_NAME}-lib"
     PUBLIC
     "TBLITE_HAS_TREXIO=1"
+  )
+endif()
+if(TBLITE_WITH_MPI)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "MPI::MPI_Fortran"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_MPI=1"
+  )
+endif()
+if(TBLITE_WITH_SCALAPACK)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "PkgConfig::SCALAPACK"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_SCALAPACK=1"
   )
 endif()
 target_include_directories(

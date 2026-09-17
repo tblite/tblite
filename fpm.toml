@@ -8,7 +8,7 @@ keywords = ["quantum-chemistry", "tight-binding", "xtb"]
 copyright = "Copyright 2021 S. Ehlert"
 
 [build]
-external-modules = ["ifport", "hdf5", "tblite_ext_trexio"]
+external-modules = ["ifport", "hdf5", "tblite_ext_trexio", "mpi_f08"]
 link = ["lapack", "blas"]
 auto-tests = false
 
@@ -24,7 +24,7 @@ multicharge.tag = "v0.5.0"
 dftd4.git = "https://github.com/dftd4/dftd4"
 dftd4.tag = "v4.2.0"
 s-dftd3.git = "https://github.com/dftd3/simple-dftd3"
-s-dftd3.tag = "v1.4.0"
+s-dftd3.tag = "v1.6.0"
 toml-f.git = "https://github.com/toml-f/toml-f"
 toml-f.tag = "v0.5.1"
 ddx.git = "https://github.com/ddsolvation/ddX"
@@ -45,7 +45,7 @@ ignore = [
 ]
 per-file-ignores."src/tblite/api/*.f90" = ["C071", "C072"]
 per-file-ignores."src/tblite/blas/*.f90" = ["C071"]
-per-file-ignores."src/tblite/lapack/*.f90" = ["C071"]
+per-file-ignores."src/tblite/lapack/*" = ["C071"]
 per-file-ignores."src/tblite/fit/newuoa.f90" = ["C071"]
 per-file-ignores."src/tblite/mesh/lebedev.f90" = ["C071"]
 line-length = 132

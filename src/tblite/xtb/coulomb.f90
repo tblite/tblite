@@ -23,6 +23,7 @@ module tblite_xtb_coulomb
    use mctc_io, only : structure_type
    use tblite_container, only : container_cache, container_type
    use tblite_coulomb, only : coulomb_charge_type, damped_multipole, onsite_thirdorder
+   use tblite_partition, only : work_partition
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -37,6 +38,7 @@ module tblite_xtb_coulomb
       !> Onsite third-order electrostatic
       type(onsite_thirdorder), allocatable :: es3
    contains
+      procedure :: set_partition
       procedure :: update
       procedure :: variable_info
       procedure :: get_energy
@@ -47,6 +49,20 @@ module tblite_xtb_coulomb
    end type tb_coulomb
 
 contains
+
+
+!> Assign an externally managed share of the interaction loops to every contribution
+subroutine set_partition(self, partition)
+   !> Instance of the electrostatic container
+   class(tb_coulomb), intent(inout) :: self
+   !> Share of the interaction loops evaluated by this instance
+   type(work_partition), intent(in) :: partition
+
+   self%partition = partition
+   if (allocated(self%es2)) call self%es2%set_partition(partition)
+   if (allocated(self%aes2)) call self%aes2%set_partition(partition)
+   if (allocated(self%es3)) call self%es3%set_partition(partition)
+end subroutine set_partition
 
 
 subroutine update(self, mol, cache)

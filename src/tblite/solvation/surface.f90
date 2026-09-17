@@ -25,6 +25,7 @@ module tblite_solvation_surface
    use mctc_io_convert, only : aatoau
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_mesh_lebedev, only : get_angular_grid, grid_size, list_bisection
+   use tblite_partition, only : work_partition, owns_index
    implicit none
    private
 
@@ -119,7 +120,7 @@ subroutine new_surface_integrator(self, num, rad, probe, nang, offset, smoothing
 
 end subroutine new_surface_integrator
 
-subroutine get_surface(self, mol, surface, dsdr)
+subroutine get_surface(self, mol, surface, dsdr, partition)
    !> Instance of the surface integrator
    class(surface_integrator), intent(in) :: self
    !> Molecular structure data
@@ -128,6 +129,8 @@ subroutine get_surface(self, mol, surface, dsdr)
    real(wp), intent(out) :: surface(:)
    !> Derivative of surface area w.r.t. to coordinate displacements
    real(wp), intent(out), optional :: dsdr(:, :, :)
+   !> Share of the atoms evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    type(adjacency_list) :: list
    real(wp), parameter :: trans(3, 1) = 0.0_wp
@@ -138,17 +141,17 @@ subroutine get_surface(self, mol, surface, dsdr)
    if (present(dsdr)) then
       call compute_numsa(mol%nat, mol%xyz, list, self%vdwsa, &
          & self%wrp, self%trj2, self%ah0, self%ah1, self%ah3, self%ang_weight, self%ang_grid, &
-         & surface, dsdr)
+         & surface, dsdr, partition)
    else
       call compute_surface(mol%nat, mol%xyz, list, self%vdwsa, &
          & self%wrp, self%trj2, self%ah0, self%ah1, self%ah3, self%ang_weight, self%ang_grid, &
-         & surface)
+         & surface, partition)
    end if
 
 end subroutine get_surface
 
 subroutine compute_surface(nat, xyz, list, vdwsa, &
-      & wrp, trj2, ah0, ah1, ah3, ang_weight, ang_grid, surface)
+      & wrp, trj2, ah0, ah1, ah3, ang_weight, ang_grid, surface, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -168,6 +171,8 @@ subroutine compute_surface(nat, xyz, list, vdwsa, &
    real(wp), intent(in) :: ang_grid(:, :)
    !> Surface area for each atom, including surface tension
    real(wp), intent(out) :: surface(:)
+   !> Share of the atoms evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, ip, nno, ino
    real(wp) :: rsas, sasai, xyza(3), xyzp(3), sasap, wr, wsa
@@ -175,9 +180,10 @@ subroutine compute_surface(nat, xyz, list, vdwsa, &
    surface(:) = 0.0_wp
 
    !$omp parallel do default(none) shared(surface, ah0, ah1, ah3) &
-   !$omp shared(nat, vdwsa, list, xyz, wrp, ang_grid, ang_weight, trj2) &
+   !$omp shared(nat, vdwsa, list, xyz, wrp, ang_grid, ang_weight, trj2, partition) &
    !$omp private(iat, rsas, nno, sasai, xyza, wr, ip, xyzp, wsa, sasap, ino)
    do iat = 1, nat
+      if (.not.owns_index(partition, iat)) cycle
 
       rsas = vdwsa(iat)
       ino = list%inl(iat)
@@ -213,7 +219,7 @@ subroutine compute_surface(nat, xyz, list, vdwsa, &
 end subroutine compute_surface
 
 subroutine compute_numsa(nat, xyz, list, vdwsa, &
-      & wrp, trj2, ah0, ah1, ah3, ang_weight, ang_grid, surface, dsdrt)
+      & wrp, trj2, ah0, ah1, ah3, ang_weight, ang_grid, surface, dsdrt, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -235,6 +241,8 @@ subroutine compute_numsa(nat, xyz, list, vdwsa, &
    real(wp), intent(out) :: surface(:)
    !> Derivative of surface area w.r.t. cartesian coordinates
    real(wp), intent(out) :: dsdrt(:, :, :)
+   !> Share of the atoms evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, ip, jj, nni, nno, ino
    real(wp) :: rsas, sasai, xyza(3), xyzp(3), sasap, wr, wsa, drjj(3)
@@ -250,10 +258,11 @@ subroutine compute_numsa(nat, xyz, list, vdwsa, &
    allocate (grdi(maxval(list%nnl)))
 
    !$omp parallel do default(none) shared(surface, dsdrt, ah0, ah1, ah3) &
-   !$omp shared(nat, vdwsa, list, xyz, wrp, ang_grid, ang_weight, trj2) &
+   !$omp shared(nat, vdwsa, list, xyz, wrp, ang_grid, ang_weight, trj2, partition) &
    !$omp private(iat, jat, rsas, nno, grads, sasai, xyza, wr, ip, xyzp, wsa, &
    !$omp& sasap, jj, nni, grdi, grds, drjj, ino)
    do iat = 1, nat
+      if (.not.owns_index(partition, iat)) cycle
 
       rsas = vdwsa(iat)
       ino = list%inl(iat)

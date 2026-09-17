@@ -36,6 +36,7 @@ set(
   "molden"
   "npy"
   "npz"
+  "partition"
   "post-processing"
   "repulsion"
   "slater-expansion"

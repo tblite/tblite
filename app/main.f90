@@ -21,9 +21,12 @@ program main_driver
       & fit_config, tagdiff_config, guess_config
    use tblite_context_type, only : context_type
    use tblite_driver, only : main
+   use tblite_mpi_utils, only : mpi_startup, mpi_shutdown
    implicit none
    class(driver_config), allocatable :: config
    type(error_type), allocatable :: error
+
+   call mpi_startup
 
    call get_arguments(config, error)
    if (allocated(error)) then
@@ -47,4 +50,6 @@ program main_driver
       write(error_unit, "(a)") error%message
       error stop
    end if
+
+   call mpi_shutdown
 end program main_driver
