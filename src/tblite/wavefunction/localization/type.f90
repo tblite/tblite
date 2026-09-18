@@ -189,7 +189,7 @@ subroutine guess(self, coeff_occ, overlap, guess_trafo)
    ! for the ordered nocc most linearly independent AOs in the occupied MO basis.
    call geqp3(projected, jpvt, guess_trafo, rmat, info)
 
-   ! Fallback to identity if the factorization failed 
+   ! Fallback to identity if the factorization failed
    ! or the rank of the projected AO matrix is too low
    rmax = maxval([(abs(rmat(i, i)), i = 1, nocc)])
    rmin = minval([(abs(rmat(i, i)), i = 1, nocc)])
