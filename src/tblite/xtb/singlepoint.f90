@@ -444,10 +444,20 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(results%dict)
       call post_process%compute(mol, wfn, ints, calc, caches, accuracy, ctx, &
          & timer, prlevel, results)
-      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
-      call post_process%print_timer(timer, prlevel, ctx)
       deallocate(caches)
       call timer%pop()
+      if (allocated(ctx%comm)) then
+         block
+            type(error_type), allocatable :: sync
+            if (ctx%failed()) call fatal_error(sync, "Post-processing failed on this rank")
+            call mpi_sync_error(sync, ctx%comm)
+            if (allocated(sync) .and. .not.ctx%failed()) call ctx%set_error(sync)
+         end block
+      end if
+      if (ctx%failed()) return
+
+      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
+      call post_process%print_timer(timer, prlevel, ctx)
    else if (present(post_process)) then
       call fatal_error(error, "Post-processing list provided without results container")
       call ctx%set_error(error)

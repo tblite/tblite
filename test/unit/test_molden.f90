@@ -559,6 +559,10 @@ subroutine test_localization_roundtrip(error)
    energy = 0.0_wp
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, &
       & post_process=pproc, verbosity=0)
+   if (ctx%failed()) then
+      call ctx%get_error(error)
+      return
+   end if
 
    wfn_lmo = wfn
    call res%dict%get_entry("localized-orbitals", wfn_lmo%coeff)

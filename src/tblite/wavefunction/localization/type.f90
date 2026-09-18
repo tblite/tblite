@@ -95,7 +95,7 @@ contains
 
 !> Localize occupied block of canonical orbital coefficients for each spin channel
 subroutine localize(self, mol, bas, overlap, dipole, coeff, emo, nel, accuracy, &
-   & coeff_local, converged, error)
+   & coeff_local, error)
    !> Instance of the localization method
    class(localization_type), intent(in) :: self
    !> Molecular structure data
@@ -116,19 +116,15 @@ subroutine localize(self, mol, bas, overlap, dipole, coeff, emo, nel, accuracy, 
    real(wp), intent(in) :: accuracy
    !> Localized orbital coefficients
    real(wp), intent(out) :: coeff_local(:, :, :)
-   !> Whether the localization converged within the allowed number of iterations
-   logical, intent(out) :: converged
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    real(wp), allocatable :: opmat(:, :, :), trafo(:, :), coeff_guess(:, :)
-   logical :: spin_converged
    integer :: nao, nspin, spin, nocc
 
    nao = size(coeff, 1)
    nspin = size(coeff, 3)
 
-   converged = .true.
    coeff_local(:, :, :) = coeff
 
    ! Localize each spin channel independently in its own occupied subspace
@@ -139,11 +135,7 @@ subroutine localize(self, mol, bas, overlap, dipole, coeff, emo, nel, accuracy, 
       ! Seed the occupied-space rotation with an atom-centered guess so the
       ! optimizer only has to refine an already localized starting point
       allocate(trafo(nocc, nocc))
-      call self%guess(coeff(:, :nocc, spin), overlap, trafo, error)
-      if (allocated(error)) then
-         converged = .false.
-         return
-      end if
+      call self%guess(coeff(:, :nocc, spin), overlap, trafo)
 
       ! Transform the canonical occupied orbitals into the guess localized orbitals
       allocate(coeff_guess(nao, nocc))
@@ -151,24 +143,17 @@ subroutine localize(self, mol, bas, overlap, dipole, coeff, emo, nel, accuracy, 
 
       ! Build localization criterion operator matrix relative to the guess
       call self%prepare(mol, bas, overlap, dipole, coeff_guess, opmat, error)
-      if (allocated(error)) then
-         converged = .false.
-         return
-      end if
+      if (allocated(error)) return
 
       ! Refine the existing guess transformation via Jacobi sweeps
-      call self%optimizer%optimize(opmat, accuracy, trafo, spin_converged)
-      if (allocated(error)) then
-         converged = .false.
-         return
-      end if
+      call self%optimizer%optimize(opmat, accuracy, trafo, error)
+      if (allocated(error)) return
 
       ! Postprocess the transformation regarding the order of the localized orbitals
       call self%postprocess(emo(:nocc, spin), trafo)
 
       ! Apply localization transformation to occupied orbital coefficients
       call gemm(coeff(:, :nocc, spin), trafo, coeff_local(:, :nocc, spin))
-      converged = converged .and. spin_converged
       deallocate(trafo, coeff_guess, opmat)
    end do
 
@@ -177,7 +162,7 @@ end subroutine localize
 
 !> Construct a pivoted projected-AO guess for the occupied-space rotation,
 !> by QR factorization of the MOs projected onto the atomic orbital basis.
-subroutine guess(self, coeff_occ, overlap, guess_trafo, error)
+subroutine guess(self, coeff_occ, overlap, guess_trafo)
    !> Instance of the localization method
    class(localization_type), intent(in) :: self
    !> Canonical occupied orbital coefficients
@@ -186,8 +171,6 @@ subroutine guess(self, coeff_occ, overlap, guess_trafo, error)
    real(wp), intent(in) :: overlap(:, :)
    !> Orthogonal occupied-space guess transformation
    real(wp), intent(out) :: guess_trafo(:, :)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
 
    integer :: nao, nocc, info, i
    integer, allocatable :: jpvt(:)
@@ -205,32 +188,29 @@ subroutine guess(self, coeff_occ, overlap, guess_trafo, error)
    ! Perform column-pivoted QR factorization of the projected AOs
    ! for the ordered nocc most linearly independent AOs in the occupied MO basis.
    call geqp3(projected, jpvt, guess_trafo, rmat, info)
-   if (info /= 0) then
-      call fatal_error(error, "Pivoted QR factorization of projected AOs failed")
-      return
-   end if
 
-   ! Fallback to identity if the rank of the projected AO matrix is too low
+   ! Fallback to identity if the factorization failed 
+   ! or the rank of the projected AO matrix is too low
    rmax = maxval([(abs(rmat(i, i)), i = 1, nocc)])
    rmin = minval([(abs(rmat(i, i)), i = 1, nocc)])
-   if (rmax <= 0.0_wp .or. rmin <= epsilon(1.0_wp) * rmax) then
+   if (info /= 0 .or. (rmax <= 0.0_wp .or. rmin <= epsilon(1.0_wp) * rmax)) then
       guess_trafo(:, :) = 0.0_wp
       do i = 1, nocc
          guess_trafo(i, i) = 1.0_wp
       end do
       return
+   else
+      ! Remove the column-sign ambiguity by making r non-negative
+      do i = 1, nocc
+         if (rmat(i, i) < 0.0_wp) guess_trafo(:, i) = -guess_trafo(:, i)
+      end do
    end if
-
-   ! Remove the column-sign ambiguity by making r non-negative
-   do i = 1, nocc
-      if (rmat(i, i) < 0.0_wp) guess_trafo(:, i) = -guess_trafo(:, i)
-   end do
 
 end subroutine guess
 
 
 !> Construct the Cartesian position operators in a common origin
-subroutine get_common_origin_position(mol, bas, overlap, dipole, position, error)
+subroutine get_common_origin_position(mol, bas, overlap, dipole, position)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Basis set information
@@ -241,8 +221,6 @@ subroutine get_common_origin_position(mol, bas, overlap, dipole, position, error
    real(wp), intent(in) :: dipole(:, :, :)
    !> Common-origin Cartesian position operators
    real(wp), allocatable, intent(out) :: position(:, :, :)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
 
    integer :: nao, iao, jao, k
 
@@ -265,7 +243,7 @@ end subroutine get_common_origin_position
 
 
 !> Compute charge center position of each occupied orbital of a given coefficient set
-subroutine get_orbital_centers(mol, bas, overlap, dipole, coeff, nel, centers, error)
+subroutine get_orbital_centers(mol, bas, overlap, dipole, coeff, nel, centers)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Basis set information
@@ -280,8 +258,6 @@ subroutine get_orbital_centers(mol, bas, overlap, dipole, coeff, nel, centers, e
    real(wp), intent(in) :: nel(:)
    !> Orbital centers with virtual columns left at zero
    real(wp), intent(out) :: centers(:, :, :)
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
 
    real(wp), allocatable :: position(:, :, :), proj(:, :)
    integer :: nao, nspin, spin, nocc, i, k
@@ -291,8 +267,7 @@ subroutine get_orbital_centers(mol, bas, overlap, dipole, coeff, nel, centers, e
 
    centers(:, :, :) = 0.0_wp
 
-   call get_common_origin_position(mol, bas, overlap, dipole, position, error)
-   if (allocated(error)) return
+   call get_common_origin_position(mol, bas, overlap, dipole, position)
 
    allocate(proj(nao, nao))
    do spin = 1, nspin

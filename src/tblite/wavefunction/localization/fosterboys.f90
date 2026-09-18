@@ -93,8 +93,7 @@ subroutine prepare(self, mol, bas, overlap, dipole, coeff_occ, opmat, error)
    end if
 
    ! Build the common-origin position operator
-   call get_common_origin_position(mol, bas, overlap, dipole, position, error)
-   if (allocated(error)) return
+   call get_common_origin_position(mol, bas, overlap, dipole, position)
 
    nao = size(coeff_occ, 1)
    nocc = size(coeff_occ, 2)
