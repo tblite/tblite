@@ -74,8 +74,8 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("energy-atom-e2", test_e_effective_m02), &
       new_unittest("energy-shell-e1", test_e_effective_m07), &
       new_unittest("energy-atom-pbc-e2", test_e_effective_oxacb), &
-
-      ! new_unittest("energy-atom-sc-e2", test_e_effective_oxacb_sc), & ! perfect scaling can currently not be expected
+      new_unittest("energy-atom-sc-e2", test_e_effective_oxacb_sc), &
+      new_unittest("energy-atom-pbc-e2-alpha", test_e_effective_alpha), &
       new_unittest("energy-atom-pbc-g1", test_e_gamma_urea), &
       ! new_unittest("energy-atom-sc-g1", test_e_gamma_urea_sc), &
       new_unittest("energy-atom-g1", test_e_effective_m10), &
@@ -943,7 +943,7 @@ subroutine test_e_effective_oxacb(error)
 
    call get_structure(mol, "X23", "oxacb")
    call test_generic(error, mol, qat, qsh, make_coulomb_e2, &
-      & 0.10273708044741356_wp, thr2)
+      & 0.094385739059833038_wp, thr2)
 
 end subroutine test_e_effective_oxacb
 
@@ -951,29 +951,65 @@ end subroutine test_e_effective_oxacb
 
 
 
-! subroutine test_e_effective_oxacb_sc(error)
-!
-!    !> Error handling
-!    type(error_type), allocatable, intent(out) :: error
-!
-!    type(structure_type) :: mol
-!    real(wp), parameter :: qat1(*) = [&
-!       & 3.41731844312030E-1_wp, 3.41716020106239E-1_wp, 3.41730526585671E-1_wp,&
-!       & 3.41714427217954E-1_wp, 3.80996046757999E-1_wp, 3.80989821246195E-1_wp,&
-!       & 3.81000747720282E-1_wp, 3.80990494183703E-1_wp,-3.70406587264474E-1_wp,&
-!       &-3.70407565207006E-1_wp,-3.70417590212352E-1_wp,-3.70399716470705E-1_wp,&
-!       &-3.52322260586075E-1_wp,-3.52304269439196E-1_wp,-3.52313440903261E-1_wp,&
-!       &-3.52298498047004E-1_wp]
-!    integer, parameter :: supercell(*) = [2, 2, 2]
-!    real(wp), parameter :: qat(*) = [spread(qat1, 2, product(supercell))]
-!    real(wp), allocatable :: qsh(:)
-!
-!    call get_structure(mol, "X23", "oxacb")
-!    call make_supercell(mol, supercell)
-!    call test_generic(error, mol, qat, qsh, make_coulomb_e2, &
-!       & 0.10361965109930950_wp * real(product(supercell), wp), thr2)
-!
-! end subroutine test_e_effective_oxacb_sc
+subroutine test_e_effective_oxacb_sc(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat1(*) = [&
+      & 3.41731844312030E-1_wp, 3.41716020106239E-1_wp, 3.41730526585671E-1_wp,&
+      & 3.41714427217954E-1_wp, 3.80996046757999E-1_wp, 3.80989821246195E-1_wp,&
+      & 3.81000747720282E-1_wp, 3.80990494183703E-1_wp,-3.70406587264474E-1_wp,&
+      &-3.70407565207006E-1_wp,-3.70417590212352E-1_wp,-3.70399716470705E-1_wp,&
+      &-3.52322260586075E-1_wp,-3.52304269439196E-1_wp,-3.52313440903261E-1_wp,&
+      &-3.52298498047004E-1_wp]
+   integer, parameter :: supercell(*) = [2, 2, 2]
+   real(wp), parameter :: qat(*) = [spread(qat1, 2, product(supercell))]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "oxacb")
+   call make_supercell(mol, supercell)
+   call test_generic(error, mol, qat, qsh, make_coulomb_e2, &
+      & 0.094385739059833038_wp * real(product(supercell), wp), 1.0e-6_wp)
+
+end subroutine test_e_effective_oxacb_sc
+
+
+subroutine test_e_effective_alpha(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(container_cache) :: cache
+   class(coulomb_charge_type), allocatable :: coulomb
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy1(16), energy2(16)
+   real(wp), parameter :: qat(*) = [&
+      & 3.41731844312030E-1_wp, 3.41716020106239E-1_wp, 3.41730526585671E-1_wp,&
+      & 3.41714427217954E-1_wp, 3.80996046757999E-1_wp, 3.80989821246195E-1_wp,&
+      & 3.81000747720282E-1_wp, 3.80990494183703E-1_wp,-3.70406587264474E-1_wp,&
+      &-3.70407565207006E-1_wp,-3.70417590212352E-1_wp,-3.70399716470705E-1_wp,&
+      &-3.52322260586075E-1_wp,-3.52304269439196E-1_wp,-3.52313440903261E-1_wp,&
+      &-3.52298498047004E-1_wp]
+
+   call get_structure(mol, "X23", "oxacb")
+   call make_coulomb_e2(coulomb, mol, .false.)
+   wfn%qat = reshape(qat, [size(qat), 1])
+   wfn%qsh = wfn%qat
+   call coulomb%update(mol, cache)
+   energy1 = 0.0_wp
+   call coulomb%get_energy(mol, cache, wfn, energy1)
+
+   select type(ptr => cache%raw)
+   type is(coulomb_cache)
+      ptr%alpha = 0.8_wp*ptr%alpha
+      call coulomb%get_coulomb_matrix(mol, ptr, ptr%amat)
+   end select
+   energy2 = 0.0_wp
+   call coulomb%get_energy(mol, cache, wfn, energy2)
+
+   call check(error, sum(energy2), sum(energy1), thr=1.0e-8_wp)
+end subroutine test_e_effective_alpha
 
 
 subroutine test_e_gamma_urea(error)

@@ -23,7 +23,7 @@ module test_gfn1_xtb
    use tblite_context_type, only : context_type
    use tblite_lapack_solver, only : lapack_solver, lapack_algorithm
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, xtb_config
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -50,6 +50,7 @@ subroutine collect_gfn1_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
+      new_unittest("energy-pbc-qcore", test_e_co2_qcore), &
       new_unittest("gradient-mol", test_g_mb02), &
       new_unittest("numgrad-mol", test_g_mb03), &
       !new_unittest("virial-mol", test_s_mb03), &
@@ -373,6 +374,36 @@ subroutine test_e_mb01(error)
    call check(error, energy, ref, thr=1e-7_wp)
 
 end subroutine test_e_mb01
+
+
+subroutine test_e_co2_qcore(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   ! Gamma-point QCore result for data/x23/CO2.xyz from
+   ! AlexBuccheri/periodicXTBworkflows@d1dda5f and tb_results@1f31488.
+   real(wp), parameter :: ref = -46.19418897267281_wp
+
+   call get_structure(mol, "X23", "CO2")
+   call new_gfn1_calculator(calc, mol, error, config=xtb_config(smooth_cutoff=0.0_wp))
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+
+   energy = 0.0_wp
+   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy, verbosity=0)
+
+   call check(error, .not.ctx%failed(), message="Periodic QCore reference did not converge")
+   if (allocated(error)) return
+   call check(error, energy, ref, thr=1.0e-3_wp, &
+      & message="Periodic GFN1-xTB energy does not match QCore")
+
+end subroutine test_e_co2_qcore
 
 
 subroutine test_g_mb02(error)

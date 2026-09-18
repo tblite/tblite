@@ -37,6 +37,74 @@ The interaction kernel for the Klopman–Ohno electrostatic is given by
 
 where η:sub:`A/B` are the chemical hardness parameters of the respective shells and *g* is the exponent to manipulate the potential shape.
 
+For three-dimensional periodic systems with :math:`g=2`, the kernel is evaluated using a generalized Ewald partition.\ :footcite:`buccheri2025`
+For a lattice translation :math:`\mathbf T`, the Klopman--Ohno kernel has the binomial expansion
+
+.. math::
+
+   \left(\lvert\mathbf R_{AB}+\mathbf T\rvert^2
+   +\eta_{Al,Bl'}^{-2}\right)^{-1/2}
+   = \sum_{j=0}^{\infty}\binom{-1/2}{j}
+   \frac{\eta_{Al,Bl'}^{-2j}}
+   {\lvert\mathbf R_{AB}+\mathbf T\rvert^{2j+1}}.
+
+Retaining the two long-range terms gives the exact partition
+
+.. math::
+
+   \begin{split}
+   \gamma_{Al,Bl'}^{\text{PBC}}
+   ={}& \sum_{\mathbf T}^{\prime}
+   \left[
+   \left(r_{AB,\mathbf T}^2+\eta_{Al,Bl'}^{-2}\right)^{-1/2}
+   -r_{AB,\mathbf T}^{-1}
+   +\frac12\eta_{Al,Bl'}^{-2}r_{AB,\mathbf T}^{-3}
+   \right] \\
+   &+S_1(\mathbf R_{AB})
+   -\frac12\eta_{Al,Bl'}^{-2}S_3(\mathbf R_{AB}),
+   \end{split}
+
+where :math:`r_{AB,\mathbf T}=\lvert\mathbf R_{AB}+\mathbf T\rvert` and the prime excludes :math:`r_{AB,\mathbf T}=0`.
+The residual in square brackets decays as :math:`r^{-5}` and is summed in real space.
+With Ewald parameter :math:`\alpha=\sqrt{\pi}K`, the Coulomb lattice sum is
+
+.. math::
+
+   \begin{split}
+   S_1(\mathbf R) ={}&
+   \sum_{\mathbf T}^{\prime}
+   \frac{\operatorname{erfc}(\alpha r_{\mathbf T})}{r_{\mathbf T}}
+   +\frac{4\pi}{V}\sum_{\mathbf G\ne0}
+   \frac{\exp[-G^2/(4\alpha^2)]}{G^2}
+   \cos(\mathbf G\cdot\mathbf R) \\
+   &-\delta_{\mathbf R,0}\frac{2\alpha}{\sqrt\pi},
+   \end{split}
+
+and the cubic lattice sum is
+
+.. math::
+
+   \begin{split}
+   S_3(\mathbf R) ={}&
+   \sum_{\mathbf T}^{\prime}\left[
+   \frac{\operatorname{erfc}(\alpha r_{\mathbf T})}{r_{\mathbf T}^3}
+   +\frac{2\alpha\exp(-\alpha^2r_{\mathbf T}^2)}
+   {\sqrt\pi r_{\mathbf T}^2}\right] \\
+   &+\frac{2\pi}{V}\sum_{\mathbf G\ne0}
+   E_1\!\left(\frac{G^2}{4\alpha^2}\right)
+   \cos(\mathbf G\cdot\mathbf R) \\
+   &+\frac{4\pi}{V}\left[
+   \ln\!\left(\frac{\alpha}{\sqrt\pi}\right)
+   +\frac12\left(\ln\pi-\psi\!\left(\frac32\right)\right)
+   \right]
+   -\delta_{\mathbf R,0}\frac{4\pi}{3}
+   \left(\frac{\alpha}{\sqrt\pi}\right)^3.
+   \end{split}
+
+Here :math:`V` is the unit-cell volume, :math:`\mathbf G` is a reciprocal lattice vector, :math:`E_1(x)=\Gamma(0,x)` is the exponential integral, and :math:`\psi` is the digamma function.
+The third line of :math:`S_3` contains the :math:`\mathbf G=0` contribution; it is required to make the result independent of :math:`\alpha`.
+The final terms in :math:`S_1` and :math:`S_3` remove the Gaussian self-interaction.
+
 
 γ-functional kernel
 ^^^^^^^^^^^^^^^^^^^
@@ -92,3 +160,9 @@ The isotropic third-order contributions are included as the trace of the on-site
    E_\text{IXC} =
    \frac13 \sum_\text{A} \sum_{l}
    \Gamma^l_\text{A} (q^l_\text{A})^3
+
+
+Literature
+----------
+
+.. footbibliography::
