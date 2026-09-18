@@ -22,6 +22,7 @@
 
 !> Proxy module to reexport high-level linear algebra package wrappers
 module tblite_lapack
+   use tblite_lapack_geqp3, only : geqp3 => wrap_geqp3
    use tblite_lapack_getrf, only : getrf => wrap_getrf
    use tblite_lapack_getri, only : getri => wrap_getri
    use tblite_lapack_getrs, only : getrs => wrap_getrs

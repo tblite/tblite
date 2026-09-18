@@ -14,14 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
-
-list(
-  APPEND srcs
-  "${dir}/localization.f90"
-  "${dir}/molmom.f90"
-  "${dir}/type.f90"
-  "${dir}/xtbml.f90"
+srcs += files(
+  'fosterboys.f90',
+  'jacobi.f90',
+  'type.f90',
 )
-
-set(srcs "${srcs}" PARENT_SCOPE)

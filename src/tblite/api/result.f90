@@ -40,6 +40,8 @@ module tblite_api_result
       & get_result_orbital_coefficients_api, get_result_energies_api, &
       & get_result_density_matrix_api, get_result_overlap_matrix_api, &
       & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
+      & get_result_localized_orbital_coefficients_api, &
+      & get_result_localized_orbital_centers_api, &
       & get_post_processing_dict_api
 
 
@@ -568,6 +570,66 @@ subroutine get_result_bond_orders_api(verror, vres, mbo) &
    mbo(:size(mbo_f)) = &
       & reshape(mbo_f, [size(mbo_f)])
 end subroutine get_result_bond_orders_api
+
+subroutine get_result_localized_orbital_coefficients_api(verror, vres, cmo) &
+      & bind(C, name=namespace//"get_result_localized_orbital_coefficients")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: cmo(*)
+   real(kind=wp), allocatable :: cmo_f(:, :, :)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_localized_orbital_coefficients"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain localized orbital coefficients")
+      return
+   end if
+
+   call res%results%dict%get_entry("localized-orbitals", cmo_f)
+
+   if (.not.allocated(cmo_f)) then
+      call fatal_error(error%ptr, "Could not find localized orbital coefficients in results dictionary")
+      return
+   end if
+
+   cmo(:size(cmo_f)) = reshape(cmo_f, [size(cmo_f)])
+end subroutine get_result_localized_orbital_coefficients_api
+
+subroutine get_result_localized_orbital_centers_api(verror, vres, centers) &
+      & bind(C, name=namespace//"get_result_localized_orbital_centers")
+   type(c_ptr), value :: verror
+   type(vp_error), pointer :: error
+   type(c_ptr), value :: vres
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: centers(*)
+   real(kind=wp), allocatable :: centers_f(:, :, :)
+   logical :: ok
+
+   if (debug) print '("[Info]", 1x, a)', "get_result_localized_orbital_centers"
+
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+
+   if (.not.allocated(res%results)) then
+      call fatal_error(error%ptr, "Result does not contain localized orbital centers")
+      return
+   end if
+
+   call res%results%dict%get_entry("localized-centers", centers_f)
+
+   if (.not.allocated(centers_f)) then
+      call fatal_error(error%ptr, "Could not find localized orbital centers in results dictionary")
+      return
+   end if
+
+   centers(:size(centers_f)) = reshape(centers_f, [size(centers_f)])
+end subroutine get_result_localized_orbital_centers_api
 
 function get_post_processing_dict_api(verror, vres) result(vdict) &
    & bind(C, name=namespace//"get_post_processing_dict")

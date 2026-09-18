@@ -18,6 +18,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
+  "${dir}/geqp3.f90"
   "${dir}/getrf.f90"
   "${dir}/getri.f90"
   "${dir}/getrs.f90"

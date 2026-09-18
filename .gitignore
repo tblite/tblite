@@ -37,3 +37,7 @@
 
 # Python files
 __pycache__
+
+# Agents
+.claude
+.codex
