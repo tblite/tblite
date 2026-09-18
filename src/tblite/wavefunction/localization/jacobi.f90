@@ -20,7 +20,7 @@
 !> Jacobi pair-rotation optimizer repeatedly rotates pairs of orbitals to maximize
 !> the sum of squared diagonal elements of the stacked operators
 module tblite_wavefunction_localization_jacobi
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type, fatal_error
    implicit none
    private
 
@@ -116,7 +116,7 @@ end subroutine build_round_robin_schedule
 
 !> Jacobi pair-rotation optimizer maximizes sum of squared diagonal elements
 !> of the stacked operators by repeated pairwise rotations
-subroutine optimize(self, opmat, accuracy, trafo, converged)
+subroutine optimize(self, opmat, accuracy, trafo, error)
    !> Instance of the Jacobi optimizer
    class(jacobi_type), intent(in) :: self
    !> Pair operator matrices to maximize
@@ -125,8 +125,8 @@ subroutine optimize(self, opmat, accuracy, trafo, converged)
    real(wp), intent(in) :: accuracy
    !> Accumulated orthogonal transformation the pair rotations
    real(wp), intent(inout) :: trafo(:, :)
-   !> Whether the optimization converged within the allowed number of steps
-   logical, intent(out) :: converged
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: nocc, nop, npairs, nactive, isw, iround, ipair, imo, jmo, lmo, kop, iap
    integer, allocatable :: pairs(:, :, :), active_pairs(:, :)
@@ -134,12 +134,11 @@ subroutine optimize(self, opmat, accuracy, trafo, converged)
    real(wp) :: tmpi, tmpj, opnorm, threshold, screen, maxangle, ntri
    real(wp), allocatable :: sine(:), cosine(:), active_sine(:), active_cosine(:)
    logical, allocatable :: rotate(:)
-   logical :: use_omp
+   logical :: use_omp, converged
 
    nocc = size(opmat, 1)
    nop = size(opmat, 3)
 
-   converged = .true.
    if (nocc < 2) return
 
    ! Scale the base convergence threshold by calculation accuracy
@@ -299,6 +298,10 @@ subroutine optimize(self, opmat, accuracy, trafo, converged)
       if (converged) exit
    end do
    !$omp end parallel
+
+   if (.not. converged) then
+      call fatal_error(error, "Jacobi sweeps orbital localization did not converge")
+   end if
 
 end subroutine optimize
 

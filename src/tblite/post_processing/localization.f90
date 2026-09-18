@@ -37,8 +37,6 @@ module tblite_post_processing_localization
 
    !> Localized molecular orbitals as a post-processing method
    type, extends(post_processing_type) :: orbital_localization
-      !> Integer identifier of the selected localization method
-      integer :: method_id
       !> Localization object used to construct the localized orbitals
       class(localization_type), allocatable :: localizer
    contains
@@ -63,9 +61,8 @@ subroutine new_orbital_localization(self, error, method_id)
    integer, intent(in) :: method_id
 
    self%label = label
-   self%method_id = method_id
 
-   select case(self%method_id)
+   select case(method_id)
    case(localization_method%fosterboys)
       block
          type(fosterboys_localization_type), allocatable :: tmp
@@ -106,29 +103,26 @@ subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
    type(double_dictionary_type), intent(inout) :: dict
 
    real(wp), allocatable :: coeff_local(:, :, :), centers(:, :, :)
-   logical :: converged
    type(error_type), allocatable :: error
 
    call timer%push("localization")
 
    allocate(coeff_local(calc%bas%nao, calc%bas%nao, wfn%nspin))
    call self%localizer%localize(mol, calc%bas, ints%overlap, ints%dipole, wfn%coeff, &
-      & wfn%emo, wfn%nel(:wfn%nspin), accuracy, coeff_local, converged, error)
-
-   if (.not.allocated(error)) then
-      if (.not.converged .and. prlevel > 0) then
-         call ctx%message("Jacobi sweeps localization did not converge")
-      end if
-      call dict%add_entry("localized-orbitals", coeff_local)
-
-      ! Setup localized orbital centers
-      allocate(centers(3, calc%bas%nao, wfn%nspin))
-      call get_orbital_centers(mol, calc%bas, ints%overlap, ints%dipole, coeff_local, &
-         & wfn%nel(:wfn%nspin), centers, error)
-      if (.not.allocated(error)) call dict%add_entry("localized-centers", centers)
+      & wfn%emo, wfn%nel(:wfn%nspin), accuracy, coeff_local, error)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      call timer%pop()
+      return
    end if
 
-   if (allocated(error)) call ctx%set_error(error)
+   call dict%add_entry("localized-orbitals", coeff_local)
+
+   ! Setup localized orbital centers
+   allocate(centers(3, calc%bas%nao, wfn%nspin))
+   call get_orbital_centers(mol, calc%bas, ints%overlap, ints%dipole, coeff_local, &
+      & wfn%nel(:wfn%nspin), centers)
+   call dict%add_entry("localized-centers", centers)
 
    call timer%pop()
 
