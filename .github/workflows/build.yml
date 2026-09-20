@@ -199,7 +199,6 @@ jobs:
           ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
-          ${{ matrix.build-type == 'coverage' && '-Dopenmp=false' || '' }}
 
     - name: Configure build (CMake)
       if: ${{ matrix.toolchain.build == 'cmake' }}
@@ -238,7 +237,10 @@ jobs:
          --suite tblite
          -t 10
       env:
-        OMP_NUM_THREADS: 1,2,1
+        # Limit the number of threads during coverage test since ddX currently
+        # requires OpenMP to be activated
+        OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '1,2,1' }}
+        OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
     - name: Run benchmarks
       if: ${{ matrix.toolchain.build == 'meson' }}
