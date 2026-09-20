@@ -313,6 +313,7 @@ jobs:
       uses: codecov/codecov-action@v7
       with:
         fail_ci_if_error: false
+        disable_search: true
         files: coverage.xml
         flags: fortran
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -442,6 +443,7 @@ jobs:
       uses: codecov/codecov-action@v7
       with:
         fail_ci_if_error: false
+        disable_search: true
         files: coverage-python.xml
         flags: python
         token: ${{ secrets.CODECOV_TOKEN }}

@@ -2,7 +2,7 @@ fixes:
   - "/home/runner/work/tblite/tblite::"
   - "tblite/::python/tblite/"
 
-# Only cover core library (`app` and `src` directories)
+# Exclude tests, dependencies, and non-source directories
 ignore:
   - "assets/"
   - "build/"
