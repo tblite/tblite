@@ -253,6 +253,11 @@ jobs:
          --suite tblite
          -t 2
          --benchmark
+      env:
+        # Limit the number of threads during coverage test since ddX currently
+        # requires OpenMP to be activated
+        OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '' }}
+        OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
     - name: Run unit tests (ctest)
       if: ${{ matrix.toolchain.build == 'cmake' }}
