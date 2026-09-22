@@ -237,8 +237,6 @@ jobs:
          --suite tblite
          -t 10
       env:
-        # Limit the number of threads during coverage test since ddX currently
-        # requires OpenMP to be activated
         OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '1,2,1' }}
         OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
@@ -254,8 +252,6 @@ jobs:
          -t 2
          --benchmark
       env:
-        # Limit the number of threads during coverage test since ddX currently
-        # requires OpenMP to be activated
         OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '' }}
         OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
@@ -267,9 +263,6 @@ jobs:
       env:
         OMP_NUM_THREADS: 1,2,1
 
-    # Use gcovr for more control instead of `ninja -C $BUILD_DIR coverage`.
-    # Option `--include-internal-functions` required to cover mangled Fortran
-    # symbols (e.g., `__tblite_xtb_calculator_MOD_new_xtb_calculator`).
     - name: Create coverage report
       if: ${{ matrix.toolchain.build == 'meson' && matrix.build-type == 'coverage' }}
       run: |
