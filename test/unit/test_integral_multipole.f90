@@ -25,7 +25,7 @@ module test_integral_multipole
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_native_integrals, only : dipole_cgto, dipole_grad_cgto, &
       & get_dipole_integrals, multipole_cgto, multipole_grad_cgto, &
-      & get_multipole_integrals, msao
+      & get_multipole_integrals, overlap_grad_cgto, msao
    implicit none
    private
 
@@ -49,11 +49,137 @@ subroutine collect_integral_multipole(testsuite)
       new_unittest("dipole-trans-pp", test_dipole_pp), &
       new_unittest("dipole-trans-dd", test_dipole_dd), &
       new_unittest("dipole-grad-ss", test_dipole_grad_ss), &
+      new_unittest("multipole-diat-shells", test_multipole_diat_shells), &
       new_unittest("overlap-dipole-diat-alh3", test_overlap_dipole_diat_alh3), &
       new_unittest("overlap-multipole-diat-alh3", test_overlap_multipole_diat_alh3) &
       ]
 
 end subroutine collect_integral_multipole
+
+
+subroutine test_multipole_diat_shells(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp), parameter :: scales(3, 4) = reshape([ &
+      & 0.7_wp, 1.3_wp, -0.2_wp, 1.0_wp, 1.0_wp, 1.0_wp, &
+      & 1.2_wp, 1.2_wp, 1.2_wp, 0.0_wp, 0.0_wp, 0.0_wp], [3, 4])
+   real(wp), parameter :: vectors(3, 4) = reshape([ &
+      & 0.3_wp, -0.4_wp, 0.7_wp, 0.0_wp, 0.0_wp, -0.8_wp, &
+      & 1.0e-7_wp, -2.0e-7_wp, 0.8_wp, 0.0_wp, 0.0_wp, 0.0_wp], [3, 4])
+   type(cgto_type) :: cgtoi, cgtoj
+   integer :: li, lj, iv, ik, stat
+
+   do li = 0, 3
+      call slater_to_gauss(6, li+1, li, 1.1_wp, cgtoi, .true., stat)
+      call check(error, stat, 0)
+      if (allocated(error)) return
+      do lj = 0, 3
+         call slater_to_gauss(6, lj+1, lj, 1.7_wp, cgtoj, .true., stat)
+         call check(error, stat, 0)
+         if (allocated(error)) return
+         do iv = 1, size(vectors, 2)
+            do ik = 1, size(scales, 2)
+               call check_multipole_diat_shell(error, cgtoj, cgtoi, vectors(:, iv), scales(:, ik))
+               if (allocated(error)) return
+            end do
+         end do
+      end do
+   end do
+end subroutine test_multipole_diat_shells
+
+
+subroutine check_multipole_diat_shell(error, cgtoj, cgtoi, vec, scale)
+   type(error_type), allocatable, intent(out) :: error
+   type(cgto_type), intent(in) :: cgtoj, cgtoi
+   real(wp), intent(in) :: vec(3), scale(3)
+
+   real(wp) :: s(msao(cgtoj%ang), msao(cgtoi%ang)), s0(msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: scaled(msao(cgtoj%ang), msao(cgtoi%ang)), ref(msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: ds(3, msao(cgtoj%ang), msao(cgtoi%ang)), ds0(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dscaled(3, msao(cgtoj%ang), msao(cgtoi%ang)), dref(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: p(3, msao(cgtoj%ang), msao(cgtoi%ang)), p0(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: q(6, msao(cgtoj%ang), msao(cgtoi%ang)), q0(6, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dp(3, 3, msao(cgtoj%ang), msao(cgtoi%ang)), dp0(3, 3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dq(3, 6, msao(cgtoj%ang), msao(cgtoi%ang)), dq0(3, 6, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dpi(3, 3, msao(cgtoj%ang), msao(cgtoi%ang)), dpi0(3, 3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dqi(3, 6, msao(cgtoj%ang), msao(cgtoi%ang)), dqi0(3, 6, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: r2
+   integer :: mode
+
+   r2 = sum(vec**2)
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, ds, &
+      & diat_scale=scale, overlap_diat=ref, doverlap_diat=dref)
+
+   call dipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0, p0)
+   call dipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, diat_scale=scale, overlap_diat=scaled)
+   call check(error, maxval(abs(scaled-ref)), 0.0_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0))), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+   call dipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, diat_scale=scale)
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0))), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   call multipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0, p0, q0)
+   call multipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, &
+      & diat_scale=scale, overlap_diat=scaled)
+   call check(error, maxval(abs(scaled-ref)), 0.0_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0)), maxval(abs(q-q0))), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+   call multipole_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, diat_scale=scale)
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0)), maxval(abs(q-q0))), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   call dipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0, p0, ds0, dp0)
+   do mode = 1, 4
+      scaled = ref
+      dscaled = dref
+      select case(mode)
+      case(1)
+         call dipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, ds, dp, &
+            & diat_scale=scale, overlap_diat=scaled, doverlap_diat=dscaled)
+      case(2)
+         call dipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, ds, dp, &
+            & diat_scale=scale, doverlap_diat=dscaled)
+      case(3)
+         call dipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, ds, dp, &
+            & diat_scale=scale, overlap_diat=scaled)
+      case(4)
+         call dipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, ds, dp, diat_scale=scale)
+      end select
+      call check(error, max(maxval(abs(scaled-ref)), maxval(abs(dscaled-dref))), 0.0_wp, thr=thr1)
+      if (allocated(error)) return
+      call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0)), maxval(abs(ds-ds0)), &
+         & maxval(abs(dp-dp0))), 0.0_wp, thr=thr)
+      if (allocated(error)) return
+   end do
+
+   call multipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0, p0, q0, ds0, dp0, dq0, dpi0, dqi0)
+   do mode = 1, 4
+      scaled = ref
+      dscaled = dref
+      select case(mode)
+      case(1)
+         call multipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, ds, dp, dq, dpi, dqi, &
+            & diat_scale=scale, overlap_diat=scaled, doverlap_diat=dscaled)
+      case(2)
+         call multipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, ds, dp, dq, dpi, dqi, &
+            & diat_scale=scale, doverlap_diat=dscaled)
+      case(3)
+         call multipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, ds, dp, dq, dpi, dqi, &
+            & diat_scale=scale, overlap_diat=scaled)
+      case(4)
+         call multipole_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, p, q, ds, dp, dq, dpi, dqi, &
+            & diat_scale=scale)
+      end select
+      call check(error, max(maxval(abs(scaled-ref)), maxval(abs(dscaled-dref))), 0.0_wp, thr=thr1)
+      if (allocated(error)) return
+      call check(error, max(maxval(abs(s-s0)), maxval(abs(p-p0)), maxval(abs(q-q0)), maxval(abs(ds-ds0)), &
+         & maxval(abs(dp-dp0)), maxval(abs(dq-dq0)), maxval(abs(dpi-dpi0)), maxval(abs(dqi-dqi0))), 0.0_wp, thr=thr)
+      if (allocated(error)) return
+   end do
+end subroutine check_multipole_diat_shell
 
 
 subroutine make_basis(bas, mol, ng)

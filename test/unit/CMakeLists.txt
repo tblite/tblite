@@ -57,6 +57,7 @@ set(
 set(
   test-srcs
   "main.f90"
+  "reference_diat_trafo.f90"
 )
 foreach(t IN LISTS tests)
   string(MAKE_C_IDENTIFIER ${t} t) 

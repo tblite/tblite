@@ -14,9 +14,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @file tblite/integral/diat_trafo.f90
-!> Evaluation of the diatomic scaled overlap
-module tblite_integral_diat_trafo
+!> Independent rotation-based reference for native diatomic overlap scaling.
+module reference_diat_trafo
    use mctc_env, only : wp
    use tblite_blas, only : gemm
    implicit none
@@ -688,4 +687,4 @@ pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
 
 end subroutine scale_diatomic_frame
 
-end module tblite_integral_diat_trafo
+end module reference_diat_trafo

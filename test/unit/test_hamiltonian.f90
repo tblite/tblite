@@ -53,7 +53,8 @@ subroutine collect_hamiltonian(testsuite)
       new_unittest("hamiltonian-lih", test_hamiltonian_lih), &
       new_unittest("hamiltonian-s2", test_hamiltonian_s2), &
       new_unittest("hamiltonian-sih4", test_hamiltonian_sih4), &
-      new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self) &
+      new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self), &
+      new_unittest("hamiltonian-scaled-gradient", test_hamiltonian_scaled_gradient) &
       ]
 
 end subroutine collect_hamiltonian
@@ -260,6 +261,121 @@ subroutine test_hamiltonian_periodic_self(error)
    end if
 
 end subroutine test_hamiltonian_periodic_self
+
+
+subroutine test_hamiltonian_scaled_gradient(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "S2")
+   call check_scaled_gradient(mol, error)
+   if (allocated(error)) return
+   call get_structure(mol, "X23", "CO2")
+   call check_scaled_gradient(mol, error)
+end subroutine test_hamiltonian_scaled_gradient
+
+
+subroutine check_scaled_gradient(mol, error)
+   type(structure_type), intent(in) :: mol
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: displaced
+   type(basis_type) :: bas
+   type(tb_hamiltonian) :: h0
+   type(adjacency_list) :: list
+   type(potential_type) :: pot
+   real(wp), allocatable :: lattr(:, :), cn(:), selfenergy(:), dsedcn(:), dEdcn(:)
+   real(wp), allocatable :: pmat(:, :, :), xmat(:, :, :), gradient(:, :), sigma(:, :)
+   real(wp) :: cutoff, er, el, strain(3, 3)
+   real(wp), parameter :: step = 1.0e-5_wp
+   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
+   integer :: i, j, iat
+
+   call make_basis(bas, mol, 6)
+   call new_hamiltonian(h0, mol, bas, gfn2_h0spec(mol))
+   h0%do_diat_scale = .true.
+   h0%ksig = 0.8_wp
+   h0%kpi = 1.3_wp
+   h0%kdel = 0.6_wp
+   cutoff = get_cutoff(bas)
+   call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
+   call new_adjacency_list(list, mol, lattr, cutoff)
+   allocate(cn(mol%nat), selfenergy(bas%nsh), dsedcn(bas%nsh), dEdcn(mol%nat))
+   cn = 0.0_wp
+   call get_selfenergy(h0, mol%id, bas%ish_at, bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy, dsedcn=dsedcn)
+   call new_potential(pot, mol, bas, 1)
+   call pot%reset
+   allocate(pmat(bas%nao, bas%nao, 1), xmat(bas%nao, bas%nao, 1), &
+      & gradient(3, mol%nat), sigma(3, 3))
+   do i = 1, bas%nao
+      do j = 1, bas%nao
+         pmat(j, i, 1) = 1.0_wp/(i+j)
+      end do
+   end do
+   xmat = 0.0_wp
+   gradient = 0.0_wp
+   sigma = 0.0_wp
+   dEdcn = 0.0_wp
+   call get_hamiltonian_gradient(mol, lattr, list, bas, h0, selfenergy, dsedcn, &
+      & pot, pmat, xmat, dEdcn, gradient, sigma)
+
+   do iat = 1, mol%nat
+      do i = 1, 3
+         displaced = mol
+         displaced%xyz(i, iat) = mol%xyz(i, iat) + step
+         er = energy(displaced)
+         displaced%xyz(i, iat) = mol%xyz(i, iat) - step
+         el = energy(displaced)
+         call check(error, gradient(i, iat), (er-el)/(2*step), thr=1.0e-7_wp)
+         if (allocated(error)) return
+      end do
+      cn(iat) = step
+      er = energy(mol)
+      cn(iat) = -step
+      el = energy(mol)
+      cn(iat) = 0.0_wp
+      call check(error, dEdcn(iat), (er-el)/(2*step), thr=1.0e-7_wp)
+      if (allocated(error)) return
+   end do
+
+   do i = 1, 3
+      do j = 1, i
+         strain = unity
+         strain(i, j) = strain(i, j) + 0.5_wp*step
+         strain(j, i) = strain(j, i) + 0.5_wp*step
+         displaced = mol
+         displaced%xyz = matmul(strain, mol%xyz)
+         displaced%lattice = matmul(strain, mol%lattice)
+         er = energy(displaced)
+         strain = 2*unity - strain
+         displaced%xyz = matmul(strain, mol%xyz)
+         displaced%lattice = matmul(strain, mol%lattice)
+         el = energy(displaced)
+         call check(error, sigma(i, j), (er-el)/(2*step), thr=1.0e-7_wp)
+         if (allocated(error)) return
+      end do
+   end do
+
+contains
+
+   function energy(geometry) result(value)
+      type(structure_type), intent(in) :: geometry
+      real(wp) :: value
+      type(adjacency_list) :: neighbors
+      real(wp), allocatable :: trans(:, :)
+      real(wp) :: levels(bas%nsh), overlap(bas%nao, bas%nao)
+      real(wp) :: dipole(3, bas%nao, bas%nao), quadrupole(6, bas%nao, bas%nao)
+      real(wp) :: hamiltonian(bas%nao, bas%nao)
+
+      call get_lattice_points(geometry%periodic, geometry%lattice, cutoff, trans)
+      call new_adjacency_list(neighbors, geometry, trans, cutoff)
+      call get_selfenergy(h0, geometry%id, bas%ish_at, bas%nsh_id, cn=cn, selfenergy=levels)
+      call get_hamiltonian(geometry, trans, neighbors, bas, h0, levels, &
+         & overlap, dipole, quadrupole, hamiltonian)
+      value = sum(pmat(:, :, 1)*hamiltonian)
+   end function energy
+
+end subroutine check_scaled_gradient
 
 
 function get_hamiltonian_energy(mol, cn) result(energy)

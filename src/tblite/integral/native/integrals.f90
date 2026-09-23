@@ -23,8 +23,6 @@ module tblite_integral_native_integrals
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use tblite_basis_type, only : basis_type, cgto_type
-   use tblite_integral_diat_trafo, only: diat_trafo_cache, setup_diat_trafo, &
-      & diat_trafo
    use tblite_integral_trafo, only : transform0, transform1, transform2
    implicit none
    private
@@ -87,6 +85,144 @@ module tblite_integral_native_integrals
       & shape(lx), order=[2, 1])
 
 contains
+
+!> Scale a physical two-center overlap using bond-axis angular projectors.
+!> Ordinary integrals, onsite blocks, and pairs involving f or higher are unchanged.
+pure subroutine scale_overlap(lj, li, vec, overlap, diat_scale, overlap_diat, &
+      & doverlap, doverlap_diat)
+   integer, intent(in) :: lj, li
+   real(wp), intent(in) :: vec(3), overlap(:, :)
+   real(wp), intent(in) :: diat_scale(3)
+   real(wp), intent(in), optional :: doverlap(:, :, :)
+   real(wp), intent(out), optional :: overlap_diat(:, :), doverlap_diat(:, :, :)
+
+   integer :: l, k
+   real(wp) :: weight
+
+   if (.not.present(overlap_diat) .and. .not.present(doverlap_diat)) return
+   if (present(doverlap_diat) .and. .not.present(doverlap)) &
+      & error stop "Scaled overlap derivatives require ordinary overlap derivatives"
+
+   if (present(overlap_diat)) overlap_diat = overlap
+   if (present(doverlap_diat)) doverlap_diat = doverlap
+   if (max(li, lj) > 2 .or. sum(vec**2) <= tiny(1.0_wp)) return
+   if (all(diat_scale == 1.0_wp)) return
+
+   l = min(li, lj)
+   if (l == 0 .or. all(diat_scale == diat_scale(1))) then
+      weight = diat_scale(1)
+      if (present(overlap_diat)) overlap_diat = weight * overlap
+      if (present(doverlap_diat)) doverlap_diat = weight * doverlap
+      return
+   end if
+
+   block
+      real(wp) :: proj(msao(l), msao(l)), dproj(3, msao(l), msao(l))
+
+      if (present(doverlap_diat)) then
+         call diat_projector(l, vec, diat_scale, proj, dproj)
+      else
+         call diat_projector(l, vec, diat_scale, proj)
+      end if
+
+      ! Cylindrical symmetry permits weighting either shell; use the smaller one.
+      if (lj <= li) then
+         if (present(overlap_diat)) overlap_diat = matmul(proj, overlap)
+         if (present(doverlap_diat)) then
+            do k = 1, 3
+               doverlap_diat(k, :, :) = matmul(proj, doverlap(k, :, :)) &
+                  & + matmul(dproj(k, :, :), overlap)
+            end do
+         end if
+      else
+         if (present(overlap_diat)) overlap_diat = matmul(overlap, proj)
+         if (present(doverlap_diat)) then
+            do k = 1, 3
+               doverlap_diat(k, :, :) = matmul(doverlap(k, :, :), proj) &
+                  & + matmul(overlap, dproj(k, :, :))
+            end do
+         end if
+      end if
+   end block
+end subroutine scale_overlap
+
+!> Sigma/pi/delta projectors in the real spherical basis, without a bond-frame rotation.
+pure subroutine diat_projector(l, vec, scale, proj, dproj)
+   integer, intent(in) :: l
+   real(wp), intent(in) :: vec(3), scale(3)
+   real(wp), intent(out) :: proj(:, :)
+   real(wp), intent(out), optional :: dproj(:, :, :)
+
+   integer :: i, j, k
+   real(wp) :: r, n(3), dn(3), q(5), dq(5), b(3, 5), db(3, 5), wsig, wpi
+
+   r = sqrt(sum(vec**2))
+   n = vec/r
+   proj = 0.0_wp
+   if (present(dproj)) dproj = 0.0_wp
+   select case(l)
+   case(1)
+      q(:3) = n([2, 3, 1])
+      do i = 1, 3
+         proj(i, i) = scale(2)
+         do j = 1, 3
+            proj(i, j) = proj(i, j) + (scale(1)-scale(2))*q(i)*q(j)
+         end do
+      end do
+      if (present(dproj)) then
+         do k = 1, 3
+            dn = -n*n(k)/r
+            dn(k) = dn(k) + 1.0_wp/r
+            dq(:3) = dn([2, 3, 1])
+            do i = 1, 3
+               do j = 1, 3
+                  dproj(k, i, j) = (scale(1)-scale(2))*(dq(i)*q(j)+q(i)*dq(j))
+               end do
+            end do
+         end do
+      end if
+   case(2)
+      call d_tensor_vector(n, b)
+      q = sqrt(1.5_wp)*matmul(n, b)
+      ! P_sigma = q q^T; P_pi = 2 b^T b - 4/3 q q^T; P_delta = I - P_sigma - P_pi.
+      wsig = scale(1)-scale(3) - (4.0_wp/3.0_wp)*(scale(2)-scale(3))
+      wpi = 2.0_wp*(scale(2)-scale(3))
+      do i = 1, 5
+         proj(i, i) = scale(3)
+         do j = 1, 5
+            proj(i, j) = proj(i, j) + wsig*q(i)*q(j) + wpi*dot_product(b(:, i), b(:, j))
+         end do
+      end do
+      if (present(dproj)) then
+         do k = 1, 3
+            dn = -n*n(k)/r
+            dn(k) = dn(k) + 1.0_wp/r
+            call d_tensor_vector(dn, db)
+            dq = sqrt(6.0_wp)*matmul(dn, b)
+            do i = 1, 5
+               do j = 1, 5
+                  dproj(k, i, j) = wsig*(dq(i)*q(j)+q(i)*dq(j)) &
+                     & + wpi*(dot_product(db(:, i), b(:, j)) + dot_product(b(:, i), db(:, j)))
+               end do
+            end do
+         end do
+      end if
+   case default
+      error stop "Bond-axis projectors are only defined here for p and d shells"
+   end select
+end subroutine diat_projector
+
+!> Apply normalized traceless tensors for (xy, yz, z2, xz, x2-y2) to a vector.
+pure subroutine d_tensor_vector(n, b)
+   real(wp), intent(in) :: n(3)
+   real(wp), intent(out) :: b(3, 5)
+
+   b(:, 1) = [n(2), n(1), 0.0_wp]/sqrt(2.0_wp)
+   b(:, 2) = [0.0_wp, n(3), n(2)]/sqrt(2.0_wp)
+   b(:, 3) = [-n(1), -n(2), 2.0_wp*n(3)]/sqrt(6.0_wp)
+   b(:, 4) = [n(3), 0.0_wp, n(1)]/sqrt(2.0_wp)
+   b(:, 5) = [n(1), -n(2), 0.0_wp]/sqrt(2.0_wp)
+end subroutine d_tensor_vector
 
 elemental function overlap_1d(moment, alpha) result(overlap)
    integer, intent(in) :: moment
@@ -305,7 +441,7 @@ pure subroutine overlap_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, ds3d)
 
 end subroutine overlap_grad_3d
 
-pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
+pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, diat_scale, overlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -318,6 +454,10 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
    real(wp), intent(in) :: intcut
    !> Overlap integrals for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, pre
@@ -351,9 +491,14 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
 
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
 
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat)
+   end if
+
 end subroutine overlap_cgto
 
-pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverlap)
+pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverlap, &
+      & diat_scale, overlap_diat, doverlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -368,6 +513,12 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Scaled overlap gradient; requires diat_scale
+   real(wp), intent(out), optional :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, grad(3), pre
@@ -404,6 +555,11 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
 
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
+
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat, &
+         & doverlap, doverlap_diat)
+   end if
 
 end subroutine overlap_grad_cgto
 
@@ -488,88 +644,53 @@ subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, ksig, kpi, kdel, &
    real(wp), intent(in) :: kdel(:, :)
    !> Overlap matrix
    real(wp), intent(out) :: overlap(:, :)
-   !> Overlap matrix with diatomic frame scaled elements in the diatomic frame
+   !> Diatomic scaled overlap matrix in the original frame
    real(wp), intent(out) :: overlap_diat(:, :)
 
    integer :: iat, jat, izp, jzp, itr, is, js
-   integer :: ish, jsh, nsi, nsj, ii, jj, ij, iao, jao, iaosh, jaosh, nao
+   integer :: ish, jsh, ii, jj, ij, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2
-   real(wp), allocatable :: stmp(:), block_overlap(:, :)
-   type(diat_trafo_cache) :: dt_cache
+   real(wp), allocatable :: stmp(:), stmp_diat(:)
 
    overlap(:, :) = 0.0_wp
    overlap_diat(:, :) = 0.0_wp
 
-   allocate(stmp(msao(bas%maxl)**2), block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
+   allocate(stmp(msao(bas%maxl)**2), stmp_diat(msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
    !$omp shared(mol, bas, trans, cutoff2, ksig, kpi, kdel, overlap, overlap_diat) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj, ii, jj, ij) &
-   !$omp private(iao, jao, iaosh, jaosh, nao, r2, vec, stmp, block_overlap, dt_cache)
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, ii, jj, ij) &
+   !$omp private(iao, jao, nao, r2, vec, stmp, stmp_diat)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      nsi = bas%nsh_id(izp)
       do jat = 1, mol%nat
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
-         nsj = bas%nsh_id(jzp)
          do itr = 1, size(trans, 2)
             vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
             if (r2 > cutoff2) cycle
 
-            ! Calculate pairwise overlap and multipole integrals
-            block_overlap = 0.0_wp
             do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
                   call overlap_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp)
+                     & r2, vec, bas%intcut, stmp, &
+                     & [ksig(izp, jzp), kpi(izp, jzp), kdel(izp, jzp)], stmp_diat)
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   !$omp simd collapse(2)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
-
-                        block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
 
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(ij)
-                     end do
-                  end do
-               end do
-            end do
-
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
-               call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
-               call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
-                  & kdel(izp, jzp), block_overlap)
-            end if
-
-            ! Distribute the diatomic frame scaled overlap elements
-            do ish = 1, nsi
-               ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-               do jsh = 1, nsj
-                  jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
-
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  !$omp simd collapse(2)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-
                         overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
-                           + block_overlap(jaosh+jao, iaosh+iao)
+                           & + stmp_diat(ij)
                      end do
                   end do
                end do
@@ -689,7 +810,7 @@ pure subroutine dipole_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, &
 end subroutine dipole_grad_3d
 
 pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, &
-      & doverlap, ddpint)
+      & doverlap, ddpint, diat_scale, overlap_diat, doverlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -708,6 +829,12 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
    real(wp), intent(out) :: doverlap(3, msao(cgtoj%ang), msao(cgtoi%ang))
    !> Dipole moment integral gradient for the given pair i  and j
    real(wp), intent(out) :: ddpint(3, 3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Scaled overlap gradient; requires diat_scale
+   real(wp), intent(out), optional :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3)
@@ -753,6 +880,11 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
    call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
    call transform2(cgtoj%ang, cgtoi%ang, dd3d, ddpint, .true., .true.)
+
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat, &
+         & doverlap, doverlap_diat)
+   end if
 
 end subroutine dipole_grad_cgto
 
@@ -936,7 +1068,7 @@ pure subroutine shift_operator(vec, s, di, qi, ds, ddi, dqi, ddj, dqj)
 end subroutine shift_operator
 
 
-pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
+pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, diat_scale, overlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -951,6 +1083,10 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
    !> Dipole moment integrals for the given pair i  and j
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), pre
@@ -987,6 +1123,10 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
 
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, d3d, dpint, .true., .true.)
+
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat)
+   end if
 
 end subroutine dipole_cgto
 
@@ -1083,90 +1223,56 @@ subroutine get_dipole_integrals_diat_lat(mol, trans, cutoff, bas, &
    real(wp), intent(out) :: dpint(:, :, :)
 
    integer :: iat, jat, izp, jzp, itr, is, js
-   integer :: ish, jsh, nsi, nsj, ii, jj, ij, iao, jao, iaosh, jaosh, nao
+   integer :: ish, jsh, ii, jj, ij, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2
-   real(wp), allocatable :: stmp(:), dtmp(:, :), block_overlap(:, :)
-   type(diat_trafo_cache) :: dt_cache
+   real(wp), allocatable :: stmp(:), dtmp(:, :), stmp_diat(:)
 
    overlap(:, :) = 0.0_wp
    overlap_diat(:, :) = 0.0_wp
    dpint(:, :, :) = 0.0_wp
 
    allocate(stmp(msao(bas%maxl)**2), dtmp(3, msao(bas%maxl)**2), &
-      & block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
+      & stmp_diat(msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) shared(mol, bas, trans)&
    !$omp shared(cutoff2, ksig, kpi, kdel, overlap, overlap_diat, dpint) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj) &
-   !$omp private(ii, jj, ij, iao, jao, iaosh, jaosh, nao, r2, vec) &
-   !$omp private(stmp, dtmp, block_overlap, dt_cache)
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh) &
+   !$omp private(ii, jj, ij, iao, jao, nao, r2, vec) &
+   !$omp private(stmp, dtmp, stmp_diat)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      nsi = bas%nsh_id(izp)
       do jat = 1, mol%nat
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
-         nsj = bas%nsh_id(jzp)
          do itr = 1, size(trans, 2)
             vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
             if (r2 > cutoff2) cycle
 
-            ! Calculate pairwise overlap and dipole integrals
-            block_overlap = 0.0_wp
-            do ish = 1, nsi
+            do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-               do jsh = 1, nsj
+               do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
                   call dipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmp)
+                     & r2, vec, bas%intcut, stmp, dtmp, &
+                     & [ksig(izp, jzp), kpi(izp, jzp), kdel(izp, jzp)], stmp_diat)
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   !$omp simd collapse(2)
                   do iao = 1, msao(bas%cgto(ish, izp)%ang)
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
-
-                        block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
 
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(ij)
 
+                        overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
+                           & + stmp_diat(ij)
+
                         dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
                            & + dtmp(:, ij)
-                     end do
-                  end do
-               end do
-            end do
-
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
-               call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
-               call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
-                  & kdel(izp, jzp), block_overlap)
-            end if
-
-            ! Distribute the diatomic frame scaled overlap elements
-            do ish = 1, nsi
-               ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-               do jsh = 1, nsj
-                  jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
-
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  !$omp simd collapse(2)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-
-                        overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
-                           + block_overlap(jaosh+jao, iaosh+iao)
                      end do
                   end do
                end do
@@ -1179,7 +1285,8 @@ subroutine get_dipole_integrals_diat_lat(mol, trans, cutoff, bas, &
 end subroutine get_dipole_integrals_diat_lat
 
 
-pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qpint)
+pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qpint, &
+      & diat_scale, overlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -1196,6 +1303,10 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
    !> Quadrupole moment integrals for the given pair i  and j
    real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
@@ -1250,11 +1361,15 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
       end do
    end do
 
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat)
+   end if
+
 end subroutine multipole_cgto
 
 
 pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qpint, &
-      & doverlap, ddpintj, dqpintj, ddpinti, dqpinti)
+      & doverlap, ddpintj, dqpintj, ddpinti, dqpinti, diat_scale, overlap_diat, doverlap_diat)
    !> Description of contracted Gaussian function on center j
    type(cgto_type), intent(in) :: cgtoj
    !> Description of contracted Gaussian function on center i
@@ -1281,6 +1396,12 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    real(wp), intent(out) :: ddpintj(3, 3, msao(cgtoj%ang), msao(cgtoi%ang))
    !> Quadrupole moment integral gradient for the given pair i  and j
    real(wp), intent(out) :: dqpintj(3, 6, msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Optional sigma/pi/delta factors for the additional scaled overlap
+   real(wp), intent(in), optional :: diat_scale(3)
+   !> Scaled overlap; requires diat_scale, with onsite and higher-l pairs unchanged
+   real(wp), intent(out), optional :: overlap_diat(msao(cgtoj%ang), msao(cgtoi%ang))
+   !> Scaled overlap gradient; requires diat_scale
+   real(wp), intent(out), optional :: doverlap_diat(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
    integer :: ip, jp, mli, mlj, l
    real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6)
@@ -1388,6 +1509,11 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
       end do
    end do
 
+   if (present(diat_scale)) then
+      call scale_overlap(cgtoj%ang, cgtoi%ang, vec, overlap, diat_scale, overlap_diat, &
+         & doverlap, doverlap_diat)
+   end if
+
 end subroutine multipole_grad_cgto
 
 
@@ -1491,10 +1617,9 @@ subroutine get_multipole_integrals_diat_lat(mol, trans, cutoff, bas, &
    real(wp), intent(out) :: qpint(:, :, :)
 
    integer :: iat, jat, izp, jzp, itr, is, js
-   integer :: ish, jsh, nsi, nsj, ii, jj, ij, iao, jao, iaosh, jaosh, nao
+   integer :: ish, jsh, ii, jj, ij, iao, jao, nao
    real(wp) :: r2, vec(3), cutoff2
-   real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :), block_overlap(:, :)
-   type(diat_trafo_cache) :: dt_cache
+   real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :), stmp_diat(:)
 
    overlap(:, :) = 0.0_wp
    overlap_diat(:, :) = 0.0_wp
@@ -1502,37 +1627,32 @@ subroutine get_multipole_integrals_diat_lat(mol, trans, cutoff, bas, &
    qpint(:, :, :) = 0.0_wp
 
    allocate(stmp(msao(bas%maxl)**2), dtmp(3, msao(bas%maxl)**2), qtmp(6, msao(bas%maxl)**2), &
-      & block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
+      & stmp_diat(msao(bas%maxl)**2))
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) shared(mol, bas, trans) &
    !$omp shared(cutoff2, ksig, kpi, kdel, overlap, overlap_diat, dpint, qpint) &
-   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj) &
-   !$omp private(ii, jj, ij, iao, jao, iaosh, jaosh, nao, r2, vec) &
-   !$omp private(stmp, dtmp, qtmp, block_overlap, dt_cache)
+   !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh) &
+   !$omp private(ii, jj, ij, iao, jao, nao, r2, vec) &
+   !$omp private(stmp, dtmp, qtmp, stmp_diat)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
-      nsi = bas%nsh_id(izp)
       do jat = 1, mol%nat
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
-         nsj = bas%nsh_id(jzp)
          do itr = 1, size(trans, 2)
             vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
             r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
             if (r2 > cutoff2) cycle
 
-            ! Calculate pairwise overlap and multipole integrals
-            block_overlap = 0.0_wp
             do ish = 1, bas%nsh_id(izp)
                ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
                do jsh = 1, bas%nsh_id(jzp)
                   jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
                   call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                     & r2, vec, bas%intcut, stmp, dtmp, qtmp)
+                     & r2, vec, bas%intcut, stmp, dtmp, qtmp, &
+                     & [ksig(izp, jzp), kpi(izp, jzp), kdel(izp, jzp)], stmp_diat)
 
                   nao = msao(bas%cgto(jsh, jzp)%ang)
                   !$omp simd collapse(2)
@@ -1540,45 +1660,17 @@ subroutine get_multipole_integrals_diat_lat(mol, trans, cutoff, bas, &
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
 
-                        block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
-
                         overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                            & + stmp(ij)
+
+                        overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
+                           & + stmp_diat(ij)
 
                         dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
                            & + dtmp(:, ij)
 
                         qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
                            & + qtmp(:, ij)
-                     end do
-                  end do
-               end do
-            end do
-
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
-               call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
-               call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
-                  & kdel(izp, jzp), block_overlap)
-            end if
-
-            ! Distribute the diatomic frame scaled overlap elements
-            do ish = 1, nsi
-               ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-               do jsh = 1, nsj
-                  jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
-
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  !$omp simd collapse(2)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-
-                        overlap_diat(jj+jao, ii+iao) = overlap_diat(jj+jao, ii+iao) &
-                           + block_overlap(jaosh+jao, iaosh+iao)
                      end do
                   end do
                end do

@@ -23,7 +23,7 @@ module test_integral_overlap
    use tblite_basis_slater, only : slater_to_gauss
    use tblite_basis_type, only : basis_type, new_basis, cgto_type, get_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_diat_trafo, only : setup_diat_trafo, diat_trafo_cache, &
+   use reference_diat_trafo, only : setup_diat_trafo, diat_trafo_cache, &
       & diat_trafo
    use tblite_integral_native_integrals, only : overlap_cgto, overlap_grad_cgto, &
       & msao, smap, get_overlap
@@ -58,6 +58,7 @@ subroutine collect_integral_overlap(testsuite)
       new_unittest("overlap-h2", test_overlap_h2), &
       new_unittest("overlap-lih", test_overlap_lih), &
       new_unittest("overlap-diat-cecl3", test_overlap_diat_cecl3), &
+      new_unittest("overlap-diat-projectors", test_overlap_diat_projectors), &
       new_unittest("overlap-grad-ss", test_overlap_grad_ss), &
       new_unittest("overlap-grad-pp", test_overlap_grad_pp), &
       new_unittest("overlap-grad-dd", test_overlap_grad_dd), &
@@ -1714,13 +1715,13 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    r2 = sum(vec**2)
 
    ! Test antisymmetry w.r.t. the exchange of the two centers
-   call overlap_grad_cgto_diat(cgtoi, cgtoj, r2, vec, 100.0_wp, &
-      & ksig, kpi, kdel, overlap, doverlapi, overlap_diat, doverlapi_diat)
+   call overlap_grad_cgto(cgtoi, cgtoj, r2, vec, 100.0_wp, overlap, doverlapi, &
+      & diat_scale=[ksig, kpi, kdel], overlap_diat=overlap_diat, doverlap_diat=doverlapi_diat)
 
    vec(:) = -vec
 
-   call overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, 100.0_wp, &
-      & ksig, kpi, kdel, overlap, doverlapj, overlap_diat, doverlapj_diat)
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sr, doverlapj, &
+      & diat_scale=[ksig, kpi, kdel], overlap_diat=sr_diat, doverlap_diat=doverlapj_diat)
 
    lp: do i = 1, 3
       do j = 1, msao(cgtoi%ang)
@@ -1738,13 +1739,13 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
    do i = 1, 3
       vec(i) = vec(i) + step
       r2 = sum(vec**2)
-      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec, &
-         & 100.0_wp, ksig, kpi, kdel, sr, sr_diat)
+      call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sr, &
+         & diat_scale=[ksig, kpi, kdel], overlap_diat=sr_diat)
 
       vec(i) = vec(i) - 2*step
       r2 = sum(vec**2)
-      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec, &
-         & 100.0_wp, ksig, kpi, kdel, sl, sl_diat)
+      call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, sl, &
+         & diat_scale=[ksig, kpi, kdel], overlap_diat=sl_diat)
 
       vec(i) = vec(i) + step
       doverlaptmp(i, :, :) = 0.5_wp * (sr - sl) / step
@@ -1771,7 +1772,109 @@ subroutine test_overlap_diat_grad_gen(vec, ksig, kpi, kdel, cgtoi, cgtoj, error)
 
 end subroutine test_overlap_diat_grad_gen
 
-!> Helper function for diatomic frame scaled overlap of a single CGTO pair
+
+subroutine test_overlap_diat_projectors(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp), parameter :: scales(3, 4) = reshape([ &
+      & 0.7_wp, 1.3_wp, -0.2_wp, 1.0_wp, 1.0_wp, 1.0_wp, &
+      & 1.2_wp, 1.2_wp, 1.2_wp, 0.0_wp, 0.0_wp, 0.0_wp], [3, 4])
+   real(wp), parameter :: vectors(3, 10) = reshape([ &
+      & 0.8_wp, 0.0_wp, 0.0_wp, -0.8_wp, 0.0_wp, 0.0_wp, &
+      & 0.0_wp, 0.8_wp, 0.0_wp, 0.0_wp, -0.8_wp, 0.0_wp, &
+      & 0.0_wp, 0.0_wp, 0.8_wp, 0.0_wp, 0.0_wp, -0.8_wp, &
+      & 0.3_wp, -0.4_wp, 0.7_wp, -0.6_wp, 0.2_wp, -0.5_wp, &
+      & 1.0e-7_wp, -2.0e-7_wp, 0.8_wp, 0.0_wp, 0.0_wp, 0.0_wp], [3, 10])
+   type(cgto_type) :: cgtoi, cgtoj
+   integer :: li, lj, iv, ik, stat
+   real(wp) :: vec(3)
+
+   do li = 0, 3
+      call slater_to_gauss(6, li+1, li, 1.1_wp, cgtoi, .true., stat)
+      call check(error, stat, 0)
+      if (allocated(error)) return
+      do lj = 0, 3
+         call slater_to_gauss(6, lj+1, lj, 1.7_wp, cgtoj, .true., stat)
+         call check(error, stat, 0)
+         if (allocated(error)) return
+         do iv = 1, size(vectors, 2)
+            do ik = 1, size(scales, 2)
+               call check_diat_shell(error, cgtoj, cgtoi, vectors(:, iv), scales(:, ik), &
+                  & reference=iv < 9 .and. max(li, lj) <= 2)
+               if (allocated(error)) return
+               if (iv == 10) cycle
+               vec = vectors(:, iv)
+               call test_overlap_diat_grad_gen(vec, scales(1, ik), scales(2, ik), scales(3, ik), &
+                  & cgtoi, cgtoj, error)
+               if (allocated(error)) return
+            end do
+         end do
+      end do
+   end do
+end subroutine test_overlap_diat_projectors
+
+
+subroutine check_diat_shell(error, cgtoj, cgtoi, vec, scale, reference)
+   type(error_type), allocatable, intent(out) :: error
+   type(cgto_type), intent(in) :: cgtoj, cgtoi
+   real(wp), intent(in) :: vec(3), scale(3)
+   logical, intent(in) :: reference
+
+   real(wp) :: s(msao(cgtoj%ang), msao(cgtoi%ang)), s0(msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: scaled(msao(cgtoj%ang), msao(cgtoi%ang)), ref(msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: ds(3, msao(cgtoj%ang), msao(cgtoi%ang)), ds0(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: dscaled(3, msao(cgtoj%ang), msao(cgtoi%ang)), dref(3, msao(cgtoj%ang), msao(cgtoi%ang))
+   real(wp) :: r2
+
+   r2 = sum(vec**2)
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0, ds0)
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, ds, &
+      & diat_scale=scale, overlap_diat=scaled, doverlap_diat=dscaled)
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(ds-ds0))), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   if (r2 == 0.0_wp .or. max(cgtoi%ang, cgtoj%ang) > 2) then
+      call check(error, max(maxval(abs(scaled-s0)), maxval(abs(dscaled-ds0))), 0.0_wp, thr=thr)
+      if (allocated(error)) return
+   else if (all(scale == scale(1))) then
+      call check(error, max(maxval(abs(scaled-scale(1)*s0)), &
+         & maxval(abs(dscaled-scale(1)*ds0))), 0.0_wp, thr=thr1)
+      if (allocated(error)) return
+   end if
+
+   if (reference) then
+      call overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, 100.0_wp, &
+         & scale(1), scale(2), scale(3), s, ds, ref, dref)
+      call check(error, max(maxval(abs(scaled-ref)), maxval(abs(dscaled-dref))), 0.0_wp, thr=thr1)
+      if (allocated(error)) return
+      call overlap_cgto_diat(cgtoj, cgtoi, r2, vec, 100.0_wp, &
+         & scale(1), scale(2), scale(3), s, ref)
+      call check(error, maxval(abs(scaled-ref)), 0.0_wp, thr=thr1)
+      if (allocated(error)) return
+   end if
+
+   call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s0)
+   call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, diat_scale=scale, overlap_diat=ref)
+   call check(error, max(maxval(abs(s-s0)), maxval(abs(scaled-ref))), 0.0_wp, thr=thr1)
+   if (allocated(error)) return
+   call overlap_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, diat_scale=scale)
+   call check(error, maxval(abs(s-s0)), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   ! Each optional gradient output is usable independently.
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, ds, &
+      & diat_scale=scale, doverlap_diat=dref)
+   call check(error, maxval(abs(dscaled-dref)), 0.0_wp, thr=thr1)
+   if (allocated(error)) return
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, ds, &
+      & diat_scale=scale, overlap_diat=ref)
+   call check(error, maxval(abs(scaled-ref)), 0.0_wp, thr=thr1)
+   if (allocated(error)) return
+   call overlap_grad_cgto(cgtoj, cgtoi, r2, vec, 100.0_wp, s, ds, diat_scale=scale)
+   call check(error, maxval(abs(ds-ds0)), 0.0_wp, thr=thr)
+end subroutine check_diat_shell
+
+!> Independent rotation reference for scaled overlap of a single CGTO pair.
 subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    ksig, kpi, kdel, overlap, overlap_diat)
    !> CGTOs for the tested diatomic frame overlap calculation
@@ -1810,7 +1913,7 @@ subroutine overlap_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    overlap_diat = block_overlap(mapj+1:mapj+nj, mapi+1:mapi+ni)
 end subroutine overlap_cgto_diat
 
-!> Helper function for diatomic frame scaled overlap derivatives of a single CGTO pair
+!> Independent rotation reference for scaled overlap derivatives of a single CGTO pair.
 subroutine overlap_grad_cgto_diat(cgtoj, cgtoi, r2, vec, intcut, &
    & ksig, kpi, kdel, overlap, doverlap, overlap_diat, doverlap_diat)
    !> CGTOs for the tested diatomic frame overlap calculation

@@ -19,5 +19,4 @@ subdir('native')
 srcs += files(
   'trafo.f90',
   'type.f90',
-  'diat_trafo.f90',
 )

@@ -70,6 +70,7 @@ tests = [
 
 test_srcs = files(
   'main.f90',
+  'reference_diat_trafo.f90',
 )
 foreach t : tests
   test_srcs += files('test_@0@.f90'.format(t.underscorify()))

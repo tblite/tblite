@@ -23,10 +23,8 @@ module tblite_xtb_h0
    use mctc_io, only : structure_type
    use tblite_adjlist, only : adjacency_list
    use tblite_basis_type, only : basis_type
-   use tblite_integral_diat_trafo, only : diat_trafo_cache, setup_diat_trafo, &
-      & diat_trafo
    use tblite_integral_native_integrals, only : multipole_cgto, multipole_grad_cgto, &
-      & msao, smap, sdim
+      & msao
    use tblite_partition, only : work_partition, owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_xtb_spec, only : tb_h0spec
@@ -244,33 +242,28 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl
-   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij, iaosh, jaosh
+   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), hij, shpolyi, shpoly, dtmpj(3), qtmpj(6)
-   real(wp) :: mod_h0_fraction
-   real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :), block_overlap(:, :)
-   type(diat_trafo_cache) :: dt_cache
+   real(wp) :: diat_scale(3)
+   real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :), stmp_h0(:)
 
    overlap(:, :) = 0.0_wp
    dpint(:, :, :) = 0.0_wp
    qpint(:, :, :) = 0.0_wp
    hamiltonian(:, :) = 0.0_wp
 
-   ! Select if we construct the Hamiltonian with modifications
-   mod_h0_fraction = 0.0_wp
-   if(h0%do_diat_scale) then
-      mod_h0_fraction = 1.0_wp
-   end if
+   diat_scale = 1.0_wp
 
    allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), &
-      & qtmpi(6, msao(bas%maxl)**2), block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
+      & qtmpi(6, msao(bas%maxl)**2), stmp_h0(msao(bas%maxl)**2))
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp firstprivate(mod_h0_fraction) &
+   !$omp firstprivate(diat_scale) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
    !$omp shared(partition) &
    !$omp private(iat, jat, izp, jzp, itr, inl, img, is, js, ish, jsh, nsi, nsj, ii, jj) &
-   !$omp private(iao, jao, iaosh, jaosh, nao, ij, r2, vec, hij, shpolyi, shpoly, rr) &
-   !$omp private(stmp, dtmpi, qtmpi, dtmpj, qtmpj, block_overlap, dt_cache)
+   !$omp private(iao, jao, nao, ij, r2, vec, hij, shpolyi, shpoly, rr) &
+   !$omp private(stmp, dtmpi, qtmpi, dtmpj, qtmpj, stmp_h0)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -288,23 +281,22 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
          r2 = vec(1)**2 + vec(2)**2 + vec(3)**2
          rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
          ! Get the overlap and multipole integrals for the current diatomic pair
-         if (h0%do_diat_scale) block_overlap = 0.0_wp
+         if (h0%do_diat_scale) then
+            diat_scale = [h0%ksig(izp, jzp), h0%kpi(izp, jzp), h0%kdel(izp, jzp)]
+         end if
          do ish = 1, nsi
             ii = bas%iao_sh(is+ish)
-            iaosh = smap(ish-1)
 
             ! Shell polynomial enhancement factor
             shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
             do jsh = 1, nsj
                jj = bas%iao_sh(js+jsh)
-               jaosh = smap(jsh-1)
                call multipole_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
-                  & r2, vec, bas%intcut, stmp, dtmpi, qtmpi)
+                  & r2, vec, bas%intcut, stmp, dtmpi, qtmpi, diat_scale, stmp_h0)
 
                shpoly = shpolyi * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
 
-               hij = 0.5_wp * (1.0_wp - mod_h0_fraction) &
-                  & * (selfenergy(is+ish) + selfenergy(js+jsh)) &
+               hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) &
                   & * h0%hscale(jsh, ish, jzp, izp) * shpoly
 
                nao = msao(bas%cgto(jsh, jzp)%ang)
@@ -313,9 +305,6 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
                      ij = jao + nao*(iao-1)
                      call shift_operator(vec, stmp(ij), dtmpi(:, ij), qtmpi(:, ij), &
                         & dtmpj, qtmpj)
-
-                     ! Save overlap for possible diatomic frame trafo
-                     if (h0%do_diat_scale) block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
 
                      overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
                         + stmp(ij)
@@ -327,7 +316,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
                         + qtmpi(:, ij)
 
                      hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                        + stmp(ij) * hij
+                        + stmp_h0(ij) * hij
 
                      if (iat /= jat) then
                         overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
@@ -340,7 +329,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
                            + qtmpj
 
                         hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
-                           + stmp(ij) * hij
+                           + stmp_h0(ij) * hij
                      end if
                   end do
                end do
@@ -348,54 +337,6 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
             end do
          end do
 
-         ! Optional diatomic frame transformation and scaling of the overlap
-         if (h0%do_diat_scale) then
-            call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
-            call diat_trafo(dt_cache, h0%ksig(izp, jzp), h0%kpi(izp, jzp), &
-               & h0%kdel(izp, jzp), block_overlap)
-         end if
-
-         ! Optional repeated setup of the Hamiltonian after modifications
-         if (h0%do_diat_scale) then
-            do ish = 1, nsi
-               ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-
-               ! Recalculate shell polynomial enhancement factor
-               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
-
-               do jsh = 1, nsj
-                  jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
-
-                  ! Recalculate shell polynomial enhancement factor
-                  shpoly = shpolyi * (1.0_wp + h0%shpoly(jsh, jzp)*rr)
-
-                  ! Recalculate Hamiltonian elements for modified H0
-                  hij = 0.5_wp * mod_h0_fraction &
-                     & * (selfenergy(is+ish) + selfenergy(js+jsh)) &
-                     & * h0%hscale(jsh, ish, jzp, izp) * shpoly
-
-                  ! Distribute shell block to Hamiltonian matrix
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-
-                        ! Add modified Hamiltonian contribution
-                        hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                           + block_overlap(jaosh+jao, iaosh+iao) * hij
-
-                        if (iat /= jat) then
-                           hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
-                              + block_overlap(jaosh+jao, iaosh+iao) * hij
-                        end if
-                     end do
-                  end do
-
-               end do
-            end do
-         end if
       end do
 
       ! Onsite contribution to the Hamiltonian
@@ -470,41 +411,35 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
-   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, iaosh, jaosh, nao, ij
+   integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij
    real(wp) :: rr, r2, vec(3), hij, dG(3), hscale, hs
    real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
-   real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij, mod_h0_fraction
+   real(wp) :: sval, dcni, dcnj, dhdcni, dhdcnj, hpij, pij, diat_scale(3)
    real(wp), allocatable :: stmp(:), dtmp(:, :), qtmp(:, :)
    real(wp), allocatable :: dstmp(:, :), ddtmpi(:, :, :), dqtmpi(:, :, :)
    real(wp), allocatable :: ddtmpj(:, :, :), dqtmpj(:, :, :)
-   real(wp), allocatable :: block_overlap(:, :), block_doverlap(:, :, :)
-   type(diat_trafo_cache) :: dt_cache
+   real(wp), allocatable :: stmp_h0(:), dstmp_h0(:, :)
 
    nspin = size(pmat, 3)
 
-   ! Select if we construct the Hamiltonian with modifications
-   mod_h0_fraction = 0.0_wp
-   if(h0%do_diat_scale) then
-      mod_h0_fraction = 1.0_wp
-   end if
+   diat_scale = 1.0_wp
 
    allocate(stmp(msao(bas%maxl)**2), dstmp(3, msao(bas%maxl)**2), &
       & dtmp(3, msao(bas%maxl)**2), ddtmpi(3, 3, msao(bas%maxl)**2), &
       & qtmp(6, msao(bas%maxl)**2), dqtmpi(3, 6, msao(bas%maxl)**2), &
       & ddtmpj(3, 3, msao(bas%maxl)**2), dqtmpj(3, 6, msao(bas%maxl)**2), &
-      & block_overlap(sdim(bas%maxl), sdim(bas%maxl)), &
-      & block_doverlap(sdim(bas%maxl), sdim(bas%maxl), 3))
+      & stmp_h0(msao(bas%maxl)**2), dstmp_h0(3, msao(bas%maxl)**2))
 
    !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
    !$omp shared(nspin, mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
    !$omp shared(partition) &
-   !$omp firstprivate(mod_h0_fraction) &
+   !$omp firstprivate(diat_scale) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj, ii, jj) &
-   !$omp private(iaosh, jaosh, iao, jao, nao, ij, inl, img, spin, r2, vec) &
+   !$omp private(iao, jao, nao, ij, inl, img, spin, r2, vec) &
    !$omp private(stmp, dstmp, dtmp, ddtmpi, ddtmpj, qtmp, dqtmpi, dqtmpj) &
    !$omp private(dG, sval, hscale, hs, hij, hpij, pij, dcni, dcnj, dhdcni, dhdcnj) &
    !$omp private(rr, shpolyi, shpolyj, shpoly, dshpoly, dsv) &
-   !$omp private(block_overlap, block_doverlap, dt_cache)
+   !$omp private(stmp_h0, dstmp_h0)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -523,22 +458,19 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
          if (r2 <= epsilon(1.0_wp)) cycle
          rr = sqrt(sqrt(r2) / (h0%rad(jzp) + h0%rad(izp)))
          if (h0%do_diat_scale) then
-            block_overlap(:, :) = 0.0_wp
-            block_doverlap(:, :, :) = 0.0_wp
+            diat_scale = [h0%ksig(izp, jzp), h0%kpi(izp, jzp), h0%kdel(izp, jzp)]
          end if
          dG(:) = 0.0_wp
          dcni = 0.0_wp
          dcnj = 0.0_wp
          do ish = 1, nsi
             ii = bas%iao_sh(is+ish)
-            iaosh = smap(ish-1)
             shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
             do jsh = 1, nsj
                jj = bas%iao_sh(js+jsh)
-               jaosh = smap(jsh-1)
                call multipole_grad_cgto(bas%cgto(jsh, jzp), bas%cgto(ish, izp), &
                   & r2, vec, bas%intcut, stmp, dtmp, qtmp, dstmp, ddtmpj, dqtmpj, &
-                  & ddtmpi, dqtmpi)
+                  & ddtmpi, dqtmpi, diat_scale, stmp_h0, dstmp_h0)
                shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr
                shpoly = shpolyi * shpolyj
                dshpoly = (shpolyi * h0%shpoly(jsh, jzp) + shpolyj * &
@@ -546,7 +478,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                dsv(:) = dshpoly / shpoly * vec
 
                hscale = h0%hscale(jsh, ish, jzp, izp)
-               hs = hscale * shpoly * (1.0_wp - mod_h0_fraction)
+               hs = hscale * shpoly
                hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs
 
                dhdcni = dsedcn(is+ish) * hs
@@ -557,11 +489,6 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                   do jao = 1, nao
                      ij = jao + nao*(iao-1)
 
-                     ! Overlap and derivatives for possible diatomic frame trafo
-                     if (h0%do_diat_scale) then
-                        block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
-                        block_doverlap(jaosh+jao, iaosh+iao, :) = dstmp(:, ij)
-                     end if
                      do spin = 1, nspin
                         pij = pmat(jj+jao, ii+iao, spin)
                         sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
@@ -570,81 +497,19 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                      end do
                      pij = pmat(jj+jao, ii+iao, 1)
                      hpij = pij * hij
-                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao, 1)
-
-                     dG(:) = dG + sval * dstmp(:, ij) &
-                        + 2*hpij*stmp(ij) * dsv &
+                     dG(:) = dG + 2*hpij * (dstmp_h0(:, ij) + stmp_h0(ij)*dsv) &
+                        - 2*xmat(jj+jao, ii+iao, 1) * dstmp(:, ij) &
                         - pij * matmul(ddtmpi(:, :, ij), pot%vdp(:, iat, 1)) &
                         - pij * matmul(ddtmpj(:, :, ij), pot%vdp(:, jat, 1)) &
                         - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, 1)) &
                         - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat, 1))
 
-                     dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, 1) * stmp(ij)
-                     dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, 1) * stmp(ij)
+                     dcni = dcni + dhdcni * pij * stmp_h0(ij)
+                     dcnj = dcnj + dhdcnj * pij * stmp_h0(ij)
                   end do
                end do
             end do
          end do
-
-         ! Optional diatomic frame scaling transformation for overlap and derivatives
-         if (h0%do_diat_scale) then
-            call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1, grad=.true.)
-            call diat_trafo(dt_cache, h0%ksig(izp, jzp), h0%kpi(izp, jzp), &
-               & h0%kdel(izp, jzp), block_overlap, block_doverlap)
-         end if
-
-         ! Optional repeated setup of the Hamiltonian after modifications
-         if (h0%do_diat_scale) then
-            do ish = 1, nsi
-               ii = bas%iao_sh(is+ish)
-               iaosh = smap(ish-1)
-
-               ! Recalculate shell polynomial enhancement factor and derivative
-               shpolyi = 1.0_wp + h0%shpoly(ish, izp)*rr
-
-               do jsh = 1, nsj
-                  jj = bas%iao_sh(js+jsh)
-                  jaosh = smap(jsh-1)
-
-                  ! Recalculate shell polynomial enhancement factor and derivative
-                  shpolyj = 1.0_wp + h0%shpoly(jsh, jzp)*rr
-                  shpoly = shpolyi * shpolyj
-                  dshpoly = (shpolyi * h0%shpoly(jsh, jzp) + shpolyj * &
-                  & h0%shpoly(ish, izp)) * 0.5_wp * rr / r2
-
-                  dsv(:) = dshpoly / shpoly * vec
-
-                  ! Recalculate Hamiltonian elements
-                  hscale = h0%hscale(jsh, ish, jzp, izp)
-                  hs = hscale * shpoly * mod_h0_fraction
-                  hij = 0.5_wp * (selfenergy(is+ish) + selfenergy(js+jsh)) * hs
-
-                  ! CN derivative of modified Hamiltonian elements
-                  dhdcni = dsedcn(is+ish) * hs
-                  dhdcnj = dsedcn(js+jsh) * hs
-
-                  nao = msao(bas%cgto(jsh, jzp)%ang)
-                  do iao = 1, msao(bas%cgto(ish, izp)%ang)
-                     do jao = 1, nao
-                        ij = jao + nao*(iao-1)
-
-                        ! Add only H0 gradient with the modified overlap
-                        pij = pmat(jj+jao, ii+iao, 1)
-                        hpij = 2*pij * hij
-
-                        ! Accumulate gradient from overlap and shell-polynomials
-                        dG(:) = dG + hpij * (block_doverlap(jaosh+jao, iaosh+iao, :) &
-                           + block_overlap(jaosh+jao, iaosh+iao) * dsv)
-
-                        ! Accumulate CN derivatives
-                        dcni = dcni + dhdcni * pij * block_overlap(jaosh+jao, iaosh+iao)
-                        dcnj = dcnj + dhdcnj * pij * block_overlap(jaosh+jao, iaosh+iao)
-                     end do
-                  end do
-
-               end do
-            end do
-         end if
 
          if (iat == jat) then
             dEdcn(iat) = dEdcn(iat) + 0.5_wp * (dcni + dcnj)

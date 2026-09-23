@@ -22,7 +22,6 @@ list(
   APPEND srcs
   "${dir}/trafo.f90"
   "${dir}/type.f90"
-  "${dir}/diat_trafo.f90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
