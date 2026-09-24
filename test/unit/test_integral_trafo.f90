@@ -410,7 +410,7 @@ subroutine test_contravariant_roundtrip(error, lj, li, bra, ket)
 
    ! Adjoint transformation from spherical to cartesian
    call adjoint_transform0(lj, li, sphr1, cart1, bra, ket)
-   
+
    ! Contavariant transformation from cartesian to spherical
    call contravariant_transform0(lj, li, cart1, sphr2, bra, ket)
 

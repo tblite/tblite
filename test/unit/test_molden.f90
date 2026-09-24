@@ -329,6 +329,7 @@ subroutine read_mo_coefficients(filename, imo, coeff, error)
       if (stat /= 0) exit
       if (index(line, "Sym=") > 0) count = count + 1
       if (count /= imo) cycle
+      if (index(line, "=") > 0) cycle
       ! Only the coefficient lines parse as an index followed by a real
       read(line, *, iostat=stat) iao, coeff(min(max(iao, 1), size(coeff)))
       if (stat /= 0) then
