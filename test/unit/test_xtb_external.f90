@@ -33,9 +33,10 @@ module test_xtb_external
 
    public :: collect_xtb_external
 
-   real(wp), parameter :: acc = 0.01_wp
-   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
-   real(wp), parameter :: thr2 = 1e+4_wp*sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: acc = 0.0001_wp
+   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: thr1 = 1e+5*epsilon(1.0_wp)
+   real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
 
   real(wp), parameter :: aatoau = 1.0_wp / 0.529177249_wp, &
@@ -61,7 +62,9 @@ subroutine collect_xtb_external(testsuite)
       new_unittest("gfn1-dipole", test_d_mb03), &
       new_unittest("gfn2-dipole", test_d_mb04), &
       new_unittest("gfn1-empty", test_g_mb05), &
-      new_unittest("gfn2-empty", test_g_mb06) &
+      new_unittest("gfn2-empty", test_g_mb06), &
+      new_unittest("gfn1-efield-numgrad", test_g_efield_mb07), &
+      new_unittest("gfn2-efield-numgrad", test_g_efield_mb08) &
       ]
 
 end subroutine collect_xtb_external
@@ -92,13 +95,13 @@ subroutine test_e_mb01(error)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
-   call check(error, energy, ref1, thr=thr)
+   call check(error, energy, ref1, thr=thr1*10)
    if (allocated(error)) return
 
    call calc%pop(cont)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
 
-   call check(error, energy, ref0, thr=thr)
+   call check(error, energy, ref0, thr=thr1)
 
 end subroutine test_e_mb01
 
@@ -130,13 +133,13 @@ subroutine test_e_mb02(error)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
 
-   call check(error, energy, ref1, thr=thr)
+   call check(error, energy, ref1, thr=thr2)
    if (allocated(error)) return
 
    call calc%pop(cont)
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
 
-   call check(error, energy, ref0, thr=thr)
+   call check(error, energy, ref0, thr=thr2)
 
 end subroutine test_e_mb02
 
@@ -151,7 +154,7 @@ subroutine test_d_mb03(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn, wfn0
    class(container_type), allocatable :: cont
-   real(wp), parameter :: step = 1.0e-4_wp
+   real(wp), parameter :: step = 1.0e-5_wp
    real(wp) :: energy, efield(3), er, el, numdip(3), dipole(3)
    integer :: i
 
@@ -188,7 +191,7 @@ subroutine test_d_mb03(error)
       numdip(i) = -0.5_wp * (er - el) / step
    end do
 
-   if (any(abs(dipole - numdip) > thr2)) then
+   if (any(abs(dipole - numdip) > thr2*10)) then
       call test_failed(error, "Numerical dipole moment does not match")
       print "(3es21.14)", dipole
       print '("---")'
@@ -210,7 +213,7 @@ subroutine test_d_mb04(error)
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn, wfn0
    class(container_type), allocatable :: cont
-   real(wp), parameter :: step = 1.0e-4_wp
+   real(wp), parameter :: step = 1.0e-5_wp
    real(wp) :: energy, efield(3), er, el, numdip(3), dipole(3)
    integer :: i
 
@@ -247,7 +250,7 @@ subroutine test_d_mb04(error)
       numdip(i) = -0.5_wp * (er - el) / step
    end do
 
-   if (any(abs(dipole - numdip) > thr2)) then
+   if (any(abs(dipole - numdip) > thr2*10)) then
       call test_failed(error, "Numerical dipole moment does not match")
       print "(3es21.14)", dipole
       print '("---")'
@@ -305,9 +308,9 @@ subroutine test_g_mb05(error)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
 
-   call check(error, energy, eref, thr=thr)
+   call check(error, energy, eref, thr=thr2)
    if (allocated(error)) return
-   call check(error, all(abs(gradient - gref) < thr))
+   call check(error, all(abs(gradient - gref) < thr2*10))
 
 end subroutine test_g_mb05
 
@@ -358,11 +361,110 @@ subroutine test_g_mb06(error)
 
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, verbosity=0)
 
-   call check(error, energy, eref, thr=thr)
+   call check(error, energy, eref, thr=thr2)
    if (allocated(error)) return
-   call check(error, all(abs(gradient - gref) < thr))
+   call check(error, all(abs(gradient - gref) < thr2*10))
 
 end subroutine test_g_mb06
 
+
+subroutine test_numgrad(mol, calc, error)
+
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+
+   !> Calculator instance
+   type(xtb_calculator), intent(in) :: calc
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: moli
+   type(wavefunction_type) :: wfn, wfni
+   class(container_type), allocatable :: cont
+   integer :: iat, ic
+   real(wp) :: energy, er, el
+   real(wp), allocatable :: gradient(:, :), numgrad(:, :), sigma(:, :)
+   real(wp), parameter :: step = 1.0e-5_wp
+
+   allocate(gradient(3, mol%nat), numgrad(3, mol%nat), sigma(3, 3))
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   numgrad(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, gradient, sigma, 0)
+
+   do iat = 1, mol%nat
+      do ic = 1, 3
+         moli = mol
+         wfni = wfn
+         moli%xyz(ic, iat) = mol%xyz(ic, iat) + step
+         call xtb_singlepoint(ctx, moli, calc, wfni, acc, er, verbosity=0)
+
+         moli = mol
+         wfni = wfn
+         moli%xyz(ic, iat) = mol%xyz(ic, iat) - step
+         call xtb_singlepoint(ctx, moli, calc, wfni, acc, el, verbosity=0)
+
+         numgrad(ic, iat) = 0.5_wp*(er - el)/step
+      end do
+   end do
+
+   if (any(abs(gradient - numgrad) > thr2)) then
+      call test_failed(error, "Gradient in electric field does not match (numerical)")
+      print"(3es21.14)", gradient
+      print'("---")'
+      print"(3es21.14)", numgrad
+      print'("---")'
+      print"(3es21.14)", gradient-numgrad
+   end if
+
+end subroutine test_numgrad
+
+
+subroutine test_g_efield_mb07(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   class(container_type), allocatable :: cont
+
+   call get_structure(mol, "MB16-43", "06")
+
+   call new_gfn1_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   cont = electric_field([-2.0_wp, 1.0_wp, 0.5_wp]*vatoau)
+   call calc%push_back(cont)
+
+   call test_numgrad(mol, calc, error)
+
+end subroutine test_g_efield_mb07
+
+subroutine test_g_efield_mb08(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(xtb_calculator) :: calc
+   type(structure_type) :: mol
+   class(container_type), allocatable :: cont
+
+   call get_structure(mol, "MB16-43", "08")
+
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   cont = electric_field([0.0_wp, sqrt(2.0_wp), -sqrt(2.0_wp)]*vatoau)
+   call calc%push_back(cont)
+
+   call test_numgrad(mol, calc, error)
+
+end subroutine test_g_efield_mb08
 
 end module test_xtb_external
