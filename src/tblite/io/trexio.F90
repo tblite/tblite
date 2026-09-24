@@ -35,7 +35,7 @@ module tblite_io_trexio
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type, new
    use tblite_basis_type, only : basis_type, cgto_type, new_basis, new_cgto
-   use tblite_integral_trafo, only : transform0
+   use tblite_integral_trafo, only : contravariant_transform0
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction, &
       & get_alpha_beta_occupation, get_density_matrix
 #if TBLITE_HAS_TREXIO
@@ -50,6 +50,7 @@ module tblite_io_trexio
       & trexio_read_basis_shell_num, trexio_read_basis_nucleus_index, &
       & trexio_read_basis_shell_ang_mom, trexio_read_ecp_z_core, &
       & trexio_read_ao_num, trexio_read_ao_cartesian, trexio_read_ao_shell, &
+      & trexio_read_ao_normalization, &
       & trexio_read_mo_num, trexio_read_mo_coefficient, &
       & trexio_read_mo_occupation, trexio_read_mo_energy, trexio_read_mo_spin, &
       & trexio_has_mo_spin, trexio_read_basis_prim_num, trexio_read_basis_exponent, &
@@ -63,7 +64,8 @@ module tblite_io_trexio
       & trexio_write_basis_type, trexio_write_basis_shell_num, &
       & trexio_write_basis_nucleus_index, trexio_write_basis_shell_ang_mom, &
       & trexio_write_ecp_z_core, trexio_write_ao_cartesian, trexio_write_ao_num, &
-      & trexio_write_ao_shell, trexio_write_mo_type, trexio_write_mo_num, &
+      & trexio_write_ao_shell, trexio_write_ao_normalization, &
+      & trexio_write_mo_type, trexio_write_mo_num, &
       & trexio_write_mo_coefficient, trexio_write_mo_occupation, &
       & trexio_write_mo_energy, trexio_write_mo_spin, &
       & trexio_write_basis_prim_num, trexio_write_basis_exponent, &
@@ -562,6 +564,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    integer :: nao, nmo
    logical :: cartesian
    real(wp), allocatable :: mo_occupation(:), mo_energy(:), mo_coefficient(:, :)
+   real(wp), allocatable :: ao_norm(:)
    integer, allocatable :: ecp_z_core(:), ao_shell(:), mo_spin(:)
 
    integer :: nspin, spin, imo, ish, iao, jsh, jat, jsp, js, jj, lj, imoflat
@@ -572,7 +575,7 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
    real(wp), allocatable :: tmp_focc(:)
 
    call read_ecp(trex_file, mol%nat, ecp_z_core, error)
-   if (.not.allocated(error)) call read_ao(trex_file, cartesian, nao, ao_shell, error)
+   if (.not.allocated(error)) call read_ao(trex_file, cartesian, nao, ao_shell, ao_norm, error)
    if (.not.allocated(error)) call read_mo(trex_file, nao, nmo, mo_coefficient, &
       & mo_occupation, mo_energy, mo_spin, error)
    if (allocated(error)) return
@@ -687,10 +690,11 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
             csphr(:, :) = 0.0_wp
             do icart = 1, ncart
                iao = ao_pos(icart, jsh)
-               ccart(perm_cart(icart), 1) = mo_coefficient(iao, imoflat)
+               ! Undo individual AO normalization for internal representation
+               ccart(perm_cart(icart), 1) = mo_coefficient(iao, imoflat) * ao_norm(iao)
             end do
 
-            call transform0(lj, 0, ccart(:ncart, :1), csphr(:nsphr, :1), &
+            call contravariant_transform0(lj, 0, ccart(:ncart, :1), csphr(:nsphr, :1), &
                & .true., .false.)
             wfn%coeff(jj+1:jj+nsphr, imo, spin) = csphr(:nsphr, 1)
          else
@@ -700,8 +704,9 @@ subroutine load_wavefunction(trex_file, mol, bas, wfn, error)
 
             do isphr = 1, nsphr
                iao = ao_pos(isphr, jsh)
+               ! Undo individual AO normalization for internal representation
                wfn%coeff(jj + perm_sphr(isphr), imo, spin) = &
-                  & mo_coefficient(iao, imoflat)
+                  & mo_coefficient(iao, imoflat) * ao_norm(iao)
             end do
          end if
       end do
@@ -741,7 +746,7 @@ subroutine read_ecp(trex_file, nat, ecp_z_core, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO Z ECP core")
 end subroutine read_ecp
 
-subroutine read_ao(trex_file, cartesian, nao, ao_shell, error)
+subroutine read_ao(trex_file, cartesian, nao, ao_shell, ao_norm, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
    !> Whether the AOs are in Cartesian (true) or spherical (false) form
@@ -750,9 +755,12 @@ subroutine read_ao(trex_file, cartesian, nao, ao_shell, error)
    integer, intent(out) :: nao
    !> Shell index for each AO
    integer, allocatable, intent(out) :: ao_shell(:)
+   !> Normalization of each AO
+   real(wp), allocatable, intent(out) :: ao_norm(:)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   real(c_double), allocatable :: norm(:)
    integer(trexio_exit_code) :: rc
    integer :: cart
 
@@ -768,6 +776,13 @@ subroutine read_ao(trex_file, cartesian, nao, ao_shell, error)
    allocate(ao_shell(nao))
    rc = trexio_read_ao_shell(trex_file, ao_shell)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO shell map")
+   if (allocated(error)) return
+
+   allocate(norm(nao), ao_norm(nao))
+   rc = trexio_read_ao_normalization(trex_file, norm)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO AO normalization")
+   if (allocated(error)) return
+   ao_norm(:) = real(norm, wp)
 end subroutine read_ao
 
 subroutine read_mo(trex_file, nao, nmo, mo_coefficient, mo_occupation, mo_energy, &
@@ -1130,6 +1145,7 @@ subroutine write_ao(trex_file, bas, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   real(c_double), allocatable :: norm(:)
    integer(trexio_exit_code) :: rc
 
    rc = trexio_write_ao_cartesian(trex_file, 0)
@@ -1142,6 +1158,11 @@ subroutine write_ao(trex_file, bas, error)
 
    rc = trexio_write_ao_shell(trex_file, bas%ao2sh)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO shell map")
+   if (allocated(error)) return
+
+   allocate(norm(bas%nao), source=1.0_c_double)
+   rc = trexio_write_ao_normalization(trex_file, norm)
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO normalization")
 end subroutine write_ao
 
 subroutine write_mo(trex_file, mol, bas, wfn, error)

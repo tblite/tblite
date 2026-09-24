@@ -23,7 +23,8 @@ module test_integral_trafo
    use tblite_blas, only : gemm
    use tblite_context_type, only : context_type
    use tblite_integral_trafo, only : transform0, adjoint_transform0, &
-      & adjoint_transform1, adjoint_transform2
+      & adjoint_transform1, adjoint_transform2, contravariant_transform0, &
+      & contravariant_transform1, contravariant_transform2
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
@@ -64,6 +65,21 @@ subroutine collect_integral_trafo(testsuite)
       new_unittest("trafo-ff", test_trafo_ff), &
       new_unittest("trafo-fg", test_trafo_fg), &
       new_unittest("trafo-gg", test_trafo_gg), &
+      new_unittest("contravariant-ss", test_contravariant_ss), &
+      new_unittest("contravariant-sp", test_contravariant_sp), &
+      new_unittest("contravariant-sd", test_contravariant_sd), &
+      new_unittest("contravariant-sf", test_contravariant_sf), &
+      new_unittest("contravariant-sg", test_contravariant_sg), &
+      new_unittest("contravariant-pp", test_contravariant_pp), &
+      new_unittest("contravariant-pd", test_contravariant_pd), &
+      new_unittest("contravariant-pf", test_contravariant_pf), &
+      new_unittest("contravariant-pg", test_contravariant_pg), &
+      new_unittest("contravariant-dd", test_contravariant_dd), &
+      new_unittest("contravariant-df", test_contravariant_df), &
+      new_unittest("contravariant-dg", test_contravariant_dg), &
+      new_unittest("contravariant-ff", test_contravariant_ff), &
+      new_unittest("contravariant-fg", test_contravariant_fg), &
+      new_unittest("contravariant-gg", test_contravariant_gg), &
       new_unittest("trafo-pcl", test_trafo_pcl) &
       ]
 
@@ -155,7 +171,10 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    prod_cart = sum(cart1 * cart2)
 
    call check(error, prod_sphr, prod_cart, thr=thr)
-   if (allocated(error)) return
+   if (allocated(error)) then
+      call test_failed(error, "Adjoint trafo does not preserve the inner product")
+      return
+   end if
 
    ! Check wrapper for three dimensional arrays with leading batch dimension
    allocate(sphr3(1, nsj, nsi), source=0.0_wp)
@@ -166,7 +185,10 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    prod_cart = sum(cart1 * cart3(1, :, :))
 
    call check(error, prod_sphr, prod_cart, thr=thr)
-   if (allocated(error)) return
+   if (allocated(error)) then
+      call test_failed(error, "Adjoint trafo does not preserve the inner product (vector block)")
+      return
+   end if
 
    ! Check wrapper for four dimensional arrays with leading batch dimensions
    allocate(sphr4(1, 1, nsj, nsi), source=0.0_wp)
@@ -177,7 +199,10 @@ subroutine test_trafo_adjoint(error, lj, li, bra, ket)
    prod_cart = sum(cart1 * cart4(1, 1, :, :))
 
    call check(error, prod_sphr, prod_cart, thr=thr)
-   if (allocated(error)) return
+   if (allocated(error)) then
+      call test_failed(error, "Adjoint trafo does not preserve the inner product (matrix block)")
+      return
+   end if
 
 end subroutine test_trafo_adjoint
 
@@ -311,6 +336,248 @@ subroutine test_trafo_gg(error)
    call test_trafo_pair(error, 4, 4)
 
 end subroutine test_trafo_gg
+
+
+subroutine test_contravariant_pair(error, lj, li)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Angular momentum of bra
+   integer, intent(in) :: lj
+   !> Angular momentum of ket
+   integer, intent(in) :: li
+
+   ! Transform neither bra nor ket
+   call test_contravariant_roundtrip(error, lj, li, .false., .false.)
+   if (allocated(error)) return
+
+   ! Transform bra only
+   call test_contravariant_roundtrip(error, lj, li, .true., .false.)
+   if (allocated(error)) return
+
+   ! Transform ket only
+   call test_contravariant_roundtrip(error, lj, li, .false., .true.)
+   if (allocated(error)) return
+
+   ! Transform both bra and ket
+   call test_contravariant_roundtrip(error, lj, li, .true., .true.)
+   if (allocated(error)) return
+
+end subroutine test_contravariant_pair
+
+subroutine test_contravariant_roundtrip(error, lj, li, bra, ket)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Angular momentum of bra
+   integer, intent(in) :: lj
+   !> Angular momentum of ket
+   integer, intent(in) :: li
+   !> Whether to transform the bra
+   logical, intent(in) :: bra
+   !> Whether to transform the ket
+   logical, intent(in) :: ket
+
+   real(wp), allocatable :: sphr1(:, :), sphr2(:, :), cart1(:, :)
+   real(wp), allocatable :: sphr3(:, :, :), cart3(:, :, :)
+   real(wp), allocatable :: sphr4(:, :, :, :), cart4(:, :, :, :)
+   integer :: ncj, nci, nsj, nsi, nrow_cart, ncol_cart
+
+   ! Number of Cartesian functions for bra and ket
+   ncj = (lj + 1) * (lj + 2) / 2
+   nci = (li + 1) * (li + 2) / 2
+
+   ! Number of spherical functions for bra and ket
+   nsj = 2*lj + 1
+   nsi = 2*li + 1
+
+   if (bra) then
+      nrow_cart = ncj
+   else
+      nrow_cart = nsj
+   end if
+
+   if (ket) then
+      ncol_cart = nci
+   else
+      ncol_cart = nsi
+   end if
+
+   allocate(cart1(nrow_cart, ncol_cart))
+   allocate(sphr1(nsj, nsi), sphr2(nsj, nsi))
+
+   ! Random coefficients around 0.0
+   call random_number(sphr1)
+   sphr1 = sphr1 - 0.5_wp
+
+   ! Adjoint transformation from spherical to cartesian
+   call adjoint_transform0(lj, li, sphr1, cart1, bra, ket)
+
+   ! Contavariant transformation from cartesian to spherical
+   call contravariant_transform0(lj, li, cart1, sphr2, bra, ket)
+
+   call check(error, all(abs(sphr2 - sphr1) < thr))
+   if (allocated(error)) then
+      call test_failed(error, "Contravariant transformation does not invert the adjoint")
+      return
+   end if
+
+   ! Check wrapper for three dimensional arrays with leading batch dimension
+   allocate(sphr3(1, nsj, nsi), cart3(1, nrow_cart, ncol_cart))
+   sphr3(1, :, :) = sphr1
+
+   call adjoint_transform1(lj, li, sphr3, cart3, bra, ket)
+   call contravariant_transform1(lj, li, cart3, sphr3, bra, ket)
+
+   call check(error, all(abs(sphr3(1, :, :) - sphr1) < thr))
+   if (allocated(error)) then
+      call test_failed(error, "Contravariant transformation of a vector block failed")
+      return
+   end if
+
+   ! Check wrapper for four dimensional arrays with leading batch dimensions
+   allocate(sphr4(1, 1, nsj, nsi), cart4(1, 1, nrow_cart, ncol_cart))
+   sphr4(1, 1, :, :) = sphr1
+
+   call adjoint_transform2(lj, li, sphr4, cart4, bra, ket)
+   call contravariant_transform2(lj, li, cart4, sphr4, bra, ket)
+
+   call check(error, all(abs(sphr4(1, 1, :, :) - sphr1) < thr))
+   if (allocated(error)) then
+      call test_failed(error, "Contravariant transformation of a matrix block failed")
+      return
+   end if
+
+end subroutine test_contravariant_roundtrip
+
+
+subroutine test_contravariant_ss(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 0, 0)
+
+end subroutine test_contravariant_ss
+
+subroutine test_contravariant_sp(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 0, 1)
+   call test_contravariant_pair(error, 1, 0)
+
+end subroutine test_contravariant_sp
+
+subroutine test_contravariant_sd(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 0, 2)
+   call test_contravariant_pair(error, 2, 0)
+
+end subroutine test_contravariant_sd
+
+subroutine test_contravariant_sf(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 0, 3)
+   call test_contravariant_pair(error, 3, 0)
+
+end subroutine test_contravariant_sf
+
+subroutine test_contravariant_sg(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 0, 4)
+   call test_contravariant_pair(error, 4, 0)
+
+end subroutine test_contravariant_sg
+
+subroutine test_contravariant_pp(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 1, 1)
+
+end subroutine test_contravariant_pp
+
+subroutine test_contravariant_pd(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 1, 2)
+   call test_contravariant_pair(error, 2, 1)
+
+end subroutine test_contravariant_pd
+
+subroutine test_contravariant_pf(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 1, 3)
+   call test_contravariant_pair(error, 3, 1)
+
+end subroutine test_contravariant_pf
+
+subroutine test_contravariant_pg(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 1, 4)
+   call test_contravariant_pair(error, 4, 1)
+
+end subroutine test_contravariant_pg
+
+subroutine test_contravariant_dd(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 2, 2)
+
+end subroutine test_contravariant_dd
+
+subroutine test_contravariant_df(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 2, 3)
+   call test_contravariant_pair(error, 3, 2)
+
+end subroutine test_contravariant_df
+
+subroutine test_contravariant_dg(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 2, 4)
+   call test_contravariant_pair(error, 4, 2)
+
+end subroutine test_contravariant_dg
+
+subroutine test_contravariant_ff(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 3, 3)
+
+end subroutine test_contravariant_ff
+
+subroutine test_contravariant_fg(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 3, 4)
+   call test_contravariant_pair(error, 4, 3)
+
+end subroutine test_contravariant_fg
+
+subroutine test_contravariant_gg(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call test_contravariant_pair(error, 4, 4)
+
+end subroutine test_contravariant_gg
 
 
 subroutine test_density_trafo(mol, calc, wfn, ref, error, thr_in)

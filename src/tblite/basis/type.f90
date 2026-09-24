@@ -22,7 +22,7 @@ module tblite_basis_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use tblite_integral_trafo, only : adjoint_transform0, transform0
+   use tblite_integral_trafo, only : adjoint_transform0, contravariant_transform0
    implicit none
    private
 
@@ -329,8 +329,8 @@ subroutine cartesian_to_spherical_trafo(self, mol, cart, sphr)
          iicart = self%iao_cart_sh(is+ish)
          nicart = self%nao_cart_sh(is+ish)
 
-         ! Transform all matrix columns for the current shell
-         call transform0(li, 0, cart(iicart+1:iicart+nicart, :), &
+         ! Coefficients are contravariant requiring the pseudo-inverse
+         call contravariant_transform0(li, 0, cart(iicart+1:iicart+nicart, :), &
             & sphr(ii+1:ii+ni, :), bra=.true., ket=.false.)
       end do
    end do
