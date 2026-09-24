@@ -331,6 +331,10 @@ subroutine read_mo_coefficients(filename, imo, coeff, error)
       if (count /= imo) cycle
       ! Only the coefficient lines parse as an index followed by a real
       read(line, *, iostat=stat) iao, coeff(min(max(iao, 1), size(coeff)))
+      if (stat /= 0) then
+         call fatal_error(error, "Could not read line in '"//filename//"'")
+         return
+      end if
    end do
    close(unit)
 

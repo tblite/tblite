@@ -1558,7 +1558,7 @@ subroutine write_mo(unit, mol, bas, wfn, error)
          end if
 
          write(unit,"(A)", advance="no") "Ene= "
-         write(unit,*) wfn%emo(imo, cspin)
+         write(unit,"(ES24.16)") wfn%emo(imo, cspin)
 
          write(unit,"(A)", advance="no") "Spin= "
          if (spin_resolved_mo .and. spin == 2) then
