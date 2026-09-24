@@ -36,6 +36,7 @@ module test_molden
 
    real(wp), parameter :: kt = 300.0_wp * 3.166808578545117e-06_wp
    real(wp), parameter :: acc = 0.01_wp
+   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
 
 contains
 
@@ -44,6 +45,7 @@ subroutine collect_molden(testsuite)
 
    testsuite = [ &
       new_unittest("roundtrip", test_roundtrip), &
+      new_unittest("cartesian-normalization", test_cartesian_normalization), &
       new_unittest("reordered-sections", test_reordered_sections), &
       new_unittest("restart", test_restart_from_molden), &
       new_unittest("restart-unrestricted", test_restart_uhf_from_molden), &
@@ -262,6 +264,80 @@ subroutine check_wavefunction(error, actual, expected)
       & "Wavefunction MO coefficients changed in Molden round trip")
 end subroutine check_wavefunction
 
+!> Check that cartesian coefficients are individually normalized
+subroutine test_cartesian_normalization(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   character(len=*), parameter :: filename = ".molden-cart-norm.molden"
+   ! Reference coefficients for the d(xz) and d(x2-y2) harmonics in the Molden convention
+   real(wp), parameter :: s3_4 = sqrt(3.0_wp) * 0.5_wp
+   real(wp), parameter :: ref_xz(6) = [0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp]
+   real(wp), parameter :: ref_x2y2(6) = [s3_4, -s3_4, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp]
+
+   type(structure_type) :: mol
+   type(basis_type) :: bas
+   type(wavefunction_type) :: wfn
+   real(wp), allocatable :: cxz(:), cx2y2(:)
+   integer :: ii
+
+   call make_roundtrip_data(mol, bas, wfn)
+
+   call remove_file(filename)
+   call save_molden(filename, mol, bas, wfn, error)
+   if (allocated(error)) return
+
+   ! Orbitals five and six of the fixture are the pure d(xz) and d(x2-y2) harmonics
+   allocate(cxz(bas%nao_cart), cx2y2(bas%nao_cart))
+   call read_mo_coefficients(filename, 5, cxz, error)
+   if (.not.allocated(error)) call read_mo_coefficients(filename, 6, cx2y2, error)
+   call remove_file(filename)
+   if (allocated(error)) return
+
+   ii = bas%iao_cart_sh(2)
+   call check(error, all(abs(cxz(ii+1:ii+6) - ref_xz) < thr), &
+      & "Written d(xz) block does not match the Molden convention")
+   if (allocated(error)) return
+
+   call check(error, all(abs(cx2y2(ii+1:ii+6) - ref_x2y2) < thr), &
+      & "Written d(x2-y2) block does not match the Molden convention")
+end subroutine test_cartesian_normalization
+
+!> Read the coefficients of a single molecular orbital from the [MO] section
+subroutine read_mo_coefficients(filename, imo, coeff, error)
+   !> Molden file name
+   character(len=*), intent(in) :: filename
+   !> Index of the requested molecular orbital
+   integer, intent(in) :: imo
+   !> Coefficients of the requested orbital
+   real(wp), intent(out) :: coeff(:)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   character(len=128) :: line
+   integer :: unit, stat, count, iao
+
+   coeff(:) = 0.0_wp
+   count = 0
+   open(newunit=unit, file=filename, status="old", action="read", iostat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Could not open '"//filename//"'")
+      return
+   end if
+   do
+      read(unit, "(a)", iostat=stat) line
+      if (stat /= 0) exit
+      if (index(line, "Sym=") > 0) count = count + 1
+      if (count /= imo) cycle
+      ! Only the coefficient lines parse as an index followed by a real
+      read(line, *, iostat=stat) iao, coeff(min(max(iao, 1), size(coeff)))
+   end do
+   close(unit)
+
+   if (count < imo) call fatal_error(error, "Requested molecular orbital not found")
+end subroutine read_mo_coefficients
+
+
 subroutine make_roundtrip_data(mol, bas, wfn)
    !> Molecular structure data
    type(structure_type), intent(out) :: mol
@@ -285,8 +361,8 @@ subroutine make_roundtrip_data(mol, bas, wfn)
       & 0.0_wp, 0.0_wp, 1.4_wp], [3, 2]), &
       & charge=0.0_wp, uhf=1, lattice=lattice)
 
-   allocate(nshell(mol%nid), cgto(1, mol%nid))
-   nshell(:) = 1
+   allocate(nshell(mol%nid), cgto(3, mol%nid))
+   nshell(:) = [2, 3]
    cgto(:, :) = cgto_type()
 
    cgto(1, 1)%ang = 0
@@ -294,10 +370,25 @@ subroutine make_roundtrip_data(mol, bas, wfn)
    cgto(1, 1)%alpha(1) = 1.2_wp
    cgto(1, 1)%coeff(1) = 0.8_wp
 
+   cgto(2, 1)%ang = 2
+   cgto(2, 1)%nprim = 1
+   cgto(2, 1)%alpha(1) = 0.6_wp
+   cgto(2, 1)%coeff(1) = 0.5_wp
+
    cgto(1, 2)%ang = 1
    cgto(1, 2)%nprim = 2
    cgto(1, 2)%alpha(:2) = [0.9_wp, 0.4_wp]
    cgto(1, 2)%coeff(:2) = [0.7_wp, 0.2_wp]
+
+   cgto(2, 2)%ang = 3
+   cgto(2, 2)%nprim = 1
+   cgto(2, 2)%alpha(1) = 0.5_wp
+   cgto(2, 2)%coeff(1) = 0.45_wp
+
+   cgto(3, 2)%ang = 4
+   cgto(3, 2)%nprim = 1
+   cgto(3, 2)%alpha(1) = 0.35_wp
+   cgto(3, 2)%coeff(1) = 0.4_wp
 
    call new_basis(bas, mol, nshell, cgto, 1.0_wp)
 
@@ -306,11 +397,12 @@ subroutine make_roundtrip_data(mol, bas, wfn)
    wfn%nuhf = 1.0_wp
    wfn%nel = [2.0_wp, 1.0_wp]
    wfn%n0at = [1.0_wp, 2.0_wp]
-   wfn%n0sh = [1.0_wp, 2.0_wp]
-   wfn%emo(:, 1) = [-0.7_wp, -0.2_wp, 0.1_wp, 0.3_wp]
-   wfn%emo(:, 2) = [-0.6_wp, -0.1_wp, 0.2_wp, 0.4_wp]
-   wfn%focc(:, 1) = [1.0_wp, 1.0_wp, 0.0_wp, 0.0_wp]
-   wfn%focc(:, 2) = [1.0_wp, 0.0_wp, 0.0_wp, 0.0_wp]
+   wfn%n0sh = [1.0_wp, 0.0_wp, 2.0_wp, 0.0_wp, 0.0_wp]
+   wfn%emo(:, 1) = [(-0.8_wp + 0.1_wp * iao, iao = 1, bas%nao)]
+   wfn%emo(:, 2) = [(-0.7_wp + 0.1_wp * iao, iao = 1, bas%nao)]
+   wfn%focc(:, :) = 0.0_wp
+   wfn%focc(:2, 1) = 1.0_wp
+   wfn%focc(:1, 2) = 1.0_wp
 
    wfn%coeff(:, :, :) = 0.0_wp
    do iao = 1, bas%nao
@@ -330,15 +422,20 @@ subroutine rewrite_reordered(input, output)
    !> Output file name
    character(len=*), intent(in) :: output
 
-   character(len=512) :: lines(512)
+   character(len=512), allocatable :: lines(:)
    integer :: iline, ios, nline, unit
 
    nline = 0
    open(newunit=unit, file=input, status="old", action="read")
    do
-      read(unit, "(a)", iostat=ios) lines(nline + 1)
+      read(unit, "(a)", iostat=ios)
       if (ios /= 0) exit
       nline = nline + 1
+   end do
+   rewind(unit)
+   allocate(lines(nline))
+   do iline = 1, nline
+      read(unit, "(a)") lines(iline)
    end do
    close(unit)
 
@@ -595,8 +692,8 @@ subroutine check_missing_section(filename, missing, error)
    type(structure_type) :: mol, mol_loaded
    type(basis_type) :: bas, bas_loaded
    type(wavefunction_type) :: wfn, wfn_loaded
-   character(len=512) :: lines(1024)
-   integer :: ios, nline, unit
+   character(len=512), allocatable :: lines(:)
+   integer :: ios, nline, unit, iline
 
    call make_roundtrip_data(mol, bas, wfn)
 
@@ -611,9 +708,14 @@ subroutine check_missing_section(filename, missing, error)
    nline = 0
    open(newunit=unit, file=filename, status="old", action="read")
    do
-      read(unit, "(a)", iostat=ios) lines(nline + 1)
+      read(unit, "(a)", iostat=ios)
       if (ios /= 0) exit
       nline = nline + 1
+   end do
+   rewind(unit)
+   allocate(lines(nline))
+   do iline = 1, nline
+      read(unit, "(a)") lines(iline)
    end do
    close(unit)
    ! Write new file with the specified section missing

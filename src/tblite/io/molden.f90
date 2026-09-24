@@ -107,6 +107,10 @@ module tblite_io_molden
    !> Maximum contraction length allowed in Molden basis sets
    integer, parameter :: maxg = 12
 
+   !> Double factorial, see OEIS A001147
+   real(wp), parameter :: dfactorial(8) = &
+      & [1.0_wp,1.0_wp,3.0_wp,15.0_wp,105.0_wp,945.0_wp,10395.0_wp,135135.0_wp]
+
    !> Line buffer for intermediate storage of section content during parsing
    type :: line_buffer_type
       !> Actual line content
@@ -1087,8 +1091,8 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
    integer :: stat, iat, isp, is, ish, ii, iicart, iao, imo, nao, nmo, l, tmp_nao
    integer :: idx_eq, tmp_spin, spin_count(2), perm_cart(15), perm_sphr(9)
    integer, allocatable :: ao_map(:)
-   real(wp) :: tmp, tmp_energy, tmp_occup
-   real(wp), allocatable :: tmp_coeff(:)
+   real(wp) :: tmp, tmp_energy, tmp_occup, norm_fact(15)
+   real(wp), allocatable :: tmp_coeff(:), ao_scale(:)
    logical :: have_block
 
    if (cartesian) then
@@ -1101,6 +1105,7 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
 
    ! Build map from Molden AO index to tblite AO index.
    allocate(ao_map(nao))
+   allocate(ao_scale(nao), source=1.0_wp)
    do iat = 1, mol%nat
       isp = mol%id(iat)
       is = bas%ish_at(iat)
@@ -1110,9 +1115,13 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
          l = bas%cgto(ish, isp)%ang
          if (cartesian) then
             call get_molden_to_tblite_cart_perm(l, perm_cart, error)
+            ! Molden normalizes each Cartesian component of a shell individually
+            call get_cartesian_normalization(l, norm_fact(:bas%nao_cart_sh(is + ish)))
             if (allocated(error)) return
             do iao = 1, bas%nao_cart_sh(is + ish)
                ao_map(iicart + iao) = iicart + perm_cart(iao)
+               ! Molden to tblite-internal Cartesian normalization
+               ao_scale(iicart + iao) = norm_fact(perm_cart(iao))
             end do
          else
             call get_molden_to_tblite_sphr_perm(l, perm_sphr, error)
@@ -1241,7 +1250,8 @@ subroutine read_mo(unit, mo_position, mol, bas, cartesian, &
             return
          end if
          tmp_nao = tmp_nao + 1
-         tmp_coeff(ao_map(iao)) = tmp
+         ! Apply Molden to tblite AO index mapping and normalization
+         tmp_coeff(ao_map(iao)) = tmp * ao_scale(iao)
       end if
       ! Read the next line
       ! allow(C181): stat is checked at the top of the enclosing loop on the next iteration
@@ -1512,6 +1522,7 @@ subroutine write_mo(unit, mol, bas, wfn, error)
    integer :: iao_cart, iat, isp, ii, imo, is, ish, li, jao
    integer :: spin, cspin, nspin_mo, perm(15)
    logical :: spin_resolved_mo
+   real(wp) :: norm_fact(15)
    real(wp), allocatable :: coeff_cart(:, :, :)
 
    ! Represent only restricted closed-shell MOs as one spin-summed MO list
@@ -1571,19 +1582,43 @@ subroutine write_mo(unit, mol, bas, wfn, error)
                li = bas%cgto(ish, isp)%ang
                ii = bas%iao_cart_sh(is + ish)
 
+               ! Molden Cartesian functions are normalized component by component
+               call get_cartesian_normalization(li, norm_fact(:bas%nao_cart_sh(is + ish)))
+
                call get_molden_to_tblite_cart_perm(li, perm, error)
                if (allocated(error)) return
 
                do iao_cart = 1, bas%nao_cart_sh(is + ish)
                   jao = jao + 1
                   write(unit,"(i6,1x,ES24.16)") jao, coeff_cart(ii + perm(iao_cart), &
-                     & imo, cspin)
+                     & imo, cspin) / norm_fact(perm(iao_cart))
                end do
             end do
          end do
       end do
    end do
 end subroutine write_mo
+
+!> Molden expects noramlization for each cartesian component while tblite
+!> uses a single normalization constant for all cartesian components of a shell
+pure subroutine get_cartesian_normalization(l, fact)
+   !> Angular momentum of the shell
+   integer, intent(in) :: l
+   !> Normalization relative to the x^l component
+   real(wp), intent(out) :: fact(:)
+
+   integer :: ax, ay, az, icart
+
+   icart = 0
+   do ax = l, 0, -1
+      do ay = l - ax, 0, -1
+         az = l - ax - ay
+         icart = icart + 1
+         fact(icart) = sqrt(dfactorial(l+1) &
+            & / (dfactorial(ax+1) * dfactorial(ay+1) * dfactorial(az+1)))
+      end do
+   end do
+end subroutine get_cartesian_normalization
 
 !> Extract section name
 pure function section_id(line) result(id)
