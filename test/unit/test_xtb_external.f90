@@ -63,7 +63,7 @@ subroutine collect_xtb_external(testsuite)
       new_unittest("gfn2-dipole", test_d_mb04), &
       new_unittest("gfn1-empty", test_g_mb05), &
       new_unittest("gfn2-empty", test_g_mb06), &
-      new_unittest("gfn1-efield-numgrad-il08a", test_g_efield_il08a), &
+      new_unittest("gfn1-efield-numgrad-il144b", test_g_efield_il144b), &
       new_unittest("gfn2-efield-numgrad-mb08", test_g_efield_mb08) &
       ]
 
@@ -425,7 +425,7 @@ subroutine test_numgrad(mol, calc, error)
 end subroutine test_numgrad
 
 
-subroutine test_g_efield_il08a(error)
+subroutine test_g_efield_il144b(error)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -434,7 +434,7 @@ subroutine test_g_efield_il08a(error)
    type(xtb_calculator) :: calc
    class(container_type), allocatable :: cont
 
-   call get_structure(mol, "IL16", "008A")
+   call get_structure(mol, "IL16", "144B")
 
    call new_gfn1_calculator(calc, mol, error)
    if (allocated(error)) return
@@ -444,7 +444,7 @@ subroutine test_g_efield_il08a(error)
 
    call test_numgrad(mol, calc, error)
 
-end subroutine test_g_efield_il08a
+end subroutine test_g_efield_il144b
 
 subroutine test_g_efield_mb08(error)
 
