@@ -173,16 +173,17 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    type(container_cache), intent(inout) :: cache
    !> Wavefunction data
    type(wavefunction_type), intent(in) :: wfn
-   !> Molecular gradient of the repulsion energy
+   !> Molecular gradient of the electric field energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
-   !> Strain derivatives of the repulsion energy
+   !> Strain derivatives of the electric field energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    real(wp), allocatable :: vdp(:, :), stmp(:, :)
 
    if (.not.owns_index(self%partition, 1)) return
 
-   vdp = spread(self%efield, 2, mol%nat)
+   ! Non-zero monopole terms lead to position dependence in a constant field
+   vdp = spread(self%efield, 2, mol%nat) * spread(wfn%qat(:, 1), 1, 3)
    stmp = matmul(vdp, transpose(mol%xyz))
    gradient(:, :) = gradient - vdp
    sigma(:, :) = sigma - 0.5_wp * (stmp + transpose(stmp))
