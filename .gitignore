@@ -35,5 +35,9 @@
 /build*/
 /_*/
 
+# Coverage
+coverage*.xml
+*.gcov
+
 # Python files
 __pycache__

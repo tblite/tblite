@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """
-Minimal Python wrapper for testing the dftd4 command line interface.
+Minimal Python wrapper for testing the tblite command line interface.
 
 The wrapper will assume a specific order in the arguments rather than
 providing a generic command line interface by itself since it is

@@ -237,7 +237,8 @@ jobs:
          --suite tblite
          -t 10
       env:
-        OMP_NUM_THREADS: 1,2,1
+        OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '1,2,1' }}
+        OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
     - name: Run benchmarks
       if: ${{ matrix.toolchain.build == 'meson' }}
@@ -250,6 +251,9 @@ jobs:
          --suite tblite
          -t 2
          --benchmark
+      env:
+        OMP_NUM_THREADS: ${{ matrix.build-type == 'coverage' && '1' || '' }}
+        OMP_THREAD_LIMIT: ${{ matrix.build-type == 'coverage' && '1' || '' }}
 
     - name: Run unit tests (ctest)
       if: ${{ matrix.toolchain.build == 'cmake' }}
@@ -261,8 +265,12 @@ jobs:
 
     - name: Create coverage report
       if: ${{ matrix.toolchain.build == 'meson' && matrix.build-type == 'coverage' }}
-      run:
-         ninja -C ${{ env.BUILD_DIR }} coverage
+      run: |
+        gcovr ${{ env.BUILD_DIR }} \
+          --root . \
+          --include-internal-functions \
+          -e "subprojects/" -e "test/" \
+          -x -o coverage.xml
 
     - name: Install project
       if: ${{ matrix.toolchain.build != 'fpm' }}
@@ -302,6 +310,10 @@ jobs:
       if: ${{ matrix.toolchain.build == 'meson' && matrix.build-type == 'coverage' }}
       uses: codecov/codecov-action@v7
       with:
+        fail_ci_if_error: false
+        disable_search: true
+        files: coverage.xml
+        flags: fortran
         token: ${{ secrets.CODECOV_TOKEN }}
 
 
@@ -412,14 +424,14 @@ jobs:
 
     - name: Test Python API (Meson)
       if: ${{ matrix.build == 'meson' }}
-      run: pytest --pyargs tblite --cov=tblite -vv
+      run: pytest --pyargs tblite --cov=tblite --cov-report=xml:coverage-python.xml -vv
       env:
         LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
         DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
 
     - name: Test Python API (CMake)
       if: ${{ matrix.build == 'cmake' }}
-      run: pytest --pyargs tblite --cov=tblite -vv
+      run: pytest --pyargs tblite --cov=tblite --cov-report=xml:coverage-python.xml -vv
       env:
         PYTHONPATH: ${{ env.TBLITE_PYTHONPATH }}
         LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
@@ -428,7 +440,11 @@ jobs:
     - name: Upload coverage report
       uses: codecov/codecov-action@v7
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}g
+        fail_ci_if_error: false
+        disable_search: true
+        files: coverage-python.xml
+        flags: python
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   mpi:
     runs-on: ubuntu-latest

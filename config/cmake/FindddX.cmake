@@ -16,7 +16,7 @@
 
 set(_pkg "ddX")
 set(_url "https://github.com/ddsolvation/ddX")
-set(_rev "c2adde3")
+set(_rev "v0.9.0")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
