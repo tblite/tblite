@@ -182,7 +182,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    if (.not.owns_index(self%partition, 1)) return
 
-   ! Only non-zero monopole terms lead to a gradient in a constant field
+   ! Non-zero monopole terms lead to position dependence in a constant field
    vdp = spread(self%efield, 2, mol%nat) * spread(wfn%qat(:, 1), 1, 3)
    stmp = matmul(vdp, transpose(mol%xyz))
    gradient(:, :) = gradient - vdp
