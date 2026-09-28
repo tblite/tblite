@@ -613,6 +613,66 @@ def test_post_processing_api():
     assert wbo_sp.ndim == 3
 
 
+def test_localization_api():
+    """Test orbital localization post-processing API"""
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    res = calc.singlepoint()
+    with raises(
+        TBLiteRuntimeError,
+        match="Could not find localized orbital coefficients",
+    ):
+        res.get("localized-orbitals")
+    with raises(
+        TBLiteRuntimeError,
+        match="Could not find localized orbital centers",
+    ):
+        res.get("localized-orbital-centers")
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    calc.add("orbital-localization")
+    res = calc.singlepoint()
+
+    cmo_loc = res.get("localized-orbitals")
+    cmo_can = res.get("orbital-coefficients")
+    centers = res.get("localized-orbital-centers")
+    overlap = res.get("overlap-matrix")
+    occ = res.get("orbital-occupations")
+    nocc = int(np.count_nonzero(occ))
+
+    norb = cmo_can.shape[0]
+
+    assert cmo_loc.shape == (norb, norb)
+    assert centers.shape == (norb, 3)
+
+    # Virtual orbitals must remain identical to the canonical coefficients
+    assert np.allclose(cmo_loc[:, nocc:], cmo_can[:, nocc:])
+    # Localized occupied orbitals must remain orthonormal with respect to overlap
+    ortho = cmo_loc[:, :nocc].T @ overlap @ cmo_loc[:, :nocc]
+    assert ortho == approx(np.eye(nocc), abs=1.0e-8)
+    # Orbital centers beyond the occupied count must be zero
+    assert np.allclose(centers[nocc:, :], 0.0)
+
+    # The method can also be selected explicitly.
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    calc.add("orbital-localization", "foster-boys")
+    res_explicit = calc.singlepoint()
+    cmo_explicit = res_explicit.get("localized-orbitals")
+
+    # Localized orbitals are only defined up to permutation and phase,
+    # so we check the overlap of the two set of localized orbitals
+    loc_overlap = cmo_loc[:, :nocc].T @ overlap @ cmo_explicit[:, :nocc]
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=0), 1.0)
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=1), 1.0)
+
+    with raises(TBLiteValueError, match="Unknown orbital localization method"):
+        calc = Calculator("GFN1-xTB", numbers, positions)
+        calc.add("orbital-localization", "not-a-method")
+
+
 def test_xtbml_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)

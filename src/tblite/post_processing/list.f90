@@ -24,7 +24,9 @@ module tblite_post_processing_list
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
    use tblite_param_post_processing, only : post_processing_record_list, &
-      & post_processing_record, molmom_record, xtbml_record
+      & post_processing_record, molmom_record, xtbml_record, orbital_localization_record
+   use tblite_post_processing_localization, only : new_orbital_localization, &
+      & orbital_localization
    use tblite_post_processing_molmom, only : new_molecular_moments, molecular_moments
    use tblite_post_processing_type, only : post_processing_type
    use tblite_post_processing_wbo, only : new_wiberg_bond_orders, wiberg_bond_orders
@@ -32,6 +34,7 @@ module tblite_post_processing_list
    use tblite_results, only : results_type
    use tblite_timer, only : timer_type
    use tblite_toml, only : toml_error, toml_parse, toml_table, get_value
+   use tblite_wavefunction_localization, only : get_localization_id
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
@@ -85,8 +88,8 @@ subroutine print_timer(self, timer, prlevel, ctx)
    end do
 end subroutine print_timer
 
-subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, &
-   & results)
+subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
+   & prlevel, results)
    !> Instance of the post-processing list
    class(post_processing_list), intent(in) :: self
    !> Molecular structure data
@@ -97,6 +100,8 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, &
    type(integral_type), intent(in) :: ints
    !> Calculator instance
    type(xtb_calculator), intent(in) :: calc
+   !> Accuracy for computation
+   real(wp), intent(in) :: accuracy
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
    !> Cache list for storing caches of various interactions
@@ -111,8 +116,8 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, &
    integer :: ipp
 
    do ipp = 1, self%npp
-      call self%list(ipp)%pproc%compute(mol, wfn, ints, calc, caches, ctx, &
-         & timer, prlevel, results%dict)
+      call self%list(ipp)%pproc%compute(mol, wfn, ints, calc, caches, accuracy, &
+         & ctx, timer, prlevel, results%dict)
    end do
 
 end subroutine compute
@@ -171,6 +176,20 @@ subroutine add_post_processing_param(self, mol, param, error)
             call move_alloc(tmp, proc)
             call self%push(proc)
          end block
+      type is (orbital_localization_record)
+         block
+            type(orbital_localization), allocatable :: tmp
+            class(post_processing_type), allocatable :: proc
+            integer :: method_id
+            allocate(tmp)
+            ! Translate the method name to its integer identifier
+            call get_localization_id(par%method, method_id, error)
+            if (allocated(error)) return
+            call new_orbital_localization(tmp, error, method_id)
+            if (allocated(error)) return
+            call move_alloc(tmp, proc)
+            call self%push(proc)
+         end block
       end select
    end do
 
@@ -198,6 +217,15 @@ subroutine add_post_processing_cli(self, mol, config, error)
          call move_alloc(wbo_tmp, tmp_proc)
          call self%push(tmp_proc)
          return
+      end block
+   case("lmo-foster-boys")
+      block
+         type(orbital_localization_record), allocatable :: local_param
+         class(post_processing_record), allocatable :: cont
+         allocate(local_param)
+         call local_param%populate_default_param("foster-boys")
+         call move_alloc(local_param, cont)
+         call param%push(cont)
       end block
    case("molmom")
       block

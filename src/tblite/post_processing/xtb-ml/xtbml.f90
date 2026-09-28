@@ -120,7 +120,7 @@ subroutine new_xtbml_features(self, mol, param, error)
 
 end subroutine new_xtbml_features
 
-subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
+subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
    & prlevel, dict)
    !> Instance of the xTB-ML features post-processing
    class(xtbml_type),intent(in) :: self
@@ -130,12 +130,14 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, &
    type(wavefunction_type), intent(in) :: wfn
    !> Integral container
    type(integral_type), intent(in) :: ints
+   !> Cache list for storing caches of various interactions
+   type(cache_list), intent(inout) :: caches
+   !> Accuracy for computation
+   real(wp), intent(in) :: accuracy
    !> Single-point calculator conatiner
    type(xtb_calculator), intent(in) :: calc
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
-   !> Cache list for storing caches of various interactions
-   type(cache_list), intent(inout) :: caches
    !> Timer instance
    type(timer_type), intent(inout) :: timer
    !> Print level

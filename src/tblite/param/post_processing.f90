@@ -23,6 +23,7 @@
 !> Proxy module for rexport and list-type post-processing record container
 module tblite_param_post_processing
    use mctc_env, only : wp, error_type, fatal_error
+   use tblite_param_post_processing_localization, only : orbital_localization_record
    use tblite_param_post_processing_molmom, only : molmom_record
    use tblite_param_post_processing_type, only : post_processing_record
    use tblite_param_post_processing_xtbml, only : xtbml_record
@@ -32,7 +33,7 @@ module tblite_param_post_processing
    private
 
    public :: post_processing_record_list, post_processing_record
-   public :: molmom_record, xtbml_record
+   public :: molmom_record, xtbml_record, orbital_localization_record
 
    !> Container for post-processing records
    type :: post_processing_record_container
@@ -161,6 +162,15 @@ subroutine load_from_toml(self, table, error)
       case("xtbml")
          block
             type(xtbml_record), allocatable :: tmp_record
+            class(post_processing_record), allocatable :: cont
+            allocate(tmp_record)
+            call tmp_record%load(table, error)
+            call move_alloc(tmp_record, cont)
+            call self%push(cont)
+         end block
+      case("localization")
+         block
+            type(orbital_localization_record), allocatable :: tmp_record
             class(post_processing_record), allocatable :: cont
             allocate(tmp_record)
             call tmp_record%load(table, error)

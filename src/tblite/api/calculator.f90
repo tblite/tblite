@@ -29,6 +29,9 @@ module tblite_api_calculator
    use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
+   use tblite_post_processing_localization, only : new_orbital_localization, &
+      & orbital_localization
+   use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
    use tblite_scf_mixer_input, only : anneal_input, scf_version
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
@@ -51,7 +54,8 @@ module tblite_api_calculator
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
       & set_calculator_save_integrals_api
    public :: get_singlepoint_api
-   public :: push_back_post_processing_param_api, push_back_post_processing_str_api
+   public :: push_back_post_processing_param_api, push_back_post_processing_str_api, &
+      & push_back_post_processing_localization_api
 
 
    enum, bind(c)
@@ -728,85 +732,129 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
 end subroutine check_wavefunction
 
 subroutine push_back_post_processing_str_api(vctx, vcalc, vmol, charptr) &
-   & bind(C, name=namespace//"push_back_post_processing_str")
-character(kind=c_char), intent(in) :: charptr(*)
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-type(c_ptr), value :: vmol
-type(vp_structure), pointer :: mol
-character(len=:), allocatable :: config_str
-type(error_type), allocatable :: error
+      & bind(C, name=namespace//"push_back_post_processing_str")
+   character(kind=c_char), intent(in) :: charptr(*)
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   character(len=:), allocatable :: config_str
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
 
-if (.not.(c_associated(vctx))) return
-call c_f_pointer(vctx, ctx)
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
 
-call c_f_character(charptr, config_str)
+   call c_f_character(charptr, config_str)
 
-if (.not.c_associated(vcalc)) then
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
 
-if (.not.c_associated(vmol)) then
-   call fatal_error(error, "Molecular structure data is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vmol, mol)
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
 
-call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
-if (allocated(error)) call ctx%ptr%set_error(error)
+   call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine push_back_post_processing_str_api
 
 subroutine push_back_post_processing_param_api(vctx, vcalc, vmol, vparam) &
-   & bind(C, name=namespace//"push_back_post_processing_param")
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-type(c_ptr), value :: vmol
-type(vp_structure), pointer :: mol
-type(c_ptr), value :: vparam
-type(vp_param), pointer :: param
-type(error_type), allocatable :: error
+      & bind(C, name=namespace//"push_back_post_processing_param")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vparam
+   type(vp_param), pointer :: param
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
 
-if (.not.(c_associated(vctx))) return
-call c_f_pointer(vctx, ctx)
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
 
-if (.not.(c_associated(vparam))) then
-   call fatal_error(error, "Param object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vparam, param)
+   if (.not.(c_associated(vparam))) then
+      call fatal_error(error, "Param object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vparam, param)
 
-if (.not.c_associated(vcalc)) then
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
 
-if (.not.c_associated(vmol)) then
-   call fatal_error(error, "Molecular structure data is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vmol, mol)
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
 
-call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
-if (allocated(error)) call ctx%ptr%set_error(error)
+   call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine push_back_post_processing_param_api
+
+!> Add orbital localization post processing with an explicit method choice
+subroutine push_back_post_processing_localization_api(vctx, vcalc, vmol, method) &
+      & bind(C, name=namespace//"push_back_post_processing_localization")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   integer(c_int), value :: method
+   type(error_type), allocatable :: error
+   type(orbital_localization), allocatable :: tmp
+   class(post_processing_type), allocatable :: proc
+
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing_localization"
+
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   allocate(tmp)
+   call new_orbital_localization(tmp, error, int(method))
+   if (allocated(error)) then
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call move_alloc(tmp, proc)
+   call calc%post_proc%push(proc)
+
+end subroutine push_back_post_processing_localization_api
 
 pure function convert_config(config) result(cfg)
    type(xtb_config_struct), intent(in), optional :: config

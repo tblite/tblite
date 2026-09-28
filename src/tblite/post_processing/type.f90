@@ -48,10 +48,11 @@ module tblite_post_processing_type
    end type  post_processing_type
 
    abstract interface
-      subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
+      subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, &
+         & timer, prlevel, dict)
          import :: post_processing_type, structure_type, wavefunction_type, &
             & integral_type, xtb_calculator, context_type, timer_type, &
-            & cache_list, double_dictionary_type
+            & cache_list, double_dictionary_type, wp
          !> Instance of a post-processing method
          class(post_processing_type),intent(in) :: self
          !> Molecular structure data
@@ -64,6 +65,8 @@ module tblite_post_processing_type
          type(xtb_calculator), intent(in) :: calc
          !> Cache list for storing caches of various interactions
          type(cache_list), intent(inout) :: caches
+         !> Accuracy for computation
+         real(wp), intent(in) :: accuracy
          !> Context container for writing to stdout
          type(context_type), intent(inout) :: ctx
          !> Timer instance

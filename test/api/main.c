@@ -3214,6 +3214,319 @@ int test_xtbml_api()
     return 1;
 }
 
+int test_localization_api()
+{
+    printf("Start test: Orbital localization\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res = NULL;
+    tblite_double_dictionary dict = NULL;
+    const double thr = 5.0e-7;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    tblite_push_back_post_processing_str(ctx, calc, mol, "lmo-foster-boys");
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    dict = tblite_get_post_processing_dict(error, res);
+    if (!dict)
+        goto err;
+
+    int n_dict_entries = 0;
+    n_dict_entries = tblite_get_n_entries_dict(error, dict);
+    if (!check_int(n_dict_entries, 2, "Check number of entries in dict, localization only")) {
+        goto err;
+    }
+
+    int nao = 0;
+    tblite_get_result_number_of_orbitals(error, res, &nao);
+    if (tblite_check(error))
+        goto err;
+
+    int nspin = 0;
+    tblite_get_result_number_of_spins(error, res, &nspin);
+    if (tblite_check(error))
+        goto err;
+
+    int ndim1, ndim2, ndim3;
+    tblite_get_array_size_label(error, dict, "localized-orbitals", &ndim1, &ndim2, &ndim3);
+    if (tblite_check(error))
+        goto err;
+    if (!check_int(ndim1, nao, "Check dimension of localized orbital coefficients"))
+        goto err;
+    if (!check_int(ndim2, nao, "Check dimension of localized orbital coefficients"))
+        goto err;
+    if (!check_int(ndim3, nspin, "Check dimension of localized orbital coefficients"))
+        goto err;
+
+    tblite_get_array_size_label(error, dict, "localized-centers", &ndim1, &ndim2, &ndim3);
+    if (tblite_check(error))
+        goto err;
+    if (!check_int(ndim1, 3, "Check dimension of localized orbital centers"))
+        goto err;
+    if (!check_int(ndim2, nao, "Check dimension of localized orbital centers"))
+        goto err;
+    if (!check_int(ndim3, nspin, "Check dimension of localized orbital centers"))
+        goto err;
+
+    double* cmo_dict = (double*) malloc(nao * nao * nspin * sizeof(double));
+    double* cmo_api = (double*) malloc(nao * nao * nspin * sizeof(double));
+    tblite_get_array_entry_label(error, dict, "localized-orbitals", cmo_dict);
+    if (tblite_check(error)) {
+        free(cmo_dict);
+        free(cmo_api);
+        goto err;
+    }
+    tblite_get_result_localized_orbital_coefficients(error, res, cmo_api);
+    if (tblite_check(error)) {
+        free(cmo_dict);
+        free(cmo_api);
+        goto err;
+    }
+    if (!check(cmo_dict, cmo_api, thr, nao * nao * nspin,
+        "Localized orbital coefficients from dict lookup and API are unequal!")) {
+        free(cmo_dict);
+        free(cmo_api);
+        goto err;
+    }
+    free(cmo_dict);
+    free(cmo_api);
+
+    double* centers_dict = (double*) malloc(3 * nao * nspin * sizeof(double));
+    double* centers_api = (double*) malloc(3 * nao * nspin * sizeof(double));
+    tblite_get_array_entry_label(error, dict, "localized-centers", centers_dict);
+    if (tblite_check(error)) {
+        free(centers_dict);
+        free(centers_api);
+        goto err;
+    }
+    tblite_get_result_localized_orbital_centers(error, res, centers_api);
+    if (tblite_check(error)) {
+        free(centers_dict);
+        free(centers_api);
+        goto err;
+    }
+    if (!check(centers_dict, centers_api, thr, 3 * nao * nspin,
+        "Localized orbital centers from dict lookup and API are unequal!")) {
+        free(centers_dict);
+        free(centers_api);
+        goto err;
+    }
+    free(centers_dict);
+    free(centers_api);
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    tblite_delete(dict);
+    return 0;
+
+    err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    tblite_delete(dict);
+    return 1;
+}
+
+int test_localization_enum_api()
+{
+    printf("Start test: Orbital localization method enum\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res = NULL;
+    tblite_double_dictionary dict = NULL;
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+    res = tblite_new_result();
+
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    // Test without allocated calculator
+    tblite_calculator no_calc = NULL;
+    tblite_push_back_post_processing_localization(ctx, no_calc, mol, TBLITE_LOCALIZATION_FOSTERBOYS);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_localization(ctx, calc, NULL, TBLITE_LOCALIZATION_FOSTERBOYS);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    // Test with an unknown localization method identifier
+    tblite_push_back_post_processing_localization(ctx, calc, mol, (tblite_localization_method) 0);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    tblite_push_back_post_processing_localization(ctx, calc, mol, TBLITE_LOCALIZATION_FOSTERBOYS);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    dict = tblite_get_post_processing_dict(error, res);
+    if (!dict)
+        goto err;
+
+    int n_dict_entries = 0;
+    n_dict_entries = tblite_get_n_entries_dict(error, dict);
+    if (!check_int(n_dict_entries, 2, "Check number of entries in dict, localization via enum")) {
+        goto err;
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    tblite_delete(dict);
+    return 0;
+
+    err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    tblite_delete(dict);
+    return 1;
+}
+
+int test_localization_missing_data()
+{
+    printf("Start test: Orbital localization missing data\n");
+    tblite_error error = NULL;
+    tblite_context ctx = NULL;
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_result res = NULL;
+    double buf[1];
+
+    error = tblite_new_error();
+    ctx = tblite_new_context();
+
+    mol = get_structure_5(error);
+    if (tblite_check(error))
+        goto err;
+
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
+    if (!calc)
+        goto err;
+
+    // Test on a result container that has not been populated by a singlepoint calculation
+    res = tblite_new_result();
+    tblite_get_result_localized_orbital_coefficients(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_get_result_localized_orbital_centers(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    // Test on a result from a singlepoint calculation without orbital localization requested
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx))
+        goto err;
+
+    tblite_get_result_localized_orbital_coefficients(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_get_result_localized_orbital_centers(error, res, buf);
+    if (!tblite_check(error))
+        goto err;
+    show(error);
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 0;
+
+    err:
+    if (tblite_check(error)) {
+        char message[512];
+        tblite_get_error(error, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    if (tblite_check(ctx)) {
+        char message[512];
+        tblite_get_context_error(ctx, message, NULL);
+        printf("[Fatal] %s\n", message);
+    }
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 1;
+}
+
 int test_uninitialized_solvation()
 {
     printf("Start test: Uninitialized Solvation\n");
@@ -4146,6 +4459,9 @@ int main(void)
     stat += test_solvation_alpb_gfn2();
     stat += test_solvation_alpb_gfn1();
     stat += test_xtbml_api();
+    stat += test_localization_api();
+    stat += test_localization_enum_api();
+    stat += test_localization_missing_data();
     stat += test_partition_api();
     printf("Test finished with %d errors.\n", stat);
     return stat > 0 ? 1 : 0;

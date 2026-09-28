@@ -235,7 +235,27 @@ tblite_get_result_hamiltonian_matrix(tblite_error error,
                                      tblite_result res,
                                      double* hmat);
 
-/// Retrieve Hamiltonian matrix from result container
+/// Retrieve localized molecular orbital coefficients from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param cmat: Localized orbital coefficient matrix, shape [nspin][nao][nao]
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_localized_orbital_coefficients(tblite_error error,
+                                                 tblite_result res,
+                                                 double* cmat);
+
+/// Retrieve localized molecular orbital centers from result container
+///
+/// @param error: Handle for error messages
+/// @param res: Result container
+/// @param centers: Localized orbital centers, shape [nspin][nao][3]
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_localized_orbital_centers(tblite_error error,
+                                            tblite_result res,
+                                            double* centers);
+
+/// Retrieve the post-processing results dictionary from result container
 ///
 /// @param error: Handle for error messages
 /// @param res: Result container

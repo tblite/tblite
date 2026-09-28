@@ -244,6 +244,8 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "localized-orbitals": library.get_localized_orbital_coefficients,
+        "localized-orbital-centers": library.get_localized_orbital_centers,
         "post-processing-dict": library.get_post_processing_dict,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
@@ -265,27 +267,29 @@ class Result:
         Get a quantity stored instade the result container.
         The following quantities are available
 
-        ====================== ================================= ==============
-         property               dimension [spin-polarized case]   unit
-        ====================== ================================= ==============
-         energy                 scalar                            Hartree
-         energies               nat                               Hartree
-         gradient               nat, 3                            Hartree/Bohr
-         virial                 3, 3                              Hartree
-         charges                nat                               e
-         bond-orders            nat, nat                          e
-         dipole                 3                                 e·Bohr
-         quadrupole             6                                 e·Bohr²
-         orbital-energies       norb [2, norb]                    Hartree
-         orbital-occupations    norb [2, norb]                    e
-         orbital-coefficients   norb, norb [2, norb, norb]        unitless
-         overlap-matrix         norb, norb                        unitless
-         hamiltonian-matrix     norb, norb                        Hartree
-         density-matrix         norb, norb [2, norb, norb]        e
-         natoms                 scalar                            unitless
-         norbitals              scalar                            unitless
-         post-processing-dict   dependes on the key               /
-        ====================== ================================= ==============
+        =========================== ================================= ==============
+         property                    dimension [spin-polarized case]   unit
+        =========================== ================================= ==============
+         energy                      scalar                            Hartree
+         energies                    nat                               Hartree
+         gradient                    nat, 3                            Hartree/Bohr
+         virial                      3, 3                              Hartree
+         charges                     nat                               e
+         bond-orders                 nat, nat                          e
+         dipole                      3                                 e·Bohr
+         quadrupole                  6                                 e·Bohr²
+         orbital-energies            norb [2, norb]                    Hartree
+         orbital-occupations         norb [2, norb]                    e
+         orbital-coefficients        norb, norb [2, norb, norb]        unitless
+         overlap-matrix              norb, norb                        unitless
+         hamiltonian-matrix          norb, norb                        Hartree
+         density-matrix              norb, norb [2, norb, norb]        e
+         localized-orbitals          norb, norb [2, norb, norb]        unitless
+         localized-orbital-centers   norb, 3 [2, norb, 3]              Bohr
+         natoms                      scalar                            unitless
+         norbitals                   scalar                            unitless
+         post-processing-dict        dependes on the key               /
+        =========================== ================================= ==============
 
         Notes
         -----
@@ -596,17 +600,18 @@ class Calculator(Structure):
         """
         Add an interaction to the calculator instance. Supported interactions are
 
-        =================== ============================= =========================================
-         name                description                   Arguments
-        =================== ============================= =========================================
-         electric-field      Uniform electric field        Field vector (3,)
-         spin-polarization   Spin polarization             Scaling factor
-         alpb-solvation      ALPB implicit solvation       Solvent name, solution state (optional)
-         gbsa-solvation      GBSA implicit solvation       Solvent name, solution state (optional)
-         ddX-solvation       dd-based implicit solvation   Epsilon / Solvent name, model
-         gbe-solvation       GBε implicit solvation        Epsilon, Born kernel
-         gb-solvation        GB implicit solvation         Epsilon, Born kernel
-        =================== ============================= =========================================
+        ====================== ============================== =========================================
+         name                   description                    Arguments
+        ====================== ============================== =========================================
+         electric-field         Uniform electric field         Field vector (3,)
+         spin-polarization      Spin polarization              Scaling factor
+         alpb-solvation         ALPB implicit solvation        Solvent name, solution state (optional)
+         gbsa-solvation         GBSA implicit solvation        Solvent name, solution state (optional)
+         ddX-solvation          dd-based implicit solvation    Epsilon / Solvent name, model
+         gbe-solvation          GBε implicit solvation         Epsilon, Born kernel
+         gb-solvation           GB implicit solvation          Epsilon, Born kernel
+         orbital-localization   Localized molecular orbitals   Method name (optional)
+        ====================== ============================== =========================================
 
         .. note::
 
@@ -628,6 +633,10 @@ class Calculator(Structure):
                 self._ctx, self._mol, self._calc, *args, **kwargs
             )
             library.calculator_push_back(self._ctx, self._calc, cont)
+        elif interaction == "orbital-localization":
+            library.post_processing_push_back_localization(
+                self._ctx, self._calc, self._mol, *args
+            )
         elif interaction in self._post_processing:
             library.post_processing_push_back(
                 self._ctx, self._calc, self._mol, self._post_processing[interaction]

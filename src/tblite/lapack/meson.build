@@ -15,6 +15,7 @@
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 srcs += files(
+  'geqp3.f90',
   'getrf.f90',
   'getri.f90',
   'getrs.f90',

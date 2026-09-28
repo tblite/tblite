@@ -24,6 +24,8 @@ module test_molden
       & new_basis
    use tblite_context_type, only : context_type
    use tblite_io_molden, only : load_molden, save_molden
+   use tblite_post_processing_list, only : post_processing_list, add_post_processing
+   use tblite_results, only : results_type
    use tblite_wavefunction, only : wavefunction_type, &
       & new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
@@ -49,6 +51,7 @@ subroutine collect_molden(testsuite)
       new_unittest("reordered-sections", test_reordered_sections), &
       new_unittest("restart", test_restart_from_molden), &
       new_unittest("restart-unrestricted", test_restart_uhf_from_molden), &
+      new_unittest("localized-orbitals", test_localization_roundtrip), &
       new_unittest("num-prim-fail", test_num_prim_fail, should_fail=.true.), &
       new_unittest("ang-mom-fail", test_angmom_fail, should_fail=.true.), &
       new_unittest("missing-atoms-fail", test_missing_atoms_fail, should_fail=.true.), &
@@ -626,6 +629,70 @@ subroutine make_restart_data(nspin, mol, bas, wfn, energy)
 
    bas = calc%bas
 end subroutine make_restart_data
+
+!> Test that a Molden dump built from localized orbital coefficients
+subroutine test_localization_roundtrip(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   character(len=*), parameter :: filename = ".molden-lmo.molden"
+   type(context_type) :: ctx
+   type(structure_type) :: mol, mol_loaded
+   type(basis_type) :: bas_loaded
+   type(wavefunction_type) :: wfn, wfn_lmo, wfn_loaded
+   type(xtb_calculator) :: calc
+   type(post_processing_list) :: pproc
+   type(results_type) :: res
+   character(len=:), allocatable :: label
+   real(wp) :: energy
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+   call eeq_guess(mol, calc, wfn, error)
+   if (allocated(error)) return
+
+   label = "lmo-foster-boys"
+   call add_post_processing(pproc, mol, label, error)
+   if (allocated(error)) return
+
+   energy = 0.0_wp
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, results=res, &
+      & post_process=pproc, verbosity=0)
+   if (ctx%failed()) then
+      call ctx%get_error(error)
+      return
+   end if
+
+   wfn_lmo = wfn
+   call res%dict%get_entry("localized-orbitals", wfn_lmo%coeff)
+
+   call remove_file(filename)
+   call save_molden(filename, mol, calc%bas, wfn_lmo, error)
+   if (allocated(error)) return
+
+   call load_molden(filename, mol_loaded, bas_loaded, wfn_loaded, error)
+   if (allocated(error)) return
+   call remove_file(filename)
+
+   call check_structure(error, mol_loaded, mol)
+   if (allocated(error)) return
+   call check_basis(error, bas_loaded, calc%bas)
+   if (allocated(error)) return
+
+   ! Localized orbitals span the same occupied subspace and must immediately converge
+   wfn%coeff = wfn_loaded%coeff
+   wfn%focc = wfn_loaded%focc
+   wfn%emo = wfn_loaded%emo
+   wfn%nocc = wfn_loaded%nocc
+   wfn%nel = wfn_loaded%nel
+   calc%max_iter = 2
+   call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
+   call check(error, .not.ctx%failed(), &
+      & "Calculation did not converge in < 3 iterations with localized Molden guess")
+end subroutine test_localization_roundtrip
 
 subroutine test_num_prim_fail(error)
    !> Error handling

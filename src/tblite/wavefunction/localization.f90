@@ -14,17 +14,19 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-!> @dir tblite/blas
-!> Contains wrappers for the basic linear algebra subprograms
+!> @dir tblite/wavefunction/localization
+!> Contains orbital localization method implementations
 
-!> @file tblite/blas.f90
-!> Provides high-level interfaces to the basic linear algebra subprograms
+!> @file tblite/wavefunction/localization.f90
+!> Provides reexports of orbital localization related types and procedures
 
-!> Proxy module to reexport high-level basic linear algebra subprogram wrappers
-module tblite_blas
-   use tblite_blas_level1, only : dot => wrap_dot, swap => wrap_swap
-   use tblite_blas_level2, only : gemv => wrap_gemv, symv => wrap_symv
-   use tblite_blas_level3, only : gemm => wrap_gemm, symm => wrap_symm
+!> Proxy module for wavefunction orbital localization types and procedures
+module tblite_wavefunction_localization
+   use tblite_wavefunction_localization_fosterboys, only : &
+      & fosterboys_localization_type, new_fosterboys_localization
+   use tblite_wavefunction_localization_type, only : localization_type, &
+      & localization_method, get_orbital_centers, get_localization_id
    implicit none
    public
-end module tblite_blas
+
+end module tblite_wavefunction_localization

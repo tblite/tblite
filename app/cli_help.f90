@@ -170,6 +170,7 @@ module tblite_cli_help
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
       "                           Options: molmom (molecular multipole moments)"//nl//&
       "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//&
+      "                           Options: lmo-<method> (localized molecular orbitals and centers, options: foster-boys)"//nl//&
       "      --post-processing-output <file>"//nl//&
       "                           Output file for post processing results in npz format,"//nl//&
       "                           or HDF5 with .h5/.hdf5 when HDF5 is available."//nl//&
@@ -179,7 +180,9 @@ module tblite_cli_help
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
       "      --trexio [file]      Dump results as TREXIO output (default: tblite.trexio)."//nl//&
       "                           Use .h5/.hdf5 for TREXIO HDF5 when available."//nl//&
-      "      --molden [file]      Dump results as Molden output (default: tblite.molden)"//nl//&
+      "                           Localized MOs output is tagged with -lmo (e.g. tblite-lmo.trexio)."//nl//&
+      "      --molden [file]      Dump results as Molden output (default: tblite.molden)."//nl//&
+      "                           Localized MOs output is tagged with -lmo (e.g. tblite-lmo.molden)."//nl//&
       "  -i, --input <format>     Hint for the format of the input file"//nl//&
       "  -v, --verbose            Increase verbosity of printout"//nl//&
       "  -s, --silent             Reduce verbosity of printout"//nl//&

@@ -78,6 +78,8 @@ module tblite_cli
       logical :: molden = .false.
       !> File for output of Molden file
       character(len=:), allocatable :: molden_output
+      !> Compute localized molecular orbitals during the post processing
+      logical :: lmo = .false.
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
@@ -536,6 +538,10 @@ subroutine get_run_arguments(config, list, start, error)
          if (.not.allocated(config%post_processing)) then
             call fatal_error(error, "Missing argument for post processing")
             exit
+         end if
+         ! Check if the post-processing method is an orbital localization
+         if (index(config%post_processing, "lmo") == 1) then
+            config%lmo = .true.
          end if
 
       case("--post-processing-output")

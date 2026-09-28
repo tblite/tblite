@@ -55,7 +55,8 @@ subroutine new_wiberg_bond_orders(self)
 
 end subroutine new_wiberg_bond_orders
 
-subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict)
+subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
+   & prlevel, dict)
    !> Instance of the Wiberg-Mayer bond order post-processing
    class(wiberg_bond_orders),intent(in) :: self
    !> Molecular structure data
@@ -68,6 +69,8 @@ subroutine compute(self, mol, wfn, ints, calc, caches, ctx, timer, prlevel, dict
    type(xtb_calculator), intent(in) :: calc
    !> Cache list for storing caches of various interactions
    type(cache_list), intent(inout) :: caches
+   !> Accuracy for computation
+   real(wp), intent(in) :: accuracy
    !> Context container for writing to stdout
    type(context_type), intent(inout) :: ctx
    !> Timer instance

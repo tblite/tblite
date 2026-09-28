@@ -23,7 +23,7 @@ module tblite_blas_level1
    implicit none
    private
 
-   public :: wrap_dot
+   public :: wrap_dot, wrap_swap
 
 
    !> Forms the dot product of two vectors.
@@ -37,6 +37,12 @@ module tblite_blas_level1
       module procedure :: wrap_ddot21
       module procedure :: wrap_ddot22
    end interface wrap_dot
+
+   !> Interchanges two vectors
+   interface wrap_swap
+      module procedure :: wrap_sswap
+      module procedure :: wrap_dswap
+   end interface wrap_swap
 
 
    !> Forms the dot product of two vectors.
@@ -61,6 +67,28 @@ module tblite_blas_level1
          integer, intent(in) :: n
       end function ddot
    end interface blas_dot
+
+   !> Interchanges two vectors.
+   !> Uses unrolled loops for increments equal to one.
+   interface blas_swap
+      pure subroutine sswap(n, x, incx, y, incy)
+         import :: sp
+         integer, intent(in) :: n
+         real(sp), intent(inout) :: x(*)
+         integer, intent(in) :: incx
+         real(sp), intent(inout) :: y(*)
+         integer, intent(in) :: incy
+      end subroutine sswap
+
+      pure subroutine dswap(n, x, incx, y, incy)
+         import :: dp
+         integer, intent(in) :: n
+         real(dp), intent(inout) :: x(*)
+         integer, intent(in) :: incx
+         real(dp), intent(inout) :: y(*)
+         integer, intent(in) :: incy
+      end subroutine dswap
+   end interface blas_swap
 
 
 contains
@@ -151,5 +179,30 @@ function wrap_ddot22(xvec, yvec) result(dot)
    dot = wrap_dot(xptr, yptr)
 end function wrap_ddot22
 
+
+subroutine wrap_sswap(xvec, yvec)
+   real(sp), intent(inout) :: xvec(:)
+   real(sp), intent(inout) :: yvec(:)
+
+   integer :: incx, incy, n
+
+   n = size(xvec)
+   incx = 1
+   incy = 1
+   call blas_swap(n, xvec, incx, yvec, incy)
+end subroutine wrap_sswap
+
+
+subroutine wrap_dswap(xvec, yvec)
+   real(dp), intent(inout) :: xvec(:)
+   real(dp), intent(inout) :: yvec(:)
+
+   integer :: incx, incy, n
+
+   n = size(xvec)
+   incx = 1
+   incy = 1
+   call blas_swap(n, xvec, incx, yvec, incy)
+end subroutine wrap_dswap
 
 end module tblite_blas_level1

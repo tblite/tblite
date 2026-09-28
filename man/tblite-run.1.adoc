@@ -154,6 +154,7 @@ Supported geometry input formats are:
      Mayer-Wiberg bond orders are computed by default.
      - molmom (molecular multipole moments)
      - xtbml (atomistic properties based on Mulliken partitioning)
+     - lmo-<method> (localized molecular orbitals and centers, options: foster-boys)
 
 *--post-processing-output* _file_::
      Output file for post processing results in npz format, or HDF5 when the file ends in .h5 or .hdf5 and HDF5 support is available.
@@ -165,9 +166,11 @@ Supported geometry input formats are:
 *--trexio* [_file_]::
      Dump results as TREXIO output to _file_ (default: tblite.trexio).
      Files ending in .h5 or .hdf5 are written with the TREXIO HDF5 backend when TREXIO and HDF5 support are available.
+     Localized molecular orbitals are written in a file with a `-lmo` tag in the filename (e.g. tblite-lmo.trexio).
 
 *--molden* [_file_]::
-     Dump results as Molden output to _file_ (default: tblite.molden)
+     Dump results as Molden output to _file_ (default: tblite.molden).
+     Localized molecular orbitals are written in a file with a `-lmo` tag in the filename (e.g. tblite-lmo.molden).
 
 *-i, --input* _format_::
      Hint for the format of the input file

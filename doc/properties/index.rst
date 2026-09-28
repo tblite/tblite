@@ -7,6 +7,7 @@ We feature the following properties:
   * atomistic properties based on Mulliken partitioning :doc:`xtbml <xtbml/index>`
   * molecular multipole moments
   * Mayer-Wiberg bond orders
+  * localized molecular orbitals
 
 .. toctree::
 
