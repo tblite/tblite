@@ -63,7 +63,7 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   endif()
 
   if(NOT TARGET "dftd4::dftd4" AND TBLITE_USE_DFTD4)
-    find_dependency("dftd4")
+    find_dependency("dftd4" 4.3.0)
   endif()
 
   if(NOT TARGET "s-dftd3::s-dftd3" AND TBLITE_USE_SDFTD3)

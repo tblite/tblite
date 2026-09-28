@@ -29,4 +29,12 @@ if mpirun.found()
     args: ['-n', '2', mpi_tester.full_path()],
     suite: 'mpi',
   )
+  test(
+    'mpi-cli',
+    mpirun,
+    args: ['-n', '2', tblite_exe.full_path(), 'run',
+           meson.project_source_root() / 'test/cli/01-ala-xab.xyz', '--guess', 'ceh'],
+    suite: 'mpi',
+    workdir: meson.current_build_dir(),
+  )
 endif

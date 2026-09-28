@@ -107,7 +107,8 @@ jobs:
       if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc'}}
       run: |
         sudo apt-get update
-        sudo apt-get install -y libblas-dev liblapack-dev
+        sudo apt-get install -y libblas-dev liblapack-dev \
+          ${{ matrix.build-type == 'coverage' && 'libopenmpi-dev libscalapack-openmpi-dev' || '' }}
 
     - name: Install fpm
       if: ${{ matrix.toolchain.build == 'fpm' }}
@@ -196,6 +197,7 @@ jobs:
       env:
         COVERAGE: ${{ matrix.build-type == 'coverage' }}
         MESON_ARGS: >-
+          ${{ matrix.build-type == 'coverage' && '-Dmpi=true -Dscalapack=true' || '' }}
           ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}

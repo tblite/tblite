@@ -23,14 +23,16 @@
 
 !> Thin wrappers around the MPI calls needed for a partitioned calculation.
 !>
-!> Without MPI support every entry point reports an error, the communicator
-!> handles are meaningless in that case.
+!> An absent communicator leaves serial results untouched. An explicit
+!> communicator requires MPI support.
 !>
 !> Communicators are passed as plain integer handles to keep the MPI types out
 !> of the rest of the library, ``MPI_Comm%MPI_VAL`` converts an mpi_f08 handle.
 module tblite_mpi_utils
    use mctc_env, only : wp, error_type, fatal_error
+   use tblite_integral_type, only : integral_type
    use tblite_partition, only : work_partition, new_work_partition
+   use tblite_scf_potential, only : potential_type
 #if TBLITE_HAS_MPI
    use mpi_f08, only : MPI_Comm, MPI_COMM_WORLD, MPI_DOUBLE_PRECISION, MPI_IN_PLACE, &
       & MPI_LOGICAL, MPI_LOR, MPI_SUM, MPI_Allreduce, MPI_Comm_rank, MPI_Comm_size, &
@@ -43,11 +45,13 @@ module tblite_mpi_utils
    public :: mpi_sync_error, mpi_startup, mpi_shutdown
 
    !> Sum a partitioned result over all ranks of a communicator, in place.
-   !> A pending error is left untouched and skips the reduction.
+   !> An absent communicator or pending error skips the reduction.
    interface mpi_allreduce_sum
       module procedure :: allreduce_sum_r1
       module procedure :: allreduce_sum_r2
       module procedure :: allreduce_sum_r3
+      module procedure :: allreduce_sum_integrals
+      module procedure :: allreduce_sum_potential
    end interface mpi_allreduce_sum
 
    character(len=*), parameter :: no_mpi = "tblite was built without MPI support"
@@ -145,10 +149,12 @@ subroutine mpi_sync_error(error, comm)
    type(error_type), allocatable, intent(inout) :: error
 
    !> Communicator to synchronize over
-   integer, intent(in) :: comm
+   integer, intent(in), optional :: comm
 
    logical :: failed
    integer :: stat
+
+   if (.not.present(comm)) return
 
 #if TBLITE_HAS_MPI
    failed = allocated(error)
@@ -171,11 +177,11 @@ subroutine allreduce_sum_r1(error, array, comm)
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout) :: array(:)
    !> Communicator to reduce over
-   integer, intent(in) :: comm
+   integer, intent(in), optional :: comm
 
    integer :: stat
 
-   if (allocated(error)) return
+   if (.not.present(comm) .or. allocated(error)) return
 
 #if TBLITE_HAS_MPI
    call MPI_Allreduce(MPI_IN_PLACE, array, size(array), MPI_DOUBLE_PRECISION, &
@@ -193,7 +199,7 @@ subroutine allreduce_sum_r2(error, array, comm)
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout), target :: array(:, :)
    !> Communicator to reduce over
-   integer, intent(in) :: comm
+   integer, intent(in), optional :: comm
 
    real(wp), pointer :: flat(:)
 
@@ -208,13 +214,41 @@ subroutine allreduce_sum_r3(error, array, comm)
    !> Partial result of this rank, replaced by the sum over all ranks
    real(wp), contiguous, intent(inout), target :: array(:, :, :)
    !> Communicator to reduce over
-   integer, intent(in) :: comm
+   integer, intent(in), optional :: comm
 
    real(wp), pointer :: flat(:)
 
    flat(1:size(array)) => array
    call allreduce_sum_r1(error, flat, comm)
 end subroutine allreduce_sum_r3
+
+
+!> Assemble the one-electron integrals before constructing the Hamiltonian.
+subroutine allreduce_sum_integrals(error, ints, comm)
+   type(error_type), allocatable, intent(inout) :: error
+   type(integral_type), intent(inout) :: ints
+   integer, intent(in), optional :: comm
+
+   if (.not.present(comm)) return
+   call mpi_allreduce_sum(error, ints%overlap, comm)
+   call mpi_allreduce_sum(error, ints%hamiltonian, comm)
+   call mpi_allreduce_sum(error, ints%dipole, comm)
+   call mpi_allreduce_sum(error, ints%quadrupole, comm)
+end subroutine allreduce_sum_integrals
+
+
+!> Assemble the SCF potential before expanding atom/shell shifts into vao.
+subroutine allreduce_sum_potential(error, pot, comm)
+   type(error_type), allocatable, intent(inout) :: error
+   type(potential_type), intent(inout) :: pot
+   integer, intent(in), optional :: comm
+
+   if (.not.present(comm)) return
+   call mpi_allreduce_sum(error, pot%vat, comm)
+   call mpi_allreduce_sum(error, pot%vsh, comm)
+   call mpi_allreduce_sum(error, pot%vdp, comm)
+   call mpi_allreduce_sum(error, pot%vqp, comm)
+end subroutine allreduce_sum_potential
 
 
 end module tblite_mpi_utils

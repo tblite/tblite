@@ -22,7 +22,7 @@ module tblite_container_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use tblite_container_cache, only : container_cache
-   use tblite_partition, only : work_partition
+   use tblite_partition, only : work_partition, serial_work_partition
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
@@ -34,7 +34,7 @@ module tblite_container_type
       !> Label identifying this contribution
       character(len=:), allocatable :: label
       !> Share of the interaction loops evaluated by this instance
-      type(work_partition) :: partition = work_partition()
+      type(work_partition) :: partition = serial_work_partition
    contains
       !> Assign an externally managed share of the interaction loops
       procedure :: set_partition

@@ -15,6 +15,8 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_partition
+   use dftd3_partition, only : owns_d3_pair => owns_pair
+   use dftd4_partition, only : owns_d4_pair => owns_pair
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
@@ -23,20 +25,21 @@ module test_partition
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff
    use tblite_container, only : container_cache, container_type
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_cutoff, only : get_lattice_points
    use tblite_external_field, only : electric_field, new_electric_field
    use tblite_features, only : get_tblite_feature, tblite_has_mpi
    use tblite_integral_type, only : integral_type, new_integral
-   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, &
-      & mpi_allreduce_sum
+   use tblite_mpi_utils, only : get_mpi_comm_world, mpi_allreduce_sum, mpi_sync_error
    use tblite_partition, only : work_partition, new_work_partition, &
-      & owns_index, owns_pair
+      & owns_index, owns_pair, serial_work_partition
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
    use tblite_scf_potential, only : potential_type, new_potential
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
+   use tblite_timer, only : timer_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -51,17 +54,6 @@ module test_partition
    integer, parameter :: nparts = 3
    real(wp), parameter :: thr = 1.0e-9_wp
 
-   !> Collected output of all containers of a calculator
-   type :: container_output
-      real(wp), allocatable :: energies(:)
-      real(wp), allocatable :: gradient(:, :)
-      real(wp), allocatable :: sigma(:, :)
-      real(wp), allocatable :: vat(:, :)
-      real(wp), allocatable :: vsh(:, :)
-      real(wp), allocatable :: vdp(:, :, :)
-      real(wp), allocatable :: vqp(:, :, :)
-   end type container_output
-
 contains
 
 
@@ -74,15 +66,12 @@ subroutine collect_partition(testsuite)
    testsuite = [ &
       new_unittest("invalid", test_invalid), &
       new_unittest("context", test_context), &
-      new_unittest("disjoint-index", test_disjoint_index), &
-      new_unittest("disjoint-pair", test_disjoint_pair), &
+      new_unittest("ownership", test_ownership), &
       new_unittest("absent", test_absent), &
       new_unittest("feature", test_feature), &
       new_unittest("mpi-unavailable", test_mpi_unavailable), &
-      new_unittest("mpi-mismatch", test_mpi_mismatch), &
-      new_unittest("unreduced", test_unreduced), &
+      new_unittest("scf-partition", test_scf_partition), &
       new_unittest("post-processing", test_post_processing), &
-      new_unittest("serial", test_serial), &
       new_unittest("gfn1-mol", test_gfn1_mol), &
       new_unittest("gfn2-mol", test_gfn2_mol), &
       new_unittest("gfn1-pbc", test_gfn1_pbc), &
@@ -107,20 +96,18 @@ subroutine test_invalid(error)
    integer, parameter :: invalid(2, 4) = reshape(&
       & [-1, 3, 3, 3, 4, 3, 0, 0], [2, 4])
 
+   call new_work_partition(error, partition, 1, nparts)
+   if (allocated(error)) return
    do icase = 1, size(invalid, 2)
       call new_work_partition(partition_error, partition, &
          & invalid(1, icase), invalid(2, icase))
-      if (.not.allocated(partition_error)) then
-         call test_failed(error, "Invalid work partition was accepted")
-         return
-      end if
-      deallocate(partition_error)
+      call check(error, allocated(partition_error), "Invalid partition was accepted")
+      if (allocated(error)) return
+      call check(error, partition%get_part(), 1)
+      if (allocated(error)) return
+      call check(error, partition%get_nparts(), nparts)
+      if (allocated(error)) return
    end do
-
-   call new_work_partition(partition_error, partition, 0, 1)
-   if (allocated(partition_error)) then
-      call test_failed(error, "Serial work partition was rejected")
-   end if
 
 end subroutine test_invalid
 
@@ -153,57 +140,52 @@ subroutine test_context(error)
    call ctx%set_partition(nparts, nparts, partition_error)
    if (.not.allocated(partition_error)) then
       call test_failed(error, "Invalid work partition was accepted by the context")
+      return
    end if
+
+   call check(error, ctx%partition%get_part(), 1)
+   if (allocated(error)) return
+   call check(error, ctx%partition%get_nparts(), nparts)
+   if (allocated(error)) return
+
+   ! Setting an external partition must discard any former MPI reduction mode.
+   ctx%comm = 0
+   call ctx%set_partition(0, 1, error)
+   if (allocated(error)) return
+   call check(error, .not.allocated(ctx%comm))
 
 end subroutine test_context
 
 
-!> Every one-dimensional unit of work belongs to exactly one part
-subroutine test_disjoint_index(error)
-
-   !> Error handling
+!> Every index/pair has one owner; the D3/D4 adapters select the same work.
+subroutine test_ownership(error)
    type(error_type), allocatable, intent(out) :: error
+   type(work_partition) :: partitions(nparts)
+   integer :: iat, jat, part
 
-   type(work_partition) :: partition
-   integer :: idx, part, owner
-
-   do idx = 1, 50
-      owner = 0
-      do part = 0, nparts - 1
-         call new_work_partition(error, partition, part, nparts)
-         if (allocated(error)) return
-         if (owns_index(partition, idx)) owner = owner + 1
-      end do
-      call check(error, owner, 1)
+   do part = 1, nparts
+      call new_work_partition(error, partitions(part), part-1, nparts)
       if (allocated(error)) return
    end do
-
-end subroutine test_disjoint_index
-
-
-!> Every atom pair belongs to exactly one part
-subroutine test_disjoint_pair(error)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(work_partition) :: partition
-   integer :: iat, jat, part, owner
-
    do iat = 1, 12
+      call check(error, count(owns_index(partitions, iat)), 1)
+      if (allocated(error)) return
       do jat = 1, iat
-         owner = 0
-         do part = 0, nparts - 1
-            call new_work_partition(error, partition, part, nparts)
-            if (allocated(error)) return
-            if (owns_pair(partition, iat, jat)) owner = owner + 1
-         end do
-         call check(error, owner, 1)
+         call check(error, count(owns_pair(partitions, iat, jat)), 1)
          if (allocated(error)) return
+         do part = 1, nparts
+            call check(error, owns_pair(partitions(part), iat, jat) .eqv. &
+               & owns_d3_pair(partitions(part)%get_d3(), iat, jat))
+            if (allocated(error)) return
+            call check(error, owns_pair(partitions(part), iat, jat) .eqv. &
+               & owns_d4_pair(partitions(part)%get_d4(), iat, jat))
+            if (allocated(error)) return
+         end do
       end do
    end do
-
-end subroutine test_disjoint_pair
+   ! The triangular index must not overflow a default integer.
+   call check(error, count(owns_pair(partitions, 100000, 100000)), 1)
+end subroutine test_ownership
 
 
 !> An absent partition selects the complete work
@@ -212,19 +194,10 @@ subroutine test_absent(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   if (.not.owns_index(idx=7)) then
-      call test_failed(error, "Absent partition does not own an index")
-      return
-   end if
-
-   if (.not.owns_pair(iat=5, jat=3)) then
-      call test_failed(error, "Absent partition does not own a pair")
-      return
-   end if
-
-   if (.not.owns_pair(work_partition(), 5, 3)) then
-      call test_failed(error, "Serial partition does not own a pair")
-   end if
+   call check(error, owns_index(idx=7) .and. owns_pair(iat=5, jat=3))
+   if (allocated(error)) return
+   call check(error, owns_index(serial_work_partition, 7) &
+      & .and. owns_pair(serial_work_partition, 5, 3))
 
 end subroutine test_absent
 
@@ -251,109 +224,58 @@ subroutine test_mpi_unavailable(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(context_type) :: ctx
-   type(work_partition) :: partition
    type(error_type), allocatable :: mpi_error
    real(wp) :: val(1)
 
-   ! this tester is not an MPI program and must not call into a live library
-   if (tblite_has_mpi) return
-
+   ! Also safe in MPI builds: MPI_Initialized may be called before MPI_Init.
    call ctx%set_mpi(mpi_error)
-   if (.not.allocated(mpi_error)) then
-      call test_failed(error, "Uninitialized MPI was accepted by the context")
-      return
-   end if
-
-   if (allocated(ctx%comm)) then
-      call test_failed(error, "Context enabled MPI without a usable library")
-      return
-   end if
-
-   deallocate(mpi_error)
-   call new_mpi_work_partition(mpi_error, partition, get_mpi_comm_world())
-   if (.not.allocated(mpi_error)) then
-      call test_failed(error, "Uninitialized MPI produced a work partition")
-      return
-   end if
+   call check(error, allocated(mpi_error) .and. .not.allocated(ctx%comm))
+   if (allocated(error)) return
+   if (tblite_has_mpi) return
 
    deallocate(mpi_error)
    val = 1.0_wp
    call mpi_allreduce_sum(mpi_error, val, get_mpi_comm_world())
-   if (.not.allocated(mpi_error)) then
-      call test_failed(error, "Uninitialized MPI performed a reduction")
-   end if
+   call check(error, allocated(mpi_error))
+   if (allocated(error)) return
+   deallocate(mpi_error)
+   call mpi_sync_error(mpi_error, get_mpi_comm_world())
+   call check(error, allocated(mpi_error))
 
 end subroutine test_mpi_unavailable
 
 
-!> Reducing results of a calculator that does not share the partition of the
-!> context would double count every contribution
-subroutine test_mpi_mismatch(error)
-
-   !> Error handling
+!> Reject both mismatched partitions and partitioned SCF without reductions.
+subroutine test_scf_partition(error)
    type(error_type), allocatable, intent(out) :: error
-
    type(context_type) :: ctx
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
    type(wavefunction_type) :: wfn
+   type(error_type), allocatable :: failure
    real(wp) :: energy
+   integer :: icase
+   character(len=16), parameter :: message(*) = [character(len=16) :: &
+      & "does not match", "requires an MPI"]
 
    call get_structure(mol, "MB16-43", "01")
    call new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
-
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
    ctx%verbosity = 0
-
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
-   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy)
 
-   if (.not.ctx%failed()) then
-      call test_failed(error, "Mismatched work partition was not reported")
-      return
-   end if
-   call ctx%get_error(error)
-   deallocate(error)
-
-end subroutine test_mpi_mismatch
-
-
-!> A partitioned calculator without a context reducing the partial results
-!> would converge the SCF against an incomplete potential
-subroutine test_unreduced(error)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(context_type) :: ctx
-   type(structure_type) :: mol
-   type(xtb_calculator) :: calc
-   type(work_partition) :: partition
-   type(wavefunction_type) :: wfn
-   real(wp) :: energy
-
-   call get_structure(mol, "MB16-43", "01")
-   call new_gfn2_calculator(calc, mol, error)
-   if (allocated(error)) return
-
-   call new_work_partition(error, partition, 1, nparts)
-   if (allocated(error)) return
-   call calc%set_partition(partition)
-   ctx%verbosity = 0
-
-   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
-   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy)
-
-   if (.not.ctx%failed()) then
-      call test_failed(error, "Unreduced work partition was not reported")
-      return
-   end if
-   call ctx%get_error(error)
-   deallocate(error)
-
-end subroutine test_unreduced
+   do icase = 1, 2
+      if (icase == 2) call calc%set_partition(ctx%partition)
+      call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy)
+      call check(error, ctx%failed(), "Invalid SCF partition was accepted")
+      if (allocated(error)) return
+      call ctx%get_error(failure)
+      call check(error, index(failure%message, trim(message(icase))) > 0)
+      if (allocated(error)) return
+   end do
+end subroutine test_scf_partition
 
 
 !> The xTB-ML features are evaluated from the partitioned caches and cannot be
@@ -369,7 +291,9 @@ subroutine test_post_processing(error)
    type(wavefunction_type) :: wfn
    type(results_type) :: res
    type(post_processing_list) :: pproc
-   real(wp) :: energy
+   type(integral_type) :: ints
+   type(cache_list) :: caches
+   type(timer_type) :: timer
    character(len=:), allocatable :: label
 
    call get_structure(mol, "MB16-43", "01")
@@ -380,21 +304,27 @@ subroutine test_post_processing(error)
    call add_post_processing(pproc, mol, label, error)
    if (allocated(error)) return
 
-   ! the calculator has to carry the partition of the context to get that far
    call ctx%set_partition(1, nparts, error)
    if (allocated(error)) return
    ctx%verbosity = 0
    call calc%set_partition(ctx%partition)
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
-   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy, results=res, &
-      & post_process=pproc)
+   ! Call post-processing directly: the SCF driver rejects an unreduced
+   ! partition before it reaches the independent xTB-ML restriction.
+   allocate(res%dict)
+   call pproc%compute(mol, wfn, ints, calc, caches, 1.0_wp, ctx, timer, 0, res)
 
    if (.not.ctx%failed()) then
       call test_failed(error, "Post-processing of a distributed calculation was allowed")
       return
    end if
    call ctx%get_error(error)
+   if (index(error%message, "xTB-ML") == 0) then
+      deallocate(error)
+      call test_failed(error, "Expected the xTB-ML partition restriction")
+      return
+   end if
    deallocate(error)
 
 end subroutine test_post_processing
@@ -476,9 +406,6 @@ subroutine test_solvation(error)
 
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(work_partition) :: partition
-   type(container_output) :: full, summed, part_result
-   integer :: part
 
    call get_structure(mol, "MB16-43", "04")
    call new_gfn2_calculator(calc, mol, error)
@@ -486,21 +413,7 @@ subroutine test_solvation(error)
    call add_solvation(calc, mol, error)
    if (allocated(error)) return
 
-   call evaluate(mol, calc, full)
-
-   do part = 0, nparts - 1
-      call new_work_partition(error, partition, part, nparts)
-      if (allocated(error)) return
-      call calc%set_partition(partition)
-      call evaluate(mol, calc, part_result)
-      if (part == 0) then
-         summed = part_result
-      else
-         call accumulate(summed, part_result)
-      end if
-   end do
-
-   call compare(error, summed, full, "Solvation")
+   call check_calculator(error, mol, calc)
 
 end subroutine test_solvation
 
@@ -536,30 +449,6 @@ subroutine add_solvation(calc, mol, error)
 end subroutine add_solvation
 
 
-!> Passing the serial partition must be identical to leaving it at its default
-subroutine test_serial(error)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(structure_type) :: mol
-   type(xtb_calculator) :: calc
-   type(container_output) :: full, serial
-
-   call get_structure(mol, "MB16-43", "01")
-   call new_gfn2_calculator(calc, mol, error)
-   if (allocated(error)) return
-
-   call evaluate(mol, calc, full)
-
-   call calc%set_partition(work_partition())
-   call evaluate(mol, calc, serial)
-
-   call compare(error, serial, full, "Serial partition")
-
-end subroutine test_serial
-
-
 subroutine test_gfn1_mol(error)
    type(error_type), allocatable, intent(out) :: error
    call check_partitioned(error, "MB16-43", "02", .false.)
@@ -592,11 +481,8 @@ subroutine test_field(error)
 
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(work_partition) :: partition
    type(electric_field) :: efield
    class(container_type), allocatable :: cont
-   type(container_output) :: full, summed, part_result
-   integer :: part
 
    call get_structure(mol, "MB16-43", "01")
    call new_gfn2_calculator(calc, mol, error)
@@ -606,21 +492,7 @@ subroutine test_field(error)
    cont = efield
    call calc%push_back(cont)
 
-   call evaluate(mol, calc, full)
-
-   do part = 0, nparts - 1
-      call new_work_partition(error, partition, part, nparts)
-      if (allocated(error)) return
-      call calc%set_partition(partition)
-      call evaluate(mol, calc, part_result)
-      if (part == 0) then
-         summed = part_result
-      else
-         call accumulate(summed, part_result)
-      end if
-   end do
-
-   call compare(error, summed, full, "Electric field")
+   call check_calculator(error, mol, calc)
 
 end subroutine test_field
 
@@ -642,10 +514,6 @@ subroutine check_partitioned(error, set, name, gfn2)
 
    type(structure_type) :: mol
    type(xtb_calculator) :: calc
-   type(work_partition) :: partition
-   type(container_output) :: full, summed, part_result
-   integer :: part
-
    call get_structure(mol, set, name)
    if (gfn2) then
       call new_gfn2_calculator(calc, mol, error)
@@ -654,91 +522,80 @@ subroutine check_partitioned(error, set, name, gfn2)
    end if
    if (allocated(error)) return
 
-   call evaluate(mol, calc, full)
-
-   do part = 0, nparts - 1
-      call new_work_partition(error, partition, part, nparts)
-      if (allocated(error)) return
-      call calc%set_partition(partition)
-      call evaluate(mol, calc, part_result)
-      if (part == 0) then
-         summed = part_result
-      else
-         call accumulate(summed, part_result)
-      end if
-   end do
-
-   call compare(error, summed, full, "Partitioned containers")
+   call check_calculator(error, mol, calc)
 
 end subroutine check_partitioned
 
 
-!> Evaluate every container of the calculator for a fixed model wavefunction
-subroutine evaluate(mol, calc, output)
-
-   !> Molecular structure data
+!> One summation/check path for molecular, periodic, field and solvation cases.
+subroutine check_calculator(error, mol, calc)
+   type(error_type), allocatable, intent(out) :: error
    type(structure_type), intent(in) :: mol
+   type(xtb_calculator), intent(inout) :: calc
+   type(work_partition) :: partition
+   real(wp), allocatable :: full(:), actual(:), summed(:)
+   integer :: part
 
-   !> Single-point calculator
+   call evaluate(mol, calc, full)
+   call check(error, maxval(abs(full)) > thr, "Empty reference")
+   if (allocated(error)) return
+   allocate(summed(size(full)), source=0.0_wp)
+   do part = 0, nparts-1
+      call new_work_partition(error, partition, part, nparts)
+      if (allocated(error)) return
+      call calc%set_partition(partition)
+      call evaluate(mol, calc, actual)
+      summed(:) = summed + actual
+   end do
+   call check(error, maxval(abs(summed-full)), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   call calc%set_partition(serial_work_partition)
+   call evaluate(mol, calc, actual)
+   call check(error, maxval(abs(actual-full)), 0.0_wp, thr=thr)
+end subroutine check_calculator
+
+
+!> Pack energies, derivatives and all potential components for one comparison.
+subroutine evaluate(mol, calc, output)
+   type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
-
-   !> Collected container contributions
-   type(container_output), intent(out) :: output
-
+   real(wp), allocatable, intent(out) :: output(:)
    type(wavefunction_type) :: wfn
    type(potential_type) :: pot
+   real(wp) :: energies(mol%nat), gradient(3, mol%nat), sigma(3, 3)
 
    call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, 300.0_wp)
    call model_wavefunction(wfn, mol, calc)
-
    call new_potential(pot, mol, calc%bas, 1)
    call pot%reset()
+   energies(:) = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
-   allocate(output%energies(mol%nat), source=0.0_wp)
-   allocate(output%gradient(3, mol%nat), source=0.0_wp)
-   allocate(output%sigma(3, 3), source=0.0_wp)
+   if (allocated(calc%repulsion)) call run(calc%repulsion)
+   if (allocated(calc%halogen)) call run(calc%halogen)
+   if (allocated(calc%dispersion)) call run(calc%dispersion)
+   if (allocated(calc%coulomb)) call run(calc%coulomb)
+   if (allocated(calc%interactions)) call run(calc%interactions)
+   output = [energies, reshape(gradient, [size(gradient)]), reshape(sigma, [9]), &
+      & reshape(pot%vat, [size(pot%vat)]), reshape(pot%vsh, [size(pot%vsh)]), &
+      & reshape(pot%vdp, [size(pot%vdp)]), reshape(pot%vqp, [size(pot%vqp)])]
 
-   if (allocated(calc%repulsion)) call run(calc%repulsion, mol, wfn, pot, output)
-   if (allocated(calc%halogen)) call run(calc%halogen, mol, wfn, pot, output)
-   if (allocated(calc%dispersion)) call run(calc%dispersion, mol, wfn, pot, output)
-   if (allocated(calc%coulomb)) call run(calc%coulomb, mol, wfn, pot, output)
-   if (allocated(calc%interactions)) call run(calc%interactions, mol, wfn, pot, output)
+contains
 
-   output%vat = pot%vat
-   output%vsh = pot%vsh
-   output%vdp = pot%vdp
-   output%vqp = pot%vqp
+   subroutine run(cont)
+      class(container_type), intent(in) :: cont
+      type(container_cache) :: cache
+
+      call cont%update(mol, cache)
+      call cont%get_engrad(mol, cache, energies, gradient, sigma)
+      call cont%get_energy(mol, cache, wfn, energies)
+      call cont%get_potential(mol, cache, wfn, pot)
+      call cont%get_gradient(mol, cache, wfn, gradient, sigma)
+   end subroutine run
 
 end subroutine evaluate
-
-
-!> Accumulate all contributions of a single container
-subroutine run(cont, mol, wfn, pot, output)
-
-   !> Interaction container to evaluate
-   class(container_type), intent(in) :: cont
-
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-
-   !> Wavefunction data
-   type(wavefunction_type), intent(in) :: wfn
-
-   !> Density dependent potential
-   type(potential_type), intent(inout) :: pot
-
-   !> Collected container contributions
-   type(container_output), intent(inout) :: output
-
-   type(container_cache) :: cache
-
-   call cont%update(mol, cache)
-   call cont%get_engrad(mol, cache, output%energies, output%gradient, output%sigma)
-   call cont%get_energy(mol, cache, wfn, output%energies)
-   call cont%get_potential(mol, cache, wfn, pot)
-   call cont%get_gradient(mol, cache, wfn, output%gradient, output%sigma)
-
-end subroutine run
 
 
 !> Deterministic charge distribution to probe the selfconsistent contributions
@@ -772,75 +629,6 @@ subroutine model_wavefunction(wfn, mol, calc)
    end do
 
 end subroutine model_wavefunction
-
-
-!> Add the contributions of one part to the running sum
-subroutine accumulate(summed, part_result)
-
-   !> Running sum over all parts
-   type(container_output), intent(inout) :: summed
-
-   !> Contributions of a single part
-   type(container_output), intent(in) :: part_result
-
-   summed%energies(:) = summed%energies + part_result%energies
-   summed%gradient(:, :) = summed%gradient + part_result%gradient
-   summed%sigma(:, :) = summed%sigma + part_result%sigma
-   summed%vat(:, :) = summed%vat + part_result%vat
-   summed%vsh(:, :) = summed%vsh + part_result%vsh
-   summed%vdp(:, :, :) = summed%vdp + part_result%vdp
-   summed%vqp(:, :, :) = summed%vqp + part_result%vqp
-
-end subroutine accumulate
-
-
-!> Compare the summed parts against the complete evaluation
-subroutine compare(error, actual, expected, label)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   !> Summed contributions of all parts
-   type(container_output), intent(in) :: actual
-
-   !> Contributions of the complete calculation
-   type(container_output), intent(in) :: expected
-
-   !> Label of the compared quantity
-   character(len=*), intent(in) :: label
-
-   ! a vanishing reference would make every comparison below pass trivially
-   if (sum(abs(expected%energies)) < 1.0e-6_wp) then
-      call test_failed(error, label//" reference is empty")
-      return
-   end if
-
-   call check(error, sum(actual%energies), sum(expected%energies), thr=thr)
-   if (allocated(error)) return
-
-   if (any(abs(actual%energies - expected%energies) > thr)) then
-      call test_failed(error, label//" energies do not match")
-      return
-   end if
-
-   if (any(abs(actual%gradient - expected%gradient) > thr)) then
-      call test_failed(error, label//" gradient does not match")
-      return
-   end if
-
-   if (any(abs(actual%sigma - expected%sigma) > thr)) then
-      call test_failed(error, label//" virial does not match")
-      return
-   end if
-
-   if (any(abs(actual%vat - expected%vat) > thr) &
-      & .or. any(abs(actual%vsh - expected%vsh) > thr) &
-      & .or. any(abs(actual%vdp - expected%vdp) > thr) &
-      & .or. any(abs(actual%vqp - expected%vqp) > thr)) then
-      call test_failed(error, label//" potential does not match")
-   end if
-
-end subroutine compare
 
 
 end module test_partition

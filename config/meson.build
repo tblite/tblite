@@ -166,7 +166,7 @@ lib_deps += tomlf_dep
 # Create the tool chain library as subproject
 mctc_dep = dependency(
   'mctc-lib',
-  version: '>=0.5.1',
+  version: '>=0.6.1',
   fallback: ['mctc-lib', 'mctc_dep'],
   default_options: ['default_library=static'],
 )
@@ -184,7 +184,7 @@ lib_deps += multicharge_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: '>=4.2.0',
+  version: '>=4.3.0',
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -208,7 +208,6 @@ sdftd3_dep = dependency(
     'default_library=static',
     'api=false',
     'python=false',
-    'mpi=' + get_option('mpi').to_string(),
   ],
 )
 lib_deps += sdftd3_dep
