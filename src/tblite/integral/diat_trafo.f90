@@ -253,7 +253,7 @@ pure subroutine harmtr(maxl, vec, trafomat)
 
    ! Prepare spherical coordinats
    cost = norm_vec(3)
-   if ( abs(cost) == 1.0_wp ) then
+   if ( abs(cost) >= 1.0_wp - epsilon(1.0_wp) ) then
       ! Here, phi is arbitrary as the vector is parallel to the z-axis.
       ! We choose the x-axis as the arbitrary direction.
       sint = 0.0_wp
@@ -378,7 +378,7 @@ pure subroutine d_harmtr(maxl, vec, trafomat, trafomat_y, dtrafomat)
 
    ! Prepare spherical coordinats
    cost = norm_vec(3)
-   if ( abs(cost) == 1.0_wp ) then
+   if ( abs(cost) >= 1.0_wp - epsilon(1.0_wp) ) then
       sint = 0.0_wp
       ! Here, phi is arbitrary as the vector is parallel to the z-axis.
       ! In turn, the derivative is ill defined and has to be evaluated
