@@ -30,7 +30,8 @@ program test_mpi_singlepoint
    use tblite_lapack_scalapack, only : psygvd_solver, new_psygvd, &
       & distribute_diagonalization
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
-   use tblite_mpi_utils, only : mpi_sync_error
+   use tblite_mpi_utils, only : mpi_allreduce_sum
+   use tblite_partition, only : work_partition, serial_work_partition, operator(==)
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
@@ -64,7 +65,8 @@ program test_mpi_singlepoint
 
    call check_sync_error()
    call check_ceh()
-   call check_eigensolver()
+   call check_eigensolver(37)
+   call check_eigensolver(193)
 
    call MPI_Finalize(stat)
 
@@ -123,18 +125,44 @@ contains
    !> this call hangs instead of returning if the synchronization is missing
    subroutine check_sync_error()
       type(error_type), allocatable :: error
+      type(context_type) :: ctx
+      type(work_partition) :: partition
+      real(wp) :: val(1)
       integer :: rank, nranks
 
       call MPI_Comm_rank(MPI_COMM_WORLD, rank, stat)
       call MPI_Comm_size(MPI_COMM_WORLD, nranks, stat)
-      if (rank == nranks - 1) call fatal_error(error, "Failure on the last rank")
+      call ctx%set_mpi(error, MPI_COMM_WORLD%MPI_VAL)
+      call check_error(error)
+      partition = ctx%partition
+      call ctx%set_partition(nranks, nranks, error)
+      call assert(allocated(error), "invalid partition")
+      call assert(allocated(ctx%comm) .and. partition == ctx%partition, "preserved context")
 
-      call mpi_sync_error(error, MPI_COMM_WORLD%MPI_VAL)
-      call assert(allocated(error), "error synchronization")
-
+      ! One mismatched calculator must reject the SCF collectively.
+      if (rank == nranks-1) partition = serial_work_partition
+      call ctx%check_partition(partition, error)
+      call assert(allocated(error), "partition mismatch synchronization")
       deallocate(error)
-      call mpi_sync_error(error, MPI_COMM_WORLD%MPI_VAL)
-      call assert(.not.allocated(error), "error-free synchronization")
+
+      if (rank == nranks-1) then
+         call fatal_error(error, "Failure on the last rank")
+         call ctx%set_error(error)
+      end if
+      call ctx%sync_error()
+      call assert(ctx%failed(), "error synchronization")
+      call ctx%get_error(error)
+      if (rank == nranks-1) call assert(error%message == "Failure on the last rank", &
+         & "original error message")
+      val = 1.0_wp
+      call mpi_allreduce_sum(error, val, ctx%comm)
+      call assert(all(val == 1.0_wp), "pending error skips reduction")
+      call ctx%sync_error()
+      call assert(.not.ctx%failed(), "error-free synchronization")
+
+      call ctx%set_partition(0, 1, error)
+      call check_error(error)
+      call assert(.not.allocated(ctx%comm), "external partition clears MPI")
    end subroutine check_sync_error
 
    !> The CEH charges of a distributed run have to match the serial ones
@@ -180,13 +208,13 @@ contains
 
    !> The distributed eigensolver has to reproduce the eigenvalues of the
    !> replicated one for the block sizes and process grids it picks
-   subroutine check_eigensolver()
-      integer, parameter :: n = 37
+   subroutine check_eigensolver(n)
+      integer, intent(in) :: n
       real(wp) :: amat(n, n), bmat(n, n), work(n, n)
       real(wp) :: hmat(n, n), eval(n), reference(n), nel(2)
       type(sygvd_solver) :: serial
       type(psygvd_solver) :: distributed
-      integer :: i, j
+      integer :: i, j, iteration
 
       if (.not.tblite_has_scalapack) return
 
@@ -204,18 +232,27 @@ contains
       end do
 
       nel = [real(n, wp), real(n, wp)]
-      hmat(:, :) = amat
       call new_sygvd(serial, bmat, nel, 0.0_wp)
-      call serial%solve(hmat, bmat, reference, error)
-      call check_error(error)
-
-      hmat(:, :) = amat
       call new_psygvd(distributed, bmat, nel, 0.0_wp, MPI_COMM_WORLD%MPI_VAL)
-      call distributed%solve(hmat, bmat, eval, error)
-      call check_error(error)
+      do iteration = 1, 2
+         ! Reuse the grid for a different Hamiltonian, as in successive SCF steps.
+         amat(1, 1) = amat(1, 1) + 0.1_wp
+         hmat(:, :) = amat
+         call serial%solve(hmat, bmat, reference, error)
+         call check_error(error)
+         hmat(:, :) = amat
+         call distributed%solve(hmat, bmat, eval, error)
+         call check_error(error)
+         call assert(all(abs(eval - reference) < thr), "eigenvalues")
+         work(:, :) = matmul(amat, hmat) - matmul(bmat, hmat)*spread(eval, 1, n)
+         call assert(maxval(abs(work)) < thr, "eigenvector residual")
+         work(:, :) = matmul(transpose(hmat), matmul(bmat, hmat))
+         do i = 1, n
+            work(i, i) = work(i, i) - 1.0_wp
+         end do
+         call assert(maxval(abs(work)) < thr, "eigenvector normalization")
+      end do
       call distributed%delete()
-
-      call assert(all(abs(eval - reference) < 1.0e-8_wp), "eigenvalues")
 
       ! a matrix this small is faster on a single rank
       call assert(.not.distribute_diagonalization(4, MPI_COMM_WORLD%MPI_VAL), &

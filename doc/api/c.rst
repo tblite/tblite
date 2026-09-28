@@ -132,7 +132,8 @@ The work partition described in :ref:`work-partition` is set on the context hand
 
    tblite_set_context_partition(ctx, part, nparts);
 
-Reducing the partial results of all parts is left to the caller, unless the library performs the reduction itself over an MPI communicator, see :ref:`mpi`.
+Setting an external partition clears any previously configured MPI communicator.
+For a full self-consistent calculation with more than one part, configure an MPI communicator as below; *tblite* must reduce the potential in every SCF iteration, see :ref:`mpi`.
 
 .. code:: c
 

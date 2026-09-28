@@ -20,8 +20,6 @@
 !> Semiclassical DFT-D3 dispersion correction
 module tblite_disp_d3
    use dftd3, only : d3_model, new_d3_model, rational_damping_param, realspace_cutoff
-   use dftd3_partition, only : d3_work_partition => work_partition, &
-      & new_d3_work_partition => new_work_partition
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
@@ -106,13 +104,6 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), allocatable :: gwvec(:, :), gwdcn(:, :)
    real(wp), allocatable :: c6(:, :), dc6dcn(:, :)
    real(wp), allocatable :: dEdcn(:), lattr(:, :)
-   type(d3_work_partition) :: partition
-   type(error_type), allocatable :: partition_error
-
-   ! the dispersion library keeps its partition opaque and revalidates it, the
-   ! tblite partition satisfies the same invariants so this cannot fail
-   call new_d3_work_partition(partition_error, partition, self%partition%part, &
-      & self%partition%nparts)
 
    mref = maxval(self%model%ref)
    grad = present(gradient).and.present(sigma)
@@ -132,7 +123,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
       call self%model%get_atomic_c6(mol, gwvec, gwdcn, c6, dc6dcn)
    else
       call self%model%get_atomic_c6(mol, gwvec, gwdcn, c6, dc6dcn, &
-         & partition=partition)
+         & partition=self%partition%get_d3())
    end if
 
    if (grad) then
@@ -142,12 +133,12 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
    call self%param%get_dispersion2(mol, lattr, self%cutoff%disp2, self%cutoff%width2, &
       & self%model%rvdw, self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma, &
-      & partition)
+      & self%partition%get_d3())
 
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp3, lattr)
    call self%param%get_dispersion3(mol, lattr, self%cutoff%disp3, self%cutoff%width3, &
       & self%model%rvdw, self%model%r4r2, c6, dc6dcn, energies, dEdcn, gradient, sigma, &
-      & partition)
+      & self%partition%get_d3())
    if (grad) then
       ! dEdcn holds this part's share, contracting it with the full coordination
       ! number derivative is linear and sums to the complete result

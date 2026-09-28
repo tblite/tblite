@@ -174,15 +174,10 @@ contains
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
 
-      if (allocated(ctx%comm)) then
-         call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
-         call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
-         call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
-         call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
-         if (allocated(error)) then
-            call ctx%set_error(error)
-            return
-         end if
+      call mpi_allreduce_sum(error, ints, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
       end if
       call timer%pop
 
@@ -210,15 +205,10 @@ contains
       end if
 
       ! Add effective Hamiltonian to potential
-      if (allocated(ctx%comm)) then
-         call mpi_allreduce_sum(error, pot%vat, ctx%comm)
-         call mpi_allreduce_sum(error, pot%vsh, ctx%comm)
-         call mpi_allreduce_sum(error, pot%vdp, ctx%comm)
-         call mpi_allreduce_sum(error, pot%vqp, ctx%comm)
-         if (allocated(error)) then
-            call ctx%set_error(error)
-            return
-         end if
+      call mpi_allreduce_sum(error, pot, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
       end if
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
@@ -228,9 +218,11 @@ contains
 
       ! Get the density matrix
       call next_density(wfn, solver, ints, elec_entropy, error)
-      if (allocated(ctx%comm)) call mpi_sync_error(error, ctx%comm)
+      call mpi_sync_error(error, ctx%comm)
+      call ctx%delete_solver(solver)
       if (allocated(error)) then
          call ctx%set_error(error)
+         return
       end if
       call timer%pop
 

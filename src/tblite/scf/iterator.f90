@@ -88,12 +88,12 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Communicator to reduce the partitioned contributions over
    integer, intent(in), optional :: comm
 
-   real(wp), allocatable :: eao(:), econt(:)
+   real(wp), allocatable :: eao(:)
    real(wp) :: ts
 
    if (iscf > 0) then
       call mixer%next(error)
-      if (present(comm)) call mpi_sync_error(error, comm)
+      call mpi_sync_error(error, comm)
       if (allocated(error)) return
 
       call get_mixer(mixer, bas, wfn, info)
@@ -111,20 +111,15 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
 
-   if (present(comm)) then
-      call mpi_allreduce_sum(error, pot%vat, comm)
-      call mpi_allreduce_sum(error, pot%vsh, comm)
-      call mpi_allreduce_sum(error, pot%vdp, comm)
-      call mpi_allreduce_sum(error, pot%vqp, comm)
-      if (allocated(error)) return
-   end if
+   call mpi_allreduce_sum(error, pot, comm)
+   if (allocated(error)) return
 
    call add_pot_to_h1(bas, ints, pot, wfn%coeff)
 
    call set_mixer(mixer, wfn, info)
 
    call next_density(wfn, solver, ints, ts, error)
-   if (present(comm)) call mpi_sync_error(error, comm)
+   call mpi_sync_error(error, comm)
    if (allocated(error)) return
 
    call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
@@ -138,28 +133,23 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
 
    call diff_mixer(mixer, wfn, info)
 
-   allocate(eao(bas%nao), source=0.0_wp)
-   call get_electronic_energy(ints%hamiltonian, wfn%density, eao)
-
-   energies(:) = ts / size(energies)
-   call reduce(energies, eao, bas%ao2at)
-
-   ! the container energies are partitioned, the electronic part is not
-   allocate(econt(size(energies)), source=0.0_wp)
+   ! Assemble partitioned container energies before adding replicated terms.
+   energies(:) = 0.0_wp
    if (present(coulomb) .and. present(ccache)) then
-      call coulomb%get_energy(mol, ccache, wfn, econt)
+      call coulomb%get_energy(mol, ccache, wfn, energies)
    end if
    if (present(dispersion) .and. present(dcache)) then
-      call dispersion%get_energy(mol, dcache, wfn, econt)
+      call dispersion%get_energy(mol, dcache, wfn, energies)
    end if
    if (present(interactions) .and. present(icache)) then
-      call interactions%get_energy(mol, icache, wfn, econt)
+      call interactions%get_energy(mol, icache, wfn, energies)
    end if
-   if (present(comm)) then
-      call mpi_allreduce_sum(error, econt, comm)
-      if (allocated(error)) return
-   end if
-   energies(:) = energies + econt
+   call mpi_allreduce_sum(error, energies, comm)
+   if (allocated(error)) return
+   energies(:) = energies + ts / size(energies)
+   allocate(eao(bas%nao), source=0.0_wp)
+   call get_electronic_energy(ints%hamiltonian, wfn%density, eao)
+   call reduce(energies, eao, bas%ao2at)
 end subroutine next_scf
 
 

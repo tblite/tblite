@@ -144,14 +144,10 @@ module tblite_lapack_scalapack
       integer :: ctxt = -1
       !> Dimension of the eigenvalue problem
       integer :: n = 0
-      !> Block size of the block-cyclic distribution
-      integer :: nb = default_block_size
-      !> Shape of the process grid
-      integer :: nprow = 1, npcol = 1
-      !> Position of this rank in the process grid
-      integer :: myrow = 0, mycol = 0
-      !> Local shape of the distributed matrices
-      integer :: mloc = 0, nloc = 0
+      !> Number of process columns, used for the workspace bound
+      integer :: npcol = 1
+      !> Global indices of the rows and columns owned by this rank
+      integer, allocatable :: rows(:), cols(:)
       !> Descriptor shared by all distributed matrices
       integer :: desc(9) = 0
    contains
@@ -186,9 +182,9 @@ function distribute_diagonalization(n, comm) result(distribute)
    if (.not.tblite_has_scalapack) return
 
    call new_mpi_work_partition(error, partition, comm)
-   if (allocated(error) .or. partition%nparts <= 1) return
+   if (allocated(error) .or. partition%get_nparts() <= 1) return
 
-   call grid_shape(partition%nparts, nprow, npcol)
+   call grid_shape(partition%get_nparts(), nprow, npcol)
    distribute = n >= default_block_size*max(nprow, npcol)
 
 end function distribute_diagonalization
@@ -225,7 +221,7 @@ subroutine setup_grid(self, error)
    integer :: stat
 
 #if TBLITE_HAS_SCALAPACK
-   integer :: iam, nprocs
+   integer :: iam, nprocs, nprow, myrow, mycol, nb, i
 
    ! BLACS derives the grid from the default system context, which is the global
    ! communicator, a partitioned subgroup would map to the wrong processes
@@ -235,20 +231,22 @@ subroutine setup_grid(self, error)
    end if
 
    call blacs_pinfo(iam, nprocs)
-   call grid_shape(nprocs, self%nprow, self%npcol)
+   call grid_shape(nprocs, nprow, self%npcol)
 
    call blacs_get(0, 0, self%ctxt)
-   call blacs_gridinit(self%ctxt, "R", self%nprow, self%npcol)
-   call blacs_gridinfo(self%ctxt, self%nprow, self%npcol, self%myrow, self%mycol)
+   call blacs_gridinit(self%ctxt, "R", nprow, self%npcol)
+   call blacs_gridinfo(self%ctxt, nprow, self%npcol, myrow, mycol)
 
    ! a block larger than the share of a process row leaves ranks without work
-   self%nb = max(1, min(default_block_size, self%n/max(self%nprow, self%npcol)))
+   nb = max(1, min(default_block_size, self%n/max(nprow, self%npcol)))
+   ! Build the block-cyclic index maps once, then scatter/gather by indexing.
+   self%rows = [(((i-1)/nb*nprow + myrow)*nb + modulo(i-1, nb) + 1, &
+      & i=1, numroc(self%n, nb, myrow, 0, nprow))]
+   self%cols = [(((i-1)/nb*self%npcol + mycol)*nb + modulo(i-1, nb) + 1, &
+      & i=1, numroc(self%n, nb, mycol, 0, self%npcol))]
 
-   self%mloc = numroc(self%n, self%nb, self%myrow, 0, self%nprow)
-   self%nloc = numroc(self%n, self%nb, self%mycol, 0, self%npcol)
-
-   call descinit(self%desc, self%n, self%n, self%nb, self%nb, 0, 0, self%ctxt, &
-      & max(1, self%mloc), stat)
+   call descinit(self%desc, self%n, self%n, nb, nb, 0, 0, self%ctxt, &
+      & max(1, size(self%rows)), stat)
    if (stat /= 0) then
       call fatal_error(error, "(descinit) failed to describe the distributed matrix.&
          & info="//format_string(stat, "(i0)"))
@@ -275,7 +273,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    real(dp), allocatable :: aloc(:, :), bloc(:, :), zloc(:, :), work(:)
    integer, allocatable :: iwork(:)
    real(dp) :: scale, wquery(1)
-   integer :: info, lwork, liwork, trilwmin, ormlwmin, iquery(1)
+   integer :: info, lwork, liwork, trilwmin, ormlwmin, iquery(1), mloc, nloc, nb
 
 #if TBLITE_HAS_SCALAPACK
    if (self%ctxt < 0) then
@@ -283,11 +281,13 @@ subroutine solve_dp(self, hmat, smat, eval, error)
       if (allocated(error)) return
    end if
 
-   allocate(aloc(max(1, self%mloc), max(1, self%nloc)))
-   allocate(bloc(max(1, self%mloc), max(1, self%nloc)))
-   allocate(zloc(max(1, self%mloc), max(1, self%nloc)))
-   call scatter(self, hmat, aloc)
-   call scatter(self, smat, bloc)
+   mloc = size(self%rows)
+   nloc = size(self%cols)
+   nb = self%desc(5)
+   allocate(aloc(max(1, mloc), max(1, nloc)), bloc(max(1, mloc), max(1, nloc)), &
+      & zloc(max(1, mloc), max(1, nloc)))
+   aloc(:mloc, :nloc) = hmat(self%rows, self%cols)
+   bloc(:mloc, :nloc) = smat(self%rows, self%cols)
 
    call pdpotrf("u", self%n, bloc, 1, 1, self%desc, info)
    if (info /= 0) then
@@ -310,10 +310,10 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    end if
    ! the query under-reports and the documented pdsyevd minimum does not cover
    ! the pdormtr call it feeds its work array to, so both are used as a floor
-   trilwmin = 3*self%n + max(self%nb*(self%mloc + 1), 3*self%nb)
-   ormlwmin = (self%mloc + self%nloc + 2*self%nb)*self%nb + self%nb**2
+   trilwmin = 3*self%n + max(nb*(mloc + 1), 3*nb)
+   ormlwmin = (mloc + nloc + 2*nb)*nb + nb**2
    lwork = max(nint(wquery(1)), ormlwmin, &
-      & max(1 + 6*self%n + 2*self%mloc*self%nloc, trilwmin) + 2*self%n)
+      & max(1 + 6*self%n + 2*mloc*nloc, trilwmin) + 2*self%n)
    liwork = max(iquery(1), 7*self%n + 8*self%npcol + 2)
    allocate(work(lwork), iwork(liwork))
 
@@ -329,7 +329,8 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    call pdtrsm("l", "u", "n", "n", self%n, self%n, 1.0_dp, bloc, 1, 1, &
       & self%desc, zloc, 1, 1, self%desc)
 
-   call gather(self, zloc, hmat)
+   hmat(:, :) = 0.0_dp
+   hmat(self%rows, self%cols) = zloc(:mloc, :nloc)
    call mpi_allreduce_sum(error, hmat, self%comm)
 #else
    call fatal_error(error, no_scalapack)
@@ -364,67 +365,8 @@ subroutine delete(self)
    if (self%ctxt >= 0) call blacs_gridexit(self%ctxt)
 #endif
    self%ctxt = -1
+   if (allocated(self%rows)) deallocate(self%rows, self%cols)
 end subroutine delete
-
-
-!> Copy the share of this rank out of the replicated matrix, the whole matrix is
-!> available everywhere so this needs no communication
-pure subroutine scatter(self, glob, loc)
-   !> Instance of the distributed solver
-   class(psygvd_solver), intent(in) :: self
-   !> Replicated matrix
-   real(dp), intent(in) :: glob(:, :)
-   !> Block-cyclic share of this rank
-   real(dp), intent(out) :: loc(:, :)
-
-   integer :: iloc, jloc
-
-   do jloc = 1, self%nloc
-      do iloc = 1, self%mloc
-         loc(iloc, jloc) = glob(local_to_global(self, iloc, self%myrow, self%nprow), &
-            & local_to_global(self, jloc, self%mycol, self%npcol))
-      end do
-   end do
-end subroutine scatter
-
-
-!> Place the share of this rank into the replicated matrix, the remaining
-!> entries are left zero for the reduction to fill in
-pure subroutine gather(self, loc, glob)
-   !> Instance of the distributed solver
-   class(psygvd_solver), intent(in) :: self
-   !> Block-cyclic share of this rank
-   real(dp), intent(in) :: loc(:, :)
-   !> Replicated matrix
-   real(dp), intent(out) :: glob(:, :)
-
-   integer :: iloc, jloc
-
-   glob(:, :) = 0.0_dp
-   do jloc = 1, self%nloc
-      do iloc = 1, self%mloc
-         glob(local_to_global(self, iloc, self%myrow, self%nprow), &
-            & local_to_global(self, jloc, self%mycol, self%npcol)) = loc(iloc, jloc)
-      end do
-   end do
-end subroutine gather
-
-
-!> Global index of a local index of the block-cyclic distribution
-pure function local_to_global(self, idx, iproc, nprocs) result(glob)
-   !> Instance of the distributed solver
-   class(psygvd_solver), intent(in) :: self
-   !> Local index
-   integer, intent(in) :: idx
-   !> Position of this rank along the distributed dimension
-   integer, intent(in) :: iproc
-   !> Number of ranks along the distributed dimension
-   integer, intent(in) :: nprocs
-   !> Global index
-   integer :: glob
-
-   glob = (((idx - 1)/self%nb)*nprocs + iproc)*self%nb + modulo(idx - 1, self%nb) + 1
-end function local_to_global
 
 
 !> Squarest process grid for a number of ranks

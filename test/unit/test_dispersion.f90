@@ -16,13 +16,14 @@
 
 module test_dispersion
    use mctc_env, only : wp
-   use mctc_env_testing, only : new_unittest, unittest_type, error_type, &
+   use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_disp, only : dispersion_type, new_d3_dispersion, &
       & new_d4_dispersion, new_d4s_dispersion, d3_dispersion, d4_dispersion
+   use tblite_partition, only : work_partition, new_work_partition, serial_work_partition
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -53,10 +54,142 @@ subroutine collect_dispersion(testsuite)
       new_unittest("p-d4-mb03", test_p_d4_mb03), &
       new_unittest("p-d4s-mb03", test_p_d4s_mb03), &
       new_unittest("p-d4-mb04", test_p_d4_mb04), &
-      new_unittest("p-d4s-mb04", test_p_d4s_mb04) &
+      new_unittest("p-d4s-mb04", test_p_d4s_mb04), &
+      new_unittest("partition-mol", test_partition_mol), &
+      new_unittest("partition-pbc", test_partition_pbc) &
       ]
 
 end subroutine collect_dispersion
+
+
+subroutine test_partition_mol(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+
+   call get_structure(mol, "MB16-43", "01")
+   call test_partition(error, mol)
+end subroutine test_partition_mol
+
+
+subroutine test_partition_pbc(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+
+   call get_structure(mol, "X23", "urea")
+   call test_partition(error, mol)
+end subroutine test_partition_pbc
+
+
+!> Check each dispersion model in isolation, including nonzero and empty parts.
+!> Reuse the cache when changing partitions to check that update clears it.
+subroutine test_partition(error, mol)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type), intent(in) :: mol
+
+   type(d3_dispersion), allocatable :: d3
+   type(d4_dispersion), allocatable :: d4
+   class(dispersion_type), allocatable :: disp
+   type(work_partition) :: partition
+   type(container_cache) :: cache
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   real(wp) :: energies(mol%nat, 2), gradient(3, mol%nat), sigma(3, 3)
+   real(wp) :: reference(6*mol%nat + 9), summed(6*mol%nat + 9)
+   real(wp) :: actual(6*mol%nat + 9), energy_only(mol%nat)
+   integer :: model, part, nparts, iat
+
+   allocate(wfn%qat(mol%nat, 1), pot%vat(mol%nat, 1))
+   do iat = 1, mol%nat
+      wfn%qat(iat, 1) = 0.1_wp*sin(real(iat, wp))
+   end do
+
+   do model = 1, 3
+      if (model == 1) then
+         allocate(d3)
+         call new_d3_dispersion(d3, mol, 1.0_wp, 0.8_wp, 0.4_wp, 4.5_wp, &
+            & 1.0_wp, error, disp2_width=2.0_wp, disp3_width=1.0_wp)
+         call move_alloc(d3, disp)
+      else
+         allocate(d4)
+         if (model == 2) then
+            call new_d4_dispersion(d4, mol, 1.0_wp, 0.8_wp, 0.4_wp, 4.5_wp, &
+               & 1.0_wp, error, disp2_width=2.0_wp, disp3_width=1.0_wp)
+         else
+            call new_d4s_dispersion(d4, mol, 1.0_wp, 0.8_wp, 0.4_wp, 4.5_wp, &
+               & 1.0_wp, error, disp2_width=2.0_wp, disp3_width=1.0_wp)
+         end if
+         call move_alloc(d4, disp)
+      end if
+      if (allocated(error)) return
+
+      call evaluate()
+      reference(:) = actual
+
+      nparts = 3
+      summed(:) = 0.0_wp
+      do part = 0, nparts - 1
+         call new_work_partition(error, partition, part, nparts)
+         if (allocated(error)) return
+         call disp%set_partition(partition)
+         call evaluate()
+         summed(:) = summed + actual
+
+         ! Summation alone also passes if all work stays on part zero.
+         call check(error, sum(abs(energies(:, 1))) > thr)
+         if (allocated(error)) return
+         if (model > 1) then
+            call check(error, sum(abs(energies(:, 2))) > thr)
+            if (allocated(error)) return
+            call check(error, sum(abs(pot%vat)) > thr)
+            if (allocated(error)) return
+            if (part == nparts-1) call test_p(error, mol, disp, wfn%qat(:, 1))
+            if (allocated(error)) return
+         end if
+
+         energy_only(:) = 0.0_wp
+         call disp%get_engrad(mol, cache, energy_only)
+         call disp%get_energy(mol, cache, wfn, energy_only)
+         call check(error, maxval(abs(energy_only - sum(energies, 2))), &
+            & 0.0_wp, thr=thr2)
+         if (allocated(error)) return
+      end do
+      call check(error, maxval(abs(summed - reference)), 0.0_wp, thr=thr2)
+      if (allocated(error)) return
+
+      ! This part lies beyond the last lower-triangular atom pair.
+      nparts = mol%nat*(mol%nat + 1)/2 + 1
+      call new_work_partition(error, partition, nparts - 1, nparts)
+      if (allocated(error)) return
+      call disp%set_partition(partition)
+      call evaluate()
+      call check(error, maxval(abs(actual)), 0.0_wp, thr=thr)
+      if (allocated(error)) return
+
+      call disp%set_partition(serial_work_partition)
+      call evaluate()
+      call check(error, maxval(abs(actual - reference)), 0.0_wp, thr=thr2)
+      if (allocated(error)) return
+      deallocate(disp)
+      if (allocated(cache%raw)) deallocate(cache%raw)
+   end do
+
+contains
+
+   subroutine evaluate()
+      energies(:, :) = 0.0_wp
+      gradient(:, :) = 0.0_wp
+      sigma(:, :) = 0.0_wp
+      pot%vat(:, :) = 0.0_wp
+      call disp%update(mol, cache)
+      call disp%get_engrad(mol, cache, energies(:, 1), gradient, sigma)
+      call disp%get_energy(mol, cache, wfn, energies(:, 2))
+      call disp%get_potential(mol, cache, wfn, pot)
+      call disp%get_gradient(mol, cache, wfn, gradient, sigma)
+      actual(:) = [reshape(energies, [2*mol%nat]), reshape(gradient, [3*mol%nat]), &
+         & reshape(sigma, [9]), pot%vat(:, 1)]
+   end subroutine evaluate
+
+end subroutine test_partition
 
 
 

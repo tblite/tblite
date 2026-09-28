@@ -19,32 +19,49 @@
 
 !> Work partitioning for externally distributed calculations
 module tblite_partition
-   use mctc_env, only : error_type, fatal_error, i8
+   use dftd3_partition, only : d3_work_partition => work_partition, &
+      & new_d3_work_partition => new_work_partition, d3_serial => serial_work_partition
+   use dftd4_partition, only : d4_work_partition => work_partition, &
+      & new_d4_work_partition => new_work_partition, d4_serial => serial_work_partition
+   use mctc_env, only : error_type, i8
    implicit none
    private
 
-   public :: work_partition, new_work_partition
-   public :: owns_index, owns_pair
+   public :: work_partition, new_work_partition, serial_work_partition
+   public :: owns_index, owns_pair, operator(==)
 
 
    !> Cyclic partition of the work of an interaction loop.
    !>
    !> Parts are zero based. Every unit of work is assigned to exactly one part,
    !> summing the contributions of all parts reproduces the complete result.
-   !> An absent or default constructed partition owns all of the work.
+   !> An absent or default-initialized partition owns all of the work.
    !>
-   !> The components are public because every interaction container carries a
-   !> partition, private ones would break structure constructors of containers
-   !> defined outside this module.
+   !> Construction validates all representations once. Private components keep
+   !> the library partitions consistent with the local ownership rules.
    type :: work_partition
+      private
 
       !> Zero-based index of this part
       integer :: part = 0
 
       !> Total number of parts
       integer :: nparts = 1
+      type(d3_work_partition) :: d3 = d3_serial
+      type(d4_work_partition) :: d4 = d4_serial
+   contains
+      procedure :: get_part
+      procedure :: get_nparts
+      procedure :: get_d3
+      procedure :: get_d4
    end type work_partition
 
+   !> Complete work of an ordinary serial calculation
+   type(work_partition), parameter :: serial_work_partition = work_partition()
+
+   interface operator(==)
+      module procedure :: same_partition
+   end interface
 
 contains
 
@@ -55,8 +72,8 @@ subroutine new_work_partition(error, partition, part, nparts)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   !> New work partition
-   type(work_partition), intent(out) :: partition
+   !> New work partition, unchanged on failure
+   type(work_partition), intent(inout) :: partition
 
    !> Zero-based index of this part
    integer, intent(in) :: part
@@ -64,15 +81,58 @@ subroutine new_work_partition(error, partition, part, nparts)
    !> Total number of parts
    integer, intent(in) :: nparts
 
-   if (nparts <= 0 .or. part < 0 .or. part >= nparts) then
-      call fatal_error(error, "Invalid work partition")
-      return
-   end if
+   type(work_partition) :: new
 
-   partition%part = part
-   partition%nparts = nparts
+   call new_d3_work_partition(error, new%d3, part, nparts)
+   if (allocated(error)) return
+   call new_d4_work_partition(error, new%d4, part, nparts)
+   if (allocated(error)) return
+
+   new%part = part
+   new%nparts = nparts
+   partition = new
 
 end subroutine new_work_partition
+
+
+!> Zero-based part index
+elemental function get_part(self) result(part)
+   class(work_partition), intent(in) :: self
+   integer :: part
+   part = self%part
+end function get_part
+
+
+!> Number of parts
+elemental function get_nparts(self) result(nparts)
+   class(work_partition), intent(in) :: self
+   integer :: nparts
+   nparts = self%nparts
+end function get_nparts
+
+
+!> Validated partition for the D3 kernels
+pure function get_d3(self) result(partition)
+   class(work_partition), intent(in) :: self
+   type(d3_work_partition) :: partition
+   partition = self%d3
+end function get_d3
+
+
+!> Validated partition for the D4 kernels
+pure function get_d4(self) result(partition)
+   class(work_partition), intent(in) :: self
+   type(d4_work_partition) :: partition
+   partition = self%d4
+end function get_d4
+
+
+!> Whether two partitions select the same work
+elemental function same_partition(lhs, rhs) result(same)
+   type(work_partition), intent(in) :: lhs, rhs
+   logical :: same
+   same = lhs%part == rhs%part .and. lhs%nparts == rhs%nparts
+end function same_partition
 
 
 !> Whether this part owns a one-dimensional unit of work
@@ -89,6 +149,7 @@ elemental function owns_index(partition, idx) result(owned)
 
    owned = .true.
    if (.not.present(partition)) return
+   if (partition%nparts == 1) return
 
    owned = modulo(idx - 1, partition%nparts) == partition%part
 
@@ -111,6 +172,7 @@ elemental function owns_pair(partition, iat, jat) result(owned)
 
    owned = .true.
    if (.not.present(partition)) return
+   if (partition%nparts == 1) return
 
    ! zero-based index in the lower-triangular sequence (1,1), (2,1), (2,2), ...
    pair_index = int(iat - 1, i8)*int(iat, i8)/2_i8 + int(jat - 1, i8)

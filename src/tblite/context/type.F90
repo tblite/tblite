@@ -28,8 +28,8 @@ module tblite_context_type
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
-   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition
-   use tblite_partition, only : work_partition, new_work_partition
+   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, mpi_sync_error
+   use tblite_partition, only : work_partition, new_work_partition, operator(==)
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -63,6 +63,8 @@ module tblite_context_type
       procedure :: set_mpi
       !> Reject a calculator that does not share the work partition of this context
       procedure :: check_partition
+      !> Make context failures visible to every participating rank
+      procedure :: sync_error
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -91,6 +93,9 @@ subroutine set_partition(self, part, nparts, error)
    type(error_type), allocatable, intent(out) :: error
 
    call new_work_partition(error, self%partition, part, nparts)
+   if (allocated(error)) return
+
+   if (allocated(self%comm)) deallocate(self%comm)
 end subroutine set_partition
 
 
@@ -105,13 +110,15 @@ subroutine set_mpi(self, error, comm)
    integer, intent(in), optional :: comm
 
    integer :: local_comm
+   type(work_partition) :: partition
 
    local_comm = get_mpi_comm_world()
    if (present(comm)) local_comm = comm
 
-   call new_mpi_work_partition(error, self%partition, local_comm)
+   call new_mpi_work_partition(error, partition, local_comm)
    if (allocated(error)) return
 
+   self%partition = partition
    self%comm = local_comm
 end subroutine set_mpi
 
@@ -126,13 +133,28 @@ subroutine check_partition(self, partition, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   if (partition%part == self%partition%part &
-      & .and. partition%nparts == self%partition%nparts) return
-
-   call fatal_error(error, "Work partition of the calculator does not match the "//&
-      & "context, call calc%set_partition(ctx%partition) after ctx%set_partition "//&
-      & "or ctx%set_mpi")
+   if (partition%get_nparts() > 1 .and. .not.allocated(self%comm)) then
+      call fatal_error(error, "A partitioned SCF calculation requires an MPI context; "//&
+         & "call ctx%set_mpi or use the individual interaction containers")
+   else if (.not.(partition == self%partition)) then
+      call fatal_error(error, "Work partition of the calculator does not match the "//&
+         & "context, call calc%set_partition(ctx%partition) after ctx%set_partition "//&
+         & "or ctx%set_mpi")
+   end if
+   call mpi_sync_error(error, self%comm)
 end subroutine check_partition
+
+
+!> Synchronize failures without replacing the original local error message.
+subroutine sync_error(self)
+   class(context_type), intent(inout) :: self
+   type(error_type), allocatable :: error
+
+   if (.not.allocated(self%comm)) return
+   if (self%failed()) error = self%error_log(size(self%error_log))
+   call mpi_sync_error(error, self%comm)
+   if (allocated(error) .and. .not.self%failed()) call self%set_error(error)
+end subroutine sync_error
 
 
 !> Add an error message to the context
