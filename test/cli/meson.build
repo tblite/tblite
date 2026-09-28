@@ -48,8 +48,6 @@ run_testcases = [
   '03a-gfn1xtb',
   '03b-gfn2xtb',
   '03c-ipea1xtb',
-  '03d-gfn1xtb-solv',
-  '03e-gfn2xtb-solv',
   '04a-gfn1xtb',
   '04b-gfn2xtb',
   '04c-ipea1xtb',
@@ -64,6 +62,12 @@ run_testcases = [
   '07f-ceh',
   '09a-gfn2xtb-anneal',
 ]
+if get_option('ddx')
+  run_testcases += [
+    '03d-gfn1xtb-solv',
+    '03e-gfn2xtb-solv',
+  ]
+endif
 foreach case: run_testcases
   test(
     case,
