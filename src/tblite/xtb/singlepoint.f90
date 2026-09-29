@@ -212,12 +212,10 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    ! the non-selfconsistent contributions above are the partitioned ones
-   if (allocated(ctx%comm)) then
-      call mpi_allreduce_sum(error, energies, ctx%comm)
-      if (allocated(error)) then
-         call ctx%set_error(error)
-         return
-      end if
+   call mpi_allreduce_sum(error, energies, ctx%comm)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
    end if
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
@@ -258,15 +256,10 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
       & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
 
-   if (allocated(ctx%comm)) then
-      call mpi_allreduce_sum(error, ints%overlap, ctx%comm)
-      call mpi_allreduce_sum(error, ints%hamiltonian, ctx%comm)
-      call mpi_allreduce_sum(error, ints%dipole, ctx%comm)
-      call mpi_allreduce_sum(error, ints%quadrupole, ctx%comm)
-      if (allocated(error)) then
-         call ctx%set_error(error)
-         return
-      end if
+   call mpi_allreduce_sum(error, ints, ctx%comm)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
    end if
 
    call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
@@ -364,14 +357,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    ! a rank skipping the gradient on its own would deadlock the remaining ones
-   if (allocated(ctx%comm)) then
-      block
-         type(error_type), allocatable :: sync
-         if (ctx%failed()) call fatal_error(sync, "Calculation failed on this rank")
-         call mpi_sync_error(sync, ctx%comm)
-         if (allocated(sync) .and. .not.ctx%failed()) call ctx%set_error(sync)
-      end block
-   end if
+   call ctx%sync_error()
 
    if (ctx%failed()) then
       call ctx%delete_solver(solver)
@@ -403,7 +389,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
       allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
-      if (allocated(ctx%comm)) call mpi_sync_error(error, ctx%comm)
+      call mpi_sync_error(error, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
          call ctx%delete_solver(solver)
@@ -423,14 +409,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       end if
       call timer%pop
 
-      if (allocated(ctx%comm)) then
-         call mpi_allreduce_sum(error, gradient, ctx%comm)
-         call mpi_allreduce_sum(error, sigma, ctx%comm)
-         if (allocated(error)) then
-            call ctx%set_error(error)
-            call ctx%delete_solver(solver)
-            return
-         end if
+      call mpi_allreduce_sum(error, gradient, ctx%comm)
+      call mpi_allreduce_sum(error, sigma, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         call ctx%delete_solver(solver)
+         return
       end if
    end if
 
@@ -446,14 +430,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          & timer, prlevel, results)
       deallocate(caches)
       call timer%pop()
-      if (allocated(ctx%comm)) then
-         block
-            type(error_type), allocatable :: sync
-            if (ctx%failed()) call fatal_error(sync, "Post-processing failed on this rank")
-            call mpi_sync_error(sync, ctx%comm)
-            if (allocated(sync) .and. .not.ctx%failed()) call ctx%set_error(sync)
-         end block
-      end if
+      call ctx%sync_error()
       if (ctx%failed()) return
 
       if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))

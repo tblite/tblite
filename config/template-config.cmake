@@ -41,9 +41,8 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
     find_dependency("MPI" COMPONENTS Fortran)
   endif()
 
-  if(NOT TARGET "PkgConfig::SCALAPACK" AND TBLITE_WITH_SCALAPACK)
-    find_dependency("PkgConfig")
-    pkg_check_modules("SCALAPACK" REQUIRED IMPORTED_TARGET "scalapack")
+  if(NOT TARGET "SCALAPACK::SCALAPACK" AND TBLITE_WITH_SCALAPACK)
+    find_dependency("Scalapack")
   endif()
 
   if(NOT TARGET "TREXIO::TREXIO" AND TBLITE_WITH_TREXIO)
@@ -63,7 +62,7 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   endif()
 
   if(NOT TARGET "dftd4::dftd4" AND TBLITE_USE_DFTD4)
-    find_dependency("dftd4")
+    find_dependency("dftd4" 4.3.0)
   endif()
 
   if(NOT TARGET "s-dftd3::s-dftd3" AND TBLITE_USE_SDFTD3)
