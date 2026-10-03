@@ -1412,10 +1412,12 @@ subroutine test_overlap_diat_exchange(error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: ng = 6
-   integer, parameter :: nscale = 2
+   integer, parameter :: nscale = 4
    real(wp), parameter :: kscale(3, nscale) = reshape([&
       & 0.7_wp, 1.3_wp, 0.4_wp, &
-      & 0.9_wp, 0.9_wp, 0.9_wp], shape(kscale))
+      & 0.9_wp, 0.9_wp, 0.9_wp, &
+      & 1.0_wp, 1.0_wp, 1.0_wp, &
+      & 1.0_wp, 1.0_wp, 0.4_wp], shape(kscale))
 
    type(cgto_type) :: cgtoj(3), cgtoi(3)
    type(diat_trafo_cache) :: cache_ji, cache_ij

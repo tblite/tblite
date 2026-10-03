@@ -160,14 +160,12 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
          if (cache%left) then
             ! s block
             block_doverlap(1, :dimi, ic) = ksig * block_doverlap(1, :dimi, ic)
-            ! p block
-            if (cache%active_l >= 1) then
-               cache%tmp(2:4, :dimi) = &
-                  & matmul(cache%dop(2:4, 2:4), block_overlap(2:4, :dimi)) &
-                  & + matmul(cache%op(2:4, 2:4), block_doverlap(2:4, :dimi, ic))
-               block_doverlap(2:4, :dimi, ic) = cache%tmp(2:4, :dimi)
-            end if
-            ! d block
+            ! p block, always present for a non-uniform scaling
+            cache%tmp(2:4, :dimi) = &
+               & matmul(cache%dop(2:4, 2:4), block_overlap(2:4, :dimi)) &
+               & + matmul(cache%op(2:4, 2:4), block_doverlap(2:4, :dimi, ic))
+            block_doverlap(2:4, :dimi, ic) = cache%tmp(2:4, :dimi)
+            ! d block, only possible for left side
             if (cache%active_l >= 2) then
                cache%tmp(5:9, :dimi) = &
                   & matmul(cache%dop(5:9, 5:9), block_overlap(5:9, :dimi)) &
@@ -177,20 +175,11 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
          else
             ! s block
             block_doverlap(:dimj, 1, ic) = ksig * block_doverlap(:dimj, 1, ic)
-            ! p block
-            if (cache%active_l >= 1) then
-               cache%tmp(:dimj, 2:4) = &
-                  & matmul(block_overlap(:dimj, 2:4), cache%dop(2:4, 2:4)) &
-                  & + matmul(block_doverlap(:dimj, 2:4, ic), cache%op(2:4, 2:4))
-               block_doverlap(:dimj, 2:4, ic) = cache%tmp(:dimj, 2:4)
-            end if
-            ! d block
-            if (cache%active_l >= 2) then
-               cache%tmp(:dimj, 5:9) = &
-                  & matmul(block_overlap(:dimj, 5:9), cache%dop(5:9, 5:9)) &
-                  & + matmul(block_doverlap(:dimj, 5:9, ic), cache%op(5:9, 5:9))
-               block_doverlap(:dimj, 5:9, ic) = cache%tmp(:dimj, 5:9)
-            end if
+            ! p block, always present for a non-uniform scaling
+            cache%tmp(:dimj, 2:4) = &
+               & matmul(block_overlap(:dimj, 2:4), cache%dop(2:4, 2:4)) &
+               & + matmul(block_doverlap(:dimj, 2:4, ic), cache%op(2:4, 2:4))
+            block_doverlap(:dimj, 2:4, ic) = cache%tmp(:dimj, 2:4)
          end if
       end do
    end if
@@ -199,13 +188,11 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
    if (cache%left) then
       ! s block
       block_overlap(1, :dimi) = ksig * block_overlap(1, :dimi)
-      ! p block
-      if (cache%active_l >= 1) then
-         cache%tmp(2:4, :dimi) = &
-            matmul(cache%op(2:4, 2:4), block_overlap(2:4, :dimi))
-         block_overlap(2:4, :dimi) = cache%tmp(2:4, :dimi)
-      end if
-      ! d block
+      ! p block, always present for a non-uniform scaling
+      cache%tmp(2:4, :dimi) = &
+         matmul(cache%op(2:4, 2:4), block_overlap(2:4, :dimi))
+      block_overlap(2:4, :dimi) = cache%tmp(2:4, :dimi)
+      ! d block, only possible for left side
       if (cache%active_l >= 2) then
          cache%tmp(5:9, :dimi) = &
             matmul(cache%op(5:9, 5:9), block_overlap(5:9, :dimi))
@@ -214,18 +201,10 @@ pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap
    else
       ! s block
       block_overlap(:dimj, 1) = ksig * block_overlap(:dimj, 1)
-      ! p block
-      if (cache%active_l >= 1) then
-         cache%tmp(:dimj, 2:4) = &
-            matmul(block_overlap(:dimj, 2:4), cache%op(2:4, 2:4))
-         block_overlap(:dimj, 2:4) = cache%tmp(:dimj, 2:4)
-      end if
-      ! d block
-      if (cache%active_l >= 2) then
-         cache%tmp(:dimj, 5:9) = &
-            matmul(block_overlap(:dimj, 5:9), cache%op(5:9, 5:9))
-         block_overlap(:dimj, 5:9) = cache%tmp(:dimj, 5:9)
-      end if
+      ! p block, always present for a non-uniform scaling
+      cache%tmp(:dimj, 2:4) = &
+         matmul(block_overlap(:dimj, 2:4), cache%op(2:4, 2:4))
+      block_overlap(:dimj, 2:4) = cache%tmp(:dimj, 2:4)
    end if
 
 end subroutine diat_trafo
@@ -233,7 +212,7 @@ end subroutine diat_trafo
 
 !> Scaling operator of the sigma, pi, and delta channels for all shells up to maxl
 pure subroutine get_scale_operator(maxl, n, ksig, kpi, kdel, op)
-   !> Maximum angular momentum
+   !> Maximum angular momentum at least one
    integer, intent(in) :: maxl
    !> Unit vector along the bond axis
    real(wp), intent(in) :: n(3)
@@ -253,8 +232,6 @@ pure subroutine get_scale_operator(maxl, n, ksig, kpi, kdel, op)
 
    ! s functions: only sigma character
    op(1, 1) = ksig
-
-   if (maxl < 1) return
 
    ! p functions: q is the orbital components pointing along the bond axis.
    ! Projectors: P_sig = q q^T and P_pi = 1 - q q^T
@@ -282,7 +259,7 @@ end subroutine get_scale_operator
 
 !> Derivative of the scaling operator along a change of the unit vector
 pure subroutine get_scale_operator_deriv(maxl, n, dn, ksig, kpi, kdel, dop)
-   !> Maximum angular momentum
+   !> Maximum angular momentum at least one
    integer, intent(in) :: maxl
    !> Unit vector along the bond axis
    real(wp), intent(in) :: n(3)
@@ -301,8 +278,6 @@ pure subroutine get_scale_operator_deriv(maxl, n, dn, ksig, kpi, kdel, dop)
    real(wp) :: q(5), dq(5), b(3, 5), db(3, 5), dbtb(5, 5), wsig, wpi
 
    dop = 0.0_wp
-
-   if (maxl < 1) return
 
    q(:3) = n([2, 3, 1])
    dq(:3) = dn([2, 3, 1])
