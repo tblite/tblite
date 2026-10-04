@@ -32,7 +32,7 @@ ddx.tag = "v0.9.0"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore"
-mstore.tag = "HEAD"
+mstore.tag = "v0.4.0"
 
 [[test]]
 name = "unit-tester"
