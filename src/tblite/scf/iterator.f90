@@ -254,6 +254,7 @@ subroutine set_mixer(mixer, wfn, info)
    class(mixer_type), intent(inout) :: mixer
    type(wavefunction_type), intent(in) :: wfn
    type(scf_info), intent(in) :: info
+   real(wp), allocatable :: qpat_scaled(:, :, :)
 
    select case(info%charge)
    case(atom_resolved)
@@ -273,7 +274,12 @@ subroutine set_mixer(mixer, wfn, info)
 
    select case(info%quadrupole)
    case(atom_resolved)
-      call mixer%set(wfn%qpat)
+      ! Scale off-diagonal elements of packed quadrupole tensor, since they
+      ! appear twice in the full tensor and enter the residual norm as such
+      qpat_scaled = wfn%qpat
+      qpat_scaled([2, 4, 5], :, :) = qpat_scaled([2, 4, 5], :, :) &
+         & * sqrt(2.0_wp)
+      call mixer%set(qpat_scaled)
    case default
       continue
    end select
@@ -284,6 +290,7 @@ subroutine diff_mixer(mixer, wfn, info)
    class(mixer_type), intent(inout) :: mixer
    type(wavefunction_type), intent(in) :: wfn
    type(scf_info), intent(in) :: info
+   real(wp), allocatable :: qpat_scaled(:, :, :)
 
    select case(info%charge)
    case(atom_resolved)
@@ -303,7 +310,12 @@ subroutine diff_mixer(mixer, wfn, info)
 
    select case(info%quadrupole)
    case(atom_resolved)
-      call mixer%diff(wfn%qpat)
+      ! Scale off-diagonal elements of packed quadrupole tensor, since they
+      ! appear twice in the full tensor and enter the residual norm as such
+      qpat_scaled = wfn%qpat
+      qpat_scaled([2, 4, 5], :, :) = qpat_scaled([2, 4, 5], :, :) &
+         & * sqrt(2.0_wp)
+      call mixer%diff(qpat_scaled)
    case default
       continue
    end select
@@ -336,6 +348,9 @@ subroutine get_mixer(mixer, bas, wfn, info)
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%get(wfn%qpat)
+      ! Remove scaling of off-diagonal elements of packed quadrupole tensor
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) &
+         & / sqrt(2.0_wp)
    case default
       continue
    end select
