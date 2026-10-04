@@ -546,9 +546,9 @@ subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, ksig, kpi, kdel, &
                end do
             end do
 
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
+            ! Skip diatomic frame scaling for the same atom
+            if (r2 > epsilon(1.0_wp)) then
+               ! Perform diatomic frame scaling of current block
                call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
                call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
                   & kdel(izp, jzp), block_overlap)
@@ -1143,9 +1143,9 @@ subroutine get_dipole_integrals_diat_lat(mol, trans, cutoff, bas, &
                end do
             end do
 
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
+            ! Skip diatomic frame scaling for the same atom
+            if (r2 > epsilon(1.0_wp)) then
+               ! Perform diatomic frame scaling of current block
                call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
                call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
                   & kdel(izp, jzp), block_overlap)
@@ -1555,9 +1555,9 @@ subroutine get_multipole_integrals_diat_lat(mol, trans, cutoff, bas, &
                end do
             end do
 
-            ! Skip diatomic frame transformation for the same atom
-            if (r2 > tiny(1.0_wp)) then
-               ! Perform diatomic frame transformation and scaling of current block
+            ! Skip diatomic frame scaling for the same atom
+            if (r2 > epsilon(1.0_wp)) then
+               ! Perform diatomic frame scaling of current block
                call setup_diat_trafo(dt_cache, vec, nsj-1, nsi-1)
                call diat_trafo(dt_cache, ksig(izp, jzp), kpi(izp, jzp), &
                   & kdel(izp, jzp), block_overlap)
