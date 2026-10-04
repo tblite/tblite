@@ -559,10 +559,10 @@ subroutine check_localization_roundtrip(filename, error)
    wfn%emo = wfn_loaded%emo
    wfn%nocc = wfn_loaded%nocc
    wfn%nel = wfn_loaded%nel
-   calc%max_iter = 2
+   calc%max_iter = 3
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
    call check(error, .not.ctx%failed(), &
-      & "Calculation did not converge in < 3 iterations with localized TREXIO guess")
+      & "Calculation did not converge in < 4 iterations with localized TREXIO guess")
 end subroutine check_localization_roundtrip
 
 subroutine test_ao_shell_fail_text(error)

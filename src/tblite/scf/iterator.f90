@@ -252,7 +252,7 @@ end function get_mixer_dimension
 subroutine set_mixer(mixer, wfn, info)
    use tblite_scf_info, only : atom_resolved, shell_resolved
    class(mixer_type), intent(inout) :: mixer
-   type(wavefunction_type), intent(in) :: wfn
+   type(wavefunction_type), intent(inout) :: wfn
    type(scf_info), intent(in) :: info
 
    select case(info%charge)
@@ -273,7 +273,11 @@ subroutine set_mixer(mixer, wfn, info)
 
    select case(info%quadrupole)
    case(atom_resolved)
+      ! Scale off-diagonal elements of packed quadrupole tensor in place, since
+      ! they appear twice in the full tensor and enter the residual norm as such
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) * sqrt(2.0_wp)
       call mixer%set(wfn%qpat)
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) / sqrt(2.0_wp)
    case default
       continue
    end select
@@ -282,7 +286,7 @@ end subroutine set_mixer
 subroutine diff_mixer(mixer, wfn, info)
    use tblite_scf_info, only : atom_resolved, shell_resolved
    class(mixer_type), intent(inout) :: mixer
-   type(wavefunction_type), intent(in) :: wfn
+   type(wavefunction_type), intent(inout) :: wfn
    type(scf_info), intent(in) :: info
 
    select case(info%charge)
@@ -303,7 +307,11 @@ subroutine diff_mixer(mixer, wfn, info)
 
    select case(info%quadrupole)
    case(atom_resolved)
+      ! Scale off-diagonal elements of packed quadrupole tensor in place, since
+      ! they appear twice in the full tensor and enter the residual norm as such
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) * sqrt(2.0_wp)
       call mixer%diff(wfn%qpat)
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) / sqrt(2.0_wp)
    case default
       continue
    end select
@@ -336,6 +344,9 @@ subroutine get_mixer(mixer, bas, wfn, info)
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%get(wfn%qpat)
+      ! Remove scaling of off-diagonal elements of packed quadrupole tensor
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) &
+         & / sqrt(2.0_wp)
    case default
       continue
    end select

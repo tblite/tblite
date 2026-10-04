@@ -688,10 +688,10 @@ subroutine test_localization_roundtrip(error)
    wfn%emo = wfn_loaded%emo
    wfn%nocc = wfn_loaded%nocc
    wfn%nel = wfn_loaded%nel
-   calc%max_iter = 2
+   calc%max_iter = 3
    call xtb_singlepoint(ctx, mol, calc, wfn, acc, energy, verbosity=0)
    call check(error, .not.ctx%failed(), &
-      & "Calculation did not converge in < 3 iterations with localized Molden guess")
+      & "Calculation did not converge in < 4 iterations with localized Molden guess")
 end subroutine test_localization_roundtrip
 
 subroutine test_num_prim_fail(error)
