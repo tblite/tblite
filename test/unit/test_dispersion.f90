@@ -150,7 +150,7 @@ subroutine test_partition(error, mol)
          call disp%get_engrad(mol, cache, energy_only)
          call disp%get_energy(mol, cache, wfn, energy_only)
          call check(error, maxval(abs(energy_only - sum(energies, 2))), &
-            & 0.0_wp, thr=thr2)
+            & 0.0_wp, thr=thr)
          if (allocated(error)) return
       end do
       call check(error, maxval(abs(summed - reference)), 0.0_wp, thr=thr2)
