@@ -392,7 +392,8 @@ subroutine run_main(config, error)
             filename = config%trexio_output//"-lmo"
          end if
          ! Save localized molecular orbitals to TREXIO file
-         call save_trexio(filename, mol, calc%bas, wfn_loc, energy, error)
+         call save_trexio(filename, mol, calc%bas, wfn_loc, energy, error, &
+            & title="Foster-Boys localized orbitals")
          if (allocated(error)) return
          if (config%verbosity > 0) then
             call info(ctx, "TREXIO localized MO output written to '"//filename//"'")

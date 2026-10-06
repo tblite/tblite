@@ -123,7 +123,8 @@ subroutine check_roundtrip(filename, error)
 
    ! Remove existing TREXIO output before test and leave the test output for inspection
    call remove_trexio_output(filename)
-   call save_trexio(filename, mol, bas, wfn, energy, error)
+   call save_trexio(filename, mol, bas, wfn, energy, error, &
+      & title="Foster-Boys localized orbitals")
    if (allocated(error)) return
 
    call load_trexio(filename, mol_loaded, bas_loaded, wfn_loaded, energy_loaded, error)

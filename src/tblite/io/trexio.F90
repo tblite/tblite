@@ -71,6 +71,7 @@ module tblite_io_trexio
       & trexio_write_basis_prim_num, trexio_write_basis_exponent, &
       & trexio_write_basis_coefficient, trexio_write_basis_shell_factor, &
       & trexio_write_basis_shell_index, trexio_write_basis_prim_factor, &
+      & trexio_write_metadata_description, &
       & trexio_write_cell_a, trexio_write_cell_b, trexio_write_cell_c, &
       & trexio_read_cell_a, trexio_read_cell_b, trexio_read_cell_c
 #endif
@@ -133,7 +134,7 @@ subroutine load_trexio(filename, mol, bas, wfn, energy, error)
 end subroutine load_trexio
 
 !> Write tblite singlepoint data to a TREXIO file.
-subroutine save_trexio(filename, mol, bas, wfn, energy, error)
+subroutine save_trexio(filename, mol, bas, wfn, energy, error, title)
    !> Output file or directory name
    character(len=*), intent(in) :: filename
    !> Molecular structure
@@ -146,6 +147,8 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error)
    real(wp), intent(in) :: energy
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Optional title written to the metadata description
+   character(len=*), intent(in), optional :: title
 
 #if TBLITE_HAS_TREXIO
    integer(trexio_t) :: trex_file
@@ -166,7 +169,8 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error)
       return
    end if
 
-   call write_nucleus(trex_file, mol, error)
+   if (present(title)) call write_title(trex_file, title, error)
+   if (.not.allocated(error)) call write_nucleus(trex_file, mol, error)
    if (.not.allocated(error)) call write_cell(trex_file, mol, error)
    if (.not.allocated(error)) call write_electron(trex_file, mol, wfn, error)
    if (.not.allocated(error)) call write_state(trex_file, energy, error)
@@ -896,6 +900,20 @@ subroutine get_trexio_to_tblite_cart_perm(l, perm, error)
    end select
 end subroutine get_trexio_to_tblite_cart_perm
 
+
+subroutine write_title(trex_file, title, error)
+   !> Open TREXIO file handle
+   integer(trexio_t), intent(in) :: trex_file
+   !> Title stored as metadata description
+   character(len=*), intent(in) :: title
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer(trexio_exit_code) :: rc
+
+   rc = trexio_write_metadata_description(trex_file, title, len(title))
+   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO metadata description")
+end subroutine write_title
 
 subroutine write_nucleus(trex_file, mol, error)
    !> Open TREXIO file handle

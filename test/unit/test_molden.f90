@@ -85,6 +85,7 @@ subroutine check_roundtrip(filename, reorder, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   character(len=*), parameter :: title = "Foster-Boys localized orbitals"
    character(len=:), allocatable :: input
    type(structure_type) :: mol, mol_loaded
    type(basis_type) :: bas, bas_loaded
@@ -93,7 +94,10 @@ subroutine check_roundtrip(filename, reorder, error)
    call make_roundtrip_data(mol, bas, wfn)
 
    call remove_file(filename)
-   call save_molden(filename, mol, bas, wfn, error)
+   call save_molden(filename, mol, bas, wfn, error, title=title)
+   if (allocated(error)) return
+
+   call check_title(filename, title, error)
    if (allocated(error)) return
 
    if (reorder) then
@@ -116,6 +120,45 @@ subroutine check_roundtrip(filename, reorder, error)
    call check_wavefunction(error, wfn_loaded, wfn)
    if (allocated(error)) return
 end subroutine check_roundtrip
+
+!> Check that the [Title] section holds the version line followed by the title
+subroutine check_title(filename, title, error)
+   !> Molden file name
+   character(len=*), intent(in) :: filename
+   !> Expected title
+   character(len=*), intent(in) :: title
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   character(len=256) :: line, version_line, title_line
+   integer :: io, stat
+   logical :: found
+
+   found = .false.
+   version_line = ""
+   title_line = ""
+   open(newunit=io, file=filename, status="old", action="read", iostat=stat)
+   if (stat == 0) then
+      do
+         read(io, "(a)", iostat=stat) line
+         if (stat /= 0) exit
+         if (trim(line) == "[Title]") then
+            read(io, "(a)", iostat=stat) version_line
+            if (stat == 0) read(io, "(a)", iostat=stat) title_line
+            found = stat == 0
+            exit
+         end if
+      end do
+      close(io)
+   end if
+
+   call check(error, found, "Missing [Title] section in Molden output")
+   if (allocated(error)) return
+   call check(error, version_line(1:15) == "tblite version ", &
+      & "Version line must come first in [Title] section")
+   if (allocated(error)) return
+   call check(error, trim(title_line) == title, "Title missing in [Title] section")
+end subroutine check_title
 
 subroutine check_structure(error, actual, expected)
    !> Error handling
