@@ -53,7 +53,8 @@ module tblite_io_trexio
       & trexio_read_ao_normalization, &
       & trexio_read_mo_num, trexio_read_mo_coefficient, &
       & trexio_read_mo_occupation, trexio_read_mo_energy, trexio_read_mo_spin, &
-      & trexio_has_mo_spin, trexio_read_basis_prim_num, trexio_read_basis_exponent, &
+      & trexio_has_mo_spin, trexio_has_mo_energy, &
+      & trexio_read_basis_prim_num, trexio_read_basis_exponent, &
       & trexio_read_basis_coefficient, trexio_read_basis_shell_factor, &
       & trexio_read_basis_shell_index, trexio_read_basis_prim_factor, &
       & trexio_write_nucleus_num, trexio_write_nucleus_charge, &
@@ -134,7 +135,7 @@ subroutine load_trexio(filename, mol, bas, wfn, energy, error)
 end subroutine load_trexio
 
 !> Write tblite singlepoint data to a TREXIO file.
-subroutine save_trexio(filename, mol, bas, wfn, energy, error, title)
+subroutine save_trexio(filename, mol, bas, wfn, energy, error, title, write_mo_energy)
    !> Output file or directory name
    character(len=*), intent(in) :: filename
    !> Molecular structure
@@ -149,11 +150,17 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error, title)
    type(error_type), allocatable, intent(out) :: error
    !> Optional title written to the metadata description
    character(len=*), intent(in), optional :: title
+   !> Write the MO energies, disable for non-canonical orbitals
+   logical, intent(in), optional :: write_mo_energy
 
 #if TBLITE_HAS_TREXIO
    integer(trexio_t) :: trex_file
    integer(trexio_back_end_t) :: backend
    integer(trexio_exit_code) :: rc
+   logical :: with_energy
+
+   with_energy = .true.
+   if (present(write_mo_energy)) with_energy = write_mo_energy
 
    call get_backend(filename, backend, error)
    if (allocated(error)) return
@@ -177,7 +184,7 @@ subroutine save_trexio(filename, mol, bas, wfn, energy, error, title)
    if (.not.allocated(error)) call write_basis(trex_file, mol, bas, error)
    if (.not.allocated(error)) call write_ecp(trex_file, mol, wfn, error)
    if (.not.allocated(error)) call write_ao(trex_file, bas, error)
-   if (.not.allocated(error)) call write_mo(trex_file, mol, bas, wfn, error)
+   if (.not.allocated(error)) call write_mo(trex_file, mol, bas, wfn, with_energy, error)
 
    rc = trexio_close(trex_file)
    if (rc /= TREXIO_SUCCESS .and. .not.allocated(error)) then
@@ -826,10 +833,14 @@ subroutine read_mo(trex_file, nao, nmo, mo_coefficient, mo_occupation, mo_energy
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO occupations")
    if (allocated(error)) return
 
-   allocate(mo_ene(nmo), mo_energy(nmo))
-   rc = trexio_read_mo_energy(trex_file, mo_ene)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO energies")
-   if (allocated(error)) return
+   ! MO energies are only defined for canonical orbitals and might be missing
+   allocate(mo_ene(nmo), mo_energy(nmo), source=0.0_c_double)
+   rc = trexio_has_mo_energy(trex_file)
+   if (rc == TREXIO_SUCCESS) then
+      rc = trexio_read_mo_energy(trex_file, mo_ene)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to read TREXIO MO energies")
+      if (allocated(error)) return
+   end if
 
    allocate(mo_spin(nmo), source=0)
    rc = trexio_has_mo_spin(trex_file)
@@ -1183,7 +1194,7 @@ subroutine write_ao(trex_file, bas, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO AO normalization")
 end subroutine write_ao
 
-subroutine write_mo(trex_file, mol, bas, wfn, error)
+subroutine write_mo(trex_file, mol, bas, wfn, with_energy, error)
    !> Open TREXIO file handle
    integer(trexio_t), intent(in) :: trex_file
    !> Molecular structure data
@@ -1192,6 +1203,8 @@ subroutine write_mo(trex_file, mol, bas, wfn, error)
    class(basis_type), intent(in) :: bas
    !> Converged wavefunction
    type(wavefunction_type), intent(in) :: wfn
+   !> Write the MO energies
+   logical, intent(in) :: with_energy
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -1267,9 +1280,11 @@ subroutine write_mo(trex_file, mol, bas, wfn, error)
    if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO occupations")
    if (allocated(error)) return
 
-   rc = trexio_write_mo_energy(trex_file, mo_energy)
-   if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO energies")
-   if (allocated(error)) return
+   if (with_energy) then
+      rc = trexio_write_mo_energy(trex_file, mo_energy)
+      if (rc /= TREXIO_SUCCESS) call fatal_trexio(error, rc, "Failed to write TREXIO MO energies")
+      if (allocated(error)) return
+   end if
 
    if (allocated(mo_spin)) then
       rc = trexio_write_mo_spin(trex_file, mo_spin)

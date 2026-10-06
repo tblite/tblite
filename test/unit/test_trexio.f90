@@ -542,7 +542,8 @@ subroutine check_localization_roundtrip(filename, error)
 
    ! Remove existing TREXIO output before test
    call remove_trexio_output(filename)
-   call save_trexio(filename, mol, calc%bas, wfn_lmo, energy, error)
+   call save_trexio(filename, mol, calc%bas, wfn_lmo, energy, error, &
+      & title="Foster-Boys localized orbitals", write_mo_energy=.false.)
    if (allocated(error)) return
 
    call load_trexio(filename, mol_loaded, bas_loaded, wfn_loaded, &
@@ -554,10 +555,13 @@ subroutine check_localization_roundtrip(filename, error)
    call check_basis(error, bas_loaded, calc%bas)
    if (allocated(error)) return
 
-   ! Localized orbitals span the same occupied subspace and must immediately converge
+   ! Localized orbitals have no energies, but span the same occupied subspace
+   ! and must immediately converge
+   call check(error, all(abs(wfn_loaded%emo) <= epsilon(1.0_wp)), &
+      & "Missing MO energies must be read as zero")
+   if (allocated(error)) return
    wfn%coeff = wfn_loaded%coeff
    wfn%focc = wfn_loaded%focc
-   wfn%emo = wfn_loaded%emo
    wfn%nocc = wfn_loaded%nocc
    wfn%nel = wfn_loaded%nel
    calc%max_iter = 3
