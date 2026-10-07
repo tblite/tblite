@@ -30,7 +30,7 @@ if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
   endif()
 
   if(NOT TARGET "ddx" AND TBLITE_USE_DDX)
-    find_dependency("ddX")
+    find_dependency("ddX" 1.0.0)
   endif()
 
   if(NOT TARGET "HDF5::HDF5" AND TBLITE_WITH_HDF5)

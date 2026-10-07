@@ -236,7 +236,7 @@ endif
 if get_option('ddx')
   ddx_dep = dependency(
     'ddX',
-    version: '>=0.8.0',
+    version: '>=1.0.0',
     fallback: ['ddx', 'ddx_dep'],
     default_options: ['default_library=static'],
   )

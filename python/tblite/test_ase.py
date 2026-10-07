@@ -269,7 +269,7 @@ def test_solvation_gfn2_xtb_ddcosmo():
     atoms.calc.set(accuracy=0.1)
 
     atoms.calc.set(cosmo_solvation=7.0)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8346342515409
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8418859325933
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")
@@ -283,7 +283,7 @@ def test_solvation_gfn2_xtb_ddcpcm():
     atoms.calc.set(accuracy=0.1)
 
     atoms.calc.set(cpcm_solvation=7.0)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8376567450869
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8454631007224
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")
@@ -296,7 +296,7 @@ def test_solvation_gfn2_xtb_ddpcm():
     atoms.calc = TBLite(method="GFN2-xTB")
     atoms.calc.set(accuracy=0.1)
     atoms.calc.set(pcm_solvation=7.0)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8243208853487
+    assert approx(atoms.get_potential_energy(), abs=thr) == -773.8328917581752
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")

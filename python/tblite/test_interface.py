@@ -722,7 +722,7 @@ def test_solvation_gfn2_ddcosmo():
     calc.add("ddX-solvation", 7.0, "cosmo")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43789851640, abs=THR)
+    assert energy == approx(-28.438165009325598, abs=THR)
 
 
 @pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
@@ -735,7 +735,7 @@ def test_solvation_gfn2_ddcpcm():
     calc.add("ddX-solvation", 7.0, "cpcm")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43800959099, abs=THR)
+    assert energy == approx(-28.438296467832746, abs=THR)
 
 
 @pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
@@ -748,7 +748,7 @@ def test_solvation_gfn2_ddpcm():
     calc.add("ddX-solvation", 7.0, "pcm")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43751950718, abs=THR)
+    assert energy == approx(-28.43783447948258, abs=THR)
 
 
 def test_solvation_gfn2_alpb():

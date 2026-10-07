@@ -84,7 +84,7 @@ module tblite_solvation_ddx
       !> Regularization parameter / width of the switching function
       real(wp) :: eta = 0.1_wp
       !> Maximum angular momentum of basis functions
-      integer :: lmax = 1
+      integer :: lmax = 6
    end type ddx_input
 
    !> Provide constructor for ddX input
@@ -341,7 +341,7 @@ subroutine update(self, mol, cache)
       & eta=self%eta, shift=self%shift, &
       & maxiter=self%max_iter, jacobi_ndiis=self%jacobi_ndiis, &
       & pm=self%pm, pl=self%pl, &
-      & incore=self%incore, enable_fmm=self%enable_fmm)
+      & incore=self%incore, enable_fmm=self%enable_fmm, switching=1)
    call check_error(ptr%ddx_error)
 
    ! The state class contains all quantities that are explicitly solute-dependent. That will be the

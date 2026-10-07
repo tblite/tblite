@@ -3640,7 +3640,7 @@ int test_solvation_ddcosmo_eps()
     if (tblite_check(error))
         goto err;
 
-   if (!check(energy, -28.43789851660, thr, "energy error"))
+   if (!check(energy, -28.438165009325598, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -3713,7 +3713,7 @@ int test_solvation_ddcpcm_eps()
     if (tblite_check(error))
         goto err;
 
-   if (!check(energy, -28.43800959099, thr, "energy error"))
+   if (!check(energy, -28.438296467832746, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -3786,7 +3786,7 @@ int test_solvation_ddcpcm_solvent()
     if (tblite_check(error))
         goto err;
 
-   if (!check(energy, -28.43747404383, thr, "energy error"))
+   if (!check(energy, -28.43766336846691, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -3860,7 +3860,7 @@ int test_solvation_ddpcm_eps()
     if (tblite_check(error))
         goto err;
 
-   if (!check(energy, -28.43751950718, thr, "energy error"))
+   if (!check(energy, -28.43783447948258, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
