@@ -151,7 +151,7 @@ subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
 
    ! the features are evaluated from the partitioned container caches and
    ! E_tot is normalized per atom, so partial results cannot be summed
-   if (calc%partition%nparts > 1) then
+   if (calc%partition%get_nparts() > 1) then
       call fatal_error(error, "xTB-ML features are not available for a partitioned "//&
          & "calculation")
       call ctx%set_error(error)

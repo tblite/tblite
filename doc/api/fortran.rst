@@ -141,10 +141,12 @@ Work partitioning
 
 The ``tblite_partition`` module provides the ``work_partition`` type, which assigns a disjoint share of the interaction loops to each part of a distributed calculation.
 Parts are zero based, every unit of work belongs to exactly one part, and summing the contributions of all parts reproduces the complete result.
-*tblite* performs no communication itself, the reduction is left to the caller.
+The partition itself performs no communication. Individual containers return partial contributions; the full SCF driver uses the MPI context described below to reduce them at the required stages.
 
 A partition is created with ``new_work_partition``, out of range parts are reported in the error handler.
-The default constructed partition owns the complete work and is equivalent to not partitioning at all.
+A default-initialized partition and ``serial_work_partition`` own the complete work and are equivalent to not partitioning at all.
+The components are private; use ``get_part()`` and ``get_nparts()`` to query the part index and count.
+Construction also prepares the D3 and D4 partitions, which remain consistent with the local ownership rules when the partition is copied or assigned to a container.
 
 .. code-block:: fortran
 
@@ -159,28 +161,33 @@ The default constructed partition owns the complete work and is equivalent to no
 
 The partition is applied to a calculator with the type bound ``set_partition`` procedure, which propagates it to every interaction container, including containers added later with ``push_back``.
 Alternatively the partition can be stored in the calculation context with ``ctx%set_partition(part, nparts, error)`` and handed to the calculator from there.
+Setting an external partition clears any previously configured MPI communicator.
+For a full SCF calculation, use ``set_mpi`` so that the potential and energy contributions are reduced during each iteration:
 
 .. code-block:: fortran
 
-   call calc%set_partition(partition)
+   ! MPI must already be initialized; set_mpi also derives the work partition
+   call ctx%set_mpi(error)
+   if (allocated(error)) return
+   call calc%set_partition(ctx%partition)
    call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
-
-   ! tblite performs no communication, the caller reduces the partial results
-   call mpi_allreduce(MPI_IN_PLACE, energy, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm)
-   call mpi_allreduce(MPI_IN_PLACE, gradient, size(gradient), MPI_DOUBLE_PRECISION, MPI_SUM, comm)
 
 .. note::
 
-   Structure dependent quantities such as coordination numbers, Born radii and the interaction caches are evaluated for the full system on every part.
+   Structure dependent quantities such as coordination numbers, Born radii and dispersion reference weights are evaluated for the full system on every part.
    Only the interaction loops are partitioned, so the speedup is bound by those loops.
 
 The diatomic blocks of the overlap, multipole and core Hamiltonian integrals and of the Hamiltonian gradient are partitioned as well, following the entries of the neighbour list rather than the atom pairs, so the share of each part is even for sparse and periodic systems.
 The Born interaction matrix of the ALPB/GBSA model and the solvent accessible surface of the CDS term are partitioned over atom pairs and atoms, respectively.
 
-The D3 dispersion correction partitions its own pair loops, the partition is handed straight to *s-dftd3*.
+The D3 and D4 dispersion corrections pass the same part index and part count to *s-dftd3* and *dftd4* for their two-body and ATM interaction loops.
+The self-consistent D4/D4S dispersion matrix stores both symmetric blocks of each owned atom pair and leaves the other blocks zero.
+Its energy and charge-dependent potential are therefore partial contributions as well; the matrix itself is not reduced.
+The complete coordination numbers and the C6 coefficients needed by ATM remain available on every part.
+Neither dispersion library needs to be built with MPI support: *tblite* owns the reductions.
 
 Contributions which are not expressible as an interaction loop are carried in full by the first part.
-This currently applies to the D4 dispersion correction, which cannot partition its own loops yet, to the ddX solvation models, to the analytical linearized Poisson-Boltzmann gradient, whose inertia tensor couples all atoms, and to the external electric field.
+This currently applies to the ddX solvation models, to the analytical linearized Poisson-Boltzmann gradient, whose inertia tensor couples all atoms, and to the external electric field.
 The Born radii themselves enter non-linearly and are evaluated for the full system on every part.
 
 Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the potential is reduced in every iteration.

@@ -98,7 +98,7 @@ subroutine run_main(config, error)
    end if
 
    verbosity = config%verbosity
-   if (ctx%partition%part > 0) verbosity = 0
+   if (ctx%partition%get_part() > 0) verbosity = 0
 
    if (config%input == "-") then
       if (allocated(config%input_format)) then
@@ -323,7 +323,7 @@ subroutine run_main(config, error)
    end if
 
    ! every rank holds the same reduced result, writing it once is enough
-   if (ctx%partition%part > 0) return
+   if (ctx%partition%get_part() > 0) return
 
    if (allocated(config%restart_file)) then
       call info(ctx, "Writing wavefunction information to '"//config%restart_file//"'")
