@@ -753,7 +753,7 @@ subroutine get_run_arguments(config, list, start, error)
       if (allocated(alpb)) then
          ! ALPB/GBSA solvation model
          if (.not.allocated(kernel)) then
-            kernel = merge(born_kernel%still, born_kernel%p16, alpb)
+            kernel = merge(born_kernel%p16, born_kernel%still, alpb)
          end if
 
          if (.not.parametrized_solvation .and. sol_state /= solution_state%gsolv) then

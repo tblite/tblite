@@ -110,8 +110,8 @@ Supported geometry input formats are:
      Solvent is specified by dielectric constant or solvent name.
 
 *--born-kernel* _string_::
-     Specify Born kernel to use with ALPB, GBSA or GB solvation model.
-     Possible options are _p16_ (default for ALPB) and _still_ (default for GB/GBSA).
+     Specify Born kernel to use with ALPB, GBSA, GBE or GB solvation model.
+     Possible options are _p16_ (default for ALPB/GBE) and _still_ (default for GB/GBSA).
 
 *--cosmo* _real_|_string_::
      Use (domain decomposition based) COSMO.
