@@ -348,7 +348,7 @@ end subroutine skip_section
 
 
 !> Write tblite singlepoint data to a Molden file.
-subroutine save_molden(filename, mol, bas, wfn, error)
+subroutine save_molden(filename, mol, bas, wfn, error, title)
    !> Output Molden file name
    character(len=*), intent(in) :: filename
    !> Molecular structure data
@@ -359,6 +359,8 @@ subroutine save_molden(filename, mol, bas, wfn, error)
    type(wavefunction_type), intent(in) :: wfn
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Optional title written to the [Title] section
+   character(len=*), intent(in), optional :: title
 
    character(len=512) :: errmsg
    integer :: unit, stat
@@ -375,6 +377,7 @@ subroutine save_molden(filename, mol, bas, wfn, error)
    write(unit,"(A)") "[Title]"
    call get_tblite_version(string=version_string)
    write(unit,"(A)") "tblite version "//trim(version_string)
+   if (present(title)) write(unit,"(A)") trim(title)
 
    call write_cell(unit, mol, error)
    if (.not.allocated(error)) call write_atoms(unit, mol, error)

@@ -85,6 +85,7 @@ subroutine run_main(config, error)
    type(xtb_calculator) :: calc_ceh
    type(wavefunction_type) :: wfn, wfn_ceh, wfn_loc
    type(results_type) :: results
+   integer :: imo
    class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
@@ -368,6 +369,10 @@ subroutine run_main(config, error)
    if (config%lmo) then
       wfn_loc = wfn
       call results%dict%get_entry("localized-orbitals", wfn_loc%coeff)
+      ! Replace meaningless canonical energies by ordering for localized orbitals
+      do imo = 1, size(wfn_loc%emo, 1)
+         wfn_loc%emo(imo, :) = real(imo, wp)
+      end do
    end if
 
    if (config%trexio) then
@@ -387,7 +392,8 @@ subroutine run_main(config, error)
             filename = config%trexio_output//"-lmo"
          end if
          ! Save localized molecular orbitals to TREXIO file
-         call save_trexio(filename, mol, calc%bas, wfn_loc, energy, error)
+         call save_trexio(filename, mol, calc%bas, wfn_loc, energy, error, &
+            & title="Foster-Boys localized orbitals", write_mo_energy=.false.)
          if (allocated(error)) return
          if (config%verbosity > 0) then
             call info(ctx, "TREXIO localized MO output written to '"//filename//"'")
@@ -412,7 +418,8 @@ subroutine run_main(config, error)
             filename = config%molden_output//"-lmo"
          end if
          ! Save localized molecular orbitals to Molden file
-         call save_molden(filename, mol, calc%bas, wfn_loc, error)
+         call save_molden(filename, mol, calc%bas, wfn_loc, error, &
+            & title="Foster-Boys localized orbitals")
          if (allocated(error)) return
          if (config%verbosity > 0) then
             call info(ctx, "Molden localized MO file written to '"//filename//"'")
