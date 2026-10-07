@@ -16,7 +16,7 @@
 
 set(_pkg "ddX")
 set(_url "https://github.com/ddsolvation/ddX")
-set(_rev "v0.9.0")
+set(_rev "v1.0.0")
 
 if(NOT DEFINED "${_pkg}_FIND_METHOD")
   if(DEFINED "${PROJECT_NAME}-dependency-method")
@@ -34,7 +34,7 @@ foreach(method IN ITEMS ${${_pkg}_FIND_METHOD})
 
   if("${method}" STREQUAL "cmake")
     message(STATUS "ddX: Find installed package")
-    find_package("ddX" CONFIG QUIET)
+    find_package("ddX" 1.0.0 CONFIG QUIET)
     if(ddX_FOUND AND TARGET "ddx::ddx")
       message(STATUS "ddX: Found installed package")
       break()
