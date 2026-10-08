@@ -21,7 +21,7 @@
 module tblite_coulomb_cache
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_coulomb_ewald, only : get_alpha
+   use tblite_coulomb_ewald, only : get_alpha, ewald_cache
    use tblite_partition, only : pair_list
    use tblite_wignerseitz, only : wignerseitz_cell, new_wignerseitz_cell
    implicit none
@@ -33,6 +33,10 @@ module tblite_coulomb_cache
    type :: coulomb_cache
       !> Locally owned atom pairs in row order
       type(pair_list) :: pairs
+      !> Reciprocal-space cache for charge interactions
+      type(ewald_cache) :: charge_ewald
+      !> Reciprocal-space cache for multipole interactions
+      type(ewald_cache) :: multipole_ewald
       !> Positions used to build the cached periodic data
       real(wp), allocatable, private :: xyz(:, :)
       !> Lattice vectors used to build the cached periodic data
