@@ -1003,8 +1003,8 @@ subroutine test_e_effective_alpha(error)
    select type(ptr => cache%raw)
    type is(coulomb_cache)
       ptr%alpha = 0.8_wp*ptr%alpha
-      call coulomb%get_coulomb_matrix(mol, ptr, ptr%amat)
    end select
+   call coulomb%update(mol, cache)
    energy2 = 0.0_wp
    call coulomb%get_energy(mol, cache, wfn, energy2)
 

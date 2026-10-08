@@ -20,31 +20,36 @@ module test_partition
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use mctc_io, only : structure_type
+   use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff
    use tblite_container, only : container_cache, container_type
    use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
+   use tblite_coulomb_cache, only : coulomb_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_external_field, only : electric_field, new_electric_field
    use tblite_features, only : get_tblite_feature, tblite_has_mpi
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_mpi_utils, only : get_mpi_comm_world, mpi_allreduce_sum, mpi_sync_error
    use tblite_partition, only : work_partition, new_work_partition, &
-      & owns_index, owns_pair, serial_work_partition
+      & owns_index, owns_pair, serial_work_partition, pair_list, column_range
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_results, only : results_type
+   use tblite_scf_iterator, only : get_electronic_energy
    use tblite_scf_potential, only : potential_type, new_potential
    use tblite_solvation, only : solvation_input, solvation_type, alpb_input, cds_input, &
       & new_solvation, new_solvation_cds
    use tblite_timer, only : timer_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
+      & get_mulliken_atomic_multipoles, get_mayer_bond_orders
+   use tblite_wignerseitz, only : wignerseitz_cell, new_wignerseitz_cell, get_wignerseitz_weights
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator
-   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian
+   use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_hamiltonian_gradient
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
    private
@@ -67,6 +72,9 @@ subroutine collect_partition(testsuite)
       new_unittest("invalid", test_invalid), &
       new_unittest("context", test_context), &
       new_unittest("ownership", test_ownership), &
+      new_unittest("pair-list", test_pair_list), &
+      new_unittest("geometry-cache", test_geometry_cache), &
+      new_unittest("compact-images", test_compact_images), &
       new_unittest("absent", test_absent), &
       new_unittest("feature", test_feature), &
       new_unittest("mpi-unavailable", test_mpi_unavailable), &
@@ -77,11 +85,115 @@ subroutine collect_partition(testsuite)
       new_unittest("gfn1-pbc", test_gfn1_pbc), &
       new_unittest("gfn2-pbc", test_gfn2_pbc), &
       new_unittest("hamiltonian", test_hamiltonian), &
+      new_unittest("column-integrals", test_column_integrals), &
+      new_unittest("population-contractions", test_population_contractions), &
       new_unittest("solvation", test_solvation), &
       new_unittest("field", test_field) &
       ]
 
 end subroutine collect_partition
+
+
+!> Population and bond-order partitions must add to the serial result even
+!> with more partitions than orbitals. No MPI is needed by these kernels.
+subroutine test_population_contractions(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(integral_type) :: ints
+   type(wavefunction_type) :: reference, partial, total
+   type(work_partition) :: partition
+   real(wp), allocatable :: eref(:), epart(:), esum(:)
+   real(wp), allocatable :: bref(:, :, :), bpart(:, :, :), bsum(:, :, :)
+   integer :: i, j, k, spin, nspin, ipart, nsplit, icase, n, columns(2)
+
+   call get_structure(mol, "MB16-43", "01")
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   n = calc%bas%nao
+   call new_integral(ints, n)
+   allocate(eref(n), epart(n), esum(n))
+   do j = 1, n
+      do i = 1, n
+         ints%overlap(i, j) = cos(real(i*j, wp))
+         ints%hamiltonian(i, j) = sin(real(i+j, wp))
+         ints%dipole(:, i, j) = [(0.1_wp*cos(real(i+2*j+k, wp)), k=1, 3)]
+         ints%quadrupole(:, i, j) = [(0.1_wp*sin(real(2*i+j+k, wp)), k=1, 6)]
+      end do
+   end do
+   do nspin = 1, 2
+      call new_wavefunction(reference, mol%nat, calc%bas%nsh, n, nspin, 0.0_wp)
+      call new_wavefunction(partial, mol%nat, calc%bas%nsh, n, nspin, 0.0_wp)
+      call new_wavefunction(total, mol%nat, calc%bas%nsh, n, nspin, 0.0_wp)
+      reference%n0sh = [(0.1_wp*real(i, wp), i=1, calc%bas%nsh)]
+      do spin = 1, nspin
+         do j = 1, n
+            do i = 1, n
+               reference%density(i, j, spin) = 0.01_wp*cos(real(i+j+spin, wp))
+            end do
+         end do
+      end do
+      allocate(bref(mol%nat, mol%nat, nspin), bpart(mol%nat, mol%nat, nspin), &
+         & bsum(mol%nat, mol%nat, nspin))
+      call get_mulliken_shell_charges(calc%bas, ints%overlap, reference%density, &
+         & reference%n0sh, reference%qsh)
+      call get_mulliken_atomic_multipoles(calc%bas, ints%dipole, reference%density, reference%dpat)
+      call get_mulliken_atomic_multipoles(calc%bas, ints%quadrupole, reference%density, reference%qpat)
+      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, reference%density, bref)
+      eref = 0.0_wp
+      call get_electronic_energy(ints%hamiltonian, reference%density, eref)
+      do icase = 1, 4
+         nsplit = merge(nparts, n+1, modulo(icase, 2) == 1)
+         total%qsh = 0.0_wp
+         total%dpat = 0.0_wp
+         total%qpat = 0.0_wp
+         esum = 0.0_wp
+         bsum = 0.0_wp
+         do ipart = 0, nsplit-1
+            call new_work_partition(error, partition, ipart, nsplit)
+            if (allocated(error)) return
+            if (icase <= 2) then
+            call get_mulliken_shell_charges(calc%bas, ints%overlap, reference%density, &
+               & reference%n0sh, partial%qsh, partition)
+            call get_mulliken_atomic_multipoles(calc%bas, ints%dipole, reference%density, partial%dpat, partition)
+            call get_mulliken_atomic_multipoles(calc%bas, ints%quadrupole, reference%density, partial%qpat, partition)
+            call get_mayer_bond_orders(mol, calc%bas, ints%overlap, reference%density, bpart, partition)
+            epart = 0.0_wp
+            call get_electronic_energy(ints%hamiltonian, reference%density, epart, partition)
+            else
+               columns = partition%get_columns(n)
+               call get_mulliken_shell_charges(calc%bas, ints%overlap(:, columns(1):columns(2)), &
+                  & reference%density(:, columns(1):columns(2), :), reference%n0sh, partial%qsh, columns=columns)
+               call get_mulliken_atomic_multipoles(calc%bas, ints%dipole(:, :, columns(1):columns(2)), &
+                  & reference%density(:, columns(1):columns(2), :), partial%dpat, columns=columns)
+               call get_mulliken_atomic_multipoles(calc%bas, ints%quadrupole(:, :, columns(1):columns(2)), &
+                  & reference%density(:, columns(1):columns(2), :), partial%qpat, columns=columns)
+               epart = 0.0_wp
+               call get_electronic_energy(ints%hamiltonian(:, columns(1):columns(2)), &
+                  & reference%density(:, columns(1):columns(2), :), epart, columns=columns)
+               ! Bond order column products and MPI transpose have dedicated MPI tests.
+               call get_mayer_bond_orders(mol, calc%bas, ints%overlap, reference%density, bpart, partition)
+            end if
+            total%qsh = total%qsh + partial%qsh
+            total%dpat = total%dpat + partial%dpat
+            total%qpat = total%qpat + partial%qpat
+            esum = esum + epart
+            bsum = bsum + bpart
+         end do
+         call check(error, all(abs(total%qsh-reference%qsh) < thr), "Partitioned shell charges/reference occupations")
+         if (allocated(error)) return
+         call check(error, all(abs(total%dpat-reference%dpat) < thr), "Partitioned dipoles")
+         if (allocated(error)) return
+         call check(error, all(abs(total%qpat-reference%qpat) < thr), "Partitioned quadrupoles")
+         if (allocated(error)) return
+         call check(error, all(abs(esum-eref) < thr), "Partitioned one-electron energy")
+         if (allocated(error)) return
+         call check(error, all(abs(bsum-bref) < thr), "Partitioned bond orders")
+         if (allocated(error)) return
+      end do
+      deallocate(bref, bpart, bsum)
+   end do
+end subroutine test_population_contractions
 
 
 !> Out of range parts have to be rejected
@@ -186,6 +298,119 @@ subroutine test_ownership(error)
    ! The triangular index must not overflow a default integer.
    call check(error, count(owns_pair(partitions, 100000, 100000)), 1)
 end subroutine test_ownership
+
+
+!> Cached neighbour lists must cover exactly the owned symmetric matrix blocks.
+subroutine test_pair_list(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(work_partition) :: partition
+   type(pair_list) :: pairs
+   integer :: nat, parts, part, iat, jat, k
+   integer, allocatable :: visits(:, :)
+
+   do nat = 0, 13
+      allocate(visits(nat, nat))
+      do parts = 1, 7
+         do part = 0, parts-1
+            call new_work_partition(error, partition, part, parts)
+            if (allocated(error)) return
+            call pairs%update(partition, nat)
+            call pairs%update(partition, nat)
+            visits = 0
+            do iat = 1, nat
+               do k = pairs%offset(iat-1)+1, pairs%offset(iat)
+                  jat = pairs%neighbour(k)
+                  visits(iat, jat) = visits(iat, jat) + 1
+               end do
+            end do
+            do iat = 1, nat
+               do jat = 1, nat
+                  call check(error, visits(iat, jat), &
+                     & merge(1, 0, owns_pair(partition, max(iat, jat), min(iat, jat))))
+                  if (allocated(error)) return
+               end do
+            end do
+         end do
+      end do
+      deallocate(visits)
+   end do
+end subroutine test_pair_list
+
+
+!> Compact nearest-image storage, including no images and all candidates retained.
+subroutine test_compact_images(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(wignerseitz_cell) :: wsc
+   real(wp) :: lattice(3, 3)
+   real(wp), allocatable :: weights(:)
+   integer :: i
+   lattice = 0.0_wp
+   do i = 1, 3
+      lattice(i, i) = 10.0_wp
+   end do
+   call new(mol, [1], reshape([0.0_wp, 0.0_wp, 0.0_wp], [3, 1]), &
+      & lattice=lattice, periodic=[.true., .true., .true.])
+   call new_wignerseitz_cell(wsc, mol)
+   call check(error, wsc%nimg(1, 1) == 6 .and. size(wsc%tridx, 1) == 6, "Compacted nearest images")
+   if (allocated(error)) return
+   allocate(weights(6))
+   call get_wignerseitz_weights(wsc, 1, 1, mol%xyz(:, 1), weights)
+   call check(error, all(abs(weights-1.0_wp/6.0_wp) < thr), "Tied image weights")
+   if (allocated(error)) return
+   ! All 26 nonzero candidates now fall in the smooth nearest-image interval.
+   mol%lattice = 0.01_wp*lattice
+   call new_wignerseitz_cell(wsc, mol)
+   call check(error, wsc%nimg(1, 1) == 26 .and. size(wsc%tridx, 1) == 26, "All candidates retained")
+   if (allocated(error)) return
+   deallocate(weights)
+   allocate(weights(26))
+   call get_wignerseitz_weights(wsc, 1, 1, mol%xyz(:, 1), weights)
+   call check(error, abs(sum(weights)-1.0_wp) < thr .and. all(weights > 0), "Normalized image weights")
+   if (allocated(error)) return
+   mol%periodic = .false.
+   call new_wignerseitz_cell(wsc, mol)
+   call check(error, wsc%nimg(1, 1) == 0 .and. size(wsc%tridx, 1) == 0, "Empty image storage")
+end subroutine test_compact_images
+
+
+!> Reuse shared periodic geometry, but rebuild after positions/cell/periodicity change.
+subroutine test_geometry_cache(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(coulomb_cache) :: cache
+   integer :: step
+
+   call get_structure(mol, "X23", "urea")
+   do step = 1, 5
+      select case(step)
+      case(3)
+         mol%xyz(:, 1) = mol%xyz(:, 1) + mol%lattice(:, 1)
+      case(4)
+         mol%lattice(:, 2) = 1.1_wp*mol%lattice(:, 2)
+      case(5)
+         mol%periodic(3) = .false.
+      case default
+         ! Leave the geometry unchanged for cache initialization and reuse.
+         continue
+      end select
+      block
+      type(coulomb_cache) :: fresh
+      call cache%update(mol)
+      call fresh%update(mol)
+      call check(error, all(cache%wsc%nimg == fresh%wsc%nimg))
+      if (allocated(error)) return
+      call check(error, all(cache%wsc%tridx == fresh%wsc%tridx))
+      if (allocated(error)) return
+      call check(error, all(cache%wsc%trans == fresh%wsc%trans))
+      if (allocated(error)) return
+      call check(error, cache%alpha, fresh%alpha, thr=thr)
+      if (allocated(error)) return
+      call check(error, cache%alpha_multipole, fresh%alpha_multipole, thr=thr)
+      if (allocated(error)) return
+      end block
+   end do
+end subroutine test_geometry_cache
 
 
 !> An absent partition selects the complete work
@@ -630,5 +855,104 @@ subroutine model_wavefunction(wfn, mol, calc)
 
 end subroutine model_wavefunction
 
+
+!> Complete local AO columns reproduce molecular/periodic integrals and force
+!> contractions, including shell boundaries, empty parts and diatomic scaling.
+subroutine test_column_integrals(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   integer :: system, scaling
+   do system = 1, 2
+      if (system == 1) then
+         call get_structure(mol, "MB16-43", "01")
+      else
+         call get_structure(mol, "X23", "urea")
+      end if
+      do scaling = 0, 1
+         call check_column_integrals(error, mol, scaling == 1)
+         if (allocated(error)) return
+      end do
+   end do
+end subroutine test_column_integrals
+
+subroutine check_column_integrals(error, mol, scaling)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type), intent(in) :: mol
+   logical, intent(in) :: scaling
+   type(xtb_calculator) :: calc
+   type(integral_type) :: full, local
+   type(adjacency_list) :: list
+   type(potential_type) :: pot
+   real(wp), allocatable :: cn(:), selfenergy(:), dsedcn(:), lattr(:, :), p(:, :, :), x(:, :, :)
+   real(wp) :: df(mol%nat), dl(mol%nat), ds(mol%nat)
+   real(wp) :: gf(3, mol%nat), gl(3, mol%nat), gs(3, mol%nat)
+   real(wp) :: sf(3, 3), sl(3, 3), ss(3, 3)
+   integer :: n, i, j, spin, part, count, test, columns(2)
+   call new_gfn2_calculator(calc, mol, error)
+   if (allocated(error)) return
+   calc%h0%do_diat_scale = scaling
+   calc%h0%ksig = 1.1_wp
+   calc%h0%kpi = 0.9_wp
+   calc%h0%kdel = 0.8_wp
+   n = calc%bas%nao
+   allocate(cn(mol%nat), selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh), p(n, n, 2), x(n, n, 2))
+   call calc%ncoord%get_cn(mol, cn)
+   call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
+      & selfenergy=selfenergy, dsedcn=dsedcn)
+   call get_lattice_points(mol%periodic, mol%lattice, get_cutoff(calc%bas, 1.0_wp), lattr)
+   call new_adjacency_list(list, mol, lattr, get_cutoff(calc%bas, 1.0_wp))
+   call new_integral(full, n)
+   call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
+      & full%overlap, full%dipole, full%quadrupole, full%hamiltonian)
+   call new_potential(pot, mol, calc%bas, 2)
+   call pot%reset()
+   do spin = 1, 2
+      do j = 1, n
+         do i = 1, n
+            p(i, j, spin) = 0.02_wp*cos(real(i+j+spin, wp))
+            x(i, j, spin) = 0.01_wp*sin(real(i+j+spin, wp))
+         end do
+         pot%vao(j, spin) = 0.03_wp*sin(real(j+spin, wp))
+      end do
+      do i = 1, mol%nat
+         pot%vdp(:, i, spin) = [0.2_wp, -0.1_wp, 0.3_wp]*i
+         pot%vqp(:, i, spin) = [(0.04_wp*cos(real(i+j+spin, wp)), j=1, 6)]
+      end do
+   end do
+   df = 0.0_wp
+   gf = 0.0_wp
+   sf = 0.0_wp
+   call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, dsedcn, &
+      & pot, p, x, df, gf, sf)
+   do test = 1, 2
+      count = merge(3, n+1, test == 1)
+      ds = 0.0_wp
+      gs = 0.0_wp
+      ss = 0.0_wp
+      do part = 0, count-1
+         columns = column_range(n, part, count)
+         call new_integral(local, n, columns)
+         call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
+            & local%overlap, local%dipole, local%quadrupole, local%hamiltonian, columns=columns)
+         call check(error, all(abs(local%overlap-full%overlap(:, columns(1):columns(2))) < thr) .and. &
+            & all(abs(local%hamiltonian-full%hamiltonian(:, columns(1):columns(2))) < thr) .and. &
+            & all(abs(local%dipole-full%dipole(:, :, columns(1):columns(2))) < thr) .and. &
+            & all(abs(local%quadrupole-full%quadrupole(:, :, columns(1):columns(2))) < thr), &
+            & "Local integral columns")
+         if (allocated(error)) return
+         dl = 0.0_wp
+         gl = 0.0_wp
+         sl = 0.0_wp
+         call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, dsedcn, pot, &
+            & p(:, columns(1):columns(2), :), x(:, columns(1):columns(2), :), dl, gl, sl, columns=columns)
+         ds = ds + dl
+         gs = gs + gl
+         ss = ss + sl
+      end do
+      call check(error, all(abs(ds-df) < thr) .and. all(abs(gs-gf) < thr) .and. &
+         & all(abs(ss-sf) < thr), "Local-column gradient/CN/strain contractions")
+      if (allocated(error)) return
+   end do
+end subroutine check_column_integrals
 
 end module test_partition

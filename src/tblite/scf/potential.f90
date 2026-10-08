@@ -20,15 +20,18 @@
 !> Implementation of the density dependent potential and its contribution
 !> to the effective Hamiltonian
 module tblite_scf_potential
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_integral_type, only : integral_type
+   use tblite_mpi_utils, only : mpi_allreduce_sum, new_mpi_work_partition, &
+      & mpi_transpose_columns, mpi_gather_columns
+   use tblite_partition, only : work_partition
    use tblite_wavefunction_spin, only : magnet_to_updown
    implicit none
    private
 
-   public :: new_potential, add_pot_to_h1
+   public :: new_potential, add_pot_to_h1, mpi_add_pot_to_h1, reduce_potential
 
 
    !> Container for density dependent potential-shifts
@@ -46,6 +49,9 @@ module tblite_scf_potential
       real(wp), allocatable :: vdp(:, :, :)
       !> Atom-resolved quadrupolar potential
       real(wp), allocatable :: vqp(:, :, :)
+
+      !> Reusable workspace for assembling all potential components together
+      real(wp), allocatable :: reduction_buffer(:)
 
       !> Position derivative of atom-resolved charge-dependent potential shift
       real(wp), allocatable :: dvatdr(:, :, :, :)
@@ -118,27 +124,135 @@ subroutine reset(self)
    end if
 end subroutine reset
 
-!> Add the collected potential shifts to the effective Hamiltonian
-subroutine add_pot_to_h1(bas, ints, pot, h1)
+!> Assemble the SCF potential before expanding atom/shell shifts into vao.
+subroutine reduce_potential(error, pot, comm)
+   !> Error handling; a pending error skips the reduction
+   type(error_type), allocatable, intent(inout) :: error
+   !> Partial atomic and shell potentials, replaced by their sum over all ranks
+   type(potential_type), intent(inout) :: pot
+   !> Communicator to reduce over, absent leaves the potential unchanged
+   integer, intent(in), optional :: comm
+   integer :: na, ns, nd, nq, n
+
+   if (.not.present(comm) .or. allocated(error)) return
+   na = size(pot%vat)
+   ns = size(pot%vsh)
+   nd = size(pot%vdp)
+   nq = size(pot%vqp)
+   n = na + ns + nd + nq
+   if (allocated(pot%reduction_buffer)) then
+      if (size(pot%reduction_buffer) /= n) deallocate(pot%reduction_buffer)
+   end if
+   if (.not.allocated(pot%reduction_buffer)) allocate(pot%reduction_buffer(n))
+   pot%reduction_buffer(:na) = reshape(pot%vat, [na])
+   pot%reduction_buffer(na+1:na+ns) = reshape(pot%vsh, [ns])
+   pot%reduction_buffer(na+ns+1:na+ns+nd) = reshape(pot%vdp, [nd])
+   pot%reduction_buffer(na+ns+nd+1:) = reshape(pot%vqp, [nq])
+   call mpi_allreduce_sum(error, pot%reduction_buffer, comm)
+   if (allocated(error)) return
+   pot%vat = reshape(pot%reduction_buffer(:na), shape(pot%vat))
+   pot%vsh = reshape(pot%reduction_buffer(na+1:na+ns), shape(pot%vsh))
+   pot%vdp = reshape(pot%reduction_buffer(na+ns+1:na+ns+nd), shape(pot%vdp))
+   pot%vqp = reshape(pot%reduction_buffer(na+ns+nd+1:), shape(pot%vqp))
+end subroutine reduce_potential
+
+!> Expand the replicated potential into disjoint Hamiltonian columns.
+!> Local storage needs a distributed transpose of one-centre contributions;
+!> the compatibility path gathers complete columns for a replicated solver.
+subroutine mpi_add_pot_to_h1(error, bas, ints, pot, h1, comm)
+   !> Error handling
+   type(error_type), allocatable, intent(inout) :: error
    !> Basis set information
    type(basis_type), intent(in) :: bas
-   !> Integral container
+   !> Integrals stored as complete matrices or complete local columns
    type(integral_type), intent(in) :: ints
-   !> Density dependent potential-shifts
+   !> Replicated potential shifts, expanded to shell and orbital resolution
    type(potential_type), intent(inout) :: pot
-   !> Effective Hamiltonian
-   real(wp), intent(out) :: h1(:, :, :)
+   !> Effective Hamiltonian to overwrite, using the same column layout as ints
+   real(wp), contiguous, intent(inout) :: h1(:, :, :)
+   !> Communicator for distributed assembly, absent selects serial execution
+   integer, intent(in), optional :: comm
 
-   h1(:, :, 1) = ints%hamiltonian
-   if (size(h1, 3) > 1) h1(:, :, 2:) = 0.0_wp
+   type(work_partition) :: partition
+   real(wp), allocatable :: transposed(:, :)
+   integer, allocatable :: columns(:)
+   integer :: spin
+
+   if (allocated(error)) return
+   if (present(comm)) call new_mpi_work_partition(error, partition, comm)
+   if (allocated(error)) return
+   if (.not.ints%local .and. partition%get_nparts() > 1) columns = partition%get_columns(size(h1, 2))
+   call add_pot_to_h1(bas, ints, pot, h1, columns)
+   if (ints%local) then
+      allocate(transposed(size(h1, 1), size(h1, 2)))
+      do spin = 1, size(h1, 3)
+         call mpi_transpose_columns(error, h1(:, :, spin), transposed, comm)
+         if (allocated(error)) return
+         h1(:, :, spin) = h1(:, :, spin) + transposed
+      end do
+   else if (allocated(columns)) then
+      do spin = 1, size(h1, 3)
+         call mpi_gather_columns(error, b=h1(:, :, spin), n=size(h1, 2), comm=comm)
+      end do
+   end if
+end subroutine mpi_add_pot_to_h1
+
+
+!> Add the collected potential shifts to complete or locally stored columns.
+!> Local storage returns one-centre contributions; the frontend adds their
+!> distributed transpose. Complete storage includes both centres directly.
+subroutine add_pot_to_h1(bas, ints, pot, h1, columns)
+   !> Basis set information
+   type(basis_type), intent(in) :: bas
+   !> Integrals stored as complete matrices or complete local columns
+   type(integral_type), intent(in) :: ints
+   !> Potential shifts, expanded to shell and orbital resolution
+   type(potential_type), intent(inout) :: pot
+   !> Hamiltonian columns to overwrite; local storage returns one-centre terms
+   real(wp), intent(out) :: h1(:, :, :)
+   !> Optional range to compute within replicated storage
+   integer, intent(in), optional :: columns(2)
+
+   integer :: spin, col, iao, jao, iat, jat, first, last, offset
+   real(wp) :: hij, scale
+   logical :: symmetric
 
    call add_vat_to_vsh(bas, pot%vat, pot%vsh)
    call add_vsh_to_vao(bas, pot%vsh, pot%vao)
-   call add_vao_to_h1(bas, ints%overlap, pot%vao, h1)
-   call add_vmp_to_h1(bas, ints%dipole, pot%vdp, h1)
-   call add_vmp_to_h1(bas, ints%quadrupole, pot%vqp, h1)
+   first = 1
+   last = size(h1, 2)
+   if (present(columns)) then
+      first = columns(1)
+      last = columns(2)
+   end if
+   offset = ints%columns(1) - 1
+   scale = merge(0.5_wp, 1.0_wp, ints%local)
+   symmetric = .not.ints%local .and. .not.present(columns)
 
-   call magnet_to_updown(h1)
+   !$omp parallel do collapse(2) schedule(runtime) default(none) &
+   !$omp shared(bas, ints, pot, h1, first, last, offset, scale, symmetric) &
+   !$omp private(spin, col, iao, jao, iat, jat, hij)
+   do spin = 1, size(h1, 3)
+      do col = first, last
+         iao = col + offset
+         iat = bas%ao2at(iao)
+         do jao = 1, merge(iao, bas%nao, symmetric)
+            hij = 0.0_wp
+            if (spin == 1) hij = ints%hamiltonian(jao, col)
+            hij = scale*(hij - 0.5_wp*ints%overlap(jao, col)*(pot%vao(jao, spin) + pot%vao(iao, spin))) &
+               & - 0.5_wp*dot_product(ints%dipole(:, jao, col), pot%vdp(:, iat, spin)) &
+               & - 0.5_wp*dot_product(ints%quadrupole(:, jao, col), pot%vqp(:, iat, spin))
+            if (.not.ints%local) then
+               jat = bas%ao2at(jao)
+               hij = hij - 0.5_wp*dot_product(ints%dipole(:, iao, jao), pot%vdp(:, jat, spin)) &
+                  & - 0.5_wp*dot_product(ints%quadrupole(:, iao, jao), pot%vqp(:, jat, spin))
+            end if
+            h1(jao, col, spin) = hij
+            if (symmetric) h1(iao, jao, spin) = hij
+         end do
+      end do
+   end do
+   call magnet_to_updown(h1(:, first:last, :))
 end subroutine add_pot_to_h1
 
 !> Expand an atom-resolved potential shift to a shell-resolved potential shift
@@ -187,71 +301,5 @@ subroutine add_vsh_to_vao(bas, vsh, vao)
    end do
 end subroutine add_vsh_to_vao
 
-
-!> Add a charge-dependent potential to the Hamiltonian
-subroutine add_vao_to_h1(bas, sint, vao, h1)
-   !> Basis set information
-   type(basis_type), intent(in) :: bas
-   !> Overlap integrals
-   real(wp), intent(in) :: sint(:, :)
-   !> Orbital-resolved charge-dependent potential shift
-   real(wp), intent(in) :: vao(:, :)
-   !> Effective Hamiltonian
-   real(wp), intent(inout) :: h1(:, :, :)
-
-   integer :: iao, jao, spin, nao
-   real(wp) :: vij
-
-   nao = bas%nao
-
-   !$omp parallel do collapse(2) schedule(runtime) default(none) &
-   !$omp shared(h1, sint, vao, nao) private(spin, iao, jao, vij)
-   do spin = 1, size(h1, 3)
-      do iao = 1, nao
-         do jao = 1, iao
-            vij = -sint(jao, iao) * 0.5_wp * (vao(jao, spin) + vao(iao, spin))
-            h1(jao, iao, spin) = h1(jao, iao, spin) + vij
-            if (jao /= iao) then
-               h1(iao, jao, spin) = h1(iao, jao, spin) + vij
-            end if
-         end do
-      end do
-   end do
-end subroutine add_vao_to_h1
-
-!> Add a multipolar potential to the Hamiltonian
-subroutine add_vmp_to_h1(bas, mpint, vmp, h1)
-   !> Basis set information
-   type(basis_type), intent(in) :: bas
-   !> Multipole integrals, multipole operator is always centered on last index
-   real(wp), intent(in) :: mpint(:, :, :)
-   !> Multipole potential
-   real(wp), intent(in) :: vmp(:, :, :)
-   !> Effective Hamiltonian
-   real(wp), intent(inout) :: h1(:, :, :)
-
-   integer :: iao, jao, iat, jat, nmp, spin, nao
-   real(wp) :: vij
-
-   nmp = min(size(mpint, 1), size(vmp, 1))
-   nao = bas%nao
-
-   !$omp parallel do collapse(2) schedule(runtime) default(none) &
-   !$omp shared(h1, bas, mpint, vmp, nmp, nao) private(spin, iao, jao, iat, jat, vij)
-   do spin = 1, size(h1, 3)
-      do iao = 1, nao
-         iat = bas%ao2at(iao)
-         do jao = 1, iao
-            jat = bas%ao2at(jao)
-            vij = -0.5_wp * dot_product(mpint(:nmp, jao, iao), vmp(:nmp, iat, spin)) &
-               & - 0.5_wp * dot_product(mpint(:nmp, iao, jao), vmp(:nmp, jat, spin))
-            h1(jao, iao, spin) = h1(jao, iao, spin) + vij
-            if (jao /= iao) then
-               h1(iao, jao, spin) = h1(iao, jao, spin) + vij
-            end if
-         end do
-      end do
-   end do
-end subroutine add_vmp_to_h1
 
 end module tblite_scf_potential
