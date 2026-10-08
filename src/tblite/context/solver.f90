@@ -32,6 +32,8 @@ module tblite_context_solver
       procedure(new), deferred :: new
       !> Delete an electronic solver instance
       procedure(delete), deferred :: delete
+      !> Opt in only when the factory accepts column-distributed input matrices.
+      procedure :: distributed_columns
    end type context_solver
 
 
@@ -63,5 +65,14 @@ module tblite_context_solver
       end subroutine delete
    end interface
 
+
+contains
+
+logical function distributed_columns(self, n, comm) result(distribute)
+   class(context_solver), intent(in) :: self
+   integer, intent(in) :: n
+   integer, intent(in), optional :: comm
+   distribute = .false.
+end function distributed_columns
 
 end module tblite_context_solver

@@ -63,6 +63,7 @@ module tblite_post_processing_list
       procedure :: print_timer
       !> Add post-processing method to list
       procedure :: push
+      procedure :: requires_full_matrices
    end type post_processing_list
 
    interface add_post_processing
@@ -71,6 +72,15 @@ module tblite_post_processing_list
    end interface add_post_processing
 
 contains
+
+logical function requires_full_matrices(self) result(full)
+   class(post_processing_list), intent(in) :: self
+   integer :: ipp
+   full = .false.
+   do ipp = 1, self%npp
+      full = full .or. .not.self%list(ipp)%pproc%local_matrices
+   end do
+end function requires_full_matrices
 
 subroutine print_timer(self, timer, prlevel, ctx)
    !> Instance of the interaction container

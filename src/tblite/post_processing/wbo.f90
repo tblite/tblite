@@ -17,16 +17,19 @@
 !> @file tblite/post_processing/wbo.f90
 !> Implements the calculation of Wiberg-Mayer bond orders as post processing method.
 module tblite_post_processing_wbo
-   use mctc_env, only : wp
+   use mctc_env, only : wp, error_type
    use mctc_io, only : structure_type
    use tblite_basis_type, only : basis_type
    use tblite_container_list, only : cache_list
    use tblite_context, only : context_type
    use tblite_double_dictionary, only : double_dictionary_type
    use tblite_integral_type, only : integral_type
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_multiply_columns, &
+      & mpi_transpose_columns, mpi_density_columns
    use tblite_post_processing_type, only : post_processing_type
    use tblite_timer, only : timer_type, format_time
-   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders
+   use tblite_wavefunction_mulliken, only : get_mayer_bond_orders, contract_mayer_columns
+   use tblite_wavefunction_spin, only : updown_to_magnet
    use tblite_wavefunction_type, only : wavefunction_type, get_density_matrix
    use tblite_xtb_calculator, only : xtb_calculator
    implicit none
@@ -52,6 +55,7 @@ subroutine new_wiberg_bond_orders(self)
    type(wiberg_bond_orders), intent(out) :: self
 
    self%label = label
+   self%local_matrices = .true.
 
 end subroutine new_wiberg_bond_orders
 
@@ -80,40 +84,59 @@ subroutine compute(self, mol, wfn, ints, calc, caches, accuracy, ctx, timer, &
    !> Dictionary for storing results
    type(double_dictionary_type), intent(inout) :: dict
 
-   real(wp), allocatable :: wbo(:, :, :), pmat(:, :, :)
-   integer :: spin
+   real(wp), allocatable :: wbo(:, :, :), pmat(:, :, :), ps(:, :), pst(:, :)
+   type(error_type), allocatable :: error
+   integer :: spin, nspin, i
+   integer, allocatable :: columns(:)
+   logical :: restricted_open
 
    call timer%push("wbo")
-
-   if ((wfn%nspin == 1) .and. (wfn%nel(1) /= wfn%nel(2))) then
-      ! Restricted calculation with open-shell occupation
-      allocate(wbo(mol%nat, mol%nat, 2), source=0.0_wp)
-      allocate(pmat(calc%bas%nao, calc%bas%nao, 2), source=0.0_wp)
-
-      ! Calculate density matrices for each spin with the spin-resolved occupation,
-      ! but the restricted orbital coefficients (alpha).
-      do spin = 1, 2
-         call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, 1), &
-            & pmat(:, :, spin))
-      end do
-
-      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for open-shell case
-      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, pmat, wbo)
-
-      call dict%add_entry("bond-orders", wbo)
-
-   else
-      ! Restricted closed-shell or unrestricted calculations
-      allocate(wbo(mol%nat, mol%nat, wfn%nspin), source=0.0_wp)
-
-      ! Obtain Wiberg-Mayer bond orders with factor 2 scaling for unrestricted
-      call get_mayer_bond_orders(mol, calc%bas, ints%overlap, &
-         & wfn%density, wbo)
-
-      call dict%add_entry("bond-orders", wbo)
+   restricted_open = wfn%nspin == 1 .and. wfn%nel(1) /= wfn%nel(2)
+   nspin = wfn%nspin
+   if (restricted_open) nspin = 2
+   allocate(wbo(mol%nat, mol%nat, nspin))
+   if (restricted_open) allocate(pmat(calc%bas%nao, size(ints%overlap, 2), 1))
+   if (ints%local) then
+      columns = [(i, i=ints%columns(1), ints%columns(2))]
+      allocate(ps(calc%bas%nao, size(columns)), pst(calc%bas%nao, size(columns)))
    end if
 
+   do spin = 1, nspin
+      if (restricted_open) then
+         if (ints%local) then
+            call mpi_density_columns(error, wfn%focc(:, spin), wfn%coeff(:, :, 1), pmat(:, :, 1), ctx%comm)
+         else
+            call get_density_matrix(wfn%focc(:, spin), wfn%coeff(:, :, 1), pmat(:, :, 1))
+         end if
+      end if
+      if (ints%local) then
+         if (restricted_open) then
+            call mpi_multiply_columns(error, pmat(:, :, 1), ints%overlap, ps, ctx%comm)
+         else
+            call mpi_multiply_columns(error, wfn%density(:, :, spin), ints%overlap, ps, ctx%comm)
+         end if
+         call mpi_transpose_columns(error, ps, pst, ctx%comm)
+         if (allocated(error)) exit
+         call contract_mayer_columns(calc%bas, ps, pst, wbo(:, :, spin), columns, transposed=.true.)
+      else
+         if (restricted_open) then
+            call get_mayer_bond_orders(mol, calc%bas, ints%overlap, pmat, wbo(:, :, spin:spin), ctx%partition)
+         else
+            call get_mayer_bond_orders(mol, calc%bas, ints%overlap, &
+               & wfn%density(:, :, spin:spin), wbo(:, :, spin:spin), ctx%partition)
+         end if
+      end if
+   end do
+   if (nspin == 2) wbo = 2*wbo
+   call updown_to_magnet(wbo)
+
+   call mpi_allreduce_sum(error, wbo, ctx%comm)
    call timer%pop()
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+   call dict%add_entry("bond-orders", wbo)
 
 end subroutine compute
 

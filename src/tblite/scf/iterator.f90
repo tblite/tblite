@@ -25,10 +25,11 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
-   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error, new_mpi_work_partition
+   use tblite_partition, only : work_partition, owns_index
    use tblite_scf_info, only : scf_info
    use tblite_scf_mixer, only : mixer_type
-   use tblite_scf_potential, only : potential_type, add_pot_to_h1
+   use tblite_scf_potential, only : potential_type, mpi_add_pot_to_h1, reduce_potential
    use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
@@ -89,7 +90,14 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    integer, intent(in), optional :: comm
 
    real(wp), allocatable :: eao(:)
+   integer, allocatable :: columns(:)
    real(wp) :: ts
+   type(work_partition) :: partition
+
+   if (present(comm)) then
+      call new_mpi_work_partition(error, partition, comm)
+      if (allocated(error)) return
+   end if
 
    if (iscf > 0) then
       call mixer%next(error)
@@ -111,10 +119,11 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
 
-   call mpi_allreduce_sum(error, pot, comm)
+   call reduce_potential(error, pot, comm)
    if (allocated(error)) return
 
-   call add_pot_to_h1(bas, ints, pot, wfn%coeff)
+   call mpi_add_pot_to_h1(error, bas, ints, pot, wfn%coeff, comm)
+   if (allocated(error)) return
 
    call set_mixer(mixer, wfn, info)
 
@@ -122,18 +131,19 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    call mpi_sync_error(error, comm)
    if (allocated(error)) return
 
-   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
-      & wfn%qsh)
+   if (ints%local) columns = ints%columns
+   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, wfn%qsh, partition, columns)
+   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, wfn%dpat, partition, columns)
+   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, wfn%qpat, partition, columns)
+   if (partition%get_nparts() > 1) then
+      call reduce_mulliken(wfn, error, comm)
+      if (allocated(error)) return
+   end if
    call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
-
-   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, &
-      & wfn%dpat)
-   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, &
-      & wfn%qpat)
 
    call diff_mixer(mixer, wfn, info)
 
-   ! Assemble partitioned container energies before adding replicated terms.
+   ! Assemble partitioned container and one-electron energies together.
    energies(:) = 0.0_wp
    if (present(coulomb) .and. present(ccache)) then
       call coulomb%get_energy(mol, ccache, wfn, energies)
@@ -144,33 +154,66 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(interactions) .and. present(icache)) then
       call interactions%get_energy(mol, icache, wfn, energies)
    end if
+   ! Preserve serial summation order; the entropy is replicated, not additive.
+   if (partition%get_nparts() == 1) energies(:) = energies + ts / size(energies)
+   allocate(eao(bas%nao), source=0.0_wp)
+   call get_electronic_energy(ints%hamiltonian, wfn%density, eao, partition, columns)
+   call reduce(energies, eao, bas%ao2at)
    call mpi_allreduce_sum(error, energies, comm)
    if (allocated(error)) return
-   energies(:) = energies + ts / size(energies)
-   allocate(eao(bas%nao), source=0.0_wp)
-   call get_electronic_energy(ints%hamiltonian, wfn%density, eao)
-   call reduce(energies, eao, bas%ao2at)
+   if (partition%get_nparts() > 1) energies(:) = energies + ts / size(energies)
 end subroutine next_scf
 
 
-subroutine get_electronic_energy(h0, density, energies)
+!> Assemble all population components in one small collective, for either
+!> column-distributed matrices or owner-computed contractions of full matrices.
+subroutine reduce_mulliken(wfn, error, comm)
+   type(wavefunction_type), intent(inout) :: wfn
+   type(error_type), allocatable, intent(inout) :: error
+   integer, intent(in) :: comm
+   real(wp) :: buffer(size(wfn%qsh) + size(wfn%dpat) + size(wfn%qpat))
+   integer :: nq, nd, nt
+
+   nq = size(wfn%qsh)
+   nd = size(wfn%dpat)
+   nt = size(wfn%qpat)
+   buffer(:nq) = reshape(wfn%qsh, [nq])
+   buffer(nq+1:nq+nd) = reshape(wfn%dpat, [nd])
+   buffer(nq+nd+1:) = reshape(wfn%qpat, [nt])
+   call mpi_allreduce_sum(error, buffer, comm)
+   if (allocated(error)) return
+   wfn%qsh(:, :) = reshape(buffer(:nq), shape(wfn%qsh))
+   wfn%dpat(:, :, :) = reshape(buffer(nq+1:nq+nd), shape(wfn%dpat))
+   wfn%qpat(:, :, :) = reshape(buffer(nq+nd+1:), shape(wfn%qpat))
+end subroutine reduce_mulliken
+
+
+subroutine get_electronic_energy(h0, density, energies, partition, columns)
    real(wp), intent(in) :: h0(:, :)
    real(wp), intent(in) :: density(:, :, :)
    real(wp), intent(inout) :: energies(:)
+   type(work_partition), intent(in), optional :: partition
+   integer, intent(in), optional :: columns(2)
 
-   integer :: iao, jao, spin
+   integer :: iao, jao, spin, offset
    real(wp) :: eiao
 
+   offset = 0
+   if (present(columns)) offset = columns(1) - 1
+
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(h0, density, energies) private(spin, iao, jao, eiao)
+   !$omp shared(h0, density, energies, partition, columns, offset) private(spin, iao, jao, eiao)
    do iao = 1, size(density, 2)
+      if (.not.present(columns)) then
+         if (.not.owns_index(partition, iao)) cycle
+      end if
       eiao = 0.0_wp
       do spin = 1, size(density, 3)
          do jao = 1, size(density, 1)
             eiao = eiao + h0(jao, iao) * density(jao, iao, spin)
          end do
       end do
-      energies(iao) = energies(iao) + eiao
+      energies(iao+offset) = energies(iao+offset) + eiao
    end do
 end subroutine get_electronic_energy
 

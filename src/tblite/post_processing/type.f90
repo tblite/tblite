@@ -38,6 +38,8 @@ module tblite_post_processing_type
    type, abstract :: post_processing_type
       !> Post-processing label
       character(len=:), allocatable :: label
+      !> Whether this consumer accepts column-distributed integral/wavefunction matrices
+      logical :: local_matrices = .false.
    contains
       !> Perform post-processing method
       procedure(compute), deferred :: compute

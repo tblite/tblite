@@ -32,7 +32,8 @@ module tblite_xtb_singlepoint
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
-   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error, &
+      & mpi_expand_matrix, mpi_expand_integrals
    use tblite_output_format, only : format_string
    use tblite_post_processing_list, only : post_processing_list
    use tblite_post_processing_type, only : collect_containers_caches
@@ -100,6 +101,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer :: prlevel
    real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
    real(wp) :: pnorm
+   real(wp) :: energy_parts(4)
    integer :: anneal_hold, anneal_steps
    integer, parameter :: default_anneal_hold = 50, default_anneal_steps = 50
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
@@ -117,6 +119,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(cache_list), allocatable :: caches
 
    integer :: iscf, spin
+   integer, allocatable :: columns(:)
 
    call timer%push("total")
 
@@ -134,6 +137,15 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    if (allocated(error)) then
       call ctx%set_error(error)
       return
+   end if
+
+   if (ctx%distributed_columns(calc%bas%nao)) then
+      columns = ctx%partition%get_columns(calc%bas%nao)
+      ! The initial guess is carried by shell charges and atomic multipoles;
+      ! neither of these two overwritten AO matrices is needed before SCF.
+      deallocate(wfn%coeff, wfn%density)
+      allocate(wfn%coeff(calc%bas%nao, columns(2)-columns(1)+1, wfn%nspin), &
+         & wfn%density(calc%bas%nao, columns(2)-columns(1)+1, wfn%nspin), source=0.0_wp)
    end if
 
    grad = present(gradient) .and. present(sigma)
@@ -168,9 +180,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(hcache)
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
-      if (prlevel > 1) then
-        call ctx%message(label_halogen // format_string(sum(exbond), real_format) // " Eh")
-      end if
       energies(:) = energies + exbond
       call timer%pop
    end if
@@ -180,9 +189,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(rcache)
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
-      if (prlevel > 1) then
-        call ctx%message(label_repulsion // format_string(sum(erep), real_format) // " Eh")
-      end if
       energies(:) = energies + erep
       call timer%pop
    end if
@@ -192,9 +198,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dcache)
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
-      if (prlevel > 1) then
-        call ctx%message(label_dispersion // format_string(sum(edisp), real_format) // " Eh")
-      end if
       energies(:) = energies + edisp
       call timer%pop
    end if
@@ -204,18 +207,34 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(icache)
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) then
-        call ctx%message(label_other // format_string(sum(eint), real_format) // " Eh")
-      end if
       energies(:) = energies + eint
       call timer%pop
    end if
 
    ! the non-selfconsistent contributions above are the partitioned ones
    call mpi_allreduce_sum(error, energies, ctx%comm)
+   ! Verbosity may differ between ranks, so reduce the diagnostic totals on
+   ! every rank before entering the output branch.
+   energy_parts = [sum(exbond), sum(erep), sum(edisp), sum(eint)]
+   call mpi_allreduce_sum(error, energy_parts, ctx%comm)
    if (allocated(error)) then
       call ctx%set_error(error)
       return
+   end if
+
+   if (prlevel > 1) then
+      if (allocated(calc%halogen)) then
+        call ctx%message(label_halogen // format_string(energy_parts(1), real_format) // " Eh")
+      end if
+      if (allocated(calc%repulsion)) then
+        call ctx%message(label_repulsion // format_string(energy_parts(2), real_format) // " Eh")
+      end if
+      if (allocated(calc%dispersion)) then
+        call ctx%message(label_dispersion // format_string(energy_parts(3), real_format) // " Eh")
+      end if
+      if (allocated(calc%interactions)) then
+        call ctx%message(label_other // format_string(energy_parts(4), real_format) // " Eh")
+      end if
    end if
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
@@ -252,11 +271,11 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
-   call new_integral(ints, calc%bas%nao)
+   call new_integral(ints, calc%bas%nao, columns)
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition, columns)
 
-   call mpi_allreduce_sum(error, ints, ctx%comm)
+   if (.not.ints%local) call mpi_allreduce_sum(error, ints, ctx%comm)
    if (allocated(error)) then
       call ctx%set_error(error)
       return
@@ -387,7 +406,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
 
-      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin))
+      allocate(wdensity(calc%bas%nao, size(wfn%density, 2), wfn%nspin))
       call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
       call mpi_sync_error(error, ctx%comm)
       if (allocated(error)) then
@@ -398,8 +417,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma, calc%partition)
+         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma, calc%partition, columns)
       call magnet_to_updown(wfn%density)
+      deallocate(wdensity)
 
       if (allocated(dcndr)) then
          call gemv(dcndr, dEdcn, gradient, beta=1.0_wp)
@@ -421,6 +441,21 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    call ctx%delete_solver(solver)
    if (ctx%failed()) return
 
+   if (present(post_process) .and. allocated(columns)) then
+      ! Localization and other dense-matrix consumers opt into materializing
+      ! full matrices. WBO and molecular moments operate directly on columns.
+      if (post_process%requires_full_matrices()) then
+         call mpi_expand_matrix(error, wfn%coeff, ctx%comm)
+         call mpi_expand_matrix(error, wfn%density, ctx%comm)
+         call mpi_expand_integrals(error, ints, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+         deallocate(columns)
+      end if
+   end if
+
    if (present(post_process) .and. present(results)) then
       call timer%push("post processing")
       allocate(caches)
@@ -441,8 +476,30 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
 
    if (calc%save_integrals .and. present(results)) then
+      if (ints%local) then
+         call mpi_expand_matrix(error, ints%overlap, ctx%comm)
+         call mpi_expand_matrix(error, ints%hamiltonian, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+      end if
       call move_alloc(ints%overlap, results%overlap)
       call move_alloc(ints%hamiltonian, results%hamiltonian)
+   end if
+
+   ! Preserve the library's full-wavefunction return contract, but only after
+   ! releasing all integral storage and the distributed solver workspaces.
+   ints = integral_type()
+   if (allocated(columns) .and. calc%retain_matrices) then
+      call mpi_expand_matrix(error, wfn%coeff, ctx%comm)
+      call mpi_expand_matrix(error, wfn%density, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+   else if (.not.calc%retain_matrices) then
+      deallocate(wfn%coeff, wfn%density)
    end if
 
    block
