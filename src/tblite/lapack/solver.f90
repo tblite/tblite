@@ -53,10 +53,24 @@ module tblite_lapack_solver
       procedure :: new
       !> Delete an electronic solver instance
       procedure :: delete
+      procedure :: distributed_columns
    end type lapack_solver
 
 
 contains
+
+logical function distributed_columns(self, n, comm) result(distribute)
+   class(lapack_solver), intent(in) :: self
+   integer, intent(in) :: n
+   integer, intent(in), optional :: comm
+   distribute = .false.
+   ! Existing subclasses may replace new() with a solver requiring square
+   ! arrays. Such factories must explicitly opt in to the new storage layout.
+   select type(self)
+   type is (lapack_solver)
+      if (present(comm)) distribute = distribute_diagonalization(n, comm)
+   end select
+end function distributed_columns
 
 
 !> Create new electronic solver

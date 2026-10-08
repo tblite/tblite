@@ -219,7 +219,7 @@ end subroutine get_selfenergy
 
 
 subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
-   & dpint, qpint, hamiltonian, partition)
+   & dpint, qpint, hamiltonian, partition, columns)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -242,13 +242,28 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    real(wp), intent(out) :: hamiltonian(:, :)
    !> Share of the neighbour list entries evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
+   !> Complete local columns; supersedes pair ownership when present
+   integer, intent(in), optional :: columns(2)
 
-   integer :: iat, jat, izp, jzp, itr, img, inl
+   integer :: iat, jat, izp, jzp, itr, img, inl, first, last, offset
+   logical :: local_atom(mol%nat)
    integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, nao, ij, iaosh, jaosh
    real(wp) :: rr, r2, vec(3), hij, shpolyi, shpoly, dtmpj(3), qtmpj(6)
    real(wp) :: mod_h0_fraction
    real(wp), allocatable :: stmp(:), dtmpi(:, :), qtmpi(:, :), block_overlap(:, :)
    type(diat_trafo_cache) :: dt_cache
+
+   first = 1
+   last = bas%nao
+   if (present(columns)) then
+      first = columns(1)
+      last = columns(2)
+   end if
+   offset = first - 1
+   local_atom = .false.
+   do iao = first, last
+      local_atom(bas%ao2at(iao)) = .true.
+   end do
 
    overlap(:, :) = 0.0_wp
    dpint(:, :, :) = 0.0_wp
@@ -264,10 +279,10 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), &
       & qtmpi(6, msao(bas%maxl)**2), block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
 
-   !$omp parallel do schedule(runtime) default(none) &
+   !$omp parallel do schedule(static, 1) default(none) &
    !$omp firstprivate(mod_h0_fraction) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
-   !$omp shared(partition) &
+   !$omp shared(partition, columns, first, last, offset, local_atom) &
    !$omp private(iat, jat, izp, jzp, itr, inl, img, is, js, ish, jsh, nsi, nsj, ii, jj) &
    !$omp private(iao, jao, iaosh, jaosh, nao, ij, r2, vec, hij, shpolyi, shpoly, rr) &
    !$omp private(stmp, dtmpi, qtmpi, dtmpj, qtmpj, block_overlap, dt_cache)
@@ -279,7 +294,11 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
          ! the offset into the neighbour list enumerates the diatomic blocks
-         if (.not.owns_index(partition, img+inl)) cycle
+         if (present(columns)) then
+            if (.not.(local_atom(iat) .or. local_atom(jat))) cycle
+         else
+            if (.not.owns_index(partition, img+inl)) cycle
+         end if
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -317,29 +336,31 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
                      ! Save overlap for possible diatomic frame trafo
                      if (h0%do_diat_scale) block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
 
-                     overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
-                        + stmp(ij)
-
-                     dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
-                        + dtmpi(:, ij)
-
-                     qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
-                        + qtmpi(:, ij)
-
-                     hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                        + stmp(ij) * hij
-
-                     if (iat /= jat) then
-                        overlap(ii+iao, jj+jao) = overlap(ii+iao, jj+jao) &
+                     if (ii+iao >= first .and. ii+iao <= last) then
+                        overlap(jj+jao, ii+iao-offset) = overlap(jj+jao, ii+iao-offset) &
                            + stmp(ij)
 
-                        dpint(:, ii+iao, jj+jao) = dpint(:, ii+iao, jj+jao) &
+                        dpint(:, jj+jao, ii+iao-offset) = dpint(:, jj+jao, ii+iao-offset) &
+                           + dtmpi(:, ij)
+
+                        qpint(:, jj+jao, ii+iao-offset) = qpint(:, jj+jao, ii+iao-offset) &
+                           + qtmpi(:, ij)
+
+                        hamiltonian(jj+jao, ii+iao-offset) = hamiltonian(jj+jao, ii+iao-offset) &
+                           + stmp(ij) * hij
+                     end if
+
+                     if (iat /= jat .and. jj+jao >= first .and. jj+jao <= last) then
+                        overlap(ii+iao, jj+jao-offset) = overlap(ii+iao, jj+jao-offset) &
+                           + stmp(ij)
+
+                        dpint(:, ii+iao, jj+jao-offset) = dpint(:, ii+iao, jj+jao-offset) &
                            + dtmpj
 
-                        qpint(:, ii+iao, jj+jao) = qpint(:, ii+iao, jj+jao) &
+                        qpint(:, ii+iao, jj+jao-offset) = qpint(:, ii+iao, jj+jao-offset) &
                            + qtmpj
 
-                        hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
+                        hamiltonian(ii+iao, jj+jao-offset) = hamiltonian(ii+iao, jj+jao-offset) &
                            + stmp(ij) * hij
                      end if
                   end do
@@ -383,11 +404,13 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
                         ij = jao + nao*(iao-1)
 
                         ! Add modified Hamiltonian contribution
-                        hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
-                           + block_overlap(jaosh+jao, iaosh+iao) * hij
+                        if (ii+iao >= first .and. ii+iao <= last) then
+                           hamiltonian(jj+jao, ii+iao-offset) = hamiltonian(jj+jao, ii+iao-offset) &
+                              + block_overlap(jaosh+jao, iaosh+iao) * hij
+                        end if
 
-                        if (iat /= jat) then
-                           hamiltonian(ii+iao, jj+jao) = hamiltonian(ii+iao, jj+jao) &
+                        if (iat /= jat .and. jj+jao >= first .and. jj+jao <= last) then
+                           hamiltonian(ii+iao, jj+jao-offset) = hamiltonian(ii+iao, jj+jao-offset) &
                               + block_overlap(jaosh+jao, iaosh+iao) * hij
                         end if
                      end do
@@ -399,7 +422,11 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
       end do
 
       ! Onsite contribution to the Hamiltonian
-      if (.not.owns_index(partition, iat)) cycle
+      if (present(columns)) then
+         if (.not.local_atom(iat)) cycle
+      else
+         if (.not.owns_index(partition, iat)) cycle
+      end if
       vec(:) = 0.0_wp
       do ish = 1, nsi
          ii = bas%iao_sh(is+ish)
@@ -413,18 +440,19 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
 
             nao = msao(bas%cgto(jsh, izp)%ang)
             do iao = 1, msao(bas%cgto(ish, izp)%ang)
+               if (ii+iao < first .or. ii+iao > last) cycle
                do jao = 1, nao
                   ij = jao + nao*(iao-1)
-                  overlap(jj+jao, ii+iao) = overlap(jj+jao, ii+iao) &
+                  overlap(jj+jao, ii+iao-offset) = overlap(jj+jao, ii+iao-offset) &
                      + stmp(ij)
 
-                  dpint(:, jj+jao, ii+iao) = dpint(:, jj+jao, ii+iao) &
+                  dpint(:, jj+jao, ii+iao-offset) = dpint(:, jj+jao, ii+iao-offset) &
                      + dtmpi(:, ij)
 
-                  qpint(:, jj+jao, ii+iao) = qpint(:, jj+jao, ii+iao) &
+                  qpint(:, jj+jao, ii+iao-offset) = qpint(:, jj+jao, ii+iao-offset) &
                      + qtmpi(:, ij)
 
-                  hamiltonian(jj+jao, ii+iao) = hamiltonian(jj+jao, ii+iao) &
+                  hamiltonian(jj+jao, ii+iao-offset) = hamiltonian(jj+jao, ii+iao-offset) &
                      + stmp(ij) * hij
                end do
             end do
@@ -437,7 +465,7 @@ end subroutine get_hamiltonian
 
 
 subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedcn, &
-      & pot, pmat, xmat, dEdcn, gradient, sigma, partition)
+      & pot, pmat, xmat, dEdcn, gradient, sigma, partition, columns)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points within a given realspace cutoff
@@ -468,8 +496,10 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
 
    !> Share of the neighbour list entries evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
+   integer, intent(in), optional :: columns(2)
 
-   integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin
+   integer :: iat, jat, izp, jzp, itr, img, inl, spin, nspin, first, last, offset
+   logical :: local_atom(mol%nat)
    integer :: ish, jsh, is, js, nsi, nsj, ii, jj, iao, jao, iaosh, jaosh, nao, ij
    real(wp) :: rr, r2, vec(3), hij, dG(3), hscale, hs
    real(wp) :: shpolyi, shpolyj, shpoly, dshpoly, dsv(3)
@@ -480,6 +510,17 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    real(wp), allocatable :: block_overlap(:, :), block_doverlap(:, :, :)
    type(diat_trafo_cache) :: dt_cache
 
+   first = 1
+   last = bas%nao
+   if (present(columns)) then
+      first = columns(1)
+      last = columns(2)
+   end if
+   offset = first - 1
+   local_atom = .false.
+   do iao = first, last
+      local_atom(bas%ao2at(iao)) = .true.
+   end do
    nspin = size(pmat, 3)
 
    ! Select if we construct the Hamiltonian with modifications
@@ -495,9 +536,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       & block_overlap(sdim(bas%maxl), sdim(bas%maxl)), &
       & block_doverlap(sdim(bas%maxl), sdim(bas%maxl), 3))
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
+   !$omp parallel do schedule(static, 1) default(none) reduction(+:dEdcn, gradient, sigma) &
    !$omp shared(nspin, mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
-   !$omp shared(partition) &
+   !$omp shared(partition, columns, first, last, offset, local_atom) &
    !$omp firstprivate(mod_h0_fraction) &
    !$omp private(iat, jat, izp, jzp, itr, is, js, ish, jsh, nsi, nsj, ii, jj) &
    !$omp private(iaosh, jaosh, iao, jao, nao, ij, inl, img, spin, r2, vec) &
@@ -506,6 +547,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
    !$omp private(rr, shpolyi, shpolyj, shpoly, dshpoly, dsv) &
    !$omp private(block_overlap, block_doverlap, dt_cache)
    do iat = 1, mol%nat
+      if (present(columns)) then
+         if (.not.local_atom(iat)) cycle
+      end if
       izp = mol%id(iat)
       is = bas%ish_at(iat)
       nsi = bas%nsh_id(izp)
@@ -513,7 +557,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       do img = 1, list%nnl(iat)
          jat = list%nlat(img+inl)
          ! the offset into the neighbour list enumerates the diatomic blocks
-         if (.not.owns_index(partition, img+inl)) cycle
+         if (.not.present(columns)) then
+            if (.not.owns_index(partition, img+inl)) cycle
+         end if
          itr = list%nltr(img+inl)
          jzp = mol%id(jat)
          js = bas%ish_at(jat)
@@ -562,15 +608,16 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                         block_overlap(jaosh+jao, iaosh+iao) = stmp(ij)
                         block_doverlap(jaosh+jao, iaosh+iao, :) = dstmp(:, ij)
                      end if
+                     if (ii+iao < first .or. ii+iao > last) cycle
                      do spin = 1, nspin
-                        pij = pmat(jj+jao, ii+iao, spin)
+                        pij = pmat(jj+jao, ii+iao-offset, spin)
                         sval = - pij * (pot%vao(jj+jao, spin) + pot%vao(ii+iao, spin))
 
                         dG(:) = dG + sval * dstmp(:, ij)
                      end do
-                     pij = pmat(jj+jao, ii+iao, 1)
+                     pij = pmat(jj+jao, ii+iao-offset, 1)
                      hpij = pij * hij
-                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao, 1)
+                     sval = 2*hpij - 2*xmat(jj+jao, ii+iao-offset, 1)
 
                      dG(:) = dG + sval * dstmp(:, ij) &
                         + 2*hpij*stmp(ij) * dsv &
@@ -579,8 +626,8 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                         - pij * matmul(dqtmpi(:, :, ij), pot%vqp(:, iat, 1)) &
                         - pij * matmul(dqtmpj(:, :, ij), pot%vqp(:, jat, 1))
 
-                     dcni = dcni + dhdcni * pmat(jj+jao, ii+iao, 1) * stmp(ij)
-                     dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao, 1) * stmp(ij)
+                     dcni = dcni + dhdcni * pmat(jj+jao, ii+iao-offset, 1) * stmp(ij)
+                     dcnj = dcnj + dhdcnj * pmat(jj+jao, ii+iao-offset, 1) * stmp(ij)
                   end do
                end do
             end do
@@ -628,8 +675,9 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
                      do jao = 1, nao
                         ij = jao + nao*(iao-1)
 
+                        if (ii+iao < first .or. ii+iao > last) cycle
                         ! Add only H0 gradient with the modified overlap
-                        pij = pmat(jj+jao, ii+iao, 1)
+                        pij = pmat(jj+jao, ii+iao-offset, 1)
                         hpij = 2*pij * hij
 
                         ! Accumulate gradient from overlap and shell-polynomials
@@ -665,13 +713,16 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       end do
 
       ! Onsite contributions
-      if (.not.owns_index(partition, iat)) cycle
+      if (.not.present(columns)) then
+         if (.not.owns_index(partition, iat)) cycle
+      end if
       do ish = 1, bas%nsh_id(izp)
          ii = bas%iao_sh(is+ish)
          dhdcni = dsedcn(is+ish)
          dcni = 0.0_wp
          do iao = 1, msao(bas%cgto(ish, izp)%ang)
-            dcni = dcni + dhdcni * pmat(ii+iao, ii+iao, 1)
+            if (ii+iao < first .or. ii+iao > last) cycle
+            dcni = dcni + dhdcni * pmat(ii+iao, ii+iao-offset, 1)
          end do
          dEdcn(iat) = dEdcn(iat) + dcni
       end do

@@ -33,7 +33,7 @@ module tblite_ceh_singlepoint
    use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
    use tblite_output_format, only: format_string
    use tblite_scf_iterator, only: next_density, get_qat_from_qsh
-   use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1
+   use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1, reduce_potential
    use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
@@ -205,7 +205,7 @@ contains
       end if
 
       ! Add effective Hamiltonian to potential
-      call mpi_allreduce_sum(error, pot, ctx%comm)
+      call reduce_potential(error, pot, ctx%comm)
       if (allocated(error)) then
          call ctx%set_error(error)
          return

@@ -22,12 +22,14 @@ module tblite_coulomb_charge_effective
    use mctc_env, only : wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use mctc_io_math, only : matdet_3x3, matinv_3x3
+   use mctc_io_math, only : matdet_3x3
+   use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_charge_type, only : coulomb_charge_type
-   use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
+   use tblite_coulomb_ewald, only : get_dir_cutoff, ewald_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_partition, only : work_partition, owns_pair
+   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
@@ -47,8 +49,22 @@ module tblite_coulomb_charge_effective
       procedure :: get_coulomb_matrix
       !> Evaluate uncontracted derivatives of Coulomb matrix
       procedure :: get_coulomb_derivs
+      !> Contract derivatives directly for forces and strain
+      procedure :: get_gradient
    end type effective_coulomb
 
+
+   !> Thread-local output of the same pair derivative kernels: either forces
+   !> and strain, or the full potential Jacobian required by response methods.
+   type :: derivative_buffer
+      real(wp), allocatable :: dr(:, :, :), dL(:, :, :), trace(:, :), gradient(:, :)
+      real(wp) :: sigma(3, 3)
+   end type derivative_buffer
+
+   !> Geometry shared by all shell combinations of one periodic atom pair.
+   type :: ko_distances
+      real(wp), allocatable :: vec(:, :), r2(:), invr(:), invr3(:), invr5(:)
+   end type ko_distances
 
    abstract interface
       !> Average Hubbard parameter for two shells
@@ -63,7 +79,6 @@ module tblite_coulomb_charge_effective
       end function average_interface
    end interface
 
-   real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
    real(wp), parameter :: conv = epsilon(0.0_wp)
@@ -192,8 +207,9 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
    amat(:, :) = 0.0_wp
 
     if (any(mol%periodic)) then
+       call cache%charge_ewald%update(mol%lattice, cache%alpha, conv, abs(self%gexp-2.0_wp) < eps)
        call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-          & cache%wsc, cache%alpha, amat, self%partition)
+          & cache%wsc, cache%alpha, cache%charge_ewald, amat, self%partition)
     else
       call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat, &
          & self%partition)
@@ -218,28 +234,6 @@ subroutine get_dir_trans(lattice, alpha, conv, trans)
 end subroutine get_dir_trans
 
 
-!> Get reciprocal lattice translations
-subroutine get_rec_trans(lattice, alpha, volume, conv, trans)
-   !> Lattice parameters
-   real(wp), intent(in) :: lattice(:, :)
-   !> Parameter for Ewald summation
-   real(wp), intent(in) :: alpha
-   !> Cell volume
-   real(wp), intent(in) :: volume
-   !> Tolerance for Ewald summation
-   real(wp), intent(in) :: conv
-   !> Translation vectors
-   real(wp), allocatable, intent(out) :: trans(:, :)
-
-   real(wp) :: rec_lat(3, 3)
-
-   rec_lat = twopi*transpose(matinv_3x3(lattice))
-   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, conv), trans)
-   trans = trans(:, 2:)
-
-end subroutine get_rec_trans
-
-
 !> Evaluate Coulomb matrix for finite systems
 subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat, partition)
    !> Molecular structure data
@@ -260,7 +254,8 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat, partition)
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), r1, r1g, gam, tmp
 
-   !$omp parallel do default(none) schedule(runtime) &
+   ! Cyclic rows balance the triangular pair loop without changing MPI ownership.
+   !$omp parallel do default(none) schedule(static, 1) &
    !$omp shared(amat, mol, nshell, offset, hubbard, gexp, partition) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, r1, r1g, tmp)
    do iat = 1, mol%nat
@@ -296,9 +291,10 @@ subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat, partition)
 end subroutine get_amat_0d
 
 !> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, partition)
+subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, ewald, amat, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   type(ewald_cache), intent(in) :: ewald
    !> Number of shells per atom
    integer, intent(in) :: nshell(:)
    !> Index offset for each atom
@@ -317,21 +313,19 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
-   real(wp) :: vec(3), gam, dtmp, rtmp, stmp, vol, aval
+   real(wp) :: vec(3), gam, dtmp, rtmp, stmp, aval
    real(wp) :: weight(size(wsc%tridx, 1))
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   real(wp), allocatable :: dtrans(:, :)
 
    if (abs(gexp - 2.0_wp) < eps) then
-      call get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
+      call get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, ewald, amat, partition)
       return
    end if
 
-   vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
-   !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, partition) &
+   !$omp parallel do default(none) schedule(static, 1) shared(amat) &
+   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, ewald, alpha, partition) &
    !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, weight, vec, dtmp, rtmp, stmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
@@ -343,7 +337,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_wignerseitz_weights(wsc, jat, iat, vec, weight)
          call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
-         call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+         call get_amat_rec_3d(vec, ewald, rtmp)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
             do ish = 1, nshell(iat)
@@ -362,7 +356,7 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
       vec = 0.0_wp
       call get_wignerseitz_weights(wsc, iat, iat, vec, weight)
       call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
-      call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+      call get_amat_rec_3d(vec, ewald, rtmp)
       rtmp = rtmp - 2 * alpha / sqrtpi
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
@@ -386,8 +380,9 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
 end subroutine get_amat_3d
 
 !> Evaluate the periodic Klopman-Ohno matrix with the generalized Ewald sum
-subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
+subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, ewald, amat, partition)
    type(structure_type), intent(in) :: mol
+   type(ewald_cache), intent(in) :: ewald
    integer, intent(in) :: nshell(:), offset(:)
    real(wp), intent(in) :: hubbard(:, :, :, :), alpha
    real(wp), intent(inout) :: amat(:, :)
@@ -395,19 +390,17 @@ subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vec(3), gam, val, vol, s1, s3, sr
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :), strans(:, :)
-   real(wp), allocatable :: r2(:)
+   real(wp), allocatable :: dtrans(:, :), strans(:, :)
+   type(ko_distances) :: distances
 
    vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
    call get_lattice_points([.true.], mol%lattice, ko_cutoff, strans)
 
    !$omp parallel default(none) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, alpha, vol, dtrans, rtrans, strans, partition) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, val, s1, s3, sr, r2)
-   allocate(r2(size(strans, 2)))
-   !$omp do schedule(runtime)
+   !$omp shared(mol, nshell, offset, hubbard, alpha, vol, dtrans, ewald, strans, partition) &
+   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, val, s1, s3, sr, distances)
+   !$omp do schedule(static, 1)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -416,13 +409,13 @@ subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
-         call get_ko_distances(vec, strans, r2)
-         call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
+         call get_ko_distances(vec, strans, distances)
+         call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, ewald, distances, &
             & .false., s1, s3)
          do ish = 1, nshell(iat)
             do jsh = 1, nshell(jat)
                gam = hubbard(jsh, ish, jzp, izp)
-               call get_amat_ko_short_3d(gam, r2, sr)
+               call get_amat_ko_short_3d(gam, distances, sr)
                val = s1 + sr - 0.5_wp*s3/(gam*gam)
                amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + val
                amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + val
@@ -432,131 +425,110 @@ subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
 
       if (.not.owns_pair(partition, iat, iat)) cycle
       vec = 0.0_wp
-      call get_ko_distances(vec, strans, r2)
-      call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
+      call get_ko_distances(vec, strans, distances)
+      call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, ewald, distances, &
          & .true., s1, s3)
       do ish = 1, nshell(iat)
          do jsh = 1, ish-1
             gam = hubbard(jsh, ish, izp, izp)
-            call get_amat_ko_short_3d(gam, r2, sr)
+            call get_amat_ko_short_3d(gam, distances, sr)
             val = s1 + sr - 0.5_wp*s3/(gam*gam) + gam
             amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + val
             amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + val
          end do
          gam = hubbard(ish, ish, izp, izp)
-         call get_amat_ko_short_3d(gam, r2, sr)
+         call get_amat_ko_short_3d(gam, distances, sr)
          val = s1 + sr - 0.5_wp*s3/(gam*gam) + gam
          amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + val
       end do
    end do
    !$omp end do
-   deallocate(r2)
+   if (allocated(distances%r2)) then
+      deallocate(distances%vec, distances%r2, distances%invr, distances%invr3, distances%invr5)
+   end if
    !$omp end parallel
 end subroutine get_amat_ko_3d
 
 !> Shell-independent generalized Ewald sums for one atom pair
-subroutine get_amat_ko_ewald_3d(rij, alpha, vol, dtrans, rtrans, strans, &
+subroutine get_amat_ko_ewald_3d(rij, alpha, vol, dtrans, ewald, distances, &
       & onsite, s1, s3)
    real(wp), intent(in) :: rij(3), alpha, vol
-   real(wp), intent(in) :: dtrans(:, :), rtrans(:, :), strans(:, :)
+   real(wp), intent(in) :: dtrans(:, :)
+   type(ko_distances), intent(in) :: distances
+   type(ewald_cache), intent(in) :: ewald
    logical, intent(in) :: onsite
    real(wp), intent(out) :: s1, s3
 
    integer :: itr
-   real(wp) :: vec(3), r1, r2, x, k, tmp
+   real(wp) :: vec(3), r1, r2, k, tmp, phase
 
    call get_amat_dir_3d(rij, alpha, dtrans, s1)
-   call get_amat_rec_3d(rij, vol, alpha, rtrans, tmp)
-   s1 = s1 + tmp
    if (onsite) s1 = s1 - 2.0_wp*alpha/sqrtpi
 
    s3 = 0.0_wp
-   do itr = 1, size(strans, 2)
-      vec = rij + strans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      r2 = r1*r1
+   do itr = 1, size(distances%r2)
+      if (distances%invr(itr) == 0.0_wp) cycle
+      vec = distances%vec(:, itr)
+      r2 = distances%r2(itr)
+      r1 = sqrt(r2)
       s3 = s3 + erfc(alpha*r1)/(r2*r1) &
          & + 2.0_wp*alpha*exp(-alpha*alpha*r2)/(sqrtpi*r2)
    end do
 
-   do itr = 1, size(rtrans, 2)
-      vec = rtrans(:, itr)
-      x = dot_product(vec, vec)/(4.0_wp*alpha*alpha)
-      s3 = s3 + 2.0_wp*pi/vol*expint_e1(x)*cos(dot_product(rij, vec))
+   tmp = 0.0_wp
+   do itr = 1, size(ewald%weight)
+      phase = cos(dot_product(rij, ewald%vec(:, itr)))
+      tmp = tmp + ewald%weight(itr)*phase
+      s3 = s3 + ewald%weight3(itr)*phase
    end do
+   s1 = s1 + tmp
    k = alpha/sqrtpi
    s3 = s3 + 4.0_wp*pi/vol*(log(k) + s3_constant)
    if (onsite) s3 = s3 - 4.0_wp*pi/3.0_wp*k**3
 end subroutine get_amat_ko_ewald_3d
 
 !> Distances from an atom pair to all real-space translations
-subroutine get_ko_distances(rij, trans, r2)
+subroutine get_ko_distances(rij, trans, distances)
    real(wp), intent(in) :: rij(3), trans(:, :)
-   real(wp), intent(out) :: r2(:)
+   type(ko_distances), intent(inout) :: distances
+   integer :: itr, ntrans
+   real(wp) :: r1, g1
 
-   integer :: itr
-   real(wp) :: vec(3)
-
-   do itr = 1, size(trans, 2)
-      vec = rij + trans(:, itr)
-      r2(itr) = dot_product(vec, vec)
+   ntrans = size(trans, 2)
+   if (.not.allocated(distances%r2)) then
+      allocate(distances%vec(3, ntrans), distances%r2(ntrans), distances%invr(ntrans), &
+         & distances%invr3(ntrans), distances%invr5(ntrans))
+   end if
+   do itr = 1, ntrans
+      distances%vec(:, itr) = rij + trans(:, itr)
+      distances%r2(itr) = dot_product(distances%vec(:, itr), distances%vec(:, itr))
+      r1 = sqrt(distances%r2(itr))
+      g1 = 0.0_wp
+      if (r1 >= eps) g1 = 1.0_wp/r1
+      distances%invr(itr) = g1
+      distances%invr3(itr) = g1*g1*g1
+      distances%invr5(itr) = distances%invr3(itr)*g1*g1
    end do
 end subroutine get_ko_distances
 
 !> Hardness-dependent short-range Klopman-Ohno residual
-subroutine get_amat_ko_short_3d(gam, r2, val)
-   real(wp), intent(in) :: gam, r2(:)
+subroutine get_amat_ko_short_3d(gam, distances, val)
+   real(wp), intent(in) :: gam
+   type(ko_distances), intent(in) :: distances
    real(wp), intent(out) :: val
-
    integer :: itr
-   real(wp) :: r1
+   real(wp) :: gam2
 
+   gam2 = 1.0_wp/(gam*gam)
    val = 0.0_wp
-   do itr = 1, size(r2)
-      r1 = sqrt(r2(itr))
-      if (r1 < eps) cycle
-      val = val + 1.0_wp/sqrt(r2(itr) + 1.0_wp/(gam*gam)) - 1.0_wp/r1 &
-         & + 0.5_wp/(gam*gam*r2(itr)*r1)
+   do itr = 1, size(distances%r2)
+      if (distances%invr(itr) == 0.0_wp) cycle
+      val = val + 1.0_wp/sqrt(distances%r2(itr) + gam2) - distances%invr(itr) &
+         & + 0.5_wp*gam2*distances%invr3(itr)
    end do
 end subroutine get_amat_ko_short_3d
 
-!> Exponential integral E1(x) for positive x
-pure function expint_e1(x) result(e1)
-   real(wp), intent(in) :: x
-   real(wp) :: e1
 
-   integer :: iter
-   real(wp) :: term, sum, a, b, c, d, delta, h
-   real(wp), parameter :: fpmin = 10.0_wp*tiny(1.0_wp)
-
-   if (x <= 1.0_wp) then
-      term = 1.0_wp
-      sum = 0.0_wp
-      do iter = 1, 100
-         term = -term*x/real(iter, wp)
-         sum = sum + term/real(iter, wp)
-         if (abs(term) < epsilon(1.0_wp)*abs(sum)) exit
-      end do
-      e1 = -euler_gamma - log(x) - sum
-   else
-      b = x + 1.0_wp
-      c = 1.0_wp/fpmin
-      d = 1.0_wp/b
-      h = d
-      do iter = 1, 100
-         a = -real(iter*iter, wp)
-         b = b + 2.0_wp
-         d = 1.0_wp/max(abs(a*d + b), fpmin)*sign(1.0_wp, a*d + b)
-         c = b + a/c
-         if (abs(c) < fpmin) c = fpmin
-         delta = c*d
-         h = h*delta
-         if (abs(delta - 1.0_wp) < epsilon(1.0_wp)) exit
-      end do
-      e1 = exp(-x)*h
-   end if
-end function expint_e1
 
 !> Calculate direct space Ewald contribution for a pair under 3D periodic boundary conditions
 subroutine get_amat_dir_3d(rij, alp, trans, amat)
@@ -605,36 +577,122 @@ subroutine get_amat_wsc_3d(rij, gam, gexp, amat)
 end subroutine get_amat_wsc_3d
 
 !> Calculate reciprocal space contributions for a pair under 3D periodic boundary conditions
-subroutine get_amat_rec_3d(rij, vol, alp, trans, amat)
-   !> Distance between pair
+subroutine get_amat_rec_3d(rij, ewald, amat)
    real(wp), intent(in) :: rij(3)
-   !> Volume of cell
-   real(wp), intent(in) :: vol
-   !> Convergence factor
-   real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
-   !> Interaction matrix element
+   type(ewald_cache), intent(in) :: ewald
    real(wp), intent(out) :: amat
-
    integer :: itr
-   real(wp) :: fac, vec(3), g2, gv, expk, cosk
 
    amat = 0.0_wp
-   fac = 4*pi/vol
-
-   do itr = 1, size(trans, 2)
-      vec(:) = trans(:, itr)
-      g2 = dot_product(vec, vec)
-      if (g2 < eps) cycle
-      gv = dot_product(rij, vec)
-      expk = fac * exp(-0.25_wp*g2/(alp*alp))/g2
-      cosk = cos(gv) * expk
-      amat = amat + cosk
+   do itr = 1, size(ewald%weight)
+      amat = amat + cos(dot_product(rij, ewald%vec(:, itr)))*ewald%weight(itr)
    end do
-
 end subroutine get_amat_rec_3d
 
+
+!> Accumulate forces without materializing a potential Jacobian.
+subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
+   class(effective_coulomb), intent(in) :: self
+   type(structure_type), intent(in) :: mol
+   type(container_cache), intent(inout) :: cache
+   type(wavefunction_type), intent(in) :: wfn
+   real(wp), contiguous, intent(inout) :: gradient(:, :), sigma(:, :)
+
+   select type(ptr => cache%raw)
+   type is(coulomb_cache)
+      call get_derivatives(self, mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), &
+         & gradient=gradient, sigma=sigma)
+   end select
+end subroutine get_gradient
+
+!> Both consumers use identical pair derivatives and work ownership.
+subroutine get_derivatives(self, mol, cache, qat, qsh, dadr, dadL, atrace, gradient, sigma)
+   class(effective_coulomb), intent(in) :: self
+   type(structure_type), intent(in) :: mol
+   type(coulomb_cache), intent(inout) :: cache
+   real(wp), intent(in) :: qat(:), qsh(:)
+   real(wp), intent(out), optional :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
+   real(wp), intent(inout), optional :: gradient(:, :), sigma(:, :)
+   real(wp) :: qvec(sum(self%nshell))
+
+   if (self%shell_resolved) then
+      qvec(:) = qsh
+   else
+      qvec(:) = qat
+   end if
+   if (any(mol%periodic)) then
+      call cache%charge_ewald%update(mol%lattice, cache%alpha, conv, abs(self%gexp-2.0_wp) < eps)
+      call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
+         & cache%wsc, cache%alpha, cache%charge_ewald, qvec, dadr, dadL, atrace, &
+         & self%partition, gradient, sigma)
+   else
+      call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qvec, &
+         & dadr, dadL, atrace, self%partition, gradient, sigma)
+   end if
+end subroutine get_derivatives
+
+subroutine new_derivative_buffer(buffer, nat, nsh, contracted)
+   type(derivative_buffer), intent(out) :: buffer
+   integer, intent(in) :: nat, nsh
+   logical, intent(in) :: contracted
+
+   if (contracted) then
+      allocate(buffer%gradient(3, nat), source=0.0_wp)
+      buffer%sigma = 0.0_wp
+   else
+      allocate(buffer%dr(3, nat, nsh), buffer%dL(3, 3, nsh), buffer%trace(3, nsh), source=0.0_wp)
+   end if
+end subroutine new_derivative_buffer
+
+!> Add an unordered shell pair; diagonal pairs carry half the strain weight.
+pure subroutine add_derivative(buffer, iat, jat, ii, jj, qvec, dg, ds)
+   type(derivative_buffer), intent(inout) :: buffer
+   integer, intent(in) :: iat, jat, ii, jj
+   real(wp), intent(in) :: qvec(:), dg(3), ds(3, 3)
+   real(wp) :: qq
+
+   if (allocated(buffer%gradient)) then
+      qq = qvec(ii)*qvec(jj)
+      if (iat /= jat) then
+         buffer%gradient(:, iat) = buffer%gradient(:, iat) + dg*qq
+         buffer%gradient(:, jat) = buffer%gradient(:, jat) - dg*qq
+      end if
+      if (ii == jj) qq = 0.5_wp*qq
+      buffer%sigma = buffer%sigma + ds*qq
+   else
+      if (iat /= jat) then
+         buffer%trace(:, ii) = buffer%trace(:, ii) + dg*qvec(jj)
+         buffer%trace(:, jj) = buffer%trace(:, jj) - dg*qvec(ii)
+         buffer%dr(:, iat, jj) = buffer%dr(:, iat, jj) + dg*qvec(ii)
+         buffer%dr(:, jat, ii) = buffer%dr(:, jat, ii) - dg*qvec(jj)
+      end if
+      buffer%dL(:, :, jj) = buffer%dL(:, :, jj) + ds*qvec(ii)
+      if (ii /= jj) buffer%dL(:, :, ii) = buffer%dL(:, :, ii) + ds*qvec(jj)
+   end if
+end subroutine add_derivative
+
+!> Only a thread reduction is performed here; MPI sums the local results later.
+subroutine reduce_derivatives(buffer, dadr, dadL, atrace, gradient, sigma)
+   type(derivative_buffer), intent(inout) :: buffer
+   real(wp), intent(inout), optional :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
+   real(wp), intent(inout), optional :: gradient(:, :), sigma(:, :)
+
+   !$omp critical (coulomb_derivatives)
+   if (allocated(buffer%gradient)) then
+      gradient = gradient + buffer%gradient
+      sigma = sigma + buffer%sigma
+   else
+      dadr = dadr + buffer%dr
+      dadL = dadL + buffer%dL
+      atrace = atrace + buffer%trace
+   end if
+   !$omp end critical (coulomb_derivatives)
+   if (allocated(buffer%gradient)) then
+      deallocate(buffer%gradient)
+   else
+      deallocate(buffer%dr, buffer%dL, buffer%trace)
+   end if
+end subroutine reduce_derivatives
 
 !> Evaluate uncontracted derivatives of Coulomb matrix
 subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
@@ -654,30 +712,14 @@ subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
    real(wp), contiguous, intent(out) :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
    real(wp), contiguous, intent(out) :: atrace(:, :)
-    if(self%shell_resolved) then
-       if (any(mol%periodic)) then
-          call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-             & cache%wsc, cache%alpha, qsh, dadr, dadL, atrace, self%partition)
-       else
-          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qsh, &
-             & dadr, dadL, atrace, self%partition)
-       end if
-    else
-       if (any(mol%periodic)) then
-          call get_damat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-             & cache%wsc, cache%alpha, qat, dadr, dadL, atrace, self%partition)
-       else
-          call get_damat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, qat, &
-             & dadr, dadL, atrace, self%partition)
-       end if
-    end if
+   call get_derivatives(self, mol, cache, qat, qsh, dadr, dadL, atrace)
 
 end subroutine get_coulomb_derivs
 
 
 !> Evaluate uncontracted derivatives of Coulomb matrix for finite system
 subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, atrace, &
-      & partition)
+      & partition, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
@@ -691,30 +733,31 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
    !> Partial charge vector
    real(wp), intent(in) :: qvec(:)
    !> Derivative of interactions with respect to cartesian displacements
-   real(wp), intent(out) :: dadr(:, :, :)
+   real(wp), intent(out), optional :: dadr(:, :, :)
    !> Derivative of interactions with respect to strain deformations
-   real(wp), intent(out) :: dadL(:, :, :)
+   real(wp), intent(out), optional :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
-   real(wp), intent(out) :: atrace(:, :)
+   real(wp), intent(out), optional :: atrace(:, :)
    !> Share of the atom pairs evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
+   real(wp), intent(inout), optional :: gradient(:, :), sigma(:, :)
 
-   integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
+   integer :: iat, jat, izp, jzp, ii, jj, ish, jsh, b
    real(wp) :: vec(3), r1, gam, dtmp, dG(3), dS(3, 3)
-   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
+   type(derivative_buffer) :: buffer
 
-   atrace(:, :) = 0.0_wp
-   dadr(:, :, :) = 0.0_wp
-   dadL(:, :, :) = 0.0_wp
+   if (present(dadr)) then
+      atrace = 0.0_wp
+      dadr = 0.0_wp
+      dadL = 0.0_wp
+   end if
 
    !$omp parallel default(none) &
-   !$omp shared(atrace, dadr, dadL, mol, qvec, hubbard, nshell, offset, gexp, partition) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp) &
-   !$omp private(itrace, didr, didL)
-   allocate(itrace, source=atrace)
-   allocate(didr, source=dadr)
-   allocate(didL, source=dadL)
-   !$omp do schedule(runtime)
+   !$omp shared(atrace, dadr, dadL, gradient, sigma, mol, qvec, hubbard, nshell, offset, gexp, partition) &
+   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, r1, vec, dG, dS, dtmp, b) &
+   !$omp private(buffer)
+   call new_derivative_buffer(buffer, mol%nat, size(qvec), present(gradient))
+   !$omp do schedule(static, 1)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -730,32 +773,25 @@ subroutine get_damat_0d(mol, nshell, offset, hubbard, gexp, qvec, dadr, dadL, at
                dtmp = 1.0_wp / (r1**gexp + gam**(-gexp))
                dtmp = -r1**(gExp-2.0_wp) * dtmp * dtmp**(1.0_wp/gExp)
                dG = dtmp*vec
-               dS = spread(dG, 1, 3) * spread(vec, 2, 3)
-               itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
-               itrace(:, jj+jsh) = -dG*qvec(ii+ish) + itrace(:, jj+jsh)
-               didr(:, iat, jj+jsh) = +dG*qvec(ii+ish) + didr(:, iat, jj+jsh)
-               didr(:, jat, ii+ish) = -dG*qvec(jj+jsh) + didr(:, jat, ii+ish)
-               didL(:, :, jj+jsh) = +dS*qvec(ii+ish) + didL(:, :, jj+jsh)
-               didL(:, :, ii+ish) = +dS*qvec(jj+jsh) + didL(:, :, ii+ish)
+               do b = 1, 3
+                  dS(:, b) = dG*vec(b)
+               end do
+               call add_derivative(buffer, iat, jat, ii+ish, jj+jsh, qvec, dG, dS)
             end do
          end do
       end do
    end do
-   !$omp critical (get_damat_0d_)
-   atrace(:, :) = atrace + itrace
-   dadr(:, :, :) = dadr + didr
-   dadL(:, :, :) = dadL + didL
-   !$omp end critical (get_damat_0d_)
-   deallocate(didL, didr, itrace)
+   call reduce_derivatives(buffer, dadr, dadL, atrace, gradient, sigma)
    !$omp end parallel
 
 end subroutine get_damat_0d
 
 !> Evaluate uncontracted derivatives of Coulomb matrix for 3D periodic system
-subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
-      & dadr, dadL, atrace, partition)
+subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, ewald, qvec, &
+      & dadr, dadL, atrace, partition, gradient, sigma)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   type(ewald_cache), intent(in) :: ewald
    !> Number of shells for each atom
    integer, intent(in) :: nshell(:)
    !> Index offset for each shell
@@ -771,47 +807,46 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
    !> Partial charge vector
    real(wp), intent(in) :: qvec(:)
    !> Derivative of interactions with respect to cartesian displacements
-   real(wp), intent(out) :: dadr(:, :, :)
+   real(wp), intent(out), optional :: dadr(:, :, :)
    !> Derivative of interactions with respect to strain deformations
-   real(wp), intent(out) :: dadL(:, :, :)
+   real(wp), intent(out), optional :: dadL(:, :, :)
    !> On-site derivatives with respect to cartesian displacements
-   real(wp), intent(out) :: atrace(:, :)
+   real(wp), intent(out), optional :: atrace(:, :)
    !> Share of the atom pairs evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
+   real(wp), intent(inout), optional :: gradient(:, :), sigma(:, :)
 
    integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
    logical :: need_weight_energy
-   real(wp) :: vol, gam, stmp, vec(3), dG(3), dS(3, 3)
+   real(wp) :: gam, stmp, vec(3), dG(3), dS(3, 3)
    real(wp) :: dGd(3), dSd(3, 3), dGr(3), dSr(3, 3), dGw(3), dSw(3, 3)
    real(wp) :: weight(size(wsc%tridx, 1))
    real(wp) :: dwdr(3, size(wsc%tridx, 1)), dwdL(3, 3, size(wsc%tridx, 1))
-   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
+   type(derivative_buffer) :: buffer
+   real(wp), allocatable :: dtrans(:, :)
 
-   atrace(:, :) = 0.0_wp
-   dadr(:, :, :) = 0.0_wp
-   dadL(:, :, :) = 0.0_wp
+   if (present(dadr)) then
+      atrace = 0.0_wp
+      dadr = 0.0_wp
+      dadL = 0.0_wp
+   end if
 
    if (abs(gexp - 2.0_wp) < eps) then
-      call get_damat_ko_3d(mol, nshell, offset, hubbard, alpha, qvec, dadr, &
-         & dadL, atrace, partition)
+      call get_damat_ko_3d(mol, nshell, offset, hubbard, alpha, ewald, qvec, dadr, &
+         & dadL, atrace, partition, gradient, sigma)
       return
    end if
 
-   vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
-   !$omp parallel default(none) shared(atrace, dadr, dadL) &
-   !$omp shared(mol, wsc, alpha, vol, dtrans, rtrans, qvec, hubbard, nshell, offset, gexp) &
+   !$omp parallel default(none) shared(atrace, dadr, dadL, gradient, sigma) &
+   !$omp shared(mol, wsc, alpha, dtrans, ewald, qvec, hubbard, nshell, offset, gexp) &
    !$omp shared(partition) &
    !$omp private(iat, izp, jat, jzp, img, ii, jj, ish, jsh, gam, stmp, need_weight_energy) &
    !$omp private(weight, dwdr, dwdL) &
-   !$omp private(vec, dG, dS, dGr, dSr, dGd, dSd, dGw, dSw, itrace, didr, didL)
-   allocate(itrace, source=atrace)
-   allocate(didr, source=dadr)
-   allocate(didL, source=dadL)
-   !$omp do schedule(runtime)
+   !$omp private(vec, dG, dS, dGr, dSr, dGd, dSd, dGw, dSw, buffer)
+   call new_derivative_buffer(buffer, mol%nat, size(qvec), present(gradient))
+   !$omp do schedule(static, 1)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -824,7 +859,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
          need_weight_energy = any(dwdr(:, :wsc%nimg(jat, iat)) /= 0.0_wp) &
             & .or. any(dwdL(:, :, :wsc%nimg(jat, iat)) /= 0.0_wp)
          call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
-         call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
+         call get_damat_rec_3d(vec, ewald, dGr, dSr)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
             do ish = 1, nshell(iat)
@@ -835,12 +870,7 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
                   call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
                   dG = (dGd + dGr + dGw) * weight(img) + stmp*dwdr(:, img)
                   dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
-                  itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
-                  itrace(:, jj+jsh) = -dG*qvec(ii+ish) + itrace(:, jj+jsh)
-                  didr(:, iat, jj+jsh) = +dG*qvec(ii+ish) + didr(:, iat, jj+jsh)
-                  didr(:, jat, ii+ish) = -dG*qvec(jj+jsh) + didr(:, jat, ii+ish)
-                  didL(:, :, jj+jsh) = +dS*qvec(ii+ish) + didL(:, :, jj+jsh)
-                  didL(:, :, ii+ish) = +dS*qvec(jj+jsh) + didL(:, :, ii+ish)
+                  call add_derivative(buffer, iat, jat, ii+ish, jj+jsh, qvec, dG, dS)
                end do
             end do
          end do
@@ -848,10 +878,11 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
 
       if (.not.owns_pair(partition, iat, iat)) cycle
       vec = 0.0_wp
+      dG = 0.0_wp
       call get_wignerseitz_weights(wsc, iat, iat, vec, weight, dwdr, dwdL)
       need_weight_energy = any(dwdL(:, :, :wsc%nimg(iat, iat)) /= 0.0_wp)
       call get_damat_dir_3d(vec, alpha, dtrans, dGd, dSd)
-      call get_damat_rec_3d(vec, vol, alpha, rtrans, dGr, dSr)
+      call get_damat_rec_3d(vec, ewald, dGr, dSr)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
          do ish = 1, nshell(iat)
@@ -861,59 +892,55 @@ subroutine get_damat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, qvec, &
                if (need_weight_energy) call get_amat_wsc_3d(vec, gam, gexp, stmp)
                call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
                dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
-               didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
-               didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
+               call add_derivative(buffer, iat, iat, ii+ish, ii+jsh, qvec, dG, dS)
             end do
             gam = hubbard(ish, ish, izp, izp)
             stmp = 0.0_wp
             if (need_weight_energy) call get_amat_wsc_3d(vec, gam, gexp, stmp)
             call get_damat_wsc_3d(vec, gam, gexp, dGw, dSw)
             dS = (dSd + dSr + dSw) * weight(img) + stmp*dwdL(:, :, img)
-            didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
+            call add_derivative(buffer, iat, iat, ii+ish, ii+ish, qvec, dG, dS)
          end do
       end do
    end do
-   !$omp critical (get_damat_3d_)
-   atrace(:, :) = atrace + itrace
-   dadr(:, :, :) = dadr + didr
-   dadL(:, :, :) = dadL + didL
-   !$omp end critical (get_damat_3d_)
-   deallocate(didL, didr, itrace)
+   call reduce_derivatives(buffer, dadr, dadL, atrace, gradient, sigma)
    !$omp end parallel
 
 end subroutine get_damat_3d
 
 !> Derivatives of the periodic Klopman-Ohno generalized Ewald matrix
-subroutine get_damat_ko_3d(mol, nshell, offset, hubbard, alpha, qvec, dadr, &
-      & dadL, atrace, partition)
+subroutine get_damat_ko_3d(mol, nshell, offset, hubbard, alpha, ewald, qvec, dadr, &
+      & dadL, atrace, partition, gradient, sigma)
    type(structure_type), intent(in) :: mol
+   type(ewald_cache), intent(in) :: ewald
    integer, intent(in) :: nshell(:), offset(:)
    real(wp), intent(in) :: hubbard(:, :, :, :), alpha, qvec(:)
-   real(wp), intent(out) :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
+   real(wp), intent(out), optional :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
    type(work_partition), intent(in), optional :: partition
+   real(wp), intent(inout), optional :: gradient(:, :), sigma(:, :)
 
    integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
    real(wp) :: vol, gam, vec(3), dG(3), dS(3, 3)
    real(wp) :: dG1(3), dS1(3, 3), dG3(3), dS3(3, 3), dGsr(3), dSsr(3, 3)
-   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
-   real(wp), allocatable :: dtrans(:, :), rtrans(:, :), strans(:, :)
+   type(derivative_buffer) :: buffer
+   type(ko_distances) :: distances
+   real(wp), allocatable :: dtrans(:, :), strans(:, :)
 
-   atrace = 0.0_wp
-   dadr = 0.0_wp
-   dadL = 0.0_wp
+   if (present(dadr)) then
+      atrace = 0.0_wp
+      dadr = 0.0_wp
+      dadL = 0.0_wp
+   end if
    vol = abs(matdet_3x3(mol%lattice))
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
-   call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
    call get_lattice_points([.true.], mol%lattice, ko_cutoff, strans)
 
-   !$omp parallel default(none) shared(atrace, dadr, dadL) &
-   !$omp shared(mol, nshell, offset, hubbard, alpha, vol, qvec, dtrans, rtrans, strans, partition) &
+   !$omp parallel default(none) shared(atrace, dadr, dadL, gradient, sigma) &
+   !$omp shared(mol, nshell, offset, hubbard, alpha, vol, qvec, dtrans, ewald, strans, partition) &
    !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, dG, dS) &
-   !$omp private(dG1, dS1, dG3, dS3, dGsr, dSsr, itrace, didr, didL)
-   allocate(itrace, source=atrace)
-   allocate(didr, source=dadr)
-   allocate(didL, source=dadL)
-   !$omp do schedule(runtime)
+   !$omp private(dG1, dS1, dG3, dS3, dGsr, dSsr, buffer, distances)
+   call new_derivative_buffer(buffer, mol%nat, size(qvec), present(gradient))
+   !$omp do schedule(static, 1)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       ii = offset(iat)
@@ -922,117 +949,117 @@ subroutine get_damat_ko_3d(mol, nshell, offset, hubbard, alpha, qvec, dadr, &
          jzp = mol%id(jat)
          jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
-         call get_damat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
+         call get_ko_distances(vec, strans, distances)
+         call get_damat_ko_ewald_3d(vec, alpha, vol, dtrans, ewald, distances, &
             & dG1, dS1, dG3, dS3)
          do ish = 1, nshell(iat)
             do jsh = 1, nshell(jat)
                gam = hubbard(jsh, ish, jzp, izp)
-               call get_damat_ko_short_3d(vec, gam, strans, dGsr, dSsr)
+               call get_damat_ko_short_3d(gam, distances, dGsr, dSsr)
                dG = dG1 + dGsr - 0.5_wp*dG3/(gam*gam)
                dS = dS1 + dSsr - 0.5_wp*dS3/(gam*gam)
-               itrace(:, ii+ish) = +dG*qvec(jj+jsh) + itrace(:, ii+ish)
-               itrace(:, jj+jsh) = -dG*qvec(ii+ish) + itrace(:, jj+jsh)
-               didr(:, iat, jj+jsh) = +dG*qvec(ii+ish) + didr(:, iat, jj+jsh)
-               didr(:, jat, ii+ish) = -dG*qvec(jj+jsh) + didr(:, jat, ii+ish)
-               didL(:, :, jj+jsh) = +dS*qvec(ii+ish) + didL(:, :, jj+jsh)
-               didL(:, :, ii+ish) = +dS*qvec(jj+jsh) + didL(:, :, ii+ish)
+               call add_derivative(buffer, iat, jat, ii+ish, jj+jsh, qvec, dG, dS)
             end do
          end do
       end do
 
       if (.not.owns_pair(partition, iat, iat)) cycle
       vec = 0.0_wp
-      call get_damat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
+      dG = 0.0_wp
+      call get_ko_distances(vec, strans, distances)
+      call get_damat_ko_ewald_3d(vec, alpha, vol, dtrans, ewald, distances, &
          & dG1, dS1, dG3, dS3)
       do ish = 1, nshell(iat)
          do jsh = 1, ish-1
             gam = hubbard(jsh, ish, izp, izp)
-            call get_damat_ko_short_3d(vec, gam, strans, dGsr, dSsr)
+            call get_damat_ko_short_3d(gam, distances, dGsr, dSsr)
             dS = dS1 + dSsr - 0.5_wp*dS3/(gam*gam)
-            didL(:, :, ii+jsh) = +dS*qvec(ii+ish) + didL(:, :, ii+jsh)
-            didL(:, :, ii+ish) = +dS*qvec(ii+jsh) + didL(:, :, ii+ish)
+            call add_derivative(buffer, iat, iat, ii+ish, ii+jsh, qvec, dG, dS)
          end do
          gam = hubbard(ish, ish, izp, izp)
-         call get_damat_ko_short_3d(vec, gam, strans, dGsr, dSsr)
+         call get_damat_ko_short_3d(gam, distances, dGsr, dSsr)
          dS = dS1 + dSsr - 0.5_wp*dS3/(gam*gam)
-         didL(:, :, ii+ish) = +dS*qvec(ii+ish) + didL(:, :, ii+ish)
+         call add_derivative(buffer, iat, iat, ii+ish, ii+ish, qvec, dG, dS)
       end do
    end do
-   !$omp critical (get_damat_ko_3d_)
-   atrace = atrace + itrace
-   dadr = dadr + didr
-   dadL = dadL + didL
-   !$omp end critical (get_damat_ko_3d_)
-   deallocate(didL, didr, itrace)
+   call reduce_derivatives(buffer, dadr, dadL, atrace, gradient, sigma)
+   if (allocated(distances%r2)) then
+      deallocate(distances%vec, distances%r2, distances%invr, distances%invr3, distances%invr5)
+   end if
    !$omp end parallel
 end subroutine get_damat_ko_3d
 
 !> Derivatives of the shell-independent generalized Ewald sums
-subroutine get_damat_ko_ewald_3d(rij, alpha, vol, dtrans, rtrans, strans, &
+subroutine get_damat_ko_ewald_3d(rij, alpha, vol, dtrans, ewald, distances, &
       & dg1, ds1, dg3, ds3)
    real(wp), intent(in) :: rij(3), alpha, vol
-   real(wp), intent(in) :: dtrans(:, :), rtrans(:, :), strans(:, :)
+   real(wp), intent(in) :: dtrans(:, :)
+   type(ko_distances), intent(in) :: distances
+   type(ewald_cache), intent(in) :: ewald
    real(wp), intent(out) :: dg1(3), ds1(3, 3), dg3(3), ds3(3, 3)
 
-   integer :: itr
-   real(wp) :: vec(3), r1, r2, g2, x, phase, fac, dtmp, e1, k0
+   integer :: itr, b
+   real(wp) :: vec(3), r1, r2, phase, sink, cosk, dtmp, k0
    real(wp) :: dgtmp(3), dstmp(3, 3)
    real(wp), parameter :: unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
 
    call get_damat_dir_3d(rij, alpha, dtrans, dg1, ds1)
-   call get_damat_rec_3d(rij, vol, alpha, rtrans, dgtmp, dstmp)
-   dg1 = dg1 + dgtmp
-   ds1 = ds1 + dstmp
 
    dg3 = 0.0_wp
    ds3 = 0.0_wp
-   do itr = 1, size(strans, 2)
-      vec = rij + strans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      r2 = r1*r1
+   do itr = 1, size(distances%r2)
+      if (distances%invr(itr) == 0.0_wp) cycle
+      vec = distances%vec(:, itr)
+      r2 = distances%r2(itr)
+      r1 = sqrt(r2)
       dtmp = -3.0_wp*erfc(alpha*r1)/(r2*r2*r1) &
          & - 6.0_wp*alpha*exp(-alpha*alpha*r2)/(sqrtpi*r2*r2) &
          & - 4.0_wp*alpha**3*exp(-alpha*alpha*r2)/(sqrtpi*r2)
       dg3 = dg3 + dtmp*vec
-      ds3 = ds3 + dtmp*spread(vec, 1, 3)*spread(vec, 2, 3)
+      do b = 1, 3
+         ds3(:, b) = ds3(:, b) + dtmp*vec*vec(b)
+      end do
    end do
 
-   fac = 2.0_wp*pi/vol
-   do itr = 1, size(rtrans, 2)
-      vec = rtrans(:, itr)
-      g2 = dot_product(vec, vec)
-      x = g2/(4.0_wp*alpha*alpha)
+   dgtmp = 0.0_wp
+   dstmp = 0.0_wp
+   do itr = 1, size(ewald%weight)
+      vec = ewald%vec(:, itr)
       phase = dot_product(rij, vec)
-      e1 = expint_e1(x)
-      dg3 = dg3 - fac*e1*sin(phase)*vec
-      ds3 = ds3 + fac*cos(phase) &
-         & *(2.0_wp*exp(-x)/g2*spread(vec, 1, 3)*spread(vec, 2, 3) - e1*unity)
+      sink = sin(phase)
+      cosk = cos(phase)
+      dgtmp = dgtmp - ewald%weight(itr)*sink*vec
+      dstmp = dstmp + cosk*ewald%strain(:, :, itr)
+      dg3 = dg3 - ewald%weight3(itr)*sink*vec
+      ds3 = ds3 + cosk*ewald%strain3(:, :, itr)
    end do
+   dg1 = dg1 + dgtmp
+   ds1 = ds1 + dstmp
    k0 = 4.0_wp*pi/vol*(log(alpha/sqrtpi) + s3_constant)
    ds3 = ds3 - k0*unity
 end subroutine get_damat_ko_ewald_3d
 
 !> Derivatives of the hardness-dependent short-range residual
-subroutine get_damat_ko_short_3d(rij, gam, trans, dg, ds)
-   real(wp), intent(in) :: rij(3), gam, trans(:, :)
+subroutine get_damat_ko_short_3d(gam, distances, dg, ds)
+   real(wp), intent(in) :: gam
+   type(ko_distances), intent(in) :: distances
    real(wp), intent(out) :: dg(3), ds(3, 3)
+   integer :: itr, b
+   real(wp) :: gam2, tmp, dtmp, vec(3)
 
-   integer :: itr
-   real(wp) :: vec(3), r1, r2, dtmp
-
+   gam2 = 1.0_wp/(gam*gam)
    dg = 0.0_wp
    ds = 0.0_wp
-   do itr = 1, size(trans, 2)
-      vec = rij + trans(:, itr)
-      r1 = norm2(vec)
-      if (r1 < eps) cycle
-      r2 = r1*r1
-      dtmp = -(r2 + 1.0_wp/(gam*gam))**(-1.5_wp) + 1.0_wp/(r2*r1) &
-         & - 1.5_wp/(gam*gam*r2*r2*r1)
+   do itr = 1, size(distances%r2)
+      if (distances%invr(itr) == 0.0_wp) cycle
+      vec = distances%vec(:, itr)
+      tmp = 1.0_wp/(distances%r2(itr) + gam2)
+      dtmp = -tmp*sqrt(tmp) + distances%invr3(itr) - 1.5_wp*gam2*distances%invr5(itr)
       dg = dg + dtmp*vec
-      ds = ds + dtmp*spread(vec, 1, 3)*spread(vec, 2, 3)
+      do b = 1, 3
+         ds(:, b) = ds(:, b) + dtmp*vec*vec(b)
+      end do
    end do
 end subroutine get_damat_ko_short_3d
 
@@ -1049,7 +1076,7 @@ subroutine get_damat_dir_3d(rij, alp, trans, dg, ds)
    !> Derivative with respect to strain deformations
    real(wp), intent(out) :: ds(3, 3)
 
-   integer :: itr
+   integer :: itr, b
    real(wp) :: vec(3), r1, r2, dtmp, alp2
 
    dg(:) = 0.0_wp
@@ -1064,7 +1091,9 @@ subroutine get_damat_dir_3d(rij, alp, trans, dg, ds)
       r2 = r1*r1
       dtmp = -erfc(alp*r1)/(r2*r1) - 2*alp*exp(-r2*alp2)/(sqrtpi*r2)
       dg(:) = dg + dtmp * vec
-      ds(:, :) = ds + dtmp * spread(vec, 1, 3) * spread(vec, 2, 3)
+      do b = 1, 3
+         ds(:, b) = ds(:, b) + dtmp*vec*vec(b)
+      end do
    end do
 
 end subroutine get_damat_dir_3d
@@ -1082,6 +1111,7 @@ subroutine get_damat_wsc_3d(rij, gam, gexp, dg, ds)
    !> Derivative with respect to strain deformations
    real(wp), intent(out) :: ds(3, 3)
 
+   integer :: b
    real(wp) :: r1, r2, dtmp
 
    dg(:) = 0.0_wp
@@ -1094,49 +1124,27 @@ subroutine get_damat_wsc_3d(rij, gam, gexp, dg, ds)
    dtmp = -r1**(gexp-2.0_wp) * dtmp * dtmp**(1.0_wp/gexp) &
       & + 1.0_wp/(r2*r1)
    dg(:) = dtmp * rij
-   ds(:, :) = dtmp * spread(rij, 1, 3) * spread(rij, 2, 3)
+   do b = 1, 3
+      ds(:, b) = dtmp*rij*rij(b)
+   end do
 
 end subroutine get_damat_wsc_3d
 
 !> Calculate reciprocal space contributions for a pair under 3D periodic boundary conditions
-subroutine get_damat_rec_3d(rij, vol, alp, trans, dg, ds)
-   !> Distance between pair
+subroutine get_damat_rec_3d(rij, ewald, dg, ds)
    real(wp), intent(in) :: rij(3)
-   !> Cell volume
-   real(wp), intent(in) :: vol
-   !> Convergence factor
-   real(wp), intent(in) :: alp
-   !> Translation vectors to consider
-   real(wp), intent(in) :: trans(:, :)
-   !> Derivative with respect to cartesian displacements
-   real(wp), intent(out) :: dg(3)
-   !> Derivative with respect to strain deformations
-   real(wp), intent(out) :: ds(3, 3)
-
+   type(ewald_cache), intent(in) :: ewald
+   real(wp), intent(out) :: dg(3), ds(3, 3)
    integer :: itr
-   real(wp) :: fac, vec(3), g2, gv, expk, sink, cosk, alp2
-   real(wp), parameter :: unity(3, 3) = reshape(&
-      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp) :: phase
 
-   dg(:) = 0.0_wp
-   ds(:, :) = 0.0_wp
-   fac = 4*pi/vol
-   alp2 = alp*alp
-
-   do itr = 1, size(trans, 2)
-      vec(:) = trans(:, itr)
-      g2 = dot_product(vec, vec)
-      if (g2 < eps) cycle
-      gv = dot_product(rij, vec)
-      expk = fac * exp(-0.25_wp*g2/alp2)/g2
-      cosk = cos(gv) * expk
-      sink = sin(gv) * expk
-      dg(:) = dg - sink * vec
-      ds(:, :) = ds + cosk &
-         & * ((2.0_wp/g2 + 0.5_wp/alp2) * spread(vec, 1, 3)*spread(vec, 2, 3) &
-         &     - unity)
+   dg = 0.0_wp
+   ds = 0.0_wp
+   do itr = 1, size(ewald%weight)
+      phase = dot_product(rij, ewald%vec(:, itr))
+      dg = dg - sin(phase)*ewald%weight(itr)*ewald%vec(:, itr)
+      ds = ds + cos(phase)*ewald%strain(:, :, itr)
    end do
-
 end subroutine get_damat_rec_3d
 
 

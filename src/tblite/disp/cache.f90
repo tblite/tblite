@@ -20,18 +20,18 @@
 !> Reusable data container for dispersion related calculations
 module tblite_disp_cache
    use mctc_env, only : wp
+   use tblite_partition, only : pair_list
    implicit none
    private
    public :: dispersion_cache
 
    type :: dispersion_cache
-      real(wp), allocatable :: dispmat(:, :, :, :)
+      type(pair_list) :: pairs
+      real(wp), allocatable :: dispmat(:, :, :)
       real(wp), allocatable :: gwvec(:, :, :)
-      real(wp), allocatable :: dgwdq(:, :, :)
-      real(wp), allocatable :: vvec(:, :, :)
+      !> D4 computes the CN and charge derivatives of reference weights together.
+      real(wp), allocatable :: dgwdcn(:, :, :), dgwdq(:, :, :)
       real(wp), allocatable :: cn(:)
-      real(wp), allocatable :: dcndr(:, :, :)
-      real(wp), allocatable :: dcndL(:, :, :)
    end type dispersion_cache
 
 

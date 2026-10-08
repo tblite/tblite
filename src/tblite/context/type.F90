@@ -73,12 +73,21 @@ module tblite_context_type
       procedure :: failed
       !> Create electronic solver instance
       procedure :: new_solver
+      procedure :: distributed_columns
       !> Delete an electronic solver instance
       procedure :: delete_solver
    end type context_type
 
 
 contains
+
+logical function distributed_columns(self, n) result(distribute)
+   use tblite_lapack_solver, only : lapack_solver
+   class(context_type), intent(inout) :: self
+   integer, intent(in) :: n
+   if (.not.allocated(self%solver)) self%solver = lapack_solver()
+   distribute = self%solver%distributed_columns(n, self%comm)
+end function distributed_columns
 
 
 !> Assign an externally managed share of the interaction loops to this context

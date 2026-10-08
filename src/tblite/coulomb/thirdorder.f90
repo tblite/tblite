@@ -25,7 +25,7 @@ module tblite_coulomb_thirdorder
    use tblite_coulomb_charge, only : effective_coulomb
    use tblite_coulomb_multipole, only : damped_multipole
    use tblite_coulomb_type, only : coulomb_type
-   use tblite_partition, only : owns_pair
+   use tblite_partition, only : owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -123,7 +123,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    if (self%shell_resolved) then
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
@@ -133,7 +133,7 @@ subroutine get_energy(self, mol, cache, wfn, energies)
       end do
    else
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          energies(iat) = energies(iat) &
             & + wfn%qat(iat, 1)**3 * self%hubbard_derivs(1, izp) / 3.0_wp
@@ -159,7 +159,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    if (self%shell_resolved) then
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
@@ -169,7 +169,7 @@ subroutine get_potential(self, mol, cache, wfn, pot)
       end do
    else
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          pot%vat(iat, 1) = pot%vat(iat, 1) + wfn%qat(iat, 1)**2 * self%hubbard_derivs(1, izp)
       end do
@@ -194,7 +194,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
 
    if (self%shell_resolved) then
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          ii = self%ish_at(iat)
          do ish = 1, self%nsh_at(iat)
@@ -206,7 +206,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
       end do
    else
       do iat = 1, mol%nat
-         if (.not.owns_pair(self%partition, iat, iat)) cycle
+         if (.not.owns_index(self%partition, iat)) cycle
          izp = mol%id(iat)
          pot%dvatdr(:, :, iat, 1) = pot%dvatdr(:, :, iat, 1) &
          & + 2.0_wp * wfn%qat(iat, 1) * wfn%dqatdr(:, :, iat, 1) * self%hubbard_derivs(1, izp)

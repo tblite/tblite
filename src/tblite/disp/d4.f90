@@ -27,12 +27,11 @@ module tblite_disp_d4
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
-   use tblite_blas, only : gemv
    use tblite_container_cache, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
    use tblite_disp_type, only : dispersion_type
-   use tblite_partition, only : work_partition, owns_pair
+   use tblite_partition, only : pair_list
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -166,28 +165,30 @@ subroutine update(self, mol, cache)
 
    real(wp), allocatable :: lattr(:, :)
    type(dispersion_cache), pointer :: ptr
-   integer :: mref
+   integer :: mref, nlocal
 
    call taint(cache, ptr)
    mref = maxval(self%model%ref)
 
    if (.not.allocated(ptr%cn)) allocate(ptr%cn(mol%nat))
-   if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
-   if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
-
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
-   call self%ncoord%get_coordination_number(mol, lattr, ptr%cn, ptr%dcndr, ptr%dcndL)
+   call self%ncoord%get_coordination_number(mol, lattr, ptr%cn)
+   call ptr%pairs%update(self%partition, mol%nat)
 
-   if (.not.allocated(ptr%dispmat)) allocate(ptr%dispmat(mref, mol%nat, mref, mol%nat))
-   if (.not.allocated(ptr%vvec)) allocate(ptr%vvec(mref, mol%nat, self%model%ncoup))
    if (.not.allocated(ptr%gwvec)) allocate(ptr%gwvec(mref, mol%nat, self%model%ncoup))
+   if (.not.allocated(ptr%dgwdcn)) allocate(ptr%dgwdcn(mref, mol%nat, self%model%ncoup))
    if (.not.allocated(ptr%dgwdq)) allocate(ptr%dgwdq(mref, mol%nat, self%model%ncoup))
 
    ! Keep both symmetric blocks of each owned pair. Energy and potential then
    ! follow the same partition without reducing the matrix itself.
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%disp2, lattr)
+   nlocal = size(ptr%pairs%neighbour)
+   if (allocated(ptr%dispmat)) then
+      if (any(shape(ptr%dispmat) /= [mref, mref, nlocal])) deallocate(ptr%dispmat)
+   end if
+   if (.not.allocated(ptr%dispmat)) allocate(ptr%dispmat(mref, mref, nlocal))
    call get_dispersion_matrix(mol, self%model, self%param, lattr, self%cutoff%disp2, &
-      & self%cutoff%width2, self%model%r4r2, ptr%dispmat, self%partition)
+      & self%cutoff%width2, self%model%r4r2, ptr%pairs, ptr%dispmat)
 end subroutine update
 
 
@@ -216,6 +217,7 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), allocatable :: dEdcn(:), dEdq(:)
    real(wp), allocatable :: lattr(:, :)
 
+   if (abs(self%param%s9) < epsilon(1.0_wp)) return
    call view(cache, ptr)
 
    mref = maxval(self%model%ref)
@@ -241,8 +243,10 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
       & self%model%r4r2, c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma, &
       & partition=self%partition%get_d4())
    if (grad) then
-      call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
-      call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
+      ! Contract this partition's dEdcn over all CN pairs; the final gradient
+      ! reduction combines the local energy contributions without a CN matrix.
+      call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
+      call self%ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
    end if
 
 end subroutine get_engrad
@@ -267,15 +271,8 @@ subroutine get_energy(self, mol, cache, wfn, energies)
 
    call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec)
 
-   if (self%model%ncoup > 1) then
-      call contract_dispersion(self, mol, ptr%dispmat, ptr%gwvec, ptr%gwvec, &
-         & energies, 0.5_wp)
-   else
-      ! Dispersion energy with atom-wise weighting
-      call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1), alpha=0.5_wp)
-      ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%gwvec(:, :, 1)
-      energies(:) = energies + sum(ptr%vvec(:, :, 1), 1)
-   end if
+   call contract_dispersion(self, mol, ptr%pairs, ptr%dispmat, ptr%gwvec, ptr%gwvec, &
+      & energies, 0.5_wp)
 
 end subroutine get_energy
 
@@ -297,47 +294,43 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%vvec, &
-      & ptr%dgwdq)
+   call self%model%weight_references(mol, ptr%cn, wfn%qat(:, 1), ptr%gwvec, ptr%dgwdcn, ptr%dgwdq)
 
-   if (self%model%ncoup > 1) then
-      call contract_dispersion(self, mol, ptr%dispmat, ptr%dgwdq, ptr%gwvec, &
-         & pot%vat(:, 1), 1.0_wp)
-   else
-      ! Dispersion energy with atom-wise weighting
-      call gemv(ptr%dispmat, ptr%gwvec(:, :, 1), ptr%vvec(:, :, 1))
-      ptr%vvec(:, :, 1) = ptr%vvec(:, :, 1) * ptr%dgwdq(:, :, 1)
-      pot%vat(:, 1) = pot%vat(:, 1) + sum(ptr%vvec(:, :, 1), 1)
-   end if
+   call contract_dispersion(self, mol, ptr%pairs, ptr%dispmat, ptr%dgwdq, ptr%gwvec, &
+      & pot%vat(:, 1), 1.0_wp)
 
 end subroutine get_potential
 
 
-!> Contract the pairwise D4S weights for energy or charge potential.
-subroutine contract_dispersion(self, mol, dispmat, left, right, values, scale)
+!> Contract only locally owned D4/D4S blocks for energy or charge potential.
+subroutine contract_dispersion(self, mol, pairs, dispmat, left, right, values, scale)
    class(d4_dispersion), intent(in) :: self
    type(structure_type), intent(in) :: mol
-   real(wp), intent(in) :: dispmat(:, :, :, :), left(:, :, :), right(:, :, :)
+   type(pair_list), intent(in) :: pairs
+   real(wp), intent(in) :: dispmat(:, :, :), left(:, :, :), right(:, :, :)
    real(wp), intent(inout) :: values(:)
    real(wp), intent(in) :: scale
 
-   integer :: iat, jat, izp, jzp, iref, jref
-   real(wp) :: val
+   integer :: iat, jat, izp, jzp, iref, jref, ipair, icoup, jcoup
+   real(wp) :: val, tmp
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(self, mol, dispmat, left, right, values, scale) &
-   !$omp private(iat, jat, izp, jzp, iref, jref, val)
+   !$omp shared(self, mol, pairs, dispmat, left, right, values, scale) &
+   !$omp private(iat, jat, izp, jzp, iref, jref, val, tmp, ipair, icoup, jcoup)
    do iat = 1, mol%nat
       izp = mol%id(iat)
+      icoup = min(iat, self%model%ncoup)
       val = 0.0_wp
-      do jat = 1, mol%nat
-         if (.not.owns_pair(self%partition, max(iat, jat), min(iat, jat))) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         jcoup = min(jat, self%model%ncoup)
          jzp = mol%id(jat)
-         do iref = 1, self%model%ref(izp)
-            do jref = 1, self%model%ref(jzp)
-               val = val + scale * dispmat(iref, iat, jref, jat) * &
-                  & left(iref, iat, jat) * right(jref, jat, iat)
+         do jref = 1, self%model%ref(jzp)
+            tmp = 0.0_wp
+            do iref = 1, self%model%ref(izp)
+               tmp = tmp + dispmat(iref, jref, ipair) * left(iref, iat, jcoup)
             end do
+            val = val + scale * tmp * right(jref, jat, icoup)
          end do
       end do
       values(iat) = values(iat) + val
@@ -385,12 +378,13 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call self%param%get_dispersion2(mol, lattr, self%cutoff%disp2, self%cutoff%width2, &
       & self%model%r4r2, c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma, &
       & partition=self%partition%get_d4())
-   call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
-   call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
+   ! Use the CN cutoff and all CN pairs with the locally accumulated dEdcn.
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
+   call self%ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
 end subroutine get_gradient
 
 
-subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, width, r4r2, dispmat, partition)
+subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, width, r4r2, pairs, dispmat)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Damping parameters
@@ -406,25 +400,24 @@ subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, width, r4r2, d
    !> Expectation values for r4 over r2 operator
    real(wp), intent(in) :: r4r2(:)
    !> Dispersion matrix
-   real(wp), intent(out) :: dispmat(:, :, :, :)
-   !> Work partition of the atom pairs
-   type(work_partition), intent(in) :: partition
-
-   integer :: iat, jat, izp, jzp, jtr, iref, jref
+   real(wp), intent(out) :: dispmat(:, :, :)
+   type(pair_list), intent(in) :: pairs
+   integer :: iat, jat, izp, jzp, jtr, iref, jref, ipair, jpair
    real(wp) :: vec(3), r2, r, cutoff2, r0ij, rrij, t6, t8
    real(wp) :: edisp, dE, sw, dswdr
 
-   dispmat(:, :, :, :) = 0.0_wp
+   dispmat = 0.0_wp
    cutoff2 = cutoff**2
 
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(mol, param, disp, trans, cutoff, width, cutoff2, r4r2, dispmat, partition) &
+   !$omp shared(mol, param, disp, trans, cutoff, width, cutoff2, r4r2, pairs, dispmat) &
    !$omp private(iat, jat, izp, jzp, jtr, vec, r2, r0ij, rrij, &
-   !$omp& t6, t8, edisp, dE, r, sw, dswdr)
+   !$omp& t6, t8, edisp, dE, r, sw, dswdr, iref, jref, ipair, jpair)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      do jat = 1, iat
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
          jzp = mol%id(jat)
          rrij = 3*r4r2(izp)*r4r2(jzp)
          r0ij = param%a1 * sqrt(rrij) + param%a2
@@ -445,10 +438,11 @@ subroutine get_dispersion_matrix(mol, disp, param, trans, cutoff, width, r4r2, d
             dE = dE - edisp
          end do
 
+         jpair = pairs%find(jat, iat)
          do iref = 1, disp%ref(izp)
             do jref = 1, disp%ref(jzp)
-               dispmat(iref, iat, jref, jat) = dE * disp%c6(iref, jref, izp, jzp)
-               dispmat(jref, jat, iref, iat) = dE * disp%c6(jref, iref, jzp, izp)
+               dispmat(iref, jref, ipair) = dE * disp%c6(iref, jref, izp, jzp)
+               dispmat(jref, iref, jpair) = dE * disp%c6(jref, iref, jzp, izp)
             end do
          end do
       end do
