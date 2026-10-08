@@ -27,7 +27,6 @@ module tblite_disp_d4
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
-   use tblite_blas, only : gemv
    use tblite_container_cache, only : container_cache
    use tblite_cutoff, only : get_lattice_points
    use tblite_disp_cache, only : dispersion_cache
@@ -174,7 +173,6 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%cn)) allocate(ptr%cn(mol%nat))
    call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
    call self%ncoord%get_coordination_number(mol, lattr, ptr%cn)
-   ptr%cn_derivs_valid = .false.
    call ptr%pairs%update(self%partition, mol%nat)
 
    if (.not.allocated(ptr%gwvec)) allocate(ptr%gwvec(mref, mol%nat, self%model%ncoup))
@@ -192,23 +190,6 @@ subroutine update(self, mol, cache)
    call get_dispersion_matrix(mol, self%model, self%param, lattr, self%cutoff%disp2, &
       & self%cutoff%width2, self%model%r4r2, ptr%pairs, ptr%dispmat)
 end subroutine update
-
-
-!> Form the CN Jacobian only when derivatives are requested, once per geometry.
-!> Keep the ncoord post-processing chain rule in the existing library routine.
-subroutine ensure_cn_derivs(self, mol, ptr)
-   class(d4_dispersion), intent(in) :: self
-   type(structure_type), intent(in) :: mol
-   type(dispersion_cache), intent(inout) :: ptr
-   real(wp), allocatable :: lattr(:, :)
-
-   if (ptr%cn_derivs_valid) return
-   if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
-   if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
-   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
-   call self%ncoord%get_coordination_number(mol, lattr, ptr%cn, ptr%dcndr, ptr%dcndL)
-   ptr%cn_derivs_valid = .true.
-end subroutine ensure_cn_derivs
 
 
 !> Evaluate non-selfconsistent part of the dispersion correction
@@ -241,7 +222,6 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    mref = maxval(self%model%ref)
    grad = present(gradient).and.present(sigma)
-   if (grad) call ensure_cn_derivs(self, mol, ptr)
 
    allocate(gwvec(mref, mol%nat, self%model%ncoup), qat(mol%nat), c6(mol%nat, mol%nat))
    if (grad) then
@@ -263,8 +243,10 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
       & self%model%r4r2, c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma, &
       & partition=self%partition%get_d4())
    if (grad) then
-      call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
-      call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
+      ! Contract this partition's dEdcn over all CN pairs; the final gradient
+      ! reduction combines the local energy contributions without a CN matrix.
+      call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
+      call self%ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
    end if
 
 end subroutine get_engrad
@@ -380,7 +362,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    call view(cache, ptr)
    mref = maxval(self%model%ref)
-   call ensure_cn_derivs(self, mol, ptr)
 
    allocate(gwvec(mref, mol%nat, self%model%ncoup), gwdcn(mref, mol%nat, self%model%ncoup), &
       &  gwdq(mref, mol%nat, self%model%ncoup))
@@ -397,8 +378,9 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    call self%param%get_dispersion2(mol, lattr, self%cutoff%disp2, self%cutoff%width2, &
       & self%model%r4r2, c6, dc6dcn, dc6dq, energies, dEdcn, dEdq, gradient, sigma, &
       & partition=self%partition%get_d4())
-   call gemv(ptr%dcndr, dEdcn, gradient, beta=1.0_wp)
-   call gemv(ptr%dcndL, dEdcn, sigma, beta=1.0_wp)
+   ! Use the CN cutoff and all CN pairs with the locally accumulated dEdcn.
+   call get_lattice_points(mol%periodic, mol%lattice, self%cutoff%cn, lattr)
+   call self%ncoord%add_coordination_number_derivs(mol, lattr, dEdcn, gradient, sigma)
 end subroutine get_gradient
 
 

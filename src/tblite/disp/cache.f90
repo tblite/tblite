@@ -27,14 +27,11 @@ module tblite_disp_cache
 
    type :: dispersion_cache
       type(pair_list) :: pairs
-      logical :: cn_derivs_valid = .false.
       real(wp), allocatable :: dispmat(:, :, :)
       real(wp), allocatable :: gwvec(:, :, :)
       !> D4 computes the CN and charge derivatives of reference weights together.
       real(wp), allocatable :: dgwdcn(:, :, :), dgwdq(:, :, :)
       real(wp), allocatable :: cn(:)
-      real(wp), allocatable :: dcndr(:, :, :)
-      real(wp), allocatable :: dcndL(:, :, :)
    end type dispersion_cache
 
 

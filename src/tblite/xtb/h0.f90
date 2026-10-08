@@ -279,7 +279,7 @@ subroutine get_hamiltonian(mol, trans, list, bas, h0, selfenergy, overlap, &
    allocate(stmp(msao(bas%maxl)**2), dtmpi(3, msao(bas%maxl)**2), &
       & qtmpi(6, msao(bas%maxl)**2), block_overlap(sdim(bas%maxl), sdim(bas%maxl)))
 
-   !$omp parallel do schedule(runtime) default(none) &
+   !$omp parallel do schedule(static, 1) default(none) &
    !$omp firstprivate(mod_h0_fraction) &
    !$omp shared(mol, bas, trans, list, overlap, dpint, qpint, hamiltonian, h0, selfenergy) &
    !$omp shared(partition, columns, first, last, offset, local_atom) &
@@ -536,7 +536,7 @@ subroutine get_hamiltonian_gradient(mol, trans, list, bas, h0, selfenergy, dsedc
       & block_overlap(sdim(bas%maxl), sdim(bas%maxl)), &
       & block_doverlap(sdim(bas%maxl), sdim(bas%maxl), 3))
 
-   !$omp parallel do schedule(runtime) default(none) reduction(+:dEdcn, gradient, sigma) &
+   !$omp parallel do schedule(static, 1) default(none) reduction(+:dEdcn, gradient, sigma) &
    !$omp shared(nspin, mol, bas, trans, h0, selfenergy, dsedcn, pot, pmat, xmat, list) &
    !$omp shared(partition, columns, first, last, offset, local_atom) &
    !$omp firstprivate(mod_h0_fraction) &
