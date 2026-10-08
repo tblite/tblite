@@ -30,7 +30,7 @@ module tblite_coulomb_multipole
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_coulomb_type, only : coulomb_type
    use tblite_cutoff, only : get_lattice_points
-   use tblite_partition, only : work_partition, owns_pair
+   use tblite_partition, only : pair_list, work_partition, owns_pair, owns_index
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
@@ -148,9 +148,11 @@ subroutine update(self, mol, cache)
    type(container_cache), intent(inout) :: cache
 
    type(coulomb_cache), pointer :: ptr
+   integer :: nlocal
 
    call taint(cache, ptr)
    call ptr%update(mol)
+   call ptr%pairs%update(self%partition, mol%nat)
 
    if (.not.allocated(ptr%mrad)) then
       allocate(ptr%mrad(mol%nat))
@@ -159,38 +161,27 @@ subroutine update(self, mol, cache)
       allocate(ptr%dmrdcn(mol%nat))
    end if
 
-   if (.not.allocated(ptr%amat_sd)) then
-      allocate(ptr%amat_sd(3, mol%nat, mol%nat))
-   end if
-   if (.not.allocated(ptr%amat_dd)) then
-      allocate(ptr%amat_dd(3, mol%nat, 3, mol%nat))
-   end if
-   if (.not.allocated(ptr%amat_sq)) then
-      allocate(ptr%amat_sq(6, mol%nat, mol%nat))
-   end if
-
    if (.not.allocated(ptr%cn)) then
       allocate(ptr%cn(mol%nat))
    end if
-   if (.not.allocated(ptr%dcndr)) then
-      allocate(ptr%dcndr(3, mol%nat, mol%nat))
-   end if
-   if (.not.allocated(ptr%dcndL)) then
-      allocate(ptr%dcndL(3, 3, mol%nat))
-   end if
-
    if (allocated(self%ncoord)) then
-      call self%ncoord%get_cn(mol, ptr%cn, ptr%dcndr, ptr%dcndL)
+      call self%ncoord%get_cn(mol, ptr%cn)
    else
       ptr%cn(:) = self%valence_cn(mol%id)
-      ptr%dcndr(:, :, :) = 0.0_wp
-      ptr%dcndL(:, :, :) = 0.0_wp
    end if
+   ptr%cn_derivs_valid = .false.
 
    call get_mrad(mol, self%shift, self%kexp, self%rmax, self%rad, self%valence_cn, &
       & ptr%cn, ptr%mrad, ptr%dmrdcn)
 
-   call get_multipole_matrix(self, mol, ptr, ptr%amat_sd, ptr%amat_dd, ptr%amat_sq)
+   nlocal = size(ptr%pairs%neighbour)
+   if (allocated(ptr%local_sd)) then
+      if (size(ptr%local_sd, 3) /= nlocal) deallocate(ptr%local_sd, ptr%local_dd, ptr%local_sq)
+   end if
+   if (.not.allocated(ptr%local_sd)) then
+      allocate(ptr%local_sd(3, 2, nlocal), ptr%local_dd(3, 3, nlocal), ptr%local_sq(6, 2, nlocal))
+   end if
+   call get_multipole_matrix(self, mol, ptr)
 end subroutine update
 
 
@@ -207,16 +198,16 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
 
-   real(wp), allocatable :: vs(:), vd(:, :), vq(:, :)
+   real(wp), allocatable :: vd(:, :), vq(:, :)
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
-   allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
+   allocate(vd(3, mol%nat), vq(6, mol%nat))
 
-   call gemv(ptr%amat_sd, wfn%qat(:, 1), vd)
-   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
-   call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
+   vd = 0.0_wp
+   vq = 0.0_wp
+   call contract_local(ptr, wfn, 0.5_wp, vd, vq)
 
    energies(:) = energies + sum(wfn%dpat(:, :, 1) * vd, 1) + sum(wfn%qpat(:, :, 1) * vq, 1)
 
@@ -237,40 +228,14 @@ subroutine get_energy_aes(self, mol, cache, wfn, energies)
    !> Reusable data container
    type(container_cache), intent(inout) :: cache
 
-   real(wp), allocatable :: vs(:), vd(:, :), vq(:, :),mur(:)
-   real(wp), allocatable :: e01(:),e11(:),e02(:)
-   real(wp), allocatable :: t1(:)
+   real(wp), allocatable :: vs(:), vd(:, :), vq(:, :)
    type(coulomb_cache), pointer :: ptr
-   integer :: i,j
 
    call view(cache, ptr)
-
-   allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat))
-
-   allocate(mur(mol%nat), source=0.0_wp)
-   allocate(e01(mol%nat),e11(mol%nat),e02(mol%nat),source=0.0_wp)
-   allocate(t1(mol%nat),source=0.0_wp)
-
-   call gemv(ptr%amat_sd, wfn%qat(:, 1), vd)
-   do i = 1,3
-      call gemv(ptr%amat_sd(i,:,:),wfn%dpat(i,:,1),mur,beta=1.0_wp, alpha=1.0_wp,trans="T")
-   end do
-
-   e01 = (mur)*wfn%qat(:,1) + sum(wfn%dpat(:, :, 1) * vd, 1)
-
-   vd = 0.0_wp
-   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), vd, beta=1.0_wp, alpha=0.5_wp)
-   e11 = sum(wfn%dpat(:, :, 1) * vd, 1)
-
-   call gemv(ptr%amat_sq, wfn%qat(:, 1), vq)
-
-   do i = 1,6
-      call gemv(ptr%amat_sq(i,:,:),wfn%qpat(i,:,1),t1,beta=1.0_wp, alpha=1.0_wp,trans="T")
-   end do
-   e02 = t1*wfn%qat(:,1) + sum(wfn%qpat(:, :, 1) * vq, 1)
-
-   energies(:) = energies + 0.5_wp * e01 + e11 + 0.5_wp * e02
-
+   allocate(vs(mol%nat), vd(3, mol%nat), vq(6, mol%nat), source=0.0_wp)
+   call contract_local(ptr, wfn, 1.0_wp, vd, vq, vs)
+   energies = energies + 0.5_wp*(wfn%qat(:, 1)*vs + &
+      & sum(wfn%dpat(:, :, 1)*vd, 1) + sum(wfn%qpat(:, :, 1)*vq, 1))
 end subroutine get_energy_aes
 
 !> Get multipolar anisotropic exchange-correlation kernel
@@ -293,7 +258,7 @@ subroutine get_kernel_energy(mol, kernel, mpat, energies, partition)
    if (size(mpat, 1) == 6) mpscale([2, 4, 5]) = 2
 
    do iat = 1, mol%nat
-      if (.not.owns_pair(partition, iat, iat)) cycle
+      if (.not.owns_index(partition, iat)) cycle
       izp = mol%id(iat)
       mpt(:) = mpat(:, iat) * mpscale
       energies(iat) = energies(iat) + kernel(izp) * dot_product(mpt, mpat(:, iat))
@@ -317,19 +282,56 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   call gemv(ptr%amat_sd, wfn%qat(:, 1), pot%vdp(:, :, 1), beta=1.0_wp)
-   call gemv(ptr%amat_sd, wfn%dpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
-
-   call gemv(ptr%amat_dd, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), beta=1.0_wp)
-
-   call gemv(ptr%amat_sq, wfn%qat(:, 1), pot%vqp(:, :, 1), beta=1.0_wp)
-   call gemv(ptr%amat_sq, wfn%qpat(:, :, 1), pot%vat(:, 1), beta=1.0_wp, trans="T")
+   call contract_local(ptr, wfn, 1.0_wp, pot%vdp(:, :, 1), pot%vqp(:, :, 1), pot%vat(:, 1))
 
    call get_kernel_potential(mol, self%dkernel, wfn%dpat(:, :, 1), pot%vdp(:, :, 1), &
       & self%partition)
    call get_kernel_potential(mol, self%qkernel, wfn%qpat(:, :, 1), pot%vqp(:, :, 1), &
       & self%partition)
 end subroutine get_potential
+
+
+!> Contract local multipole blocks, sharing the pair traversal of all moments.
+subroutine contract_local(ptr, wfn, ddscale, vd, vq, vs)
+   !> Local interaction blocks and their row-wise pair list
+   type(coulomb_cache), intent(in) :: ptr
+   !> Atomic charges and multipole moments
+   type(wavefunction_type), intent(in) :: wfn
+   !> Dipole-dipole weight: one half for the multipole-only energy contraction, one otherwise
+   real(wp), intent(in) :: ddscale
+   !> Dipolar potential to accumulate into (3, nat)
+   real(wp), intent(inout) :: vd(:, :)
+   !> Quadrupolar potential to accumulate into (6, nat)
+   real(wp), intent(inout) :: vq(:, :)
+   !> Charge potential to accumulate into, omitted for the multipole-only energy contraction
+   real(wp), intent(inout), optional :: vs(:)
+   integer :: iat, jat, ipair
+   real(wp) :: dval(3), qval(6), sval
+
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(ptr, wfn, ddscale, vd, vq, vs) &
+   !$omp private(iat, jat, ipair, dval, qval, sval)
+   do iat = 1, size(vd, 2)
+      dval = 0.0_wp
+      qval = 0.0_wp
+      sval = 0.0_wp
+      do ipair = ptr%pairs%offset(iat-1)+1, ptr%pairs%offset(iat)
+         jat = ptr%pairs%neighbour(ipair)
+         dval = dval + ptr%local_sd(:, 1, ipair)*wfn%qat(jat, 1) &
+            & + ddscale*(ptr%local_dd(:, 1, ipair)*wfn%dpat(1, jat, 1) &
+            & + ptr%local_dd(:, 2, ipair)*wfn%dpat(2, jat, 1) &
+            & + ptr%local_dd(:, 3, ipair)*wfn%dpat(3, jat, 1))
+         qval = qval + ptr%local_sq(:, 1, ipair)*wfn%qat(jat, 1)
+         if (present(vs)) then
+            sval = sval + dot_product(ptr%local_sd(:, 2, ipair), wfn%dpat(:, jat, 1)) &
+               & + dot_product(ptr%local_sq(:, 2, ipair), wfn%qpat(:, jat, 1))
+         end if
+      end do
+      vd(:, iat) = vd(:, iat) + dval
+      vq(:, iat) = vq(:, iat) + qval
+      if (present(vs)) vs(iat) = vs(iat) + sval
+   end do
+end subroutine contract_local
 
 
 !> Get multipolar anisotropic potential contribution
@@ -352,7 +354,7 @@ subroutine get_kernel_potential(mol, kernel, mpat, vm, partition)
    if (size(mpat, 1) == 6) mpscale([2, 4, 5]) = 2
 
    do iat = 1, mol%nat
-      if (.not.owns_pair(partition, iat, iat)) cycle
+      if (.not.owns_index(partition, iat)) cycle
       izp = mol%id(iat)
       vm(:, iat) = vm(:, iat) + 2*kernel(izp) * mpat(:, iat) * mpscale
    end do
@@ -379,6 +381,18 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
+
+   if (.not.ptr%cn_derivs_valid) then
+      if (.not.allocated(ptr%dcndr)) allocate(ptr%dcndr(3, mol%nat, mol%nat))
+      if (.not.allocated(ptr%dcndL)) allocate(ptr%dcndL(3, 3, mol%nat))
+      if (allocated(self%ncoord)) then
+         call self%ncoord%get_cn(mol, ptr%cn, ptr%dcndr, ptr%dcndL)
+      else
+         ptr%dcndr = 0.0_wp
+         ptr%dcndL = 0.0_wp
+      end if
+      ptr%cn_derivs_valid = .true.
+   end if
 
    allocate(dEdr(mol%nat))
    dEdr = 0.0_wp
@@ -467,35 +481,29 @@ end subroutine get_rec_trans
 
 
 !> Get interaction matrix for all multipole moments up to inverse cubic order
-subroutine get_multipole_matrix(self, mol, cache, amat_sd, amat_dd, amat_sq)
+subroutine get_multipole_matrix(self, mol, cache)
    !> Instance of the multipole container
    class(damped_multipole), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
-   !> Reusable data container
+   !> Geometry data, local pair list and interaction blocks to overwrite
    type(coulomb_cache), intent(inout) :: cache
-   !> Interation matrix for charges and dipoles
-   real(wp), intent(inout) :: amat_sd(:, :, :)
-   !> Interation matrix for dipoles and dipoles
-   real(wp), intent(inout) :: amat_dd(:, :, :, :)
-   !> Interation matrix for charges and quadrupoles
-   real(wp), intent(inout) :: amat_sq(:, :, :)
 
-   amat_sd(:, :, :) = 0.0_wp
-   amat_dd(:, :, :, :) = 0.0_wp
-   amat_sq(:, :, :) = 0.0_wp
+   cache%local_sd = 0.0_wp
+   cache%local_dd = 0.0_wp
+   cache%local_sq = 0.0_wp
    if (any(mol%periodic)) then
       call get_multipole_matrix_3d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & cache%wsc, cache%alpha_multipole, amat_sd, amat_dd, amat_sq, self%partition)
+         & cache%wsc, cache%alpha_multipole, cache%pairs, cache%local_sd, cache%local_dd, cache%local_sq)
    else
       call get_multipole_matrix_0d(mol, cache%mrad, self%kdmp3, self%kdmp5, &
-         & amat_sd, amat_dd, amat_sq, self%partition)
+         & cache%pairs, cache%local_sd, cache%local_dd, cache%local_sq)
    end if
 end subroutine get_multipole_matrix
 
 !> Calculate the multipole interaction matrix for finite systems
-subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, amat_sq, &
-      & partition)
+!> Overwrite off-site blocks; the caller initializes on-site blocks to zero.
+subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, pairs, amat_sd, amat_dd, amat_sq)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -504,26 +512,25 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
    real(wp), intent(in) :: kdmp3
    !> Damping function for inverse cubic contributions
    real(wp), intent(in) :: kdmp5
-   !> Interaction matrix for charges and dipoles
+   !> Row-wise local pairs, including both orientations of each owned pair
+   type(pair_list), intent(in) :: pairs
+   !> Charge-dipole blocks (3, 2, npair); multipole on row atom (1) or neighbour (2)
    real(wp), intent(inout) :: amat_sd(:, :, :)
-   !> Interaction matrix for dipoles and dipoles
-   real(wp), intent(inout) :: amat_dd(:, :, :, :)
-   !> Interaction matrix for charges and quadrupoles
+   !> Dipole-dipole blocks (3, 3, npair), with row-atom components first
+   real(wp), intent(inout) :: amat_dd(:, :, :)
+   !> Charge-quadrupole blocks (6, 2, npair), with the same directions as amat_sd
    real(wp), intent(inout) :: amat_sq(:, :, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
 
-   integer :: iat, jat
+   integer :: iat, jat, ipair, jpair
    real(wp) :: r1, vec(3), g1, g3, g5, fdmp3, fdmp5, tc(6), rr
 
-   !$omp parallel do default(none) schedule(runtime) collapse(2) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, rad, kdmp3, kdmp5, partition) &
-   !$omp private(r1, vec, g1, g3, g5, fdmp3, fdmp5, tc, rr)
+   !$omp parallel do default(none) schedule(runtime) &
+   !$omp shared(mol, rad, kdmp3, kdmp5, pairs, amat_sd, amat_dd, amat_sq) &
+   !$omp private(iat, jat, r1, vec, g1, g3, g5, fdmp3, fdmp5, tc, rr, ipair, jpair)
    do iat = 1, mol%nat
-      do jat = 1, mol%nat
+      do jpair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(jpair)
          if (iat == jat) cycle
-         ! both triangles of a pair belong to the same part
-         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
          vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat)
          r1 = norm2(vec)
          g1 = 1.0_wp / r1
@@ -534,23 +541,26 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, amat_sd, amat_dd, ama
          fdmp3 = 1.0_wp / (1.0_wp + 6.0_wp * rr**kdmp3)
          fdmp5 = 1.0_wp / (1.0_wp + 6.0_wp * rr**kdmp5)
 
-         amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + vec * g3 * fdmp3
-         amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) &
-            & + unity * g3*fdmp5 - spread(vec, 1, 3) * spread(vec, 2, 3) * 3*g5*fdmp5
+         ipair = pairs%find(jat, iat)
+         amat_sd(:, 1, ipair) = vec*g3*fdmp3
+         amat_sd(:, 2, jpair) = amat_sd(:, 1, ipair)
+         amat_dd(:, :, ipair) = unity*g3*fdmp5 &
+            & - spread(vec, 1, 3)*spread(vec, 2, 3)*3*g5*fdmp5
          tc(2) = 2*vec(1)*vec(2)*g5*fdmp5
          tc(4) = 2*vec(1)*vec(3)*g5*fdmp5
          tc(5) = 2*vec(2)*vec(3)*g5*fdmp5
          tc(1) = vec(1)*vec(1)*g5*fdmp5
          tc(3) = vec(2)*vec(2)*g5*fdmp5
          tc(6) = vec(3)*vec(3)*g5*fdmp5
-         amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + tc
+         amat_sq(:, 1, ipair) = tc
+         amat_sq(:, 2, jpair) = tc
       end do
    end do
 end subroutine get_multipole_matrix_0d
 
 !> Evaluate multipole interaction matrix under 3D periodic boundary conditions
-subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
-      & amat_sd, amat_dd, amat_sq, partition)
+!> Accumulate Ewald and self-interaction terms into the local blocks.
+subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, pairs, amat_sd, amat_dd, amat_sq)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Multipole damping radii for all atoms
@@ -563,16 +573,16 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence parameter for Ewald sum
    real(wp), intent(in) :: alpha
-   !> Interation matrix for charges and dipoles
+   !> Row-wise local pairs, including both orientations of each owned pair
+   type(pair_list), intent(in) :: pairs
+   !> Charge-dipole blocks (3, 2, npair); multipole on row atom (1) or neighbour (2)
    real(wp), intent(inout) :: amat_sd(:, :, :)
-   !> Interation matrix for dipoles and dipoles
-   real(wp), intent(inout) :: amat_dd(:, :, :, :)
-   !> Interation matrix for charges and quadrupoles
+   !> Dipole-dipole blocks (3, 3, npair), with row-atom components first
+   real(wp), intent(inout) :: amat_dd(:, :, :)
+   !> Charge-quadrupole blocks (6, 2, npair), with the same directions as amat_sd
    real(wp), intent(inout) :: amat_sq(:, :, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
 
-   integer :: iat, jat, img, k
+   integer :: iat, jat, img, k, ipair, jpair
    real(wp) :: vec(3), rij(3), rr, vol
    real(wp) :: d_sd(3), d_dd(3, 3), d_sq(6), r_sd(3), r_dd(3, 3), r_sq(6)
    real(wp) :: weight(size(wsc%tridx, 1))
@@ -582,14 +592,13 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
    call get_dir_trans(mol%lattice, alpha, conv, dtrans)
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
-   !$omp parallel do default(none) schedule(runtime) collapse(2) &
-   !$omp shared(amat_sd, amat_dd, amat_sq) &
-   !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5, partition) &
-   !$omp private(iat, jat, img, vec, rij, rr, weight, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq)
+   !$omp parallel do default(none) schedule(runtime) &
+   !$omp shared(mol, wsc, rad, vol, alpha, rtrans, dtrans, kdmp3, kdmp5, pairs, amat_sd, amat_dd, amat_sq) &
+   !$omp private(iat, jat, img, vec, rij, rr, weight, d_sd, d_dd, d_sq, r_sd, r_dd, r_sq, ipair, jpair)
    do iat = 1, mol%nat
-      do jat = 1, mol%nat
-         ! both triangles of a pair belong to the same part
-         if (.not.owns_pair(partition, max(iat, jat), min(iat, jat))) cycle
+      do jpair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(jpair)
+         ipair = pairs%find(jat, iat)
          rij = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_wignerseitz_weights(wsc, jat, iat, rij, weight)
          do img = 1, wsc%nimg(jat, iat)
@@ -599,27 +608,30 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, &
             call get_amat_sdq_rec_3d(vec, vol, alpha, rtrans, r_sd, r_dd, r_sq)
             call get_amat_sdq_dir_3d(vec, rr, kdmp3, kdmp5, alpha, dtrans, d_sd, d_dd, d_sq)
 
-            amat_sd(:, jat, iat) = amat_sd(:, jat, iat) + weight(img) * (d_sd + r_sd)
-            amat_dd(:, jat, :, iat) = amat_dd(:, jat, :, iat) + weight(img) * (r_dd + d_dd)
-            amat_sq(:, jat, iat) = amat_sq(:, jat, iat) + weight(img) * (r_sq + d_sq)
+            amat_sd(:, 1, ipair) = amat_sd(:, 1, ipair) + weight(img)*(d_sd+r_sd)
+            amat_dd(:, :, ipair) = amat_dd(:, :, ipair) + weight(img)*(r_dd+d_dd)
+            amat_sq(:, 1, ipair) = amat_sq(:, 1, ipair) + weight(img)*(r_sq+d_sq)
+            amat_sd(:, 2, jpair) = amat_sd(:, 2, jpair) + weight(img)*(d_sd+r_sd)
+            amat_sq(:, 2, jpair) = amat_sq(:, 2, jpair) + weight(img)*(r_sq+d_sq)
          end do
       end do
    end do
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat_sd, amat_dd, amat_sq, mol, vol, alpha, partition) private(iat, rr, k)
+   !$omp shared(mol, vol, alpha, pairs, amat_dd, amat_sq) private(iat, rr, k, ipair)
    do iat = 1, mol%nat
-      if (.not.owns_pair(partition, iat, iat)) cycle
+      ipair = pairs%find(iat, iat)
+      if (ipair == 0) cycle
       ! dipole-dipole selfenergy: -2/3·α³/sqrt(π) Σ(i) μ²(i)
       rr = -2.0_wp/3.0_wp * alpha**3 / sqrtpi
       do k = 1, 3
-         amat_dd(k, iat, k, iat) = amat_dd(k, iat, k, iat) + 2*rr
+         amat_dd(k, k, ipair) = amat_dd(k, k, ipair) + 2*rr
       end do
 
       ! charge-quadrupole selfenergy: 4/9·α³/sqrt(π) Σ(i) q(i)Tr(θi)
       ! (no actual contribution since quadrupoles are traceless)
       rr = 4.0_wp/9.0_wp * alpha**3 / sqrtpi
-      amat_sq([1, 3, 6], iat, iat) = amat_sq([1, 3, 6], iat, iat) + rr
+      amat_sq([1, 3, 6], :, ipair) = amat_sq([1, 3, 6], :, ipair) + rr
    end do
 end subroutine get_multipole_matrix_3d
 

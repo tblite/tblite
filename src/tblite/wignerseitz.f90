@@ -60,8 +60,7 @@ subroutine new_wignerseitz_cell(self, mol)
 
    call get_lattice_points(mol%periodic, mol%lattice, thr, trans)
    ntr = size(trans, 2)
-   allocate(self%nimg(mol%nat, mol%nat), self%tridx(ntr, mol%nat, mol%nat), &
-      & tridx(ntr))
+   allocate(self%nimg(mol%nat, mol%nat), tridx(ntr))
 
    !$omp parallel do default(none) schedule(runtime) collapse(2) &
    !$omp shared(mol, trans, self) private(iat, jat, vec, nimg, tridx)
@@ -70,7 +69,20 @@ subroutine new_wignerseitz_cell(self, mol)
          vec(:) = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_pairs(nimg, trans, vec, tridx)
          self%nimg(jat, iat) = nimg
-         self%tridx(:, jat, iat) = tridx
+
+      end do
+   end do
+
+   ! Allocate only the actual nearest images. Counting first avoids the
+   ! much larger ntranslations * nat^2 temporary, especially in supercells.
+   allocate(self%tridx(maxval(self%nimg), mol%nat, mol%nat), source=0)
+   !$omp parallel do default(none) schedule(runtime) collapse(2) &
+   !$omp shared(mol, trans, self) private(iat, jat, vec, nimg, tridx)
+   do iat = 1, mol%nat
+      do jat = 1, mol%nat
+         vec = mol%xyz(:, iat) - mol%xyz(:, jat)
+         call get_pairs(nimg, trans, vec, tridx)
+         self%tridx(:nimg, jat, iat) = tridx(:nimg)
       end do
    end do
 
@@ -122,6 +134,7 @@ subroutine get_pairs(iws, trans, rij, list)
       mask(pos) = .false.
       iws = iws + 1
       list(iws) = index(pos)
+      if (iws == img) exit
    end do
 
 end subroutine get_pairs

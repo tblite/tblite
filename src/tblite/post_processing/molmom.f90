@@ -62,6 +62,7 @@ subroutine new_molecular_moments(self, param)
    type(molmom_record), intent(in) :: param
 
    self%label = label
+   self%local_matrices = .true.
 
    self%comp_dipm = param%moldipm
    self%comp_qm = param%molqp

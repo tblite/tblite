@@ -24,10 +24,10 @@ module tblite_coulomb_charge_effective
    use mctc_io_constants, only : pi
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_charge_type, only : coulomb_charge_type
+   use tblite_coulomb_charge_type, only : coulomb_charge_type, get_coulomb_matrix_from_blocks
    use tblite_coulomb_ewald, only : get_dir_cutoff, get_rec_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_partition, only : work_partition, owns_pair
+   use tblite_partition, only : work_partition, owns_pair, pair_list
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
@@ -45,6 +45,8 @@ module tblite_coulomb_charge_effective
    contains
       !> Evaluate Coulomb matrix
       procedure :: get_coulomb_matrix
+      !> Evaluate the locally owned Coulomb blocks directly
+      procedure :: get_coulomb_blocks
       !> Evaluate uncontracted derivatives of Coulomb matrix
       procedure :: get_coulomb_derivs
    end type effective_coulomb
@@ -189,17 +191,32 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
    type(coulomb_cache), intent(inout) :: cache
    !> Coulomb matrix
    real(wp), contiguous, intent(out) :: amat(:, :)
-   amat(:, :) = 0.0_wp
 
-    if (any(mol%periodic)) then
-       call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, self%gexp, &
-          & cache%wsc, cache%alpha, amat, self%partition)
-    else
-      call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, self%gexp, amat, &
-         & self%partition)
-   end if
-
+   call get_coulomb_matrix_from_blocks(self, mol, cache, self%partition, amat)
 end subroutine get_coulomb_matrix
+
+
+!> Evaluate Coulomb blocks without constructing a full shell matrix.
+subroutine get_coulomb_blocks(self, mol, cache, pairs, blocks)
+   !> Instance of the electrostatic container
+   class(effective_coulomb), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(coulomb_cache), intent(inout) :: cache
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
+   !> Coulomb blocks indexed by row shell, neighbour shell, and local pair
+   real(wp), contiguous, intent(out) :: blocks(:, :, :)
+
+   blocks(:, :, :) = 0.0_wp
+   if (any(mol%periodic)) then
+      call get_amat_3d(mol, self%nshell, self%hubbard, self%gexp, &
+         & cache%wsc, cache%alpha, blocks, pairs)
+   else
+      call get_amat_0d(mol, self%nshell, self%hubbard, self%gexp, blocks, pairs)
+   end if
+end subroutine get_coulomb_blocks
 
 
 !> Get real lattice translations
@@ -241,68 +258,56 @@ end subroutine get_rec_trans
 
 
 !> Evaluate Coulomb matrix for finite systems
-subroutine get_amat_0d(mol, nshell, offset, hubbard, gexp, amat, partition)
+subroutine get_amat_0d(mol, nshell, hubbard, gexp, amat, pairs)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
    integer, intent(in) :: nshell(:)
-   !> Index offset for each shell
-   integer, intent(in) :: offset(:)
    !> Hubbard parameter parameter for each shell
    real(wp), intent(in) :: hubbard(:, :, :, :)
    !> Exponent of Coulomb kernel
    real(wp), intent(in) :: gexp
-   !> Coulomb matrix
-   real(wp), intent(inout) :: amat(:, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
+   !> Coulomb blocks in local pair order
+   real(wp), intent(inout) :: amat(:, :, :)
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
 
-   integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
+   integer :: iat, jat, izp, jzp, ipair, jpair, ish, jsh
    real(wp) :: vec(3), r1, r1g, gam, tmp
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat, mol, nshell, offset, hubbard, gexp, partition) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, r1, r1g, tmp)
+   !$omp shared(amat, mol, nshell, hubbard, gexp, pairs) &
+   !$omp private(iat, izp, ipair, ish, jat, jzp, jpair, jsh, gam, vec, r1, r1g, tmp)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      ii = offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
+         jpair = pairs%find(jat, iat)
          jzp = mol%id(jat)
-         jj = offset(jat)
          vec = mol%xyz(:, jat) - mol%xyz(:, iat)
          r1 = norm2(vec)
          r1g = r1**gexp
          do ish = 1, nshell(iat)
-            do jsh = 1, nshell(jat)
+            do jsh = 1, merge(ish, nshell(jat), iat == jat)
                gam = hubbard(jsh, ish, jzp, izp)
-               tmp = 1.0_wp/(r1g + gam**(-gexp))**(1.0_wp/gexp)
-               amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + tmp
-               amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + tmp
+               tmp = gam
+               if (iat /= jat) tmp = 1.0_wp/(r1g + gam**(-gexp))**(1.0_wp/gexp)
+               if (iat /= jat .or. ish /= jsh) amat(jsh, ish, jpair) = amat(jsh, ish, jpair) + tmp
+               amat(ish, jsh, ipair) = amat(ish, jsh, ipair) + tmp
             end do
          end do
-      end do
-      if (.not.owns_pair(partition, iat, iat)) cycle
-      do ish = 1, nshell(iat)
-         do jsh = 1, ish-1
-            gam = hubbard(jsh, ish, izp, izp)
-            amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + gam
-            amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + gam
-         end do
-         amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + hubbard(ish, ish, izp, izp)
       end do
    end do
 
 end subroutine get_amat_0d
 
 !> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, partition)
+subroutine get_amat_3d(mol, nshell, hubbard, gexp, wsc, alpha, amat, pairs)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
    integer, intent(in) :: nshell(:)
-   !> Index offset for each atom
-   integer, intent(in) :: offset(:)
    !> Hubbard parameter of the shells
    real(wp), intent(in) :: hubbard(:, :, :, :)
    !> Exponent of the interaction kernel
@@ -311,18 +316,18 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence factor for Ewald sum
    real(wp), intent(in) :: alpha
-   !> Coulomb matrix
-   real(wp), intent(inout) :: amat(:, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
+   !> Coulomb blocks in local pair order
+   real(wp), intent(inout) :: amat(:, :, :)
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
 
-   integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
+   integer :: iat, jat, izp, jzp, img, ipair, jpair, ish, jsh
    real(wp) :: vec(3), gam, dtmp, rtmp, stmp, vol, aval
    real(wp) :: weight(size(wsc%tridx, 1))
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :)
 
    if (abs(gexp - 2.0_wp) < eps) then
-      call get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
+      call get_amat_ko_3d(mol, nshell, hubbard, alpha, amat, pairs)
       return
    end if
 
@@ -331,53 +336,33 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, partition) &
-   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, gam, weight, vec, dtmp, rtmp, stmp, aval)
+   !$omp shared(mol, nshell, hubbard, gexp, wsc, dtrans, rtrans, alpha, vol, pairs) &
+   !$omp private(iat, izp, jat, jzp, ipair, jpair, ish, jsh, gam, weight, vec, dtmp, rtmp, stmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      ii = offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
+         jpair = pairs%find(jat, iat)
          jzp = mol%id(jat)
-         jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_wignerseitz_weights(wsc, jat, iat, vec, weight)
          call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
          call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+         if (iat == jat) rtmp = rtmp - 2 * alpha / sqrtpi
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
             do ish = 1, nshell(iat)
-               do jsh = 1, nshell(jat)
+               do jsh = 1, merge(ish, nshell(jat), iat == jat)
                   gam = hubbard(jsh, ish, jzp, izp)
                   call get_amat_wsc_3d(vec, gam, gexp, stmp)
-                  aval = (dtmp + rtmp + stmp) * weight(img)
-                  amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
-                  amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
+                  aval = dtmp + rtmp + stmp
+                  if (iat == jat) aval = aval + gam
+                  aval = aval * weight(img)
+                  if (iat /= jat .or. ish /= jsh) amat(jsh, ish, jpair) = amat(jsh, ish, jpair) + aval
+                  amat(ish, jsh, ipair) = amat(ish, jsh, ipair) + aval
                end do
             end do
-         end do
-      end do
-
-      if (.not.owns_pair(partition, iat, iat)) cycle
-      vec = 0.0_wp
-      call get_wignerseitz_weights(wsc, iat, iat, vec, weight)
-      call get_amat_dir_3d(vec, alpha, dtrans, dtmp)
-      call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
-      rtmp = rtmp - 2 * alpha / sqrtpi
-      do img = 1, wsc%nimg(iat, iat)
-         vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         do ish = 1, nshell(iat)
-            do jsh = 1, ish-1
-               gam = hubbard(jsh, ish, izp, izp)
-               call get_amat_wsc_3d(vec, gam, gexp, stmp)
-               aval = (dtmp + rtmp + stmp + gam) * weight(img)
-               amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
-               amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
-            end do
-            gam = hubbard(ish, ish, izp, izp)
-            call get_amat_wsc_3d(vec, gam, gexp, stmp)
-            aval = (dtmp + rtmp + stmp + gam) * weight(img)
-            amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
       end do
 
@@ -386,14 +371,14 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, gexp, wsc, alpha, amat, par
 end subroutine get_amat_3d
 
 !> Evaluate the periodic Klopman-Ohno matrix with the generalized Ewald sum
-subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
+subroutine get_amat_ko_3d(mol, nshell, hubbard, alpha, amat, pairs)
    type(structure_type), intent(in) :: mol
-   integer, intent(in) :: nshell(:), offset(:)
+   integer, intent(in) :: nshell(:)
    real(wp), intent(in) :: hubbard(:, :, :, :), alpha
-   real(wp), intent(inout) :: amat(:, :)
-   type(work_partition), intent(in), optional :: partition
+   real(wp), intent(inout) :: amat(:, :, :)
+   type(pair_list), intent(in) :: pairs
 
-   integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
+   integer :: iat, jat, izp, jzp, ipair, jpair, ish, jsh
    real(wp) :: vec(3), gam, val, vol, s1, s3, sr
    real(wp), allocatable :: dtrans(:, :), rtrans(:, :), strans(:, :)
    real(wp), allocatable :: r2(:)
@@ -404,50 +389,33 @@ subroutine get_amat_ko_3d(mol, nshell, offset, hubbard, alpha, amat, partition)
    call get_lattice_points([.true.], mol%lattice, ko_cutoff, strans)
 
    !$omp parallel default(none) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, alpha, vol, dtrans, rtrans, strans, partition) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, val, s1, s3, sr, r2)
+   !$omp shared(mol, nshell, hubbard, alpha, vol, dtrans, rtrans, strans, pairs) &
+   !$omp private(iat, izp, ipair, ish, jat, jzp, jpair, jsh, gam, vec, val, s1, s3, sr, r2)
    allocate(r2(size(strans, 2)))
    !$omp do schedule(runtime)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      ii = offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
+         jpair = pairs%find(jat, iat)
          jzp = mol%id(jat)
-         jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_ko_distances(vec, strans, r2)
          call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
-            & .false., s1, s3)
+            & iat == jat, s1, s3)
          do ish = 1, nshell(iat)
-            do jsh = 1, nshell(jat)
+            do jsh = 1, merge(ish, nshell(jat), iat == jat)
                gam = hubbard(jsh, ish, jzp, izp)
                call get_amat_ko_short_3d(gam, r2, sr)
                val = s1 + sr - 0.5_wp*s3/(gam*gam)
-               amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + val
-               amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + val
+               if (iat == jat) val = val + gam
+               if (iat /= jat .or. ish /= jsh) amat(jsh, ish, jpair) = amat(jsh, ish, jpair) + val
+               amat(ish, jsh, ipair) = amat(ish, jsh, ipair) + val
             end do
          end do
       end do
 
-      if (.not.owns_pair(partition, iat, iat)) cycle
-      vec = 0.0_wp
-      call get_ko_distances(vec, strans, r2)
-      call get_amat_ko_ewald_3d(vec, alpha, vol, dtrans, rtrans, strans, &
-         & .true., s1, s3)
-      do ish = 1, nshell(iat)
-         do jsh = 1, ish-1
-            gam = hubbard(jsh, ish, izp, izp)
-            call get_amat_ko_short_3d(gam, r2, sr)
-            val = s1 + sr - 0.5_wp*s3/(gam*gam) + gam
-            amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + val
-            amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + val
-         end do
-         gam = hubbard(ish, ish, izp, izp)
-         call get_amat_ko_short_3d(gam, r2, sr)
-         val = s1 + sr - 0.5_wp*s3/(gam*gam) + gam
-         amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + val
-      end do
    end do
    !$omp end do
    deallocate(r2)

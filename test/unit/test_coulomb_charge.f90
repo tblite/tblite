@@ -30,6 +30,7 @@ module test_coulomb_charge
       & new_effective_coulomb, harmonic_average, arithmetic_average, &
       & gamma_coulomb, new_gamma_coulomb
    use tblite_cutoff, only : get_lattice_points
+   use tblite_partition, only : new_work_partition
    use tblite_scf, only: new_potential, potential_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
@@ -70,6 +71,7 @@ subroutine collect_coulomb_charge(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
+      new_unittest("local-blocks", test_local_blocks), &
       new_unittest("energy-atom-e1", test_e_effective_m01), &
       new_unittest("energy-atom-e2", test_e_effective_m02), &
       new_unittest("energy-shell-e1", test_e_effective_m07), &
@@ -106,6 +108,79 @@ subroutine collect_coulomb_charge(testsuite)
       ]
 
 end subroutine collect_coulomb_charge
+
+
+!> Local blocks must reconstruct the serial matrix, including empty partitions.
+subroutine test_local_blocks(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(container_cache) :: cache
+   class(coulomb_charge_type), allocatable :: coulomb
+   real(wp), allocatable :: reference(:, :), total(:, :)
+   real(wp), parameter :: lattice(3, 3) = reshape([ &
+      & 8.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 9.0_wp, 0.0_wp, &
+      & 0.0_wp, 0.0_wp, 10.0_wp], [3, 3])
+   integer :: ipbc, model, part, iat, jat, ipair, ii, jj, ni, nj, nsh
+
+   do ipbc = 1, 2
+      call new(mol, [1, 8], reshape([0.0_wp, 0.0_wp, 0.0_wp, &
+         & 2.0_wp, 1.0_wp, 0.5_wp], [3, 2]), lattice=lattice, &
+         & periodic=[ipbc == 2, ipbc == 2, ipbc == 2])
+      do model = 1, 3
+         select case(model)
+         case(1)
+            call make_coulomb_e2(coulomb, mol, .true.)
+         case(2)
+            call make_coulomb_eceh(coulomb, mol, .true.)
+         case default
+            call make_coulomb_g2(coulomb, mol, .true.)
+         end select
+         nsh = sum(coulomb%nshell)
+         allocate(reference(nsh, nsh), total(nsh, nsh))
+         call coulomb%update(mol, cache)
+         select type(ptr => cache%raw)
+         type is(coulomb_cache)
+            call coulomb%get_coulomb_matrix(mol, ptr, reference)
+         end select
+         total = 0.0_wp
+         do part = 0, 3
+            call new_work_partition(error, coulomb%partition, part, 4)
+            if (allocated(error)) return
+            call coulomb%update(mol, cache)
+            select type(ptr => cache%raw)
+            type is(coulomb_cache)
+               if (part == 3) then
+                  call check(error, size(ptr%local_amat, 3), 0)
+                  if (allocated(error)) return
+               end if
+               do iat = 1, mol%nat
+                  ii = coulomb%offset(iat)
+                  ni = coulomb%nshell(iat)
+                  do ipair = ptr%pairs%offset(iat-1)+1, ptr%pairs%offset(iat)
+                     jat = ptr%pairs%neighbour(ipair)
+                     jj = coulomb%offset(jat)
+                     nj = coulomb%nshell(jat)
+                     total(ii+1:ii+ni, jj+1:jj+nj) = total(ii+1:ii+ni, jj+1:jj+nj) &
+                        & + ptr%local_amat(:ni, :nj, ipair)
+                  end do
+               end do
+            end select
+         end do
+         call check(error, maxval(abs(total-reference)), 0.0_wp, thr=thr)
+         if (allocated(error)) return
+         if (model == 3) then
+            ! The legacy gamma matrix interface always returns the full matrix.
+            select type(ptr => cache%raw)
+            type is(coulomb_cache)
+               call coulomb%get_coulomb_matrix(mol, ptr, total)
+            end select
+            call check(error, maxval(abs(total-reference)), 0.0_wp, thr=thr)
+            if (allocated(error)) return
+         end if
+         deallocate(reference, total)
+      end do
+   end do
+end subroutine test_local_blocks
 
 
 !> Factory to setup the CEH basis set for testing of the potential (gradient)
@@ -1003,8 +1078,8 @@ subroutine test_e_effective_alpha(error)
    select type(ptr => cache%raw)
    type is(coulomb_cache)
       ptr%alpha = 0.8_wp*ptr%alpha
-      call coulomb%get_coulomb_matrix(mol, ptr, ptr%amat)
    end select
+   call coulomb%update(mol, cache)
    energy2 = 0.0_wp
    call coulomb%get_energy(mol, cache, wfn, energy2)
 

@@ -74,6 +74,8 @@ module tblite_xtb_calculator
       integer :: max_iter = 250
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
+      !> Retain full coefficient and density matrices after post-processing
+      logical :: retain_matrices = .true.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
       !> Share of the interaction loops evaluated by this calculator

@@ -53,10 +53,29 @@ module tblite_lapack_solver
       procedure :: new
       !> Delete an electronic solver instance
       procedure :: delete
+      !> Select local column storage when distributed diagonalization is suitable
+      procedure :: distributed_columns
    end type lapack_solver
 
 
 contains
+
+!> Whether to use local columns with the distributed ScaLAPACK solver.
+logical function distributed_columns(self, n, comm) result(distribute)
+   !> Instance of the solver factory
+   class(lapack_solver), intent(in) :: self
+   !> Global dimension of the eigenvalue problem
+   integer, intent(in) :: n
+   !> Communicator to distribute over; absent keeps full matrix storage
+   integer, intent(in), optional :: comm
+   distribute = .false.
+   ! Existing subclasses may replace new() with a solver requiring square
+   ! arrays. Such factories must explicitly opt in to the new storage layout.
+   select type(self)
+   type is (lapack_solver)
+      if (present(comm)) distribute = distribute_diagonalization(n, comm)
+   end select
+end function distributed_columns
 
 
 !> Create new electronic solver

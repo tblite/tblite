@@ -73,12 +73,25 @@ module tblite_context_type
       procedure :: failed
       !> Create electronic solver instance
       procedure :: new_solver
+      !> Query whether the selected solver should use local column storage
+      procedure :: distributed_columns
       !> Delete an electronic solver instance
       procedure :: delete_solver
    end type context_type
 
 
 contains
+
+!> Whether the selected solver should use column-distributed matrices.
+logical function distributed_columns(self, n) result(distribute)
+   use tblite_lapack_solver, only : lapack_solver
+   !> Calculation context; creates the default solver factory if needed
+   class(context_type), intent(inout) :: self
+   !> Global dimension of the eigenvalue problem
+   integer, intent(in) :: n
+   if (.not.allocated(self%solver)) self%solver = lapack_solver()
+   distribute = self%solver%distributed_columns(n, self%comm)
+end function distributed_columns
 
 
 !> Assign an externally managed share of the interaction loops to this context
