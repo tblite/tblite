@@ -28,7 +28,7 @@ module tblite_partition
    private
 
    public :: work_partition, new_work_partition, serial_work_partition
-   public :: owns_index, owns_pair, operator(==)
+   public :: owns_index, owns_pair, operator(==), pair_list, column_range
 
 
    !> Cyclic partition of the work of an interaction loop.
@@ -54,16 +54,107 @@ module tblite_partition
       procedure :: get_nparts
       procedure :: get_d3
       procedure :: get_d4
+      procedure :: get_columns
    end type work_partition
 
    !> Complete work of an ordinary serial calculation
    type(work_partition), parameter :: serial_work_partition = work_partition()
+
+   !> Row-wise neighbours of locally owned pairs, including both symmetric blocks.
+   !> Reused across geometry and SCF updates; ownership depends only on atom count.
+   type :: pair_list
+      integer, allocatable :: offset(:), neighbour(:)
+      type(work_partition), private :: partition
+   contains
+      procedure :: update => update_pair_list
+      procedure :: find => find_pair
+   end type pair_list
 
    interface operator(==)
       module procedure :: same_partition
    end interface
 
 contains
+
+!> Contiguous column blocks, also representable by a one-row BLACS grid.
+!> Empty parts have first > last. This layout is independent of MPI.
+pure function column_range(n, part, nparts) result(columns)
+   integer, intent(in) :: n, part, nparts
+   integer :: columns(2), block_size
+   block_size = (n + nparts - 1)/nparts
+   columns = [min(n, part*block_size) + 1, min(n, (part+1)*block_size)]
+end function column_range
+
+pure function get_columns(self, n) result(columns)
+   class(work_partition), intent(in) :: self
+   integer, intent(in) :: n
+   integer :: columns(2)
+   columns = column_range(n, self%part, self%nparts)
+end function get_columns
+
+!> Position of an oriented pair in the sorted local CSR rows, or zero.
+pure integer function find_pair(self, iat, jat) result(pos)
+   class(pair_list), intent(in) :: self
+   integer, intent(in) :: iat, jat
+   integer :: first, last, mid
+   first = self%offset(iat-1) + 1
+   last = self%offset(iat)
+   pos = 0
+   do while (first <= last)
+      mid = first + (last-first)/2
+      if (self%neighbour(mid) == jat) then
+         pos = mid
+         return
+      else if (self%neighbour(mid) < jat) then
+         first = mid + 1
+      else
+         last = mid - 1
+      end if
+   end do
+end function find_pair
+
+
+subroutine update_pair_list(self, partition, nat)
+   class(pair_list), intent(inout) :: self
+   type(work_partition), intent(in) :: partition
+   integer, intent(in) :: nat
+
+   integer :: iat, jat, first, count(nat)
+   integer(i8) :: base
+
+   if (allocated(self%offset)) then
+      if (size(self%offset) == nat+1 .and. self%partition == partition) return
+      deallocate(self%offset, self%neighbour)
+   end if
+   self%partition = partition
+   allocate(self%offset(0:nat))
+   count = 0
+   do iat = 1, nat
+      base = int(iat-1, i8)*int(iat, i8)/2_i8
+      first = 1 + int(modulo(int(partition%part, i8)-base, int(partition%nparts, i8)))
+      do jat = first, iat, partition%nparts
+         count(iat) = count(iat) + 1
+         if (iat /= jat) count(jat) = count(jat) + 1
+      end do
+   end do
+   self%offset(0) = 0
+   do iat = 1, nat
+      self%offset(iat) = self%offset(iat-1) + count(iat)
+   end do
+   allocate(self%neighbour(self%offset(nat)))
+   count = self%offset(:nat-1)
+   do iat = 1, nat
+      base = int(iat-1, i8)*int(iat, i8)/2_i8
+      first = 1 + int(modulo(int(partition%part, i8)-base, int(partition%nparts, i8)))
+      do jat = first, iat, partition%nparts
+         count(iat) = count(iat) + 1
+         self%neighbour(count(iat)) = jat
+         if (iat == jat) cycle
+         count(jat) = count(jat) + 1
+         self%neighbour(count(jat)) = iat
+      end do
+   end do
+end subroutine update_pair_list
 
 
 !> Create a work partition

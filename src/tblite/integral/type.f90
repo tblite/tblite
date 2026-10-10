@@ -30,6 +30,9 @@ module tblite_integral_type
 
    !> Integral container to store all overlap related integrals
    type, public :: integral_type
+      !> Only the inclusive global column range is stored when distributed.
+      logical :: local = .false.
+      integer :: columns(2) = 0
       !> Effective one-electron Hamiltonian
       real(wp), allocatable :: hamiltonian(:, :)
       !> Overlap integrals
@@ -43,16 +46,22 @@ module tblite_integral_type
 contains
 
 !> Create and allocate a new integral container storage
-subroutine new_integral(self, nao)
+subroutine new_integral(self, nao, columns)
    !> Instance of the integral container
    type(integral_type), intent(out) :: self
    !> Dimension of the integrals
    integer, intent(in) :: nao
+   integer, intent(in), optional :: columns(2)
+   integer :: ncol
 
-   allocate(self%hamiltonian(nao, nao), source = 0.0_wp)
-   allocate(self%overlap(nao, nao), source = 0.0_wp)
-   allocate(self%dipole(3, nao, nao), source = 0.0_wp)
-   allocate(self%quadrupole(6, nao, nao), source = 0.0_wp)
+   self%columns = [1, nao]
+   self%local = present(columns)
+   if (present(columns)) self%columns = columns
+   ncol = self%columns(2) - self%columns(1) + 1
+   allocate(self%hamiltonian(nao, ncol), source = 0.0_wp)
+   allocate(self%overlap(nao, ncol), source = 0.0_wp)
+   allocate(self%dipole(3, nao, ncol), source = 0.0_wp)
+   allocate(self%quadrupole(6, nao, ncol), source = 0.0_wp)
 end subroutine new_integral
 
 end module tblite_integral_type
