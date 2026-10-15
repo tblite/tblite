@@ -22,14 +22,28 @@ module tblite_coulomb_ewald
    use mctc_env, only : wp
    use mctc_io_constants, only : pi
    use mctc_io_math, only : matdet_3x3, matinv_3x3
+   use tblite_cutoff, only : get_lattice_points
    implicit none
    private
 
-   public :: get_alpha, get_dir_cutoff, get_rec_cutoff
+   public :: get_alpha, get_dir_cutoff, get_rec_cutoff, ewald_cache
 
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
+
+   !> Cell-dependent reciprocal coefficients, shared by energies and derivatives.
+   !> These do not depend on coordinates or on the work partition.
+   type :: ewald_cache
+      real(wp), private :: lattice(3, 3), alpha, tolerance
+      logical, private :: ko = .false.
+      real(wp), allocatable :: vec(:, :), weight(:), strain(:, :, :)
+      real(wp), allocatable :: weight3(:), strain3(:, :, :)
+   contains
+      procedure :: update => update_ewald_cache
+   end type ewald_cache
+
+   real(wp), parameter :: euler_gamma = 0.57721566490153286061_wp
 
    !> Evaluator for interaction term
    type, abstract :: term_type
@@ -80,6 +94,103 @@ module tblite_coulomb_ewald
    end type rec_3d_mp_term
 
 contains
+
+
+!> Rebuild only when the cell, splitting parameter, tolerance or kernel changes.
+subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
+   class(ewald_cache), intent(inout) :: self
+   real(wp), intent(in) :: lattice(3, 3), alpha, tolerance
+   logical, intent(in), optional :: ko
+
+   logical :: with_ko
+   integer :: itr, a, b, nvec
+   real(wp) :: volume, rec_lat(3, 3), g2, x, fac, weight, scale
+   real(wp), allocatable :: trans(:, :)
+
+   with_ko = .false.
+   if (present(ko)) with_ko = ko
+   if (allocated(self%vec)) then
+      if (all(self%lattice == lattice) .and. self%alpha == alpha &
+         & .and. self%tolerance == tolerance .and. (self%ko .eqv. with_ko)) return
+      deallocate(self%vec, self%weight, self%strain)
+      if (allocated(self%weight3)) deallocate(self%weight3, self%strain3)
+   end if
+   self%lattice = lattice
+   self%alpha = alpha
+   self%tolerance = tolerance
+   self%ko = with_ko
+   volume = abs(matdet_3x3(lattice))
+   rec_lat = twopi*transpose(matinv_3x3(lattice))
+   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, tolerance), trans)
+   nvec = size(trans, 2) - 1
+   allocate(self%vec(3, nvec), self%weight(nvec), self%strain(3, 3, nvec))
+   self%vec(:, :) = trans(:, 2:)
+   if (with_ko) allocate(self%weight3(nvec), self%strain3(3, 3, nvec))
+   fac = 4*pi/volume
+   do itr = 1, nvec
+      g2 = dot_product(self%vec(:, itr), self%vec(:, itr))
+      x = g2/(4*alpha*alpha)
+      weight = fac*exp(-x)/g2
+      scale = 2/g2 + 0.5_wp/(alpha*alpha)
+      self%weight(itr) = weight
+      do b = 1, 3
+         do a = 1, 3
+            self%strain(a, b, itr) = weight*scale*self%vec(a, itr)*self%vec(b, itr)
+         end do
+         self%strain(b, b, itr) = self%strain(b, b, itr) - weight
+      end do
+      ! Preserve the small-G exclusion of the Coulomb 1/r kernels.
+      if (g2 < eps) then
+         self%weight(itr) = 0.0_wp
+         self%strain(:, :, itr) = 0.0_wp
+      end if
+      if (.not.with_ko) cycle
+      self%weight3(itr) = 0.5_wp*fac*expint_e1(x)
+      do b = 1, 3
+         do a = 1, 3
+            self%strain3(a, b, itr) = weight*self%vec(a, itr)*self%vec(b, itr)
+         end do
+         self%strain3(b, b, itr) = self%strain3(b, b, itr) - self%weight3(itr)
+      end do
+   end do
+end subroutine update_ewald_cache
+
+!> Exponential integral E1(x) for positive x
+pure function expint_e1(x) result(e1)
+   real(wp), intent(in) :: x
+   real(wp) :: e1
+
+   integer :: iter
+   real(wp) :: term, sum, a, b, c, d, delta, h
+   real(wp), parameter :: fpmin = 10.0_wp*tiny(1.0_wp)
+
+   if (x <= 1.0_wp) then
+      term = 1.0_wp
+      sum = 0.0_wp
+      do iter = 1, 100
+         term = -term*x/real(iter, wp)
+         sum = sum + term/real(iter, wp)
+         if (abs(term) < epsilon(1.0_wp)*abs(sum)) exit
+      end do
+      e1 = -euler_gamma - log(x) - sum
+   else
+      b = x + 1.0_wp
+      c = 1.0_wp/fpmin
+      d = 1.0_wp/b
+      h = d
+      do iter = 1, 100
+         a = -real(iter*iter, wp)
+         b = b + 2.0_wp
+         d = 1.0_wp/max(abs(a*d + b), fpmin)*sign(1.0_wp, a*d + b)
+         c = b + a/c
+         if (abs(c) < fpmin) c = fpmin
+         delta = c*d
+         h = h*delta
+         if (abs(delta - 1.0_wp) < epsilon(1.0_wp)) exit
+      end do
+      e1 = exp(-x)*h
+   end if
+end function expint_e1
 
 
 !> Convenience interface to determine Ewald splitting parameter
