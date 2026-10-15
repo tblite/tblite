@@ -68,17 +68,9 @@ if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   )
 endif()
 
-set(
-  "${PROJECT_NAME}-module-dir"
-  "${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
-  CACHE STRING
-  "Subdirectory to install generated module files to"
-)
-set(
-  module-dir
-  "${${PROJECT_NAME}-module-dir}"
-)
-set(module-dir "${module-dir}" PARENT_SCOPE)
+set(TBLITE_INSTALL_FMODDIR
+    "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
+    CACHE STRING "Installation directory for Fortran modules")
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 10.0)
@@ -129,6 +121,12 @@ install(
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
 )
+
+if(IS_ABSOLUTE "${TBLITE_INSTALL_FMODDIR}")
+  set(pkgconfig_fmoddir "${TBLITE_INSTALL_FMODDIR}")
+else()
+  set(pkgconfig_fmoddir "\${prefix}/${TBLITE_INSTALL_FMODDIR}")
+endif()
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/template.pc"
