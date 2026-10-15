@@ -311,6 +311,8 @@ subroutine run_main(config, error)
    end if
 
    call calc%set_partition(ctx%partition)
+   calc%retain_matrices = allocated(config%restart_file) .or. &
+      & config%trexio .or. config%molden .or. config%lmo
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
       & verbosity, results, post_proc)
    if (ctx%failed()) then

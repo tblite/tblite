@@ -21,15 +21,17 @@
 module tblite_coulomb_charge_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_blas, only : dot, gemv, symv
+   use tblite_blas, only : gemv
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_type, only : coulomb_type
+   use tblite_partition, only : pair_list, work_partition
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
+   public :: get_coulomb_matrix_from_blocks
 
    !> General second-order electrostatics
    type, public, extends(coulomb_type), abstract :: coulomb_charge_type
@@ -54,6 +56,8 @@ module tblite_coulomb_charge_type
       procedure :: get_gradient
       !> Evaluate Coulomb matrix
       procedure(get_coulomb_matrix), deferred :: get_coulomb_matrix
+      !> Evaluate local Coulomb blocks; the default packs the full matrix
+      procedure :: get_coulomb_blocks
       !> Evaluate uncontracted derivatives of Coulomb matrix
       procedure(get_coulomb_derivs), deferred :: get_coulomb_derivs
    end type coulomb_charge_type
@@ -107,20 +111,90 @@ subroutine update(self, mol, cache)
    type(container_cache), intent(inout) :: cache
 
    type(coulomb_cache), pointer :: ptr
+   integer :: nlocal, msh
 
    call taint(cache, ptr)
    call ptr%update(mol)
+   call ptr%pairs%update(self%partition, mol%nat)
 
-   if (.not.allocated(ptr%amat)) then
-      allocate(ptr%amat(sum(self%nshell), sum(self%nshell)))
+   nlocal = size(ptr%pairs%neighbour)
+   msh = maxval(self%nshell)
+   if (allocated(ptr%local_amat)) then
+      if (any(shape(ptr%local_amat) /= [msh, msh, nlocal])) deallocate(ptr%local_amat)
    end if
-   call self%get_coulomb_matrix(mol, ptr, ptr%amat)
+   if (.not.allocated(ptr%local_amat)) allocate(ptr%local_amat(msh, msh, nlocal))
+   call self%get_coulomb_blocks(mol, ptr, ptr%pairs, ptr%local_amat)
 
    if (.not.allocated(ptr%vvec)) then
       allocate(ptr%vvec(sum(self%nshell)))
    end if
 
 end subroutine update
+
+
+!> Compatibility path for implementations providing only the full matrix builder.
+subroutine get_coulomb_blocks(self, mol, cache, pairs, blocks)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(coulomb_cache), intent(inout) :: cache
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
+   !> Coulomb blocks indexed by row shell, neighbour shell, and local pair
+   real(wp), contiguous, intent(out) :: blocks(:, :, :)
+
+   real(wp), allocatable :: full_matrix(:, :)
+   integer :: iat, jat, ipair, ii, jj
+
+   allocate(full_matrix(sum(self%nshell), sum(self%nshell)))
+   call self%get_coulomb_matrix(mol, cache, full_matrix)
+   blocks(:, :, :) = 0.0_wp
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         jj = self%offset(jat)
+         blocks(:self%nshell(iat), :self%nshell(jat), ipair) &
+            & = full_matrix(ii+1:ii+self%nshell(iat), jj+1:jj+self%nshell(jat))
+      end do
+   end do
+end subroutine get_coulomb_blocks
+
+
+!> Assemble a full matrix only for callers explicitly requesting dense storage.
+subroutine get_coulomb_matrix_from_blocks(self, mol, cache, partition, amat)
+   !> Instance implementing direct local block construction
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(coulomb_cache), intent(inout) :: cache
+   !> Share of atom pairs included in the matrix
+   type(work_partition), intent(in) :: partition
+   !> Coulomb matrix, zero outside the owned pairs
+   real(wp), contiguous, intent(out) :: amat(:, :)
+
+   type(pair_list) :: pairs
+   real(wp), allocatable :: blocks(:, :, :)
+   integer :: iat, jat, ipair, ii, jj, msh
+
+   call pairs%update(partition, mol%nat)
+   msh = maxval(self%nshell)
+   allocate(blocks(msh, msh, size(pairs%neighbour)))
+   call self%get_coulomb_blocks(mol, cache, pairs, blocks)
+   amat(:, :) = 0.0_wp
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         jj = self%offset(jat)
+         amat(ii+1:ii+self%nshell(iat), jj+1:jj+self%nshell(jat)) &
+            & = blocks(:self%nshell(iat), :self%nshell(jat), ipair)
+      end do
+   end do
+end subroutine get_coulomb_matrix_from_blocks
 
 
 !> Evaluate selfconsistent energy of the interaction
@@ -136,27 +210,40 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    !> Electrostatic energy
    real(wp), intent(inout) :: energies(:)
 
-   integer :: iat, ii, ish
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
-   if(self%shell_resolved) then
-      call symv(ptr%amat, wfn%qsh(:, 1), ptr%vvec, alpha=0.5_wp)
-      do iat = 1, mol%nat
-         ii = self%offset(iat)
-         do ish = 1, self%nshell(iat)
-            energies(iat) = energies(iat) + ptr%vvec(ii+ish) * wfn%qsh(ii+ish, 1)
-         end do
-      end do
+   if (self%shell_resolved) then
+      call add_charge_energy(self, ptr, wfn%qsh(:, 1), energies)
    else
-      call symv(ptr%amat, wfn%qat(:, 1), ptr%vvec, alpha=0.5_wp)
-      do iat = 1, mol%nat
-         ii = self%offset(iat)
-         energies(iat) = energies(iat) + ptr%vvec(iat) * wfn%qat(iat, 1)
-      end do
+      call add_charge_energy(self, ptr, wfn%qat(:, 1), energies)
    end if
 end subroutine get_energy
+
+
+!> Accumulate atom-resolved energies directly from shell or atomic charges.
+subroutine add_charge_energy(self, ptr, charges, energies)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Local Coulomb blocks and reusable contraction workspace
+   type(coulomb_cache), intent(inout) :: ptr
+   !> Shell or atomic charges, matching the resolution of self
+   real(wp), intent(in) :: charges(:)
+   !> Atom-resolved electrostatic energies to accumulate into
+   real(wp), intent(inout) :: energies(:)
+
+   integer :: iat, ii, ish
+
+   ptr%vvec = 0.0_wp
+   call contract_local(self, ptr%pairs, ptr%local_amat, charges, ptr%vvec)
+   do iat = 1, size(self%nshell)
+      ii = self%offset(iat)
+      do ish = 1, self%nshell(iat)
+         energies(iat) = energies(iat) + 0.5_wp*ptr%vvec(ii+ish)*charges(ii+ish)
+      end do
+   end do
+end subroutine add_charge_energy
 
 
 !> Evaluate charge dependent potential shift from the interaction
@@ -176,16 +263,50 @@ subroutine get_potential(self, mol, cache, wfn, pot)
 
    call view(cache, ptr)
 
-   if(self%shell_resolved) then
-      call symv(ptr%amat, wfn%qsh(:, 1), pot%vsh(:, 1), beta=1.0_wp)
+   if (self%shell_resolved) then
+      call contract_local(self, ptr%pairs, ptr%local_amat, wfn%qsh(:, 1), pot%vsh(:, 1))
    else
-      call symv(ptr%amat, wfn%qat(:, 1), pot%vat(:, 1), beta=1.0_wp)
+      call contract_local(self, ptr%pairs, ptr%local_amat, wfn%qat(:, 1), pot%vat(:, 1))
    end if
 
 end subroutine get_potential
 
 
-!> Evaluate gradient of the charge dependent potential shift
+!> Contract local shell blocks without scanning the zero blocks of other parts.
+subroutine contract_local(self, pairs, amat, charges, values)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
+   !> Coulomb blocks indexed by row shell, neighbour shell, and local pair
+   real(wp), intent(in) :: amat(:, :, :)
+   !> Shell or atomic charges, matching the resolution of self
+   real(wp), intent(in) :: charges(:)
+   !> Potential or response to accumulate the local contraction into
+   real(wp), intent(inout) :: values(:)
+   integer :: iat, jat, ipair, ii, jj, ish, jsh
+   real(wp) :: local_values(size(amat, 1))
+
+   !$omp parallel do schedule(runtime) default(none) &
+   !$omp shared(self, pairs, amat, charges, values) &
+   !$omp private(iat, jat, ipair, ii, jj, ish, jsh, local_values)
+   do iat = 1, size(self%nshell)
+      ii = self%offset(iat)
+      local_values = 0.0_wp
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         jj = self%offset(jat)
+         do jsh = 1, self%nshell(jat)
+            do ish = 1, self%nshell(iat)
+               local_values(ish) = local_values(ish) + amat(ish, jsh, ipair)*charges(jj+jsh)
+            end do
+         end do
+      end do
+      values(ii+1:ii+self%nshell(iat)) = values(ii+1:ii+self%nshell(iat)) + local_values(:self%nshell(iat))
+   end do
+end subroutine contract_local
+
+
 subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
@@ -223,7 +344,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
             end do
             ! Charge derivative
             tmpdq = wfn%dqshdr(ic, iat, :, 1)
-            call symv(ptr%amat, tmpdq, pot%dvshdr(ic, iat, :, 1), beta=1.0_wp)
+            call contract_local(self, ptr%pairs, ptr%local_amat, tmpdq, pot%dvshdr(ic, iat, :, 1))
          end do
 
          ! Coulomb matrix derivative
@@ -231,7 +352,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
          do jc = 1, 3
             ! Charge derivative
             tmpdq = wfn%dqshdL(ic, jc, :, 1)
-            call symv(ptr%amat, tmpdq, pot%dvshdL(ic, jc, :, 1), beta=1.0_wp)
+            call contract_local(self, ptr%pairs, ptr%local_amat, tmpdq, pot%dvshdL(ic, jc, :, 1))
          end do
       end do
 
@@ -246,7 +367,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
 
             ! Charge derivative
             tmpdq = wfn%dqatdr(ic, iat, :, 1)
-            call symv(ptr%amat, tmpdq, pot%dvatdr(ic, iat, :, 1), beta=1.0_wp)
+            call contract_local(self, ptr%pairs, ptr%local_amat, tmpdq, pot%dvatdr(ic, iat, :, 1))
          end do
 
          ! Coulomb matrix derivative
@@ -254,7 +375,7 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
          do jc = 1, 3
             ! Charge derivative
             tmpdq = wfn%dqatdL(ic, jc, :, 1)
-            call symv(ptr%amat, tmpdq, pot%dvatdL(ic, jc, :, 1), beta=1.0_wp)
+            call contract_local(self, ptr%pairs, ptr%local_amat, tmpdq, pot%dvatdL(ic, jc, :, 1))
          end do
       end do
    end if

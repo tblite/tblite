@@ -23,10 +23,9 @@
 
 !> Distributed divide-and-conquer solver based on ScaLAPACK.
 !>
-!> The Hamiltonian and overlap matrices are replicated on every rank, so the
-!> block-cyclic distribution is a local copy without communication and only the
-!> eigenvectors have to be collected again. This distributes the cubically
-!> scaling diagonalization, the memory still holds the full matrices everywhere.
+!> Accepts either replicated matrices or complete local columns. The latter
+!> are redistributed directly to the 2-D BLACS grid, including eigenvectors
+!> and density matrices; no rank needs a full AO matrix during SCF.
 !>
 !> Without ScaLAPACK support the solver reports an error instead of falling back
 !> to a replicated diagonalization.
@@ -103,6 +102,77 @@ module tblite_lapack_scalapack
          real(dp), intent(inout) :: b(*)
       end subroutine pdtrsm
 
+      !> Copy a matrix between BLACS grids or block distributions
+      subroutine pdgemr2d(m, n, a, ia, ja, desca, b, ib, jb, descb, ctxt)
+         import :: dp
+         !> Number of rows to copy
+         integer, intent(in) :: m
+         !> Number of columns to copy
+         integer, intent(in) :: n
+         !> First global row of the source submatrix
+         integer, intent(in) :: ia
+         !> First global column of the source submatrix
+         integer, intent(in) :: ja
+         !> Descriptor of the source distribution
+         integer, intent(in) :: desca(*)
+         !> First global row of the destination submatrix
+         integer, intent(in) :: ib
+         !> First global column of the destination submatrix
+         integer, intent(in) :: jb
+         !> Descriptor of the destination distribution
+         integer, intent(in) :: descb(*)
+         !> BLACS context containing all source and destination processes
+         integer, intent(in) :: ctxt
+         !> Local storage of the source matrix
+         real(dp), intent(in) :: a(*)
+         !> Local storage of the destination matrix
+         real(dp), intent(out) :: b(*)
+      end subroutine pdgemr2d
+
+      !> Distributed matrix product C = alpha op(A) op(B) + beta C
+      subroutine pdgemm(transa, transb, m, n, k, alpha, a, ia, ja, desca, &
+            & b, ib, jb, descb, beta, c, ic, jc, descc)
+         import :: dp
+         !> Transpose operation for A
+         character(len=1), intent(in) :: transa
+         !> Transpose operation for B
+         character(len=1), intent(in) :: transb
+         !> Number of rows in the product
+         integer, intent(in) :: m
+         !> Number of columns in the product
+         integer, intent(in) :: n
+         !> Inner dimension of the product
+         integer, intent(in) :: k
+         !> First global row of the A submatrix
+         integer, intent(in) :: ia
+         !> First global column of the A submatrix
+         integer, intent(in) :: ja
+         !> Descriptor of A
+         integer, intent(in) :: desca(*)
+         !> First global row of the B submatrix
+         integer, intent(in) :: ib
+         !> First global column of the B submatrix
+         integer, intent(in) :: jb
+         !> Descriptor of B
+         integer, intent(in) :: descb(*)
+         !> First global row of the C submatrix
+         integer, intent(in) :: ic
+         !> First global column of the C submatrix
+         integer, intent(in) :: jc
+         !> Descriptor of C
+         integer, intent(in) :: descc(*)
+         !> Scale factor for the matrix product
+         real(dp), intent(in) :: alpha
+         !> Scale factor for the previous contents of C
+         real(dp), intent(in) :: beta
+         !> Local storage of A
+         real(dp), intent(in) :: a(*)
+         !> Local storage of B
+         real(dp), intent(in) :: b(*)
+         !> Local storage of C, overwritten with the scaled sum
+         real(dp), intent(inout) :: c(*)
+      end subroutine pdgemm
+
       subroutine blacs_get(ctxt, what, val)
          integer, intent(in) :: ctxt, what
          integer, intent(out) :: val
@@ -142,17 +212,46 @@ module tblite_lapack_scalapack
       integer :: comm = 0
       !> BLACS context of the process grid, negative until the grid is created
       integer :: ctxt = -1
+      !> BLACS context for contiguous column blocks, negative until created
+      integer :: column_ctxt = -1
+      !> Descriptor for the caller's contiguous column distribution
+      integer :: column_desc(9) = 0
+      !> Whether caller matrices contain only the columns owned by this rank
+      logical :: local_columns = .false.
       !> Dimension of the eigenvalue problem
       integer :: n = 0
       !> Number of process columns, used for the workspace bound
       integer :: npcol = 1
-      !> Global indices of the rows and columns owned by this rank
-      integer, allocatable :: rows(:), cols(:)
+      !> Global row indices owned by this rank on the block-cyclic grid
+      integer, allocatable :: rows(:)
+      !> Global column indices owned by this rank on the block-cyclic grid
+      integer, allocatable :: cols(:)
       !> Descriptor shared by all distributed matrices
       integer :: desc(9) = 0
+      !> Local Hamiltonian, also reused for occupation-weighted eigenvectors
+      real(dp), allocatable :: aloc(:, :)
+      !> Local Cholesky factor of the overlap matrix
+      real(dp), allocatable :: bloc(:, :)
+      !> Local eigenvectors on the block-cyclic grid
+      real(dp), allocatable :: zloc(:, :)
+      !> Real eigensolver workspace reused across SCF iterations
+      real(dp), allocatable :: work(:)
+      !> Integer eigensolver workspace reused across SCF iterations
+      integer, allocatable :: iwork(:)
+      !> Unfactored overlap snapshot; invalidated on any rank's local change
+      real(dp), allocatable :: overlap(:, :)
+      !> Local density or energy-weighted density matrix on the block-cyclic grid
+      real(dp), allocatable :: ploc(:, :)
+      !> Whether the overlap snapshot and its Cholesky factor are valid
+      logical :: overlap_valid = .false.
    contains
+      !> Report that single-precision diagonalization is unsupported
       procedure :: solve_sp
+      !> Solve the distributed eigenvalue problem in double precision
       procedure :: solve_dp
+      !> Build a density matrix using the caller's column layout
+      procedure :: get_density_matrix => density_matrix
+      !> Release BLACS grids and solver workspaces
       procedure :: delete
    end type psygvd_solver
 
@@ -205,6 +304,7 @@ subroutine new_psygvd(self, overlap, nel, kt, comm)
    integer, intent(in) :: comm
 
    self%n = size(overlap, 1)
+   self%local_columns = size(overlap, 2) /= self%n
    self%nel = nel
    self%kt = kt
    self%comm = comm
@@ -236,6 +336,17 @@ subroutine setup_grid(self, error)
    call blacs_get(0, 0, self%ctxt)
    call blacs_gridinit(self%ctxt, "R", nprow, self%npcol)
    call blacs_gridinfo(self%ctxt, nprow, self%npcol, myrow, mycol)
+
+   if (self%local_columns) then
+      call blacs_get(0, 0, self%column_ctxt)
+      call blacs_gridinit(self%column_ctxt, "R", 1, nprocs)
+      call descinit(self%column_desc, self%n, self%n, self%n, (self%n+nprocs-1)/nprocs, &
+         & 0, 0, self%column_ctxt, max(1, self%n), stat)
+      if (stat /= 0) then
+         call handle_info(error, "column descinit", stat)
+         return
+      end if
+   end if
 
    ! a block larger than the share of a process row leaves ranks without work
    nb = max(1, min(default_block_size, self%n/max(nprow, self%npcol)))
@@ -270,9 +381,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(dp), allocatable :: aloc(:, :), bloc(:, :), zloc(:, :), work(:)
-   integer, allocatable :: iwork(:)
-   real(dp) :: scale, wquery(1)
+   real(dp) :: scale, wquery(1), changed(1)
    integer :: info, lwork, liwork, trilwmin, ormlwmin, iquery(1), mloc, nloc, nb
 
 #if TBLITE_HAS_SCALAPACK
@@ -284,41 +393,77 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    mloc = size(self%rows)
    nloc = size(self%cols)
    nb = self%desc(5)
-   allocate(aloc(max(1, mloc), max(1, nloc)), bloc(max(1, mloc), max(1, nloc)), &
-      & zloc(max(1, mloc), max(1, nloc)))
-   aloc(:mloc, :nloc) = hmat(self%rows, self%cols)
-   bloc(:mloc, :nloc) = smat(self%rows, self%cols)
-
-   call pdpotrf("u", self%n, bloc, 1, 1, self%desc, info)
-   if (info /= 0) then
-      call handle_info(error, "pdpotrf", info)
-      return
+   if (.not.allocated(self%aloc)) then
+      allocate(self%aloc(max(1, mloc), max(1, nloc)), &
+         & self%bloc(max(1, mloc), max(1, nloc)), self%zloc(max(1, mloc), max(1, nloc)), &
+         & self%ploc(max(1, mloc), max(1, nloc)))
+      if (self%local_columns) then
+         allocate(self%overlap(size(smat, 1), size(smat, 2)))
+      else
+         allocate(self%overlap(mloc, nloc))
+      end if
+   end if
+   if (self%local_columns) then
+      call pdgemr2d(self%n, self%n, hmat, 1, 1, self%column_desc, self%aloc, &
+         & 1, 1, self%desc, self%ctxt)
+   else
+      self%aloc(:mloc, :nloc) = hmat(self%rows, self%cols)
    end if
 
-   call pdsygst(1, "u", self%n, aloc, 1, 1, self%desc, bloc, 1, 1, self%desc, &
+   changed = 1.0_wp
+   if (self%overlap_valid) then
+      if (self%local_columns) then
+         changed = merge(1.0_wp, 0.0_wp, any(self%overlap /= smat))
+      else
+         changed = merge(1.0_wp, 0.0_wp, any(self%overlap /= smat(self%rows, self%cols)))
+      end if
+   end if
+   call mpi_allreduce_sum(error, changed, self%comm)
+   if (allocated(error)) return
+   if (changed(1) > 0.0_wp) then
+      self%overlap_valid = .false.
+      if (self%local_columns) then
+         self%overlap = smat
+         call pdgemr2d(self%n, self%n, smat, 1, 1, self%column_desc, self%bloc, &
+            & 1, 1, self%desc, self%ctxt)
+      else
+         self%overlap = smat(self%rows, self%cols)
+         self%bloc(:mloc, :nloc) = self%overlap
+      end if
+      call pdpotrf("u", self%n, self%bloc, 1, 1, self%desc, info)
+      if (info /= 0) then
+         call handle_info(error, "pdpotrf", info)
+         return
+      end if
+      self%overlap_valid = .true.
+   end if
+
+   call pdsygst(1, "u", self%n, self%aloc, 1, 1, self%desc, self%bloc, 1, 1, self%desc, &
       & scale, info)
    if (info /= 0) then
       call handle_info(error, "pdsygst", info)
       return
    end if
 
-   call pdsyevd("v", "u", self%n, aloc, 1, 1, self%desc, eval, zloc, 1, 1, &
-      & self%desc, wquery, -1, iquery, -1, info)
-   if (info /= 0) then
-      call handle_info(error, "pdsyevd", info)
-      return
+   if (.not.allocated(self%work)) then
+      call pdsyevd("v", "u", self%n, self%aloc, 1, 1, self%desc, eval, self%zloc, 1, 1, &
+         & self%desc, wquery, -1, iquery, -1, info)
+      if (info /= 0) then
+         call handle_info(error, "pdsyevd", info)
+         return
+      end if
+      ! the query under-reports and the documented pdsyevd minimum does not cover
+      ! the pdormtr call it feeds its work array to, so both are used as a floor
+      trilwmin = 3*self%n + max(nb*(mloc + 1), 3*nb)
+      ormlwmin = (mloc + nloc + 2*nb)*nb + nb**2
+      lwork = max(nint(wquery(1)), ormlwmin, &
+         & max(1 + 6*self%n + 2*mloc*nloc, trilwmin) + 2*self%n)
+      liwork = max(iquery(1), 7*self%n + 8*self%npcol + 2)
+      allocate(self%work(lwork), self%iwork(liwork))
    end if
-   ! the query under-reports and the documented pdsyevd minimum does not cover
-   ! the pdormtr call it feeds its work array to, so both are used as a floor
-   trilwmin = 3*self%n + max(nb*(mloc + 1), 3*nb)
-   ormlwmin = (mloc + nloc + 2*nb)*nb + nb**2
-   lwork = max(nint(wquery(1)), ormlwmin, &
-      & max(1 + 6*self%n + 2*mloc*nloc, trilwmin) + 2*self%n)
-   liwork = max(iquery(1), 7*self%n + 8*self%npcol + 2)
-   allocate(work(lwork), iwork(liwork))
 
-   call pdsyevd("v", "u", self%n, aloc, 1, 1, self%desc, eval, zloc, 1, 1, &
-      & self%desc, work, lwork, iwork, liwork, info)
+   call pdsyevd("v", "u", self%n, self%aloc, 1, 1, self%desc, eval, self%zloc, 1, 1, &
+      & self%desc, self%work, size(self%work), self%iwork, size(self%iwork), info)
    if (info /= 0) then
       call handle_info(error, "pdsyevd", info)
       return
@@ -326,16 +471,63 @@ subroutine solve_dp(self, hmat, smat, eval, error)
 
    ! back-transform the eigenvectors of the standard problem, x = U⁻¹ y,
    ! pdsygst documents scale as always 1 so the eigenvalues need no correction
-   call pdtrsm("l", "u", "n", "n", self%n, self%n, 1.0_dp, bloc, 1, 1, &
-      & self%desc, zloc, 1, 1, self%desc)
+   call pdtrsm("l", "u", "n", "n", self%n, self%n, 1.0_dp, self%bloc, 1, 1, &
+      & self%desc, self%zloc, 1, 1, self%desc)
 
-   hmat(:, :) = 0.0_dp
-   hmat(self%rows, self%cols) = zloc(:mloc, :nloc)
-   call mpi_allreduce_sum(error, hmat, self%comm)
+   if (self%local_columns) then
+      call pdgemr2d(self%n, self%n, self%zloc, 1, 1, self%desc, hmat, &
+         & 1, 1, self%column_desc, self%ctxt)
+   else
+      hmat(:, :) = 0.0_dp
+      hmat(self%rows, self%cols) = self%zloc(:mloc, :nloc)
+      call mpi_allreduce_sum(error, hmat, self%comm)
+   end if
 #else
    call fatal_error(error, no_scalapack)
 #endif
 end subroutine solve_dp
+
+
+!> Build P (or energy-weighted P) entirely on the 2-D grid. The public
+!> arrays are redistributed according to the caller's storage layout.
+subroutine density_matrix(self, focc, coeff, pmat, error)
+   !> Instance of the distributed solver
+   class(psygvd_solver), intent(inout) :: self
+   !> Replicated occupations, optionally multiplied by orbital energies
+   real(wp), intent(in) :: focc(:)
+   !> Eigenvectors in replicated or local-column storage
+   real(wp), contiguous, intent(in) :: coeff(:, :)
+   !> Density matrix to overwrite in the same column layout as coeff
+   real(wp), contiguous, intent(inout) :: pmat(:, :)
+   !> Error handling; a pending error skips the calculation
+   type(error_type), allocatable, intent(inout) :: error
+   integer :: j
+
+   if (allocated(error)) return
+#if TBLITE_HAS_SCALAPACK
+   if (self%local_columns) then
+      call pdgemr2d(self%n, self%n, coeff, 1, 1, self%column_desc, self%zloc, &
+         & 1, 1, self%desc, self%ctxt)
+   else
+      self%zloc(:size(self%rows), :size(self%cols)) = coeff(self%rows, self%cols)
+   end if
+   do j = 1, size(self%cols)
+      self%aloc(:, j) = self%zloc(:, j)*focc(self%cols(j))
+   end do
+   call pdgemm("n", "t", self%n, self%n, self%n, 1.0_wp, self%aloc, 1, 1, self%desc, &
+      & self%zloc, 1, 1, self%desc, 0.0_wp, self%ploc, 1, 1, self%desc)
+   if (self%local_columns) then
+      call pdgemr2d(self%n, self%n, self%ploc, 1, 1, self%desc, pmat, &
+         & 1, 1, self%column_desc, self%ctxt)
+   else
+      pmat = 0.0_wp
+      pmat(self%rows, self%cols) = self%ploc(:size(self%rows), :size(self%cols))
+      call mpi_allreduce_sum(error, pmat, self%comm)
+   end if
+#else
+   call fatal_error(error, no_scalapack)
+#endif
+end subroutine density_matrix
 
 
 !> Single precision is not provided, the solver is only used for the
@@ -362,10 +554,16 @@ subroutine delete(self)
    class(psygvd_solver), intent(inout) :: self
 
 #if TBLITE_HAS_SCALAPACK
+   if (self%column_ctxt >= 0) call blacs_gridexit(self%column_ctxt)
    if (self%ctxt >= 0) call blacs_gridexit(self%ctxt)
 #endif
    self%ctxt = -1
+   self%column_ctxt = -1
    if (allocated(self%rows)) deallocate(self%rows, self%cols)
+   if (allocated(self%aloc)) deallocate(self%aloc, self%bloc, self%zloc, self%overlap)
+   if (allocated(self%ploc)) deallocate(self%ploc)
+   if (allocated(self%work)) deallocate(self%work, self%iwork)
+   self%overlap_valid = .false.
 end subroutine delete
 
 
@@ -373,8 +571,10 @@ end subroutine delete
 pure subroutine grid_shape(nranks, nprow, npcol)
    !> Number of ranks to arrange
    integer, intent(in) :: nranks
-   !> Shape of the process grid
-   integer, intent(out) :: nprow, npcol
+   !> Number of process rows
+   integer, intent(out) :: nprow
+   !> Number of process columns
+   integer, intent(out) :: npcol
 
    nprow = int(sqrt(real(nranks)))
    do while (nprow > 1 .and. modulo(nranks, nprow) /= 0)
@@ -384,9 +584,13 @@ pure subroutine grid_shape(nranks, nprow, npcol)
 end subroutine grid_shape
 
 
+!> Convert a nonzero ScaLAPACK status into a diagnostic.
 subroutine handle_info(error, name, info)
+   !> Error to create
    type(error_type), allocatable, intent(out) :: error
+   !> Name of the failing routine
    character(len=*), intent(in) :: name
+   !> Status returned by the routine
    integer, intent(in) :: info
 
    call fatal_error(error, "("//name//") failed to solve eigenvalue problem.&

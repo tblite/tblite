@@ -24,10 +24,10 @@ module tblite_coulomb_charge_gamma
    use mctc_io_constants, only : pi
    use mctc_io_math, only : matdet_3x3, matinv_3x3
    use tblite_coulomb_cache, only : coulomb_cache
-   use tblite_coulomb_charge_type, only : coulomb_charge_type
+   use tblite_coulomb_charge_type, only : coulomb_charge_type, get_coulomb_matrix_from_blocks
    use tblite_coulomb_ewald, only : get_rec_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_partition, only : work_partition, owns_pair
+   use tblite_partition, only : work_partition, owns_pair, pair_list, serial_work_partition
    use tblite_wignerseitz, only : wignerseitz_cell, get_wignerseitz_weights
    implicit none
    private
@@ -42,6 +42,8 @@ module tblite_coulomb_charge_gamma
    contains
       !> Evaluate Coulomb matrix
       procedure :: get_coulomb_matrix
+      !> Evaluate the locally owned Coulomb blocks directly
+      procedure :: get_coulomb_blocks
       !> Evaluate uncontracted derivatives of Coulomb matrix
       procedure :: get_coulomb_derivs
    end type gamma_coulomb
@@ -114,16 +116,32 @@ subroutine get_coulomb_matrix(self, mol, cache, amat)
    type(coulomb_cache), intent(inout) :: cache
    !> Coulomb matrix
    real(wp), contiguous, intent(out) :: amat(:, :)
-   amat(:, :) = 0.0_wp
 
-   if (any(mol%periodic)) then
-      call get_amat_3d(mol, self%nshell, self%offset, self%hubbard, &
-         & cache%wsc, cache%alpha, amat)
-   else
-      call get_amat_0d(mol, self%nshell, self%offset, self%hubbard, amat)
-   end if
-
+   call get_coulomb_matrix_from_blocks(self, mol, cache, serial_work_partition, amat)
 end subroutine get_coulomb_matrix
+
+
+!> Evaluate Coulomb blocks without constructing a full shell matrix.
+subroutine get_coulomb_blocks(self, mol, cache, pairs, blocks)
+   !> Instance of the electrostatic container
+   class(gamma_coulomb), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(coulomb_cache), intent(inout) :: cache
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
+   !> Coulomb blocks indexed by row shell, neighbour shell, and local pair
+   real(wp), contiguous, intent(out) :: blocks(:, :, :)
+
+   blocks(:, :, :) = 0.0_wp
+   if (any(mol%periodic)) then
+      call get_amat_3d(mol, self%nshell, self%hubbard, &
+         & cache%wsc, cache%alpha, blocks, pairs)
+   else
+      call get_amat_0d(mol, self%nshell, self%hubbard, blocks, pairs)
+   end if
+end subroutine get_coulomb_blocks
 
 
 !> Get reciprocal lattice translations
@@ -149,78 +167,65 @@ end subroutine get_rec_trans
 
 
 !> Evaluate Coulomb matrix for finite systems
-subroutine get_amat_0d(mol, nshell, offset, hubbard, amat, partition)
+subroutine get_amat_0d(mol, nshell, hubbard, amat, pairs)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells for each atom
    integer, intent(in) :: nshell(:)
-   !> Index offset for each shell
-   integer, intent(in) :: offset(:)
    !> Hardness parameter for each shell
    real(wp), intent(in) :: hubbard(:, :)
-   !> Coulomb matrix
-   real(wp), intent(inout) :: amat(:, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
+   !> Coulomb blocks in local pair order
+   real(wp), intent(inout) :: amat(:, :, :)
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
 
-   integer :: iat, jat, izp, jzp, ii, jj, ish, jsh
-   real(wp) :: vec(3), r1, r1g, gam, tmp
+   integer :: iat, jat, izp, jzp, ipair, jpair, ish, jsh
+   real(wp) :: vec(3), r1, gam, tmp
 
    !$omp parallel do default(none) schedule(runtime) &
-   !$omp shared(amat, mol, nshell, offset, hubbard, partition) &
-   !$omp private(iat, izp, ii, ish, jat, jzp, jj, jsh, gam, vec, r1, r1g, tmp)
+   !$omp shared(amat, mol, nshell, hubbard, pairs) &
+   !$omp private(iat, izp, ipair, ish, jat, jzp, jpair, jsh, gam, vec, r1, tmp)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      ii = offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
+         jpair = pairs%find(jat, iat)
          jzp = mol%id(jat)
-         jj = offset(jat)
          vec = mol%xyz(:, jat) - mol%xyz(:, iat)
          r1 = norm2(vec)
-         tmp = 1.0_wp / r1
+         tmp = 0.0_wp
+         if (iat /= jat) tmp = 1.0_wp / r1
          do ish = 1, nshell(iat)
-            do jsh = 1, nshell(jat)
+            do jsh = 1, merge(ish, nshell(jat), iat == jat)
                gam = tmp - exp_gamma(r1, hubbard(ish, izp), hubbard(jsh, jzp))
-               amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + gam
-               amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + gam
+               if (iat /= jat .or. ish /= jsh) amat(jsh, ish, jpair) = amat(jsh, ish, jpair) + gam
+               amat(ish, jsh, ipair) = amat(ish, jsh, ipair) + gam
             end do
          end do
-      end do
-      if (.not.owns_pair(partition, iat, iat)) cycle
-      do ish = 1, nshell(iat)
-         do jsh = 1, ish-1
-            gam = -exp_gamma(0.0_wp, hubbard(ish, izp), hubbard(jsh, izp))
-            amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + gam
-            amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + gam
-         end do
-         gam = -exp_gamma(0.0_wp, hubbard(ish, izp), hubbard(ish, izp))
-         amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + gam
       end do
    end do
 
 end subroutine get_amat_0d
 
 !> Evaluate the coulomb matrix for 3D systems
-subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat, partition)
+subroutine get_amat_3d(mol, nshell, hubbard, wsc, alpha, amat, pairs)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Number of shells per atom
    integer, intent(in) :: nshell(:)
-   !> Index offset for each atom
-   integer, intent(in) :: offset(:)
    !> Hardness of the shells
    real(wp), intent(in) :: hubbard(:, :)
    !> Wigner-Seitz cell
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence factor
    real(wp), intent(in) :: alpha
-   !> Coulomb matrix
-   real(wp), intent(inout) :: amat(:, :)
-   !> Share of the atom pairs evaluated here, absent selects the complete work
-   type(work_partition), intent(in), optional :: partition
+   !> Coulomb blocks in local pair order
+   real(wp), intent(inout) :: amat(:, :, :)
+   !> Locally owned atom pairs in row order
+   type(pair_list), intent(in) :: pairs
 
-   integer :: iat, jat, izp, jzp, img, ii, jj, ish, jsh
+   integer :: iat, jat, izp, jzp, img, ipair, jpair, ish, jsh
    real(wp) :: vec(3), ui, uj, dtmp, rtmp, vol, aval
    real(wp) :: weight(size(wsc%tridx, 1))
    real(wp), allocatable :: rtrans(:, :)
@@ -229,53 +234,33 @@ subroutine get_amat_3d(mol, nshell, offset, hubbard, wsc, alpha, amat, partition
    call get_rec_trans(mol%lattice, alpha, vol, conv, rtrans)
 
    !$omp parallel do default(none) schedule(runtime) shared(amat) &
-   !$omp shared(mol, nshell, offset, hubbard, wsc, rtrans, alpha, vol, partition) &
-   !$omp private(iat, izp, jat, jzp, ii, jj, ish, jsh, ui, uj, weight, vec, dtmp, rtmp, aval)
+   !$omp shared(mol, nshell, hubbard, wsc, rtrans, alpha, vol, pairs) &
+   !$omp private(iat, izp, jat, jzp, ipair, jpair, ish, jsh, ui, uj, weight, vec, dtmp, rtmp, aval)
    do iat = 1, mol%nat
       izp = mol%id(iat)
-      ii = offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(partition, iat, jat)) cycle
+      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
+         jat = pairs%neighbour(ipair)
+         if (jat > iat) cycle
+         jpair = pairs%find(jat, iat)
          jzp = mol%id(jat)
-         jj = offset(jat)
          vec = mol%xyz(:, iat) - mol%xyz(:, jat)
          call get_wignerseitz_weights(wsc, jat, iat, vec, weight)
          call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
+         if (iat == jat) rtmp = rtmp - 2 * alpha / sqrtpi
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, iat) - mol%xyz(:, jat) - wsc%trans(:, wsc%tridx(img, jat, iat))
             do ish = 1, nshell(iat)
-               do jsh = 1, nshell(jat)
+               do jsh = 1, merge(ish, nshell(jat), iat == jat)
                   ui = hubbard(ish, izp)
                   uj = hubbard(jsh, jzp)
                   call get_amat_dir_3d(vec, ui, uj, alpha, dtmp)
-                  aval = (dtmp + rtmp) * weight(img)
-                  amat(jj+jsh, ii+ish) = amat(jj+jsh, ii+ish) + aval
-                  amat(ii+ish, jj+jsh) = amat(ii+ish, jj+jsh) + aval
+                  aval = dtmp + rtmp
+                  if (iat == jat) aval = aval - exp_gamma(0.0_wp, ui, uj)
+                  aval = aval * weight(img)
+                  if (iat /= jat .or. ish /= jsh) amat(jsh, ish, jpair) = amat(jsh, ish, jpair) + aval
+                  amat(ish, jsh, ipair) = amat(ish, jsh, ipair) + aval
                end do
             end do
-         end do
-      end do
-
-      if (.not.owns_pair(partition, iat, iat)) cycle
-      vec = 0.0_wp
-      call get_wignerseitz_weights(wsc, iat, iat, vec, weight)
-      call get_amat_rec_3d(vec, vol, alpha, rtrans, rtmp)
-      rtmp = rtmp - 2 * alpha / sqrtpi
-      do img = 1, wsc%nimg(iat, iat)
-         vec = wsc%trans(:, wsc%tridx(img, iat, iat))
-         do ish = 1, nshell(iat)
-            do jsh = 1, ish-1
-               ui = hubbard(ish, izp)
-               uj = hubbard(jsh, izp)
-               call get_amat_dir_3d(vec, ui, uj, alpha, dtmp)
-               aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, uj)) * weight(img)
-               amat(ii+jsh, ii+ish) = amat(ii+jsh, ii+ish) + aval
-               amat(ii+ish, ii+jsh) = amat(ii+ish, ii+jsh) + aval
-            end do
-            ui = hubbard(ish, izp)
-            call get_amat_dir_3d(vec, ui, ui, alpha, dtmp)
-            aval = (dtmp + rtmp - exp_gamma(0.0_wp, ui, ui)) * weight(img)
-            amat(ii+ish, ii+ish) = amat(ii+ish, ii+ish) + aval
          end do
       end do
 

@@ -20,15 +20,23 @@
 !> Reusable data container for dispersion related calculations
 module tblite_disp_cache
    use mctc_env, only : wp
+   use tblite_partition, only : pair_list
    implicit none
    private
    public :: dispersion_cache
 
    type :: dispersion_cache
-      real(wp), allocatable :: dispmat(:, :, :, :)
+      !> Locally owned atom pairs in row order
+      type(pair_list) :: pairs
+      !> Whether coordination-number derivatives match the current geometry
+      logical :: cn_derivs_valid = .false.
+      !> Local dispersion blocks indexed by row reference, neighbour reference, and pair
+      real(wp), allocatable :: dispmat(:, :, :)
       real(wp), allocatable :: gwvec(:, :, :)
+      !> Coordination-number derivatives of reference weights, computed with dgwdq
+      real(wp), allocatable :: dgwdcn(:, :, :)
+      !> Charge derivatives of reference weights, computed with dgwdcn
       real(wp), allocatable :: dgwdq(:, :, :)
-      real(wp), allocatable :: vvec(:, :, :)
       real(wp), allocatable :: cn(:)
       real(wp), allocatable :: dcndr(:, :, :)
       real(wp), allocatable :: dcndL(:, :, :)
