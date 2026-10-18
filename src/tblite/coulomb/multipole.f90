@@ -22,6 +22,7 @@ module tblite_coulomb_multipole
    use mctc_env, only : error_type, wp
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
+   use mctc_io_math, only : outerprod
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
    use tblite_blas, only : dot, gemv, symv, gemm
    use tblite_container_cache, only : container_cache
@@ -519,7 +520,7 @@ subroutine get_multipole_matrix_0d(mol, rad, kdmp3, kdmp5, pairs, amat_sd, amat_
          amat_sd(:, 1, ipair) = vec*g3*fdmp3
          amat_sd(:, 2, jpair) = amat_sd(:, 1, ipair)
          amat_dd(:, :, ipair) = unity*g3*fdmp5 &
-            & - spread(vec, 1, 3)*spread(vec, 2, 3)*3*g5*fdmp5
+            & - outerprod(vec, vec)*3*g5*fdmp5
          tc(2) = 2*vec(1)*vec(2)*g5*fdmp5
          tc(4) = 2*vec(1)*vec(3)*g5*fdmp5
          tc(5) = 2*vec(2)*vec(3)*g5*fdmp5
@@ -609,11 +610,17 @@ subroutine get_multipole_matrix_3d(mol, rad, kdmp3, kdmp5, wsc, alpha, ewald, pa
    end do
 end subroutine get_multipole_matrix_3d
 
+!> Reciprocal-space multipole interactions for one atom pair
 pure subroutine get_amat_sdq_rec_3d(rij, ewald, amat_sd, amat_dd, amat_sq)
+   !> Displacement between the atom pair
    real(wp), intent(in) :: rij(3)
+   !> Cached reciprocal-space coefficients
    type(ewald_cache), intent(in) :: ewald
+   !> Charge-dipole interaction vector
    real(wp), intent(out) :: amat_sd(:)
+   !> Dipole-dipole interaction matrix
    real(wp), intent(out) :: amat_dd(:, :)
+   !> Charge-quadrupole interactions, ordered xx, xy, yy, xz, yz, zz
    real(wp), intent(out) :: amat_sq(:)
 
    integer :: itr
@@ -791,8 +798,7 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
          fddr = 3.0_wp*(dpiqj - qidpj)*kdmp3*fdmp3*g3*(fdmp3/rr)*(rr*g1)**kdmp3
          dg(:) = - ddmp3*vec * (dpiqj - qidpj) &
             & + fdmp3*g3*(qat(iat)*dpat(:, jat) - qat(jat)*dpat(:, iat))
-         ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
-            & + spread(dG, 1, 3) * spread(vec, 2, 3))
+         ds(:, :) = - 0.5_wp * (outerprod(dG, vec) + outerprod(vec, dG))
 
          dEdr(iat) = dEdr(iat) + fddr
          dEdr(jat) = dEdr(jat) + fddr
@@ -808,8 +814,7 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
          dg(:) = - 2.0_wp*fdmp5*g5*dpidpj*vec &
             & + 3.0_wp*fdmp5*g5*(dpiv*dpat(:, jat) + dpjv*dpat(:, iat)) &
             & - edd*ddmp5*g7*vec
-         ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dg, 2, 3) &
-            & + spread(dg, 1, 3) * spread(vec, 2, 3))
+         ds(:, :) = - 0.5_wp * (outerprod(dG, vec) + outerprod(vec, dG))
 
          dEdr(iat) = dEdr(iat) + fddr
          dEdr(jat) = dEdr(jat) + fddr
@@ -835,8 +840,7 @@ subroutine get_multipole_gradient_0d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, &
             &[vec(1)*qpat(1,iat) + vec(2)*qpat(2,iat) + vec(3)*qpat(4,iat), &
             & vec(1)*qpat(2,iat) + vec(2)*qpat(3,iat) + vec(3)*qpat(5,iat), &
             & vec(1)*qpat(4,iat) + vec(2)*qpat(5,iat) + vec(3)*qpat(6,iat)]
-         ds(:, :) = - 0.5_wp * (spread(vec, 1, 3) * spread(dG, 2, 3) &
-            & + spread(dG, 1, 3) * spread(vec, 2, 3))
+         ds(:, :) = - 0.5_wp * (outerprod(dG, vec) + outerprod(vec, dG))
 
          dEdr(iat) = dEdr(iat) + fddr
          dEdr(jat) = dEdr(jat) + fddr
@@ -868,6 +872,7 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
    type(wignerseitz_cell), intent(in) :: wsc
    !> Convergence parameter for Ewald sum
    real(wp), intent(in) :: alpha
+   !> Cached reciprocal-space coefficients
    type(ewald_cache), intent(in) :: ewald
    !> Derivative of the energy w.r.t. the critical radii
    real(wp), contiguous, intent(inout) :: dEdr(:)
@@ -950,12 +955,32 @@ subroutine get_multipole_gradient_3d(mol, rad, kdmp3, kdmp5, qat, dpat, qpat, ws
 end subroutine get_multipole_gradient_3d
 
 
+!> Contract reciprocal-space multipole derivatives for one atom pair
 pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, ewald, dg, ds, energy)
-   real(wp), intent(in) :: rij(3), qi, qj, mi(3), mj(3), ti(6), tj(6)
+   !> Displacement between the atom pair
+   real(wp), intent(in) :: rij(3)
+   !> Partial charge on the first atom
+   real(wp), intent(in) :: qi
+   !> Partial charge on the second atom
+   real(wp), intent(in) :: qj
+   !> Dipole moment on the first atom
+   real(wp), intent(in) :: mi(3)
+   !> Dipole moment on the second atom
+   real(wp), intent(in) :: mj(3)
+   !> Quadrupole on the first atom, ordered xx, xy, yy, xz, yz, zz
+   real(wp), intent(in) :: ti(6)
+   !> Quadrupole on the second atom, ordered xx, xy, yy, xz, yz, zz
+   real(wp), intent(in) :: tj(6)
+   !> Cached reciprocal-space coefficients
    type(ewald_cache), intent(in) :: ewald
-   real(wp), intent(out) :: dg(3), ds(3, 3), energy
+   !> Derivative with respect to cartesian displacements
+   real(wp), intent(out) :: dg(3)
+   !> Derivative with respect to strain deformations
+   real(wp), intent(out) :: ds(3, 3)
+   !> Pair interaction energy
+   real(wp), intent(out) :: energy
 
-   integer :: itr, b
+   integer :: itr
    real(wp) :: vec(3), phase, sink, cosk, dip(3), quad(6), qv(3), cross(3)
    real(wp) :: dpiv, dpjv, dv, qvv, value, weight
 
@@ -981,20 +1006,48 @@ pure subroutine get_damat_sdq_rec_3d(rij, qi, qj, mi, mj, ti, tj, ewald, dg, ds,
       energy = energy + weight*value
       dg = dg + weight*vec*(-cosk*dv + sink*(dpiv*dpjv - qvv))
       cross = weight*(sink*dip + cosk*(mi*dpjv + mj*dpiv - 2.0_wp/3.0_wp*qv))
-      do b = 1, 3
-         ds(:, b) = ds(:, b) + value*ewald%strain(:, b, itr) &
-            & - 0.5_wp*(vec*cross(b) + cross*vec(b))
-      end do
+      ds = ds + value*ewald%strain(:, :, itr) &
+         & - 0.5_wp*(outerprod(vec, cross) + outerprod(cross, vec))
    end do
 end subroutine get_damat_sdq_rec_3d
 
+!> Contract direct-space multipole derivatives for one atom pair
 pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdmp5, &
       & alp, trans, de, dg, ds, energy)
-   real(wp), intent(in) :: rij(3), qi, qj, mi(3), mj(3), ti(6), tj(6)
-   real(wp), intent(in) :: rr, kdmp3, kdmp5, alp, trans(:, :)
-   real(wp), intent(out) :: de, dg(3), ds(3, 3), energy
+   !> Displacement between the atom pair
+   real(wp), intent(in) :: rij(3)
+   !> Partial charge on the first atom
+   real(wp), intent(in) :: qi
+   !> Partial charge on the second atom
+   real(wp), intent(in) :: qj
+   !> Dipole moment on the first atom
+   real(wp), intent(in) :: mi(3)
+   !> Dipole moment on the second atom
+   real(wp), intent(in) :: mj(3)
+   !> Quadrupole on the first atom, ordered xx, xy, yy, xz, yz, zz
+   real(wp), intent(in) :: ti(6)
+   !> Quadrupole on the second atom, ordered xx, xy, yy, xz, yz, zz
+   real(wp), intent(in) :: tj(6)
+   !> Average of the atomic damping radii
+   real(wp), intent(in) :: rr
+   !> Damping exponent for charge-dipole interactions
+   real(wp), intent(in) :: kdmp3
+   !> Damping exponent for dipole-dipole and charge-quadrupole interactions
+   real(wp), intent(in) :: kdmp5
+   !> Ewald splitting parameter
+   real(wp), intent(in) :: alp
+   !> Lattice translation vectors
+   real(wp), intent(in) :: trans(:, :)
+   !> Damping-radius derivative contribution for each atom
+   real(wp), intent(out) :: de
+   !> Derivative with respect to cartesian displacements
+   real(wp), intent(out) :: dg(3)
+   !> Derivative with respect to strain deformations
+   real(wp), intent(out) :: ds(3, 3)
+   !> Pair interaction energy
+   real(wp), intent(out) :: energy
 
-   integer :: itr, b
+   integer :: itr
    real(wp) :: vec(3), r1, r2, g1, g3, g5, g7, fdmp3, fdmp5, ddmp3, ddmp5
    real(wp) :: alp2, arg, erft, expt, e1, e2, e3, damp3, damp5
    real(wp) :: dip(3), quad(6), trace, qv(3), dv, dpidpj, dpiv, dpjv, edd, eq
@@ -1050,9 +1103,7 @@ pure subroutine get_damat_sdq_dir_3d(rij, qi, qj, mi, mj, ti, tj, rr, kdmp3, kdm
          & - 2*(fdmp5*g5 + e2)*qv
       force = g_sd + g_dd + g_sq
       dg = dg + force
-      do b = 1, 3
-         ds(:, b) = ds(:, b) - 0.5_wp*(vec*force(b) + force*vec(b))
-      end do
+      ds = ds - 0.5_wp*(outerprod(vec, force) + outerprod(force, vec))
       de = de + 3.0_wp*dv*kdmp3*fdmp3*g3*(fdmp3/rr)*damp3 &
          & + 3.0_wp*edd*kdmp5*fdmp5*g5*(fdmp5/rr)*damp5 &
          & + eq*3.0_wp*kdmp5*fdmp5*g5*fdmp5/rr*damp5

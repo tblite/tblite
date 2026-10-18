@@ -232,45 +232,6 @@ subroutine test_ewald_cache(error)
    end do
 end subroutine test_ewald_cache
 
-!> Reuse numerical-gradient fixtures to check response contraction and accumulation.
-subroutine check_contracted_gradient(error, mol, coulomb, wfn)
-   type(error_type), allocatable, intent(out) :: error
-   type(structure_type), intent(in) :: mol
-   class(coulomb_charge_type), intent(inout) :: coulomb
-   type(wavefunction_type), intent(in) :: wfn
-   type(container_cache) :: cache
-   type(work_partition) :: partition
-   real(wp) :: dadr(3, mol%nat, size(wfn%qsh, 1)), dadL(3, 3, size(wfn%qsh, 1))
-   real(wp) :: atrace(3, size(wfn%qsh, 1)), gradient(3, mol%nat), ref(3, mol%nat)
-   real(wp) :: sigma(3, 3), sref(3, 3)
-   integer :: nsh, npairs
-
-   nsh = size(wfn%qsh, 1)
-   call coulomb%update(mol, cache)
-   gradient = 0.125_wp
-   sigma = 0.125_wp
-   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
-   select type(ptr => cache%raw)
-   type is(coulomb_cache)
-      call coulomb%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, atrace)
-   end select
-   ref = 0.125_wp + reshape(matmul(reshape(dadr, [3*mol%nat, nsh]), wfn%qsh(:, 1)), shape(ref))
-   sref = 0.125_wp + 0.5_wp*reshape(matmul(reshape(dadL, [9, nsh]), wfn%qsh(:, 1)), [3, 3])
-   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
-      & "Direct and response derivative contractions")
-   if (allocated(error)) return
-
-   npairs = mol%nat*(mol%nat+1)/2
-   call new_work_partition(error, partition, npairs, npairs+1)
-   if (allocated(error)) return
-   call coulomb%set_partition(partition)
-   call coulomb%update(mol, cache)
-   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
-   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
-      & "Empty partition must preserve accumulated derivatives")
-end subroutine check_contracted_gradient
-
-
 !> Factory to setup the CEH basis set for testing of the potential (gradient)
 subroutine make_basis(bas, mol, ng)
    type(basis_type), intent(out) :: bas
@@ -723,13 +684,16 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    !> Factory to create new electrostatic objects
    procedure(coulomb_maker) :: make_coulomb
 
-   integer :: iat, ic
+   integer :: iat, ic, nsh, npairs
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
+   type(work_partition) :: partition
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
+   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
+   real(wp) :: ref(3, mol%nat), sref(3, 3)
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
    energy = 0.0_wp
@@ -766,7 +730,31 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
       print"(3es21.14)", gradient-numgrad
       return
    end if
-   call check_contracted_gradient(error, mol, coulomb, wfn)
+
+   ! Check direct contraction, accumulation, and empty work partitions.
+   nsh = size(wfn%qsh, 1)
+   allocate(dadr(3, mol%nat, nsh), dadL(3, 3, nsh), atrace(3, nsh))
+   gradient = 0.125_wp
+   sigma = 0.125_wp
+   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+   select type(ptr => cache%raw)
+   type is(coulomb_cache)
+      call coulomb%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, atrace)
+   end select
+   ref = 0.125_wp + reshape(matmul(reshape(dadr, [3*mol%nat, nsh]), wfn%qsh(:, 1)), shape(ref))
+   sref = 0.125_wp + 0.5_wp*reshape(matmul(reshape(dadL, [9, nsh]), wfn%qsh(:, 1)), [3, 3])
+   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
+      & "Direct and response derivative contractions")
+   if (allocated(error)) return
+
+   npairs = mol%nat*(mol%nat+1)/2
+   call new_work_partition(error, partition, npairs, npairs+1)
+   if (allocated(error)) return
+   call coulomb%set_partition(partition)
+   call coulomb%update(mol, cache)
+   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
+      & "Empty partition must preserve accumulated derivatives")
 
 end subroutine test_numgrad
 

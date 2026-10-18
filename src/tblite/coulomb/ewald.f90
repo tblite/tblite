@@ -21,7 +21,7 @@
 module tblite_coulomb_ewald
    use mctc_env, only : wp
    use mctc_io_constants, only : pi
-   use mctc_io_math, only : matdet_3x3, matinv_3x3
+   use mctc_io_math, only : matdet_3x3, matinv_3x3, outerprod
    use tblite_cutoff, only : get_lattice_points
    implicit none
    private
@@ -35,11 +35,26 @@ module tblite_coulomb_ewald
    !> Cell-dependent reciprocal coefficients, shared by energies and derivatives.
    !> These do not depend on coordinates or on the work partition.
    type :: ewald_cache
-      real(wp), private :: lattice(3, 3), alpha, tolerance
+      !> Lattice vectors used to build the coefficients
+      real(wp), private :: lattice(3, 3)
+      !> Ewald splitting parameter used to build the coefficients
+      real(wp), private :: alpha
+      !> Convergence tolerance used to select reciprocal vectors
+      real(wp), private :: tolerance
+      !> Whether the Klopman-Ohno 1/r^3 coefficients are included
       logical, private :: ko = .false.
-      real(wp), allocatable :: vec(:, :), weight(:), strain(:, :, :)
-      real(wp), allocatable :: weight3(:), strain3(:, :, :)
+      !> Nonzero reciprocal vectors, with shape (3, nvec)
+      real(wp), allocatable :: vec(:, :)
+      !> Reciprocal 1/r coefficients, excluding the pair phase
+      real(wp), allocatable :: weight(:)
+      !> Strain derivatives of weight at fixed alpha, with shape (3, 3, nvec)
+      real(wp), allocatable :: strain(:, :, :)
+      !> Reciprocal 1/r^3 coefficients, allocated only for the Klopman-Ohno kernel
+      real(wp), allocatable :: weight3(:)
+      !> Strain derivatives of weight3 at fixed alpha, with shape (3, 3, nvec)
+      real(wp), allocatable :: strain3(:, :, :)
    contains
+      !> Reuse or rebuild coefficients for the supplied cell and kernel
       procedure :: update => update_ewald_cache
    end type ewald_cache
 
@@ -98,12 +113,19 @@ contains
 
 !> Rebuild only when the cell, splitting parameter, tolerance or kernel changes.
 subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
+   !> Cached reciprocal-space coefficients
    class(ewald_cache), intent(inout) :: self
-   real(wp), intent(in) :: lattice(3, 3), alpha, tolerance
+   !> Real-space lattice vectors
+   real(wp), intent(in) :: lattice(3, 3)
+   !> Ewald splitting parameter
+   real(wp), intent(in) :: alpha
+   !> Convergence tolerance for selecting reciprocal vectors
+   real(wp), intent(in) :: tolerance
+   !> Include the Klopman-Ohno 1/r^3 coefficients; absent selects only 1/r
    logical, intent(in), optional :: ko
 
    logical :: with_ko
-   integer :: itr, a, b, nvec
+   integer :: itr, b, nvec
    real(wp) :: volume, rec_lat(3, 3), g2, x, fac, weight, scale
    real(wp), allocatable :: trans(:, :)
 
@@ -123,33 +145,29 @@ subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
    rec_lat = twopi*transpose(matinv_3x3(lattice))
    call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, tolerance), trans)
    nvec = size(trans, 2) - 1
-   allocate(self%vec(3, nvec), self%weight(nvec), self%strain(3, 3, nvec))
+   allocate(self%vec(3, nvec), self%weight(nvec), self%strain(3, 3, nvec), source=0.0_wp)
    self%vec(:, :) = trans(:, 2:)
-   if (with_ko) allocate(self%weight3(nvec), self%strain3(3, 3, nvec))
+   if (with_ko) allocate(self%weight3(nvec), self%strain3(3, 3, nvec), source=0.0_wp)
    fac = 4*pi/volume
    do itr = 1, nvec
       g2 = dot_product(self%vec(:, itr), self%vec(:, itr))
+      if (g2 <= 0.0_wp) cycle
       x = g2/(4*alpha*alpha)
-      weight = fac*exp(-x)/g2
-      scale = 2/g2 + 0.5_wp/(alpha*alpha)
-      self%weight(itr) = weight
-      do b = 1, 3
-         do a = 1, 3
-            self%strain(a, b, itr) = weight*scale*self%vec(a, itr)*self%vec(b, itr)
-         end do
-         self%strain(b, b, itr) = self%strain(b, b, itr) - weight
-      end do
       ! Preserve the small-G exclusion of the Coulomb 1/r kernels.
-      if (g2 < eps) then
-         self%weight(itr) = 0.0_wp
-         self%strain(:, :, itr) = 0.0_wp
+      if (g2 >= eps) then
+         weight = fac*exp(-x)/g2
+         scale = 2/g2 + 0.5_wp/(alpha*alpha)
+         self%weight(itr) = weight
+         self%strain(:, :, itr) = weight*scale*outerprod(self%vec(:, itr), self%vec(:, itr))
+         do b = 1, 3
+            self%strain(b, b, itr) = self%strain(b, b, itr) - weight
+         end do
       end if
       if (.not.with_ko) cycle
+      weight = fac*exp(-x)/g2
       self%weight3(itr) = 0.5_wp*fac*expint_e1(x)
+      self%strain3(:, :, itr) = weight*outerprod(self%vec(:, itr), self%vec(:, itr))
       do b = 1, 3
-         do a = 1, 3
-            self%strain3(a, b, itr) = weight*self%vec(a, itr)*self%vec(b, itr)
-         end do
          self%strain3(b, b, itr) = self%strain3(b, b, itr) - self%weight3(itr)
       end do
    end do
@@ -157,7 +175,9 @@ end subroutine update_ewald_cache
 
 !> Exponential integral E1(x) for positive x
 pure function expint_e1(x) result(e1)
+   !> Positive argument of the exponential integral
    real(wp), intent(in) :: x
+   !> Exponential integral E1(x)
    real(wp) :: e1
 
    integer :: iter
