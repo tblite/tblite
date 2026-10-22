@@ -68,9 +68,11 @@ if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   )
 endif()
 
-set(TBLITE_INSTALL_FMODDIR
-    "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
-    CACHE STRING "Installation directory for Fortran modules")
+set(
+  TBLITE_INSTALL_FMODDIR
+  "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
+  CACHE STRING "Installation directory for Fortran modules"
+)
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 10.0)
