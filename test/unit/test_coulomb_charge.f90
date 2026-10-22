@@ -29,8 +29,9 @@ module test_coulomb_charge
    use tblite_coulomb_charge, only : coulomb_charge_type, effective_coulomb, &
       & new_effective_coulomb, harmonic_average, arithmetic_average, &
       & gamma_coulomb, new_gamma_coulomb
+   use tblite_coulomb_ewald, only : ewald_cache
    use tblite_cutoff, only : get_lattice_points
-   use tblite_partition, only : new_work_partition
+   use tblite_partition, only : work_partition, new_work_partition
    use tblite_scf, only: new_potential, potential_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
@@ -72,6 +73,7 @@ subroutine collect_coulomb_charge(testsuite)
 
    testsuite = [ &
       new_unittest("local-blocks", test_local_blocks), &
+      new_unittest("ewald-cache", test_ewald_cache), &
       new_unittest("energy-atom-e1", test_e_effective_m01), &
       new_unittest("energy-atom-e2", test_e_effective_m02), &
       new_unittest("energy-shell-e1", test_e_effective_m07), &
@@ -182,6 +184,53 @@ subroutine test_local_blocks(error)
    end do
 end subroutine test_local_blocks
 
+
+!> Reusing reciprocal coefficients must agree with a fresh cache after changes.
+subroutine test_ewald_cache(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(ewald_cache) :: cache
+   real(wp) :: alpha, tolerance
+   integer :: step
+   logical :: ko
+
+   call get_structure(mol, "X23", "urea")
+   alpha = 0.2_wp
+   tolerance = epsilon(1.0_wp)
+   ko = .true.
+   do step = 1, 7
+      select case(step)
+      case(3)
+         mol%lattice(1, 2) = mol%lattice(1, 2) + 0.3_wp
+      case(4)
+         alpha = 1.1_wp*alpha
+      case(5)
+         tolerance = 100*tolerance
+      case(6:7)
+         ko = .not.ko
+      case default
+         continue
+      end select
+      block
+         type(ewald_cache) :: fresh
+         call cache%update(mol%lattice, alpha, tolerance, ko)
+         call fresh%update(mol%lattice, alpha, tolerance, ko)
+         call check(error, size(cache%weight), size(fresh%weight))
+         if (allocated(error)) return
+         call check(error, all(abs(cache%vec-fresh%vec) < thr) .and. &
+            & all(abs(cache%weight-fresh%weight) < thr) .and. &
+            & all(abs(cache%strain-fresh%strain) < thr), "Reused Ewald coefficients")
+         if (allocated(error)) return
+         call check(error, allocated(cache%weight3) .eqv. ko)
+         if (allocated(error)) return
+         if (ko) then
+            call check(error, all(abs(cache%weight3-fresh%weight3) < thr) .and. &
+               & all(abs(cache%strain3-fresh%strain3) < thr), "Reused 1/r^3 coefficients")
+            if (allocated(error)) return
+         end if
+      end block
+   end do
+end subroutine test_ewald_cache
 
 !> Factory to setup the CEH basis set for testing of the potential (gradient)
 subroutine make_basis(bas, mol, ng)
@@ -635,13 +684,16 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    !> Factory to create new electrostatic objects
    procedure(coulomb_maker) :: make_coulomb
 
-   integer :: iat, ic
+   integer :: iat, ic, nsh, npairs
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
+   type(work_partition) :: partition
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
+   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
+   real(wp) :: ref(3, mol%nat), sref(3, 3)
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
    energy = 0.0_wp
@@ -676,7 +728,33 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
       print"(3es21.14)", gradient-numgrad
+      return
    end if
+
+   ! Check direct contraction, accumulation, and empty work partitions.
+   nsh = size(wfn%qsh, 1)
+   allocate(dadr(3, mol%nat, nsh), dadL(3, 3, nsh), atrace(3, nsh))
+   gradient = 0.125_wp
+   sigma = 0.125_wp
+   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+   select type(ptr => cache%raw)
+   type is(coulomb_cache)
+      call coulomb%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, atrace)
+   end select
+   ref = 0.125_wp + reshape(matmul(reshape(dadr, [3*mol%nat, nsh]), wfn%qsh(:, 1)), shape(ref))
+   sref = 0.125_wp + 0.5_wp*reshape(matmul(reshape(dadL, [9, nsh]), wfn%qsh(:, 1)), [3, 3])
+   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
+      & "Direct and response derivative contractions")
+   if (allocated(error)) return
+
+   npairs = mol%nat*(mol%nat+1)/2
+   call new_work_partition(error, partition, npairs, npairs+1)
+   if (allocated(error)) return
+   call coulomb%set_partition(partition)
+   call coulomb%update(mol, cache)
+   call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
+   call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
+      & "Empty partition must preserve accumulated derivatives")
 
 end subroutine test_numgrad
 

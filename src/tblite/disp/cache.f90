@@ -28,8 +28,6 @@ module tblite_disp_cache
    type :: dispersion_cache
       !> Locally owned atom pairs in row order
       type(pair_list) :: pairs
-      !> Whether coordination-number derivatives match the current geometry
-      logical :: cn_derivs_valid = .false.
       !> Local dispersion blocks indexed by row reference, neighbour reference, and pair
       real(wp), allocatable :: dispmat(:, :, :)
       real(wp), allocatable :: gwvec(:, :, :)
@@ -38,8 +36,6 @@ module tblite_disp_cache
       !> Charge derivatives of reference weights, computed with dgwdcn
       real(wp), allocatable :: dgwdq(:, :, :)
       real(wp), allocatable :: cn(:)
-      real(wp), allocatable :: dcndr(:, :, :)
-      real(wp), allocatable :: dcndL(:, :, :)
    end type dispersion_cache
 
 

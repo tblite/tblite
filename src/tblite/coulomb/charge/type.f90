@@ -60,6 +60,8 @@ module tblite_coulomb_charge_type
       procedure :: get_coulomb_blocks
       !> Evaluate uncontracted derivatives of Coulomb matrix
       procedure(get_coulomb_derivs), deferred :: get_coulomb_derivs
+      !> Accumulate charge-contracted derivatives into the gradient and strain
+      procedure :: get_coulomb_derivs_contracted
    end type coulomb_charge_type
 
    abstract interface
@@ -398,21 +400,49 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    !> Strain derivatives of the repulsion energy
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
-   integer :: ndim
-   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :)
    type(coulomb_cache), pointer :: ptr
 
    call view(cache, ptr)
 
+   call self%get_coulomb_derivs_contracted(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), gradient, sigma)
+
+end subroutine get_gradient
+
+
+!> Default contraction for Coulomb models providing full potential derivatives
+subroutine get_coulomb_derivs_contracted(self, mol, cache, qat, qsh, gradient, sigma)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container
+   type(coulomb_cache), intent(inout) :: cache
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+   !> Shell-resolved partial charges
+   real(wp), intent(in) :: qsh(:)
+   !> Molecular gradient to accumulate into
+   real(wp), contiguous, intent(inout) :: gradient(:, :)
+   !> Strain derivatives to accumulate into
+   real(wp), contiguous, intent(inout) :: sigma(:, :)
+
+   integer :: ndim
+   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :)
+
    ndim = sum(self%nshell)
    allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim))
 
-   call self%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, datr)
+   call self%get_coulomb_derivs(mol, cache, qat, qsh, dadr, dadL, datr)
 
-   call gemv(dadr, wfn%qsh(:, 1), gradient, beta=1.0_wp)
-   call gemv(dadL, wfn%qsh(:, 1), sigma, beta=1.0_wp, alpha=0.5_wp)
+   if (self%shell_resolved) then
+      call gemv(dadr, qsh, gradient, beta=1.0_wp)
+      call gemv(dadL, qsh, sigma, beta=1.0_wp, alpha=0.5_wp)
+   else
+      call gemv(dadr, qat, gradient, beta=1.0_wp)
+      call gemv(dadL, qat, sigma, beta=1.0_wp, alpha=0.5_wp)
+   end if
 
-end subroutine get_gradient
+end subroutine get_coulomb_derivs_contracted
 
 
 !> Get information about density dependent quantities used in the energy
