@@ -50,7 +50,7 @@ module tblite_integral_native_integrals
    end interface get_multipole_integrals
 
    integer, parameter :: maxl = 6
-   integer, parameter :: maxl2 = maxl*2
+   integer, parameter :: mtab = maxl + 2
    integer, parameter :: msao(0:maxl) = [1, 3, 5, 7, 9, 11, 13]
    integer, parameter :: mlao(0:maxl) = [1, 3, 6, 10, 15, 21, 28]
    integer, parameter :: smap(0:maxl) = [0, 1, 4, 9, 16, 25, 36]
@@ -88,214 +88,74 @@ module tblite_integral_native_integrals
 
 contains
 
-elemental function overlap_1d(moment, alpha) result(overlap)
-   integer, intent(in) :: moment
-   real(wp), intent(in) :: alpha
-   real(wp) :: overlap
-   real(wp), parameter :: dfactorial(0:7) = & ! see OEIS A001147
-      & [1.0_wp,1.0_wp,3.0_wp,15.0_wp,105.0_wp,945.0_wp,10395.0_wp,135135.0_wp]
-
-   if (modulo(moment, 2) == 0) then
-      overlap = (0.5_wp/alpha)**(moment/2) * dfactorial(moment/2)
-   else
-      overlap = 0.0_wp
-   end if
-end function overlap_1d
-
-pure subroutine horizontal_shift(ae, l, cfs)
-   integer, intent(in) :: l
-   real(wp), intent(in) :: ae
-   ! allow(C071): assumed-size retained from the reference integral kernels
-   real(wp), intent(inout) :: cfs(*)
-   select case(l)
-   case(0) ! s
-      continue
-   case(1) ! p
-      cfs(1)=cfs(1)+ae*cfs(2)
-   case(2) ! d
-      cfs(1)=cfs(1)+ae*ae*cfs(3)
-      cfs(2)=cfs(2)+ 2*ae*cfs(3)
-   case(3) ! f
-      cfs(1)=cfs(1)+ae*ae*ae*cfs(4)
-      cfs(2)=cfs(2)+ 3*ae*ae*cfs(4)
-      cfs(3)=cfs(3)+ 3*ae*cfs(4)
-   case(4) ! g
-      cfs(1)=cfs(1)+ae*ae*ae*ae*cfs(5)
-      cfs(2)=cfs(2)+ 4*ae*ae*ae*cfs(5)
-      cfs(3)=cfs(3)+ 6*ae*ae*cfs(5)
-      cfs(4)=cfs(4)+ 4*ae*cfs(5)
-   case default
-      continue
-   end select
-end subroutine horizontal_shift
-
-pure subroutine form_product(a, b, la, lb, d)
-   integer, intent(in) :: la, lb
-   ! allow(C071): assumed-size retained from the reference integral kernels
-   real(wp), intent(in) :: a(*), b(*)
-   ! allow(C071): assumed-size retained from the reference integral kernels
-   real(wp), intent(inout) :: d(*)
-   if(la>=4.or.lb>=4) goto 40
-   if(la>=3.or.lb>=3) goto 30
-   if(la>=2.or.lb>=2) goto 20
-   ! <s|s> = <s>
-   d(1)=a(1)*b(1)
-   if(la==0.and.lb==0) return
-   ! <s|p> = <s|*(|s>+|p>)
-   !       = <s> + <p>
-   d(2)=a(1)*b(2)+a(2)*b(1)
-   if(la==0.or.lb==0) return
-   ! <p|p> = (<s|+<p|)*(|s>+|p>)
-   !       = <s> + <p> + <d>
-   d(3)=a(2)*b(2)
-   return
-20 continue
-   ! <s|d> = <s|*(|s>+|p>+|d>)
-   !       = <s> + <p> + <d>
-   d(1)=a(1)*b(1)
-   d(2)=a(1)*b(2)+a(2)*b(1)
-   d(3)=a(1)*b(3)+a(3)*b(1)
-   if(la==0.or.lb==0) return
-   ! <p|d> = (<s|+<p|)*(|s>+|p>+|d>)
-   !       = <s> + <p> + <d> + <f>
-   d(3)=d(3)+a(2)*b(2)
-   d(4)=a(2)*b(3)+a(3)*b(2)
-   if(la<=1.or.lb<=1) return
-   ! <d|d> = (<s|+<p|+<d|)*(|s>+|p>+|d>)
-   !       = <s> + <p> + <d> + <f> + <g>
-   d(5)=a(3)*b(3)
-   return
-30 continue
-   ! <s|f> = <s|*(|s>+|p>+|d>+|f>)
-   !       = <s> + <p> + <d> + <f>
-   d(1)=a(1)*b(1)
-   d(2)=a(1)*b(2)+a(2)*b(1)
-   d(3)=a(1)*b(3)+a(3)*b(1)
-   d(4)=a(1)*b(4)+a(4)*b(1)
-   if(la==0.or.lb==0) return
-   ! <p|f> = (<s|+<p|)*(|s>+|p>+|d>+|f>)
-   !       = <s> + <p> + <d> + <f> + <g>
-   d(3)=d(3)+a(2)*b(2)
-   d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
-   d(5)=a(2)*b(4)+a(4)*b(2)
-   if(la<=1.or.lb<=1) return
-   ! <d|f> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h>
-   d(5)=d(5)+a(3)*b(3)
-   d(6)=a(3)*b(4)+a(4)*b(3)
-   if(la<=2.or.lb<=2) return
-   ! <f|f> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
-   d(7)=a(4)*b(4)
-   return
-40 continue
-   ! <s|g> = <s|*(|s>+|p>+|d>+|f>+|g>)
-   !       = <s> + <p> + <d> + <f> + <g>
-   d(1)=a(1)*b(1)
-   d(2)=a(1)*b(2)+a(2)*b(1)
-   d(3)=a(1)*b(3)+a(3)*b(1)
-   d(4)=a(1)*b(4)+a(4)*b(1)
-   d(5)=a(1)*b(5)+a(5)*b(1)
-   if(la==0.or.lb==0) return
-   ! <p|g> = (<s|+<p|)*(|s>+|p>+|d>+|f>+|g>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h>
-   d(3)=d(3)+a(2)*b(2)
-   d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
-   d(5)=d(5)+a(2)*b(4)+a(4)*b(2)
-   d(6)=a(2)*b(5)+a(5)*b(2)
-   if(la<=1.or.lb<=1) return
-   ! <d|g> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>+|g>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
-   d(5)=d(5)+a(3)*b(3)
-   d(6)=d(6)+a(3)*b(4)+a(4)*b(3)
-   d(7)=a(3)*b(5)+a(5)*b(3)
-   if(la<=2.or.lb<=2) return
-   ! <f|g> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>+|g>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k>
-   d(7)=d(7)+a(4)*b(4)
-   d(8)=a(4)*b(5)+a(5)*b(4)
-   if(la<=3.or.lb<=3) return
-   ! <g|g> = (<s|+<p|+<d|+<f|+<g|)*(|s>+|p>+|d>+|f>+|g>)
-   !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k> + <l>
-   d(9)=a(5)*b(5)
-
-end subroutine form_product
-
-
-pure subroutine overlap_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d)
+pure subroutine build_1d_moments(li_max, lj_max, rpi, rpj, oab, i_tab)
+   !> Maximum moment order on center i
+   integer, intent(in) :: li_max
+   !> Maximum moment order on center j
+   integer, intent(in) :: lj_max
+   !> Relative position of product center from center i
    real(wp), intent(in) :: rpi(3)
+   !> Relative position of product center from center j
    real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
-   integer, intent(in) :: li(3)
-   integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
-   real(wp), intent(out) :: s3d
+   !> Inverse sum of primitive exponents
+   real(wp), intent(in) :: oab
+   !> Unnormalized 1D Gaussian moments scaled by ((pi*oab)**(1/2)*exp(-est))^-1
+   real(wp), intent(out) :: i_tab(3, 0:mtab, 0:mtab)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3)
+   integer :: k, i, j
+   real(wp) :: half_oab
 
-   v1d(:) = 0.0_wp
+   half_oab = 0.5_wp * oab
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      do l = 0, li(k) + lj(k)
-         v1d(k) = v1d(k) + s1d(l) * vv(l)
-      end do
+      i_tab(k, 0, 0) = 1.0_wp
+      if (li_max >= 1) then
+         i_tab(k, 1, 0) = rpi(k)
+         do i = 1, li_max - 1
+            i_tab(k, i+1, 0) = rpi(k) * i_tab(k, i, 0) + real(i, wp) * half_oab * i_tab(k, i-1, 0)
+         end do
+      end if
+      if (lj_max >= 1) then
+         i_tab(k, 0, 1) = rpj(k)
+         do i = 1, li_max
+            i_tab(k, i, 1) = rpj(k) * i_tab(k, i, 0) + real(i, wp) * half_oab * i_tab(k, i-1, 0)
+         end do
+         do j = 1, lj_max - 1
+            i_tab(k, 0, j+1) = rpj(k) * i_tab(k, 0, j) + real(j, wp) * half_oab * i_tab(k, 0, j-1)
+            do i = 1, li_max
+               i_tab(k, i, j+1) = rpj(k) * i_tab(k, i, j) &
+                  & + half_oab * (real(i, wp) * i_tab(k, i-1, j) + real(j, wp) * i_tab(k, i, j-1))
+            end do
+         end do
+      end if
    end do
+end subroutine build_1d_moments
 
-   s3d = v1d(1) * v1d(2) * v1d(3)
+pure subroutine overlap_3d(lj, li, i_tab, s3d)
+   integer, intent(in) :: li(3)
+   integer, intent(in) :: lj(3)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
+   real(wp), intent(out) :: s3d
+
+   s3d = i_tab(1, li(1), lj(1)) * i_tab(2, li(2), lj(2)) * i_tab(3, li(3), lj(3))
 
 end subroutine overlap_3d
 
-pure subroutine overlap_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, ds3d)
-   real(wp), intent(in) :: rpi(3)
-   real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
+pure subroutine overlap_grad_3d(ai2, lj, li, i_tab, s3d, ds3d)
+   real(wp), intent(in) :: ai2
    integer, intent(in) :: li(3)
    integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp), intent(out) :: s3d
    real(wp), intent(out) :: ds3d(3)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3)
-   real(wp) :: gi(0:maxl), gg(0:maxl2), g1d(3)
-
-   v1d(:) = 0.0_wp
-   g1d(:) = 0.0_wp
+   integer :: k
+   real(wp) :: v1d(3), g1d(3)
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      gg(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      gi(:) = 0.0_wp
-
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-      gi(li(k)+1) = 2*ai
-      if (li(k) > 0) gi(li(k)-1) = -li(k)
-
-      call horizontal_shift(rpi(k), li(k)-1, gi)
-      call horizontal_shift(rpi(k), li(k)+1, gi)
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      call form_product(gi, vj, li(k)+1, lj(k), gg)
-      do l = 0, li(k) + lj(k) + 1
-         v1d(k) = v1d(k) + s1d(l) * vv(l)
-         g1d(k) = g1d(k) + s1d(l) * gg(l)
-      end do
+      v1d(k) = i_tab(k, li(k), lj(k))
+      g1d(k) = ai2 * i_tab(k, li(k)+1, lj(k))
+      if (li(k) > 0) g1d(k) = g1d(k) - real(li(k), wp) * i_tab(k, li(k)-1, lj(k))
    end do
 
    s3d = v1d(1) * v1d(2) * v1d(3)
@@ -319,8 +179,9 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
    !> Overlap integrals for the given pair i  and j
    real(wp), intent(out) :: overlap(msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, pre
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, pre
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
 
    s3d(:, :) = 0.0_wp
@@ -334,15 +195,12 @@ pure subroutine overlap_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap)
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang, cgtoj%ang, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call overlap_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val)
+               call overlap_3d(lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
+                  & i_tab, val)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
             end do
          end do
@@ -369,8 +227,9 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
    !> Overlap integral gradient for the given pair i  and j
    real(wp), intent(out) :: doverlap(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, grad(3), pre
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, grad(3), pre, ai2
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: ds3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
@@ -378,6 +237,7 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
    ds3d(:, :, :) = 0.0_wp
 
    do ip = 1, cgtoi%nprim
+      ai2 = 2.0_wp * cgtoi%alpha(ip)
       do jp = 1, cgtoj%nprim
          eab = cgtoi%alpha(ip) + cgtoj%alpha(jp)
          oab = 1.0_wp/eab
@@ -386,15 +246,12 @@ pure subroutine overlap_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, doverl
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang + 1
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang + 1, cgtoj%ang, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call overlap_grad_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val, grad)
+               call overlap_grad_3d(ai2, lx(:, mlj+lmap(cgtoj%ang)), &
+                  & lx(:, mli+lmap(cgtoi%ang)), i_tab, val, grad)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
                ds3d(:, mlj, mli) = ds3d(:, mlj, mli) + cc*grad
             end do
@@ -581,37 +438,18 @@ subroutine get_overlap_diat_lat(mol, trans, cutoff, bas, ksig, kpi, kdel, &
 
 end subroutine get_overlap_diat_lat
 
-pure subroutine dipole_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d)
-   real(wp), intent(in) :: rpi(3)
-   real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
+pure subroutine dipole_3d(lj, li, i_tab, s3d, d3d)
    integer, intent(in) :: li(3)
    integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp), intent(out) :: s3d
    real(wp), intent(out) :: d3d(3)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3, 2)
-   real(wp), parameter :: s3 = sqrt(3.0_wp), s3_4 = s3 * 0.5_wp
-
-   v1d(:, :) = 0.0_wp
+   integer :: k
+   real(wp) :: v1d(3, 2)
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      do l = 0, li(k) + lj(k)
-         v1d(k, 1) = v1d(k, 1) + s1d(l) * vv(l)
-         v1d(k, 2) = v1d(k, 2) + (s1d(l+1) + rpi(k)*s1d(l)) * vv(l)
-      end do
+      v1d(k, 1:2) = i_tab(k, li(k):li(k)+1, lj(k))
    end do
 
    s3d = v1d(1, 1) * v1d(2, 1) * v1d(3, 1)
@@ -621,51 +459,24 @@ pure subroutine dipole_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d)
 
 end subroutine dipole_3d
 
-pure subroutine dipole_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, &
-      & ds3d, dd3d)
-   real(wp), intent(in) :: rpi(3)
-   real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
+pure subroutine dipole_grad_3d(ai2, lj, li, i_tab, s3d, d3d, ds3d, dd3d)
+   real(wp), intent(in) :: ai2
    integer, intent(in) :: li(3)
    integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp), intent(out) :: s3d
    real(wp), intent(out) :: d3d(3)
    real(wp), intent(out) :: ds3d(3)
    real(wp), intent(out) :: dd3d(3, 3)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3, 2)
-   real(wp) :: gi(0:maxl), gg(0:maxl2), g1d(3, 2)
-
-   v1d(:, :) = 0.0_wp
-   g1d(:, :) = 0.0_wp
+   integer :: k
+   real(wp) :: v1d(3, 2), g1d(3, 2)
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      gg(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      gi(:) = 0.0_wp
-
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-      gi(li(k)+1) = 2*ai
-      if (li(k) > 0) gi(li(k)-1) = -li(k)
-
-      call horizontal_shift(rpi(k), li(k)-1, gi)
-      call horizontal_shift(rpi(k), li(k)+1, gi)
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      call form_product(gi, vj, li(k)+1, lj(k), gg)
-      do l = 0, li(k) + lj(k) + 1
-         v1d(k, 1) = v1d(k, 1) + s1d(l) * vv(l)
-         v1d(k, 2) = v1d(k, 2) + (s1d(l+1) + rpi(k)*s1d(l)) * vv(l)
-         g1d(k, 1) = g1d(k, 1) + s1d(l) * gg(l)
-         g1d(k, 2) = g1d(k, 2) + (s1d(l+1) + rpi(k)*s1d(l)) * gg(l)
-      end do
+      v1d(k, 1:2) = i_tab(k, li(k):li(k)+1, lj(k))
+      g1d(k, 1) = ai2 * v1d(k, 2)
+      g1d(k, 2) = ai2 * i_tab(k, li(k)+2, lj(k)) - real(li(k), wp) * v1d(k, 1)
+      if (li(k) > 0) g1d(k, 1) = g1d(k, 1) - real(li(k), wp) * i_tab(k, li(k)-1, lj(k))
    end do
 
    s3d = v1d(1, 1) * v1d(2, 1) * v1d(3, 1)
@@ -709,9 +520,10 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
    !> Dipole moment integral gradient for the given pair i  and j
    real(wp), intent(out) :: ddpint(3, 3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3)
-   real(wp) :: pre, grad(3), ddip(3, 3)
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, dip(3)
+   real(wp) :: pre, grad(3), ddip(3, 3), ai2
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: ds3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
@@ -723,6 +535,7 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
    dd3d(:, :, :, :) = 0.0_wp
 
    do ip = 1, cgtoi%nprim
+      ai2 = 2.0_wp * cgtoi%alpha(ip)
       do jp = 1, cgtoj%nprim
          eab = cgtoi%alpha(ip) + cgtoj%alpha(jp)
          oab = 1.0_wp/eab
@@ -731,15 +544,12 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang + 2
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang + 2, cgtoj%ang, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call dipole_grad_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val, dip, grad, ddip)
+               call dipole_grad_3d(ai2, lx(:, mlj+lmap(cgtoj%ang)), &
+                  & lx(:, mli+lmap(cgtoi%ang)), i_tab, val, dip, grad, ddip)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
                d3d(:, mlj, mli) = d3d(:, mlj, mli) + cc*dip
                ds3d(:, mlj, mli) = ds3d(:, mlj, mli) + cc*grad
@@ -756,38 +566,19 @@ pure subroutine dipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, 
 
 end subroutine dipole_grad_cgto
 
-pure subroutine multipole_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, q3d)
-   real(wp), intent(in) :: rpi(3)
-   real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
+pure subroutine multipole_3d(lj, li, i_tab, s3d, d3d, q3d)
    integer, intent(in) :: li(3)
    integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp), intent(out) :: s3d
    real(wp), intent(out) :: d3d(3)
    real(wp), intent(out) :: q3d(6)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3, 3)
-
-   v1d(:, :) = 0.0_wp
+   integer :: k
+   real(wp) :: v1d(3, 3)
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      do l = 0, li(k) + lj(k)
-         v1d(k, 1) = v1d(k, 1) + s1d(l) * vv(l)
-         v1d(k, 2) = v1d(k, 2) + (s1d(l+1) + rpi(k)*s1d(l)) * vv(l)
-         v1d(k, 3) = v1d(k, 3) + (s1d(l+2) + 2*rpi(k)*s1d(l+1) + rpi(k)*rpi(k)*s1d(l)) * vv(l)
-      end do
+      v1d(k, 1:3) = i_tab(k, li(k):li(k)+2, lj(k))
    end do
 
    s3d = v1d(1, 1) * v1d(2, 1) * v1d(3, 1)
@@ -803,15 +594,12 @@ pure subroutine multipole_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, q3d)
 
 end subroutine multipole_3d
 
-pure subroutine multipole_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, q3d, &
+pure subroutine multipole_grad_3d(ai2, lj, li, i_tab, s3d, d3d, q3d, &
       & ds3d, dd3d, dq3d)
-   real(wp), intent(in) :: rpi(3)
-   real(wp), intent(in) :: rpj(3)
-   real(wp), intent(in) :: ai
-   real(wp), intent(in) :: aj
+   real(wp), intent(in) :: ai2
    integer, intent(in) :: li(3)
    integer, intent(in) :: lj(3)
-   real(wp), intent(in) :: s1d(0:)
+   real(wp), intent(in) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp), intent(out) :: s3d
    real(wp), intent(out) :: d3d(3)
    real(wp), intent(out) :: q3d(6)
@@ -819,40 +607,13 @@ pure subroutine multipole_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, q3d, 
    real(wp), intent(out) :: dd3d(3, 3)
    real(wp), intent(out) :: dq3d(3, 6)
 
-   integer :: k, l
-   real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), v1d(3, 3)
-   real(wp) :: gi(0:maxl), gg(0:maxl2), g1d(3, 3), rpc
-
-   v1d(:, :) = 0.0_wp
-   g1d(:, :) = 0.0_wp
+   integer :: k
+   real(wp) :: v1d(3, 3), g1d(3, 3)
 
    do k = 1, 3
-      vv(:) = 0.0_wp
-      gg(:) = 0.0_wp
-      vi(:) = 0.0_wp
-      vj(:) = 0.0_wp
-      gi(:) = 0.0_wp
-      rpc = rpj(k)
-
-      vi(li(k)) = 1.0_wp
-      vj(lj(k)) = 1.0_wp
-      gi(li(k)+1) = 2*ai
-      if (li(k) > 0) gi(li(k)-1) = -li(k)
-
-      call horizontal_shift(rpi(k), li(k)-1, gi)
-      call horizontal_shift(rpi(k), li(k)+1, gi)
-      call horizontal_shift(rpi(k), li(k), vi)
-      call horizontal_shift(rpj(k), lj(k), vj)
-      call form_product(vi, vj, li(k), lj(k), vv)
-      call form_product(gi, vj, li(k)+1, lj(k), gg)
-      do l = 0, li(k) + lj(k) + 1
-         v1d(k, 1) = v1d(k, 1) + s1d(l) * vv(l)
-         v1d(k, 2) = v1d(k, 2) + (s1d(l+1) + rpc*s1d(l)) * vv(l)
-         v1d(k, 3) = v1d(k, 3) + (s1d(l+2) + 2*rpc*s1d(l+1) + rpc*rpc*s1d(l)) * vv(l)
-         g1d(k, 1) = g1d(k, 1) + s1d(l) * gg(l)
-         g1d(k, 2) = g1d(k, 2) + (s1d(l+1) + rpc*s1d(l)) * gg(l)
-         g1d(k, 3) = g1d(k, 3) + (s1d(l+2) + 2*rpc*s1d(l+1) + rpc*rpc*s1d(l)) * gg(l)
-      end do
+      v1d(k, 1:3) = i_tab(k, li(k), lj(k):lj(k)+2)
+      g1d(k, 1:3) = ai2 * i_tab(k, li(k)+1, lj(k):lj(k)+2)
+      if (li(k) > 0) g1d(k, 1:3) = g1d(k, 1:3) - real(li(k), wp) * i_tab(k, li(k)-1, lj(k):lj(k)+2)
    end do
 
    s3d = v1d(1, 1) * v1d(2, 1) * v1d(3, 1)
@@ -899,11 +660,10 @@ pure subroutine multipole_grad_3d(rpj, rpi, aj, ai, lj, li, s1d, s3d, d3d, q3d, 
 
 end subroutine multipole_grad_3d
 
-pure subroutine shift_operator(vec, s, di, qi, ds, ddi, dqi, ddj, dqj)
+pure subroutine shift_operator(vec, s, di, ds, ddi, dqi, ddj, dqj)
    real(wp),intent(in) :: vec(:)
    real(wp),intent(in) :: s
    real(wp),intent(in) :: di(:)
-   real(wp),intent(in) :: qi(:)
    real(wp),intent(in) :: ds(:)
    real(wp),intent(in) :: ddi(:, :)
    real(wp),intent(in) :: dqi(:, :)
@@ -952,8 +712,9 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
    !> Dipole moment integrals for the given pair i  and j
    real(wp), intent(out) :: dpint(3, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), pre
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, dip(3), pre
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
@@ -969,15 +730,12 @@ pure subroutine dipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint)
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang + 1
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang + 1, cgtoj%ang, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call dipole_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val, dip)
+               call dipole_3d(lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
+                  & i_tab, val, dip)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
                d3d(:, mlj, mli) = d3d(:, mlj, mli) + cc*dip
             end do
@@ -1197,8 +955,9 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
    !> Quadrupole moment integrals for the given pair i  and j
    real(wp), intent(out) :: qpint(6, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, dip(3), quad(6), pre, tr
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: q3d(6, mlao(cgtoj%ang), mlao(cgtoi%ang))
@@ -1216,15 +975,12 @@ pure subroutine multipole_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpint, qp
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang + 2
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang + 2, cgtoj%ang, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call multipole_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val, dip, quad)
+               call multipole_3d(lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
+                  & i_tab, val, dip, quad)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
                d3d(:, mlj, mli) = d3d(:, mlj, mli) + cc*dip
                q3d(:, mlj, mli) = q3d(:, mlj, mli) + cc*quad
@@ -1282,15 +1038,14 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    !> Quadrupole moment integral gradient for the given pair i  and j
    real(wp), intent(out) :: dqpintj(3, 6, msao(cgtoj%ang), msao(cgtoi%ang))
 
-   integer :: ip, jp, mli, mlj, l
-   real(wp) :: eab, oab, est, s1d(0:maxl2), rpi(3), rpj(3), cc, val, dip(3), quad(6)
-   real(wp) :: pre, grad(3), ddip(3, 3), dquad(3, 6), tr, dtr(3)
+   integer :: ip, jp, mli, mlj
+   real(wp) :: eab, oab, est, rpi(3), rpj(3), cc, val, dip(3), quad(6)
+   real(wp) :: pre, grad(3), ddip(3, 3), dquad(3, 6), tr, dtr(3), ai2
+   real(wp) :: i_tab(3, 0:mtab, 0:mtab)
    real(wp) :: s3d(mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: d3dj(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: q3dj(6, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: ds3d(3, mlao(cgtoj%ang), mlao(cgtoi%ang))
-   real(wp) :: dd3di(3, 3, mlao(cgtoj%ang), mlao(cgtoi%ang))
-   real(wp) :: dq3di(3, 6, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: dd3dj(3, 3, mlao(cgtoj%ang), mlao(cgtoi%ang))
    real(wp) :: dq3dj(3, 6, mlao(cgtoj%ang), mlao(cgtoi%ang))
 
@@ -1298,12 +1053,11 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
    d3dj(:, :, :) = 0.0_wp
    q3dj(:, :, :) = 0.0_wp
    ds3d(:, :, :) = 0.0_wp
-   dd3di(:, :, :, :) = 0.0_wp
-   dq3di(:, :, :, :) = 0.0_wp
    dd3dj(:, :, :, :) = 0.0_wp
    dq3dj(:, :, :, :) = 0.0_wp
 
    do ip = 1, cgtoi%nprim
+      ai2 = 2.0_wp * cgtoi%alpha(ip)
       do jp = 1, cgtoj%nprim
          eab = cgtoi%alpha(ip) + cgtoj%alpha(jp)
          oab = 1.0_wp/eab
@@ -1312,15 +1066,12 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
          pre = exp(-est) * sqrtpi3*sqrt(oab)**3
          rpi = -vec * cgtoj%alpha(jp) * oab
          rpj = +vec * cgtoi%alpha(ip) * oab
-         do l = 0, cgtoi%ang + cgtoj%ang + 3
-            s1d(l) = overlap_1d(l, eab)
-         end do
+         call build_1d_moments(cgtoi%ang + 1, cgtoj%ang + 2, rpi, rpj, oab, i_tab)
          cc = cgtoi%coeff(ip) * cgtoj%coeff(jp) * pre
          do mli = 1, mlao(cgtoi%ang)
             do mlj = 1, mlao(cgtoj%ang)
-               call multipole_grad_3d(rpj, rpi, cgtoj%alpha(jp), cgtoi%alpha(ip), &
-                  & lx(:, mlj+lmap(cgtoj%ang)), lx(:, mli+lmap(cgtoi%ang)), &
-                  & s1d, val, dip, quad, grad, ddip, dquad)
+               call multipole_grad_3d(ai2, lx(:, mlj+lmap(cgtoj%ang)), &
+                  & lx(:, mli+lmap(cgtoi%ang)), i_tab, val, dip, quad, grad, ddip, dquad)
                s3d(mlj, mli) = s3d(mlj, mli) + cc*val
                d3dj(:, mlj, mli) = d3dj(:, mlj, mli) + cc*dip
                q3dj(:, mlj, mli) = q3dj(:, mlj, mli) + cc*quad
@@ -1332,22 +1083,20 @@ pure subroutine multipole_grad_cgto(cgtoj, cgtoi, r2, vec, intcut, overlap, dpin
       end do
    end do
 
-   do mli = 1, mlao(cgtoi%ang)
-      do mlj = 1, mlao(cgtoj%ang)
-         call shift_operator(vec, s3d(mlj, mli), d3dj(:, mlj, mli), q3dj(:, mlj, mli), &
-            & ds3d(:, mlj, mli), dd3dj(:, :, mlj, mli), dq3dj(:, :, mlj, mli), &
-            & dd3di(:, :, mlj, mli), dq3di(:, :, mlj, mli))
-      end do
-   end do
-
    call transform0(cgtoj%ang, cgtoi%ang, s3d, overlap, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, d3dj, dpint, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, q3dj, qpint, .true., .true.)
    call transform1(cgtoj%ang, cgtoi%ang, ds3d, doverlap, .true., .true.)
    call transform2(cgtoj%ang, cgtoi%ang, dd3dj, ddpintj, .true., .true.)
    call transform2(cgtoj%ang, cgtoi%ang, dq3dj, dqpintj, .true., .true.)
-   call transform2(cgtoj%ang, cgtoi%ang, dd3di, ddpinti, .true., .true.)
-   call transform2(cgtoj%ang, cgtoi%ang, dq3di, dqpinti, .true., .true.)
+
+   do mli = 1, msao(cgtoi%ang)
+      do mlj = 1, msao(cgtoj%ang)
+         call shift_operator(vec, overlap(mlj, mli), dpint(:, mlj, mli), &
+            & doverlap(:, mlj, mli), ddpintj(:, :, mlj, mli), dqpintj(:, :, mlj, mli), &
+            & ddpinti(:, :, mlj, mli), dqpinti(:, :, mlj, mli))
+      end do
+   end do
 
    ! remove trace from quadrupole integrals (transfrom to spherical harmonics and back)
    do mli = 1, msao(cgtoi%ang)
