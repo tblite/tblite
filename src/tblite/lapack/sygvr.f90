@@ -87,18 +87,27 @@ module tblite_lapack_sygvr
       end subroutine dsyevr
    end interface lapack_syevr
 
+   interface update_overlap
+      module procedure :: update_overlap_sp
+      module procedure :: update_overlap_dp
+   end interface update_overlap
+
 
    type, public, extends(diag_solver_type) :: sygvr_solver
       private
       integer :: n = 0
+      integer :: spotrf_info = 0
+      integer :: dpotrf_info = 0
       integer, allocatable :: iwork(:)
       integer, allocatable :: isuppz(:)
       real(sp), allocatable :: swork(:)
       real(sp), allocatable :: sbmat(:, :)
-      real(sp), allocatable :: schole(:)
+      real(sp), allocatable :: soverlap(:)
+      real(sp), allocatable :: schol(:, :)
       real(dp), allocatable :: dwork(:)
       real(dp), allocatable :: dbmat(:, :)
-      real(dp), allocatable :: dchole(:)
+      real(dp), allocatable :: doverlap(:)
+      real(dp), allocatable :: dchol(:, :)
    contains
       procedure :: solve_sp
       procedure :: solve_dp
@@ -114,7 +123,78 @@ subroutine new_sygvr(self, overlap, nel, kt)
    self%n = size(overlap, 1)
    self%nel = nel
    self%kt = kt
+   call update_overlap(self, overlap)
 end subroutine new_sygvr
+
+subroutine update_overlap_sp(self, smat)
+   class(sygvr_solver), intent(inout) :: self
+   real(sp), intent(in) :: smat(:, :)
+   integer :: n, npk, ii, jj, k0
+   logical :: same
+
+   n = size(smat, 1)
+   npk = n * (n + 1) / 2
+   same = (self%spotrf_info == 0) .and. allocated(self%soverlap)
+   if (same) same = (size(self%soverlap) == npk)
+   if (same) then
+      outer: do jj = 1, n
+         k0 = jj * (jj - 1) / 2
+         do ii = 1, jj
+            if (self%soverlap(k0 + ii) /= smat(ii, jj)) then
+               same = .false.
+               exit outer
+            end if
+         end do
+      end do outer
+   end if
+   if (.not. same) then
+      if (allocated(self%soverlap)) then
+         if (size(self%soverlap) /= npk) deallocate(self%soverlap, self%schol)
+      end if
+      if (.not. allocated(self%soverlap)) allocate(self%soverlap(npk), self%schol(n, n))
+      do jj = 1, n
+         k0 = jj * (jj - 1) / 2
+         self%soverlap(k0 + 1:k0 + jj) = smat(1:jj, jj)
+         self%schol(1:jj, jj) = smat(1:jj, jj)
+      end do
+      call wrap_potrf(self%schol, self%spotrf_info, uplo="U")
+   end if
+end subroutine update_overlap_sp
+
+subroutine update_overlap_dp(self, smat)
+   class(sygvr_solver), intent(inout) :: self
+   real(dp), intent(in) :: smat(:, :)
+   integer :: n, npk, ii, jj, k0
+   logical :: same
+
+   n = size(smat, 1)
+   npk = n * (n + 1) / 2
+   same = (self%dpotrf_info == 0) .and. allocated(self%doverlap)
+   if (same) same = (size(self%doverlap) == npk)
+   if (same) then
+      outer: do jj = 1, n
+         k0 = jj * (jj - 1) / 2
+         do ii = 1, jj
+            if (self%doverlap(k0 + ii) /= smat(ii, jj)) then
+               same = .false.
+               exit outer
+            end if
+         end do
+      end do outer
+   end if
+   if (.not. same) then
+      if (allocated(self%doverlap)) then
+         if (size(self%doverlap) /= npk) deallocate(self%doverlap, self%dchol)
+      end if
+      if (.not. allocated(self%doverlap)) allocate(self%doverlap(npk), self%dchol(n, n))
+      do jj = 1, n
+         k0 = jj * (jj - 1) / 2
+         self%doverlap(k0 + 1:k0 + jj) = smat(1:jj, jj)
+         self%dchol(1:jj, jj) = smat(1:jj, jj)
+      end do
+      call wrap_potrf(self%dchol, self%dpotrf_info, uplo="U")
+   end if
+end subroutine update_overlap_dp
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvr_solver), intent(inout) :: self
@@ -126,13 +206,15 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    integer, parameter :: itype = 1
    character(len=1), parameter :: uplo = "U"
 
-   logical :: upper
-   integer :: info, lswork, liwork, m, ii, jj
+   integer :: info, lswork, liwork, m, ii
    real(sp) :: abstol, vl, vu
-   character(len=1) :: trans, uplo_new
 
-   if (self%n == 0) then
+   if (self%n /= size(hmat, 1)) then
       self%n = size(hmat, 1)
+      if (allocated(self%swork)) deallocate(self%swork)
+      if (allocated(self%iwork)) deallocate(self%iwork)
+      if (allocated(self%isuppz)) deallocate(self%isuppz)
+      if (allocated(self%sbmat)) deallocate(self%sbmat)
    end if
    if (.not.allocated(self%swork)) then
       lswork = query(self%n, uplo, "S")
@@ -142,46 +224,26 @@ subroutine solve_sp(self, hmat, smat, eval, error)
       liwork = max(1, 10 * self%n)
       allocate(self%iwork(liwork))
    end if
-   if (.not.allocated(self%schole)) then
-      allocate(self%schole(self%n))
-   end if
    if (.not.allocated(self%isuppz)) then
       allocate(self%isuppz(2*self%n))
    end if
-   self%sbmat = smat
+   if (.not.allocated(self%sbmat)) then
+      allocate(self%sbmat(self%n, self%n))
+   end if
    lswork = size(self%swork)
    liwork = size(self%iwork)
-   upper = (uplo == "U" .or. uplo == "u")
    abstol = slamch_s()
    info = 0
 
-   ! Form a Cholesky factorization of B.
-   call wrap_potrf(self%sbmat, info, uplo=uplo)
-   call handle_info(error, info)
+   ! Form or reuse a Cholesky factorization of B.
+   call update_overlap(self, smat)
+   call handle_info(error, self%spotrf_info)
    if (allocated(error)) return
 
    ! Transform problem to standard eigenvalue problem and solve.
-   call wrap_sygst(hmat, self%sbmat, info, itype=itype, uplo=uplo)
+   call wrap_sygst(hmat, self%schol, info, itype=itype, uplo=uplo)
    call handle_info(error, info)
    if (allocated(error)) return
-
-   ! Save Cholesky factor in the other triangle of H and chole
-   do ii = 1, self%n
-      self%schole(ii) = self%sbmat(ii, ii)
-   end do
-   if (upper) then
-      do jj = 1, self%n
-         do ii = jj + 1, self%n
-            hmat(ii, jj) = self%sbmat(jj, ii)
-         end do
-      end do
-   else
-      do jj = 1, self%n
-         do ii = 1, jj - 1
-            hmat(ii, jj) = self%sbmat(jj, ii)
-         end do
-      end do
-   end if
 
    call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
       & m, eval, self%sbmat, self%n, self%isuppz, self%swork, lswork, self%iwork, liwork, &
@@ -189,18 +251,8 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   ! Backtransform eigenvectors to the original problem.
-   do ii = 1, self%n
-      hmat(ii, ii) = self%schole(ii)
-   end do
-
-   uplo_new = merge("L", "U", upper)
-   upper = .not.upper
-
-   ! For A*x=(lambda)*B*x
-   ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge("N", "T", upper)
-   call wrap_trsm(hmat, self%sbmat, side="L", uplo=uplo_new, transa=trans, diag="N")
+   ! Backtransform eigenvectors to the original problem: x = inv(U)*y
+   if (m > 0) call wrap_trsm(self%schol, self%sbmat(:, 1:m), side="L", uplo=uplo, transa="N", diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%sbmat(1:self%n, ii)
    end do
@@ -218,13 +270,15 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    integer, parameter :: itype = 1
    character(len=1), parameter :: uplo = "U"
 
-   logical :: upper
-   integer :: info, ldwork, liwork, m, ii, jj
+   integer :: info, ldwork, liwork, m, ii
    real(dp) :: abstol, vl, vu
-   character(len=1) :: trans, uplo_new
 
-   if (self%n == 0) then
+   if (self%n /= size(hmat, 1)) then
       self%n = size(hmat, 1)
+      if (allocated(self%dwork)) deallocate(self%dwork)
+      if (allocated(self%iwork)) deallocate(self%iwork)
+      if (allocated(self%isuppz)) deallocate(self%isuppz)
+      if (allocated(self%dbmat)) deallocate(self%dbmat)
    end if
    if (.not.allocated(self%dwork)) then
       ldwork = query(self%n, uplo, "D")
@@ -234,46 +288,26 @@ subroutine solve_dp(self, hmat, smat, eval, error)
       liwork = max(1, 10 * self%n)
       allocate(self%iwork(liwork))
    end if
-   if (.not.allocated(self%dchole)) then
-      allocate(self%dchole(self%n))
-   end if
    if (.not.allocated(self%isuppz)) then
       allocate(self%isuppz(2*self%n))
    end if
-   self%dbmat = smat
+   if (.not.allocated(self%dbmat)) then
+      allocate(self%dbmat(self%n, self%n))
+   end if
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
-   upper = (uplo == "U" .or. uplo == "u")
    abstol = dlamch_s()
    info = 0
 
-   ! Form a Cholesky factorization of B.
-   call wrap_potrf(self%dbmat, info, uplo=uplo)
-   call handle_info(error, info)
+   ! Form or reuse a Cholesky factorization of B.
+   call update_overlap(self, smat)
+   call handle_info(error, self%dpotrf_info)
    if (allocated(error)) return
 
    ! Transform problem to standard eigenvalue problem and solve.
-   call wrap_sygst(hmat, self%dbmat, info, itype=itype, uplo=uplo)
+   call wrap_sygst(hmat, self%dchol, info, itype=itype, uplo=uplo)
    call handle_info(error, info)
    if (allocated(error)) return
-
-   ! Save Cholesky factor in the other triangle of H and chole
-   do ii = 1, self%n
-      self%dchole(ii) = self%dbmat(ii, ii)
-   end do
-   if (upper) then
-      do jj = 1, self%n
-         do ii = jj + 1, self%n
-            hmat(ii, jj) = self%dbmat(jj, ii)
-         end do
-      end do
-   else
-      do jj = 1, self%n
-         do ii = 1, jj - 1
-            hmat(ii, jj) = self%dbmat(jj, ii)
-         end do
-      end do
-   end if
 
    call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
       & m, eval, self%dbmat, self%n, self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
@@ -281,18 +315,8 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   ! Backtransform eigenvectors to the original problem.
-   do ii = 1, self%n
-      hmat(ii, ii) = self%dchole(ii)
-   end do
-
-   uplo_new = merge("L", "U", upper)
-   upper = .not.upper
-
-   ! For A*x=(lambda)*B*x
-   ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge("N", "T", upper)
-   call wrap_trsm(hmat, self%dbmat, side="L", uplo=uplo_new, transa=trans, diag="N")
+   ! Backtransform eigenvectors to the original problem: x = inv(U)*y
+   if (m > 0) call wrap_trsm(self%dchol, self%dbmat(:, 1:m), side="L", uplo=uplo, transa="N", diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%dbmat(1:self%n, ii)
    end do
