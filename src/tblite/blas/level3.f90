@@ -23,7 +23,7 @@ module tblite_blas_level3
    implicit none
    private
 
-   public :: wrap_gemm, wrap_trsm, wrap_symm
+   public :: wrap_gemm, wrap_trsm, wrap_symm, wrap_syrk
 
 
    !> Performs one of the matrix-matrix operations
@@ -80,6 +80,12 @@ module tblite_blas_level3
       module procedure :: wrap_ssymm
       module procedure :: wrap_dsymm
    end interface wrap_symm
+
+   !> Symmetric rank-k update C := alpha*A*A**T + beta*C or alpha*A**T*A + beta*C
+   interface wrap_syrk
+      module procedure :: wrap_ssyrk
+      module procedure :: wrap_dsyrk
+   end interface wrap_syrk
 
    !> Performs one of the matrix-matrix operations
    !>
@@ -199,6 +205,26 @@ module tblite_blas_level3
          real(dp), intent(inout) :: c(ldc, *)
       end subroutine dsymm
    end interface blas_symm
+
+   !> Symmetric rank-k update C := alpha*A*A**T + beta*C or alpha*A**T*A + beta*C
+   interface blas_syrk
+      pure subroutine ssyrk(uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
+         import :: sp
+         character(len=1), intent(in) :: uplo, trans
+         integer, intent(in) :: n, k, lda, ldc
+         real(sp), intent(in) :: alpha, beta
+         real(sp), intent(in) :: a(lda, *)
+         real(sp), intent(inout) :: c(ldc, *)
+      end subroutine ssyrk
+      pure subroutine dsyrk(uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
+         import :: dp
+         character(len=1), intent(in) :: uplo, trans
+         integer, intent(in) :: n, k, lda, ldc
+         real(dp), intent(in) :: alpha, beta
+         real(dp), intent(in) :: a(lda, *)
+         real(dp), intent(inout) :: c(ldc, *)
+      end subroutine dsyrk
+   end interface blas_syrk
 
 contains
 
@@ -601,6 +627,62 @@ pure subroutine wrap_dsymm(amat, bmat, cmat, side, uplo, alpha, beta)
    n   = size(cmat, 2)
    call blas_symm(sda, ula, m, n, a, amat, lda, bmat, ldb, b, cmat, ldc)
 end subroutine wrap_dsymm
+
+
+pure subroutine wrap_ssyrk(amat, cmat, uplo, trans, alpha, beta, n, k)
+   real(sp), contiguous, intent(in) :: amat(:, :)
+   real(sp), contiguous, intent(inout) :: cmat(:, :)
+   character(len=1), intent(in), optional :: uplo, trans
+   real(sp), intent(in), optional :: alpha, beta
+   integer, intent(in), optional :: n, k
+   character(len=1) :: ula, tra
+   real(sp) :: a, b
+   integer :: nn, kk, lda, ldc
+
+   ula = "u"
+   if (present(uplo)) ula = uplo
+   tra = "n"
+   if (present(trans)) tra = trans
+   a = 1.0_sp
+   if (present(alpha)) a = alpha
+   b = 0.0_sp
+   if (present(beta)) b = beta
+   nn = size(cmat, 1)
+   if (present(n)) nn = n
+   kk = merge(size(amat, 2), size(amat, 1), tra == "n" .or. tra == "N")
+   if (present(k)) kk = k
+   lda = max(1, size(amat, 1))
+   ldc = max(1, size(cmat, 1))
+   call blas_syrk(ula, tra, nn, kk, a, amat, lda, b, cmat, ldc)
+end subroutine wrap_ssyrk
+
+
+pure subroutine wrap_dsyrk(amat, cmat, uplo, trans, alpha, beta, n, k)
+   real(dp), contiguous, intent(in) :: amat(:, :)
+   real(dp), contiguous, intent(inout) :: cmat(:, :)
+   character(len=1), intent(in), optional :: uplo, trans
+   real(dp), intent(in), optional :: alpha, beta
+   integer, intent(in), optional :: n, k
+   character(len=1) :: ula, tra
+   real(dp) :: a, b
+   integer :: nn, kk, lda, ldc
+
+   ula = "u"
+   if (present(uplo)) ula = uplo
+   tra = "n"
+   if (present(trans)) tra = trans
+   a = 1.0_dp
+   if (present(alpha)) a = alpha
+   b = 0.0_dp
+   if (present(beta)) b = beta
+   nn = size(cmat, 1)
+   if (present(n)) nn = n
+   kk = merge(size(amat, 2), size(amat, 1), tra == "n" .or. tra == "N")
+   if (present(k)) kk = k
+   lda = max(1, size(amat, 1))
+   ldc = max(1, size(cmat, 1))
+   call blas_syrk(ula, tra, nn, kk, a, amat, lda, b, cmat, ldc)
+end subroutine wrap_dsyrk
 
 
 end module tblite_blas_level3

@@ -20,7 +20,7 @@
 !> Declaration of the abstract base class for electronic solvers based on diagonalization
 module tblite_scf_diag
    use mctc_env, only : sp, dp, wp, error_type
-   use tblite_blas, only : gemm
+   use tblite_blas, only : syrk
    use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    implicit none
@@ -161,20 +161,54 @@ subroutine get_density_matrix(self, focc, coeff, pmat, error)
    !> Error handling for solver-specific density construction
    type(error_type), allocatable, intent(inout) :: error
 
-   integer :: iao, jao
+   integer :: nao, nmo, iao, jao, imo, k, nk, isign
+   integer :: idx(min(size(coeff, 2), size(focc)))
+   real(wp) :: beta, scale, sgn
 
    if (allocated(self%scratch)) then
       if (any(shape(self%scratch) /= shape(coeff))) deallocate(self%scratch)
    end if
    if (.not.allocated(self%scratch)) allocate(self%scratch(size(coeff, 1), size(coeff, 2)))
-   !$omp parallel do collapse(2) default(none) schedule(runtime) &
-   !$omp shared(self, coeff, focc) private(iao, jao)
-   do iao = 1, size(coeff, 2)
-      do jao = 1, size(coeff, 1)
-         self%scratch(jao, iao) = coeff(jao, iao) * focc(iao)
+
+   nao = size(coeff, 1)
+   nmo = min(size(coeff, 2), size(focc))
+   if (all(focc(:nmo) == 0.0_wp)) then
+      pmat(:, :) = 0.0_wp
+      return
+   end if
+
+   ! Upper-triangle SYRK over occupied orbitals (following g-xTB)
+   beta = 0.0_wp
+   do isign = 1, -1, -2
+      sgn = real(isign, wp)
+      nk = 0
+      do imo = 1, nmo
+         if (sgn * focc(imo) > 0.0_wp) then
+            nk = nk + 1
+            idx(nk) = imo
+         end if
+      end do
+      if (nk == 0) cycle
+      !$omp parallel do default(none) schedule(static) &
+      !$omp shared(self, coeff, focc, idx, nao, nk, sgn) private(k, imo, iao, scale)
+      do k = 1, nk
+         imo = idx(k)
+         scale = sqrt(sgn * focc(imo))
+         do iao = 1, nao
+            self%scratch(iao, k) = coeff(iao, imo) * scale
+         end do
+      end do
+      call syrk(self%scratch, pmat, uplo="u", trans="n", alpha=sgn, beta=beta, n=nao, k=nk)
+      beta = 1.0_wp
+   end do
+
+   !$omp parallel do default(none) schedule(static, 1) &
+   !$omp shared(pmat, nao) private(iao, jao)
+   do jao = 1, nao
+      do iao = jao + 1, nao
+         pmat(iao, jao) = pmat(jao, iao)
       end do
    end do
-   call gemm(self%scratch, coeff, pmat, transb="t")
 end subroutine get_density_matrix
 
 !> Delete the solver instance
