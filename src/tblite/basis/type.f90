@@ -256,7 +256,7 @@ pure function integral_cutoff(acc) result(intcut)
    real(wp), parameter :: min_intcut = 5.0_wp, max_intcut = 25.0_wp, &
       & max_acc = 1.0e-4_wp, min_acc = 1.0e+3_wp
 
-   intcut = clip(max_intcut - 10*log10(clip(acc, min_acc, max_acc)), min_intcut, max_intcut)
+   intcut = clip(max_intcut - 10*log10(clip(acc, max_acc, min_acc)), min_intcut, max_intcut)
 end function integral_cutoff
 
 
