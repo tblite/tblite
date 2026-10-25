@@ -21,7 +21,7 @@
 module tblite_lapack_sygvd
    use mctc_env, only : sp, dp, wp, error_type, fatal_error
    use tblite_blas_level3, only : wrap_trsm
-   use tblite_lapack_potrf, only : update_potrf
+   use tblite_lapack_potrf, only : wrap_potrf
    use tblite_lapack_sygst, only : wrap_sygst
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
@@ -69,10 +69,8 @@ module tblite_lapack_sygvd
       integer :: n = 0
       integer, allocatable :: iwork(:)
       real(sp), allocatable :: swork(:)
-      real(sp), allocatable :: soverlap(:)
       real(sp), allocatable :: schol(:, :)
       real(dp), allocatable :: dwork(:)
-      real(dp), allocatable :: doverlap(:)
       real(dp), allocatable :: dchol(:, :)
    contains
       procedure :: solve_sp
@@ -86,11 +84,9 @@ subroutine new_sygvd(self, overlap, nel, kt)
    real(wp), intent(in) :: overlap(:, :)
    real(wp), intent(in) :: nel(:)
    real(wp), intent(in) :: kt
-   integer :: info
    self%n = size(overlap, 1)
    self%nel = nel
    self%kt = kt
-   call update_potrf(overlap, self%doverlap, self%dchol, info)
 end subroutine new_sygvd
 
 subroutine solve_sp(self, hmat, smat, eval, error)
@@ -104,11 +100,8 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    character(len=1), parameter :: uplo = "U"
    integer :: info, lswork, liwork
 
-   if (self%n /= size(hmat, 1)) then
+   if (self%n == 0) then
       self%n = size(hmat, 1)
-      if (allocated(self%swork)) deallocate(self%swork)
-      if (allocated(self%dwork)) deallocate(self%dwork)
-      if (allocated(self%iwork)) deallocate(self%iwork)
    end if
    if (.not.allocated(self%swork)) then
       allocate(self%swork(1 + 6*self%n + 2*self%n**2))
@@ -118,11 +111,14 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    end if
    lswork = size(self%swork)
    liwork = size(self%iwork)
-   info = 0
 
-   call update_potrf(smat, self%soverlap, self%schol, info)
-   call handle_info(error, info)
-   if (allocated(error)) return
+   if (.not.allocated(self%schol)) then
+      self%schol = smat
+      call wrap_potrf(self%schol, info, uplo=uplo)
+      if (info /= 0) deallocate(self%schol)
+      call handle_info(error, info)
+      if (allocated(error)) return
+   end if
 
    call wrap_sygst(hmat, self%schol, info, itype=itype, uplo=uplo)
    call handle_info(error, info)
@@ -133,9 +129,7 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   if (self%n > 0) then
-      call wrap_trsm(self%schol, hmat, side="L", uplo=uplo, transa="N", diag="N")
-   end if
+   call wrap_trsm(self%schol, hmat, side="L", uplo=uplo, transa="N", diag="N")
 
 end subroutine solve_sp
 
@@ -150,11 +144,8 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    character(len=1), parameter :: uplo = "U"
    integer :: info, ldwork, liwork
 
-   if (self%n /= size(hmat, 1)) then
+   if (self%n == 0) then
       self%n = size(hmat, 1)
-      if (allocated(self%swork)) deallocate(self%swork)
-      if (allocated(self%dwork)) deallocate(self%dwork)
-      if (allocated(self%iwork)) deallocate(self%iwork)
    end if
    if (.not.allocated(self%dwork)) then
       allocate(self%dwork(1 + 6*self%n + 2*self%n**2))
@@ -164,11 +155,14 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    end if
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
-   info = 0
 
-   call update_potrf(smat, self%doverlap, self%dchol, info)
-   call handle_info(error, info)
-   if (allocated(error)) return
+   if (.not.allocated(self%dchol)) then
+      self%dchol = smat
+      call wrap_potrf(self%dchol, info, uplo=uplo)
+      if (info /= 0) deallocate(self%dchol)
+      call handle_info(error, info)
+      if (allocated(error)) return
+   end if
 
    call wrap_sygst(hmat, self%dchol, info, itype=itype, uplo=uplo)
    call handle_info(error, info)
@@ -179,9 +173,7 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   if (self%n > 0) then
-      call wrap_trsm(self%dchol, hmat, side="L", uplo=uplo, transa="N", diag="N")
-   end if
+   call wrap_trsm(self%dchol, hmat, side="L", uplo=uplo, transa="N", diag="N")
 
 end subroutine solve_dp
 
