@@ -17,7 +17,7 @@
 module tblite_lapack_sygvr
    use mctc_env, only : sp, dp, wp, error_type, fatal_error
    use tblite_blas_level3, only : wrap_trsm
-   use tblite_lapack_potrf, only : wrap_potrf
+   use tblite_lapack_potrf, only : update_potrf
    use tblite_lapack_sygst, only : wrap_sygst
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
@@ -87,17 +87,10 @@ module tblite_lapack_sygvr
       end subroutine dsyevr
    end interface lapack_syevr
 
-   interface update_overlap
-      module procedure :: update_overlap_sp
-      module procedure :: update_overlap_dp
-   end interface update_overlap
-
 
    type, public, extends(diag_solver_type) :: sygvr_solver
       private
       integer :: n = 0
-      integer :: spotrf_info = 0
-      integer :: dpotrf_info = 0
       integer, allocatable :: iwork(:)
       integer, allocatable :: isuppz(:)
       real(sp), allocatable :: swork(:)
@@ -120,81 +113,12 @@ subroutine new_sygvr(self, overlap, nel, kt)
    real(wp), intent(in) :: overlap(:, :)
    real(wp), intent(in) :: nel(:)
    real(wp), intent(in) :: kt
+   integer :: info
    self%n = size(overlap, 1)
    self%nel = nel
    self%kt = kt
-   call update_overlap(self, overlap)
+   call update_potrf(overlap, self%doverlap, self%dchol, info)
 end subroutine new_sygvr
-
-subroutine update_overlap_sp(self, smat)
-   class(sygvr_solver), intent(inout) :: self
-   real(sp), intent(in) :: smat(:, :)
-   integer :: n, npk, ii, jj, k0
-   logical :: same
-
-   n = size(smat, 1)
-   npk = n * (n + 1) / 2
-   same = (self%spotrf_info == 0) .and. allocated(self%soverlap)
-   if (same) same = (size(self%soverlap) == npk)
-   if (same) then
-      outer: do jj = 1, n
-         k0 = jj * (jj - 1) / 2
-         do ii = 1, jj
-            if (self%soverlap(k0 + ii) /= smat(ii, jj)) then
-               same = .false.
-               exit outer
-            end if
-         end do
-      end do outer
-   end if
-   if (.not. same) then
-      if (allocated(self%soverlap)) then
-         if (size(self%soverlap) /= npk) deallocate(self%soverlap, self%schol)
-      end if
-      if (.not. allocated(self%soverlap)) allocate(self%soverlap(npk), self%schol(n, n))
-      do jj = 1, n
-         k0 = jj * (jj - 1) / 2
-         self%soverlap(k0 + 1:k0 + jj) = smat(1:jj, jj)
-         self%schol(1:jj, jj) = smat(1:jj, jj)
-      end do
-      call wrap_potrf(self%schol, self%spotrf_info, uplo="U")
-   end if
-end subroutine update_overlap_sp
-
-subroutine update_overlap_dp(self, smat)
-   class(sygvr_solver), intent(inout) :: self
-   real(dp), intent(in) :: smat(:, :)
-   integer :: n, npk, ii, jj, k0
-   logical :: same
-
-   n = size(smat, 1)
-   npk = n * (n + 1) / 2
-   same = (self%dpotrf_info == 0) .and. allocated(self%doverlap)
-   if (same) same = (size(self%doverlap) == npk)
-   if (same) then
-      outer: do jj = 1, n
-         k0 = jj * (jj - 1) / 2
-         do ii = 1, jj
-            if (self%doverlap(k0 + ii) /= smat(ii, jj)) then
-               same = .false.
-               exit outer
-            end if
-         end do
-      end do outer
-   end if
-   if (.not. same) then
-      if (allocated(self%doverlap)) then
-         if (size(self%doverlap) /= npk) deallocate(self%doverlap, self%dchol)
-      end if
-      if (.not. allocated(self%doverlap)) allocate(self%doverlap(npk), self%dchol(n, n))
-      do jj = 1, n
-         k0 = jj * (jj - 1) / 2
-         self%doverlap(k0 + 1:k0 + jj) = smat(1:jj, jj)
-         self%dchol(1:jj, jj) = smat(1:jj, jj)
-      end do
-      call wrap_potrf(self%dchol, self%dpotrf_info, uplo="U")
-   end if
-end subroutine update_overlap_dp
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvr_solver), intent(inout) :: self
@@ -212,9 +136,11 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    if (self%n /= size(hmat, 1)) then
       self%n = size(hmat, 1)
       if (allocated(self%swork)) deallocate(self%swork)
+      if (allocated(self%dwork)) deallocate(self%dwork)
       if (allocated(self%iwork)) deallocate(self%iwork)
       if (allocated(self%isuppz)) deallocate(self%isuppz)
       if (allocated(self%sbmat)) deallocate(self%sbmat)
+      if (allocated(self%dbmat)) deallocate(self%dbmat)
    end if
    if (.not.allocated(self%swork)) then
       lswork = query(self%n, uplo, "S")
@@ -236,8 +162,8 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    info = 0
 
    ! Form or reuse a Cholesky factorization of B.
-   call update_overlap(self, smat)
-   call handle_info(error, self%spotrf_info)
+   call update_potrf(smat, self%soverlap, self%schol, info)
+   call handle_info(error, info)
    if (allocated(error)) return
 
    ! Transform problem to standard eigenvalue problem and solve.
@@ -245,8 +171,8 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
-      & m, eval, self%sbmat, self%n, self%isuppz, self%swork, lswork, self%iwork, liwork, &
+   call lapack_syevr("V", "A", uplo, self%n, hmat, max(1, self%n), vl, vu, 1, self%n, abstol, &
+      & m, eval, self%sbmat, max(1, self%n), self%isuppz, self%swork, lswork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
    if (allocated(error)) return
@@ -275,9 +201,11 @@ subroutine solve_dp(self, hmat, smat, eval, error)
 
    if (self%n /= size(hmat, 1)) then
       self%n = size(hmat, 1)
+      if (allocated(self%swork)) deallocate(self%swork)
       if (allocated(self%dwork)) deallocate(self%dwork)
       if (allocated(self%iwork)) deallocate(self%iwork)
       if (allocated(self%isuppz)) deallocate(self%isuppz)
+      if (allocated(self%sbmat)) deallocate(self%sbmat)
       if (allocated(self%dbmat)) deallocate(self%dbmat)
    end if
    if (.not.allocated(self%dwork)) then
@@ -300,8 +228,8 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    info = 0
 
    ! Form or reuse a Cholesky factorization of B.
-   call update_overlap(self, smat)
-   call handle_info(error, self%dpotrf_info)
+   call update_potrf(smat, self%doverlap, self%dchol, info)
+   call handle_info(error, info)
    if (allocated(error)) return
 
    ! Transform problem to standard eigenvalue problem and solve.
@@ -309,8 +237,8 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   call lapack_syevr("V", "A", uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
-      & m, eval, self%dbmat, self%n, self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
+   call lapack_syevr("V", "A", uplo, self%n, hmat, max(1, self%n), vl, vu, 1, self%n, abstol, &
+      & m, eval, self%dbmat, max(1, self%n), self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
    if (allocated(error)) return
