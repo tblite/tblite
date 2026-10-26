@@ -55,7 +55,8 @@ subroutine collect_hamiltonian(testsuite)
       new_unittest("hamiltonian-s2", test_hamiltonian_s2), &
       new_unittest("hamiltonian-sih4", test_hamiltonian_sih4), &
       new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self), &
-      new_unittest("syrk-density-matrix", test_syrk_density_matrix) &
+      new_unittest("syrk-density-matrix", test_syrk_density_matrix), &
+      new_unittest("integral-cutoff", test_integral_cutoff) &
       ]
 
 end subroutine collect_hamiltonian
@@ -745,6 +746,34 @@ subroutine test_hamiltonian_sih4(error)
    call test_hamiltonian_mol(error, mol, hamiltonian)
 
 end subroutine test_hamiltonian_sih4
+
+
+subroutine test_integral_cutoff(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(basis_type) :: bas
+   real(wp) :: min_alpha
+
+   call get_structure(mol, "MB16-43", "H2")
+   call make_basis(bas, mol, 6)
+   min_alpha = minval(bas%cgto(1, 1)%alpha(:bas%cgto(1, 1)%nprim))
+
+   ! Default accuracy and tighter accuracies use the maximum integral cutoff
+   call check(error, get_cutoff(bas, 1.0_wp), sqrt(2.0_wp*25.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+   call check(error, get_cutoff(bas, 1.0e-4_wp), sqrt(2.0_wp*25.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+
+   ! Looser accuracies reduce the integral cutoff down to its minimum
+   call check(error, get_cutoff(bas, 10.0_wp), sqrt(2.0_wp*15.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+   call check(error, get_cutoff(bas, 1.0e+3_wp), sqrt(2.0_wp*5.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+
+end subroutine test_integral_cutoff
 
 
 subroutine test_syrk_density_matrix(error)
