@@ -180,10 +180,10 @@ subroutine test_param_sto_invalid(error)
    type(hamiltonian_record) :: param
 
    open(newunit=io, status="scratch")
-   write(io, "(a)") 
-      "[xtb]", 
-      "cn = ""exp""",
-      "wexp = 0.0",
+   write(io, "(a)") &
+      "[xtb]", &
+      "cn = ""exp""", &
+      "wexp = 0.0", &
       "sto = ""foo"""
    rewind io
 
