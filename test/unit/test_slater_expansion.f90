@@ -18,7 +18,7 @@ module test_slater_expansion
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_slater, only : slater_to_gauss, sto_expansion
    use tblite_basis_type, only : cgto_type
    use tblite_integral_native_integrals, only : overlap_cgto
    implicit none
@@ -130,31 +130,42 @@ subroutine collect_slater_expansion(testsuite)
       new_unittest("norm-5d-sto6g", test_norm_5d_sto6g), &
       new_unittest("norm-4f-sto6g", test_norm_4f_sto6g), &
       new_unittest("norm-5f-sto6g", test_norm_5f_sto6g), &
-      new_unittest("norm-5g-sto6g", test_norm_5g_sto6g) &
+      new_unittest("norm-5g-sto6g", test_norm_5g_sto6g), &
+      new_unittest("norm-4s-sto6g-sp", test_norm_4s_sto6g_sp), &
+      new_unittest("norm-5s-sto6g-sp", test_norm_5s_sto6g_sp), &
+      new_unittest("norm-4p-sto6g-sp", test_norm_4p_sto6g_sp), &
+      new_unittest("norm-5p-sto6g-sp", test_norm_5p_sto6g_sp), &
+      new_unittest("gfn1-exponents", test_gfn1_exponents), &
+      new_unittest("gfn1-default", test_gfn1_default), &
+      new_unittest("expansion-invalid", test_expansion_invalid) &
       ]
 
 end subroutine collect_slater_expansion
 
 
-subroutine test_norm_s(error, n, ng)
+subroutine test_norm_s(error, n, ng, expansion, tol)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer, intent(in) :: ng, n
+   integer, intent(in), optional :: expansion
+   real(wp), intent(in), optional :: tol
 
    integer :: stat
    type(cgto_type) :: cgto
    real(wp), parameter :: vec(3) = 0.0_wp, r2 = 0.0_wp
-   real(wp) :: overlap(1, 1)
+   real(wp) :: overlap(1, 1), thr_
 
-   call slater_to_gauss(ng, n, 0, 1.0_wp, cgto, .true., stat)
+   call slater_to_gauss(ng, n, 0, 1.0_wp, cgto, .true., stat, expansion)
    call check(error, stat)
    if (allocated(error)) return
 
    call overlap_cgto(cgto, cgto, r2, vec, 100.0_wp, overlap)
 
-   call check(error, overlap(1, 1), 1.0_wp, thr=thr)
+   thr_ = thr
+   if (present(tol)) thr_ = tol
+   call check(error, overlap(1, 1), 1.0_wp, thr=thr_)
    if (allocated(error)) then
       print*, (overlap(1, 1) - 1.0_wp)
    end if
@@ -323,27 +334,31 @@ subroutine test_norm_6s_sto6g(error)
 end subroutine test_norm_6s_sto6g
 
 
-subroutine test_norm_p(error, n, ng)
+subroutine test_norm_p(error, n, ng, expansion, tol)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    integer, intent(in) :: ng, n
+   integer, intent(in), optional :: expansion
+   real(wp), intent(in), optional :: tol
 
    integer :: stat, i, j
    type(cgto_type) :: cgto
    real(wp), parameter :: vec(3) = 0.0_wp, r2 = 0.0_wp
-   real(wp) :: overlap(3, 3)
+   real(wp) :: overlap(3, 3), thr_
 
-   call slater_to_gauss(ng, n, 1, 1.0_wp, cgto, .true., stat)
+   call slater_to_gauss(ng, n, 1, 1.0_wp, cgto, .true., stat, expansion)
    call check(error, stat)
    if (allocated(error)) return
 
    call overlap_cgto(cgto, cgto, r2, vec, 100.0_wp, overlap)
 
+   thr_ = thr
+   if (present(tol)) thr_ = tol
    lp: do i = 1, 3
       do j = 1, 3
-         call check(error, overlap(j, i), merge(1.0_wp, 0.0_wp, j == i), thr=thr)
+         call check(error, overlap(j, i), merge(1.0_wp, 0.0_wp, j == i), thr=thr_)
          if (allocated(error)) exit lp
       end do
    end do lp
@@ -779,6 +794,105 @@ subroutine test_norm_5g_sto6g(error)
    type(error_type), allocatable, intent(out) :: error
    call test_norm_g(error, 5, 6)
 end subroutine test_norm_5g_sto6g
+
+
+subroutine test_norm_4s_sto6g_sp(error)
+   type(error_type), allocatable, intent(out) :: error
+   ! The contraction is only defined up to 7 significant digits
+   call test_norm_s(error, 4, 6, sto_expansion%gfn1, 5.0e-7_wp)
+end subroutine test_norm_4s_sto6g_sp
+
+subroutine test_norm_5s_sto6g_sp(error)
+   type(error_type), allocatable, intent(out) :: error
+   call test_norm_s(error, 5, 6, sto_expansion%gfn1)
+end subroutine test_norm_5s_sto6g_sp
+
+subroutine test_norm_4p_sto6g_sp(error)
+   type(error_type), allocatable, intent(out) :: error
+   ! The contraction is only defined up to 7 significant digits
+   call test_norm_p(error, 4, 6, sto_expansion%gfn1, 5.0e-7_wp)
+end subroutine test_norm_4p_sto6g_sp
+
+subroutine test_norm_5p_sto6g_sp(error)
+   type(error_type), allocatable, intent(out) :: error
+   call test_norm_p(error, 5, 6, sto_expansion%gfn1)
+end subroutine test_norm_5p_sto6g_sp
+
+
+!> The s- and p-functions of the 4sp and 5sp shells share their exponents
+subroutine test_gfn1_exponents(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: stat, n
+   type(cgto_type) :: cgto_s, cgto_p, cgto_ref
+
+   do n = 4, 5
+      call slater_to_gauss(6, n, 0, 1.2_wp, cgto_s, .true., stat, sto_expansion%gfn1)
+      call check(error, stat)
+      if (allocated(error)) return
+      call slater_to_gauss(6, n, 1, 1.2_wp, cgto_p, .true., stat, sto_expansion%gfn1)
+      call check(error, stat)
+      if (allocated(error)) return
+
+      if (any(abs(cgto_s%alpha(:6) - cgto_p%alpha(:6)) > thr)) then
+         call test_failed(error, "Exponents of s- and p-functions in gfn1 expansion differ")
+         return
+      end if
+
+      call slater_to_gauss(6, n, 0, 1.2_wp, cgto_ref, .true., stat)
+      call check(error, stat)
+      if (allocated(error)) return
+      if (all(abs(cgto_s%alpha(:6) - cgto_ref%alpha(:6)) < thr)) then
+         call test_failed(error, "Exponents of gfn1 and gfn2 expansion are identical")
+         return
+      end if
+   end do
+
+end subroutine test_gfn1_exponents
+
+
+!> Only the six primitive 4sp and 5sp shells are affected by the gfn1 expansion
+subroutine test_gfn1_default(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: stat, ng, n, l
+   type(cgto_type) :: cgto, cgto_ref
+
+   do ng = 1, 6
+      do n = 1, 5
+         do l = 0, n-1
+            if (ng == 6 .and. (n == 4 .or. n == 5) .and. l <= 1) cycle
+            call slater_to_gauss(ng, n, l, 1.2_wp, cgto, .true., stat, sto_expansion%gfn1)
+            call check(error, stat)
+            if (allocated(error)) return
+            call slater_to_gauss(ng, n, l, 1.2_wp, cgto_ref, .true., stat, sto_expansion%gfn2)
+            call check(error, stat)
+            if (allocated(error)) return
+            if (any(abs(cgto%alpha(:ng) - cgto_ref%alpha(:ng)) > 0.0_wp) &
+               & .or. any(abs(cgto%coeff(:ng) - cgto_ref%coeff(:ng)) > 0.0_wp)) then
+               call test_failed(error, "Expansion differs for shell not affected by gfn1 expansion")
+               return
+            end if
+         end do
+      end do
+   end do
+
+end subroutine test_gfn1_default
+
+
+subroutine test_expansion_invalid(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: stat
+   type(cgto_type) :: cgto
+
+   call slater_to_gauss(6, 4, 0, 1.0_wp, cgto, .true., stat, -1)
+   call check(error, stat /= 0, "Invalid STO-NG expansion should not succeed")
+
+end subroutine test_expansion_invalid
 
 
 end module test_slater_expansion

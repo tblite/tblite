@@ -409,11 +409,11 @@ def test_spgfn1():
     calc.add("spin-polarization")
     ls_energy_sp = calc.singlepoint().get("energy")
     assert ls_energy_sp == approx(ls_energy)
-    assert ls_energy_sp == approx(-28.349613833732931)
+    assert ls_energy_sp == approx(-28.349611230284626)
 
     calc.update(uhf=2)
     hs_energy_sp = calc.singlepoint().get("energy")
-    assert hs_energy_sp == approx(-28.37648585236444)
+    assert hs_energy_sp == approx(-28.376483260348195)
 
 
 def test_spgfn1_densities():

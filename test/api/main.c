@@ -2002,7 +2002,7 @@ int test_spgfn1()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.349613833732931, thr, "energy error"))
+    if (!check(energy, -28.349611230125, thr, "energy error"))
         goto err;
 
     cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
@@ -2032,7 +2032,7 @@ int test_spgfn1()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.349613833732931, thr, "energy error"))
+    if (!check(energy, -28.349611230125, thr, "energy error"))
         goto err;
 
     int uhf = 2;
@@ -2048,7 +2048,7 @@ int test_spgfn1()
     if (tblite_check(error))
         goto err;
                        
-    if (!check(energy, -28.376485853038645, thr, "energy error"))
+    if (!check(energy, -28.376483259674, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -4221,7 +4221,7 @@ int test_solvation_alpb_gfn1()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.3572423, thr, "energy error"))
+    if (!check(energy, -28.3572397, thr, "energy error"))
         goto err;
 
     tblite_delete(error);
@@ -4293,7 +4293,7 @@ int test_solvation_gbsa_gfn1()
     if (tblite_check(error))
         goto err;
 
-    if (!check(energy, -28.3593652, thr, "energy error"))
+    if (!check(energy, -28.3593626, thr, "energy error"))
         goto err;
 
     tblite_delete(error);

@@ -53,6 +53,7 @@ subroutine collect_xtb_param(testsuite)
       new_unittest("param-empty", test_param_empty, should_fail=.true.), &
       new_unittest("param-minimal", test_param_minimal), &
       new_unittest("param-invalid", test_param_invalid, should_fail=.true.), &
+      new_unittest("param-sto-invalid", test_param_sto_invalid, should_fail=.true.), &
       new_unittest("element-empty", test_element_empty, should_fail=.true.), &
       new_unittest("charge-empty", test_charge_empty, should_fail=.true.), &
       new_unittest("dispersion-empty", test_dispersion_empty, should_fail=.true.), &
@@ -169,6 +170,26 @@ subroutine test_param_invalid(error)
    call param%load(io, error)
    close(io)
 end subroutine test_param_invalid
+
+
+subroutine test_param_sto_invalid(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: io
+   type(hamiltonian_record) :: param
+
+   open(newunit=io, status="scratch")
+   write(io, "(a)") 
+      "[xtb]", 
+      "cn = ""exp""",
+      "wexp = 0.0",
+      "sto = ""foo"""
+   rewind io
+
+   call param%load(io, error)
+   close(io)
+end subroutine test_param_sto_invalid
 
 
 subroutine test_element_empty(error)

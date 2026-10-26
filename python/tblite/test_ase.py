@@ -249,13 +249,13 @@ def test_spgfn1_xtb():
     atoms = get_crcp2()
 
     atoms.calc = TBLite(method="GFN1-xTB")
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322148280118
 
     atoms.calc.set(spin_polarization=1.0)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322856679416
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4322148280118
 
     atoms.calc.set(multiplicity=3)
-    assert approx(atoms.get_potential_energy(), abs=thr) == -772.1635105495686
+    assert approx(atoms.get_potential_energy(), abs=thr) == -772.16344001133
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")

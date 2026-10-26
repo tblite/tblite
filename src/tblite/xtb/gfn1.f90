@@ -25,7 +25,7 @@ module tblite_xtb_gfn1
    use mctc_io_symbols, only : to_symbol
    use mctc_ncoord, only : new_ncoord, cn_count
    use tblite_basis_ortho, only : orthogonalize
-   use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_slater, only : slater_to_gauss, sto_expansion
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_classical_halogen, only : new_halogen_correction
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
@@ -579,7 +579,8 @@ subroutine add_basis(calc, mol)
             ang_idx(il) = ish
          end if
          call slater_to_gauss(ng, principal_quantum_number(ish, izp), il, &
-            & slater_exponent(ish, izp), cgto(ish, isp), .true., stat)
+            & slater_exponent(ish, izp), cgto(ish, isp), .true., stat, &
+            & sto_expansion%gfn1)
       end do
 
       do ish = 1, nsh_id(isp)
@@ -942,6 +943,7 @@ subroutine export_gfn1_param(param)
 
    associate(par => param%hamiltonian)
       par%cn = "exp"
+      par%sto = "gfn1"
       par%enscale = enscale
       par%wexp = 0.0_wp
       par%lmax = 2

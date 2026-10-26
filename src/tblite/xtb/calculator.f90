@@ -25,7 +25,7 @@ module tblite_xtb_calculator
    use mctc_io, only : structure_type
    use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count, get_cn_count_id
    use tblite_basis_ortho, only : orthogonalize
-   use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_slater, only : slater_to_gauss, sto_expansion
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_type, container_list
@@ -190,10 +190,15 @@ subroutine add_basis(calc, mol, param, irc)
    !> Record identifiers
    integer, intent(in) :: irc(:)
 
-   integer :: isp, ir, ish, stat, ng, il
+   integer :: isp, ir, ish, stat, ng, il, expansion
    integer, allocatable :: nsh_id(:)
    integer :: ang_idx(0:4), ortho(10)
    type(cgto_type), allocatable :: cgto(:, :)
+
+   expansion = sto_expansion%gfn2
+   if (allocated(param%hamiltonian%sto)) then
+      if (param%hamiltonian%sto == "gfn1") expansion = sto_expansion%gfn1
+   end if
 
    nsh_id = param%record(irc)%nsh
    allocate(cgto(maxval(nsh_id), mol%nid))
@@ -210,7 +215,7 @@ subroutine add_basis(calc, mol, param, irc)
             ang_idx(il) = ish
          end if
          call slater_to_gauss(ng, param%record(ir)%pqn(ish), il, &
-            & param%record(ir)%slater(ish), cgto(ish, isp), .true., stat)
+            & param%record(ir)%slater(ish), cgto(ish, isp), .true., stat, expansion)
       end do
 
       do ish = 1, nsh_id(isp)
