@@ -370,7 +370,10 @@ contains
          ! Reuse the grid for a different Hamiltonian, as in successive SCF steps.
          amat(1, 1) = amat(1, 1) + 0.1_wp
          ! Only one rank owns this entry; all ranks must refactor together.
-         if (iteration == 3) bmat(n, n) = bmat(n, n) + 0.05_wp
+         if (iteration == 3) then
+            bmat(n, n) = bmat(n, n) + 0.05_wp
+            call new_sygvd(serial, bmat, nel, 0.0_wp)
+         end if
          hmat(:, :) = amat
          call serial%solve(hmat, bmat, reference, error)
          call check_error(error)

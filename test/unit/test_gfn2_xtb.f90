@@ -15,12 +15,15 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_gfn2_xtb
-   use mctc_env, only : wp
+   use mctc_env, only : sp, dp, wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type, new
    use mstore, only : get_structure
    use tblite_context_type, only : context_type
+   use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
+   use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
+   use tblite_scf_diag, only : diag_solver_type
    use tblite_scf_mixer_input, only : anneal_input
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, eeq_guess
    use tblite_xtb_calculator, only : xtb_calculator
@@ -53,7 +56,8 @@ subroutine collect_gfn2_xtb(testsuite)
       new_unittest("annealing", test_annealing), &
       new_unittest("finite-memory", test_finite_memory), &
       new_unittest("gradient-mol", test_g_mb02), &
-      new_unittest("convergence", test_convergence) &
+      new_unittest("convergence", test_convergence), &
+      new_unittest("lapack-overlap-cache", test_lapack_overlap_cache) &
       ]
 
 end subroutine collect_gfn2_xtb
@@ -448,5 +452,191 @@ subroutine test_convergence(error)
 
 end subroutine test_convergence
 
+
+subroutine test_lapack_overlap_cache(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   integer, parameter :: n1 = 12, n2 = 15
+   real(wp) :: s1(n1, n1), s1_uplo(n1, n1), s2(n1, n1), s3(n2, n2)
+   real(wp) :: h_full(n1, n1), h_cur(n1, n1), h_gvd(n1, n1), h_gvr(n1, n1), h3(n2, n2)
+   real(wp) :: ev_gvd(n1), ev_gvr(n1)
+   type(sygvd_solver) :: gvd, raw_gvd
+   type(sygvr_solver) :: gvr, raw_gvr
+   integer :: i, j
+
+   call make_spd_and_sym(n1, 0.19_wp, 0.41_wp, s1, h_full)
+   call make_spd_and_sym(n1, 0.31_wp, 0.57_wp, s2, h_cur)
+   call make_spd_and_sym(n2, 0.23_wp, 0.49_wp, s3, h3)
+
+   ! 1. Cached s1 across 2 solves with poisoned strict lower triangles (both sygvd and sygvr)
+   s1_uplo = s1
+   call poison_lower(s1_uplo)
+   call new_sygvd(gvd, s1_uplo, [10.0_wp, 0.0_wp], kt)
+   call new_sygvr(gvr, s1_uplo, [10.0_wp, 0.0_wp], kt)
+   do i = 1, 2
+      h_cur = h_full
+      if (i == 2) then
+         do j = 1, n1
+            h_cur(j, j) = h_cur(j, j) - 0.15_wp * real(j, wp)
+         end do
+      end if
+      h_gvd = h_cur; h_gvr = h_cur
+      call poison_lower(h_gvd)
+      call poison_lower(h_gvr)
+      call gvd%solve(h_gvd, s1_uplo, ev_gvd, error)
+      if (allocated(error)) return
+      call gvr%solve(h_gvr, s1_uplo, ev_gvr, error)
+      if (allocated(error)) return
+      call check_eigensystem(h_cur, s1, h_gvd, ev_gvd, ev_gvr, error)
+      if (allocated(error)) return
+      call check_eigensystem(h_cur, s1, h_gvr, ev_gvr, ev_gvd, error)
+      if (allocated(error)) return
+   end do
+
+   ! 2. Re-initialization via new_sygvd/new_sygvr for new overlap s2 and resized basis s3
+   call new_sygvd(gvd, s2, [10.0_wp, 0.0_wp], kt)
+   call new_sygvr(gvr, s2, [10.0_wp, 0.0_wp], kt)
+   call check_solver_reinit_and_sp(gvd, s2, h_full, error)
+   if (allocated(error)) return
+   call check_solver_reinit_and_sp(gvr, s2, h_full, error)
+   if (allocated(error)) return
+   call new_sygvd(gvd, s3, [12.0_wp, 0.0_wp], kt)
+   call new_sygvr(gvr, s3, [12.0_wp, 0.0_wp], kt)
+   call check_solver_reinit_and_sp(gvd, s3, h3, error)
+   if (allocated(error)) return
+   call check_solver_reinit_and_sp(gvr, s3, h3, error)
+   if (allocated(error)) return
+
+   ! 3. Default-constructed solvers (n == 0): non-SPD deallocation on failure + recovery in dp and sp
+   s2 = s1; s2(3, 3) = -1.0_wp
+   call check_non_spd_recovery(raw_gvd, s2, s1, h_full, error)
+   if (allocated(error)) return
+   call check_non_spd_recovery(raw_gvr, s2, s1, h_full, error)
+end subroutine test_lapack_overlap_cache
+
+subroutine check_solver_reinit_and_sp(solver, smat, h_ref, error)
+   class(diag_solver_type), intent(inout) :: solver
+   real(wp), intent(in) :: smat(:, :), h_ref(:, :)
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: n, i, j
+   real(wp) :: h_dp(size(h_ref, 1), size(h_ref, 2)), ev_dp(size(h_ref, 1))
+   real(sp) :: ss(size(smat, 1), size(smat, 2)), hs_ref(size(h_ref, 1), size(h_ref, 2))
+   real(sp) :: hs(size(h_ref, 1), size(h_ref, 2)), evs(size(h_ref, 1)), grams(size(h_ref, 1), size(h_ref, 1))
+
+   n = size(h_ref, 1)
+   h_dp = h_ref
+   call poison_lower(h_dp)
+   call solver%solve(h_dp, smat, ev_dp, error)
+   if (allocated(error)) return
+   call check_eigensystem(h_ref, smat, h_dp, ev_dp, ev_dp, error)
+   if (allocated(error)) return
+
+   ss = real(smat, sp); hs_ref = real(h_ref, sp)
+   do i = 1, 2
+      hs = hs_ref
+      if (i == 2) hs(1, 1) = hs(1, 1) + 0.1_sp
+      call solver%solve(hs, ss, evs, error)
+      if (allocated(error)) return
+      if (i == 1) then
+         call check(error, maxval(abs(matmul(hs_ref, hs) - matmul(ss, spread(evs, 1, n) * hs))) &
+            & <= 500.0_sp * epsilon(1.0_sp) * maxval(abs(hs_ref)), "solve_sp residual too large")
+         if (allocated(error)) return
+      else
+         grams = matmul(transpose(hs), matmul(ss, hs))
+         do j = 1, n
+            grams(j, j) = grams(j, j) - 1.0_sp
+         end do
+         call check(error, maxval(abs(grams)) <= 500.0_sp * epsilon(1.0_sp), "solve_sp S-orthonormality")
+         if (allocated(error)) return
+      end if
+   end do
+end subroutine check_solver_reinit_and_sp
+
+subroutine check_non_spd_recovery(solver, bad_s, good_s, h_full, error)
+   class(diag_solver_type), intent(inout) :: solver
+   real(wp), intent(in) :: bad_s(:, :), good_s(:, :), h_full(:, :)
+   type(error_type), allocatable, intent(out) :: error
+   integer :: n, i
+   real(wp) :: h_work(size(h_full, 1), size(h_full, 2)), ev(size(h_full, 1))
+   real(sp) :: bad_ss(size(bad_s, 1), size(bad_s, 2)), good_ss(size(good_s, 1), size(good_s, 2))
+   real(sp) :: hs_full(size(h_full, 1), size(h_full, 2)), hs(size(h_full, 1), size(h_full, 2)), evs(size(h_full, 1))
+
+   n = size(h_full, 1)
+   bad_ss = real(bad_s, sp); good_ss = real(good_s, sp); hs_full = real(h_full, sp)
+   do i = 1, 2
+      hs = hs_full
+      call solver%solve(hs, bad_ss, evs, error)
+      call check(error, allocated(error), "Expected error on non-SPD solve_sp overlap")
+      if (.not. allocated(error)) return
+      deallocate(error)
+   end do
+   hs = hs_full
+   call solver%solve(hs, good_ss, evs, error)
+   if (allocated(error)) return
+   call check(error, maxval(abs(matmul(hs_full, hs) - matmul(good_ss, spread(evs, 1, n) * hs))) &
+      & <= 500.0_sp * epsilon(1.0_sp) * maxval(abs(hs_full)), "solve_sp recovery residual too large")
+   if (allocated(error)) return
+
+   do i = 1, 2
+      h_work = h_full
+      call solver%solve(h_work, bad_s, ev, error)
+      call check(error, allocated(error), "Expected error on non-SPD overlap")
+      if (.not. allocated(error)) return
+      deallocate(error)
+   end do
+   h_work = h_full
+   call solver%solve(h_work, good_s, ev, error)
+   if (allocated(error)) return
+   call check_eigensystem(h_full, good_s, h_work, ev, ev, error)
+end subroutine check_non_spd_recovery
+
+subroutine check_eigensystem(h_ref, s_ref, cvec, eval, eval_ref, error)
+   real(wp), intent(in) :: h_ref(:, :), s_ref(:, :), cvec(:, :), eval(:), eval_ref(:)
+   type(error_type), allocatable, intent(out) :: error
+   real(wp) :: res(size(h_ref, 1), size(h_ref, 1)), gram(size(h_ref, 1), size(h_ref, 1))
+   integer :: n, j
+
+   n = size(h_ref, 1)
+   call check(error, maxval(abs(eval - eval_ref)) <= 200.0_wp * epsilon(1.0_wp) * maxval(abs(eval_ref)), &
+      & "Eigenvalue mismatch")
+   if (allocated(error)) return
+   res = matmul(h_ref, cvec) - matmul(s_ref, spread(eval, 1, n) * cvec)
+   call check(error, maxval(abs(res)) <= 300.0_wp * epsilon(1.0_wp) * maxval(abs(h_ref)), &
+      & "Generalized residual too large")
+   if (allocated(error)) return
+   gram = matmul(transpose(cvec), matmul(s_ref, cvec))
+   do j = 1, n
+      gram(j, j) = gram(j, j) - 1.0_wp
+   end do
+   call check(error, maxval(abs(gram)) <= 300.0_wp * epsilon(1.0_wp), "S-orthonormality failed")
+end subroutine check_eigensystem
+
+pure subroutine make_spd_and_sym(n, a_seed, b_seed, smat, hmat)
+   integer, intent(in) :: n
+   real(wp), intent(in) :: a_seed, b_seed
+   real(wp), intent(out) :: smat(n, n), hmat(n, n)
+   real(wp) :: amat(n, n)
+   integer :: i, j
+
+   amat = reshape([((0.15_wp * sin(a_seed * real(i, wp) + b_seed * real(j, wp)), i=1, n), j=1, n)], shape(amat))
+   hmat = reshape([((0.40_wp * cos(b_seed * real(i + j, wp)), i=1, n), j=1, n)], shape(hmat))
+   hmat = 0.5_wp * (hmat + transpose(hmat))
+   smat = matmul(transpose(amat), amat)
+   do j = 1, n
+      hmat(j, j) = -1.5_wp + 0.35_wp * real(j, wp)
+      smat(j, j) = smat(j, j) + 1.0_wp
+   end do
+end subroutine make_spd_and_sym
+
+pure subroutine poison_lower(mat)
+   real(wp), intent(inout) :: mat(:, :)
+   integer :: i, j
+   do j = 1, size(mat, 2)
+      do i = j + 1, size(mat, 1)
+         mat(i, j) = 1.0e6_wp
+      end do
+   end do
+end subroutine poison_lower
 
 end module test_gfn2_xtb
