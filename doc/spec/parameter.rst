@@ -155,6 +155,7 @@ Allowed entries:
  cn        CN type for selfenergy shift     string
  shell     shell-specific scaling           table of reals      dimensionless
  kpair     pairwise scaling for elements    table of reals      dimensionless
+ sto       STO-NG expansion of basis set    string
 ========= ================================ =================== =====================
 
 

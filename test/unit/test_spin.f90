@@ -194,7 +194,7 @@ subroutine test_e_crcp2(error)
    type(xtb_calculator) :: calc
    real(wp) :: energy
    real(wp), allocatable :: gradient(:, :), sigma(:, :)
-   real(wp), parameter :: ref1 = -28.376485853038645_wp, ref0 = -28.3496138337329_wp
+   real(wp), parameter :: ref1 = -28.376483260348195_wp, ref0 = -28.349611230284626_wp
 
    call crcp2(mol)
    allocate(gradient(3, mol%nat), sigma(3, 3))

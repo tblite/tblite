@@ -30,7 +30,7 @@ module tblite_param_hamiltonian
 
    character(len=*), parameter :: k_xtb = "xtb", k_ang(0:4) = ["s", "p", "d", "f", "g"], &
       & k_enscale = "enscale", k_shell = "shell", k_wexp = "wexp", k_cn = "cn", &
-      & k_kpol = "kpol", k_kpair = "kpair"
+      & k_kpol = "kpol", k_kpair = "kpair", k_sto = "sto"
    real(wp), parameter :: kpol_default = 2.0_wp
 
 
@@ -38,6 +38,8 @@ module tblite_param_hamiltonian
    type, public, extends(serde_record) :: hamiltonian_record
       character(len=symbol_length), allocatable :: sym(:)
       character(len=:), allocatable :: cn
+      !> Set of STO-NG expansion coefficients for the basis set
+      character(len=:), allocatable :: sto
       real(wp), allocatable :: kpair(:, :)
       real(wp) :: ksh(0:4, 0:4)
       real(wp) :: kpol
@@ -104,6 +106,16 @@ subroutine load_from_toml(self, table, error)
    call get_value(child, k_kpol, self%kpol, kpol_default, stat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Invalid entry for scaling of non-valence Hamiltonian elements")
+      return
+   end if
+
+   call get_value(child, k_sto, self%sto, "gfn2", stat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Invalid entry for STO-NG expansion of basis set")
+      return
+   end if
+   if (self%sto /= "gfn2" .and. self%sto /= "gfn1") then
+      call fatal_error(error, "Unknown STO-NG expansion '"//self%sto//"' requested")
       return
    end if
 
@@ -228,6 +240,9 @@ subroutine dump_to_toml(self, table, error)
    call set_value(child, k_kpol, self%kpol)
    call set_value(child, k_enscale, self%enscale)
    if (allocated(self%cn)) call set_value(child, k_cn, self%cn)
+   if (allocated(self%sto)) then
+      if (self%sto /= "gfn2") call set_value(child, k_sto, self%sto)
+   end if
    call add_table(child, k_shell, sub)
    do l = 0, self%lmax
       call set_value(sub, repeat(k_ang(l), 2), self%ksh(l, l))

@@ -24,6 +24,19 @@
 !>
 !> Robert F. Stewart, Small Gaussian Expansions of Slater-Type Orbitals,
 !> J. Chem. Phys. 52, 431-438 (1970). DOI: 10.1063/1.1672702
+!>
+!> Alternatively, the six primitive expansions of the 4sp and 5sp shells with
+!> shared exponents for the s- and p-functions can be selected.
+!> taken for the 4sp shells from:
+!>
+!> William J. Pietro, Beverly A. Levi, Warren J. Hehre, Robert F. Stewart,
+!> Inorg. Chem. 19, 2225-2229 (1980). DOI: 10.1021/ic50210a005
+!>
+!> and for the 5sp shells from:
+!>
+!> William J. Pietro, Edward S. Blurock, Robert F. Hout, Warren J. Hehre,
+!> Douglas J. DeFrees, Robert F. Stewart, Inorg. Chem. 20, 3650-3654 (1981).
+!> DOI: 10.1021/ic50225a013
 module tblite_basis_slater
    use mctc_env, only : wp
    use mctc_io_constants, only : pi
@@ -31,7 +44,20 @@ module tblite_basis_slater
    implicit none
    private
 
-   public :: slater_to_gauss
+   public :: slater_to_gauss, sto_expansion
+
+
+   !> Possible sets of STO-NG expansion coefficients
+   type :: enum_sto_expansion
+      !> Separate expansions for all shells (Stewart, 1970), as used for GFN2-xTB
+      integer :: gfn2 = 1
+      !> Six primitive 4sp and 5sp shells with shared exponents (xtb 6.2),
+      !> separate expansions (Stewart, 1970) for all other shells, as used for GFN1-xTB
+      integer :: gfn1 = 2
+   end type enum_sto_expansion
+
+   !> Actual enumerator for the sets of STO-NG expansion coefficients
+   type(enum_sto_expansion), parameter :: sto_expansion = enum_sto_expansion()
 
 
    interface slater_to_gauss
@@ -295,8 +321,6 @@ module tblite_basis_slater
       & 8.636686991e-2_wp, 4.797373812e-2_wp, 2.724741144e-2_wp, &
       & 3.232838646e+0_wp, 3.605788802e-1_wp, 1.717905487e-1_wp, & ! 4s
       & 5.277666487e-2_wp, 3.163400284e-2_wp, 1.874093091e-2_wp, &
-      !& 1.365346e+00_wp,   4.393213e-01_wp,   1.877069e-01_wp,   & ! 4s (old)
-      !& 9.360270e-02_wp,   5.052263e-02_wp,   2.809354e-02_wp,   &
       & 1.410128298e+0_wp, 5.077878915e-1_wp, 1.847926858e-1_wp, & ! 5s
       & 1.061070594e-1_wp, 3.669584901e-2_wp, 2.213558430e-2_wp, &
       & 5.868285913e+0_wp, 1.530329631e+0_wp, 5.475665231e-1_wp, & ! 2p
@@ -305,8 +329,6 @@ module tblite_basis_slater
       & 1.131741848e-1_wp, 6.076408893e-2_wp, 3.315424265e-2_wp, &
       & 2.389722618e+0_wp, 7.960947826e-1_wp, 3.415541380e-1_wp, & ! 4p
       & 8.847434525e-2_wp, 4.958248334e-2_wp, 2.816929784e-2_wp, &
-      !& 1.365346e+00_wp,   4.393213e-01_wp,   1.877069e-01_wp,   & ! 4p (old)
-      !& 9.360270e-02_wp,   5.052263e-02_wp,   2.809354e-02_wp,   &
       & 3.778623374e+0_wp, 3.499121109e-1_wp, 1.683175469e-1_wp, & ! 5p
       & 5.404070736e-2_wp, 3.328911801e-2_wp, 2.063815019e-2_wp, &
       & 2.488296923e+0_wp, 7.981487853e-1_wp, 3.311327490e-1_wp, & ! 3d
@@ -333,8 +355,6 @@ module tblite_basis_slater
       & 5.534527651e-1_wp, 5.015351020e-1_wp, 7.223633674e-2_wp, &
       & 1.374817488e-3_wp,-8.666390043e-2_wp,-3.130627309e-1_wp, & ! 4s
       & 7.812787397e-1_wp, 4.389247988e-1_wp, 2.487178756e-2_wp, &
-      !& 3.775056e-03_wp,  -5.585965e-02_wp,  -3.192946e-01_wp,   & ! 4s (old)
-      !&-2.764780e-02_wp,   9.049199e-01_wp,   3.406258e-01_wp,   &
       & 2.695439582e-3_wp, 1.850157487e-2_wp,-9.588628125e-2_wp, & ! 5s
       &-5.200673560e-1_wp, 1.087619490e+0_wp, 3.103964343e-1_wp, &
       & 7.924233646e-3_wp, 5.144104825e-2_wp, 1.898400060e-1_wp, & ! 2p
@@ -343,8 +363,6 @@ module tblite_basis_slater
       & 4.485358256e-1_wp, 3.908813050e-1_wp, 7.411456232e-2_wp, &
       &-1.665913575e-3_wp,-1.657464971e-2_wp,-5.958513378e-2_wp, & ! 4p
       & 4.053115554e-1_wp, 5.433958189e-1_wp, 1.204970491e-1_wp, &
-      !&-7.052075e-03_wp,  -5.259505e-02_wp,  -3.773450e-02_wp,   & ! 4p (old)
-      !& 3.874773e-01_wp,   5.791672e-01_wp,   1.221817e-01_wp,   &
       & 1.163246387e-4_wp,-2.920771322e-2_wp,-1.381051233e-1_wp, & ! 5p
       & 5.706134877e-1_wp, 4.768808140e-1_wp, 6.021665516e-2_wp, &
       & 7.283828112e-3_wp, 5.386799363e-2_wp, 2.072139149e-1_wp, & ! 3d
@@ -375,12 +393,34 @@ module tblite_basis_slater
       & 2.782723680e-3_wp,-1.282887780e-1_wp,-2.266255943e-1_wp, & ! 6p
       & 4.682259383e-1_wp, 6.752048848e-1_wp, 1.091534212e-1_wp]
 
+   !> Exponents of the 4sp and 5sp shells with shared exponents
+   real(wp), parameter :: pAlpha6sp(6, 4:5) = reshape([&
+      & 1.365346e+00_wp,   4.393213e-01_wp,   1.877069e-01_wp,   & ! 4sp
+      & 9.360270e-02_wp,   5.052263e-02_wp,   2.809354e-02_wp,   &
+      & 7.701420258e-1_wp, 2.756268915e-1_wp, 1.301847480e-1_wp, & ! 5sp
+      & 6.953441940e-2_wp, 4.002545502e-2_wp, 2.348388309e-2_wp],&
+      & shape(pAlpha6sp))
+   !> Coefficients of the s-functions in the 4sp and 5sp shells
+   real(wp), parameter :: pCoeff6sp_s(6, 4:5) = reshape([&
+      & 3.775056e-03_wp,  -5.585965e-02_wp,  -3.192946e-01_wp,   & ! 4s
+      &-2.764780e-02_wp,   9.049199e-01_wp,   3.406258e-01_wp,   &
+      & 1.267447151e-2_wp, 3.266734789e-3_wp,-4.307553999e-1_wp, & ! 5s
+      &-3.231998963e-1_wp, 1.104322879e+0_wp, 4.368498703e-1_wp],&
+      & shape(pCoeff6sp_s))
+   !> Coefficients of the p-functions in the 4sp and 5sp shells
+   real(wp), parameter :: pCoeff6sp_p(6, 4:5) = reshape([&
+      &-7.052075e-03_wp,  -5.259505e-02_wp,  -3.773450e-02_wp,   & ! 4p
+      & 3.874773e-01_wp,   5.791672e-01_wp,   1.221817e-01_wp,   &
+      &-1.105673292e-3_wp,-6.243132446e-2_wp,-1.628476766e-1_wp, & ! 5p
+      & 3.210328714e-1_wp, 6.964579592e-1_wp, 1.493146125e-1_wp],&
+      & shape(pCoeff6sp_p))
+
 
 contains
 
 
 !> Expand Slater function in primitive gaussian functions
-pure subroutine slater_to_gauss_cgto(ng, n, l, zeta, cgto, norm, info)
+pure subroutine slater_to_gauss_cgto(ng, n, l, zeta, cgto, norm, info, expansion)
    !> Number of Gaussian functions for the expansion
    integer, intent(in) :: ng
    !> Principal quantum number of shell
@@ -396,17 +436,19 @@ pure subroutine slater_to_gauss_cgto(ng, n, l, zeta, cgto, norm, info)
    !> Status of the expansion, returns zero for success or the position of the
    !> faulty dummy argument
    integer, intent(out) :: info
+   !> Set of STO-NG expansion coefficients, see sto_expansion (default: gfn2)
+   integer, intent(in), optional :: expansion
 
    cgto%ang = l
    cgto%nprim = ng
    call slater_to_gauss(ng, n, l, zeta, cgto%alpha, cgto%coeff, &
-      & norm, info)
+      & norm, info, expansion)
 
 end subroutine slater_to_gauss_cgto
 
 
 !> Expand Slater function in primitive gaussian functions
-pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info)
+pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info, expansion)
    !> Number of Gaussian functions for the expansion
    integer, intent(in) :: ng
    !> Principal quantum number of shell
@@ -424,9 +466,20 @@ pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info)
    !> Status of the expansion, returns zero for success or the position of the
    !> faulty dummy argument
    integer, intent(out) :: info
+   !> Set of STO-NG expansion coefficients, see sto_expansion (default: gfn2)
+   integer, intent(in), optional :: expansion
 
    ! Storage location of the STO-NG coefficients and exponents
    integer :: ityp
+   ! Selected set of STO-NG coefficients and exponents
+   integer :: iexp
+
+   iexp = sto_expansion%gfn2
+   if (present(expansion)) iexp = expansion
+   if (iexp /= sto_expansion%gfn2 .and. iexp /= sto_expansion%gfn1) then
+      info = 9
+      return
+   end if
 
    ! Basic checks first, we cannot support principal QN of six or higher
    ! also you should not violate l ∊ [n-1, n-2, ..., 1, 0]
@@ -489,6 +542,14 @@ pure subroutine slater_to_gauss_array(ng, n, l, zeta, alpha, coeff, norm, info)
          else
             info = 2
             return
+         end if
+      else if (iexp == sto_expansion%gfn1 .and. (n == 4 .or. n == 5) &
+         & .and. l <= 1) then
+         alpha(:ng) = pAlpha6sp(:, n) * zeta**2
+         if (l == 0) then
+            coeff(:ng) = pCoeff6sp_s(:, n)
+         else
+            coeff(:ng) = pCoeff6sp_p(:, n)
          end if
       else
          alpha(:ng) = pAlpha6(:, ityp) * zeta**2
