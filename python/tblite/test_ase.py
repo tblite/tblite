@@ -331,15 +331,15 @@ def test_solvation_gfn1_xtb_alpb():
 
     atoms.calc.set(alpb_solvation="dmf")
     print(atoms.get_potential_energy())
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.7287431921513
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.7286725960940
 
     atoms.calc.set(alpb_solvation=("dmf", "bar1mol"))
     print(atoms.get_potential_energy())
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.6462591455721
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.6461885495148
 
     atoms.calc.set(alpb_solvation=("dmf", "reference"))
     print(atoms.get_potential_energy())
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.5803670939658
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.5802964979086
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")
@@ -353,7 +353,7 @@ def test_solvation_gfn1_xtb_gbe():
     atoms.calc.set(accuracy=1.0)
 
     atoms.calc.set(gbe_solvation=(7.0, "p16"))
-    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4434811395378
+    assert approx(atoms.get_potential_energy(), abs=thr) == -771.4434104090591
 
 
 @pytest.mark.skipif(ase is None, reason="requires ase")

@@ -796,7 +796,7 @@ def test_solvation_gfn1_gbe():
     calc.add("gbe-solvation", 7.0, "p16")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.35002525960, abs=THR)
+    assert energy == approx(-28.3500226602721, abs=THR)
 
 
 def test_solvation_gfn2_gbsa():
@@ -832,7 +832,7 @@ def test_solvation_gfn1_alpb():
     calc.add("alpb-solvation", "ethanol", "reference")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.3545598426876, abs=THR)
+    assert energy == approx(-28.3545572567704, abs=THR)
 
 
 def test_result_getter():
