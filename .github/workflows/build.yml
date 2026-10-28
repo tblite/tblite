@@ -29,25 +29,25 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         build-type: [debug]
         toolchain:
-          - {compiler: gcc, version: '12', build: meson}
-          - {compiler: gcc, version: '12', build: cmake}
+          - {compiler: gcc, version: '14', build: meson}
+          - {compiler: gcc, version: '14', build: cmake}
 
         include:
-          - os: ubuntu-latest
-            build-type: coverage
-            toolchain: {compiler: gcc, version: '10', build: meson}
-
           - os: ubuntu-latest
             build-type: debug
             toolchain: {compiler: gcc, version: '11', build: meson}
 
           - os: ubuntu-latest
             build-type: debug
-            toolchain: {compiler: gcc, version: '13', build: meson}
+            toolchain: {compiler: gcc, version: '12', build: meson}
 
           - os: ubuntu-latest
             build-type: debug
-            toolchain: {compiler: gcc, version: '14', build: meson}
+            toolchain: {compiler: gcc, version: '13', build: meson}
+
+          - os: ubuntu-latest
+            build-type: coverage
+            toolchain: {compiler: gcc, version: '15', build: meson}
 
           - os: ubuntu-latest
             build-type: debug
@@ -69,10 +69,6 @@ jobs:
             build-type: debug
             toolchain: {compiler: gcc, version: '12', build: meson}
 
-          - os: macos-latest
-            build-type: debug
-            toolchain: {compiler: gcc, version: '12', build: meson}
-
           # - os: windows-latest
           #   build: meson
           #   build-type: debug
@@ -84,7 +80,7 @@ jobs:
         shell: bash
 
     env:
-      PYTHON_V: 3.9
+      PYTHON_V: '3.12'
 
     steps:
     - name: Checkout code
@@ -170,8 +166,6 @@ jobs:
           CC="icx"
           CXX="icpx"
         elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
-          sudo apt-get install -y gcc-10 gfortran-10 g++-10
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10 --slave /usr/bin/g++ g++ /usr/bin/g++-10
           FC="ifort"
           CC="icc"
           CXX="icpc"
@@ -293,7 +287,7 @@ jobs:
         meson compile -C ${{ env.BUILD_DIR }}/discover-meson
 
     - name: Create package
-      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '14' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
       run: |
         tar cvf ${{ env.OUTPUT }} _dist
         xz -T0 ${{ env.OUTPUT }}
@@ -302,7 +296,7 @@ jobs:
         OUTPUT: tblite-${{ matrix.toolchain.build }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.os }}.tar
 
     - name: Upload package
-      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '12' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
+      if: ${{ matrix.toolchain.build != 'fpm' && matrix.toolchain.version == '14' && matrix.build-type == 'debug' && matrix.toolchain.compiler == 'gcc' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ env.TBLITE_OUTPUT }}
@@ -328,18 +322,18 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         build: [meson, cmake]
-        gcc_v: ['12']
-        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        gcc_v: ['14']
+        python_v: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
 
         include:
           - os: macos-latest
             build: meson
-            gcc_v: '12'
+            gcc_v: '14'
             python_v: '3.12'
 
           - os: macos-latest
             build: cmake
-            gcc_v: '12'
+            gcc_v: '14'
             python_v: '3.12'
 
     env:
