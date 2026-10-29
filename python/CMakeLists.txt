@@ -22,7 +22,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(
     tblite-python
     LANGUAGES C
-    VERSION 0.7.0
+    VERSION 0.8.0
     DESCRIPTION "Python API of the tblite project"
   )
 endif()
