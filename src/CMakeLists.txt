@@ -23,3 +23,4 @@ add_subdirectory("tblite")
 #)
 
 set(srcs "${srcs}" PARENT_SCOPE)
+set(incdirs "${incdirs}" PARENT_SCOPE)
