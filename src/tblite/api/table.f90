@@ -20,7 +20,7 @@
 !> API export for managing data tables
 module tblite_api_table
    use, intrinsic :: iso_c_binding, only : c_associated, c_bool, c_char, c_double, c_f_pointer, &
-      & c_int, c_int64_t, c_loc, c_null_ptr, c_ptr
+      & c_int, c_int64_t, c_loc, c_null_ptr, c_ptr, c_size_t
    use mctc_env, only : fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_utils, only : c_f_character, f_c_character, strlen
@@ -271,7 +271,7 @@ subroutine table_set_char_api(verror, vtable, ckey, cval, n) &
 
    call c_f_pointer(vtable, table)
    call c_f_character(ckey, key)
-   call c_f_pointer(cval, carr, [strlen(cval)+1, max(n, 1)])
+   call c_f_pointer(cval, carr, [strlen(cval)+1, int(max(n, 1), kind=c_size_t)])
 
    if (table%ptr%has_key(key)) call table%ptr%delete(key)
 
