@@ -219,6 +219,90 @@ subroutine contract_local(self, pairs, amat, charges, values)
 end subroutine contract_local
 
 
+!> Evaluate the derivatives of the Coulomb matrix contracted with the charges
+subroutine get_coulomb_derivs(self, mol, cache, qvec, dadr, dadL, atrace)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container, updated for this geometry
+   type(coulomb_cache), intent(in) :: cache
+   !> Atomic or shell-resolved partial charges, matching the resolution of self
+   real(wp), intent(in) :: qvec(:)
+   !> Derivative of interactions with respect to cartesian displacements
+   real(wp), contiguous, intent(out) :: dadr(:, :, :)
+   !> Derivative of interactions with respect to strain deformations
+   real(wp), contiguous, intent(out) :: dadL(:, :, :)
+   !> On-site derivatives with respect to cartesian displacements
+   real(wp), contiguous, intent(out) :: atrace(:, :)
+
+   logical :: periodic
+   integer :: iat, jat, ii, jj, ish, jsh, ic
+   real(wp) :: rij(3)
+   real(wp) :: dG(3, maxval(self%nshell), maxval(self%nshell))
+   real(wp) :: dS(3, 3, maxval(self%nshell), maxval(self%nshell))
+   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
+
+   atrace = 0.0_wp
+   dadr = 0.0_wp
+   dadL = 0.0_wp
+   periodic = any(mol%periodic)
+
+   !$omp parallel default(none) shared(atrace, dadr, dadL, self, mol, cache, qvec, periodic) &
+   !$omp private(iat, jat, ii, jj, ish, jsh, ic, rij, dG, dS, itrace, didr, didL)
+   allocate(itrace, source=atrace)
+   allocate(didr, source=dadr)
+   allocate(didL, source=dadL)
+   !$omp do schedule(static, 1)
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do jat = 1, iat-1
+         if (.not.owns_pair(self%partition, iat, jat)) cycle
+         jj = self%offset(jat)
+         call self%get_pair_derivs(mol, cache, iat, jat, dG, dS)
+         if (.not.periodic) then
+            rij = mol%xyz(:, iat) - mol%xyz(:, jat)
+            do ish = 1, self%nshell(iat)
+               do jsh = 1, self%nshell(jat)
+                  do ic = 1, 3
+                     dS(:, ic, jsh, ish) = dG(:, jsh, ish)*rij(ic)
+                  end do
+               end do
+            end do
+         end if
+         do ish = 1, self%nshell(iat)
+            do jsh = 1, self%nshell(jat)
+               itrace(:, ii+ish) = itrace(:, ii+ish) + dG(:, jsh, ish)*qvec(jj+jsh)
+               itrace(:, jj+jsh) = itrace(:, jj+jsh) - dG(:, jsh, ish)*qvec(ii+ish)
+               didr(:, iat, jj+jsh) = didr(:, iat, jj+jsh) + dG(:, jsh, ish)*qvec(ii+ish)
+               didr(:, jat, ii+ish) = didr(:, jat, ii+ish) - dG(:, jsh, ish)*qvec(jj+jsh)
+               didL(:, :, jj+jsh) = didL(:, :, jj+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
+               didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(jj+jsh)
+            end do
+         end do
+      end do
+
+      if (.not.periodic .or. .not.owns_pair(self%partition, iat, iat)) cycle
+      call self%get_pair_derivs(mol, cache, iat, iat, dG, dS)
+      do ish = 1, self%nshell(iat)
+         do jsh = 1, ish-1
+            didL(:, :, ii+jsh) = didL(:, :, ii+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
+            didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(ii+jsh)
+         end do
+         didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, ish, ish)*qvec(ii+ish)
+      end do
+   end do
+   !$omp end do
+   !$omp critical (coulomb_derivs_)
+   atrace = atrace + itrace
+   dadr = dadr + didr
+   dadL = dadL + didL
+   !$omp end critical (coulomb_derivs_)
+   deallocate(itrace, didr, didL)
+   !$omp end parallel
+end subroutine get_coulomb_derivs
+
+
 subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
@@ -368,90 +452,6 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
       end do
    end do
 end subroutine get_gradient
-
-
-!> Evaluate the derivatives of the Coulomb matrix contracted with the charges
-subroutine get_coulomb_derivs(self, mol, cache, qvec, dadr, dadL, atrace)
-   !> Instance of the electrostatic container
-   class(coulomb_charge_type), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container, updated for this geometry
-   type(coulomb_cache), intent(in) :: cache
-   !> Atomic or shell-resolved partial charges, matching the resolution of self
-   real(wp), intent(in) :: qvec(:)
-   !> Derivative of interactions with respect to cartesian displacements
-   real(wp), contiguous, intent(out) :: dadr(:, :, :)
-   !> Derivative of interactions with respect to strain deformations
-   real(wp), contiguous, intent(out) :: dadL(:, :, :)
-   !> On-site derivatives with respect to cartesian displacements
-   real(wp), contiguous, intent(out) :: atrace(:, :)
-
-   logical :: periodic
-   integer :: iat, jat, ii, jj, ish, jsh, ic
-   real(wp) :: rij(3)
-   real(wp) :: dG(3, maxval(self%nshell), maxval(self%nshell))
-   real(wp) :: dS(3, 3, maxval(self%nshell), maxval(self%nshell))
-   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
-
-   atrace = 0.0_wp
-   dadr = 0.0_wp
-   dadL = 0.0_wp
-   periodic = any(mol%periodic)
-
-   !$omp parallel default(none) shared(atrace, dadr, dadL, self, mol, cache, qvec, periodic) &
-   !$omp private(iat, jat, ii, jj, ish, jsh, ic, rij, dG, dS, itrace, didr, didL)
-   allocate(itrace, source=atrace)
-   allocate(didr, source=dadr)
-   allocate(didL, source=dadL)
-   !$omp do schedule(static, 1)
-   do iat = 1, mol%nat
-      ii = self%offset(iat)
-      do jat = 1, iat-1
-         if (.not.owns_pair(self%partition, iat, jat)) cycle
-         jj = self%offset(jat)
-         call self%get_pair_derivs(mol, cache, iat, jat, dG, dS)
-         if (.not.periodic) then
-            rij = mol%xyz(:, iat) - mol%xyz(:, jat)
-            do ish = 1, self%nshell(iat)
-               do jsh = 1, self%nshell(jat)
-                  do ic = 1, 3
-                     dS(:, ic, jsh, ish) = dG(:, jsh, ish)*rij(ic)
-                  end do
-               end do
-            end do
-         end if
-         do ish = 1, self%nshell(iat)
-            do jsh = 1, self%nshell(jat)
-               itrace(:, ii+ish) = itrace(:, ii+ish) + dG(:, jsh, ish)*qvec(jj+jsh)
-               itrace(:, jj+jsh) = itrace(:, jj+jsh) - dG(:, jsh, ish)*qvec(ii+ish)
-               didr(:, iat, jj+jsh) = didr(:, iat, jj+jsh) + dG(:, jsh, ish)*qvec(ii+ish)
-               didr(:, jat, ii+ish) = didr(:, jat, ii+ish) - dG(:, jsh, ish)*qvec(jj+jsh)
-               didL(:, :, jj+jsh) = didL(:, :, jj+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
-               didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(jj+jsh)
-            end do
-         end do
-      end do
-
-      if (.not.periodic .or. .not.owns_pair(self%partition, iat, iat)) cycle
-      call self%get_pair_derivs(mol, cache, iat, iat, dG, dS)
-      do ish = 1, self%nshell(iat)
-         do jsh = 1, ish-1
-            didL(:, :, ii+jsh) = didL(:, :, ii+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
-            didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(ii+jsh)
-         end do
-         didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, ish, ish)*qvec(ii+ish)
-      end do
-   end do
-   !$omp end do
-   !$omp critical (coulomb_derivs_)
-   atrace = atrace + itrace
-   dadr = dadr + didr
-   dadL = dadL + didL
-   !$omp end critical (coulomb_derivs_)
-   deallocate(itrace, didr, didL)
-   !$omp end parallel
-end subroutine get_coulomb_derivs
 
 
 !> Get information about density dependent quantities used in the energy
