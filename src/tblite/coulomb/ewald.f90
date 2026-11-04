@@ -27,12 +27,13 @@ module tblite_coulomb_ewald
    private
 
    public :: get_alpha, get_dir_cutoff, get_rec_cutoff, ewald_cache
+   public :: get_amat_rec_3d, get_damat_rec_3d
 
    real(wp), parameter :: twopi = 2 * pi
    real(wp), parameter :: sqrtpi = sqrt(pi)
    real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
 
-   !> Cell-dependent reciprocal coefficients, shared by energies and derivatives.
+   !> Cell-dependent lattice sums data, shared by energies and derivatives.
    !> These do not depend on coordinates or on the work partition.
    type :: ewald_cache
       !> Lattice vectors used to build the coefficients
@@ -43,6 +44,12 @@ module tblite_coulomb_ewald
       real(wp), private :: tolerance
       !> Whether the Klopman-Ohno 1/r^3 coefficients are included
       logical, private :: ko = .false.
+      !> Unit cell volume
+      real(wp) :: vol
+      !> Real-space lattice translations within the direct-space Ewald cutoff
+      real(wp), allocatable :: dtrans(:, :)
+      !> Lattice translations of the Klopman-Ohno short-range sums, allocated only for that kernel
+      real(wp), allocatable :: strans(:, :)
       !> Nonzero reciprocal vectors, with shape (3, nvec)
       real(wp), allocatable :: vec(:, :)
       !> Reciprocal 1/r coefficients, excluding the pair phase
@@ -59,6 +66,8 @@ module tblite_coulomb_ewald
    end type ewald_cache
 
    real(wp), parameter :: euler_gamma = 0.57721566490153286061_wp
+   !> Real-space cutoff of the Klopman-Ohno short-range sums
+   real(wp), parameter :: ko_cutoff = 40.0_wp
 
    !> Evaluator for interaction term
    type, abstract :: term_type
@@ -126,7 +135,7 @@ subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
 
    logical :: with_ko
    integer :: itr, b, nvec
-   real(wp) :: volume, rec_lat(3, 3), g2, x, fac, weight, scale
+   real(wp) :: rec_lat(3, 3), g2, x, fac, weight, scale
    real(wp), allocatable :: trans(:, :)
 
    with_ko = .false.
@@ -134,21 +143,23 @@ subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
    if (allocated(self%vec)) then
       if (all(self%lattice == lattice) .and. self%alpha == alpha &
          & .and. self%tolerance == tolerance .and. (self%ko .eqv. with_ko)) return
-      deallocate(self%vec, self%weight, self%strain)
-      if (allocated(self%weight3)) deallocate(self%weight3, self%strain3)
+      deallocate(self%vec, self%weight, self%strain, self%dtrans)
+      if (allocated(self%weight3)) deallocate(self%weight3, self%strain3, self%strans)
    end if
    self%lattice = lattice
    self%alpha = alpha
    self%tolerance = tolerance
    self%ko = with_ko
-   volume = abs(matdet_3x3(lattice))
+   self%vol = abs(matdet_3x3(lattice))
+   call get_lattice_points([.true.], lattice, get_dir_cutoff(alpha, tolerance), self%dtrans)
+   if (with_ko) call get_lattice_points([.true.], lattice, ko_cutoff, self%strans)
    rec_lat = twopi*transpose(matinv_3x3(lattice))
-   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, volume, tolerance), trans)
+   call get_lattice_points([.true.], rec_lat, get_rec_cutoff(alpha, self%vol, tolerance), trans)
    nvec = size(trans, 2) - 1
    allocate(self%vec(3, nvec), self%weight(nvec), self%strain(3, 3, nvec), source=0.0_wp)
    self%vec(:, :) = trans(:, 2:)
    if (with_ko) allocate(self%weight3(nvec), self%strain3(3, 3, nvec), source=0.0_wp)
-   fac = 4*pi/volume
+   fac = 4*pi/self%vol
    do itr = 1, nvec
       g2 = dot_product(self%vec(:, itr), self%vec(:, itr))
       if (g2 <= 0.0_wp) cycle
@@ -172,6 +183,47 @@ subroutine update_ewald_cache(self, lattice, alpha, tolerance, ko)
       end do
    end do
 end subroutine update_ewald_cache
+
+
+!> Reciprocal-space 1/r sum for one atom pair
+pure subroutine get_amat_rec_3d(rij, ewald, amat)
+   !> Displacement between the atom pair
+   real(wp), intent(in) :: rij(3)
+   !> Cached reciprocal-space coefficients
+   type(ewald_cache), intent(in) :: ewald
+   !> Reciprocal-space contribution
+   real(wp), intent(out) :: amat
+   integer :: itr
+
+   amat = 0.0_wp
+   do itr = 1, size(ewald%weight)
+      amat = amat + cos(dot_product(rij, ewald%vec(:, itr)))*ewald%weight(itr)
+   end do
+end subroutine get_amat_rec_3d
+
+
+!> Cartesian and strain derivatives of the reciprocal-space 1/r sum for one atom pair
+pure subroutine get_damat_rec_3d(rij, ewald, dg, ds)
+   !> Displacement between the atom pair
+   real(wp), intent(in) :: rij(3)
+   !> Cached reciprocal-space coefficients
+   type(ewald_cache), intent(in) :: ewald
+   !> Derivative with respect to cartesian displacements
+   real(wp), intent(out) :: dg(3)
+   !> Derivative with respect to strain deformations
+   real(wp), intent(out) :: ds(3, 3)
+   integer :: itr
+   real(wp) :: phase
+
+   dg = 0.0_wp
+   ds = 0.0_wp
+   do itr = 1, size(ewald%weight)
+      phase = dot_product(rij, ewald%vec(:, itr))
+      dg = dg - sin(phase)*ewald%weight(itr)*ewald%vec(:, itr)
+      ds = ds + cos(phase)*ewald%strain(:, :, itr)
+   end do
+end subroutine get_damat_rec_3d
+
 
 !> Exponential integral E1(x) for positive x
 pure function expint_e1(x) result(e1)

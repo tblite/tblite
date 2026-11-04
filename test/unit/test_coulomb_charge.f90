@@ -92,6 +92,7 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("gradient-atom-g1", test_g_effective_m11), &
       new_unittest("gradient-shell-g2", test_g_effective_m14), &
       new_unittest("gradient-atom-pbc-g1", test_g_effective_urea), &
+      new_unittest("gradient-atom-pbc-eceh", test_g_effective_co2_eceh), &
       new_unittest("sigma-atom-e1", test_s_effective_m05), &
       new_unittest("sigma-atom-e2", test_s_effective_m06), &
       new_unittest("sigma-shell-e1", test_s_effective_m09), &
@@ -100,6 +101,7 @@ subroutine collect_coulomb_charge(testsuite)
       new_unittest("sigma-atom-g1", test_s_effective_m12), &
       new_unittest("sigma-shell-g2", test_s_effective_m15), &
       new_unittest("sigma-atom-pbc-g2", test_s_effective_pyrazine), &
+      new_unittest("sigma-atom-pbc-eceh", test_s_effective_pyrazine_eceh), &
       new_unittest("potential-gradient-lih-effceh", test_ceh_potgrad_lih), &
       new_unittest("potential-gradient-mb15-effceh", test_ceh_potgrad_mb15), &
       new_unittest("potential-gradient-mb16-shell-effceh", test_ceh_potgrad_mb16), &
@@ -122,7 +124,7 @@ subroutine test_local_blocks(error)
    real(wp), parameter :: lattice(3, 3) = reshape([ &
       & 8.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 9.0_wp, 0.0_wp, &
       & 0.0_wp, 0.0_wp, 10.0_wp], [3, 3])
-   integer :: ipbc, model, part, iat, jat, ipair, ii, jj, ni, nj, nsh
+   integer :: ipbc, model, part, nsh
 
    do ipbc = 1, 2
       call new(mol, [1, 8], reshape([0.0_wp, 0.0_wp, 0.0_wp, &
@@ -138,54 +140,56 @@ subroutine test_local_blocks(error)
             call make_coulomb_g2(coulomb, mol, .true.)
          end select
          nsh = sum(coulomb%nshell)
-         allocate(reference(nsh, nsh), total(nsh, nsh))
+         allocate(reference(nsh, nsh), total(nsh, nsh), source=0.0_wp)
          call coulomb%update(mol, cache)
-         select type(ptr => cache%raw)
-         type is(coulomb_cache)
-            call coulomb%get_coulomb_matrix(mol, ptr, reference)
-         end select
-         total = 0.0_wp
+         call add_local_blocks(coulomb, cache, reference)
          do part = 0, 3
             call new_work_partition(error, coulomb%partition, part, 4)
             if (allocated(error)) return
             call coulomb%update(mol, cache)
-            select type(ptr => cache%raw)
-            type is(coulomb_cache)
-               if (part == 3) then
+            if (part == 3) then
+               select type(ptr => cache%raw)
+               type is(coulomb_cache)
                   call check(error, size(ptr%local_amat, 3), 0)
-                  if (allocated(error)) return
-               end if
-               do iat = 1, mol%nat
-                  ii = coulomb%offset(iat)
-                  ni = coulomb%nshell(iat)
-                  do ipair = ptr%pairs%offset(iat-1)+1, ptr%pairs%offset(iat)
-                     jat = ptr%pairs%neighbour(ipair)
-                     jj = coulomb%offset(jat)
-                     nj = coulomb%nshell(jat)
-                     total(ii+1:ii+ni, jj+1:jj+nj) = total(ii+1:ii+ni, jj+1:jj+nj) &
-                        & + ptr%local_amat(:ni, :nj, ipair)
-                  end do
-               end do
-            end select
+               end select
+               if (allocated(error)) return
+            end if
+            call add_local_blocks(coulomb, cache, total)
          end do
          call check(error, maxval(abs(total-reference)), 0.0_wp, thr=thr)
          if (allocated(error)) return
-         if (model == 3) then
-            ! The legacy gamma matrix interface always returns the full matrix.
-            select type(ptr => cache%raw)
-            type is(coulomb_cache)
-               call coulomb%get_coulomb_matrix(mol, ptr, total)
-            end select
-            call check(error, maxval(abs(total-reference)), 0.0_wp, thr=thr)
-            if (allocated(error)) return
-         end if
          deallocate(reference, total)
       end do
    end do
 end subroutine test_local_blocks
 
 
-!> Reusing reciprocal coefficients must agree with a fresh cache after changes.
+!> Add the locally owned Coulomb blocks of the cache to the full matrix
+subroutine add_local_blocks(coulomb, cache, amat)
+   class(coulomb_charge_type), intent(in) :: coulomb
+   type(container_cache), intent(in) :: cache
+   real(wp), intent(inout) :: amat(:, :)
+
+   integer :: iat, jat, ipair, ii, jj, ni, nj
+
+   select type(ptr => cache%raw)
+   type is(coulomb_cache)
+      do iat = 1, size(coulomb%nshell)
+         ii = coulomb%offset(iat)
+         ni = coulomb%nshell(iat)
+         do ipair = ptr%pairs%offset(iat-1)+1, ptr%pairs%offset(iat)
+            jat = ptr%pairs%neighbour(ipair)
+            jj = coulomb%offset(jat)
+            nj = coulomb%nshell(jat)
+            amat(ii+1:ii+ni, jj+1:jj+nj) = amat(ii+1:ii+ni, jj+1:jj+nj) &
+               & + ptr%local_amat(:ni, :nj, ipair)
+         end do
+      end do
+   end select
+end subroutine add_local_blocks
+
+
+!> Reusing the lattice data must agree with a fresh cache after changes.
 subroutine test_ewald_cache(error)
    type(error_type), allocatable, intent(out) :: error
    type(structure_type) :: mol
@@ -221,11 +225,20 @@ subroutine test_ewald_cache(error)
             & all(abs(cache%weight-fresh%weight) < thr) .and. &
             & all(abs(cache%strain-fresh%strain) < thr), "Reused Ewald coefficients")
          if (allocated(error)) return
+         call check(error, size(cache%dtrans, 2), size(fresh%dtrans, 2))
+         if (allocated(error)) return
+         call check(error, abs(cache%vol-fresh%vol) < thr .and. &
+            & all(abs(cache%dtrans-fresh%dtrans) < thr), "Reused real-space lattice data")
+         if (allocated(error)) return
          call check(error, allocated(cache%weight3) .eqv. ko)
+         if (allocated(error)) return
+         call check(error, allocated(cache%strans) .eqv. ko)
          if (allocated(error)) return
          if (ko) then
             call check(error, all(abs(cache%weight3-fresh%weight3) < thr) .and. &
                & all(abs(cache%strain3-fresh%strain3) < thr), "Reused 1/r^3 coefficients")
+            if (allocated(error)) return
+            call check(error, size(cache%strans, 2), size(fresh%strans, 2))
             if (allocated(error)) return
          end if
       end block
@@ -684,7 +697,7 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    !> Factory to create new electrostatic objects
    procedure(coulomb_maker) :: make_coulomb
 
-   integer :: iat, ic, nsh, npairs
+   integer :: iat, ic, npairs
    class(coulomb_charge_type), allocatable :: coulomb
    type(container_cache) :: cache
    type(work_partition) :: partition
@@ -692,7 +705,6 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
    real(wp), allocatable :: gradient(:, :), numgrad(:, :)
    real(wp), parameter :: step = 5.0e-5_wp
    type(wavefunction_type) :: wfn
-   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
    real(wp) :: ref(3, mol%nat), sref(3, 3)
 
    allocate(gradient(3, mol%nat), numgrad(3, mol%nat))
@@ -731,20 +743,14 @@ subroutine test_numgrad(error, mol, qat, qsh, make_coulomb)
       return
    end if
 
-   ! Check direct contraction, accumulation, and empty work partitions.
-   nsh = size(wfn%qsh, 1)
-   allocate(dadr(3, mol%nat, nsh), dadL(3, 3, nsh), atrace(3, nsh))
+   ! Check accumulation and empty work partitions.
+   ref = 0.125_wp + gradient
+   sref = 0.125_wp + sigma
    gradient = 0.125_wp
    sigma = 0.125_wp
    call coulomb%get_gradient(mol, cache, wfn, gradient, sigma)
-   select type(ptr => cache%raw)
-   type is(coulomb_cache)
-      call coulomb%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, atrace)
-   end select
-   ref = 0.125_wp + reshape(matmul(reshape(dadr, [3*mol%nat, nsh]), wfn%qsh(:, 1)), shape(ref))
-   sref = 0.125_wp + 0.5_wp*reshape(matmul(reshape(dadL, [9, nsh]), wfn%qsh(:, 1)), [3, 3])
    call check(error, all(abs(gradient-ref) < thr) .and. all(abs(sigma-sref) < thr), &
-      & "Direct and response derivative contractions")
+      & "Gradient must accumulate into the derivatives")
    if (allocated(error)) return
 
    npairs = mol%nat*(mol%nat+1)/2
@@ -1321,6 +1327,25 @@ subroutine test_g_effective_co2(error)
 
 end subroutine test_g_effective_co2
 
+subroutine test_g_effective_co2_eceh(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 4.56275672862067E-1_wp, 4.56284770386671E-1_wp, 4.56284770386671E-1_wp,&
+      & 4.56284770386671E-1_wp,-2.28127680925611E-1_wp,-2.28138283131909E-1_wp,&
+      &-2.28145770512561E-1_wp,-2.28145770512561E-1_wp,-2.28150142163058E-1_wp,&
+      &-2.28145770512561E-1_wp,-2.28138283131909E-1_wp,-2.28138283131909E-1_wp]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "CO2")
+   call test_numgrad(error, mol, qat, qsh, make_coulomb_eceh)
+
+end subroutine test_g_effective_co2_eceh
+
+
 
 subroutine get_wsc_threshold_data(mol, qat)
    type(structure_type), intent(out) :: mol
@@ -1468,6 +1493,28 @@ subroutine test_s_effective_ammonia(error)
    call test_numsigma(error, mol, qat, qsh, make_coulomb_e2)
 
 end subroutine test_s_effective_ammonia
+
+subroutine test_s_effective_pyrazine_eceh(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 1.23705026512437E-1_wp, 1.22537765989959E-1_wp, 1.23932626831231E-1_wp,&
+      & 1.22418959326822E-1_wp, 1.23788033684569E-1_wp, 1.23643389058068E-1_wp,&
+      & 1.22389811551880E-1_wp, 1.22402837718155E-1_wp, 3.17174594622166E-2_wp,&
+      & 3.15585817789390E-2_wp, 3.14290005061543E-2_wp, 3.10358506314526E-2_wp,&
+      & 3.11084225356749E-2_wp, 3.11187325528499E-2_wp, 3.10707965296438E-2_wp,&
+      & 3.13508824430484E-2_wp,-3.09107070033859E-1_wp,-3.09144123845085E-1_wp,&
+      &-3.08473365847409E-1_wp,-3.08483617386745E-1_wp]
+   real(wp), allocatable :: qsh(:)
+
+   call get_structure(mol, "X23", "pyrazine")
+   call test_numsigma(error, mol, qat, qsh, make_coulomb_eceh)
+
+end subroutine test_s_effective_pyrazine_eceh
+
 
 
 subroutine test_s_effective_pyrazine(error)
