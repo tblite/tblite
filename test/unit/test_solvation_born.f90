@@ -18,7 +18,8 @@ module test_solvation_born
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use mctc_io, only : structure_type
+   use mctc_io, only : structure_type, new
+   use mctc_io_convert, only : aatoau
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
@@ -50,6 +51,7 @@ subroutine collect_solvation_born(testsuite)
       new_unittest("born-1", test_mb01), &
       new_unittest("born-2", test_mb02), &
       new_unittest("born-3", test_mb03), &
+      new_unittest("born-asymmetric-overlap", test_asymmetric_overlap), &
       new_unittest("energy-p16", test_e_p16), &
       new_unittest("energy-alpb-gfn1", test_e_alpb_gfn1_all_solvents), &
       new_unittest("energy-alpb-gfn2", test_e_alpb_gfn2_all_solvents), &
@@ -213,6 +215,53 @@ subroutine test_mb03(error)
    call test_numg(error, gbobc, mol)
 
 end subroutine test_mb03
+
+
+subroutine test_asymmetric_overlap(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol, reversed
+   type(born_integrator) :: gbobc, reversed_gbobc
+   type(alpb_input) :: input
+   integer, parameter :: nat = 3, num(nat) = [1, 8, 55], order(nat) = [3, 2, 1]
+   real(wp), parameter :: xyz(3, nat) = reshape([&
+      & 0.0_wp, 0.0_wp, -0.96_wp, &
+      & 0.0_wp, 0.0_wp,  0.00_wp, &
+      & 0.0_wp, 0.0_wp,  2.08_wp], [3, nat]) * aatoau
+   real(wp) :: rad(nat), reversed_rad(nat)
+   real(wp) :: draddr(3, nat, nat), reversed_draddr(3, nat, nat)
+
+   call new(mol, num, xyz)
+   call new(reversed, num(order), xyz(:, order))
+
+   input%solvent = "water"
+   call get_alpb_param(input, mol, "gfn2", error)
+   if (allocated(error)) return
+   call new_born_integrator(gbobc, mol, input%rvdw, input%descreening, &
+      & input%born_scale, input%born_offset)
+
+   call get_alpb_param(input, reversed, "gfn2", error)
+   if (allocated(error)) return
+   call new_born_integrator(reversed_gbobc, reversed, input%rvdw, input%descreening, &
+      & input%born_scale, input%born_offset)
+
+   call gbobc%get_rad(mol, rad, draddr)
+   call reversed_gbobc%get_rad(reversed, reversed_rad, reversed_draddr)
+
+   if (any(abs(rad - reversed_rad(order)) > thr2)) then
+      call test_failed(error, "Born radii depend on atom order")
+      return
+   end if
+   if (any(abs(draddr - reversed_draddr(:, order, order)) > thr2)) then
+      call test_failed(error, "Born radii derivatives depend on atom order")
+      return
+   end if
+
+   call test_numg(error, gbobc, mol)
+   if (allocated(error)) return
+   call test_numg(error, reversed_gbobc, reversed)
+end subroutine test_asymmetric_overlap
 
 
 subroutine test_e(error, mol, input, qat, ref, method)
