@@ -22,5 +22,9 @@ list(
   "${dir}/cds.f90"
   "${dir}/shift.f90"
 )
+list(APPEND incdirs
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 set(srcs "${srcs}" PARENT_SCOPE)
+set(incdirs "${incdirs}" PARENT_SCOPE)

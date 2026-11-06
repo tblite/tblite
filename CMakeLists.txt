@@ -108,6 +108,7 @@ set(
 
 # Collect source of the project
 set(srcs)
+set(incdirs)
 add_subdirectory("src")
 
 # tight-binding library target
@@ -125,6 +126,11 @@ set_target_properties(
   SOVERSION "${PROJECT_VERSION_MAJOR}"
   WINDOWS_EXPORT_ALL_SYMBOLS TRUE
   Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include"
+)
+target_include_directories(
+  "${PROJECT_NAME}-lib"
+  PRIVATE
+  "${incdirs}"
 )
 target_link_libraries(
   "${PROJECT_NAME}-lib"

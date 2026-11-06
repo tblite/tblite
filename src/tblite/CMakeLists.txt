@@ -75,3 +75,4 @@ list(
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)
+set(incdirs "${incdirs}" PARENT_SCOPE)
