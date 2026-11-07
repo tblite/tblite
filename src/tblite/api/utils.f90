@@ -19,7 +19,7 @@
 
 !> Provides utilities used for all API export modules
 module tblite_api_utils
-   use, intrinsic :: iso_c_binding, only : c_char, c_int, c_null_char, c_ptr
+   use, intrinsic :: iso_c_binding, only : c_char, c_null_char, c_ptr, c_size_t
    implicit none
    private
 
@@ -28,9 +28,9 @@ module tblite_api_utils
 
    interface
       function strlen(str) result(len) bind(c)
-         import :: c_ptr, c_int
+         import :: c_ptr, c_size_t
          type(c_ptr), value :: str
-         integer(c_int) :: len
+         integer(c_size_t) :: len
       end function strlen
    end interface
 
