@@ -21,17 +21,14 @@
 module tblite_coulomb_charge_type
    use mctc_env, only : wp
    use mctc_io, only : structure_type
-   use tblite_blas, only : gemv
    use tblite_container_cache, only : container_cache
    use tblite_coulomb_cache, only : coulomb_cache
    use tblite_coulomb_type, only : coulomb_type
-   use tblite_partition, only : pair_list, work_partition
+   use tblite_partition, only : owns_pair, pair_list
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
-
-   public :: get_coulomb_matrix_from_blocks
 
    !> General second-order electrostatics
    type, public, extends(coulomb_type), abstract :: coulomb_charge_type
@@ -54,50 +51,42 @@ module tblite_coulomb_charge_type
       procedure :: get_potential_gradient
       !> Evaluate gradient contributions from the selfconsistent interaction
       procedure :: get_gradient
-      !> Evaluate Coulomb matrix
+      !> Evaluate the Coulomb matrix blocks of the locally owned atom pairs
       procedure(get_coulomb_matrix), deferred :: get_coulomb_matrix
-      !> Evaluate local Coulomb blocks; the default packs the full matrix
-      procedure :: get_coulomb_blocks
-      !> Evaluate uncontracted derivatives of Coulomb matrix
-      procedure(get_coulomb_derivs), deferred :: get_coulomb_derivs
-      !> Accumulate charge-contracted derivatives into the gradient and strain
-      procedure :: get_coulomb_derivs_contracted
+      !> Evaluate the Coulomb matrix derivatives of one atom pair
+      procedure(get_pair_derivs), deferred :: get_pair_derivs
    end type coulomb_charge_type
 
    abstract interface
-      !> Evaluate coulomb matrix
-      subroutine get_coulomb_matrix(self, mol, cache, amat)
-         import :: coulomb_charge_type, structure_type, coulomb_cache, wp
+      !> Evaluate the Coulomb matrix blocks of the locally owned atom pairs
+      subroutine get_coulomb_matrix(self, mol, cache)
+         import :: coulomb_charge_type, structure_type, coulomb_cache
          !> Instance of the electrostatic container
          class(coulomb_charge_type), intent(in) :: self
          !> Molecular structure data
          type(structure_type), intent(in) :: mol
-         !> Reusable data container
+         !> Reusable data container, local pair list and Coulomb blocks to overwrite
          type(coulomb_cache), intent(inout) :: cache
-         !> Coulomb matrix
-         real(wp), contiguous, intent(out) :: amat(:, :)
       end subroutine get_coulomb_matrix
 
-      !> Evaluate uncontracted derivatives of Coulomb matrix
-      subroutine get_coulomb_derivs(self, mol, cache, qat, qsh, dadr, dadL, atrace)
+      !> Evaluate the Coulomb matrix derivatives of one atom pair
+      subroutine get_pair_derivs(self, mol, cache, iat, jat, dG, dS)
          import :: coulomb_charge_type, structure_type, coulomb_cache, wp
          !> Instance of the electrostatic container
          class(coulomb_charge_type), intent(in) :: self
          !> Molecular structure data
          type(structure_type), intent(in) :: mol
-         !> Reusable data container
-         type(coulomb_cache), intent(inout) :: cache
-         !> Atomic partial charges
-         real(wp), intent(in) :: qat(:)
-         !> Shell-resolved partial charges
-         real(wp), intent(in) :: qsh(:)
-         !> Derivative of interactions with respect to cartesian displacements
-         real(wp), contiguous, intent(out) :: dadr(:, :, :)
-         !> Derivative of interactions with respect to strain deformations
-         real(wp), contiguous, intent(out) :: dadL(:, :, :)
-         !> On-site derivatives with respect to cartesian displacements
-         real(wp), contiguous, intent(out) :: atrace(:, :)
-      end subroutine get_coulomb_derivs
+         !> Reusable data container, updated for this geometry
+         type(coulomb_cache), intent(in) :: cache
+         !> First atom
+         integer, intent(in) :: iat
+         !> Second atom
+         integer, intent(in) :: jat
+         !> Derivatives with respect to the position of the first atom, indexed by (:, jsh, ish)
+         real(wp), intent(out) :: dG(:, :, :)
+         !> Strain derivatives, indexed by (:, :, jsh, ish), only evaluated for periodic systems
+         real(wp), intent(out) :: dS(:, :, :, :)
+      end subroutine get_pair_derivs
    end interface
 
 contains
@@ -125,78 +114,13 @@ subroutine update(self, mol, cache)
       if (any(shape(ptr%local_amat) /= [msh, msh, nlocal])) deallocate(ptr%local_amat)
    end if
    if (.not.allocated(ptr%local_amat)) allocate(ptr%local_amat(msh, msh, nlocal))
-   call self%get_coulomb_blocks(mol, ptr, ptr%pairs, ptr%local_amat)
+   call self%get_coulomb_matrix(mol, ptr)
 
    if (.not.allocated(ptr%vvec)) then
       allocate(ptr%vvec(sum(self%nshell)))
    end if
 
 end subroutine update
-
-
-!> Compatibility path for implementations providing only the full matrix builder.
-subroutine get_coulomb_blocks(self, mol, cache, pairs, blocks)
-   !> Instance of the electrostatic container
-   class(coulomb_charge_type), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
-   !> Locally owned atom pairs in row order
-   type(pair_list), intent(in) :: pairs
-   !> Coulomb blocks indexed by row shell, neighbour shell, and local pair
-   real(wp), contiguous, intent(out) :: blocks(:, :, :)
-
-   real(wp), allocatable :: full_matrix(:, :)
-   integer :: iat, jat, ipair, ii, jj
-
-   allocate(full_matrix(sum(self%nshell), sum(self%nshell)))
-   call self%get_coulomb_matrix(mol, cache, full_matrix)
-   blocks(:, :, :) = 0.0_wp
-   do iat = 1, mol%nat
-      ii = self%offset(iat)
-      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
-         jat = pairs%neighbour(ipair)
-         jj = self%offset(jat)
-         blocks(:self%nshell(iat), :self%nshell(jat), ipair) &
-            & = full_matrix(ii+1:ii+self%nshell(iat), jj+1:jj+self%nshell(jat))
-      end do
-   end do
-end subroutine get_coulomb_blocks
-
-
-!> Assemble a full matrix only for callers explicitly requesting dense storage.
-subroutine get_coulomb_matrix_from_blocks(self, mol, cache, partition, amat)
-   !> Instance implementing direct local block construction
-   class(coulomb_charge_type), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
-   !> Share of atom pairs included in the matrix
-   type(work_partition), intent(in) :: partition
-   !> Coulomb matrix, zero outside the owned pairs
-   real(wp), contiguous, intent(out) :: amat(:, :)
-
-   type(pair_list) :: pairs
-   real(wp), allocatable :: blocks(:, :, :)
-   integer :: iat, jat, ipair, ii, jj, msh
-
-   call pairs%update(partition, mol%nat)
-   msh = maxval(self%nshell)
-   allocate(blocks(msh, msh, size(pairs%neighbour)))
-   call self%get_coulomb_blocks(mol, cache, pairs, blocks)
-   amat(:, :) = 0.0_wp
-   do iat = 1, mol%nat
-      ii = self%offset(iat)
-      do ipair = pairs%offset(iat-1)+1, pairs%offset(iat)
-         jat = pairs%neighbour(ipair)
-         jj = self%offset(jat)
-         amat(ii+1:ii+self%nshell(iat), jj+1:jj+self%nshell(jat)) &
-            & = blocks(:self%nshell(iat), :self%nshell(jat), ipair)
-      end do
-   end do
-end subroutine get_coulomb_matrix_from_blocks
 
 
 !> Evaluate selfconsistent energy of the interaction
@@ -213,39 +137,25 @@ subroutine get_energy(self, mol, cache, wfn, energies)
    real(wp), intent(inout) :: energies(:)
 
    type(coulomb_cache), pointer :: ptr
+   integer :: iat, ii, ish
+   real(wp), allocatable :: qvec(:)
 
    call view(cache, ptr)
-
    if (self%shell_resolved) then
-      call add_charge_energy(self, ptr, wfn%qsh(:, 1), energies)
+      qvec = wfn%qsh(:, 1)
    else
-      call add_charge_energy(self, ptr, wfn%qat(:, 1), energies)
+      qvec = wfn%qat(:, 1)
    end if
-end subroutine get_energy
-
-
-!> Accumulate atom-resolved energies directly from shell or atomic charges.
-subroutine add_charge_energy(self, ptr, charges, energies)
-   !> Instance of the electrostatic container
-   class(coulomb_charge_type), intent(in) :: self
-   !> Local Coulomb blocks and reusable contraction workspace
-   type(coulomb_cache), intent(inout) :: ptr
-   !> Shell or atomic charges, matching the resolution of self
-   real(wp), intent(in) :: charges(:)
-   !> Atom-resolved electrostatic energies to accumulate into
-   real(wp), intent(inout) :: energies(:)
-
-   integer :: iat, ii, ish
 
    ptr%vvec = 0.0_wp
-   call contract_local(self, ptr%pairs, ptr%local_amat, charges, ptr%vvec)
-   do iat = 1, size(self%nshell)
+   call contract_local(self, ptr%pairs, ptr%local_amat, qvec, ptr%vvec)
+   do iat = 1, mol%nat
       ii = self%offset(iat)
       do ish = 1, self%nshell(iat)
-         energies(iat) = energies(iat) + 0.5_wp*ptr%vvec(ii+ish)*charges(ii+ish)
+         energies(iat) = energies(iat) + 0.5_wp*ptr%vvec(ii+ish)*qvec(ii+ish)
       end do
    end do
-end subroutine add_charge_energy
+end subroutine get_energy
 
 
 !> Evaluate charge dependent potential shift from the interaction
@@ -309,6 +219,90 @@ subroutine contract_local(self, pairs, amat, charges, values)
 end subroutine contract_local
 
 
+!> Evaluate the derivatives of the Coulomb matrix contracted with the charges
+subroutine get_coulomb_derivs(self, mol, cache, qvec, dadr, dadL, atrace)
+   !> Instance of the electrostatic container
+   class(coulomb_charge_type), intent(in) :: self
+   !> Molecular structure data
+   type(structure_type), intent(in) :: mol
+   !> Reusable data container, updated for this geometry
+   type(coulomb_cache), intent(in) :: cache
+   !> Atomic or shell-resolved partial charges, matching the resolution of self
+   real(wp), intent(in) :: qvec(:)
+   !> Derivative of interactions with respect to cartesian displacements
+   real(wp), contiguous, intent(out) :: dadr(:, :, :)
+   !> Derivative of interactions with respect to strain deformations
+   real(wp), contiguous, intent(out) :: dadL(:, :, :)
+   !> On-site derivatives with respect to cartesian displacements
+   real(wp), contiguous, intent(out) :: atrace(:, :)
+
+   logical :: periodic
+   integer :: iat, jat, ii, jj, ish, jsh, ic
+   real(wp) :: rij(3)
+   real(wp) :: dG(3, maxval(self%nshell), maxval(self%nshell))
+   real(wp) :: dS(3, 3, maxval(self%nshell), maxval(self%nshell))
+   real(wp), allocatable :: itrace(:, :), didr(:, :, :), didL(:, :, :)
+
+   atrace = 0.0_wp
+   dadr = 0.0_wp
+   dadL = 0.0_wp
+   periodic = any(mol%periodic)
+
+   !$omp parallel default(none) shared(atrace, dadr, dadL, self, mol, cache, qvec, periodic) &
+   !$omp private(iat, jat, ii, jj, ish, jsh, ic, rij, dG, dS, itrace, didr, didL)
+   allocate(itrace, source=atrace)
+   allocate(didr, source=dadr)
+   allocate(didL, source=dadL)
+   !$omp do schedule(static, 1)
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do jat = 1, iat-1
+         if (.not.owns_pair(self%partition, iat, jat)) cycle
+         jj = self%offset(jat)
+         call self%get_pair_derivs(mol, cache, iat, jat, dG, dS)
+         if (.not.periodic) then
+            rij = mol%xyz(:, iat) - mol%xyz(:, jat)
+            do ish = 1, self%nshell(iat)
+               do jsh = 1, self%nshell(jat)
+                  do ic = 1, 3
+                     dS(:, ic, jsh, ish) = dG(:, jsh, ish)*rij(ic)
+                  end do
+               end do
+            end do
+         end if
+         do ish = 1, self%nshell(iat)
+            do jsh = 1, self%nshell(jat)
+               itrace(:, ii+ish) = itrace(:, ii+ish) + dG(:, jsh, ish)*qvec(jj+jsh)
+               itrace(:, jj+jsh) = itrace(:, jj+jsh) - dG(:, jsh, ish)*qvec(ii+ish)
+               didr(:, iat, jj+jsh) = didr(:, iat, jj+jsh) + dG(:, jsh, ish)*qvec(ii+ish)
+               didr(:, jat, ii+ish) = didr(:, jat, ii+ish) - dG(:, jsh, ish)*qvec(jj+jsh)
+               didL(:, :, jj+jsh) = didL(:, :, jj+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
+               didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(jj+jsh)
+            end do
+         end do
+      end do
+
+      if (.not.periodic .or. .not.owns_pair(self%partition, iat, iat)) cycle
+      call self%get_pair_derivs(mol, cache, iat, iat, dG, dS)
+      do ish = 1, self%nshell(iat)
+         do jsh = 1, ish-1
+            didL(:, :, ii+jsh) = didL(:, :, ii+jsh) + dS(:, :, jsh, ish)*qvec(ii+ish)
+            didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, jsh, ish)*qvec(ii+jsh)
+         end do
+         didL(:, :, ii+ish) = didL(:, :, ii+ish) + dS(:, :, ish, ish)*qvec(ii+ish)
+      end do
+   end do
+   !$omp end do
+   !$omp critical (coulomb_derivs_)
+   atrace = atrace + itrace
+   dadr = dadr + didr
+   dadL = dadL + didL
+   !$omp end critical (coulomb_derivs_)
+   deallocate(itrace, didr, didL)
+   !$omp end parallel
+end subroutine get_coulomb_derivs
+
+
 subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    !> Instance of the electrostatic container
    class(coulomb_charge_type), intent(in) :: self
@@ -330,10 +324,9 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
    ndim = sum(self%nshell)
    allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim), tmpdq(ndim))
 
-   ! Get derivatives of the Coulomb matrix already contracted with the atom-resolved charges
-   call self%get_coulomb_derivs(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), dadr, dadL, datr)
-
    if(self%shell_resolved) then
+      call get_coulomb_derivs(self, mol, ptr, wfn%qsh(:, 1), dadr, dadL, datr)
+
       ! Off-diagonal Coulomb matrix derivative
       pot%dvshdr(:, :, :, 1) = dadr
 
@@ -359,6 +352,8 @@ subroutine get_potential_gradient(self, mol, cache, wfn, pot)
       end do
 
    else
+      call get_coulomb_derivs(self, mol, ptr, wfn%qat(:, 1), dadr, dadL, datr)
+
       ! Off-diagonal Coulomb matrix derivative
       pot%dvatdr(:, :, :, 1) = dadr
 
@@ -401,48 +396,62 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    type(coulomb_cache), pointer :: ptr
+   logical :: periodic
+   integer :: iat, jat, ii, jj, ish, jsh, ic
+   real(wp) :: qq, rij(3), dGp(3), dSp(3, 3)
+   real(wp) :: dG(3, maxval(self%nshell), maxval(self%nshell))
+   real(wp) :: dS(3, 3, maxval(self%nshell), maxval(self%nshell))
+   real(wp), allocatable :: qvec(:)
 
    call view(cache, ptr)
-
-   call self%get_coulomb_derivs_contracted(mol, ptr, wfn%qat(:, 1), wfn%qsh(:, 1), gradient, sigma)
-
-end subroutine get_gradient
-
-
-!> Default contraction for Coulomb models providing full potential derivatives
-subroutine get_coulomb_derivs_contracted(self, mol, cache, qat, qsh, gradient, sigma)
-   !> Instance of the electrostatic container
-   class(coulomb_charge_type), intent(in) :: self
-   !> Molecular structure data
-   type(structure_type), intent(in) :: mol
-   !> Reusable data container
-   type(coulomb_cache), intent(inout) :: cache
-   !> Atomic partial charges
-   real(wp), intent(in) :: qat(:)
-   !> Shell-resolved partial charges
-   real(wp), intent(in) :: qsh(:)
-   !> Molecular gradient to accumulate into
-   real(wp), contiguous, intent(inout) :: gradient(:, :)
-   !> Strain derivatives to accumulate into
-   real(wp), contiguous, intent(inout) :: sigma(:, :)
-
-   integer :: ndim
-   real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), datr(:, :)
-
-   ndim = sum(self%nshell)
-   allocate(dadr(3, mol%nat, ndim), dadL(3, 3, ndim), datr(3, ndim))
-
-   call self%get_coulomb_derivs(mol, cache, qat, qsh, dadr, dadL, datr)
-
    if (self%shell_resolved) then
-      call gemv(dadr, qsh, gradient, beta=1.0_wp)
-      call gemv(dadL, qsh, sigma, beta=1.0_wp, alpha=0.5_wp)
+      qvec = wfn%qsh(:, 1)
    else
-      call gemv(dadr, qat, gradient, beta=1.0_wp)
-      call gemv(dadL, qat, sigma, beta=1.0_wp, alpha=0.5_wp)
+      qvec = wfn%qat(:, 1)
    end if
+   periodic = any(mol%periodic)
 
-end subroutine get_coulomb_derivs_contracted
+   ! Contract each atom pair right away, the derivatives of the Coulomb matrix are never stored
+   !$omp parallel do default(none) schedule(static, 1) reduction(+:gradient, sigma) &
+   !$omp shared(self, mol, ptr, qvec, periodic) &
+   !$omp private(iat, jat, ii, jj, ish, jsh, ic, qq, rij, dGp, dSp, dG, dS)
+   do iat = 1, mol%nat
+      ii = self%offset(iat)
+      do jat = 1, iat-1
+         if (.not.owns_pair(self%partition, iat, jat)) cycle
+         jj = self%offset(jat)
+         call self%get_pair_derivs(mol, ptr, iat, jat, dG, dS)
+         dGp = 0.0_wp
+         dSp = 0.0_wp
+         do ish = 1, self%nshell(iat)
+            do jsh = 1, self%nshell(jat)
+               qq = qvec(ii+ish)*qvec(jj+jsh)
+               dGp = dGp + dG(:, jsh, ish)*qq
+               if (periodic) dSp = dSp + dS(:, :, jsh, ish)*qq
+            end do
+         end do
+         if (.not.periodic) then
+            ! Without a lattice the strain derivative follows from the pair displacement
+            rij = mol%xyz(:, iat) - mol%xyz(:, jat)
+            do ic = 1, 3
+               dSp(:, ic) = dGp*rij(ic)
+            end do
+         end if
+         gradient(:, iat) = gradient(:, iat) + dGp
+         gradient(:, jat) = gradient(:, jat) - dGp
+         sigma = sigma + dSp
+      end do
+
+      if (.not.periodic .or. .not.owns_pair(self%partition, iat, iat)) cycle
+      call self%get_pair_derivs(mol, ptr, iat, iat, dG, dS)
+      do ish = 1, self%nshell(iat)
+         do jsh = 1, ish-1
+            sigma = sigma + dS(:, :, jsh, ish)*(qvec(ii+ish)*qvec(ii+jsh))
+         end do
+         sigma = sigma + dS(:, :, ish, ish)*(0.5_wp*qvec(ii+ish)**2)
+      end do
+   end do
+end subroutine get_gradient
 
 
 !> Get information about density dependent quantities used in the energy
