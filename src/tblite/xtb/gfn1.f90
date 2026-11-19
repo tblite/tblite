@@ -41,7 +41,7 @@ module tblite_xtb_gfn1
    implicit none
    private
 
-   public :: new_gfn1_calculator
+   public :: new_gfn1_calculator, get_gfn1_point_charge_hardness
    public :: export_gfn1_param
 
    integer, parameter :: max_elem = 86
@@ -514,6 +514,12 @@ module tblite_xtb_gfn1
    end interface gfn1_h0spec
 
 contains
+
+pure real(wp) function get_gfn1_point_charge_hardness(number) result(hardness)
+   integer, intent(in) :: number
+   hardness = 0.0_wp
+   if (number >= 1 .and. number <= max_elem) hardness = hubbard_parameter(number)
+end function get_gfn1_point_charge_hardness
 
 
 subroutine new_gfn1_calculator(calc, mol, error, config)

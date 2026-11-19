@@ -202,6 +202,40 @@ def test_gfn1():
     assert "hamiltonian-matrix" in res
 
 
+@pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB"])
+def test_external_point_charge_gradient(method):
+    """Point-charge forces are the energy derivatives for both xTB methods."""
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    pc = np.array([[2.0, 0.4, -0.3]])
+    charge = np.array([0.5])
+
+    def energy(pc_xyz, qm_xyz=positions):
+        calc = Calculator(method, numbers, qm_xyz)
+        calc.set("accuracy", 1.0)
+        calc.add("point-charges", charge, pc_xyz, 1000.0)
+        return calc.singlepoint()
+
+    res = energy(pc)
+    analytic = res.get("point-charge-gradient")
+    step = 1.0e-4
+    plus = pc.copy()
+    minus = pc.copy()
+    plus[0, 0] += step
+    minus[0, 0] -= step
+    numeric = (energy(plus).get("energy") - energy(minus).get("energy")) / (2.0 * step)
+
+    assert analytic.shape == (1, 3)
+    assert analytic[0, 0] == approx(numeric, abs=2.0e-5)
+
+    qm_plus = positions.copy()
+    qm_minus = positions.copy()
+    qm_plus[0, 0] += step
+    qm_minus[0, 0] -= step
+    numeric_qm = (energy(pc, qm_plus).get("energy") - energy(pc, qm_minus).get("energy")) / (2.0 * step)
+    assert res.get("gradient")[0, 0] == approx(numeric_qm, abs=2.0e-5)
+
+
 def test_gfn2():
     """Basic test for GFN2-xTB method"""
     gradient = np.array(

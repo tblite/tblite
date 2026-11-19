@@ -233,6 +233,7 @@ class Result:
         "energy": library.get_energy,
         "energies": library.get_energies,
         "gradient": library.get_gradient,
+        "point-charge-gradient": library.get_point_charge_gradient,
         "virial": library.get_virial,
         "charges": library.get_charges,
         "bond-orders": library.get_bond_orders,
@@ -505,6 +506,7 @@ class Calculator(Structure):
     }
     _interaction = {
         "electric-field": library.new_electric_field,
+        "point-charges": library.new_point_charges,
         "spin-polarization": library.new_spin_polarization,
         "alpb-solvation": library.new_alpb_solvation,
         "gbsa-solvation": library.new_gbsa_solvation,
@@ -604,6 +606,7 @@ class Calculator(Structure):
          name                   description                    Arguments
         ====================== ============================== =========================================
          electric-field         Uniform electric field         Field vector (3,)
+         point-charges          External xTB point charges     Charges, coordinates, hardness, atomic numbers
          spin-polarization      Spin polarization              Scaling factor
          alpb-solvation         ALPB implicit solvation        Solvent name, solution state (optional)
          gbsa-solvation         GBSA implicit solvation        Solvent name, solution state (optional)

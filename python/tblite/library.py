@@ -542,6 +542,23 @@ def get_gradient(res) -> np.ndarray:
     return _gradient
 
 
+def get_number_of_point_charges(res) -> int:
+    """Return the number of external point charges in a result."""
+    _npc = ffi.new("int *")
+    error_check(lib.tblite_get_result_number_of_point_charges)(res, _npc)
+    return _npc[0]
+
+
+def get_point_charge_gradient(res) -> np.ndarray:
+    """Retrieve gradients on external point charges in Hartree/Bohr."""
+    _gradient = np.zeros((get_number_of_point_charges(res), 3))
+    if _gradient.size:
+        error_check(lib.tblite_get_result_point_charge_gradient)(
+            res, ffi.cast("double*", _gradient.ctypes.data)
+        )
+    return _gradient
+
+
 def get_virial(res) -> np.ndarray:
     """Retrieve virial from result container"""
     _virial = np.zeros((3, 3))
@@ -900,6 +917,33 @@ def _delete_container(cont) -> None:
 def new_electric_field(ctx, mol, calc, efield):
     """Create new tblite electric field object"""
     return lib.tblite_new_electric_field(efield)
+
+
+def new_point_charges(ctx, mol, calc, charges, positions, hardness=1000.0, numbers=None):
+    """Create xTB point-charge embedding; positions are in Bohr."""
+    if isinstance(ctx, tuple):
+        ctx = ctx[0]
+    charges = np.ascontiguousarray(charges, dtype=np.float64)
+    positions = np.asfortranarray(np.asarray(positions, dtype=np.float64).T)
+    if isinstance(hardness, str):
+        if hardness != "elements":
+            raise TBLiteValueError("Point-charge hardness must be numeric or 'elements'")
+        hardness = np.zeros(charges.shape, dtype=np.float64)
+    else:
+        hardness = np.broadcast_to(np.asarray(hardness, dtype=np.float64), charges.shape).copy()
+    if numbers is None:
+        numbers = np.zeros(charges.shape, dtype=np.int32)
+    else:
+        numbers = np.broadcast_to(np.asarray(numbers, dtype=np.int32), charges.shape).copy()
+    if positions.shape != (3, charges.size):
+        raise TBLiteValueError("Point-charge coordinates must have shape (ncharges, 3)")
+    return lib.tblite_new_point_charges(
+        ctx, mol, calc, charges.size,
+        ffi.cast("double*", charges.ctypes.data),
+        ffi.cast("double*", positions.ctypes.data),
+        ffi.cast("double*", hardness.ctypes.data),
+        ffi.cast("int*", numbers.ctypes.data),
+    )
 
 
 _state_enum = {

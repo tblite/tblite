@@ -53,6 +53,9 @@ module tblite_api_calculator
       & set_calculator_temperature_annealing_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
       & set_calculator_save_integrals_api
+   public :: set_calculator_guess_api, get_calculator_shell_count, &
+      & get_calculator_shell_map, get_calculator_angular_momenta, &
+      & get_calculator_orbital_count, get_calculator_orbital_map
    public :: get_singlepoint_api
    public :: push_back_post_processing_param_api, push_back_post_processing_str_api, &
       & push_back_post_processing_localization_api
@@ -665,12 +668,13 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%energy = 0.0_wp
    res%gradient = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, mol%ptr%nat)
    res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
+   if (allocated(res%point_charge_gradient)) deallocate(res%point_charge_gradient)
 
    call check_results(res%results)
 
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
       & calc%nspin, calc%guess, error)
-   if (calc%post_proc%npp == 0) then
+   if (calc%post_proc%npp == 0 .and. .not.allocated(calc%ptr%interactions)) then
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
@@ -684,13 +688,17 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
       & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
       & post_process=calc%post_proc)
+   if (allocated(calc%ptr%interactions) .and. allocated(res%wfn)) then
+      call calc%ptr%interactions%get_point_charge_gradient(mol%ptr, res%wfn, &
+         & res%point_charge_gradient)
+   end if
 
 end subroutine get_singlepoint_api
 
 subroutine check_results(res)
    type(results_type), allocatable, intent(inout) :: res
    if (allocated(res)) then
-      deallocate(res%dict)
+      if (allocated(res%dict)) deallocate(res%dict)
    end if
 
    if (.not.allocated(res)) then

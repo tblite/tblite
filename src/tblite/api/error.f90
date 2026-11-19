@@ -27,7 +27,8 @@ module tblite_api_error
    private
 
    public :: vp_error
-   public :: new_error_api, check_error_api, clear_error_api, get_error_api, delete_error_api
+   public :: new_error_api, check_error_api, clear_error_api, get_error_api, delete_error_api, &
+      & set_error_api
 
 
    !> Void pointer to error handle

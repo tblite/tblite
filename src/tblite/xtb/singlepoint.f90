@@ -460,7 +460,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("post processing")
       allocate(caches)
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
-      allocate(results%dict)
+      if (.not.allocated(results%dict)) allocate(results%dict)
       call post_process%compute(mol, wfn, ints, calc, caches, accuracy, ctx, &
          & timer, prlevel, results)
       deallocate(caches)

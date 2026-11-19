@@ -125,6 +125,18 @@ tblite_get_result_gradient(tblite_error error,
                            tblite_result res,
                            double* gradient);
 
+/// Retrieve the number of external point charges in the result.
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_number_of_point_charges(tblite_error error,
+                                          tblite_result res,
+                                          int* npc);
+
+/// Retrieve the point-charge gradient, shape [npc][3] in Hartree/Bohr.
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_get_result_point_charge_gradient(tblite_error error,
+                                        tblite_result res,
+                                        double* gradient);
+
 /// Retrieve virial from result container
 ///
 /// @param error: Handle for error messages

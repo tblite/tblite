@@ -29,7 +29,7 @@ module tblite_api_double_dictionary
    implicit none
    private
 
-   public :: vp_double_dictionary
+   public :: vp_double_dictionary, delete_post_processing_api
    public :: get_array_entry_index_api, get_n_entries_dict_api, get_label_entry_index_api, &
       & get_array_size_index_api, get_array_entry_label_api, get_array_size_label_api
 
