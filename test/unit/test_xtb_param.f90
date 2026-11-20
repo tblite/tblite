@@ -23,13 +23,12 @@ module test_xtb_param
    use tblite_context_type, only : context_type
    use tblite_param, only : param_record, charge_record, dispersion_record, element_record, &
       & halogen_record, hamiltonian_record, multipole_record, repulsion_record, &
-      & thirdorder_record, param_mask, count
-   use tblite_param_molecular_moments, only:  molecular_multipole_record
+      & thirdorder_record, param_mask, count, molmom_record
    use tblite_toml, only : toml_table
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : export_gfn2_param, new_gfn2_calculator
    use tblite_xtb_gfn1, only : export_gfn1_param, new_gfn1_calculator
+   use tblite_xtb_gfn2, only : export_gfn2_param, new_gfn2_calculator
    use tblite_xtb_ipea1, only : export_ipea1_param, new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -54,6 +53,7 @@ subroutine collect_xtb_param(testsuite)
       new_unittest("param-empty", test_param_empty, should_fail=.true.), &
       new_unittest("param-minimal", test_param_minimal), &
       new_unittest("param-invalid", test_param_invalid, should_fail=.true.), &
+      new_unittest("param-sto-invalid", test_param_sto_invalid, should_fail=.true.), &
       new_unittest("element-empty", test_element_empty, should_fail=.true.), &
       new_unittest("charge-empty", test_charge_empty, should_fail=.true.), &
       new_unittest("dispersion-empty", test_dispersion_empty, should_fail=.true.), &
@@ -99,7 +99,7 @@ subroutine test_param_minimal(error)
    type(param_record) :: param
 
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "[hamiltonian.xtb]", &
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
@@ -158,7 +158,7 @@ subroutine test_param_invalid(error)
    type(param_record) :: param
 
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "[hamiltonian.xtb]", &
       "wexp = 5.0000000000000000E-01", &
       "kpol = 2.0000000000000000E+00", &
@@ -170,6 +170,26 @@ subroutine test_param_invalid(error)
    call param%load(io, error)
    close(io)
 end subroutine test_param_invalid
+
+
+subroutine test_param_sto_invalid(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   integer :: io
+   type(hamiltonian_record) :: param
+
+   open(newunit=io, status="scratch")
+   write(io, "(a)") &
+      "[xtb]", &
+      "cn = ""exp""", &
+      "wexp = 0.0", &
+      "sto = ""foo"""
+   rewind io
+
+   call param%load(io, error)
+   close(io)
+end subroutine test_param_sto_invalid
 
 
 subroutine test_element_empty(error)
@@ -189,7 +209,7 @@ subroutine test_mol_multipole_empty(error)
    type(error_type), allocatable, intent(out) :: error
 
    type(toml_table) :: table
-   type(molecular_multipole_record) :: param
+   type(molmom_record) :: param
 
    table = toml_table()
    call param%load(table, error)
@@ -293,7 +313,7 @@ subroutine test_mask_gfn2(error)
 
    mask1%ref => base%record
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "hamiltonian = {}", &
       "dispersion = {}", &
       "repulsion = {}", &
@@ -347,7 +367,7 @@ subroutine test_mask_gfn1(error)
 
    mask%ref => base%record
    open(newunit=io, status="scratch")
-   write(io, '(a)') &
+   write(io, "(a)") &
       "hamiltonian = {}", &
       "dispersion = {}", &
       "repulsion = {}", &
@@ -387,6 +407,8 @@ subroutine export_gen_param(method, param)
       call export_gfn2_param(param)
    case("ipea1")
       call export_ipea1_param(param)
+   case default
+      continue
    end select
 end subroutine export_gen_param
 
@@ -403,6 +425,8 @@ subroutine new_gen_calculator(calc, method, mol, error)
       call new_gfn2_calculator(calc, mol, error)
    case("ipea1")
       call new_ipea1_calculator(calc, mol, error)
+   case default
+      continue
    end select
 end subroutine new_gen_calculator
 
@@ -603,7 +627,7 @@ function get_name() result(name)
    real :: val
 
    call random_number(val)
-   write(name, '(a, z8.8)') "tblite-test-", int(val*1.0e9)
+   write(name, "(a, z8.8)") "tblite-test-", int(val*1.0e9)
 end function get_name
 
 

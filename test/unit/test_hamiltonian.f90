@@ -15,22 +15,23 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 module test_hamiltonian
-   use mctc_env, only : wp
+   use mctc_data_covrad, only : get_covalent_rad
+   use mctc_env, only : sp, dp, wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use mctc_io, only : structure_type
    use mctc_ncoord, only : new_ncoord, ncoord_type, cn_count
-   use mctc_data_covrad, only : get_covalent_rad
    use mstore, only : get_structure
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, cgto_type, get_cutoff, new_basis
+   use tblite_blas, only : syrk
    use tblite_cutoff, only : get_lattice_points
-   use tblite_lapack_sygvd, only : sygvd_solver
-   use tblite_integral_overlap
+   use tblite_integral_native_integrals, only : overlap_cgto, msao
+   use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_scf_potential, only : potential_type, new_potential
-   use tblite_xtb_gfn2
-   use tblite_xtb_h0
+   use tblite_xtb_gfn2, only : gfn2_h0spec
+   use tblite_xtb_h0, only : get_hamiltonian, get_hamiltonian_gradient, get_selfenergy, new_hamiltonian, tb_hamiltonian
    implicit none
    private
 
@@ -53,7 +54,9 @@ subroutine collect_hamiltonian(testsuite)
       new_unittest("hamiltonian-lih", test_hamiltonian_lih), &
       new_unittest("hamiltonian-s2", test_hamiltonian_s2), &
       new_unittest("hamiltonian-sih4", test_hamiltonian_sih4), &
-      new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self) &
+      new_unittest("hamiltonian-periodic-self", test_hamiltonian_periodic_self), &
+      new_unittest("syrk-density-matrix", test_syrk_density_matrix), &
+      new_unittest("integral-cutoff", test_integral_cutoff) &
       ]
 
 end subroutine collect_hamiltonian
@@ -160,7 +163,7 @@ subroutine test_hamiltonian_mol(error, mol, ref)
       do jj = 1, size(hamiltonian, 1)
          call check(error, hamiltonian(jj, ii), ref(jj, ii), thr=thr2)
          if (allocated(error)) then
-            print '(2es20.13)', hamiltonian(jj, ii), ref(jj, ii), &
+            print "(2es20.13)", hamiltonian(jj, ii), ref(jj, ii), &
                & hamiltonian(jj, ii) - ref(jj, ii)
             return
          end if
@@ -232,31 +235,31 @@ subroutine test_hamiltonian_periodic_self(error)
 
    if (any(abs(dEdcn - numdEdcn) > cn_thr)) then
       call test_failed(error, "Periodic self-image CN derivative does not match")
-      print '(3es21.14)', dEdcn
+      print "(3es21.14)", dEdcn
       print '("---")'
-      print '(3es21.14)', numdEdcn
+      print "(3es21.14)", numdEdcn
       print '("---")'
-      print '(3es21.14)', dEdcn - numdEdcn
+      print "(3es21.14)", dEdcn - numdEdcn
       return
    end if
 
    if (any(abs(gradient - numgradient) > strict_thr)) then
       call test_failed(error, "Periodic self-image gradient does not cancel")
-      print '(3es21.14)', gradient
+      print "(3es21.14)", gradient
       print '("---")'
-      print '(3es21.14)', numgradient
+      print "(3es21.14)", numgradient
       print '("---")'
-      print '(3es21.14)', gradient - numgradient
+      print "(3es21.14)", gradient - numgradient
       return
    end if
 
    if (any(abs(sigma - numsigma) > strain_thr)) then
       call test_failed(error, "Periodic self-image strain derivative does not match")
-      print '(3es21.14)', sigma
+      print "(3es21.14)", sigma
       print '("---")'
-      print '(3es21.14)', numsigma
+      print "(3es21.14)", numsigma
       print '("---")'
-      print '(3es21.14)', sigma - numsigma
+      print "(3es21.14)", sigma - numsigma
    end if
 
 end subroutine test_hamiltonian_periodic_self
@@ -504,7 +507,7 @@ function central_hamiltonian_strain(mol, cn, ic, jc, step) result(deriv)
    if (any(mol%periodic)) moli%lattice(:, :) = matmul(eps, mol%lattice)
    el = get_hamiltonian_image_energy(moli, cn)
 
-   deriv = (er - el)/step
+   deriv = 0.5_wp * (er - el)/step
 end function central_hamiltonian_strain
 
 subroutine test_hamiltonian_h2(error)
@@ -744,5 +747,137 @@ subroutine test_hamiltonian_sih4(error)
 
 end subroutine test_hamiltonian_sih4
 
+
+subroutine test_integral_cutoff(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(basis_type) :: bas
+   real(wp) :: min_alpha
+
+   call get_structure(mol, "MB16-43", "H2")
+   call make_basis(bas, mol, 6)
+   min_alpha = minval(bas%cgto(1, 1)%alpha(:bas%cgto(1, 1)%nprim))
+
+   ! Default accuracy and tighter accuracies use the maximum integral cutoff
+   call check(error, get_cutoff(bas, 1.0_wp), sqrt(2.0_wp*25.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+   call check(error, get_cutoff(bas, 1.0e-4_wp), sqrt(2.0_wp*25.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+
+   ! Looser accuracies reduce the integral cutoff down to its minimum
+   call check(error, get_cutoff(bas, 10.0_wp), sqrt(2.0_wp*15.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+   call check(error, get_cutoff(bas, 1.0e+3_wp), sqrt(2.0_wp*5.0_wp/min_alpha), thr=thr)
+   if (allocated(error)) return
+
+end subroutine test_integral_cutoff
+
+
+subroutine test_syrk_density_matrix(error)
+   type(error_type), allocatable, intent(out) :: error
+
+   integer, parameter :: ns = 6, ks = 4, nao = 14, nao2 = 17
+   real(sp) :: as(ns, ks + 2), cs(ns, ns), c0s(ns, ns), refs(ns, ns)
+   real(dp) :: bd(ks + 1, ns), cd(ns, ns), c0d(ns, ns), refd(ns, ns)
+   real(wp) :: smat(nao, nao), coeff(nao, nao), focc(nao), coeff2(nao2, nao2), focc2(nao2)
+   real(wp) :: c1(1, 1)
+   type(sygvd_solver) :: solver
+   integer :: i, j
+
+   as = reshape([((real(i - 2*j + 3, sp) * 0.25_sp, i=1, ns), j=1, ks + 2)], shape(as))
+   bd = reshape([((real(2*i + j - 4, dp) * 0.2_dp, i=1, ks + 1), j=1, ns)], shape(bd))
+   c0s = reshape([((real(i + j, sp) * 0.1_sp, i=1, ns), j=1, ns)], shape(c0s))
+   c0d = real(c0s, dp)
+
+   cs = c0s; refs = c0s
+   call syrk(as, cs, uplo="u", trans="n", alpha=1.5_sp, beta=-0.5_sp, k=ks)
+   do j = 1, ns
+      do i = 1, j
+         refs(i, j) = -0.5_sp * c0s(i, j) + 1.5_sp * sum(as(i, 1:ks) * as(j, 1:ks))
+      end do
+   end do
+   call check(error, maxval(abs(cs - refs)) <= 50.0_sp * epsilon(1.0_sp), "wrap_ssyrk mismatch")
+   if (allocated(error)) return
+
+   cd = c0d; refd = c0d
+   call syrk(bd(1:ks, :), cd, uplo="l", trans="t", alpha=-0.75_dp, beta=0.25_dp)
+   do j = 1, ns
+      do i = j, ns
+         refd(i, j) = 0.25_dp * c0d(i, j) - 0.75_dp * sum(bd(1:ks, i) * bd(1:ks, j))
+      end do
+   end do
+   call check(error, maxval(abs(cd - refd)) <= 50.0_dp * epsilon(1.0_dp), "wrap_dsyrk mismatch")
+   if (allocated(error)) return
+
+   smat = 0.0_wp
+   do i = 1, nao
+      smat(i, i) = 1.0_wp
+   end do
+   call new_sygvd(solver, smat, [10.0_wp, 0.0_wp], 0.0_wp)
+   coeff = reshape([((sin(0.37_wp*i + 0.71_wp*j), i=1, nao), j=1, nao)], shape(coeff))
+
+   focc = [2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, 2.0_wp, &
+      & 1.75_wp, 0.25_wp, 0.0_wp, 0.0_wp]
+   call check_solver_density(solver, focc, coeff, 1.0e8_wp, "core+frontier", error)
+   if (allocated(error)) return
+
+   focc = [(merge(2.0_wp / (1.0_wp + 0.3_wp * i), 0.0_wp, i <= 9), i=1, nao)]
+   call check_solver_density(solver, focc, coeff, -1.0e8_wp, "pure fractional", error)
+   if (allocated(error)) return
+
+   focc = [-1.85_wp, -1.10_wp, 0.0_wp, 0.65_wp, -0.42_wp, 0.35_wp, -0.12_wp, 0.08_wp, &
+      & 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp]
+   call check_solver_density(solver, focc, coeff, 77.0_wp, "mixed-sign wdensity", error)
+   if (allocated(error)) return
+
+   focc = [-2.4_wp, -1.9_wp, -1.2_wp, -0.8_wp, -0.3_wp, -0.05_wp, &
+      & 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp]
+   call check_solver_density(solver, focc, coeff, 1.0e7_wp, "all-negative wdensity", error)
+   if (allocated(error)) return
+
+   focc = 0.0_wp
+   call check_solver_density(solver, focc, coeff, 42.0_wp, "zero-occupation", error)
+   if (allocated(error)) return
+
+   c1(1, 1) = 0.85_wp
+   call check_solver_density(solver, [-1.25_wp], c1, 99.0_wp, "nao=1", error)
+   if (allocated(error)) return
+
+   coeff2 = reshape([((cos(0.29_wp*i - 0.53_wp*j), i=1, nao2), j=1, nao2)], shape(coeff2))
+   focc2 = 0.0_wp; focc2(1:9) = 2.0_wp; focc2(10) = 0.6_wp
+   call check_solver_density(solver, focc2, coeff2, -99.0_wp, "resized nao2=17", error)
+   call solver%delete()
+end subroutine test_syrk_density_matrix
+
+subroutine check_solver_density(solver, focc, cmat, fill_val, label, error)
+   type(sygvd_solver), intent(inout) :: solver
+   real(wp), intent(in) :: focc(:)
+   real(wp), contiguous, intent(in) :: cmat(:, :)
+   real(wp), intent(in) :: fill_val
+   character(len=*), intent(in) :: label
+   type(error_type), allocatable, intent(out) :: error
+
+   real(wp) :: pmat(size(cmat, 1), size(cmat, 1)), refp(size(cmat, 1), size(cmat, 1))
+   integer :: i, j, n, m
+
+   n = size(cmat, 1)
+   m = min(size(cmat, 2), size(focc))
+   pmat = fill_val
+   call solver%get_density_matrix(focc, cmat, pmat, error)
+   if (allocated(error)) return
+   do j = 1, n
+      do i = 1, n
+         refp(i, j) = sum(focc(1:m) * cmat(i, 1:m) * cmat(j, 1:m))
+      end do
+   end do
+   call check(error, maxval(abs(pmat - transpose(pmat))) == 0.0_wp, &
+      & "Density matrix not symmetric (" // label // ")")
+   if (allocated(error)) return
+   call check(error, maxval(abs(pmat - refp)) <= 50.0_wp * epsilon(1.0_wp) * maxval(abs(refp)), &
+      & "Density matrix mismatch (" // label // ")")
+end subroutine check_solver_density
 
 end module test_hamiltonian

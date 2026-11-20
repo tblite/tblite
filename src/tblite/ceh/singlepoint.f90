@@ -23,25 +23,26 @@ module tblite_ceh_singlepoint
    use mctc_env, only : error_type, wp
    use mctc_io, only: structure_type
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
-   use tblite_cutoff, only : get_lattice_points
    use tblite_basis_type, only : get_cutoff
-   use tblite_context, only : context_type
-   use tblite_output_format, only: format_string
-   use tblite_integral_type, only : integral_type, new_integral
-   use tblite_wavefunction, only : wavefunction_type, &
-   & get_alpha_beta_occupation
-   use tblite_wavefunction_mulliken, only: get_mulliken_shell_charges, &
-   & get_mulliken_atomic_multipoles
-   use tblite_scf_iterator, only: next_density, get_qat_from_qsh
-   use tblite_scf, only: new_potential, potential_type 
-   use tblite_container, only : container_cache
-   use tblite_scf_potential, only: add_pot_to_h1
    use tblite_blas, only : gemv
-   use tblite_ceh_h0, only : get_hamiltonian, get_scaled_selfenergy, get_occupation
    use tblite_ceh_ceh, only : get_effective_qat
-   use tblite_xtb_spec, only : tb_h0spec 
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_container, only : container_cache
+   use tblite_context, only : context_type
+   use tblite_cutoff, only : get_lattice_points
+   use tblite_integral_type, only : integral_type, new_integral
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error
+   use tblite_output_format, only: format_string
+   use tblite_scf_iterator, only: next_density, get_qat_from_qsh
+   use tblite_scf_potential, only: new_potential, potential_type, add_pot_to_h1, reduce_potential
+   use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
+   use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
+      & get_mulliken_atomic_multipoles
+   use tblite_wavefunction_type, only : wavefunction_type, &
+      & get_alpha_beta_occupation
+   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_h0, only : get_hamiltonian, get_selfenergy, get_occupation
+   use tblite_xtb_spec, only : tb_h0spec
    implicit none
    private
 
@@ -78,26 +79,28 @@ contains
       real(wp) :: dipole(3)
       ! Integral container
       type(integral_type) :: ints
-      !> Adjacency list
+      ! Electronic solver
+      class(solver_type), allocatable :: solver
+      ! Adjacency list
       type(adjacency_list) :: list
       ! Potential type
       type(potential_type) :: pot
-      ! Restart data for interaction containers and coulomb 
+      ! Restart data for interaction containers and coulomb
       type(container_cache) :: icache, ccache
       ! Timer
       type(timer_type) :: timer
       ! Error container
       type(error_type), allocatable :: error
-      
+
       logical :: grad
       real(wp) :: elec_entropy
       real(wp) :: nel, cutoff
       real(wp), allocatable :: tmp(:)
+
       integer :: prlevel
 
-      ! coordination number related arrays
-      real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
-      ! self energy related arrays
+      real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
+      real(wp), allocatable :: cn_en(:), dcn_endr(:, :, :), dcn_endL(:, :, :)
       real(wp), allocatable :: selfenergy(:), dsedcn(:), dsedcn_en(:), lattr(:, :)
 
       call timer%push("total CEH")
@@ -108,9 +111,16 @@ contains
          prlevel = ctx%verbosity
       end if
 
+      ! reducing unpartitioned contributions would multiply them by the rank count
+      call ctx%check_partition(calc%partition, error)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+
       if (prlevel > 1) then
          call ctx%message("CEH singlepoint")
-      endif
+      end if
       ! Gradient logical as future starting point (not implemented yet)
       ! Entry point could either be (i) modified wavefunction type (including derivatives),
       ! (iii) additional wavefunction derivative type (see old commits) or (ii) optional
@@ -145,9 +155,10 @@ contains
       end if
 
       ! calculate the scaled self energies
-      allocate(selfenergy(calc%bas%nsh), dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
-      call get_scaled_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, cn_en=cn_en, &
-      & selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
+      allocate(selfenergy(calc%bas%nsh))
+      if (grad) allocate(dsedcn(calc%bas%nsh), dsedcn_en(calc%bas%nsh))
+      call get_selfenergy(calc%h0, mol%id, calc%bas%ish_at, calc%bas%nsh_id, cn=cn, &
+         & cn_en=cn_en, selfenergy=selfenergy, dsedcn=dsedcn, dsedcn_en=dsedcn_en)
 
       cutoff = get_cutoff(calc%bas, accuracy)
       call get_lattice_points(mol%periodic, mol%lattice, cutoff, lattr)
@@ -161,7 +172,13 @@ contains
       ! Get Hamiltonian and integrals
       call new_integral(ints, calc%bas%nao)
       call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%overlap_diat, ints%dipole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition)
+
+      call mpi_allreduce_sum(error, ints, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call timer%pop
 
       ! Get initial potential for external fields and Coulomb
@@ -174,30 +191,38 @@ contains
          call calc%interactions%update(mol, icache)
          call calc%interactions%get_potential(mol, icache, wfn, pot)
          call timer%pop
-      endif
+      end if
 
       ! Add potential due to Coulomb
       if (allocated(calc%coulomb)) then
          call timer%push("coulomb")
          ! Use electronegativity-weighted CN as 0th-order charge guess
          call get_effective_qat(mol, cn_en, wfn%qat)
-      
+
          call calc%coulomb%update(mol, ccache)
          call calc%coulomb%get_potential(mol, ccache, wfn, pot)
          call timer%pop
       end if
 
       ! Add effective Hamiltonian to potential
+      call reduce_potential(error, pot, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
       call add_pot_to_h1(calc%bas, ints, pot, wfn%coeff)
 
       call timer%push("diagonalization")
       ! Solve the effective Hamiltonian
-      call ctx%new_solver(ints%overlap, wfn%nel, wfn%kt)
+      call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
 
       ! Get the density matrix
-      call next_density(wfn, ctx%solver%solver, ints, elec_entropy, error)
+      call next_density(wfn, solver, ints, elec_entropy, error)
+      call mpi_sync_error(error, ctx%comm)
+      call ctx%delete_solver(solver)
       if (allocated(error)) then
          call ctx%set_error(error)
+         return
       end if
       call timer%pop
 
@@ -212,7 +237,7 @@ contains
       dipole(:) = tmp + sum(wfn%dpat(:, :, 1), 2)
 
       call timer%pop
-      
+
       block
          integer :: it
          real(wp) :: ttime, stime
@@ -227,13 +252,11 @@ contains
                stime = timer%get(label(it))
                if (stime <= epsilon(0.0_wp)) cycle
                call ctx%message(" - "//label(it)//format_time(stime) &
-                  & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+                  & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
             end do
             call ctx%message("")
          end if
       end block
-
-      call ctx%delete_solver()
 
    end subroutine ceh_singlepoint
 

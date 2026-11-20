@@ -23,6 +23,7 @@ module tblite_repulsion_effective
    use mctc_io, only : structure_type
    use tblite_container, only : container_cache
    use tblite_cutoff, only : get_lattice_points
+   use tblite_partition, only : work_partition, owns_pair
    use tblite_repulsion_type, only : repulsion_type
    implicit none
    private
@@ -123,17 +124,17 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    if (present(gradient) .and. present(sigma)) then
       call get_repulsion_derivs(mol, trans, self%cutoff, self%alpha, self%zeff, &
-         & self%kexp, self%rexp, energies, gradient, sigma)
+         & self%kexp, self%rexp, energies, gradient, sigma, self%partition)
    else
       call get_repulsion_energy(mol, trans, self%cutoff, self%alpha, self%zeff, &
-         & self%kexp, self%rexp, energies)
+         & self%kexp, self%rexp, energies, self%partition)
    end if
 
 end subroutine get_engrad
 
 
 subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
-      & energies)
+      & energies, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -150,6 +151,8 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    real(wp), intent(in) :: rexp(:, :)
    !> Repulsion energy
    real(wp), intent(inout) :: energies(:)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE
@@ -157,11 +160,12 @@ subroutine get_repulsion_energy(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    cutoff2 = cutoff**2
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:energies) &
-   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff) &
+   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff, partition) &
    !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, dE)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       do jat = 1, iat
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          do itr = 1, size(trans, dim=2)
             rij = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)
@@ -185,7 +189,7 @@ end subroutine get_repulsion_energy
 
 
 subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
-      & energies, gradient, sigma)
+      & energies, gradient, sigma, partition)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
@@ -206,6 +210,8 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    real(wp), intent(inout) :: gradient(:, :)
    !> Strain derivatives of the repulsion energy
    real(wp), intent(inout) :: sigma(:, :)
+   !> Share of the atom pairs evaluated here, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, izp, jzp, itr
    real(wp) :: r1, r2, rij(3), r1k, r1r, exa, cutoff2, dE, dG(3), dS(3, 3)
@@ -213,11 +219,12 @@ subroutine get_repulsion_derivs(mol, trans, cutoff, alpha, zeff, kexp, rexp, &
    cutoff2 = cutoff**2
 
    !$omp parallel do default(none) schedule(runtime) reduction(+:energies, gradient, sigma) &
-   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff) &
+   !$omp shared(mol, trans, cutoff2, kexp, rexp, alpha, zeff, partition) &
    !$omp private(iat, jat, izp, jzp, itr, r1, r2, rij, r1k, r1r, exa, dE, dG, dS)
    do iat = 1, mol%nat
       izp = mol%id(iat)
       do jat = 1, iat
+         if (.not.owns_pair(partition, iat, jat)) cycle
          jzp = mol%id(jat)
          do itr = 1, size(trans, dim=2)
             rij = mol%xyz(:, iat) - mol%xyz(:, jat) - trans(:, itr)

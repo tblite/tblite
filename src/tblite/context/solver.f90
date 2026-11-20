@@ -27,41 +27,56 @@ module tblite_context_solver
 
    !> Abstract base class for creating electronic solver instances
    type, public, abstract :: context_solver
-      !> Instance of the electronic solver
-      class(solver_type), allocatable :: solver
-      !> falg to reuse the solver instance
-      logical :: reuse = .false.
-      !> Dimension of the matrices handled by this solver
-      integer :: ndim = 0
-  contains    
+   contains
       !> Create new instance of electronic solver
       procedure(new), deferred :: new
       !> Delete an electronic solver instance
       procedure(delete), deferred :: delete
+      !> Opt in only when the factory accepts column-distributed input matrices.
+      procedure :: distributed_columns
    end type context_solver
 
 
    abstract interface
       !> Create new electronic solver
-      subroutine new(self, overlap, nel, kt)
-         import :: wp, context_solver
+      subroutine new(self, solver, overlap, nel, kt, comm)
+         import :: wp, context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
+         !> New electronic solver
+         class(solver_type), allocatable, intent(out) :: solver
          !> Overlap matrix
          real(wp), intent(in) :: overlap(:, :)
          !> Electronic temperature
          real(wp), intent(in) :: kt
          !> Number of electrons per spin channel
          real(wp), intent(in) :: nel(:)
+         !> Communicator to distribute the diagonalization over, absent keeps it local
+         integer, intent(in), optional :: comm
       end subroutine new
 
       !> Delete electronic solver instance
-      subroutine delete(self)
-         import :: context_solver
+      subroutine delete(self, solver)
+         import :: context_solver, solver_type
          !> Instance of the solver factory
          class(context_solver), intent(inout) :: self
+         !> Electronic solver instance
+         class(solver_type), allocatable, intent(inout) :: solver
       end subroutine delete
    end interface
 
+
+contains
+
+!> Whether the factory accepts local columns; subclasses must opt in explicitly.
+logical function distributed_columns(self, n, comm) result(distribute)
+   !> Instance of the solver factory
+   class(context_solver), intent(in) :: self
+   !> Global dimension of the eigenvalue problem
+   integer, intent(in) :: n
+   !> Communicator for distributed matrices, if requested
+   integer, intent(in), optional :: comm
+   distribute = .false.
+end function distributed_columns
 
 end module tblite_context_solver

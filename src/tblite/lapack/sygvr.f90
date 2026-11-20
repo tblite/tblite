@@ -16,11 +16,11 @@
 
 module tblite_lapack_sygvr
    use mctc_env, only : sp, dp, wp, error_type, fatal_error
+   use tblite_blas_level3, only : wrap_trsm
+   use tblite_lapack_potrf, only : wrap_potrf
+   use tblite_lapack_sygst, only : wrap_sygst
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
-   use tblite_lapack_sygst, only : wrap_sygst
-   use tblite_lapack_potrf, only : wrap_potrf
-   use tblite_blas_level3, only : wrap_trsm
    implicit none
    private
 
@@ -95,10 +95,10 @@ module tblite_lapack_sygvr
       integer, allocatable :: isuppz(:)
       real(sp), allocatable :: swork(:)
       real(sp), allocatable :: sbmat(:, :)
-      real(sp), allocatable :: schole(:)
+      real(sp), allocatable :: schol(:, :)
       real(dp), allocatable :: dwork(:)
       real(dp), allocatable :: dbmat(:, :)
-      real(dp), allocatable :: dchole(:)
+      real(dp), allocatable :: dchol(:, :)
    contains
       procedure :: solve_sp
       procedure :: solve_dp
@@ -124,83 +124,54 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: itype = 1
-   character(len=1), parameter :: uplo = 'U'
+   character(len=1), parameter :: uplo = "U"
 
-   logical :: upper
-   integer :: info, lswork, liwork, m, ii, jj
+   integer :: info, lswork, liwork, m, ii
    real(sp) :: abstol, vl, vu
-   character(len=1) :: trans, uplo_new
 
    if (self%n == 0) then
       self%n = size(hmat, 1)
    end if
    if (.not.allocated(self%swork)) then
-      lswork = query(self%n, uplo, 'S')
+      lswork = query(self%n, uplo, "S")
       allocate(self%swork(lswork))
    end if
    if (.not.allocated(self%iwork)) then
       liwork = max(1, 10 * self%n)
       allocate(self%iwork(liwork))
    end if
-   if (.not.allocated(self%schole)) then
-      allocate(self%schole(self%n))
-   end if
    if (.not.allocated(self%isuppz)) then
       allocate(self%isuppz(2*self%n))
    end if
-   self%sbmat = smat
+   if (.not.allocated(self%sbmat)) then
+      allocate(self%sbmat(self%n, self%n))
+   end if
    lswork = size(self%swork)
    liwork = size(self%iwork)
-   upper = (uplo == 'U' .or. uplo == 'u')
    abstol = slamch_s()
-   info = 0
 
-   ! Form a Cholesky factorization of B.
-   call wrap_potrf(self%sbmat, info, uplo=uplo)
-   call handle_info(error, info)
-   if (allocated(error)) return
-
-   ! Transform problem to standard eigenvalue problem and solve.
-   call wrap_sygst(hmat, self%sbmat, info, itype=itype, uplo=uplo)
-   call handle_info(error, info)
-   if (allocated(error)) return
-
-   ! Save Cholesky factor in the other triangle of H and chole
-   do ii = 1, self%n
-      self%schole(ii) = self%sbmat(ii, ii)
-   end do
-   if (upper) then
-      do jj = 1, self%n
-         do ii = jj + 1, self%n
-            hmat(ii, jj) = self%sbmat(jj, ii)
-         end do
-      end do
-   else
-      do jj = 1, self%n
-         do ii = 1, jj - 1
-            hmat(ii, jj) = self%sbmat(jj, ii)
-         end do
-      end do
+   ! Form or reuse a Cholesky factorization of B.
+   if (.not.allocated(self%schol)) then
+      self%schol = smat
+      call wrap_potrf(self%schol, info, uplo=uplo)
+      if (info /= 0) deallocate(self%schol)
+      call handle_info(error, info)
+      if (allocated(error)) return
    end if
 
-   call lapack_syevr('V', 'A', uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
-      & m, eval, self%sbmat, self%n, self%isuppz, self%swork, lswork, self%iwork, liwork, &
+   ! Transform problem to standard eigenvalue problem and solve.
+   call wrap_sygst(hmat, self%schol, info, itype=itype, uplo=uplo)
+   call handle_info(error, info)
+   if (allocated(error)) return
+
+   call lapack_syevr("V", "A", uplo, self%n, hmat, max(1, self%n), vl, vu, 1, self%n, abstol, &
+      & m, eval, self%sbmat, max(1, self%n), self%isuppz, self%swork, lswork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   ! Backtransform eigenvectors to the original problem.
-   do ii = 1, self%n
-      hmat(ii, ii) = self%schole(ii)
-   end do
-
-   uplo_new = merge('L', 'U', upper)
-   upper = .not.upper
-
-   ! For A*x=(lambda)*B*x
-   ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge('N', 'T', upper)
-   call wrap_trsm(hmat, self%sbmat, side='L', uplo=uplo_new, transa=trans, diag='N')
+   ! Backtransform eigenvectors to the original problem: x = inv(U)*y
+   call wrap_trsm(self%schol, self%sbmat(:, 1:m), side="L", uplo=uplo, transa="N", diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%sbmat(1:self%n, ii)
    end do
@@ -216,83 +187,54 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    type(error_type), allocatable, intent(out) :: error
 
    integer, parameter :: itype = 1
-   character(len=1), parameter :: uplo = 'U'
+   character(len=1), parameter :: uplo = "U"
 
-   logical :: upper
-   integer :: info, ldwork, liwork, m, ii, jj
+   integer :: info, ldwork, liwork, m, ii
    real(dp) :: abstol, vl, vu
-   character(len=1) :: trans, uplo_new
 
    if (self%n == 0) then
       self%n = size(hmat, 1)
    end if
    if (.not.allocated(self%dwork)) then
-      ldwork = query(self%n, uplo, 'D')
+      ldwork = query(self%n, uplo, "D")
       allocate(self%dwork(ldwork))
    end if
    if (.not.allocated(self%iwork)) then
       liwork = max(1, 10 * self%n)
       allocate(self%iwork(liwork))
    end if
-   if (.not.allocated(self%dchole)) then
-      allocate(self%dchole(self%n))
-   end if
    if (.not.allocated(self%isuppz)) then
       allocate(self%isuppz(2*self%n))
    end if
-   self%dbmat = smat
+   if (.not.allocated(self%dbmat)) then
+      allocate(self%dbmat(self%n, self%n))
+   end if
    ldwork = size(self%dwork)
    liwork = size(self%iwork)
-   upper = (uplo == 'U' .or. uplo == 'u')
    abstol = dlamch_s()
-   info = 0
 
-   ! Form a Cholesky factorization of B.
-   call wrap_potrf(self%dbmat, info, uplo=uplo)
-   call handle_info(error, info)
-   if (allocated(error)) return
-
-   ! Transform problem to standard eigenvalue problem and solve.
-   call wrap_sygst(hmat, self%dbmat, info, itype=itype, uplo=uplo)
-   call handle_info(error, info)
-   if (allocated(error)) return
-
-   ! Save Cholesky factor in the other triangle of H and chole
-   do ii = 1, self%n
-      self%dchole(ii) = self%dbmat(ii, ii)
-   end do
-   if (upper) then
-      do jj = 1, self%n
-         do ii = jj + 1, self%n
-            hmat(ii, jj) = self%dbmat(jj, ii)
-         end do
-      end do
-   else
-      do jj = 1, self%n
-         do ii = 1, jj - 1
-            hmat(ii, jj) = self%dbmat(jj, ii)
-         end do
-      end do
+   ! Form or reuse a Cholesky factorization of B.
+   if (.not.allocated(self%dchol)) then
+      self%dchol = smat
+      call wrap_potrf(self%dchol, info, uplo=uplo)
+      if (info /= 0) deallocate(self%dchol)
+      call handle_info(error, info)
+      if (allocated(error)) return
    end if
 
-   call lapack_syevr('V', 'A', uplo, self%n, hmat, self%n, vl, vu, 1, self%n, abstol, &
-      & m, eval, self%dbmat, self%n, self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
+   ! Transform problem to standard eigenvalue problem and solve.
+   call wrap_sygst(hmat, self%dchol, info, itype=itype, uplo=uplo)
+   call handle_info(error, info)
+   if (allocated(error)) return
+
+   call lapack_syevr("V", "A", uplo, self%n, hmat, max(1, self%n), vl, vu, 1, self%n, abstol, &
+      & m, eval, self%dbmat, max(1, self%n), self%isuppz, self%dwork, ldwork, self%iwork, liwork, &
       & info)
    call handle_info(error, info)
    if (allocated(error)) return
 
-   ! Backtransform eigenvectors to the original problem.
-   do ii = 1, self%n
-      hmat(ii, ii) = self%dchole(ii)
-   end do
-
-   uplo_new = merge('L', 'U', upper)
-   upper = .not.upper
-
-   ! For A*x=(lambda)*B*x
-   ! backtransform eigenvectors: x = inv(L)'*y or inv(U)*y'
-   trans = merge('N', 'T', upper)
-   call wrap_trsm(hmat, self%dbmat, side='L', uplo=uplo_new, transa=trans, diag='N')
+   ! Backtransform eigenvectors to the original problem: x = inv(U)*y
+   call wrap_trsm(self%dchol, self%dbmat(:, 1:m), side="L", uplo=uplo, transa="N", diag="N")
    do ii = 1, m
       hmat(1:self%n, ii) = self%dbmat(1:self%n, ii)
    end do
@@ -318,8 +260,8 @@ pure function query(n, uplo, prefix) result(lwork)
    character(len=1), intent(in) :: prefix
    integer :: lwork
    integer :: nb
-   nb = ilaenv(1, prefix//'SYTRD', uplo, n, -1, -1, -1)
-   nb = max(nb, ilaenv(1, prefix//'ORMTR', uplo, n, -1, -1, -1))
+   nb = ilaenv(1, prefix//"SYTRD", uplo, n, -1, -1, -1)
+   nb = max(nb, ilaenv(1, prefix//"ORMTR", uplo, n, -1, -1, -1))
    lwork = max(1, 26 * n, (nb + 1)*n)
 end function query
 
@@ -327,7 +269,7 @@ pure function slamch_s() result(rmach)
    real(sp), parameter :: one = 1.0_sp, zero = 0.0_sp, rnd = one
    real(sp), parameter :: eps = merge(epsilon(zero), epsilon(zero) * 0.5_sp, one /= rnd)
    real(sp), parameter :: tinyz = tiny(zero), small = one / huge(zero)
-   real(sp), parameter :: sfmin = merge(small*(one + eps), tinyz, small.ge.tinyz)
+   real(sp), parameter :: sfmin = merge(small*(one + eps), tinyz, small>=tinyz)
    real(sp) :: rmach
    rmach = sfmin
 end function slamch_s
@@ -336,7 +278,7 @@ pure function dlamch_s() result(rmach)
    real(dp), parameter :: one = 1.0_dp, zero = 0.0_dp, rnd = one
    real(dp), parameter :: eps = merge(epsilon(zero), epsilon(zero) * 0.5_dp, one /= rnd)
    real(dp), parameter :: tinyz = tiny(zero), small = one / huge(zero)
-   real(dp), parameter :: sfmin = merge(small*(one + eps), tinyz, small.ge.tinyz)
+   real(dp), parameter :: sfmin = merge(small*(one + eps), tinyz, small>=tinyz)
    real(dp) :: rmach
    rmach = sfmin
 end function dlamch_s
@@ -347,7 +289,7 @@ subroutine handle_info(error, info)
 
    if (info /= 0) then
       call fatal_error(error, "(sygvr) failed to solve eigenvalue problem.&
-         & info="//format_string(info, '(i0)'))
+         & info="//format_string(info, "(i0)"))
    end if
 end subroutine handle_info
 

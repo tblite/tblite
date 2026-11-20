@@ -20,6 +20,7 @@ srcs += files(
   'context.f90',
   'double_dictionary.f90',
   'error.f90',
+  'features.f90',
   'param.f90',
   'result.f90',
   'solvation.f90',

@@ -15,14 +15,13 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/lapack/gpusolver/sygvd.F90
-!> Provides an inverface to symmetric divide-and-conquer solver from cuSOLVER via GAMBITS library
+!> Provides a generalized symmetric eigensolver backed by cuSOLVER.
 
 !> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems cuSOLVER implementation
 module tblite_cusolver_sygvd
    use mctc_env, only : sp, dp, error_type, fatal_error, wp
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
-   use tblite_scf_solver, only : solver_type
    use iso_c_binding
    implicit none
    private
@@ -31,208 +30,109 @@ module tblite_cusolver_sygvd
 
 #ifdef USE_CUDA
    interface
-      type(c_ptr) function cusolver_setup_dp(ndim, coeff_return) bind(C, name="cuSolverSetupDP")
+      integer(c_int) function cuda_sygvd(ptr, n, single, hmat, smat, eval) bind(C, name="tblite_cuda_sygvd")
          use iso_c_binding
-         integer(c_size_t), value , intent(in) :: ndim
-         integer(c_size_t), value :: coeff_return
+         type(c_ptr), intent(inout) :: ptr
+         integer(c_int), value :: n, single
+         type(*) :: hmat(*), eval(*)
+         type(*), intent(in) :: smat(*)
       end function
-      type(c_ptr) function cusolver_setup_sp(ndim, coeff_return) bind(C, name="cuSolverSetupSP")
+      integer(c_int) function cuda_density(ptr, coeff, focc, density) bind(C, name="tblite_cuda_density")
          use iso_c_binding
-         integer(c_size_t), value , intent(in) :: ndim
-         integer(c_size_t), value :: coeff_return
+         type(c_ptr), value :: ptr
+         real(c_double), intent(in) :: coeff(*), focc(*)
+         real(c_double), intent(out) :: density(*)
       end function
-      subroutine cusolve_dp(ptr, Fock, Overlap, orbitalenergies, info) bind(C, name="GPUSolverSolveDP")
-         use iso_c_binding
-         type(c_ptr), value :: ptr
-         real(c_double) :: Fock(*)
-         real(c_double) :: Overlap(*)
-         real(c_double) :: orbitalenergies(*)
-         integer(c_int) :: info
-      end subroutine
-      subroutine cusolve_sp(ptr, Fock, Overlap, orbitalenergies, info) bind(C, name="GPUSolverSolveSP")
-         use iso_c_binding
-         type(c_ptr), value :: ptr
-         real(c_float) :: Fock(*)
-         real(c_float) :: Overlap(*)
-         real(c_float) :: orbitalenergies(*)
-         integer(c_int) :: info
-      end subroutine
-      subroutine cusolve_get_density(ptr, coeff, focc, Density) bind(C, name="GPUSolverGetDensityDP")
-         use iso_c_binding
-         type(c_ptr), value :: ptr
-         real(c_double) :: coeff(*)
-         real(c_double) :: focc(*)
-         real(c_double) :: Density(*)
-      end subroutine
-      subroutine delete_cusolver_ptr(ptr) bind(C, name="GPUSolverDelete")
+      subroutine delete_cusolver_ptr(ptr) bind(C, name="tblite_cuda_delete")
          use iso_c_binding
          type(c_ptr), value :: ptr
       end subroutine
    end interface 
 
 
-   !> Wrapper class for solving symmetric general eigenvalue problems
+#endif
+
    type, public, extends(diag_solver_type) :: sygvd_cusolver
       private
-      integer(c_size_t) :: n = 0
-      type(c_ptr) :: ptr = c_null_ptr
-      integer(c_size_t) :: return_coeff = 0
+      type(c_ptr) :: double_solver = c_null_ptr
+      type(c_ptr) :: single_solver = c_null_ptr
    contains
       procedure :: solve_sp
       procedure :: solve_dp
-      procedure :: delete
+#ifdef USE_CUDA
       procedure :: get_density_matrix
-   end type sygvd_cusolver
+#endif
+      procedure :: delete
+      final :: finalize
+   end type
 
 contains
 
-subroutine new_sygvd_gpu(self, overlap, nel, kt, ptr, return_coeff)
-   !> New instance of a solver for symmetric general eigenvalue problems
+subroutine new_sygvd_gpu(self, overlap, nel, kt)
    type(sygvd_cusolver), intent(out) :: self
-   real(wp), intent(in) :: overlap(:, :)
-   real(wp), intent(in) :: nel(:)
-   real(wp), intent(in) :: kt
-   !> Pointer to the C++ solver instance
-   type(c_ptr), intent(inout) :: ptr
-   !> Whether to return coefficients in the eigenvalue problem or store them on the GPU
-   logical, intent(in), optional :: return_coeff 
-   
-   if (present(return_coeff)) then
-      if (return_coeff) then
-         self%return_coeff = 1
-      else
-         self%return_coeff = 0
-      end if
-   end if
-   
-   self%n = size(overlap, 1)
+   real(wp), intent(in) :: overlap(:, :), nel(:), kt
+
    self%nel = nel
    self%kt = kt
-
-   if (.not.c_associated(ptr)) ptr = cusolver_setup_dp(self%n, self%return_coeff)
-   self%ptr = ptr   
-  
-end subroutine new_sygvd_gpu
+end subroutine
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvd_cusolver), intent(inout) :: self
-   real(sp), contiguous, intent(inout) :: hmat(:, :)
+   real(sp), contiguous, intent(inout) :: hmat(:, :), eval(:)
    real(sp), contiguous, intent(in) :: smat(:, :)
-   real(sp), contiguous, intent(inout) :: eval(:)
    type(error_type), allocatable, intent(out) :: error
-   integer :: info = 0
-   
+#ifdef USE_CUDA
+   integer(c_int) :: info
 
-   call cusolve_sp(self%ptr, hmat, smat, eval, info)
-
-   call handle_info(error, info)
-
-end subroutine solve_sp
+   info = cuda_sygvd(self%single_solver, size(hmat, 1, kind=c_int), 1_c_int, hmat, smat, eval)
+   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, '(i0)'))
+#else
+   call fatal_error(error, "This tblite build does not support GPU acceleration.")
+#endif
+end subroutine
 
 subroutine solve_dp(self, hmat, smat, eval, error)
    class(sygvd_cusolver), intent(inout) :: self
-   real(c_double), contiguous, intent(inout) :: hmat(:, :)
-   real(c_double), contiguous, intent(in) :: smat(:, :)
-   real(c_double), contiguous, intent(inout) :: eval(:)
+   real(dp), contiguous, intent(inout) :: hmat(:, :), eval(:)
+   real(dp), contiguous, intent(in) :: smat(:, :)
    type(error_type), allocatable, intent(out) :: error
-   integer :: info = 0
+#ifdef USE_CUDA
+   integer(c_int) :: info
 
-   call cusolve_dp(self%ptr, hmat, smat, eval, info)
-   
-   call handle_info(error, info)
+   info = cuda_sygvd(self%double_solver, size(hmat, 1, kind=c_int), 0_c_int, hmat, smat, eval)
+   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, '(i0)'))
+#else
+   call fatal_error(error, "This tblite build does not support GPU acceleration.")
+#endif
+end subroutine
 
-end subroutine solve_dp
-
-subroutine delete(self, ptr)
-   !> Instance of solver class
-   class(sygvd_cusolver), intent(inout) :: self
-   !> Pointer to the C++ solver instance
-   type(c_ptr), intent(inout), optional :: ptr
-   
-   if (present(ptr)) then
-      call delete_cusolver_ptr(ptr)
-      self%ptr = c_null_ptr
-   end if
-   
-
-end subroutine delete
-
-subroutine handle_info(error, info)
-   type(error_type), allocatable, intent(out) :: error
-   integer, intent(in) :: info
-
-   if (info /= 0) then
-      call fatal_error(error, "(sygvd) failed to solve eigenvalue problem.&
-         & info="//format_string(info, '(i0)'))
-   end if
-end subroutine handle_info
-
-subroutine get_density_matrix(self, focc, coeff, pmat)
+#ifdef USE_CUDA
+subroutine get_density_matrix(self, focc, coeff, pmat, error)
    class(sygvd_cusolver), intent(inout) :: self
    real(wp), intent(in) :: focc(:)
    real(wp), contiguous, intent(in) :: coeff(:, :)
-   real(wp), contiguous, intent(out) :: pmat(:, :)
-   
-   call cusolve_get_density(self%ptr, coeff, focc, pmat);
-   
-end subroutine get_density_matrix
+   real(wp), contiguous, intent(inout) :: pmat(:, :)
+   type(error_type), allocatable, intent(inout) :: error
+   integer(c_int) :: info
 
-#else
-      !> Wrapper class for solving symmetric general eigenvalue problems
-   type, public, extends(diag_solver_type) :: sygvd_cusolver
-      private
-   contains
-      procedure :: solve_sp
-      procedure :: solve_dp
-      procedure :: delete
-   end type sygvd_cusolver
-
-contains
-subroutine new_sygvd_gpu(self, overlap, nel, kt, ptr, return_coeff)
-   !> New instance of a solver for symmetric general eigenvalue problems
-   type(sygvd_cusolver), intent(out) :: self
-   real(wp), intent(in) :: overlap(:, :)
-   real(wp), intent(in) :: nel(:)
-   real(wp), intent(in) :: kt
-   !> Pointer to the C++ solver instance
-   type(c_ptr), intent(inout) :: ptr
-   !> Whether to return coefficients in the eigenvalue problem or store them on the GPU
-   logical, intent(in), optional :: return_coeff 
-   
-  
-end subroutine new_sygvd_gpu
-
-subroutine solve_sp(self, hmat, smat, eval, error)
-   class(sygvd_cusolver), intent(inout) :: self
-   real(sp), contiguous, intent(inout) :: hmat(:, :)
-   real(sp), contiguous, intent(in) :: smat(:, :)
-   real(sp), contiguous, intent(inout) :: eval(:)
-   type(error_type), allocatable, intent(out) :: error
-   
-   call fatal_error(error, "This tblite build does not support GPU acceleration. Rebuild from source with gpu support.")
-
-end subroutine solve_sp
-
-subroutine solve_dp(self, hmat, smat, eval, error)
-   class(sygvd_cusolver), intent(inout) :: self
-   real(c_double), contiguous, intent(inout) :: hmat(:, :)
-   real(c_double), contiguous, intent(in) :: smat(:, :)
-   real(c_double), contiguous, intent(inout) :: eval(:)
-   type(error_type), allocatable, intent(out) :: error
-
-   call fatal_error(error, "This tblite build does not support GPU acceleration. Rebuild from source with gpu support.")
-
-end subroutine solve_dp
-
-subroutine delete(self, ptr)
-   !> Instance of solver class
-   class(sygvd_cusolver), intent(inout) :: self
-   !> Pointer to the C++ solver instance
-   type(c_ptr), intent(inout), optional :: ptr
-   
-
-end subroutine delete
-
+   info = cuda_density(self%double_solver, coeff, focc, pmat)
+   if (info /= 0) call fatal_error(error, "GPU density construction failed, info="//format_string(info, '(i0)'))
+end subroutine
 #endif
+
+subroutine delete(self)
+   class(sygvd_cusolver), intent(inout) :: self
+#ifdef USE_CUDA
+   if (c_associated(self%double_solver)) call delete_cusolver_ptr(self%double_solver)
+   if (c_associated(self%single_solver)) call delete_cusolver_ptr(self%single_solver)
+#endif
+   self%double_solver = c_null_ptr
+   self%single_solver = c_null_ptr
+end subroutine
+
+subroutine finalize(self)
+   type(sygvd_cusolver), intent(inout) :: self
+   call self%delete()
+end subroutine
 
 end module tblite_cusolver_sygvd

@@ -22,9 +22,9 @@ module test_solvation_shift
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
-   use tblite_solvation_shift, only : shift_solvation, shift_input, solution_state
-   use tblite_solvation_data_shift, only : get_shift_param
    use tblite_solvation_data, only : solvent_data, get_solvent_data
+   use tblite_solvation_data_shift, only : get_shift_param
+   use tblite_solvation_shift, only : shift_solvation, shift_input, solution_state
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -83,7 +83,7 @@ subroutine test_e(error, mol, input, ref, method)
 
    scratch_input = input
 
-   if (allocated(input%solvent) .and. present(method)) then 
+   if (allocated(input%solvent) .and. present(method)) then
       call get_shift_param(scratch_input, method, error)
       if(allocated(error)) then
          call test_failed(error, "No shift parameters found for the method/solvent")
@@ -100,7 +100,7 @@ subroutine test_e(error, mol, input, ref, method)
 
    if (abs(sum(energy) - ref) > thr) then
       call test_failed(error, "Energy does not match reference")
-      print *, sum(energy),'reference:',ref
+      print *, sum(energy),"reference:",ref
    end if
 end subroutine test_e
 
@@ -118,7 +118,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs_bar1mol(*) = [&
       & 1.63261835085536E-2_wp, 9.31280584349187E-3_wp, 6.10306008943574E-3_wp, &
       & 9.67917852709751E-3_wp, 8.08739100629020E-3_wp, 6.37136322581741E-3_wp, &
@@ -139,7 +139,7 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       & 1.04351691764993E-2_wp, 7.96298743088067E-3_wp, 9.00182470817862E-3_wp, &
       & 1.16308794826811E-2_wp, 8.70282029304879E-3_wp, 1.10699922271961E-2_wp, &
       & 8.16660078698342E-3_wp]
-   integer :: i   
+   integer :: i
 
    call get_structure(mol, "MB16-43", "01")
 
@@ -148,13 +148,13 @@ subroutine test_e_alpb_gfn1_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = shift_input(state=solution_state%bar1mol, solvent=solvent%solvent, &
          & alpb=.true.)
-      call test_e(error, mol, input, refs_bar1mol(i),  method='gfn1') 
-      if(allocated(error)) return  
+      call test_e(error, mol, input, refs_bar1mol(i),  method="gfn1")
+      if(allocated(error)) return
       ! reference state
       input%state = solution_state%reference
-      call test_e(error, mol, input, refs_reference(i), method='gfn1') 
-      if(allocated(error)) return  
-   end do 
+      call test_e(error, mol, input, refs_reference(i), method="gfn1")
+      if(allocated(error)) return
+   end do
 
 end subroutine test_e_alpb_gfn1_all_solvents
 
@@ -172,7 +172,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       & "ch2cl2", "chcl3", "cs2", "dioxane", "dmf", "dmso", "ethanol", &
       & "ether", "ethylacetate", "furane", "hexadecane", "hexane", &
       & "nitromethane", "methanol", "octanol", "phenol", "thf", "toluene", &
-      & "water", "woctanol"] 
+      & "water", "woctanol"]
    real(wp), parameter :: refs_bar1mol(*) = [&
       & 8.95537409262417E-3_wp, 8.22988757996136E-3_wp, 6.00365174170799E-3_wp, &
       & 5.29205499543163E-3_wp, 7.70568145464064E-3_wp, 7.17993018930200E-3_wp, &
@@ -193,7 +193,7 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       & 1.00046976200278E-2_wp, 7.11964926329176E-3_wp, 7.75418649336047E-3_wp, &
       & 1.07214075088065E-2_wp, 7.51195424535590E-3_wp, 7.90514525342083E-3_wp, &
       & 7.29208536899641E-3_wp]
-   integer :: i   
+   integer :: i
 
    call get_structure(mol, "MB16-43", "01")
 
@@ -202,13 +202,13 @@ subroutine test_e_alpb_gfn2_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = shift_input(state=solution_state%bar1mol, solvent=solvent%solvent, &
          & alpb=.true.)
-      call test_e(error, mol, input, refs_bar1mol(i), method='gfn2') 
+      call test_e(error, mol, input, refs_bar1mol(i), method="gfn2")
       if(allocated(error)) return
       ! reference state
       input%state = solution_state%reference
-      call test_e(error, mol, input, refs_reference(i), method='gfn2') 
+      call test_e(error, mol, input, refs_reference(i), method="gfn2")
       if(allocated(error)) return
-   end do 
+   end do
 
 end subroutine test_e_alpb_gfn2_all_solvents
 
@@ -235,7 +235,7 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
       & 9.17466289947592E-3_wp, 8.96043951672875E-3_wp, 1.10709445028420E-2_wp, &
       & 9.74849764490206E-3_wp, 8.63022058027298E-3_wp, 8.43800458886716E-3_wp, &
       & 8.24530097300811E-3_wp, 9.37661319574898E-3_wp, 8.89796593470179E-3_wp]
-   integer :: i   
+   integer :: i
 
    call get_structure(mol, "MB16-43", "01")
 
@@ -244,13 +244,13 @@ subroutine test_e_gbsa_gfn1_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = shift_input(state=solution_state%bar1mol, solvent=solvent%solvent, &
          & alpb=.false.)
-      call test_e(error, mol, input, refs_bar1mol(i), method='gfn1') 
+      call test_e(error, mol, input, refs_bar1mol(i), method="gfn1")
       if(allocated(error)) return
       ! reference state
       input%state = solution_state%reference
-      call test_e(error, mol, input, refs_reference(i), method='gfn1') 
-      if(allocated(error)) return  
-   end do 
+      call test_e(error, mol, input, refs_reference(i), method="gfn1")
+      if(allocated(error)) return
+   end do
 
 end subroutine test_e_gbsa_gfn1_all_solvents
 
@@ -279,7 +279,7 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
       & 8.80979017129767E-3_wp, 1.06900485288681E-2_wp, 8.90335653611850E-3_wp, &
       & 9.64469445734764E-3_wp, 9.41670732625320E-3_wp, 8.79595712129432E-3_wp, &
       & 9.67172007087124E-3_wp, 8.68182868235016E-3_wp]
-   integer :: i   
+   integer :: i
 
    call get_structure(mol, "MB16-43", "01")
 
@@ -288,13 +288,13 @@ subroutine test_e_gbsa_gfn2_all_solvents(error)
       solvent = get_solvent_data(solvents(i))
       input = shift_input(state=solution_state%bar1mol, solvent=solvent%solvent, &
          & alpb=.false.)
-      call test_e(error, mol, input, refs_bar1mol(i), method='gfn2') 
-      if(allocated(error)) return 
+      call test_e(error, mol, input, refs_bar1mol(i), method="gfn2")
+      if(allocated(error)) return
       ! reference state
       input%state = solution_state%reference
-      call test_e(error, mol, input, refs_reference(i), method='gfn2') 
-      if(allocated(error)) return 
-   end do 
+      call test_e(error, mol, input, refs_reference(i), method="gfn2")
+      if(allocated(error)) return
+   end do
 
 end subroutine test_e_gbsa_gfn2_all_solvents
 
@@ -321,7 +321,7 @@ subroutine test_unsupported_solvent(error)
    solvent = get_solvent_data("aniline")
    input = shift_input(state=solution_state%bar1mol, solvent=solvent%solvent, &
       & alpb=.false.)
-   call get_shift_param(input, 'gfn1', error)
+   call get_shift_param(input, "gfn1", error)
 
 end subroutine test_unsupported_solvent
 

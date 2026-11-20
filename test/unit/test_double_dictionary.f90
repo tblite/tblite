@@ -68,9 +68,9 @@ subroutine test_removal_index(error)
    call check(error, dict%get_n_entries(), 1)
    if (allocated(error)) return
    call dict%get_entry("test3", array3)
-   call check(error, sum(ini_dict%record(3)%array3 - array3), 0.0_wp) 
+   call check(error, sum(ini_dict%record(3)%array3 - array3), 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_removal_index
 
 subroutine test_removal_label(error)
    type(error_type), allocatable, intent(out) :: error
@@ -105,9 +105,9 @@ subroutine test_removal_label(error)
    call check(error, dict%get_n_entries(), 1)
    if (allocated(error)) return
    call dict%get_entry("test2", array2)
-   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp) 
+   call check(error, sum(ini_dict%record(2)%array2 - array2), 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_removal_label
 
 subroutine test_initialize_labels(error)
 
@@ -153,7 +153,7 @@ subroutine test_initialize_labels(error)
    if (allocated(error)) return
    call check(error, actual = sum(dict%record(4)%array3), expected = 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_initialize_labels
 
 subroutine test_add_entries(error)
 
@@ -180,7 +180,7 @@ subroutine test_add_entries(error)
    call check(error, actual = sum(dict%record(3)%array3), expected = 0.0_wp)
    if (allocated(error)) return
 
-end subroutine
+end subroutine test_add_entries
 
 subroutine test_get_entries_by_label(error)
    type(error_type), allocatable, intent(out) :: error
@@ -212,7 +212,7 @@ subroutine test_get_entries_by_label(error)
    call check(error, actual = sum(array2 - array2_in), expected = 0.0_wp)
    call check(error, actual = sum(array3 - array3_in), expected = 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_get_entries_by_label
 
 subroutine test_get_entries_by_index(error)
    type(error_type), allocatable, intent(out) :: error
@@ -244,7 +244,7 @@ subroutine test_get_entries_by_index(error)
    call check(error, actual = sum(array2 - array2_in), expected = 0.0_wp)
    call check(error, actual = sum(array3 - array3_in), expected = 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_get_entries_by_index
 
 subroutine test_equivalence_index_label_lookup(error)
    type(error_type), allocatable, intent(out) :: error
@@ -270,7 +270,7 @@ subroutine test_equivalence_index_label_lookup(error)
    call check(error, 1, index1)
    call check(error, 2, index2)
    if (allocated(error)) return
-   
+
 
    call dict%get_entry("test1", array1)
    call dict%get_entry("test2", array2)
@@ -284,7 +284,7 @@ subroutine test_equivalence_index_label_lookup(error)
    call check(error, actual = sum(array2 - array2_in), expected = 0.0_wp)
    call check(error, actual = sum(array3 - array3_in), expected = 0.0_wp)
    if (allocated(error)) return
-end subroutine
+end subroutine test_equivalence_index_label_lookup
 
 subroutine test_invalid_label_index(error)
    type(error_type), allocatable, intent(out) :: error
@@ -296,7 +296,7 @@ subroutine test_invalid_label_index(error)
 
    call dict%get_entry("label4", array)
    call check(error, (.not.allocated(array)))
-   
+
    call dict%get_entry(4, array)
    call check(error, (.not.allocated(array)))
 
@@ -331,7 +331,7 @@ subroutine test_invalid_label_index(error)
    call check(error, (.not.allocated(array3)))
    if (allocated(error)) return
 
-end subroutine
+end subroutine test_invalid_label_index
 
 subroutine test_invalid_array_size(error)
    type(error_type), allocatable, intent(out) :: error
@@ -377,7 +377,7 @@ subroutine test_invalid_array_size(error)
    call dict%get_entry("test3", array2)
    call check(error, (.not.allocated(array2)))
    if (allocated(error)) return
-end subroutine
+end subroutine test_invalid_array_size
 
 subroutine test_get_label_from_index(error)
    type(error_type), allocatable, intent(out) :: error
@@ -392,7 +392,7 @@ subroutine test_get_label_from_index(error)
    call dict%get_label(3, name1)
    call check(error, (name1 == "test3"))
    if (allocated(error)) return
-end subroutine
+end subroutine test_get_label_from_index
 
 subroutine fill_test_dict(dict)
    type(double_dictionary_type), intent(inout) :: dict
@@ -406,7 +406,7 @@ subroutine fill_test_dict(dict)
    call dict%add_entry("test2", array2)
 
    call dict%add_entry("test3", array3)
-end subroutine
+end subroutine fill_test_dict
 
 subroutine fill_test_dict_other_entries(dict)
    type(double_dictionary_type), intent(inout) :: dict
@@ -420,7 +420,7 @@ subroutine fill_test_dict_other_entries(dict)
    call dict%add_entry("test2", array2)
 
    call dict%add_entry("test3", array3)
-end subroutine
+end subroutine fill_test_dict_other_entries
 
 subroutine fill_test_dict_1d_array(dict)
    type(double_dictionary_type), intent(inout) :: dict
@@ -434,13 +434,13 @@ subroutine fill_test_dict_1d_array(dict)
    call dict%add_entry("test2", array2)
 
    call dict%add_entry("test3", array3)
-end subroutine
+end subroutine fill_test_dict_1d_array
 
 subroutine test_assigment_operator(error)
    type(error_type), allocatable, intent(out) :: error
    type(double_dictionary_type) :: dict1, dict2
    call fill_test_dict(dict1)
-   
+
    dict2 = dict1
 
    call check(error, dict1%n , dict2%n)
@@ -452,11 +452,11 @@ subroutine test_assigment_operator(error)
    call check(error, sum(dict1%record(3)%array3 - dict2%record(3)%array3), 0.0_wp)
    if (allocated(error)) return
 
-end subroutine
+end subroutine test_assigment_operator
 
 subroutine test_addition_operator(error)
    type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict1, dict2, dict3, dict4 
+   type(double_dictionary_type) :: dict1, dict2, dict3, dict4
    character(len=:), allocatable :: label1, label2
    real(wp), allocatable :: array(:), array1(:), array2(:)
    call fill_test_dict(dict1)
@@ -483,7 +483,7 @@ subroutine test_addition_operator(error)
    call dict3%get_entry("dict3", array1)
    call dict2%get_entry(2, array2)
    call check(error, (sum(array1) == sum(array2)))
-   
+
    dict3 = dict4 + dict1
 
    call check(error, (dict3%get_n_entries() == dict1%get_n_entries()))
@@ -495,7 +495,7 @@ subroutine test_addition_operator(error)
    call dict1%get_entry(1, array2)
    call check(error, (sum(array1) == sum(array2)))
    if (allocated(error)) return
-end subroutine
+end subroutine test_addition_operator
 
 
 subroutine test_read_in_npz(error)
@@ -568,7 +568,7 @@ end subroutine test_write_read_npz
 
 subroutine test_update_entries_label(error)
    type(error_type), allocatable, intent(out) :: error
-   type(double_dictionary_type) :: dict1, dict2, dict3 
+   type(double_dictionary_type) :: dict1, dict2, dict3
    real(wp), allocatable :: array(:), array1(:), array2(:, :), array3(:, :, :)
    call fill_test_dict(dict1)
    allocate(array(1), source= 0.0_wp)
@@ -620,7 +620,7 @@ subroutine test_update_entries_label(error)
    call dict3%get_entry("test3", array2)
    call check(error, (size(array3, dim=1) == 3))
    if (allocated(error)) return
-end subroutine
+end subroutine test_update_entries_label
 
 subroutine test_equal_operator(error)
    type(error_type), allocatable, intent(out) :: error
@@ -631,7 +631,7 @@ subroutine test_equal_operator(error)
 
    call check(error, (dict == dict_))
 
-end subroutine
+end subroutine test_equal_operator
 
 subroutine test_equal_operator_different_dict(error)
    type(error_type), allocatable, intent(out) :: error
@@ -662,7 +662,7 @@ subroutine test_equal_operator_different_dict(error)
 
    dict = double_dictionary_type(record=null())
    call fill_test_dict(dict)
-   
+
    call fill_test_dict(dict3)
 
    call dict3%remove_entry("test1")
@@ -673,7 +673,7 @@ subroutine test_equal_operator_different_dict(error)
    che = (.not.(dict == dict3))
    call check(error, che)
 
-end subroutine
+end subroutine test_equal_operator_different_dict
 
 
 subroutine delete_file(file)

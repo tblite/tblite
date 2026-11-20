@@ -18,6 +18,10 @@ subdir('unit')
 subdir('cli')
 subdir('validation')
 
+if get_option('mpi')
+  subdir('mpi')
+endif
+
 if get_option('api')
   subdir('api')
 endif

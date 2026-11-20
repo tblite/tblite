@@ -29,6 +29,10 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tblite-utils.cmake")
 
+# GAMBITS 0.2 exports lahva::lahva without importing the installed LAHVA target.
+if(NOT TARGET lahva::lahva)
+  find_package(lahva CONFIG QUIET)
+endif()
 tblite_find_package("${_lib}" "${${_pkg}_FIND_METHOD}" "${_url}" "v0.2.0")
 
 if(DEFINED "_${_pkg}_FIND_METHOD")

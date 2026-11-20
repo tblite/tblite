@@ -45,7 +45,7 @@ module tblite_param_halogen
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type halogen_record
 
 
    !> Masking for the halogen bonding model

@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.14)
 project(
   "tblite"
   LANGUAGES "Fortran" "C"
-  VERSION "0.6.0"
+  VERSION "0.8.0"
   DESCRIPTION "Light-weight tight-binding framework"
 )
 
@@ -28,9 +28,12 @@ include(GNUInstallDirs)
 
 # General configuration information
 add_subdirectory("config")
+if(TBLITE_WITH_GAMBITS)
+  enable_language(CXX)
+endif()
 
 if(NOT TARGET "OpenMP::OpenMP_Fortran")
-  if (WITH_OpenMP)
+  if(TBLITE_WITH_OpenMP)
     find_package("OpenMP" REQUIRED)
   else()
     # Create dummy library
@@ -38,6 +41,36 @@ if(NOT TARGET "OpenMP::OpenMP_Fortran")
   endif()
 endif()
 
+if(TBLITE_WITH_HDF5 AND NOT TARGET "HDF5::HDF5")
+  find_package("HDF5" REQUIRED COMPONENTS Fortran)
+endif()
+if(TBLITE_WITH_MPI AND NOT TARGET "MPI::MPI_Fortran")
+  find_package("MPI" REQUIRED COMPONENTS Fortran)
+endif()
+if(TBLITE_WITH_SCALAPACK AND NOT TARGET "SCALAPACK::SCALAPACK")
+  find_package("Scalapack" REQUIRED)
+endif()
+if(TBLITE_WITH_TREXIO AND NOT TARGET "TREXIO::TREXIO")
+  find_path(
+    TREXIO_INCLUDE_DIR
+    NAMES "trexio_f.f90"
+    PATH_SUFFIXES "include"
+  )
+  find_library(
+    TREXIO_LIBRARY
+    NAMES "trexio"
+  )
+  if(NOT TREXIO_INCLUDE_DIR OR NOT TREXIO_LIBRARY)
+    message(FATAL_ERROR "TREXIO support requested, but trexio_f.f90 or libtrexio could not be found")
+  endif()
+  add_library("TREXIO::TREXIO" UNKNOWN IMPORTED)
+  set_target_properties(
+    "TREXIO::TREXIO"
+    PROPERTIES
+    IMPORTED_LOCATION "${TREXIO_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${TREXIO_INCLUDE_DIR}"
+  )
+endif()
 if(NOT TARGET "LAPACK::LAPACK")
   find_package("LAPACK" REQUIRED)
 endif()
@@ -49,7 +82,7 @@ endif()
 if(NOT TARGET "mctc-lib::mctc-lib")
   find_package("mctc-lib" REQUIRED)
 endif()
-if(NOT TARGET "mstore::mstore" AND WITH_TESTS)
+if(NOT TARGET "mstore::mstore" AND TBLITE_WITH_TESTS)
   find_package("mstore" REQUIRED)
 endif()
 if(NOT TARGET "multicharge::multicharge")
@@ -61,15 +94,19 @@ endif()
 if(NOT TARGET "s-dftd3::s-dftd3")
   find_package("s-dftd3" REQUIRED)
 endif()
-if(NOT TARGET "gambits::gambits")
+if(TBLITE_WITH_DDX AND NOT TARGET "ddx")
+  find_package("ddX" 1.0.2 REQUIRED)
+endif()
+  
+
+if(GPU)
+  find_package(CUDAToolkit REQUIRED)
+endif()
+if(TBLITE_WITH_GAMBITS AND NOT TARGET "gambits::gambits")
   set(FORTRAN_API ON)
   find_package("gambits" REQUIRED)
 endif()
-option(GPU "Compile with GPU capability" FALSE)
 
-if(GPU)
-  add_compile_definitions(USE_CUDA)
-endif()
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
@@ -79,7 +116,6 @@ set(
   "mctc-lib::mctc-lib"
   "dftd4::dftd4"
   "s-dftd3::s-dftd3"
-  "gambits::gambits"
 )
 
 # Collect source of the project
@@ -91,6 +127,7 @@ add_library(
   "${PROJECT_NAME}-lib"
   "${srcs}"
 )
+add_library("${PROJECT_NAME}::${PROJECT_NAME}-lib" ALIAS "${PROJECT_NAME}-lib")
 set_target_properties(
   "${PROJECT_NAME}-lib"
   PROPERTIES
@@ -106,13 +143,82 @@ target_link_libraries(
   PUBLIC
   "${lib-deps}"
 )
+if(TBLITE_WITH_DDX)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "ddx"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_DDX=1"
+  )
+endif()
+if(GPU)
+  target_compile_definitions("${PROJECT_NAME}-lib" PRIVATE USE_CUDA)
+  target_link_libraries("${PROJECT_NAME}-lib" PRIVATE CUDA::cusolver CUDA::cublas CUDA::cudart)
+endif()
+if(TBLITE_WITH_GAMBITS)
+  target_compile_definitions("${PROJECT_NAME}-lib" PRIVATE TBLITE_HAS_GAMBITS=1)
+  target_include_directories("${PROJECT_NAME}-lib" PRIVATE ${gambits_INCLUDE_DIRS})
+  target_link_libraries("${PROJECT_NAME}-lib" PUBLIC gambits::gambits)
+endif()
+if(TBLITE_WITH_HDF5)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "HDF5::HDF5"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_HDF5=1"
+  )
+endif()
+if(TBLITE_WITH_TREXIO)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TREXIO::TREXIO"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_TREXIO=1"
+  )
+endif()
+if(TBLITE_WITH_MPI)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "MPI::MPI_Fortran"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_MPI=1"
+  )
+endif()
+if(TBLITE_WITH_SCALAPACK)
+  target_link_libraries(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "SCALAPACK::SCALAPACK"
+  )
+  target_compile_definitions(
+    "${PROJECT_NAME}-lib"
+    PUBLIC
+    "TBLITE_HAS_SCALAPACK=1"
+  )
+endif()
 target_include_directories(
   "${PROJECT_NAME}-lib"
   PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
+  $<INSTALL_INTERFACE:${TBLITE_INSTALL_FMODDIR}>
 )
 if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
   file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
@@ -123,7 +229,15 @@ add_subdirectory("app")
 
 # Export targets for other projects
 add_library("${PROJECT_NAME}" INTERFACE)
+add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 target_link_libraries("${PROJECT_NAME}" INTERFACE "${PROJECT_NAME}-lib")
+
+if(TBLITE_WITH_PYTHON)
+  if(NOT TBLITE_WITH_API)
+    message(FATAL_ERROR "TBLITE_WITH_PYTHON requires TBLITE_WITH_API")
+  endif()
+  add_subdirectory("python")
+endif()
 install(
   TARGETS
   "${PROJECT_NAME}"
@@ -148,7 +262,7 @@ install(
 install(
   DIRECTORY
   "${CMAKE_CURRENT_BINARY_DIR}/include/"
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}"
+  DESTINATION "${TBLITE_INSTALL_FMODDIR}"
 )
 # Package license files
 install(
@@ -158,8 +272,9 @@ install(
   DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}"
 )
 
+
 # add the testsuite
-if (WITH_TESTS)
+if (TBLITE_WITH_TESTS)
   enable_testing()
   add_subdirectory("test")
 endif()

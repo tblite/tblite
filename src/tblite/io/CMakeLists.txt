@@ -14,14 +14,19 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+add_subdirectory("data")
 add_subdirectory("numpy")
 
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
+  "${dir}/data.f90"
+  "${dir}/hdf5.F90"
+  "${dir}/molden.f90"
   "${dir}/numpy.f90"
   "${dir}/tag.f90"
+  "${dir}/trexio.F90"
 )
 
 set(srcs "${srcs}" PARENT_SCOPE)

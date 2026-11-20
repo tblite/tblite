@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 """
-Minimal Python wrapper for testing the dftd4 command line interface.
+Minimal Python wrapper for testing the tblite command line interface.
 
 The wrapper will assume a specific order in the arguments rather than
 providing a generic command line interface by itself since it is
@@ -66,8 +66,9 @@ for key in ref:
         raise RuntimeError("Missing '" + key + "' entry in results")
     _res = np.array(res[key])
     _ref = np.array(ref[key])
-    assert pytest.approx(_res, abs=thr) == _ref, \
-        f"mismatch for {key}:\n" \
-        f"+actual\n{_res}\n" \
-        f"-reference\n{_ref}\n" \
+    assert pytest.approx(_res, abs=thr) == _ref, (
+        f"mismatch for {key}:\n"
+        f"+actual\n{_res}\n"
+        f"-reference\n{_ref}\n"
         f"@difference\n{_res - _ref}"
+    )

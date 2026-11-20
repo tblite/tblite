@@ -46,7 +46,7 @@ module tblite_param_thirdorder
       procedure, private :: load_from_array
       !> Write parametrization data to parameter array
       procedure, private :: dump_to_array
-   end type
+   end type thirdorder_record
 
 
    !> Masking for the third order electrostatics

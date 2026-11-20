@@ -16,5 +16,6 @@
 
 srcs += files(
   'broyden.f90',
+  'input.f90',
   'type.f90',
 )

@@ -21,10 +21,12 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
+  "${dir}/geqp3.f90"
   "${dir}/getrf.f90"
   "${dir}/getri.f90"
   "${dir}/getrs.f90"
   "${dir}/potrf.f90"
+  "${dir}/scalapack.F90"
   "${dir}/solver.f90"
   "${dir}/sygst.f90"
   "${dir}/sygvd.f90"

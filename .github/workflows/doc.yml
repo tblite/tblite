@@ -17,10 +17,10 @@ jobs:
       env:
         DEPLOY_BRANCH: ${{ secrets.DEPLOY_BRANCH && contains(github.ref, secrets.DEPLOY_BRANCH) && 1 || 0 }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
 
     - name: Install dependencies
-      uses: mamba-org/setup-micromamba@v1
+      uses: mamba-org/setup-micromamba@v3
       with:
         environment-file: config/ci/doc-env.yml
 
@@ -33,7 +33,7 @@ jobs:
       run: |
         touch doc/_doxygen/html/.nojekyll
 
-    - uses: JamesIves/github-pages-deploy-action@4.1.6
+    - uses: JamesIves/github-pages-deploy-action@v4.9.0
       if: ${{ github.event_name == 'push' && steps.deploy-on-push.outputs.result != 0 }}
       with:
         branch: gh-pages

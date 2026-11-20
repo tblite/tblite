@@ -20,5 +20,8 @@ list(
   APPEND srcs
   "${dir}/sygvd.F90"
 )
+if(GPU)
+  list(APPEND srcs "${dir}/cuda.c")
+endif()
 
 set(srcs "${srcs}" PARENT_SCOPE)

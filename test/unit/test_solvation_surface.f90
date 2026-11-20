@@ -24,9 +24,8 @@ module test_solvation_surface
    use tblite_container, only : container_cache
    use tblite_mesh_lebedev, only : grid_size
    use tblite_scf_potential, only : potential_type
-   use tblite_solvation_cds
-   use tblite_solvation_data
-   use tblite_solvation_surface
+   use tblite_solvation_data, only : get_vdw_rad_bondi, get_vdw_rad_cosmo, get_vdw_rad_d3
+   use tblite_solvation_surface, only : new_surface_integrator, surface_integrator
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
@@ -119,7 +118,7 @@ subroutine test_mb01(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -155,7 +154,7 @@ subroutine test_mb02(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -191,7 +190,7 @@ subroutine test_mb03(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 
@@ -242,7 +241,7 @@ subroutine test_mb04(error)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
-      print '(es20.14e1)', surface
+      print "(es20.14e1)", surface
       return
    end if
 

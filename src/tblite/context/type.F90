@@ -23,11 +23,13 @@
 
 !> Calculation context for storing and communicating with the environment
 module tblite_context_type
-   use iso_fortran_env, only : output_unit
-   use mctc_env, only : wp, error_type
+   use, intrinsic :: iso_fortran_env, only : output_unit
+   use mctc_env, only : wp, error_type, fatal_error
    use tblite_context_logger, only : context_logger
    use tblite_context_solver, only : context_solver
    use tblite_context_terminal, only : context_terminal
+   use tblite_mpi_utils, only : get_mpi_comm_world, new_mpi_work_partition, mpi_sync_error
+   use tblite_partition, only : work_partition, new_work_partition, operator(==)
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -47,9 +49,22 @@ module tblite_context_type
       class(context_solver), allocatable :: solver
       !> Color support for output
       type(context_terminal) :: terminal = context_terminal()
+      !> Share of the interaction loops evaluated in this context
+      type(work_partition) :: partition
+      !> Communicator the partial results are reduced over, unallocated unless
+      !> the library is asked to distribute the calculation itself
+      integer, allocatable :: comm
    contains
       !> Write a message to the output
       procedure :: message
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
+      !> Distribute the interaction loops over an MPI communicator
+      procedure :: set_mpi
+      !> Reject a calculator that does not share the work partition of this context
+      procedure :: check_partition
+      !> Make context failures visible to every participating rank
+      procedure :: sync_error
       !> Push an error message to the context
       procedure :: set_error
       !> Pop an error message from the context
@@ -58,12 +73,101 @@ module tblite_context_type
       procedure :: failed
       !> Create electronic solver instance
       procedure :: new_solver
+      !> Query whether the selected solver should use local column storage
+      procedure :: distributed_columns
       !> Delete an electronic solver instance
       procedure :: delete_solver
    end type context_type
 
 
 contains
+
+!> Whether the selected solver should use column-distributed matrices.
+logical function distributed_columns(self, n) result(distribute)
+   use tblite_lapack_solver, only : lapack_solver
+   !> Calculation context; creates the default solver factory if needed
+   class(context_type), intent(inout) :: self
+   !> Global dimension of the eigenvalue problem
+   integer, intent(in) :: n
+   if (.not.allocated(self%solver)) self%solver = lapack_solver()
+   distribute = self%solver%distributed_columns(n, self%comm)
+end function distributed_columns
+
+
+!> Assign an externally managed share of the interaction loops to this context
+subroutine set_partition(self, part, nparts, error)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Zero-based index of this part
+   integer, intent(in) :: part
+   !> Total number of parts
+   integer, intent(in) :: nparts
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   call new_work_partition(error, self%partition, part, nparts)
+   if (allocated(error)) return
+
+   if (allocated(self%comm)) deallocate(self%comm)
+end subroutine set_partition
+
+
+!> Distribute the interaction loops over an MPI communicator and reduce the
+!> partial results of every rank inside the library
+subroutine set_mpi(self, error, comm)
+   !> Instance of the calculation context
+   class(context_type), intent(inout) :: self
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Communicator to distribute over, defaults to the global communicator
+   integer, intent(in), optional :: comm
+
+   integer :: local_comm
+   type(work_partition) :: partition
+
+   local_comm = get_mpi_comm_world()
+   if (present(comm)) local_comm = comm
+
+   call new_mpi_work_partition(error, partition, local_comm)
+   if (allocated(error)) return
+
+   self%partition = partition
+   self%comm = local_comm
+end subroutine set_mpi
+
+
+!> Reject a calculator that does not share the work partition of this context,
+!> partial results would otherwise be reduced twice or not at all
+subroutine check_partition(self, partition, error)
+   !> Instance of the calculation context
+   class(context_type), intent(in) :: self
+   !> Share of the interaction loops evaluated by the calculator
+   type(work_partition), intent(in) :: partition
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   if (partition%get_nparts() > 1 .and. .not.allocated(self%comm)) then
+      call fatal_error(error, "A partitioned SCF calculation requires an MPI context; "//&
+         & "call ctx%set_mpi or use the individual interaction containers")
+   else if (.not.(partition == self%partition)) then
+      call fatal_error(error, "Work partition of the calculator does not match the "//&
+         & "context, call calc%set_partition(ctx%partition) after ctx%set_partition "//&
+         & "or ctx%set_mpi")
+   end if
+   call mpi_sync_error(error, self%comm)
+end subroutine check_partition
+
+
+!> Synchronize failures without replacing the original local error message.
+subroutine sync_error(self)
+   class(context_type), intent(inout) :: self
+   type(error_type), allocatable :: error
+
+   if (.not.allocated(self%comm)) return
+   if (self%failed()) error = self%error_log(size(self%error_log))
+   call mpi_sync_error(error, self%comm)
+   if (allocated(error) .and. .not.self%failed()) call self%set_error(error)
+end subroutine sync_error
 
 
 !> Add an error message to the context
@@ -110,7 +214,7 @@ subroutine message(self, msg)
          call self%set_error(error)
       end if
    else
-      write(self%unit, '(a)') msg
+      write(self%unit, "(a)") msg
    end if
 end subroutine message
 
@@ -130,10 +234,12 @@ end function failed
 
 
 !> Create new electronic solver
-subroutine new_solver(self, overlap, nel, kt)
+subroutine new_solver(self, solver, overlap, nel, kt)
    use tblite_lapack_solver, only : lapack_solver
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
+   !> New electronic solver
+   class(solver_type), allocatable, intent(out) :: solver
    !> Overlap matrix
    real(wp), intent(in) :: overlap(:, :)
    !> Number of electrons per spin channel
@@ -145,33 +251,24 @@ subroutine new_solver(self, overlap, nel, kt)
       self%solver = lapack_solver()
    end if
 
-   call self%solver%new(overlap, nel, kt)
+   call self%solver%new(solver, overlap, nel, kt, self%comm)
 end subroutine new_solver
 
 
 !> Delete electronic solver instance
-subroutine delete_solver(self, force)
+subroutine delete_solver(self, solver)
    !> Instance of the calculation context
    class(context_type), intent(inout) :: self
-   !> Force deletion of the solver instance
-   logical, intent(in), optional :: force
-   logical :: reuse_prior
-
-   if (present(force)) then
-      reuse_prior = self%solver%reuse
-      self%solver%reuse = .false.
-   end if
+   !> Electronic solver instance
+   class(solver_type), allocatable, intent(inout) :: solver
 
    if (allocated(self%solver)) then
-      call self%solver%delete()
+      call self%solver%delete(solver)
    end if
-#if WITH_MKL 
+#if WITH_MKL
    call mkl_free_buffers()
 #endif
-
-   if (present(force)) then
-      self%solver%reuse = reuse_prior
-   end if
+   if (allocated(solver)) deallocate(solver)
 end subroutine delete_solver
 
 

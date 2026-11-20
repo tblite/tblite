@@ -25,8 +25,8 @@ module tblite_xtb_calculator
    use mctc_io, only : structure_type
    use mctc_ncoord, only : ncoord_type, new_ncoord, cn_count, get_cn_count_id
    use tblite_basis_ortho, only : orthogonalize
+   use tblite_basis_slater, only : slater_to_gauss, sto_expansion
    use tblite_basis_type, only : basis_type, new_basis, cgto_type
-   use tblite_basis_slater, only : slater_to_gauss
    use tblite_classical_halogen, only : halogen_correction, new_halogen_correction
    use tblite_container, only : container_type, container_list
    use tblite_coulomb_charge, only : coulomb_kernel, new_gamma_coulomb, gamma_coulomb, &
@@ -37,8 +37,10 @@ module tblite_xtb_calculator
    use tblite_disp, only : dispersion_type, d4_dispersion, new_d4_dispersion, &
       & new_d4s_dispersion, d3_dispersion, new_d3_dispersion
    use tblite_param, only : param_record
+   use tblite_partition, only : work_partition
    use tblite_repulsion, only : new_repulsion
    use tblite_repulsion_effective, only : tb_repulsion
+   use tblite_scf_mixer_input, only : mixer_input
    use tblite_xtb_coulomb, only : tb_coulomb
    use tblite_xtb_h0, only : tb_hamiltonian, new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
@@ -46,13 +48,7 @@ module tblite_xtb_calculator
    private
 
    public :: new_xtb_calculator
-   public :: param_h0spec
-
-   !> Default value for self-consistent iteration mixing
-   real(wp), parameter :: mixer_damping_default = 0.4_wp
-
-   !> Default maximum number of self-consistent iterations
-   integer, parameter :: max_iter_default = 250
+   public :: param_h0spec, xtb_config
 
    !> Extended tight-binding calculator
    type, public :: xtb_calculator
@@ -72,14 +68,18 @@ module tblite_xtb_calculator
       type(halogen_correction), allocatable :: halogen
       !> London-dispersion interaction
       class(dispersion_type), allocatable :: dispersion
-      !> Parameter for self-consistent iteration mixing
-      real(wp) :: mixer_damping = mixer_damping_default
-      !> Maximum number of self-consistent iteractions
-      integer :: max_iter = max_iter_default
+      !> Input for self-consistent iteration mixing
+      type(mixer_input) :: mixer_input
+      !> Maximum number of self-consistent iterations
+      integer :: max_iter = 250
       !> Store calculated integral intermediates
       logical :: save_integrals = .false.
+      !> Retain full coefficient and density matrices after post-processing
+      logical :: retain_matrices = .true.
       !> List of additional interaction containers
       type(container_list), allocatable :: interactions
+      !> Share of the interaction loops evaluated by this calculator
+      type(work_partition) :: partition
       !> string with method or "custom"
       character(len=:), allocatable :: method
    contains
@@ -87,6 +87,8 @@ module tblite_xtb_calculator
       procedure :: variable_info
       !> Information on calculator
       procedure :: info
+      !> Assign an externally managed share of the interaction loops
+      procedure :: set_partition
       !> Add an interaction container
       procedure :: push_back
       !> Remove an interaction container
@@ -118,11 +120,18 @@ module tblite_xtb_calculator
    end interface param_h0spec
 
 
+   !> Configuration for calculator
+   type :: xtb_config
+      !> Whether to use a smooth cutoff for the dispersion energy
+      real(wp) :: smooth_cutoff = 0.05_wp
+   end type xtb_config
+
+
 contains
 
 
 !> Create new xTB Hamiltonian calculator from parametrization data
-subroutine new_xtb_calculator(calc, mol, param, error)
+subroutine new_xtb_calculator(calc, mol, param, error, config)
    !> Instance of the xTB calculator
    type(xtb_calculator), intent(out) :: calc
    !> Molecular structure data
@@ -131,9 +140,17 @@ subroutine new_xtb_calculator(calc, mol, param, error)
    type(param_record), intent(in) :: param
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Configuration for the calculator
+   type(xtb_config), intent(in), optional :: config
 
    integer :: isp
    integer, allocatable :: irc(:)
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg = config
+   end if
 
    allocate(irc(mol%nid))
 
@@ -147,12 +164,13 @@ subroutine new_xtb_calculator(calc, mol, param, error)
    if (allocated(error)) return
 
    call add_basis(calc, mol, param, irc)
+   calc%max_iter = calc%mixer_input%max_iter
    call add_ncoord(calc, mol, param, error)
    if (allocated(error)) return
    call add_hamiltonian(calc, mol, param, irc)
    call add_repulsion(calc, mol, param, irc)
    call add_halogen(calc, mol, param, irc)
-   call add_dispersion(calc, mol, param, error)
+   call add_dispersion(calc, mol, param, error, cfg%smooth_cutoff)
    if (allocated(error)) return
    call add_coulomb(calc, mol, param, irc, error)
    if (allocated(error)) return
@@ -172,10 +190,15 @@ subroutine add_basis(calc, mol, param, irc)
    !> Record identifiers
    integer, intent(in) :: irc(:)
 
-   integer :: isp, ir, ish, stat, ng, il
+   integer :: isp, ir, ish, stat, ng, il, expansion
    integer, allocatable :: nsh_id(:)
    integer :: ang_idx(0:4), ortho(10)
    type(cgto_type), allocatable :: cgto(:, :)
+
+   expansion = sto_expansion%gfn2
+   if (allocated(param%hamiltonian%sto)) then
+      if (param%hamiltonian%sto == "gfn1") expansion = sto_expansion%gfn1
+   end if
 
    nsh_id = param%record(irc)%nsh
    allocate(cgto(maxval(nsh_id), mol%nid))
@@ -192,7 +215,7 @@ subroutine add_basis(calc, mol, param, irc)
             ang_idx(il) = ish
          end if
          call slater_to_gauss(ng, param%record(ir)%pqn(ish), il, &
-            & param%record(ir)%slater(ish), cgto(ish, isp), .true., stat)
+            & param%record(ir)%slater(ish), cgto(ish, isp), .true., stat, expansion)
       end do
 
       do ish = 1, nsh_id(isp)
@@ -240,7 +263,7 @@ subroutine add_hamiltonian(calc, mol, param, irc)
 end subroutine add_hamiltonian
 
 
-subroutine add_dispersion(calc, mol, param, error)
+subroutine add_dispersion(calc, mol, param, error, smooth_cutoff)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
@@ -249,6 +272,8 @@ subroutine add_dispersion(calc, mol, param, error)
    type(param_record), intent(in) :: param
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Whether to use a smooth cutoff for the dispersion energy
+   real(wp), intent(in) :: smooth_cutoff
 
    type(d4_dispersion), allocatable :: d4
    type(d3_dispersion), allocatable :: d3
@@ -258,16 +283,19 @@ subroutine add_dispersion(calc, mol, param, error)
       if (par%d3) then
          allocate(d3)
          call new_d3_dispersion(d3, mol, s6=par%s6, s8=par%s8, &
-            & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+            & a1=par%a1, a2=par%a2, s9=par%s9, error=error, &
+            & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
          call move_alloc(d3, calc%dispersion)
       else
          allocate(d4)
-         if (par%smooth) then 
+         if (par%smooth) then
             call new_d4s_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
-               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error, &
+               & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
          else
             call new_d4_dispersion(d4, mol, s6=par%s6, s8=par%s8, &
-               & a1=par%a1, a2=par%a2, s9=par%s9, error=error)
+               & a1=par%a1, a2=par%a2, s9=par%s9, error=error, &
+               & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
          end if
          call move_alloc(d4, calc%dispersion)
       end if
@@ -357,6 +385,8 @@ subroutine add_coulomb(calc, mol, param, irc, error)
             call new_gamma_coulomb(es2, mol, hardness, calc%bas%nsh_id)
             call move_alloc(es2, calc%coulomb%es2)
          end block
+      case default
+         continue
       end select
    end if
 
@@ -646,10 +676,28 @@ subroutine push_back(self, cont)
    !> Container to be added
    class(container_type), allocatable, intent(inout) :: cont
 
-   if (.not.allocated(self%interactions)) allocate(self%interactions)
+   if (.not.allocated(self%interactions)) then
+      allocate(self%interactions)
+      call self%interactions%set_partition(self%partition)
+   end if
 
    call self%interactions%push_back(cont)
 end subroutine push_back
+
+!> Assign an externally managed share of the interaction loops to every container
+subroutine set_partition(self, partition)
+   !> Instance of the tight-binding calculator
+   class(xtb_calculator), intent(inout) :: self
+   !> Share of the interaction loops evaluated by this calculator
+   type(work_partition), intent(in) :: partition
+
+   self%partition = partition
+   if (allocated(self%repulsion)) call self%repulsion%set_partition(partition)
+   if (allocated(self%coulomb)) call self%coulomb%set_partition(partition)
+   if (allocated(self%halogen)) call self%halogen%set_partition(partition)
+   if (allocated(self%dispersion)) call self%dispersion%set_partition(partition)
+   if (allocated(self%interactions)) call self%interactions%set_partition(partition)
+end subroutine set_partition
 
 
 !> Add a container
@@ -702,7 +750,7 @@ pure function info(self, verbosity, indent) result(str)
    !> Information on the container
    character(len=:), allocatable :: str
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    str = "xTB calculator"
 

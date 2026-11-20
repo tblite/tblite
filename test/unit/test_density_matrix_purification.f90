@@ -1,5 +1,6 @@
 module test_density_matrix_purification
    use mctc_env, only : wp
+   use tblite_features, only : tblite_has_gambits
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
    & test_failed
    use tblite_double_dictionary, only : double_dictionary_type
@@ -32,6 +33,10 @@ contains
 
       type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
+      if (.not.tblite_has_gambits) then
+         allocate(testsuite(0))
+         return
+      end if
       testsuite = [ &
          new_unittest("SP2 GFN2 energy", test_sp2_gfn2_energy), &
          new_unittest("SP2 GFN2 gradient", test_sp2_gfn2_egrad), &
@@ -73,6 +78,15 @@ contains
       call xtb_singlepoint(ctx1, mol, calc, wfn1, acc, dmp_energy, verbosity=0)
 
       call check(error, abs(gvd_energy - dmp_energy) < thr, "SP2 GFN2 energy")
+      if (allocated(error)) return
+      call check(error, maxval(abs(wfn%emo - wfn1%emo)) < thr, "SP2 final orbital energies")
+      if (allocated(error)) return
+      ! Occupied-orbital projectors are invariant to column signs and rotations.
+      call check(error, maxval(abs(wfn%density - wfn1%density)) < thr, "SP2 final density")
+      if (allocated(error)) return
+      wfn1%kt = 300.0_wp * 3.166808578545117e-06_wp
+      call xtb_singlepoint(ctx1, mol, calc, wfn1, acc, dmp_energy, verbosity=0)
+      call check(error, ctx1%failed(), "Finite-temperature purification must return an error")
 
    end subroutine
 

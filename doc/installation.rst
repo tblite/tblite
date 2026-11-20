@@ -69,7 +69,7 @@ This library depends on several Fortran modules to provide the desired functiona
 .. _mstore: https://github.com/grimme-lab/mstore
 .. _toml-f: https://github.com/toml-f/toml-f
 
-Alternative solvers to the included LAPACK-based implementations have been included with
+Optional density matrix purification uses the following libraries
 
 - `gambits`_: (Gaming)GPU-Accelerated Matrix-Based ITerative Solvers
 - `lahva`_: The linear algebra backend for GAMBITS that provides GPU-accelerated linear algebra routines
@@ -106,14 +106,16 @@ Optional dependencies are
 
 - `asciidoctor`_, to build the manual pages
 - A C compiler to test the C API and compile the Python extension module
+- A C++ compiler to build ddX solvation support
 - Python 3.6 or newer with the `CFFI`_ package installed to build the Python API
 
 Optional dependencies for GPU support are
 
-- NVIDIA CUDA toolkit, with nvcc compiler
+- NVIDIA CUDA toolkit headers and runtime library
 - cuBLAS and cuSOLVER libraries
 
-Meson will attempt to install the GPU-accelerated solvers if a compatible CUDA toolkit is found, without further intervantion.
+Enable the NVIDIA generalized eigensolver with ``-Dgpu=enabled``.
+Density matrix purification can be enabled independently with ``-Dgambits=true``.
 
 To setup a new build run
 
@@ -121,7 +123,7 @@ To setup a new build run
 
    meson setup _build --prefix=$HOME/.local
 
-The Fortran, C and CXX compiler can be selected with the ``FC``, ``CC`` and ``CXX`` environment variable, respectively.
+The Fortran, C, and C++ compilers can be selected with the ``FC``, ``CC``, and ``CXX`` environment variables, respectively.
 The installation location is selected using the ``--prefix`` option.
 The required Fortran modules will be fetched automatically from the upstream repositories and checked out in the *subprojects* directory.
 
@@ -131,15 +133,8 @@ The required Fortran modules will be fetched automatically from the upstream rep
 
 .. note::
 
-   For GPU builds:
-   - make sure that the ``nvcc`` compiler is available in your ``PATH``.
-   - set the appropriate ``CUDA_ROOT`` environment variable pointing to the base installation directory of the CUDA toolkit. 
-      For example, for CUDA 11.8 installed in ``/usr/local/cuda-11.8`` set ``export CUDA_ROOT=/usr/local/cuda-11.8``.
-   - especially for the NVHPC SDK, the location of the necessary libraries might not be found automatically.
-     In this case set the ``LIBRARY_PATH`` to include the directory containing the ``libcublas.so``, ``libcusolver.so``, and ``libcudart.so`` libraries.
-   - by default, the build will be performed for the CUDA architecture of the detected GPU on the system, where the compilation is attempted.
-     To target a specific architecture set the ``-Dcuda_arch=<arch>`` option, where ``<arch>`` is the compute capability of your GPU, *e.g.* ``['75', '89']`` for compute capability 7.5 and 8.9.
-     Several architectures can be specified as a comma-separated list. This option can also be set in the ``meson_options.txt`` file for convenience.
+   Set ``CUDA_PATH`` to the toolkit directory if Meson cannot locate the CUDA libraries.
+   For GPU purification, build GAMBITS and LAHVA with CUDA support.
 
 .. tip::
 
@@ -186,9 +181,7 @@ To setup a build the following software is required
 - `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
 
-Optional dependencies for GPU support are
-- NVIDIA CUDA toolkit, with nvcc compiler
-- cuBLAS and cuSOLVER libraries
+The optional GPU eigensolver uses the NVIDIA CUDA Toolkit, including cuBLAS and cuSOLVER.
 
 Configure a new build with
 
@@ -202,12 +195,9 @@ CMake will automatically fetch the required Fortran modules, you can provide spe
 
 .. note::
 
-   For GPU builds:
-   - set the CMAKE variable ``GPU`` to ``ON``.
-   - consider setting the appropriate architecture flags for your GPU with the ``CMAKE_CUDA_ARCHITECTURES`` CMake variable.
-      By default, the build will be performed for the CUDA architecture of the detected GPU, on the system that you are building ``tblite``.
-   An example would be
-      ``cmake -B _build -G Ninja -DGPU=ON -DCMAKE_CUDA_ARCHITECTURES="75;89"``
+   Enable the cuSOLVER eigensolver with ``-DGPU=ON`` (CMake 3.17 or newer).
+   For density matrix purification add ``-DTBLITE_WITH_GAMBITS=ON``.
+   Set ``CMAKE_PREFIX_PATH`` to the prefix containing GAMBITS and LAHVA when using installed packages.
 
 
 To run a build use

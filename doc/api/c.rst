@@ -122,3 +122,23 @@ Table data structure
    #include "tblite/table.h"
 
 .. doxygenfile:: tblite/table.h
+
+Work partitioning
+-----------------
+
+The work partition described in :ref:`work-partition` is set on the context handle and applied to the calculator when running a calculation.
+
+.. code:: c
+
+   tblite_set_context_partition(ctx, part, nparts);
+
+Setting an external partition clears any previously configured MPI communicator.
+For a full self-consistent calculation with more than one part, configure an MPI communicator as below; *tblite* must reduce the potential in every SCF iteration, see :ref:`mpi`.
+
+.. code:: c
+
+   int comm = MPI_Comm_c2f(MPI_COMM_WORLD);
+   tblite_set_context_mpi(ctx, &comm);
+
+Passing ``NULL`` instead of a communicator handle selects ``MPI_COMM_WORLD``, which allows using the entry point without including the MPI headers.
+Both entry points are always available, ``tblite_set_context_mpi`` reports an error if the library was built without MPI support, query ``tblite_get_feature("mpi")`` to check beforehand.

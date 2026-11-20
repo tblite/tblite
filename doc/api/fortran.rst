@@ -131,6 +131,150 @@ To cutomize the output the ``context_logger`` abstract base class is available.
 It must implement a type bound ``message`` procedure, which is used by the context to create output.
 This type can be used to create callbacks for customizing or redirecting the output of the library.
 
+The context also carries the work partition of the calculation, see :ref:`work-partition`.
+
+
+.. _work-partition:
+
+Work partitioning
+-----------------
+
+The ``tblite_partition`` module provides the ``work_partition`` type, which assigns a disjoint share of the interaction loops to each part of a distributed calculation.
+Parts are zero based, every unit of work belongs to exactly one part, and summing the contributions of all parts reproduces the complete result.
+The partition itself performs no communication. Individual containers return partial contributions; the full SCF driver uses the MPI context described below to reduce them at the required stages.
+
+A partition is created with ``new_work_partition``, out of range parts are reported in the error handler.
+A default-initialized partition and ``serial_work_partition`` own the complete work and are equivalent to not partitioning at all.
+The components are private; use ``get_part()`` and ``get_nparts()`` to query the part index and count.
+Construction also prepares the D3 and D4 partitions, which remain consistent with the local ownership rules when the partition is copied or assigned to a container.
+
+.. code-block:: fortran
+
+   use mctc_env, only : error_type
+   use tblite_partition, only : work_partition, new_work_partition
+   implicit none
+   type(error_type), allocatable :: error
+   type(work_partition) :: partition
+
+   ! every rank holds the complete structure and evaluates its own share
+   call new_work_partition(error, partition, rank, nranks)
+
+The partition is applied to a calculator with the type bound ``set_partition`` procedure, which propagates it to every interaction container, including containers added later with ``push_back``.
+Alternatively the partition can be stored in the calculation context with ``ctx%set_partition(part, nparts, error)`` and handed to the calculator from there.
+Setting an external partition clears any previously configured MPI communicator.
+For a full SCF calculation, use ``set_mpi`` so that the potential and energy contributions are reduced during each iteration:
+
+.. code-block:: fortran
+
+   ! MPI must already be initialized; set_mpi also derives the work partition
+   call ctx%set_mpi(error)
+   if (allocated(error)) return
+   call calc%set_partition(ctx%partition)
+   call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
+
+.. note::
+
+   Structure dependent quantities such as coordination numbers, Born radii and dispersion reference weights are evaluated for the full system on every part.
+   Only the interaction loops are partitioned, so the speedup is bound by those loops.
+
+The diatomic blocks of the overlap, multipole and core Hamiltonian integrals and of the Hamiltonian gradient are partitioned as well, following the entries of the neighbour list rather than the atom pairs, so the share of each part is even for sparse and periodic systems.
+The Born interaction matrix of the ALPB/GBSA model and the solvent accessible surface of the CDS term are partitioned over atom pairs and atoms, respectively.
+
+The D3 and D4 dispersion corrections pass the same part index and part count to *s-dftd3* and *dftd4* for their two-body and ATM interaction loops.
+The self-consistent D4/D4S dispersion matrix stores both symmetric blocks of each owned atom pair and leaves the other blocks zero.
+Its energy and charge-dependent potential are therefore partial contributions as well; the matrix itself is not reduced.
+The complete coordination numbers and the C6 coefficients needed by ATM remain available on every part.
+Neither dispersion library needs to be built with MPI support: *tblite* owns the reductions.
+
+Contributions which are not expressible as an interaction loop are carried in full by the first part.
+This currently applies to the ddX solvation models, to the analytical linearized Poisson-Boltzmann gradient, whose inertia tensor couples all atoms, and to the external electric field.
+The Born radii themselves enter non-linearly and are evaluated for the full system on every part.
+
+Because the potential shifts of the self-consistent containers are partitioned as well, a partitioned calculation is only self-consistent if the potential is reduced in every iteration.
+Either let *tblite* do this over MPI, see :ref:`mpi`, or use the partition on the individual containers and building blocks rather than on the full self-consistent driver.
+
+
+.. _mpi:
+
+Distributing over MPI
+---------------------
+
+MPI support is opt-in and has to be requested at build time with ``-Dmpi=true`` (meson) or ``-DTBLITE_WITH_MPI=ON`` (CMake).
+Whether a build supports it can be queried at compile time with the ``tblite_has_mpi`` parameter and at runtime with ``get_tblite_feature("mpi")``, both from the ``tblite_features`` module.
+Without MPI support every entry point of the ``tblite_mpi_utils`` module reports an error instead of performing communication.
+
+.. code-block:: fortran
+
+   use tblite_features, only : tblite_has_mpi, get_tblite_feature
+
+   if (.not.get_tblite_feature("mpi")) error stop "tblite was built without MPI support"
+
+With MPI enabled the calculation context can distribute the interaction loops over a communicator and reduce the partial results inside the library.
+``set_mpi`` derives the work partition from the rank and size of the communicator, which defaults to ``MPI_COMM_WORLD``.
+The partition still has to be handed to the calculator, a calculator that does not share the partition of the context is rejected rather than silently double counting or dropping contributions.
+
+.. code-block:: fortran
+
+   call mpi_init(stat)
+
+   call ctx%set_mpi(error)                ! or ctx%set_mpi(error, comm)
+   call calc%set_partition(ctx%partition)
+
+   ! energy, gradient and virial are already reduced, every rank holds the total
+   call xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma)
+
+Internally *tblite* uses the ``mpi_f08`` interfaces, but communicators cross the library boundary as plain integer handles so that no MPI types leak into the calculation context or the calculator.
+Users of ``mpi_f08`` pass ``comm%MPI_VAL``, users of the older ``mpi`` module pass the communicator directly.
+
+The library reduces the density dependent potential in every self-consistent iteration, so all ranks follow the same SCF trajectory and end up with the same wavefunction.
+The integral and core Hamiltonian matrices are reduced once after they are built, the diagonalization is distributed if ScaLAPACK is available and performed redundantly on every rank otherwise, see :ref:`scalapack`.
+A failure on any rank is made visible to all of them, a rank leaving a collective on its own would deadlock the remaining ones.
+``ceh_singlepoint`` supports the same distribution.
+*tblite* neither initializes nor finalizes MPI, this remains the responsibility of the caller.
+
+The ``tblite`` command line driver does this for you.
+An MPI enabled binary always enters the MPI environment and derives its work partition from ``MPI_COMM_WORLD``, so running it under ``mpiexec`` distributes the calculation without any further option.
+A single rank owns the complete work, which makes a normal invocation behave exactly as before.
+Only the first rank reports and writes result files, every rank holds the same reduced result.
+
+.. code-block:: shell
+
+   mpiexec -n 4 tblite run --method gfn2 --grad struc.xyz
+
+.. note::
+
+   The xTB-ML features are rejected for a partitioned calculation.
+   They are evaluated from the partitioned interaction caches and are normalized by the total energy, so the partial results of the parts cannot be summed afterwards.
+   Bond orders and multipole moments are computed from the reduced wavefunction and remain available.
+
+.. note::
+
+   Reducing the integral matrices costs :math:`\mathcal{O}(N_\text{ao}^2)` communication per geometry and every rank still holds the full matrices, so memory does not scale with the number of ranks.
+
+
+.. _scalapack:
+
+Distributing the diagonalization
+--------------------------------
+
+The diagonalization scales as :math:`\mathcal{O}(N_\text{ao}^3)` and dominates a distributed calculation once the interaction loops are shared out.
+Building with ``-Dscalapack=true`` (meson) or ``-DTBLITE_WITH_SCALAPACK=ON`` (CMake) distributes it over the same communicator, the option requires MPI support.
+Availability is reported by the ``tblite_has_scalapack`` parameter and by ``get_tblite_feature("scalapack")``.
+
+Nothing has to be requested at runtime, a context that distributes over a communicator picks the ScaLAPACK solver automatically.
+The ranks are arranged in the squarest possible process grid and the matrices are held in a block-cyclic layout.
+Because the Hamiltonian and overlap are replicated already, filling the local blocks costs no communication and only the eigenvectors are collected again.
+A single rank or a matrix too small to fill one block per process row falls back to the replicated solver, where the distribution would only add overhead.
+
+.. note::
+
+   The eigenvectors are gathered with a reduction over the full matrix, so the memory still holds the complete matrices on every rank.
+   Only the cost of the diagonalization is distributed, not its storage.
+
+.. note::
+
+   The process grid is derived from the global communicator, a context distributing over a subgroup is rejected by the ScaLAPACK solver.
+
 
 High-level interface
 --------------------

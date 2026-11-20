@@ -18,12 +18,14 @@ from logging import Logger
 from tempfile import NamedTemporaryFile
 
 import numpy as np
+import pytest
 from pytest import approx, raises
-
 from tblite.exceptions import TBLiteRuntimeError, TBLiteValueError
-from tblite.interface import Calculator, Result, symbols_to_numbers
+from tblite.interface import Calculator, Result, symbols_to_numbers, library
 
 THR = 1.0e-6
+
+has_ddx = library.get_feature("ddx")
 
 
 def get_ala(conf):
@@ -118,9 +120,7 @@ def get_ala(conf):
 
 def get_crcp2():
     """Get structure for CrCP2"""
-    numbers = np.array(
-        [24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1]
-    )
+    numbers = np.array([24, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 1, 6, 1, 6, 1, 1, 1])
     positions = np.array(
         [
             [+0.00000000000000, +0.00000000000000, -0.06044684528305],
@@ -409,11 +409,11 @@ def test_spgfn1():
     calc.add("spin-polarization")
     ls_energy_sp = calc.singlepoint().get("energy")
     assert ls_energy_sp == approx(ls_energy)
-    assert ls_energy_sp == approx(-28.349613833732931)
+    assert ls_energy_sp == approx(-28.349611230284626)
 
     calc.update(uhf=2)
     hs_energy_sp = calc.singlepoint().get("energy")
-    assert hs_energy_sp == approx(-28.37648585236444)
+    assert hs_energy_sp == approx(-28.376483260348195)
 
 
 def test_spgfn1_densities():
@@ -484,6 +484,99 @@ def test_spgfn1_orbital_occupations_and_coefficients():
     assert pb_reconstruct == approx(pb, abs=THR)
 
 
+def test_table_to_dict_without_toml_dependency(monkeypatch):
+    """Test that table conversion works without requiring TOML parsing support."""
+    monkeypatch.setattr(library, "tomllib", None, raising=False)
+
+    table = library.dict_to_table(
+        {"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}}
+    )
+    data = library.table_to_dict(table)
+
+    assert data == {"alpha": 1.0, "beta": [1, 2, 3], "gamma": {"name": "x"}}
+
+
+def test_param_roundtrip_via_python_mapping():
+    """Test that parametrization data can be round-tripped through Python dict/list mappings."""
+    param = library.new_param()
+    library.export_gfn2_param(param)
+
+    table = library.new_table()
+    library.dump_param(param, table)
+    data = library.table_to_dict(table)
+
+    assert isinstance(data, dict)
+    assert len(data) > 0
+
+    table2 = library.dict_to_table(data)
+    param2 = library.new_param()
+    library.load_param(param2, table2)
+
+    table3 = library.new_table()
+    library.dump_param(param2, table3)
+    data2 = library.table_to_dict(table3)
+
+    assert data2 == data
+
+
+def test_nested_python_mapping_roundtrip_via_table_api():
+    """Test that nested dict/list structures round-trip through the table API."""
+    data = {
+        "alpha": [1, 2, 3],
+        "beta": {
+            "gamma": [True, False],
+            "delta": "value",
+            "epsilon": np.array([1.5, 2.5, 3.5]),
+        },
+        "zeta": np.array(["x", "y"], dtype=str),
+        "eta": np.array([True, False, True]),
+    }
+
+    table = library.dict_to_table(data)
+    data2 = library.table_to_dict(table)
+
+    assert data2 == {
+        "alpha": [1, 2, 3],
+        "beta": {
+            "gamma": [True, False],
+            "delta": "value",
+            "epsilon": [1.5, 2.5, 3.5],
+        },
+        "zeta": ["x", "y"],
+        "eta": [True, False, True],
+    }
+
+
+def test_calculator_accepts_param_dict():
+    """Test that a Calculator can be constructed directly from a parametrization dict."""
+    param = library.new_param()
+    library.export_gfn2_param(param)
+
+    table = library.new_table()
+    library.dump_param(param, table)
+    params = library.table_to_dict(table)
+
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]])
+
+    calc = Calculator(params, numbers, positions)
+    res = calc.singlepoint()
+
+    assert res.get("energy") == approx(-0.7589101818032, abs=1.0e-6)
+
+
+def test_dict_to_table_rejects_unsupported_sequences():
+    """Test that unsupported sequence shapes raise a clear error."""
+    with raises(TBLiteValueError, match="Nested sequences are not supported"):
+        library.dict_to_table({"bad": [[1, 2], [3, 4]]})
+
+    with raises(TBLiteValueError, match="Empty sequences are not supported"):
+        library.dict_to_table({"empty": []})
+
+    with raises(TBLiteValueError, match="Mixed or unsupported sequence types"):
+        library.dict_to_table({"mixed": [1, True]})
+
+
 def test_post_processing_api():
     """Test post-processing API"""
     numbers, positions = get_crcp2()
@@ -519,6 +612,67 @@ def test_post_processing_api():
     wbo_sp = calc.singlepoint().get("bond-orders")
     assert wbo_sp.ndim == 3
 
+
+def test_localization_api():
+    """Test orbital localization post-processing API"""
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    res = calc.singlepoint()
+    with raises(
+        TBLiteRuntimeError,
+        match="Could not find localized orbital coefficients",
+    ):
+        res.get("localized-orbitals")
+    with raises(
+        TBLiteRuntimeError,
+        match="Could not find localized orbital centers",
+    ):
+        res.get("localized-orbital-centers")
+
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    calc.add("orbital-localization")
+    res = calc.singlepoint()
+
+    cmo_loc = res.get("localized-orbitals")
+    cmo_can = res.get("orbital-coefficients")
+    centers = res.get("localized-orbital-centers")
+    overlap = res.get("overlap-matrix")
+    occ = res.get("orbital-occupations")
+    nocc = int(np.count_nonzero(occ))
+
+    norb = cmo_can.shape[0]
+
+    assert cmo_loc.shape == (norb, norb)
+    assert centers.shape == (norb, 3)
+
+    # Virtual orbitals must remain identical to the canonical coefficients
+    assert np.allclose(cmo_loc[:, nocc:], cmo_can[:, nocc:])
+    # Localized occupied orbitals must remain orthonormal with respect to overlap
+    ortho = cmo_loc[:, :nocc].T @ overlap @ cmo_loc[:, :nocc]
+    assert ortho == approx(np.eye(nocc), abs=1.0e-8)
+    # Orbital centers beyond the occupied count must be zero
+    assert np.allclose(centers[nocc:, :], 0.0)
+
+    # The method can also be selected explicitly.
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("save-integrals", True)
+    calc.add("orbital-localization", "foster-boys")
+    res_explicit = calc.singlepoint()
+    cmo_explicit = res_explicit.get("localized-orbitals")
+
+    # Localized orbitals are only defined up to permutation and phase,
+    # so we check the overlap of the two set of localized orbitals
+    loc_overlap = cmo_loc[:, :nocc].T @ overlap @ cmo_explicit[:, :nocc]
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=0), 1.0)
+    assert np.allclose(np.max(np.abs(loc_overlap), axis=1), 1.0)
+
+    with raises(TBLiteValueError, match="Unknown orbital localization method"):
+        calc = Calculator("GFN1-xTB", numbers, positions)
+        calc.add("orbital-localization", "not-a-method")
+
+
 def test_xtbml_api():
     numbers, positions = get_crcp2()
     calc = Calculator("GFN1-xTB", numbers, positions)
@@ -531,81 +685,70 @@ def test_xtbml_api():
 
     dict_xtbml = res.dict()
     dict_xtbml = dict_xtbml.get("post-processing-dict")
-    assert len(dict_xtbml.keys()) == 38
-    
-    toml_inp = ["[post-processing.xtbml] \n",
-                "geometry = false \n",
-                "density = true \n",
-                "orbital = true \n",
-                "energy = false \n", 
-                "convolution = true\n",
-                "a = [1.0, 1.2]\n",
-                "tensorial-output = true"]
-    
+    assert len(dict_xtbml.keys()) == 39
+
+    toml_inp = [
+        "[post-processing.xtbml] \n",
+        "geometry = false \n",
+        "density = true \n",
+        "orbital = true \n",
+        "energy = false \n",
+        "convolution = true\n",
+        "a = [1.0, 1.2]\n",
+        "tensorial-output = true",
+    ]
+
     with open("xtbml.toml", "w") as f:
         f.writelines(toml_inp)
-        
+
     calc = Calculator("GFN1-xTB", numbers, positions)
     calc.add("xtbml.toml")
-    
+
     res = calc.singlepoint()
     dict_ = res.get("post-processing-dict")
-    
+
     assert dict_.get("CN_A") is None
-    
-    assert len(dict_.keys()) == 129
 
-def test_context_solver_api():
-    """Test context solver API"""
-    numbers, positions = get_crcp2()
-    calc = Calculator("GFN1-xTB", numbers, positions)
-    calc.set("temperature", 0.0)
-    calc.set("solver", "gvd")
-    calc.set("accuracy", 1.0)
-    
-    res = calc.singlepoint()
+    assert len(dict_.keys()) == 130
 
-    energy_gvd = res.get("energy")
-    print(energy_gvd)
 
-    calc = Calculator("GFN1-xTB", numbers, positions)
-    calc.set("solver", "sp2")
-    calc.set("accuracy", 1.0)
-    calc.set("temperature", 0.0)
-    res = calc.singlepoint()
-    energy_sp2 = res.get("energy")
-
-    assert energy_gvd == approx(energy_sp2, abs=THR*10)
-
-    calc = Calculator("GFN1-xTB", numbers, positions)
-    calc.set("solver", "sp2-accel")
-    calc.set("accuracy", 1.0)
-    calc.set("temperature", 0.0)
-    res = calc.singlepoint()
-    energy_sp2 = res.get("energy")
-
-    assert energy_gvd == approx(energy_sp2, abs=THR*10)
-
-    calc = Calculator("GFN1-xTB", numbers, positions)
-    calc.set("solver", "trs4")
-    calc.set("accuracy", 1.0)
-    calc.set("temperature", 0.0)
-    res = calc.singlepoint()
-    energy_sp2 = res.get("energy")
-
-    assert energy_gvd == approx(energy_sp2, abs=THR*10)
-    
-
-def test_solvation_gfn2_cpcm():
-    """Test CPCM solvation with GFN2-xTB"""
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
+def test_solvation_gfn2_ddcosmo():
+    """Test (ddX) COSMO solvation with GFN2-xTB"""
     numbers, positions = get_crcp2()
 
     calc = Calculator("GFN2-xTB", numbers, positions)
     calc.set("accuracy", 1.0)
-    calc.add("cpcm-solvation", 7.0)
+    calc.add("ddX-solvation", 7.0, "cosmo")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43287176929, abs=THR)
+    assert energy == approx(-28.438165009325598, abs=THR)
+
+
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
+def test_solvation_gfn2_ddcpcm():
+    """Test (ddX) CPCM solvation with GFN2-xTB"""
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("ddX-solvation", 7.0, "cpcm")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.438296467832746, abs=THR)
+
+
+@pytest.mark.skipif(not has_ddx, reason="ddX solvation not available")
+def test_solvation_gfn2_ddpcm():
+    """Test (ddX) PCM solvation with GFN2-xTB"""
+    numbers, positions = get_crcp2()
+
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    calc.set("accuracy", 1.0)
+    calc.add("ddX-solvation", 7.0, "pcm")
+
+    energy = calc.singlepoint().get("energy")
+    assert energy == approx(-28.43783447948258, abs=THR)
 
 
 def test_solvation_gfn2_alpb():
@@ -653,7 +796,7 @@ def test_solvation_gfn1_gbe():
     calc.add("gbe-solvation", 7.0, "p16")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.35002525960, abs=THR)
+    assert energy == approx(-28.3500226602721, abs=THR)
 
 
 def test_solvation_gfn2_gbsa():
@@ -677,7 +820,8 @@ def test_solvation_gfn2_gb():
     calc.add("gb-solvation", 7.0, "still")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.43676829542, abs=THR) 
+    assert energy == approx(-28.43676829542, abs=THR)
+
 
 def test_solvation_gfn1_alpb():
     """Test ALPB solvation with GFN1-xTB"""
@@ -688,7 +832,7 @@ def test_solvation_gfn1_alpb():
     calc.add("alpb-solvation", "ethanol", "reference")
 
     energy = calc.singlepoint().get("energy")
-    assert energy == approx(-28.3545598426876, abs=THR)
+    assert energy == approx(-28.3545572567704, abs=THR)
 
 
 def test_result_getter():
@@ -707,7 +851,6 @@ def test_result_getter():
 
     with raises(ValueError, match="Attribute 'unknown' is not available"):
         res.get("unknown")
-    
 
 
 def test_result_setter():
@@ -746,9 +889,7 @@ def test_gfn1_logging():
 
     logger = Logger("test")
 
-    calc = Calculator(
-        "GFN1-xTB", numbers, positions, color=False, logger=logger.info
-    )
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=logger.info)
     res = calc.singlepoint()
 
     assert res.get("energy") == approx(-34.980794815805446, abs=THR)
@@ -756,9 +897,7 @@ def test_gfn1_logging():
     def broken_logger(message: str) -> None:
         raise NotImplementedError("This logger is broken")
 
-    calc = Calculator(
-        "GFN1-xTB", numbers, positions, color=False, logger=broken_logger
-    )
+    calc = Calculator("GFN1-xTB", numbers, positions, color=False, logger=broken_logger)
     with raises(TBLiteRuntimeError):
         calc.singlepoint()
 
@@ -804,13 +943,17 @@ def test_numbers():
 def test_spin_polarized_restart():
     # Use a small open-shell system (e.g., NO) in Bohr
     numbers = np.array([7, 8], dtype=np.int32)
-    positions = np.array([
-        [0.0, 0.0, -1.1],
-        [0.0, 0.0,  1.1],
-    ], dtype=float)
+    positions = np.array(
+        [
+            [0.0, 0.0, -1.1],
+            [0.0, 0.0, 1.1],
+        ],
+        dtype=float,
+    )
 
     # Capture output to count iterations
     log = []
+
     def logger(msg):
         log.append(msg)
 
@@ -818,11 +961,11 @@ def test_spin_polarized_restart():
     calc = Calculator("GFN2-xTB", numbers, positions, uhf=1, logger=logger)
     calc.add("spin-polarization", 1.0)
     calc.set("verbosity", 1)
-    
+
     # Full run
     res_full = calc.singlepoint()
     energy_full = res_full.get("energy")
-    
+
     # Clear log for restart run
     log.clear()
 
@@ -830,17 +973,28 @@ def test_spin_polarized_restart():
     res_restart_wfn = Result(res_full)
     res_restart_wfn = calc.singlepoint(res_restart_wfn)
     energy_restart_wfn = res_restart_wfn.get("energy")
-    
+
     # Count iterations (lines starting with an integer index)
     iterations = 0
     for line in log:
         parts = line.strip().split()
         if len(parts) > 0 and parts[0].isdigit():
             iterations += 1
-            
+
     # Check energy consistency
     assert abs(energy_full - energy_restart_wfn) < 1e-8
-    
+
     # Verify iteration count (should be very low, e.g., <= 3)
     # Ideally 1 or 2 if restart is perfect
     assert iterations <= 3, f"Restart took {iterations} iterations, expected <= 3"
+
+@pytest.mark.parametrize("solver", ["sp2", "sp2-accel", "trs4"])
+@pytest.mark.skipif(not library.get_feature("gambits"), reason="requires GAMBITS")
+def test_context_solver_api(solver):
+    numbers, positions = get_crcp2()
+    calc = Calculator("GFN1-xTB", numbers, positions)
+    calc.set("temperature", 0.0)
+    calc.set("solver", "gvd")
+    reference = calc.singlepoint().get("energy")
+    calc.set("solver", solver)
+    assert calc.singlepoint().get("energy") == approx(reference, abs=THR * 10)

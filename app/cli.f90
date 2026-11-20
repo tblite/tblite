@@ -20,21 +20,23 @@ module tblite_cli
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : filetype, get_filetype, to_symbol
    use tblite_argument, only : argument_list, len
+   use tblite_cli_features, only : get_tblite_feature
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff, help_text_guess
-   use tblite_features, only : get_tblite_feature
    use tblite_lapack_solver, only : lapack_algorithm
+   use tblite_scf_mixer_input, only : mixer_input, anneal_input, scf_version
+   use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
+      & ddx_solvation_model, get_solvent_data, shift_input, solution_state, &
+      & solvation_input, solvent_data
    use tblite_purification_solver_context, only : dmp_input, purification_type, &
       & purification_runmode, purification_precision
-   use tblite_solvation, only : solvation_input, cpcm_input, alpb_input, &
-      & cds_input, shift_input, solvent_data, get_solvent_data, solution_state, born_kernel
    use tblite_version, only : get_tblite_version
+   use tblite_xtb_calculator, only : xtb_config
    implicit none
    private
 
    public :: get_arguments, driver_config, run_config, param_config, fit_config, &
       & tagdiff_config, guess_config
-
 
    type, abstract :: driver_config
       logical :: color = .false.
@@ -70,6 +72,16 @@ module tblite_cli
       logical :: json = .false.
       !> File for output of JSON dump
       character(len=:), allocatable :: json_output
+      !> Create TREXIO output
+      logical :: trexio = .false.
+      !> File for TREXIO output
+      character(len=:), allocatable :: trexio_output
+      !> Create Molden file
+      logical :: molden = .false.
+      !> File for output of Molden file
+      character(len=:), allocatable :: molden_output
+      !> Compute localized molecular orbitals during the post processing
+      logical :: lmo = .false.
       !> Input for solvation model
       type(solvation_input), allocatable :: solvation
       !> Input for post processing container
@@ -82,6 +94,8 @@ module tblite_cli
       integer, allocatable :: max_iter
       !> Electronic temperature
       real(wp) :: etemp = 300.0_wp
+      !> Mixer configuration
+      type(mixer_input) :: mixer = mixer_input()
       !> Electronic temperature for the guess (currently only CEH)
       real(wp) :: etemp_guess = 4000.0_wp
       !> Electric field
@@ -90,6 +104,8 @@ module tblite_cli
       logical :: spin_polarized = .false.
       !> Algorithm for electronic solver
       integer :: solver = lapack_algorithm%gvd
+      !> Configuration for xtb calculator
+      type(xtb_config) :: cfg = xtb_config()
       !> Purifcation solver
       type(dmp_input), allocatable :: dmp_input
    end type run_config
@@ -146,6 +162,8 @@ module tblite_cli
       logical :: fit = .false.
    end type tagdiff_config
 
+   real(wp), parameter :: kt = 3.166808578545117e-06_wp
+
 contains
 
 subroutine get_arguments(config, error)
@@ -172,7 +190,7 @@ subroutine get_arguments(config, error)
       call list%get(iarg, arg)
       select case(arg)
       case("--help")
-         write(output_unit, '(a)') help_text
+         write(output_unit, "(a)") help_text
          stop
       case("--version")
          call version(output_unit)
@@ -218,7 +236,7 @@ subroutine get_arguments(config, error)
    if (allocated(error)) return
 
    if (.not.allocated(config)) then
-      write(output_unit, '(a)') help_text
+      write(output_unit, "(a)") help_text
       error stop
    end if
 
@@ -255,14 +273,21 @@ subroutine get_run_arguments(config, list, start, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   integer :: iarg, narg
+   integer :: iarg, narg, mixer_sep, comma_count, ich, ieq
    logical :: getopts
-   character(len=:), allocatable :: arg
+   logical :: dmp_solver, dmp_options, explicit_etemp
+   type(dmp_input) :: dmp
+   character(len=:), allocatable :: arg, sec, mixer_name
+   real(wp) :: anneal_input(3)
    logical :: solvent_not_found, parametrized_solvation
    logical, allocatable :: alpb
+   integer :: ddx_model
    integer, allocatable :: kernel, sol_state
    type(solvent_data), allocatable :: solvent
 
+   dmp_solver = .false.
+   dmp_options = .false.
+   explicit_etemp = .false.
    iarg = start
    getopts = .true.
    narg = len(list)
@@ -282,7 +307,7 @@ subroutine get_run_arguments(config, list, start, error)
          getopts = .false.
 
       case("--help")
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, "(a)") help_text_run
          stop
 
       case("--version")
@@ -347,6 +372,33 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, config%guess)
 
+      case("--config")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for config")
+            exit
+         end if
+
+         block
+            integer :: ieq
+
+            ieq = index(arg, "=")
+            if (ieq == 0) then
+               call fatal_error(error, "Invalid format for config argument, expected key=value")
+               exit
+            end if
+            sec = arg(ieq+1:)
+
+            select case(arg(1:ieq-1))
+            case("smooth_cutoff")
+               call get_argument_as_real(sec, config%cfg%smooth_cutoff, error)
+            case default
+               call fatal_error(error, "Unknown configuration key '"//arg(1:ieq-1)//"'")
+               exit
+            end select
+         end block
+
       case("--restart")
          iarg = iarg + 1
          config%restart = .true.
@@ -402,10 +454,21 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end select
 
-      case("--cpcm")
+      case("--cosmo", "--cpcm", "--pcm")
+         if (.not.get_tblite_feature("ddx")) then
+            call fatal_error(error, "ddX solvation support is not available in this build")
+            exit
+         end if
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
+         end if
+         if (arg == "--cosmo") then
+            ddx_model = ddx_solvation_model%cosmo
+         else if (arg == "--cpcm") then
+            ddx_model = ddx_solvation_model%cpcm
+         else if (arg == "--pcm") then
+            ddx_model = ddx_solvation_model%pcm
          end if
          parametrized_solvation = .false.
 
@@ -413,7 +476,7 @@ subroutine get_run_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
-            call fatal_error(error, "Missing argument for CPCM")
+            call fatal_error(error, "Missing argument for ddX solvation")
             exit
          end if
          solvent_not_found = .false.
@@ -429,7 +492,7 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
-         end if 
+         end if
          parametrized_solvation = .false.
          alpb = arg == "--gbe"
 
@@ -451,7 +514,7 @@ subroutine get_run_arguments(config, list, start, error)
          if (allocated(solvent)) then
             call fatal_error(error, "Cannot use multiple solvation models")
             exit
-         end if 
+         end if
          parametrized_solvation = .true.
          alpb = arg == "--alpb"
 
@@ -479,10 +542,22 @@ subroutine get_run_arguments(config, list, start, error)
          end if
 
       case("--post-processing")
-         iarg = iarg + 1 
+         iarg = iarg + 1
          call list%get(iarg, config%post_processing)
          if (.not.allocated(config%post_processing)) then
             call fatal_error(error, "Missing argument for post processing")
+            exit
+         end if
+         ! Check if the post-processing method is an orbital localization
+         if (index(config%post_processing, "lmo") == 1) then
+            config%lmo = .true.
+         end if
+
+      case("--post-processing-output")
+         iarg = iarg + 1
+         call list%get(iarg, config%post_proc_output)
+         if (.not.allocated(config%post_proc_output)) then
+            call fatal_error(error, "Missing argument for post processing output")
             exit
          end if
 
@@ -495,8 +570,50 @@ subroutine get_run_arguments(config, list, start, error)
       case("--iterations")
          iarg = iarg + 1
          call list%get(iarg, arg)
-         allocate(config%max_iter)
-         call get_argument_as_int(arg, config%max_iter, error)
+         call get_argument_as_int(arg, config%mixer%max_iter, error)
+         if (allocated(error)) exit
+
+      case("--mixer")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for config")
+            exit
+         end if
+
+         ieq = index(arg, "=")
+         if (ieq == 0) then
+            select case(arg)
+            case("broyden")
+               config%mixer%scf = scf_version%broyden
+            case default
+               call fatal_error(error, "Unknown electronic mixer '"//arg//"' specified")
+               exit
+            end select
+         else
+            sec = arg(ieq+1:)
+
+            select case(arg(1:ieq-1))
+            case("damping")
+               call get_argument_as_real(sec, config%mixer%damping, error)
+            case("memory")
+               call get_argument_as_int(sec, config%mixer%memory, error)
+            case default
+               call fatal_error(error, "Unknown configuration key '"//arg(1:ieq-1)//"'")
+               exit
+            end select
+         end if
+
+      case("--mixer-memory")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_int(arg, config%mixer%memory, error)
+         if (allocated(error)) exit
+
+      case("--mixer-damping")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%mixer%damping, error)
          if (allocated(error)) exit
 
       case("--solver")
@@ -507,6 +624,7 @@ subroutine get_run_arguments(config, list, start, error)
             exit
          end if
 
+         dmp_solver = .false.
          select case(arg)
          case default
             call fatal_error(error, "Unknown electronic solver '"//arg//"' specified")
@@ -518,17 +636,18 @@ subroutine get_run_arguments(config, list, start, error)
          case("gvr")
             config%solver = lapack_algorithm%gvr
          case("tc2","sp2")
-            allocate(config%dmp_input)
-            config%dmp_input%type = purification_type%tc2
+            dmp_solver = .true.
+            dmp%type = purification_type%tc2
          case("tc2-accel","sp2-accel")
-            allocate(config%dmp_input)
-            config%dmp_input%type = purification_type%tc2accel    
+            dmp_solver = .true.
+            dmp%type = purification_type%tc2accel
          case("trs4")
-            allocate(config%dmp_input)
-            config%dmp_input%type = purification_type%trs4
+            dmp_solver = .true.
+            dmp%type = purification_type%trs4
          end select
 
       case("--purification-runmode")
+         dmp_options = .true.
          iarg = iarg +1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
@@ -538,14 +657,18 @@ subroutine get_run_arguments(config, list, start, error)
 
          select case(arg)
          case("gpu")
-            config%dmp_input%runmode = purification_runmode%gpu
+            dmp%runmode = purification_runmode%gpu
          case("cpu")
-            config%dmp_input%runmode= purification_runmode%cpu
+            dmp%runmode = purification_runmode%cpu
+         case("default", "auto")
+            dmp%runmode = purification_runmode%default
          case default
-            config%dmp_input%runmode= purification_runmode%default
+            call fatal_error(error, "Unknown purification run mode '"//arg//"'")
+            exit
          end select
 
       case("--purification-precision")
+         dmp_options = .true.
          iarg = iarg +1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
@@ -555,23 +678,58 @@ subroutine get_run_arguments(config, list, start, error)
 
          select case(arg)
          case("double")
-            config%dmp_input%precision = purification_precision%double
+            dmp%precision = purification_precision%double
          case("single")
-            config%dmp_input%precision = purification_precision%single
+            dmp%precision = purification_precision%single
          case("mixed")
-            config%dmp_input%precision = purification_precision%mixed
+            dmp%precision = purification_precision%mixed
          case("mixed-fp16")
-            config%dmp_input%precision = purification_precision%mixed_fp16
+            dmp%precision = purification_precision%mixed_fp16
          case default
-            config%dmp_input%precision = purification_precision%mixed
+            call fatal_error(error, "Unknown purification precision '"//arg//"'")
+            exit
          end select
 
 
       case("--etemp")
+         explicit_etemp = .true.
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%etemp, error)
          if (allocated(error)) exit
+
+      case("--etemp-anneal")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         allocate(config%mixer%anneal)
+         comma_count = 0
+         if (allocated(arg)) then
+            do ich = 1, len(arg)
+               if (arg(ich:ich) == ",") comma_count = comma_count + 1
+            end do
+         end if
+
+         select case(comma_count)
+         case(0)
+            call get_argument_as_real(arg, anneal_input(1), error)
+            anneal_input(2) = 50
+            anneal_input(3) = 50
+         case(2)
+            call get_argument_as_realv(arg, anneal_input, error)
+            if (allocated(error)) exit
+         case default
+            call fatal_error(error, "Expected --etemp-anneal <start> or <start>,<hold>,<steps>")
+         end select
+         if (allocated(error)) exit
+
+         config%mixer%anneal%initial_kt = anneal_input(1) * kt
+         config%mixer%anneal%hold = nint(anneal_input(2))
+         config%mixer%anneal%cycles = nint(anneal_input(3))
+         if (abs(real(config%mixer%anneal%hold, wp) - anneal_input(2)) > epsilon(1.0_wp) .or. &
+            & abs(real(config%mixer%anneal%cycles, wp) - anneal_input(3)) > epsilon(1.0_wp)) then
+            call fatal_error(error, "Cannot read integer annealing schedule from '"//arg//"'")
+            exit
+         end if
 
       case("--etemp-guess")
          iarg = iarg + 1
@@ -613,12 +771,60 @@ subroutine get_run_arguments(config, list, start, error)
             end if
             call move_alloc(arg, config%json_output)
          end if
+
+      case("--trexio")
+         config%trexio = .true.
+         config%trexio_output = "tblite.trexio"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%trexio_output)
+         end if
+
+      case("--molden")
+         config%molden = .true.
+         config%molden_output = "tblite.molden"
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (allocated(arg)) then
+            if (arg(1:1) == "-" .or. &
+               & iarg == narg .and. .not.allocated(config%input)) then
+               iarg = iarg - 1
+               cycle
+            end if
+            call move_alloc(arg, config%molden_output)
+         end if
       end select
    end do
 
+   if (allocated(error)) return
+   if (dmp_solver) then
+      if (.not.get_tblite_feature("gambits")) then
+         call fatal_error(error, "Density matrix purification requires a build with GAMBITS")
+         return
+      end if
+      if (.not.explicit_etemp) config%etemp = 0.0_wp
+      if (config%etemp /= 0.0_wp .or. allocated(config%mixer%anneal)) then
+         call fatal_error(error, "Density matrix purification requires zero electronic temperature")
+         return
+      end if
+      config%dmp_input = dmp
+   else if (dmp_options) then
+      call fatal_error(error, "Purification options require a purification solver")
+      return
+   else if (config%solver == lapack_algorithm%gvd_cusolver .and. .not.get_tblite_feature("cuda")) then
+      call fatal_error(error, "GPU diagonalization requires a build with CUDA")
+      return
+   end if
+
    if (.not.(allocated(config%input))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_run
+         write(output_unit, "(a)") help_text_run
          error stop
       end if
    end if
@@ -634,7 +840,7 @@ subroutine get_run_arguments(config, list, start, error)
       if (allocated(alpb)) then
          ! ALPB/GBSA solvation model
          if (.not.allocated(kernel)) then
-            kernel = merge(born_kernel%still, born_kernel%p16, alpb)
+            kernel = merge(born_kernel%p16, born_kernel%still, alpb)
          end if
 
          if (.not.parametrized_solvation .and. sol_state /= solution_state%gsolv) then
@@ -653,13 +859,13 @@ subroutine get_run_arguments(config, list, start, error)
             config%solvation%alpb = alpb_input(solvent%eps, kernel=kernel, alpb=alpb)
          end if
       else
-         ! CPCM solvation model
-         if (sol_state /= solution_state%gsolv) then 
-            call fatal_error(error, "Solution state shift not supported for CPCM")
+         ! ddX solvation model
+         if (sol_state /= solution_state%gsolv) then
+            call fatal_error(error, "Solution state shift not supported for ddX solvation")
             return
          end if
          allocate(config%solvation)
-         config%solvation%cpcm = cpcm_input(solvent%eps)
+         config%solvation%ddx = ddx_input(ddx_model, solvent%eps)
       end if
    end if
 
@@ -708,7 +914,7 @@ subroutine get_guess_arguments(config, list, start, error)
          getopts = .false.
 
       case("--help")
-         write(output_unit, '(a)') help_text_guess
+         write(output_unit, "(a)") help_text_guess
          stop
 
       case("--version")
@@ -819,7 +1025,7 @@ subroutine get_guess_arguments(config, list, start, error)
 
    if (.not.(allocated(config%input))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_guess
+         write(output_unit, "(a)") help_text_guess
          error stop
       end if
    end if
@@ -862,7 +1068,7 @@ subroutine get_param_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_param
+         write(output_unit, "(a)") help_text_param
          stop
       case("--version")
          call version(output_unit)
@@ -893,7 +1099,7 @@ subroutine get_param_arguments(config, list, start, error)
 
    if (.not.any([allocated(config%input), allocated(config%method)])) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_param
+         write(output_unit, "(a)") help_text_param
          error stop
       end if
    end if
@@ -942,7 +1148,7 @@ subroutine get_fit_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_fit
+         write(output_unit, "(a)") help_text_fit
          stop
       case("--version")
          call version(output_unit)
@@ -978,7 +1184,7 @@ subroutine get_fit_arguments(config, list, start, error)
 
    if (.not.allocated(config%input)) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_fit
+         write(output_unit, "(a)") help_text_fit
          error stop
       end if
    end if
@@ -1025,7 +1231,7 @@ subroutine get_tagdiff_arguments(config, list, start, error)
       case("--")
          getopts = .false.
       case("--help")
-         write(output_unit, '(a)') help_text_tagdiff
+         write(output_unit, "(a)") help_text_tagdiff
          stop
       case("--version")
          call version(output_unit)
@@ -1048,7 +1254,7 @@ subroutine get_tagdiff_arguments(config, list, start, error)
 
    if (.not.(allocated(config%actual).and.allocated(config%reference))) then
       if (.not.allocated(error)) then
-         write(output_unit, '(a)') help_text_tagdiff
+         write(output_unit, "(a)") help_text_tagdiff
          error stop
       end if
    end if
@@ -1061,7 +1267,7 @@ subroutine get_argument_as_real(arg, val, error)
    !> Real value
    real(wp), intent(out) :: val
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
 
@@ -1084,7 +1290,7 @@ subroutine get_argument_as_realv(arg, val, error)
    !> Real value
    real(wp), intent(out) :: val(:)
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
    integer :: i
@@ -1118,7 +1324,7 @@ subroutine get_argument_as_int(arg, val, error)
    !> Real value
    integer, intent(out) :: val
    !> Error handling
-   type(error_type), allocatable :: error
+   type(error_type), allocatable, intent(out) :: error
 
    integer :: stat
 
@@ -1140,8 +1346,12 @@ subroutine version(unit)
    character(len=:), allocatable :: version_string
 
    call get_tblite_version(string=version_string)
-   write(unit, '(a, *(1x, a))') &
+   write(unit, "(a, *(1x, a))") &
       & prog_name, "version", version_string
+   write(unit, "(a, 1x, a)") "ddX support:", merge("enabled ", "disabled", get_tblite_feature("ddx"))
+   write(unit, "(a, 1x, a)") "HDF5 support:", merge("enabled ", "disabled", get_tblite_feature("hdf5"))
+   write(unit, "(a, 1x, a)") "TREXIO support:", merge("enabled ", "disabled", get_tblite_feature("trexio"))
+   write(unit, "(a, 1x, a)") "MPI support:", merge("enabled ", "disabled", get_tblite_feature("mpi"))
 
 end subroutine version
 

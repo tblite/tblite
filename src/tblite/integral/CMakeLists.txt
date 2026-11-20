@@ -14,13 +14,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+add_subdirectory("native")
+
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/dipole.f90"
-  "${dir}/multipole.f90"
-  "${dir}/overlap.f90"
   "${dir}/trafo.f90"
   "${dir}/type.f90"
   "${dir}/diat_trafo.f90"

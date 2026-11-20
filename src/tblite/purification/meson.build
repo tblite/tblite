@@ -1,4 +1,4 @@
 srcs += files(
-    'gambits-purification.f90',
+    'gambits-purification.F90',
     'type.f90'
 )

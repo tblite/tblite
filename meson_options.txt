@@ -40,6 +40,46 @@ option(
 )
 
 option(
+  'hdf5',
+  type: 'feature',
+  value: 'auto',
+  yield: true,
+  description: 'use HDF5 support',
+)
+
+option(
+  'trexio',
+  type: 'feature',
+  value: 'auto',
+  yield: true,
+  description: 'use TREXIO output support',
+)
+
+option(
+  'ddx',
+  type: 'boolean',
+  value: true,
+  yield: true,
+  description: 'use ddX solvation models (requires a C++ compiler)',
+)
+
+option(
+  'mpi',
+  type: 'boolean',
+  value: false,
+  yield: true,
+  description: 'distribute partitioned calculations over MPI ranks',
+)
+
+option(
+  'scalapack',
+  type: 'boolean',
+  value: false,
+  yield: true,
+  description: 'distribute the diagonalization over MPI ranks (requires mpi)',
+)
+
+option(
   'api',
   type: 'boolean',
   value: true,
@@ -63,9 +103,10 @@ option(
 option(
   'gpu',
   type: 'feature',
-  value: 'auto',
+  value: 'disabled',
   yield: true,
 )
+option('gambits', type: 'boolean', value: false, description: 'Enable density matrix purification')
 
 option(
   'gpu_arch', 

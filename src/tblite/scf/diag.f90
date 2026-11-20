@@ -20,8 +20,7 @@
 !> Declaration of the abstract base class for electronic solvers based on diagonalization
 module tblite_scf_diag
    use mctc_env, only : sp, dp, wp, error_type
-   use iso_c_binding, only : c_ptr
-   use tblite_blas, only : gemm
+   use tblite_blas, only : syrk
    use tblite_scf_solver, only : solver_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    implicit none
@@ -29,14 +28,17 @@ module tblite_scf_diag
 
    !> Abstract base class for electronic solvers
    type, public, abstract, extends(solver_type) :: diag_solver_type
+      !> Occupation-weighted coefficients reused for density construction
+      real(wp), allocatable, private :: scratch(:, :)
    contains
       generic :: solve => solve_sp, solve_dp
       procedure(solve_sp), deferred :: solve_sp
       procedure(solve_dp), deferred :: solve_dp
       procedure :: get_density
-      procedure :: get_density_matrix
       procedure :: get_wdensity
-      procedure :: delete
+      procedure :: delete => delete_diag_solver
+      !> Build a density matrix in the storage layout supported by the solver
+      procedure :: get_density_matrix
    end type diag_solver_type
 
    abstract interface
@@ -94,7 +96,7 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
       end do
 
       focc(:, 1) = focc(:, 1) + focc(:, 2)
-      call self%get_density_matrix(focc(:, 1), hmat(:, :, 1), density(:, :, 1))
+      call self%get_density_matrix(focc(:, 1), hmat(:, :, 1), density(:, :, 1), error)
       focc(:, 1) = focc(:, 1) - focc(:, 2)
    case(2)
       hmat(:, :, :) = 2*hmat
@@ -104,7 +106,8 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
 
          call get_fermi_filling(self%nel(spin), self%kt, eval(:, spin), &
             & homo, focc(:, spin), e_fermi)
-         call self%get_density_matrix(focc(:, spin), hmat(:, :, spin), density(:, :, spin))
+         call self%get_density_matrix(focc(:, spin), hmat(:, :, spin), density(:, :, spin), error)
+         if (allocated(error)) return
       end do
    end select
 end subroutine get_density
@@ -136,7 +139,8 @@ subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
 
    do spin = 1, nspin
       tmp = focc(:, spin) * eval(:, spin)
-      call self%get_density_matrix(tmp, hmat(:, :, spin), density(:, :, spin))
+      call self%get_density_matrix(tmp, hmat(:, :, spin), density(:, :, spin), error)
+      if (allocated(error)) exit
    end do
 
    if (nspin == 1 .and. size(focc, 2) == 2) then
@@ -145,38 +149,74 @@ subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
 end subroutine get_wdensity
 
 !> Get the density matrix from the coefficients and occupation numbers
-subroutine get_density_matrix(self, focc, coeff, pmat)
-   !> Solver for the general eigenvalue problem
+subroutine get_density_matrix(self, focc, coeff, pmat, error)
+   !> Solver and reusable density workspace
    class(diag_solver_type), intent(inout) :: self
    !> Occupation numbers
    real(wp), intent(in) :: focc(:)
    !> Coefficients of the wavefunction
    real(wp), contiguous, intent(in) :: coeff(:, :)
    !> Density matrix to be computed
-   real(wp), contiguous, intent(out) :: pmat(:, :)
+   real(wp), contiguous, intent(inout) :: pmat(:, :)
+   !> Error handling for solver-specific density construction
+   type(error_type), allocatable, intent(inout) :: error
 
-   real(wp), allocatable :: scratch(:, :)
-   integer :: iao, jao
+   integer :: nao, nmo, iao, jao, imo, k, nk, isign
+   integer :: idx(min(size(coeff, 2), size(focc)))
+   real(wp) :: beta, scale, sgn
 
-   allocate(scratch(size(pmat, 1), size(pmat, 2)))
-   !$omp parallel do collapse(2) default(none) schedule(runtime) &
-   !$omp shared(scratch, coeff, focc, pmat) private(iao, jao)
-   do iao = 1, size(pmat, 1)
-      do jao = 1, size(pmat, 2)
-         scratch(jao, iao) = coeff(jao, iao) * focc(iao)
+   if (allocated(self%scratch)) then
+      if (any(shape(self%scratch) /= shape(coeff))) deallocate(self%scratch)
+   end if
+   if (.not.allocated(self%scratch)) allocate(self%scratch(size(coeff, 1), size(coeff, 2)))
+
+   nao = size(coeff, 1)
+   nmo = min(size(coeff, 2), size(focc))
+   if (all(focc(:nmo) == 0.0_wp)) then
+      pmat(:, :) = 0.0_wp
+      return
+   end if
+
+   ! Upper-triangle SYRK over occupied orbitals (following g-xTB)
+   beta = 0.0_wp
+   do isign = 1, -1, -2
+      sgn = real(isign, wp)
+      nk = 0
+      do imo = 1, nmo
+         if (sgn * focc(imo) > 0.0_wp) then
+            nk = nk + 1
+            idx(nk) = imo
+         end if
+      end do
+      if (nk == 0) cycle
+      !$omp parallel do default(none) schedule(static) &
+      !$omp shared(self, coeff, focc, idx, nao, nk, sgn) private(k, imo, iao, scale)
+      do k = 1, nk
+         imo = idx(k)
+         scale = sqrt(sgn * focc(imo))
+         do iao = 1, nao
+            self%scratch(iao, k) = coeff(iao, imo) * scale
+         end do
+      end do
+      call syrk(self%scratch, pmat, uplo="u", trans="n", alpha=sgn, beta=beta, n=nao, k=nk)
+      beta = 1.0_wp
+   end do
+
+   !$omp parallel do default(none) schedule(static, 1) &
+   !$omp shared(pmat, nao) private(iao, jao)
+   do jao = 1, nao
+      do iao = jao + 1, nao
+         pmat(iao, jao) = pmat(jao, iao)
       end do
    end do
-   call gemm(scratch, coeff, pmat, transb='t')
 end subroutine get_density_matrix
 
 !> Delete the solver instance
-subroutine delete(self, ptr)
+subroutine delete_diag_solver(self)
    !> Solver for the general eigenvalue problem
    class(diag_solver_type), intent(inout) :: self
-   !> Pointer to a C++ solver instance
-   type(c_ptr), intent(inout), optional :: ptr
 
-   ! No specific resources to free in this base class
-end subroutine delete
+   if (allocated(self%scratch)) deallocate(self%scratch)
+end subroutine delete_diag_solver
 
 end module tblite_scf_diag

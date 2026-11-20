@@ -23,8 +23,8 @@ module tblite_wavefunction_guess
    use mctc_io, only : structure_type
    use multicharge, only : mchrg_model_type, get_eeq_charges, get_eeqbc_charges
    use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_xtb_h0, only : get_occupation
    use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_h0, only : get_occupation
    implicit none
    private
 

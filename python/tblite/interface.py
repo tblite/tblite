@@ -20,9 +20,10 @@ of the library in actual workflows than the low-level access provided in the
 CFFI generated wrappers.
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+
 from . import library
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -85,9 +86,7 @@ class Structure:
             raise TBLiteValueError("Expected tripels of cartesian coordinates")
 
         if 3 * numbers.size != positions.size:
-            raise TBLiteValueError(
-                "Dimension missmatch between numbers and positions"
-            )
+            raise TBLiteValueError("Dimension missmatch between numbers and positions")
 
         self._natoms = len(numbers)
         _numbers = np.ascontiguousarray(numbers, dtype="i4")
@@ -245,6 +244,8 @@ class Result:
         "density-matrix": library.get_density_matrix,
         "overlap-matrix": library.get_overlap_matrix,
         "hamiltonian-matrix": library.get_hamiltonian_matrix,
+        "localized-orbitals": library.get_localized_orbital_coefficients,
+        "localized-orbital-centers": library.get_localized_orbital_centers,
         "post-processing-dict": library.get_post_processing_dict,
         "natoms": library.get_number_of_atoms,
         "norbitals": library.get_number_of_orbitals,
@@ -266,27 +267,29 @@ class Result:
         Get a quantity stored instade the result container.
         The following quantities are available
 
-        ====================== ================================= ==============
-         property               dimension [spin-polarized case]   unit
-        ====================== ================================= ==============
-         energy                 scalar                            Hartree
-         energies               nat                               Hartree
-         gradient               nat, 3                            Hartree/Bohr
-         virial                 3, 3                              Hartree
-         charges                nat                               e
-         bond-orders            nat, nat                          e
-         dipole                 3                                 e·Bohr
-         quadrupole             6                                 e·Bohr²
-         orbital-energies       norb [2, norb]                    Hartree
-         orbital-occupations    norb [2, norb]                    e
-         orbital-coefficients   norb, norb [2, norb, norb]        unitless
-         overlap-matrix         norb, norb                        unitless
-         hamiltonian-matrix     norb, norb                        Hartree
-         density-matrix         norb, norb [2, norb, norb]        e
-         natoms                 scalar                            unitless
-         norbitals              scalar                            unitless
-         post-processing-dict   dependes on the key               /
-        ====================== ================================= ==============
+        =========================== ================================= ==============
+         property                    dimension [spin-polarized case]   unit
+        =========================== ================================= ==============
+         energy                      scalar                            Hartree
+         energies                    nat                               Hartree
+         gradient                    nat, 3                            Hartree/Bohr
+         virial                      3, 3                              Hartree
+         charges                     nat                               e
+         bond-orders                 nat, nat                          e
+         dipole                      3                                 e·Bohr
+         quadrupole                  6                                 e·Bohr²
+         orbital-energies            norb [2, norb]                    Hartree
+         orbital-occupations         norb [2, norb]                    e
+         orbital-coefficients        norb, norb [2, norb, norb]        unitless
+         overlap-matrix              norb, norb                        unitless
+         hamiltonian-matrix          norb, norb                        Hartree
+         density-matrix              norb, norb [2, norb, norb]        e
+         localized-orbitals          norb, norb [2, norb, norb]        unitless
+         localized-orbital-centers   norb, 3 [2, norb, 3]              Bohr
+         natoms                      scalar                            unitless
+         norbitals                   scalar                            unitless
+         post-processing-dict        dependes on the key               /
+        =========================== ================================= ==============
 
         Notes
         -----
@@ -344,7 +347,7 @@ class Result:
             if the saving fails
         """
         library.save_wavefunction(self._res, filename)
-    
+
     def load(self, filename: str) -> None:
         """
         Load a result container from a file. The format is compatible with the
@@ -462,6 +465,14 @@ class Calculator(Structure):
     >>> res.get("energy")  # Results in atomic units
     -31.716159156026254
 
+    A parametrization mapping can also be passed directly instead of selecting
+    a built-in method:
+
+    >>> params = {"charge": {"effective": {"average": "arithmetic", "gexp": 2.0}}}
+    >>> calc = Calculator(params, numbers[:2], np.array([[0.0, 0.0, -0.37], [0.0, 0.0, 0.37]]))
+    >>> calc.singlepoint().get("energy")
+    -0.7589101818032
+
     Raises
     ------
     TBLiteValueError
@@ -479,9 +490,12 @@ class Calculator(Structure):
         "accuracy": library.set_calculator_accuracy,
         "guess": library.set_calculator_guess,
         "max-iter": library.set_calculator_max_iter,
+        "mixer": library.set_calculator_mixer,
         "mixer-damping": library.set_calculator_mixer_damping,
+        "mixer-memory": library.set_calculator_mixer_memory,
         "save-integrals": library.set_calculator_save_integrals,
         "temperature": library.set_calculator_temperature,
+        "annealing": library.set_calculator_temperature_annealing,
         "verbosity": library.set_calculator_verbosity,
         "solver": library.set_context_solver,
     }
@@ -495,26 +509,27 @@ class Calculator(Structure):
         "spin-polarization": library.new_spin_polarization,
         "alpb-solvation": library.new_alpb_solvation,
         "gbsa-solvation": library.new_gbsa_solvation,
-        "cpcm-solvation": library.new_cpcm_solvation,
+        "ddX-solvation": library.new_ddx_solvation,
         "gbe-solvation": library.new_gbe_solvation,
         "gb-solvation": library.new_gb_solvation,
     }
     _post_processing = {
-        "bond-orders" : "bond-orders",
-        "molecular-multipoles" : "molmom",
-        "xtbml" : "xtbml",
-        "xtbml_xyz" : "xtbml_xyz"
+        "bond-orders": "bond-orders",
+        "molecular-multipoles": "molmom",
+        "xtbml": "xtbml",
+        "xtbml_xyz": "xtbml_xyz",
     }
 
     def __init__(
         self,
-        method: str,
+        method: Union[str, Dict[str, Any]],
         numbers: Union[np.ndarray, List[int]],
         positions: np.ndarray,
         charge: Optional[float] = None,
         uhf: Optional[int] = None,
         lattice: Optional[np.ndarray] = None,
         periodic: Optional[np.ndarray] = None,
+        xtb_config: Optional[Dict[str, Any]] = None,
         **context_kwargs,
     ):
         """
@@ -525,17 +540,25 @@ class Calculator(Structure):
         TBLiteValueError
             on invalid input, like incorrect shape / type of the passed arrays
         """
-        Structure.__init__(
-            self, numbers, positions, charge, uhf, lattice, periodic
-        )
+        Structure.__init__(self, numbers, positions, charge, uhf, lattice, periodic)
 
         self._ctx = library.new_context(**context_kwargs)
-        if method not in self._loader:
-            raise TBLiteValueError(
-                f"Method '{method}' is not available for this calculator"
+        if isinstance(method, dict):
+            params = library.new_param()
+            table = library.dict_to_table(method)
+            library.load_param(params, table)
+            self._calc = library.new_xtb_calculator(
+                self._ctx, self._mol, params, xtb_config
             )
-        self._calc = self._loader[method](self._ctx, self._mol)
-        self._method = method
+            self._param = params
+            self._method = "xTB"
+        else:
+            if method not in self._loader:
+                raise TBLiteValueError(
+                    f"Method '{method}' is not available for this calculator"
+                )
+            self._calc = self._loader[method](self._ctx, self._mol, xtb_config)
+            self._method = method
 
     def set(self, attribute: str, value) -> None:
         """
@@ -547,9 +570,12 @@ class Calculator(Structure):
          accuracy          Numerical thresholds for SCC         1.0
          guess             Initial guess for wavefunction       0 (SAD)
          max-iter          Maximum number of SCC iterations     250
+         mixer             SCC mixer                            broyden
          mixer-damping     Parameter for the SCC mixer          0.4
+         mixer-memory      Number of SCC mixer history vectors  max-iter
          save-integrals    Keep integral matrices in results    0 (False)
          temperature       Electronic temperature for filling   9.500e-4
+         annealing         Start or (start, hold, cycles)       None
          verbosity         Set verbosity of printout            1
         ================= ==================================== =================
 
@@ -575,17 +601,18 @@ class Calculator(Structure):
         """
         Add an interaction to the calculator instance. Supported interactions are
 
-        =================== =========================== =========================================
-         name                description                 Arguments
-        =================== =========================== =========================================
-         electric-field      Uniform electric field      Field vector (3,)
-         spin-polarization   Spin polarization           Scaling factor
-         alpb-solvation      ALPB implicit solvation     Solvent name, solution state (optional)
-         gbsa-solvation      GBSA implicit solvation     Solvent name, solution state (optional)
-         cpcm-solvation      CPCM implicit solvation     Epsilon
-         gbe-solvation       GBε implicit solvation      Epsilon, Born kernel
-         gb-solvation        GB implicit solvation       Epsilon, Born kernel
-        =================== =========================== =========================================
+        ====================== ============================== =========================================
+         name                   description                    Arguments
+        ====================== ============================== =========================================
+         electric-field         Uniform electric field         Field vector (3,)
+         spin-polarization      Spin polarization              Scaling factor
+         alpb-solvation         ALPB implicit solvation        Solvent name, solution state (optional)
+         gbsa-solvation         GBSA implicit solvation        Solvent name, solution state (optional)
+         ddX-solvation          dd-based implicit solvation    Epsilon / Solvent name, model
+         gbe-solvation          GBε implicit solvation         Epsilon, Born kernel
+         gb-solvation           GB implicit solvation          Epsilon, Born kernel
+         orbital-localization   Localized molecular orbitals   Method name (optional)
+        ====================== ============================== =========================================
 
         .. note::
 
@@ -607,13 +634,17 @@ class Calculator(Structure):
                 self._ctx, self._mol, self._calc, *args, **kwargs
             )
             library.calculator_push_back(self._ctx, self._calc, cont)
+        elif interaction == "orbital-localization":
+            library.post_processing_push_back_localization(
+                self._ctx, self._calc, self._mol, *args
+            )
         elif interaction in self._post_processing:
             library.post_processing_push_back(
-                self._ctx, self._calc, self._post_processing[interaction]
+                self._ctx, self._calc, self._mol, self._post_processing[interaction]
             )
         elif ".toml" in interaction:
             library.post_processing_push_back(
-                self._ctx, self._calc, interaction
+                self._ctx, self._calc, self._mol, interaction
             )
         else:
             raise TBLiteValueError(
@@ -643,11 +674,8 @@ class Calculator(Structure):
                 f"Attribute '{attribute}' is not supported in this calculator"
             )
         return self._getter[attribute](self._ctx, self._calc)
-        
 
-    def singlepoint(
-        self, res: Optional[Result] = None, copy: bool = False
-    ) -> Result:
+    def singlepoint(self, res: Optional[Result] = None, copy: bool = False) -> Result:
         """
         Perform actual single point calculation in the library backend.
         The output of the library will be forwarded to the standard output.
@@ -707,9 +735,7 @@ ELEMENT_SYMBOLS = [
 ]
 # fmt: on
 
-SYMBOL_TO_NUMBER = {
-    symbol: number + 1 for number, symbol in enumerate(ELEMENT_SYMBOLS)
-}
+SYMBOL_TO_NUMBER = {symbol: number + 1 for number, symbol in enumerate(ELEMENT_SYMBOLS)}
 
 
 def symbols_to_numbers(symbols: List[str]) -> List[int]:

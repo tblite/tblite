@@ -19,9 +19,9 @@ module test_cgto_ortho
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
    use tblite_basis_ortho, only : orthogonalize
-   use tblite_basis_type, only : cgto_type
    use tblite_basis_slater, only : slater_to_gauss
-   use tblite_integral_overlap, only : overlap_cgto
+   use tblite_basis_type, only : cgto_type
+   use tblite_integral_native_integrals, only : overlap_cgto
    implicit none
    private
 

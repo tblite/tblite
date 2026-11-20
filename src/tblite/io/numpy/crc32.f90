@@ -120,7 +120,7 @@ pure function crc32_hash_char_r0(val, crc_in) result(crc)
    crc = not(crc)
    do ii = 1, len(val)
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(val(ii:ii))), 255)))
-   enddo
+   end do
    crc = not(crc)
 end function crc32_hash_char_r0
 
@@ -142,7 +142,7 @@ pure function crc32_hash_char_r1(val, crc_in) result(crc)
    crc = not(crc)
    do ii = 1, size(val)
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(val(ii))), 255)))
-   enddo
+   end do
    crc = not(crc)
 end function crc32_hash_char_r1
 
@@ -170,7 +170,7 @@ pure function crc32_hash_i4_r1(val, crc_in) result(crc)
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(2))), 255)))
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(3))), 255)))
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(4))), 255)))
-   enddo
+   end do
    crc = not(crc)
 end function crc32_hash_i4_r1
 
@@ -202,7 +202,7 @@ pure function crc32_hash_rdp_r1(val, crc_in) result(crc)
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(6))), 255)))
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(7))), 255)))
       crc = ieor(shiftr(crc, 8), crc_table(iand(ieor(crc, iachar(chunk(8))), 255)))
-   enddo
+   end do
    crc = not(crc)
 end function crc32_hash_rdp_r1
 

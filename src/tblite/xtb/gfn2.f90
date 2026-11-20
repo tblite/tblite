@@ -19,24 +19,24 @@
 
 !> Implementation of the GFN2-xTB Hamiltonian to parametrize an xTB calculator.
 module tblite_xtb_gfn2
+   use mctc_data_paulingen, only : get_pauling_en
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_symbols, only : to_symbol
    use mctc_ncoord, only : new_ncoord, cn_count
-   use mctc_data_paulingen, only : get_pauling_en
-   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, cgto_type
    use tblite_coulomb_charge, only : new_effective_coulomb, effective_coulomb, &
       & arithmetic_average, coulomb_kernel
    use tblite_coulomb_multipole, only : new_damped_multipole
    use tblite_coulomb_thirdorder, only : new_onsite_thirdorder
    use tblite_disp, only : d4_dispersion, new_d4_dispersion
+   use tblite_output_format, only : format_string
    use tblite_param, only : param_record
    use tblite_repulsion, only : new_repulsion
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, xtb_config
    use tblite_xtb_h0, only : new_hamiltonian
    use tblite_xtb_spec, only : tb_h0spec
-   use tblite_output_format, only : format_string
    implicit none
    private
 
@@ -567,17 +567,26 @@ module tblite_xtb_gfn2
 contains
 
 
-subroutine new_gfn2_calculator(calc, mol, error)
+subroutine new_gfn2_calculator(calc, mol, error, config)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(out) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Configuration options for the calculator
+   type(xtb_config), intent(in), optional :: config
+
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg = config
+   end if
 
    ! Check if all atoms of mol%nat are supported (Z <= 86)
    if (any(mol%num > max_elem)) then
-      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, '(i0)') // ".")
+      call fatal_error(error, "No support for elements with Z >" // format_string(max_elem, "(i0)") // ".")
       return
    end if
 
@@ -586,7 +595,7 @@ subroutine new_gfn2_calculator(calc, mol, error)
    if (allocated(error)) return
    call add_hamiltonian(calc, mol)
    call add_repulsion(calc, mol)
-   call add_dispersion(calc, mol, error)
+   call add_dispersion(calc, mol, error, cfg%smooth_cutoff)
    if (allocated(error)) return
    call add_coulomb(calc, mol, error)
    if (allocated(error)) return
@@ -640,18 +649,21 @@ subroutine add_hamiltonian(calc, mol)
    call new_hamiltonian(calc%h0, mol, calc%bas, new_gfn2_h0spec(mol))
 end subroutine add_hamiltonian
 
-subroutine add_dispersion(calc, mol, error)
+subroutine add_dispersion(calc, mol, error, smooth_cutoff)
    !> Instance of the xTB evaluator
    type(xtb_calculator), intent(inout) :: calc
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
+   !> Whether to use a smooth cutoff for the dispersion energy
+   real(wp), intent(in) :: smooth_cutoff
 
    type(d4_dispersion), allocatable :: tmp
 
    allocate(tmp)
-   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error)
+   call new_d4_dispersion(tmp, mol, s6=s6, s8=s8, a1=a1, a2=a2, s9=s9, error=error, &
+      & disp2_width=smooth_cutoff, disp3_width=smooth_cutoff)
    call move_alloc(tmp, calc%dispersion)
 end subroutine add_dispersion
 

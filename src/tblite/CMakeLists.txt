@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-if(WITH_API)
+if(TBLITE_WITH_API)
   add_subdirectory("api")
 endif()
 add_subdirectory("basis")
@@ -56,9 +56,12 @@ list(
   "${dir}/data.f90"
   "${dir}/double_dictionary.f90"
   "${dir}/disp.f90"
+  "${dir}/features.F90"
   "${dir}/lapack.f90"
+  "${dir}/mpi_utils.F90"
   "${dir}/os.F90"
   "${dir}/param.f90"
+  "${dir}/partition.f90"
   "${dir}/repulsion.f90"
   "${dir}/results.f90"
   "${dir}/scf.f90"

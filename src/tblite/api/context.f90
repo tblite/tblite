@@ -19,20 +19,23 @@
 
 !> API export for environment context setup
 module tblite_api_context
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_char, c_f_pointer, c_f_procpointer, &
+      & c_funptr, c_int, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : error_type, fatal_error
    use tblite_api_error, only : vp_error
-   use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character
+   use tblite_api_version, only : namespace
    use tblite_context, only : context_type, context_logger, context_terminal
    use tblite_lapack_solver, only : lapack_solver
    use tblite_purification_solver_context, only : purification_solver_context, dmp_input
+   use tblite_features, only : tblite_has_gambits, tblite_has_cuda
    implicit none
    private
 
    public :: vp_context
    public :: new_context_api, check_context_api, get_context_error_api, delete_context_api
    public :: set_context_logger_api, set_context_color_api, set_context_verbosity_api
+   public :: set_context_partition_api, set_context_mpi_api
    public :: set_context_solver_api
 
 
@@ -189,8 +192,18 @@ subroutine set_context_solver_api(vctx, solver) &
       call c_f_pointer(vctx, ctx)
       select case(solver)
       case(1,2,3)
+         if (solver == 3 .and. .not.tblite_has_cuda) then
+            call fatal_error(error, "GPU diagonalization requires a build with CUDA")
+            call ctx%ptr%set_error(error)
+            return
+         end if
          ctx%ptr%solver = lapack_solver(solver)
       case(12,14,22)
+         if (.not.tblite_has_gambits) then
+            call fatal_error(error, "Density matrix purification requires a build with GAMBITS")
+            call ctx%ptr%set_error(error)
+            return
+         end if
          dmp_inp%type = solver - 10 
          ctx%ptr%solver = purification_solver_context(dmp_inp)
       case default
@@ -202,6 +215,45 @@ subroutine set_context_solver_api(vctx, solver) &
    
    end if
    end subroutine set_context_solver_api
+
+
+!> Assign an externally managed share of the interaction loops to the context
+subroutine set_context_partition_api(vctx, part, nparts) &
+      & bind(C, name=namespace//"set_context_partition")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   integer(c_int), value :: part
+   integer(c_int), value :: nparts
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_context_partition"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   call ctx%ptr%set_partition(part, nparts, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
+end subroutine set_context_partition_api
+
+
+!> Distribute the interaction loops over an MPI communicator, fails if tblite
+!> was built without MPI support
+subroutine set_context_mpi_api(vctx, comm) &
+      & bind(C, name=namespace//"set_context_mpi")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   !> Fortran handle of the communicator, absent selects the global communicator
+   integer(c_int), intent(in), optional :: comm
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_context_mpi"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   call ctx%ptr%set_mpi(error, comm)
+   if (allocated(error)) call ctx%ptr%set_error(error)
+end subroutine set_context_mpi_api
 
 
 !> Delete context object

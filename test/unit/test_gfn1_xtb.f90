@@ -23,7 +23,7 @@ module test_gfn1_xtb
    use tblite_context_type, only : context_type
    use tblite_lapack_solver, only : lapack_solver, lapack_algorithm
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
-   use tblite_xtb_calculator, only : xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, xtb_config
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
@@ -50,6 +50,7 @@ subroutine collect_gfn1_xtb(testsuite)
       new_unittest("energy-atom-cation", test_e_pse_cation), &
       new_unittest("energy-atom-anion", test_e_pse_anion), &
       new_unittest("energy-mol", test_e_mb01), &
+      new_unittest("energy-pbc-qcore", test_e_co2_qcore), &
       new_unittest("gradient-mol", test_g_mb02), &
       new_unittest("numgrad-mol", test_g_mb03), &
       !new_unittest("virial-mol", test_s_mb03), &
@@ -152,7 +153,7 @@ subroutine test_e_pse(error)
       & 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, &
       & 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]
    real(wp), parameter :: ref(86) = [&
-      &-0.4014294744618301_wp,-1.6258646654198721_wp,-0.2671714426384922_wp, &
+      &-0.4014294744618301_wp,-1.6258646856167198_wp,-0.2671714426384922_wp, &
       &-0.7012869049089436_wp,-1.1998696279038878_wp,-1.7411359557542052_wp, &
       &-2.8988862104065958_wp,-4.3526523408648030_wp,-4.9969448424630265_wp, &
       &-6.3190030086322286_wp,-0.1733674706866860_wp,-0.7328492086440124_wp, &
@@ -224,7 +225,7 @@ subroutine test_e_pse_cation(error)
       & 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, &
       & 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
    real(wp), parameter :: ref(86) = [&
-      & 0.2350495000000000_wp,-0.0422428129239876_wp, 0.1369166666666667_wp, &
+      & 0.2350495000000000_wp,-0.0422428427903174_wp, 0.1369166666666667_wp, &
       &-0.1836139857878052_wp,-0.7021610492209647_wp,-1.1060742863488979_wp, &
       &-2.1782414865973068_wp,-3.3929027848641802_wp,-3.9486100517085290_wp, &
       &-5.4089550104332629_wp, 0.1229540000000000_wp,-0.1526824376553396_wp, &
@@ -375,6 +376,36 @@ subroutine test_e_mb01(error)
 end subroutine test_e_mb01
 
 
+subroutine test_e_co2_qcore(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(context_type) :: ctx
+   type(structure_type) :: mol
+   type(xtb_calculator) :: calc
+   type(wavefunction_type) :: wfn
+   real(wp) :: energy
+   ! Gamma-point QCore result for data/x23/CO2.xyz from
+   ! AlexBuccheri/periodicXTBworkflows@d1dda5f and tb_results@1f31488.
+   real(wp), parameter :: ref = -46.19418897267281_wp
+
+   call get_structure(mol, "X23", "CO2")
+   call new_gfn1_calculator(calc, mol, error, config=xtb_config(smooth_cutoff=0.0_wp))
+   if (allocated(error)) return
+   call new_wavefunction(wfn, mol%nat, calc%bas%nsh, calc%bas%nao, 1, kt)
+
+   energy = 0.0_wp
+   call xtb_singlepoint(ctx, mol, calc, wfn, 1.0_wp, energy, verbosity=0)
+
+   call check(error, .not.ctx%failed(), message="Periodic QCore reference did not converge")
+   if (allocated(error)) return
+   call check(error, energy, ref, thr=1.0e-3_wp, &
+      & message="Periodic GFN1-xTB energy does not match QCore")
+
+end subroutine test_e_co2_qcore
+
+
 subroutine test_g_mb02(error)
 
    !> Error handling
@@ -420,11 +451,11 @@ subroutine test_g_mb02(error)
 
    if (any(abs(gradient - ref) > thr2)) then
       call test_failed(error, "Gradient of energy does not match")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', ref
+      print"(3es21.14)", ref
       print'("---")'
-      print'(3es21.14)', gradient-ref
+      print"(3es21.14)", gradient-ref
    end if
 
 end subroutine test_g_mb02
@@ -461,11 +492,11 @@ subroutine test_g_mb03(error)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of energy does not match (numerical)")
-      print'(3es21.14)', gradient
+      print"(3es21.14)", gradient
       print'("---")'
-      print'(3es21.14)', numgrad
+      print"(3es21.14)", numgrad
       print'("---")'
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_g_mb03
@@ -500,11 +531,11 @@ subroutine test_s_mb03(error)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma
+      print"(3es21.14)", sigma
       print'("---")'
-      print'(3es21.14)', numsigma
+      print"(3es21.14)", numsigma
       print'("---")'
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_s_mb03

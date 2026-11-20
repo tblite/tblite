@@ -188,7 +188,7 @@ subroutine test_numgrad(error, mol, make_repulsion)
 
    if (any(abs(gradient - numgrad) > thr2)) then
       call test_failed(error, "Gradient of dispersion energy does not match")
-      print'(3es21.14)', gradient-numgrad
+      print"(3es21.14)", gradient-numgrad
    end if
 
 end subroutine test_numgrad
@@ -222,26 +222,30 @@ subroutine test_numsigma(error, mol, make_repulsion)
 
    eps(:, :) = unity
    xyz(:, :) = mol%xyz
-   if (any(mol%periodic)) &
-   lat(:, :) = mol%lattice
+   if (any(mol%periodic)) then
+     lat(:, :) = mol%lattice
+   end if
    do ic = 1, 3
       do jc = 1, 3
          er = 0.0_wp
          el = 0.0_wp
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
-         if (any(mol%periodic)) &
-         mol%lattice(:, :) = matmul(eps, lat)
+         if (any(mol%periodic)) then
+           mol%lattice(:, :) = matmul(eps, lat)
+         end if
          call rep%get_engrad(mol, cache, er)
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
-         if (any(mol%periodic)) &
-         mol%lattice(:, :) = matmul(eps, lat)
+         if (any(mol%periodic)) then
+           mol%lattice(:, :) = matmul(eps, lat)
+         end if
          call rep%get_engrad(mol, cache, el)
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
-         if (any(mol%periodic)) &
-         mol%lattice(:, :) = lat
+         if (any(mol%periodic)) then
+           mol%lattice(:, :) = lat
+         end if
          numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
       end do
    end do
@@ -250,7 +254,7 @@ subroutine test_numsigma(error, mol, make_repulsion)
 
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
-      print'(3es21.14)', sigma-numsigma
+      print"(3es21.14)", sigma-numsigma
    end if
 
 end subroutine test_numsigma

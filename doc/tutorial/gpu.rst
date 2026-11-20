@@ -11,7 +11,9 @@ In addition to these purification-based methods, a standard diagonalization-base
 .. note::
    The implemented density matrix purification methods only support calculations with an electronic temperature of 0 K.
    If you need to perform calculations at finite electronic temperature, please use the diagonalization-based density build methods.
-   A GPU-accelerated ``DSYGVD`` solver is also available, see below.
+   The ``gvd-gpu`` solver supports finite temperatures and uses NVIDIA cuSOLVER
+   for diagonalization and cuBLAS to construct the density and energy-weighted density.
+   Eigenvectors remain available for properties and restart files.
 
 .. tip::
     The ``sp2`` algorithm is recommended for most applications due to its numerical stability and efficiency.

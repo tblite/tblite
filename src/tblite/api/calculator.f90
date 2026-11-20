@@ -19,37 +19,43 @@
 
 !> API export for managing tight-binding parameters and calculators
 module tblite_api_calculator
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_char, c_double, c_f_pointer, c_int, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use tblite_api_context, only : vp_context
    use tblite_api_param, only : vp_param
    use tblite_api_result, only : vp_result
    use tblite_api_structure, only : vp_structure
+   use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
+   use tblite_post_processing_list, only : post_processing_list, add_post_processing
+   use tblite_post_processing_localization, only : new_orbital_localization, &
+      & orbital_localization
+   use tblite_post_processing_type, only : post_processing_type
    use tblite_results, only : results_type
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
-      & get_molecular_quadrupole_moment
+   use tblite_scf_mixer_input, only : anneal_input, scf_version
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, eeqbc_guess
-   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : new_gfn2_calculator
+      & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
+      & get_molecular_quadrupole_moment
+   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator, xtb_config
    use tblite_xtb_gfn1, only : new_gfn1_calculator
+   use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_api_utils, only : f_c_character, c_f_character
-   use tblite_post_processing_list, only : post_processing_list, add_post_processing
    implicit none
    private
 
    public :: vp_calculator, delete_calculator_api
    public :: new_gfn2_calculator_api, new_ipea1_calculator_api, new_gfn1_calculator_api, &
       & new_xtb_calculator_api
-   public :: set_calculator_mixer_damping_api, set_calculator_max_iter_api, &
+   public :: set_calculator_mixer_api, set_calculator_mixer_damping_api, &
+      & set_calculator_mixer_memory_api, set_calculator_max_iter_api, &
+      & set_calculator_temperature_annealing_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
       & set_calculator_save_integrals_api
    public :: get_singlepoint_api
-   public :: push_back_post_processing_param_api, push_back_post_processing_str_api
+   public :: push_back_post_processing_param_api, push_back_post_processing_str_api, &
+      & push_back_post_processing_localization_api
 
 
    enum, bind(c)
@@ -58,6 +64,15 @@ module tblite_api_calculator
          tblite_guess_eeq = 1_c_int, &
          tblite_guess_eeqbc = 2_c_int
    end enum
+
+   enum, bind(c)
+      enumerator :: &
+         tblite_mixer_broyden = 1_c_int
+   end enum
+
+   type, bind(c) :: xtb_config_struct
+      real(wp) :: smooth_cutoff
+   end type xtb_config_struct
 
 
    !> Void pointer to calculator type
@@ -72,6 +87,7 @@ module tblite_api_calculator
       integer :: guess = tblite_guess_sad
       !> Numbers of spin channels for calculator
       integer :: nspin = 1
+      !> List of post-processing applied methods
       type(post_processing_list) :: post_proc
    end type vp_calculator
 
@@ -82,7 +98,7 @@ module tblite_api_calculator
 contains
 
 
-function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn2_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn2_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -90,6 +106,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn2_calculator"
@@ -102,7 +119,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn2_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn2_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -114,7 +131,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn2_calculator_api
 
 
-function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
+function new_ipea1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_ipea1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -122,6 +139,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_ipea1_calculator"
@@ -134,7 +152,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_ipea1_calculator(calc%ptr, mol%ptr, error)
+   call new_ipea1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -146,7 +164,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_ipea1_calculator_api
 
 
-function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -154,6 +172,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn1_calculator"
@@ -166,7 +185,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn1_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -178,7 +197,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn1_calculator_api
 
 
-function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
+function new_xtb_calculator_api(vctx, vmol, vparam, config) result(vcalc) &
       & bind(C, name=namespace//"new_xtb_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -188,6 +207,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    type(vp_param), pointer :: param
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
 
    type(error_type), allocatable :: error
 
@@ -204,7 +224,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    call c_f_pointer(vparam, param)
 
    allocate(calc)
-   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error)
+   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -253,8 +273,66 @@ subroutine set_calculator_mixer_damping_api(vctx, vcalc, damping) &
    end if
    call c_f_pointer(vcalc, calc)
 
-   calc%ptr%mixer_damping = damping
+   calc%ptr%mixer_input%damping = damping
 end subroutine set_calculator_mixer_damping_api
+
+
+subroutine set_calculator_mixer_memory_api(vctx, vcalc, memory) &
+      & bind(C, name=namespace//"set_calculator_mixer_memory")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: memory
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_mixer_memory"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%ptr%mixer_input%memory = memory
+end subroutine set_calculator_mixer_memory_api
+
+
+subroutine set_calculator_mixer_api(vctx, vcalc, mixer) &
+      & bind(C, name=namespace//"set_calculator_mixer")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   integer(c_int), value :: mixer
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_mixer"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   select case(mixer)
+   case(tblite_mixer_broyden)
+      calc%ptr%mixer_input%scf = scf_version%broyden
+   case default
+      call fatal_error(error, "Unknown SCF mixer selected")
+      call ctx%ptr%set_error(error)
+      return
+   end select
+
+end subroutine set_calculator_mixer_api
 
 
 subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
@@ -279,6 +357,7 @@ subroutine set_calculator_max_iter_api(vctx, vcalc, max_iter) &
    call c_f_pointer(vcalc, calc)
 
    calc%ptr%max_iter = max_iter
+   calc%ptr%mixer_input%max_iter = max_iter
 end subroutine set_calculator_max_iter_api
 
 
@@ -355,6 +434,33 @@ subroutine set_calculator_temperature_api(vctx, vcalc, etemp) &
 
    calc%etemp = etemp
 end subroutine set_calculator_temperature_api
+
+
+subroutine set_calculator_temperature_annealing_api(vctx, vcalc, initial_etemp, hold, cycles) &
+      & bind(C, name=namespace//"set_calculator_temperature_annealing")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   real(c_double), value :: initial_etemp
+   integer(c_int), value :: hold
+   integer(c_int), value :: cycles
+   type(error_type), allocatable :: error
+
+   if (debug) print '("[Info]", 1x, a)', "set_calculator_temperature_annealing"
+
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   calc%ptr%mixer_input%anneal = anneal_input(initial_etemp, hold, cycles)
+end subroutine set_calculator_temperature_annealing_api
 
 
 subroutine set_calculator_save_integrals_api(vctx, vcalc, save_integrals) &
@@ -529,7 +635,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    type(vp_result), pointer :: res
    type(error_type), allocatable :: error
    character(len=:), allocatable :: f_char
-   
+
    if (debug) print '("[Info]", 1x, a)', "get_singlepoint"
 
    if (.not.c_associated(vctx)) return
@@ -561,16 +667,19 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
 
    call check_results(res%results)
-   
+
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
       & calc%nspin, calc%guess, error)
-   if (calc%post_proc%n == 0) then 
+   if (calc%post_proc%npp == 0) then
       f_char = "bond-orders"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
+
+   ! the context owns the work partition, this also covers containers added late
+   call calc%ptr%set_partition(ctx%ptr%partition)
 
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
       & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
@@ -580,14 +689,14 @@ end subroutine get_singlepoint_api
 
 subroutine check_results(res)
    type(results_type), allocatable, intent(inout) :: res
-   if (allocated(res)) then 
+   if (allocated(res)) then
       deallocate(res%dict)
    end if
 
-   if (.not.allocated(res)) then 
+   if (.not.allocated(res)) then
       allocate(res)
    end if
-end subroutine
+end subroutine check_results
 
 subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
@@ -622,66 +731,139 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    end if
 end subroutine check_wavefunction
 
-subroutine push_back_post_processing_str_api(vctx, vcalc, charptr) &
-   & bind(C, name=namespace//"push_back_post_processing_str")
-character(kind=c_char), intent(in) :: charptr(*)
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-character(len=:), allocatable :: config_str
-type(error_type), allocatable :: error
+subroutine push_back_post_processing_str_api(vctx, vcalc, vmol, charptr) &
+      & bind(C, name=namespace//"push_back_post_processing_str")
+   character(kind=c_char), intent(in) :: charptr(*)
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   character(len=:), allocatable :: config_str
+   type(error_type), allocatable :: error
 
-if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
 
-if (.not.(c_associated(vctx))) return
-call c_f_pointer(vctx, ctx)
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
 
-call c_f_character(charptr, config_str)
+   call c_f_character(charptr, config_str)
 
-if (.not.c_associated(vcalc)) then 
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
 
-call add_post_processing(calc%post_proc, config_str, error)
-if (allocated(error)) call ctx%ptr%set_error(error)
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
 
-end subroutine
+   call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
 
-subroutine push_back_post_processing_param_api(vctx, vcalc, vparam) &
-   & bind(C, name=namespace//"push_back_post_processing_param")
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
-type(c_ptr), value :: vctx
-type(vp_context), pointer :: ctx
-type(c_ptr), value :: vparam
-type(vp_param), pointer :: param
-type(error_type), allocatable :: error
+end subroutine push_back_post_processing_str_api
 
-if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
+subroutine push_back_post_processing_param_api(vctx, vcalc, vmol, vparam) &
+      & bind(C, name=namespace//"push_back_post_processing_param")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   type(c_ptr), value :: vparam
+   type(vp_param), pointer :: param
+   type(error_type), allocatable :: error
 
-if (.not.(c_associated(vctx))) return
-call c_f_pointer(vctx, ctx)
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing"
 
-if (.not.(c_associated(vparam))) then
-   call fatal_error(error, "Param object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vparam, param)
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
 
-if (.not.c_associated(vcalc)) then 
-   call fatal_error(error, "Calculator object is missing")
-   call ctx%ptr%set_error(error)
-   return
-end if
-call c_f_pointer(vcalc, calc)
-call add_post_processing(calc%post_proc, param%ptr%post_proc)
-if (allocated(error)) call ctx%ptr%set_error(error)
+   if (.not.(c_associated(vparam))) then
+      call fatal_error(error, "Param object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vparam, param)
 
-end subroutine
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
+   if (allocated(error)) call ctx%ptr%set_error(error)
+
+end subroutine push_back_post_processing_param_api
+
+!> Add orbital localization post processing with an explicit method choice
+subroutine push_back_post_processing_localization_api(vctx, vcalc, vmol, method) &
+      & bind(C, name=namespace//"push_back_post_processing_localization")
+   type(c_ptr), value :: vctx
+   type(vp_context), pointer :: ctx
+   type(c_ptr), value :: vcalc
+   type(vp_calculator), pointer :: calc
+   type(c_ptr), value :: vmol
+   type(vp_structure), pointer :: mol
+   integer(c_int), value :: method
+   type(error_type), allocatable :: error
+   type(orbital_localization), allocatable :: tmp
+   class(post_processing_type), allocatable :: proc
+
+   if (debug) print '("[Info]", 1x, a)', "push_back_post_processing_localization"
+
+   if (.not.(c_associated(vctx))) return
+   call c_f_pointer(vctx, ctx)
+
+   if (.not.c_associated(vcalc)) then
+      call fatal_error(error, "Calculator object is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vcalc, calc)
+
+   if (.not.c_associated(vmol)) then
+      call fatal_error(error, "Molecular structure data is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+
+   allocate(tmp)
+   call new_orbital_localization(tmp, error, int(method))
+   if (allocated(error)) then
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call move_alloc(tmp, proc)
+   call calc%post_proc%push(proc)
+
+end subroutine push_back_post_processing_localization_api
+
+pure function convert_config(config) result(cfg)
+   type(xtb_config_struct), intent(in), optional :: config
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg%smooth_cutoff = config%smooth_cutoff
+   end if
+end function convert_config
 
 end module tblite_api_calculator

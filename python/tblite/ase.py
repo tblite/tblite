@@ -117,13 +117,17 @@ class TBLite(ase.calculators.calculator.Calculator):
      accuracy                 1.0               Numerical accuracy of the calculation
      electronic_temperature   300.0             Electronic temperatur in Kelvin
      max_iterations           250               Iterations for self-consistent evaluation
+     mixer                    "broyden"         Self-consistent mixer
+     mixer_memory             0                 Number of mixer history vectors (0 uses max_iterations)
      initial_guess            "sad"             Initial guess for wavefunction (sad, eeq, or eeqbc)
      mixer_damping            0.4               Damping parameter for self-consistent mixer
+     annealing                None              Initial temperature or (initial, hold, cycles)
      electric_field           None              Uniform electric field vector (in V/A)
      spin_polarization        None              Spin polarization (scaling factor)
      solvation                None              Solvation model to use (see below for details)
      cache_api                True              Reuse generate API objects (recommended)
      verbosity                1                 Set verbosity of printout
+     xtb_config               None              Additional configuration for the API calculator (dict)
     ======================== ================= ====================================================
 
     Solvation models are supported by passing a tuple to the *solvation* keyword.
@@ -135,7 +139,9 @@ class TBLite(ase.calculators.calculator.Calculator):
     ================== ====================================================
      "alpb"             Solvent name (str), solution state (optional)
      "gbsa"             Solvent name (str), solution state (optional)
-     "cpcm"             Epsilon (float)
+     "cosmo"            Epsilon (float) / Solvent name (str)
+     "cpcm"             Epsilon (float) / Solvent name (str)
+     "pcm"              Epsilon (float) / Solvent name (str)
      "gbe"              Epsilon (float), Born kernel
      "gb"               Epsilon (float), Born kernel
     ================== ====================================================
@@ -195,13 +201,17 @@ class TBLite(ase.calculators.calculator.Calculator):
         "accuracy": 1.0,
         "guess": "sad",
         "max_iterations": 250,
+        "mixer": "broyden",
+        "mixer_memory": 0,
         "mixer_damping": 0.4,
+        "annealing": None,
         "electric_field": None,
         "spin_polarization": None,
         "solvation": None,
         "electronic_temperature": 300.0,
         "cache_api": True,
         "verbosity": 1,
+        "xtb_config": None,
     }
 
     _res = None
@@ -251,6 +261,8 @@ class TBLite(ase.calculators.calculator.Calculator):
             or "electric_field" in changed_parameters
             or "spin_polarization" in changed_parameters
             or "solvation" in changed_parameters
+            or "annealing" in changed_parameters
+            or "xtb_config" in changed_parameters
         ):
             self._xtb = None
             self._res = None
@@ -269,11 +281,26 @@ class TBLite(ase.calculators.calculator.Calculator):
             if "max_iterations" in changed_parameters:
                 self._xtb.set("max-iter", self.parameters.max_iterations)
 
+            if "mixer" in changed_parameters:
+                self._xtb.set("mixer", self.parameters.mixer)
+
+            if "mixer_memory" in changed_parameters:
+                self._xtb.set("mixer-memory", self.parameters.mixer_memory)
+
             if "initial_guess" in changed_parameters:
-                self._xtb.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess])
+                self._xtb.set(
+                    "guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[self.parameters.guess]
+                )
 
             if "mixer_damping" in changed_parameters:
                 self._xtb.set("mixer-damping", self.parameters.mixer_damping)
+
+            if "annealing" in changed_parameters:
+                if self.parameters.annealing is not None:
+                    self._xtb.set(
+                        "annealing",
+                        self.parameters.annealing,
+                    )
 
             if (
                 "charge" in changed_parameters or "multiplicity" in changed_parameters
@@ -358,7 +385,9 @@ class TBLite(ase.calculators.calculator.Calculator):
 
         if not properties:
             properties = ["energy"]
-        ase.calculators.calculator.Calculator.calculate(self, atoms, properties, system_changes)
+        ase.calculators.calculator.Calculator.calculate(
+            self, atoms, properties, system_changes
+        )
 
         self._check_api_calculator(system_changes)
 
@@ -404,6 +433,7 @@ def _create_api_calculator(
             _uhf,
             _cell / Bohr,
             _periodic,
+            xtb_config=parameters.xtb_config,
         )
         calc.set("accuracy", parameters.accuracy)
         calc.set(
@@ -411,8 +441,12 @@ def _create_api_calculator(
             parameters.electronic_temperature * kB / Hartree,
         )
         calc.set("max-iter", parameters.max_iterations)
+        calc.set("mixer", parameters.mixer)
+        calc.set("mixer-memory", parameters.mixer_memory)
         calc.set("guess", {"sad": 0, "eeq": 1, "eeqbc": 2}[parameters.guess])
         calc.set("mixer-damping", parameters.mixer_damping)
+        if parameters.annealing is not None:
+            calc.set("annealing", parameters.annealing)
         calc.set("verbosity", parameters.verbosity)
         if parameters.electric_field is not None:
             calc.add(
@@ -434,16 +468,24 @@ def _create_api_calculator(
     return calc
 
 
-def _get_charge(atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters) -> int:
+def _get_charge(
+    atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters
+) -> int:
     """
     Get the total charge of the system.
     If no charge is provided, the total charge of the system is calculated
     by summing the initial charges of all atoms.
     """
-    return atoms.get_initial_charges().sum() if parameters.charge is None else parameters.charge
+    return (
+        atoms.get_initial_charges().sum()
+        if parameters.charge is None
+        else parameters.charge
+    )
 
 
-def _get_uhf(atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters) -> int:
+def _get_uhf(
+    atoms: ase.Atoms, parameters: ase.calculators.calculator.Parameters
+) -> int:
     """
     Get the number of unpaired electrons.
     If no multiplicity is provided, the number of unpaired electrons
@@ -463,16 +505,23 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
     when new values are provided.
     """
 
+    ddx_models = ("cosmo", "cpcm", "pcm")
+
     for key in (
         "alpb",
         "gbsa",
+        "cosmo",
         "cpcm",
+        "pcm",
         "gbe",
         "gb",
     ):
         if f"{key}_solvation" in kwargs:
             value = kwargs.pop(f"{key}_solvation")
-            if isinstance(value, (tuple, list)):
+
+            if key in ddx_models:
+                value = ("ddX", value, key)
+            elif isinstance(value, (tuple, list)):
                 value = (key, *value)
             else:
                 value = (key, value)
@@ -481,6 +530,7 @@ def _update_parameters(kwargs: Dict[str, Any]) -> None:
                 raise ase.calculators.calculator.InputError(
                     "Multiple solvation models provided, can only use one"
                 )
+
             kwargs["solvation"] = value
 
 

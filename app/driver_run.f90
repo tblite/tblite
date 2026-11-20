@@ -21,30 +21,35 @@ module tblite_driver_run
    use mctc_io, only : structure_type, read_structure, filetype
    use mctc_io_constants, only : codata
    use mctc_io_convert, only : aatoau, ctoau
-   use tblite_cli, only : run_config
    use tblite_basis_type, only : basis_type
+   use tblite_ceh_ceh, only : new_ceh_calculator
+   use tblite_ceh_singlepoint, only : ceh_singlepoint
+   use tblite_cli, only : run_config
    use tblite_container, only : container_type
    use tblite_context, only : context_type, context_terminal, escape
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_features, only : tblite_has_mpi
+   use tblite_io_molden, only : save_molden
+   use tblite_io_trexio, only : save_trexio
    use tblite_lapack_solver, only : lapack_solver
-   use tblite_output_ascii
+   use tblite_output_ascii, only : ascii_levels, ascii_dipole_moments, &
+      & ascii_quadrupole_moments, tagged_result, json_results
    use tblite_param, only : param_record
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
    use tblite_results, only : results_type
-   use tblite_spin, only : spin_polarization, new_spin_polarization
+   use tblite_scf_mixer_input, only : anneal_input
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
+   use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
       & sad_guess, eeq_guess, eeqbc_guess, shell_partition, &
       & load_wavefunction, save_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
-   use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
+   use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_ceh_singlepoint, only : ceh_singlepoint
-   use tblite_ceh_ceh, only : new_ceh_calculator
-   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
-   use tblite_purification_solver_context, only : purification_solver_context, purification_type
+   use tblite_purification_solver_context, only : purification_solver_context
 
    implicit none
    private
@@ -70,7 +75,7 @@ subroutine run_main(config, error)
 
    type(structure_type) :: mol
    character(len=:), allocatable :: method, filename
-   integer :: unpaired, charge, unit, nspin
+   integer :: unpaired, charge, unit, nspin, etemp_hold, etemp_steps, verbosity, idot
    logical :: restart_exist, use_guess
    real(wp) :: energy
    real(wp), allocatable :: dpmom(:), qpmom(:)
@@ -79,8 +84,9 @@ subroutine run_main(config, error)
    type(context_type) :: ctx
    type(xtb_calculator) :: calc
    type(xtb_calculator) :: calc_ceh
-   type(wavefunction_type) :: wfn, wfn_ceh
+   type(wavefunction_type) :: wfn, wfn_ceh, wfn_loc
    type(results_type) :: results
+   integer :: imo
    class(post_processing_list), allocatable :: post_proc
 
    ctx%terminal = context_terminal(config%color)
@@ -89,7 +95,15 @@ subroutine run_main(config, error)
    else
       ctx%solver = lapack_solver(config%solver)
    end if
-   
+
+   ! a single rank owns the complete work, so this is a no-op outside mpiexec
+   if (tblite_has_mpi) then
+      call ctx%set_mpi(error)
+      if (allocated(error)) return
+   end if
+
+   verbosity = config%verbosity
+   if (ctx%partition%get_part() > 0) verbosity = 0
    if (config%input == "-") then
       if (allocated(config%input_format)) then
          call read_structure(mol, input_unit, config%input_format, error)
@@ -108,8 +122,9 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, charge, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) &
-            & call info(ctx, "Molecular charge read from '"//filename//"'")
+         if (verbosity > 0) then
+           call info(ctx, "Molecular charge read from '"//filename//"'")
+         end if
          mol%charge = charge
       end if
    end if
@@ -122,8 +137,9 @@ subroutine run_main(config, error)
       if (exists(filename)) then
          call read_file(filename, unpaired, error)
          if (allocated(error)) return
-         if (config%verbosity > 0) &
-            & call info(ctx, "Molecular spin read from '"//filename//"'")
+         if (verbosity > 0) then
+           call info(ctx, "Molecular spin read from '"//filename//"'")
+         end if
          mol%uhf = unpaired
       end if
    end if
@@ -133,13 +149,13 @@ subroutine run_main(config, error)
    if (config%grad) then
       allocate(gradient(3, mol%nat), sigma(3, 3))
    end if
-   
+
    if (allocated(error)) return
 
    if (allocated(config%param)) then
       call param%load(config%param, error)
       if (.not. allocated(error)) then
-         call new_xtb_calculator(calc, mol, param, error)
+         call new_xtb_calculator(calc, mol, param, error, config%cfg)
       end if
    else
       method = "gfn2"
@@ -148,16 +164,16 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol, error)
+         call new_gfn2_calculator(calc, mol, error, config%cfg)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol, error)
+         call new_gfn1_calculator(calc, mol, error, config%cfg)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol, error)
+         call new_ipea1_calculator(calc, mol, error, config%cfg)
       end select
    end if
    if (allocated(error)) return
 
-   if (allocated(config%max_iter)) calc%max_iter = config%max_iter
+   calc%mixer_input = config%mixer
 
    use_guess = .true.
    restart_exist = .false.
@@ -210,7 +226,8 @@ subroutine run_main(config, error)
       case("eeqbc")
          call eeqbc_guess(mol, calc, wfn, error)
       case("ceh")
-         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
+         call calc_ceh%set_partition(ctx%partition)
+         call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, verbosity)
          if (ctx%failed()) then
             call fatal(ctx, "CEH singlepoint calculation failed")
             do while(ctx%failed())
@@ -273,32 +290,35 @@ subroutine run_main(config, error)
 
    wbo_label = "bond-orders"
    allocate(post_proc)
-   call add_post_processing(post_proc, wbo_label, error)
+   call add_post_processing(post_proc, mol, wbo_label, error)
    if (allocated(error)) return
 
-   if (config%verbosity > 2) then
+   if (verbosity > 2) then
       molmom_label = "molmom"
-      call add_post_processing(post_proc, molmom_label, error)
+      call add_post_processing(post_proc, mol, molmom_label, error)
       if (allocated(error)) return
    end if
 
    if (allocated(config%post_processing)) then
-      call add_post_processing(post_proc, config%post_processing, error)
+      call add_post_processing(post_proc, mol, config%post_processing, error)
       if (allocated(error)) return
    end if
 
    if (allocated(param%post_proc)) then
-      call add_post_processing(post_proc, param%post_proc)
+      call add_post_processing(post_proc, mol, param%post_proc, error)
       if (allocated(error)) return
    end if
 
-   if (config%verbosity > 0) then
-      call ctx%message(calc%info(config%verbosity, " | "))
+   if (verbosity > 0) then
+      call ctx%message(calc%info(verbosity, " | "))
       call ctx%message("")
    end if
 
+   call calc%set_partition(ctx%partition)
+   calc%retain_matrices = allocated(config%restart_file) .or. &
+      & config%trexio .or. config%molden .or. config%lmo
    call xtb_singlepoint(ctx, mol, calc, wfn, config%accuracy, energy, gradient, sigma, &
-      & config%verbosity, results, post_proc)
+      & verbosity, results, post_proc)
    if (ctx%failed()) then
       call fatal(ctx, "Singlepoint calculation failed")
       do while(ctx%failed())
@@ -307,6 +327,9 @@ subroutine run_main(config, error)
       end do
       error stop
    end if
+
+   ! every rank holds the same reduced result, writing it once is enough
+   if (ctx%partition%get_part() > 0) return
 
    if (allocated(config%restart_file)) then
       call info(ctx, "Writing wavefunction information to '"//config%restart_file//"'")
@@ -319,11 +342,11 @@ subroutine run_main(config, error)
       if (allocated(error)) return
    end if
 
-   if (config%verbosity > 2) then
-      call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
-      call post_proc%dict%get_entry("molecular-dipole", dpmom)
-      call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
-      
+   if (verbosity > 2) then
+      call ascii_levels(ctx%unit, verbosity, wfn%emo, wfn%focc, 7)
+      call results%dict%get_entry("molecular-dipole", dpmom)
+      call results%dict%get_entry("molecular-quadrupole", qpmom)
+
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)
    end if
@@ -334,7 +357,7 @@ subroutine run_main(config, error)
       open(file=config%grad_output, newunit=unit)
       call tagged_result(unit, energy, gradient, sigma, energies=results%energies)
       close(unit)
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "Tight-binding results written to '"//config%grad_output//"'")
       end if
    end if
@@ -344,10 +367,72 @@ subroutine run_main(config, error)
       call json_results(unit, "  ", energy=energy, gradient=gradient, sigma=sigma, &
          & energies=results%energies)
       close(unit)
-      if (config%verbosity > 0) then
+      if (verbosity > 0) then
          call info(ctx, "JSON dump of results written to '"//config%json_output//"'")
       end if
    end if
+
+   if (config%lmo) then
+      wfn_loc = wfn
+      call results%dict%get_entry("localized-orbitals", wfn_loc%coeff)
+      ! Replace meaningless canonical energies by ordering for localized orbitals
+      do imo = 1, size(wfn_loc%emo, 1)
+         wfn_loc%emo(imo, :) = real(imo, wp)
+      end do
+   end if
+
+   if (config%trexio) then
+      call save_trexio(config%trexio_output, mol, calc%bas, wfn, energy, error)
+      if (allocated(error)) return
+      if (verbosity > 0) then
+         call info(ctx, "TREXIO output written to '"//config%trexio_output//"'")
+      end if
+
+      if (config%lmo) then
+         ! Add lmo tag to the trexio output filename
+         idot = index(config%trexio_output, ".", back=.true.)
+         if (idot > 1) then
+            filename = config%trexio_output(:idot-1)//"-lmo" &
+               & //config%trexio_output(idot:)
+         else
+            filename = config%trexio_output//"-lmo"
+         end if
+         ! Save localized molecular orbitals to TREXIO file
+         call save_trexio(filename, mol, calc%bas, wfn_loc, energy, error, &
+            & title="Foster-Boys localized orbitals", write_mo_energy=.false.)
+         if (allocated(error)) return
+         if (config%verbosity > 0) then
+            call info(ctx, "TREXIO localized MO output written to '"//filename//"'")
+         end if
+      end if
+   end if
+
+   if (config%molden) then
+      call save_molden(config%molden_output, mol, calc%bas, wfn, error)
+      if (allocated(error)) return
+      if (verbosity > 0) then
+         call info(ctx, "Molden file written to '"//config%molden_output//"'")
+      end if
+
+      if (config%lmo) then
+         ! Add lmo tag to the molden output filename
+         idot = index(config%molden_output, ".", back=.true.)
+         if (idot > 1) then
+            filename = config%molden_output(:idot-1)//"-lmo" &
+               & //config%molden_output(idot:)
+         else
+            filename = config%molden_output//"-lmo"
+         end if
+         ! Save localized molecular orbitals to Molden file
+         call save_molden(filename, mol, calc%bas, wfn_loc, error, &
+            & title="Foster-Boys localized orbitals")
+         if (allocated(error)) return
+         if (config%verbosity > 0) then
+            call info(ctx, "Molden localized MO file written to '"//filename//"'")
+         end if
+      end if
+   end if
+
 end subroutine run_main
 
 
@@ -429,9 +514,9 @@ function join(a1, a2) result(path)
    character :: filesep
 
    if (is_windows()) then
-      filesep = '\'
+      filesep = "\"
    else
-      filesep = '/'
+      filesep = "/"
    end if
 
    path = a1 // filesep // a2
@@ -458,15 +543,16 @@ subroutine read_file(filename, val, error)
 
    lnum = 0
 
-   open(file=filename, newunit=io, status='old', iostat=stat)
+   open(file=filename, newunit=io, status="old", iostat=stat)
    if (stat /= 0) then
       call fatal_error(error, "Error: Could not open file '"//filename//"'")
       return
    end if
 
    call next_line(io, line, pos, lnum, stat)
-   if (stat == 0) &
-      call read_next_token(line, pos, token, val, stat)
+   if (stat == 0) then
+     call read_next_token(line, pos, token, val, stat)
+   end if
    if (stat /= 0) then
       call io_error(error, "Cannot read value from file", line, token, &
          filename, lnum, "expected integer value")
@@ -474,6 +560,10 @@ subroutine read_file(filename, val, error)
    end if
 
    close(io, iostat=stat)
+   if (stat /= 0) then
+      call fatal_error(error, "Error: Could not close file '"//filename//"'")
+      return
+   end if
 
 end subroutine read_file
 

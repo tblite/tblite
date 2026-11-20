@@ -2,7 +2,7 @@ module tblite_purification_solver_context
    use mctc_env, only : sp, dp, error_type, fatal_error, wp
     use tblite_context_solver, only: context_solver
     use tblite_scf_solver, only: solver_type
-    use tblite_purification_solver, only: purification_solver, new_purification, gambits_context_type, DeletePurification
+    use tblite_purification_solver, only: purification_solver, new_purification
     use tblite_purification_solver, only: dmp_input, purification_precision, purification_type, purification_runmode
     use iso_c_binding
     implicit none
@@ -14,76 +14,59 @@ module tblite_purification_solver_context
     !> Generator for purification based electronic solvers
    type, public, extends(context_solver) :: purification_solver_context
       type(dmp_input) :: dmp_input
-      !> Pointer to store the C++ DMP instance
-      type(c_ptr) :: dmp_ptr = c_null_ptr
-      !> Pointer to store the C++ SYGVD instance
-      type(c_ptr) :: sgvd_ptr = c_null_ptr
+      logical :: reuse = .false.
+      class(solver_type), allocatable :: cached
    contains
-      !> Create new instance of electronic solver
       procedure :: new
-      !> Delete an electronic solver instance
       procedure :: delete
    end type purification_solver_context
 
    interface purification_solver_context
       module procedure new_purification_solver_context
-   end interface purification_solver_context
+   end interface
 
 contains
 
 type(purification_solver_context) function new_purification_solver_context(dmp_inp, reuse)
-   !> Input parameters for the DMP solver
    type(dmp_input), intent(in) :: dmp_inp
-   !> Reuse existing solver instance
    logical, intent(in), optional :: reuse
 
    new_purification_solver_context%dmp_input = dmp_inp
    if (present(reuse)) new_purification_solver_context%reuse = reuse
-end function new_purification_solver_context
+end function
 
-!> Create new electronic solver
-subroutine new(self, overlap, nel, kt)
-   !> Instance of the solver factory
+subroutine new(self, solver, overlap, nel, kt, comm)
    class(purification_solver_context), intent(inout) :: self
-   !> Overlap matrix
-   real(wp), intent(in) :: overlap(:, :)
-   !> Number of electrons per spin channel
-   real(wp), intent(in) :: nel(:)
-   !> Electronic temperature
-   real(wp), intent(in) :: kt
-   type(purification_solver), allocatable :: tmp
+   class(solver_type), allocatable, intent(out) :: solver
+   real(wp), intent(in) :: overlap(:, :), nel(:), kt
+   integer, intent(in), optional :: comm
+   logical :: compatible
 
-   if (self%ndim /= size(overlap, 1)) then
-      self%ndim = size(overlap, 1)
-      if (allocated(self%solver)) then
-         call self%solver%delete(self%dmp_ptr)
-      end if
-      allocate(tmp)
-      call new_purification(tmp, overlap, nel,  kt,  self%dmp_input, self%dmp_ptr, self%sgvd_ptr)
-      call move_alloc(tmp, self%solver)
+   if (allocated(self%cached)) then
+      select type (cached => self%cached)
+      type is (purification_solver)
+         compatible = cached%ndim == size(overlap, 1) .and. cached%input%type == self%dmp_input%type &
+            & .and. cached%input%runmode == self%dmp_input%runmode .and. cached%input%precision == self%dmp_input%precision
+         if (compatible) call move_alloc(self%cached, solver)
+      end select
+      if (allocated(self%cached)) deallocate(self%cached)
    end if
+   if (.not.allocated(solver)) allocate(purification_solver :: solver)
+   select type (solver)
+   type is (purification_solver)
+      call new_purification(solver, overlap, nel, kt, self%dmp_input)
+   end select
+end subroutine
 
-end subroutine new
-
-!> Delete electronic solver instance
-subroutine delete(self)
-   !> Instance of the solver factory
+subroutine delete(self, solver)
    class(purification_solver_context), intent(inout) :: self
+   class(solver_type), allocatable, intent(inout) :: solver
 
    if (self%reuse) then
-      if (allocated(self%solver)) call self%solver%delete()
-   else
-      if (c_associated(self%dmp_ptr)) then
-         call self%solver%delete(self%dmp_ptr)
-         self%dmp_ptr = c_null_ptr
-         self%sgvd_ptr = c_null_ptr
-         self%ndim = 0
-      end if
-      if (allocated(self%solver)) deallocate(self%solver) 
+      call move_alloc(solver, self%cached)
+   else if (allocated(solver)) then
+      deallocate(solver)
    end if
-      
-   
-end subroutine delete
-    
+end subroutine
 
-end module
+end module tblite_purification_solver_context

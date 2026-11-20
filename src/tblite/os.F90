@@ -31,9 +31,10 @@ module tblite_os
       function sys_putenv(name) result(stat) &
             & bind(c, name="putenv")
          import :: c_char, c_int
+         ! allow(C071): assumed-size required for C interoperable dummy argument
          character(len=c_char), intent(in) :: name(*)
          integer(c_int) :: stat
-      end function
+      end function sys_putenv
    end interface
 
 

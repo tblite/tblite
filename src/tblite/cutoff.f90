@@ -188,12 +188,15 @@ elemental function shift_back_abc(in) result(out)
    real(wp) :: out
    real(wp),parameter :: p_pbc_eps = 1.0e-14_wp
    out = in
-   if(in < (0.0_wp - p_pbc_eps)) &
-      out = in + real(ceiling(-in),wp)
-   if(in > (1.0_wp + p_pbc_eps)) &
-      out = in - real(floor  ( in),wp)
-   if (abs(in - 1.0_wp) < p_pbc_eps) &
-      out = in - 1.0_wp
+   if(in < (0.0_wp - p_pbc_eps)) then
+     out = in + real(ceiling(-in),wp)
+   end if
+   if(in > (1.0_wp + p_pbc_eps)) then
+     out = in - real(floor  ( in),wp)
+   end if
+   if (abs(in - 1.0_wp) < p_pbc_eps) then
+     out = in - 1.0_wp
+   end if
 end function shift_back_abc
 
 

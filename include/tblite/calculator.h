@@ -40,48 +40,76 @@ typedef enum {
    TBLITE_GUESS_SAD = 0,
    /// Use partial charges obtained by electronegativity equilibration as guess.
    TBLITE_GUESS_EEQ = 1,
+   /// Use partial charges with bond-charge corrections from electronegativity equilibration as guess.
+   TBLITE_GUESS_EEQBC = 2,
 } tblite_guess;
+
+/// Available self-consistent-field mixers.
+typedef enum {
+   /// Use modified Broyden mixing.
+   TBLITE_MIXER_BROYDEN = 1,
+} tblite_mixer;
+
+/// Available orbital localization methods.
+typedef enum {
+   /// Foster-Boys localization.
+   TBLITE_LOCALIZATION_FOSTERBOYS = 1,
+} tblite_localization_method;
 
 /// Single point calculator
 typedef struct _tblite_calculator* tblite_calculator;
+
+/// Configuration for calculator setup
+typedef struct {
+   /// Smooth cutoff for the Fermi function in the GFN-xTB method (in Hartree)
+   double smooth_cutoff;
+} tblite_xtb_config;
 
 /// Construct calculator with GFN2-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_gfn2_calculator(tblite_context ctx,
-                           tblite_structure mol);
+                           tblite_structure mol,
+                           tblite_xtb_config* config);
 
 /// Construct calculator with GFN1-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_gfn1_calculator(tblite_context ctx,
-                           tblite_structure mol);
+                           tblite_structure mol,
+                           tblite_xtb_config* config);
 
 /// Construct calculator with IPEA1-xTB parametrisation loaded
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_ipea1_calculator(tblite_context ctx,
-                            tblite_structure mol);
+                            tblite_structure mol,
+                            tblite_xtb_config* config);
 
 /// Construct calculator from parametrization records
 ///
 /// @param ctx: Context handle
 /// @param mol: Molecular structure data
+/// @param config: Configuration for calculator setup
 /// @return New calculator instance
 /// @param param: Parametrization records
 TBLITE_API_ENTRY tblite_calculator TBLITE_API_CALL
 tblite_new_xtb_calculator(tblite_context ctx,
                           tblite_structure mol,
-                          tblite_param param);
+                          tblite_param param,
+                          tblite_xtb_config* config);
 
 /// Delete calculator
 ///
@@ -118,6 +146,40 @@ TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_set_calculator_mixer_damping(tblite_context ctx,
                                     tblite_calculator calc,
                                     double damping);
+
+/// Set number of previous SCF steps retained by the mixer in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param memory: Number of previous SCF steps retained by the mixer
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer_memory(tblite_context ctx,
+                                   tblite_calculator calc,
+                                   int memory);
+
+/// Set SCF mixer in calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mixer: SCF mixer to use
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_mixer(tblite_context ctx,
+                            tblite_calculator calc,
+                            tblite_mixer mixer);
+
+/// Set electronic temperature annealing schedule for the calculator object
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param initial_etemp: Initial electronic temperature in Hartree
+/// @param hold: Number of SCF cycles to keep the initial temperature
+/// @param cycles: Number of SCF cycles to lower to the calculation temperature
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_set_calculator_temperature_annealing(tblite_context ctx,
+                                            tblite_calculator calc,
+                                            double initial_etemp,
+                                            int hold,
+                                            int cycles);
 
 /// Set initial guess for creating new wavefunction objects
 ///
@@ -211,20 +273,38 @@ tblite_get_singlepoint(tblite_context ctx,
                        tblite_calculator calc,
                        tblite_result res);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
-/// @param post_proc: Post Processing instance 
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
 /// @param charptr: String of the post processing desired
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_push_back_post_processing_str(tblite_context ctx,
-                                     tblite_calculator calc, 
+                                     tblite_calculator calc,
+                                     tblite_structure mol,
                                      char* charptr);
 
-/// Push Back new conatiner to post processing construct
+/// Push Back new container to post processing construct
 ///
-/// @param post_proc: Post Processing instance 
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
 /// @param param: Param instance containing post processing information
 TBLITE_API_ENTRY void TBLITE_API_CALL
 tblite_push_back_post_processing_param(tblite_context ctx,
                                        tblite_calculator calc,
+                                       tblite_structure mol,
                                        tblite_param param);
+
+/// Add orbital localization post processing with an explicit method choice
+///
+/// @param ctx: Context handle
+/// @param calc: Calculator instance
+/// @param mol: Molecular structure data
+/// @param method: Orbital localization method to use
+TBLITE_API_ENTRY void TBLITE_API_CALL
+tblite_push_back_post_processing_localization(tblite_context ctx,
+                                              tblite_calculator calc,
+                                              tblite_structure mol,
+                                              tblite_localization_method method);

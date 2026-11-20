@@ -1,0 +1,83 @@
+@PACKAGE_INIT@
+
+set("TBLITE_WITH_API" @TBLITE_WITH_API@)
+set(TBLITE_WITH_GPU @GPU@)
+set(TBLITE_WITH_GAMBITS @TBLITE_WITH_GAMBITS@)
+set("TBLITE_WITH_OpenMP" @TBLITE_WITH_OpenMP@)
+set("TBLITE_WITH_DDX" @TBLITE_WITH_DDX@)
+set("TBLITE_WITH_TREXIO" @TBLITE_WITH_TREXIO@)
+set("TBLITE_WITH_HDF5" @TBLITE_WITH_HDF5@)
+set("TBLITE_WITH_MPI" @TBLITE_WITH_MPI@)
+set("TBLITE_WITH_SCALAPACK" @TBLITE_WITH_SCALAPACK@)
+set("TBLITE_USE_MCTCLIB" @TBLITE_USE_MCTCLIB@)
+set("TBLITE_USE_MULTICHARGE" @TBLITE_USE_MULTICHARGE@)
+set("TBLITE_USE_TOMLF" @TBLITE_USE_TOMLF@)
+set("TBLITE_USE_SDFTD3" @TBLITE_USE_SDFTD3@)
+set("TBLITE_USE_DFTD4" @TBLITE_USE_DFTD4@)
+set("TBLITE_USE_DDX" @TBLITE_USE_DDX@)
+
+enable_language("Fortran")
+enable_language("C")
+
+if(NOT TARGET "@PROJECT_NAME@::@PROJECT_NAME@")
+  include(CMakeFindDependencyMacro)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+  if(TBLITE_WITH_GPU)
+    find_dependency(CUDAToolkit)
+  endif()
+  if(TBLITE_WITH_GAMBITS)
+    enable_language(CXX)
+    find_dependency(gambits)
+  endif()
+
+  if(NOT TARGET "OpenMP::OpenMP_Fortran" AND TBLITE_WITH_OpenMP)
+    find_dependency("OpenMP")
+  endif()
+
+  if(NOT TARGET "LAPACK::LAPACK")
+    find_dependency("LAPACK")
+  endif()
+
+  if(NOT TARGET "ddx" AND TBLITE_USE_DDX)
+    find_dependency("ddX" 1.0.2)
+  endif()
+
+  if(NOT TARGET "HDF5::HDF5" AND TBLITE_WITH_HDF5)
+     find_dependency("HDF5")
+  endif()
+
+  if(NOT TARGET "MPI::MPI_Fortran" AND TBLITE_WITH_MPI)
+    find_dependency("MPI" COMPONENTS Fortran)
+  endif()
+
+  if(NOT TARGET "SCALAPACK::SCALAPACK" AND TBLITE_WITH_SCALAPACK)
+    find_dependency("Scalapack")
+  endif()
+
+  if(NOT TARGET "TREXIO::TREXIO" AND TBLITE_WITH_TREXIO)
+    find_dependency("TREXIO")
+  endif()
+
+  if(NOT TARGET "toml-f::toml-f" AND TBLITE_USE_TOMLF)
+    find_dependency("toml-f")
+  endif()
+
+  if(NOT TARGET "mctc-lib::mctc-lib" AND TBLITE_USE_MCTCLIB)
+    find_dependency("mctc-lib")
+  endif()
+
+  if(NOT TARGET "multicharge::multicharge" AND TBLITE_USE_MULTICHARGE)
+    find_dependency("multicharge")
+  endif()
+
+  if(NOT TARGET "dftd4::dftd4" AND TBLITE_USE_DFTD4)
+    find_dependency("dftd4" 4.3.0)
+  endif()
+
+  if(NOT TARGET "s-dftd3::s-dftd3" AND TBLITE_USE_SDFTD3)
+    find_dependency("s-dftd3")
+  endif()
+
+  list(REMOVE_AT CMAKE_MODULE_PATH -1)
+  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
+endif()

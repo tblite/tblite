@@ -22,7 +22,7 @@ module tblite_cli_help
    public :: prog_name, help_text, help_text_run, help_text_param, help_text_fit, &
       & help_text_tagdiff, help_text_guess
 
-   character(len=*), parameter :: nl = new_line('a')
+   character(len=*), parameter :: nl = new_line("a")
 
    !> Name of the main executable
    character(len=*), parameter :: prog_name = "tblite"
@@ -114,14 +114,29 @@ module tblite_cli_help
       "      --param <file>       Parametrization file to use for calculation"//nl//&
       "      --acc <real>         Convergence criterion for SCF (Default: 1.0)"//nl//&
       "      --etemp <real>       Electronic temperature for calculation (Default: 300K)"//nl//&
+      "      --etemp-anneal <real>[,<int>,<int>]"//nl//&
+      "                           Initial electronic temperature for SCF annealing,"//nl//&
+      "                           optionally followed by hold and annealing steps"//nl//&
       "      --guess <name>       Guess for the initial populations, possible options:"//nl//&
       "                           sad (default), eeq, eeqbc, ceh (Charge-Extended Hückel method)"//nl//&
+      "      --config <key>=<value>"//nl//&
+      "                           Set configuration key to value, possible keys are:"//nl//&
+      "                           smooth_cutoff (default: 0.05)"//nl//&
       "      --restart [<file>]   Restart calculation from previous run"//nl//&
       "                           File name for restart file is optional,"//nl//&
-      "                           (Default: tblite-restart.npz)"//nl//&
+      "                           (Default: tblite-restart.npz). Use .h5/.hdf5"//nl//&
+      "                           for HDF5 restart files when HDF5 is available."//nl//&
       "      --no-restart         Do not restart calculation from previous run"//nl//&
       "      --etemp-guess <real> Electronic temperature for ceh-guess (Default: 5000K)"//nl//&
       "      --iterations <int>   Maximum number of SCF iterations (Default: 250)"//nl//&
+      "      --mixer <name>"//nl//&
+      "                           Electronic mixer: broyden (default)"//nl//&
+      "      --mixer <option>=<value>"//nl//&
+      "                           Set mixer specific settings using <option>=<value> syntax"//nl//&
+      "      --mixer memory=<int>"//nl//&
+      "                           Number of previous SCF steps retained by the mixer"//nl//&
+      "      --mixer damping=<real>"//nl//&
+      "                           Damping parameter for the electronic mixer"//nl//&
       "      --solver <name>      Electronic solver for SCF, possible options:"//nl//&
       "                           gvd (default), gvr, gvd-gpu (if compiled with GPU support)"//nl//&
       "                           DMP solvers: sp2, sp2-accel, trs4"//nl//&
@@ -137,11 +152,16 @@ module tblite_cli_help
       "                           Solvent is specified by dielectric constant or the solvent name."//nl//&
       "      --gb <real>/<name>   Use generalized Born solvation model (GB)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --cpcm <real>/<name> Use polarizable continuum solvation model (CPCM)."//nl//&
+      "      --born-kernel <name> Specify Born kernel to use with ALPB, GBSA, GBE or GB solvation model."//nl//&
+      "                           Possible options are p16 (default for ALPB/GBE) and still (default for GB/GBSA)."//nl//&
+      "      --cosmo <real>/<name> "//nl//&
+      "                           Use conductor-like screening solvation model (COSMO)."//nl//&
       "                           Solvent is specified by dielectric constant or solvent name."//nl//&
-      "      --born-kernel <name> Specify Born kernel to use with ALPB, GBSA or GB solvation model."//nl//&
-      "                           Possible options are p16 (default for ALPB) and still (default for GB/GBSA)."//nl//&
-      "      --solv-state <name>  Solution state correction: gsolv (default), bar1mol, reference."//nl//& 
+      "      --cpcm <real>/<name> Use conductor-like polarizable continuum solvation model (CPCM)."//nl//&
+      "                           Solvent is specified by dielectric constant or solvent name."//nl//&
+      "      --pcm <real>/<name>  Use polarizable continuum solvation model (PCM)."//nl//&
+      "                           Solvent is specified by dielectric constant or solvent name."//nl//&
+      "      --solv-state <name>  Solution state correction: gsolv (default), bar1mol, reference."//nl//&
       "      --spin-polarized     Use spin-polarized xTB Hamiltonian"//nl//&
       "      --post-processing <file>"//nl//&
       "                           Add post processing methods to the calculation"//nl//&
@@ -150,13 +170,20 @@ module tblite_cli_help
       "                           Add post processing methods to the calculation,"//nl//&
       "                           Mayer-Wiberg bond orders are computed by default."//nl//&
       "                           Options: molmom (molecular multipole moments)"//nl//&
-      "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//& 
+      "                           Options: xtbml (atomistic properties based on Mulliken partitioning)"//nl//&
+      "                           Options: lmo-<method> (localized molecular orbitals and centers, options: foster-boys)"//nl//&
       "      --post-processing-output <file>"//nl//&
-      "                           Output file for post processing results in npz format."//nl//&
+      "                           Output file for post processing results in npz format,"//nl//&
+      "                           or HDF5 with .h5/.hdf5 when HDF5 is available."//nl//&
       "                           (default: tblite-data.npz)"//nl//&
       "      --grad [file]        Evaluate molecular gradient and virial"//nl//&
       "                           Results are stored in file (default: tblite.txt)"//nl//&
       "      --json [file]        Dump results as JSON output (default: tblite.json)"//nl//&
+      "      --trexio [file]      Dump results as TREXIO output (default: tblite.trexio)."//nl//&
+      "                           Use .h5/.hdf5 for TREXIO HDF5 when available."//nl//&
+      "                           Localized MOs output is tagged with -lmo (e.g. tblite-lmo.trexio)."//nl//&
+      "      --molden [file]      Dump results as Molden output (default: tblite.molden)."//nl//&
+      "                           Localized MOs output is tagged with -lmo (e.g. tblite-lmo.molden)."//nl//&
       "  -i, --input <format>     Hint for the format of the input file"//nl//&
       "  -v, --verbose            Increase verbosity of printout"//nl//&
       "  -s, --silent             Reduce verbosity of printout"//nl//&
@@ -166,7 +193,7 @@ module tblite_cli_help
 
    !> Help text for guess command
    character(len=*), parameter :: help_text_guess = &
-      "Usage: "//prog_name//" [guess] [options] <input>"//nl//&
+      "Usage: "//prog_name//" guess [options] <input>"//nl//&
       ""//nl//&
       "Execute only the atomic charge / density guess."//nl//&
       "Prints the initializing charges and dipole moments."//nl//&

@@ -22,16 +22,14 @@ also provides some FFI based wappers for memory handling.
 
 import functools
 import sys
-from typing import Callable, Dict
+from typing import Any, Callable, Dict, Optional, Union
 
 import numpy as np
 
 try:
     from ._libtblite import ffi, lib
 except ImportError as e:
-    raise ImportError(
-        "tblite C extension unimportable, cannot use C-API"
-    ) from e
+    raise ImportError("tblite C extension unimportable, cannot use C-API") from e
 
 from .exceptions import TBLiteRuntimeError, TBLiteValueError
 
@@ -50,6 +48,18 @@ def get_version() -> tuple:
         version % 10000 // 100,
         version % 100,
     )
+
+
+def get_feature(flag: str) -> bool:
+    """Query whether a specific feature is available
+
+    Args:
+        flag (str): Feature flag to query
+
+    Returns:
+        bool: True if the feature is available, False otherwise
+    """
+    return bool(lib.tblite_get_feature(flag.encode()))
 
 
 def _delete_error(error) -> None:
@@ -145,9 +155,7 @@ def new_context(color: bool = True, logger: Callable[[str], None] = print):
     """Create new tblite context handler object"""
     ctx = ffi.gc(lib.tblite_new_context(), _delete_context)
     handle = ffi.new_handle(logger)
-    context_check(lib.tblite_set_context_logger)(
-        ctx, lib.logger_callback, handle
-    )
+    context_check(lib.tblite_set_context_logger)(ctx, lib.logger_callback, handle)
     if color and sys.stdout.isatty():
         context_check(lib.tblite_set_context_color)(ctx, 1)
     return ctx, handle
@@ -193,11 +201,114 @@ def new_table():
     return ffi.gc(lib.tblite_new_table(ffi.NULL), _delete_table)
 
 
+def _delete_array(array) -> None:
+    """Delete a tblite data array object"""
+    ptr = ffi.new("tblite_array *")
+    ptr[0] = array
+    lib.tblite_delete_array(ptr)
+
+
+def new_array():
+    """Create a tblite data array object"""
+    return ffi.gc(lib.tblite_new_array(), _delete_array)
+
+
 table_set_double = error_check(lib.tblite_table_set_double)
 table_set_int64_t = error_check(lib.tblite_table_set_int64_t)
 table_set_bool = error_check(lib.tblite_table_set_bool)
 table_set_char = error_check(lib.tblite_table_set_char)
-table_add_table = error_check(lib.tblite_table_add_table)
+table_set_array = error_check(lib.tblite_table_set_array)
+table_get_type = error_check(lib.tblite_table_get_type)
+table_get_n_keys = error_check(lib.tblite_table_get_n_keys)
+table_get_table = error_check(lib.tblite_table_get_table)
+table_get_array = error_check(lib.tblite_table_get_array)
+array_push_back_double = error_check(lib.tblite_array_push_back_double)
+array_push_back_int64_t = error_check(lib.tblite_array_push_back_int64_t)
+array_push_back_bool = error_check(lib.tblite_array_push_back_bool)
+array_push_back_char = error_check(lib.tblite_array_push_back_char)
+array_size = error_check(lib.tblite_array_size)
+array_get_type = error_check(lib.tblite_array_get_type)
+
+
+def table_get_bool(table, key):
+    """Read a boolean value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("bool *")
+    error_check(lib.tblite_table_get_bool)(table, key, value)
+    return bool(value[0])
+
+
+def table_get_int64_t(table, key):
+    """Read an integer value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("int64_t *")
+    error_check(lib.tblite_table_get_int64_t)(table, key, value)
+    return int(value[0])
+
+
+def table_get_double(table, key):
+    """Read a floating-point value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("double *")
+    error_check(lib.tblite_table_get_double)(table, key, value)
+    return float(value[0])
+
+
+def table_get_char(table, key):
+    """Read a string value from a tblite table entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_table_get_char)(table, key, value, 512)
+    return ffi.string(value).decode("utf-8")
+
+
+def table_get_key(table, index):
+    """Read a key name from a tblite table by index."""
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_table_get_key)(table, index, value, 512)
+    return ffi.string(value)
+
+
+def array_get_double(array, index):
+    """Read a floating-point value from a tblite array entry."""
+    value = ffi.new("double *")
+    error_check(lib.tblite_array_get_double)(array, index, value)
+    return float(value[0])
+
+
+def array_get_int64_t(array, index):
+    """Read an integer value from a tblite array entry."""
+    value = ffi.new("int64_t *")
+    error_check(lib.tblite_array_get_int64_t)(array, index, value)
+    return int(value[0])
+
+
+def array_get_bool(array, index):
+    """Read a boolean value from a tblite array entry."""
+    value = ffi.new("bool *")
+    error_check(lib.tblite_array_get_bool)(array, index, value)
+    return bool(value[0])
+
+
+def array_get_char(array, index):
+    """Read a string value from a tblite array entry."""
+    value = ffi.new("char[]", 512)
+    error_check(lib.tblite_array_get_char)(array, index, value, 512)
+    return ffi.string(value).decode("utf-8")
+
+
+def table_add_table(table, key):
+    """Create a child table attached to an existing table object."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    return ffi.gc(
+        error_check(lib.tblite_table_add_table)(table, key),
+        _delete_table,
+    )
 
 
 def _delete_param(param) -> None:
@@ -214,9 +325,176 @@ def new_param():
 
 load_param = error_check(lib.tblite_load_param)
 dump_param = error_check(lib.tblite_dump_param)
+dump_table = error_check(lib.tblite_dump_table)
 export_gfn2_param = error_check(lib.tblite_export_gfn2_param)
 export_gfn1_param = error_check(lib.tblite_export_gfn1_param)
 export_ipea1_param = error_check(lib.tblite_export_ipea1_param)
+
+
+def _is_scalar(value) -> bool:
+    """Check whether a value should be treated as a scalar for table conversion."""
+    return isinstance(
+        value, (str, bytes, bool, int, float, np.integer, np.floating, np.bool_)
+    )
+
+
+def _to_python_scalar(value):
+    """Convert numpy scalar values to plain Python scalars."""
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _set_scalar(table, key, value) -> None:
+    """Set a scalar value in a table."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    if isinstance(value, bool) or isinstance(value, np.bool_):
+        ptr = ffi.new("bool[]", [bool(value)])
+        table_set_bool(table, key, ptr, 0)
+    elif isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+        ptr = ffi.new("int64_t[]", [int(value)])
+        table_set_int64_t(table, key, ptr, 0)
+    elif isinstance(value, (float, np.floating)):
+        ptr = ffi.new("double[]", [float(value)])
+        table_set_double(table, key, ptr, 0)
+    elif isinstance(value, (str, bytes)):
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        ptr = ffi.new("char[]", value.encode("utf-8"))
+        table_set_char(table, key, ffi.cast("char(*)[]", ptr), 0)
+    else:
+        raise TBLiteValueError(f"Unsupported scalar type {type(value)!r}")
+
+
+def _set_sequence(table, key, values) -> None:
+    """Set a sequence of scalars as a table array entry."""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    if len(values) == 0:
+        raise TBLiteValueError(
+            "Empty sequences are not supported in parametrization tables"
+        )
+
+    normalized = []
+    for value in values:
+        if isinstance(value, np.ndarray):
+            if value.ndim == 0:
+                value = value.item()
+            else:
+                raise TBLiteValueError("Only one-dimensional arrays are supported")
+        if isinstance(value, (list, tuple)):
+            raise TBLiteValueError(
+                "Nested sequences are not supported in parametrization tables"
+            )
+        normalized.append(_to_python_scalar(value))
+
+    if all(
+        isinstance(value, bool) or isinstance(value, np.bool_) for value in normalized
+    ):
+        array = new_array()
+        for value in normalized:
+            array_push_back_bool(array, bool(value))
+        table_set_array(table, key, array)
+    elif all(
+        isinstance(value, (int, np.integer)) and not isinstance(value, bool)
+        for value in normalized
+    ):
+        array = new_array()
+        for value in normalized:
+            array_push_back_int64_t(array, int(value))
+        table_set_array(table, key, array)
+    elif all(isinstance(value, (float, np.floating)) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            array_push_back_double(array, float(value))
+        table_set_array(table, key, array)
+    elif all(isinstance(value, (str, bytes)) for value in normalized):
+        array = new_array()
+        for value in normalized:
+            if isinstance(value, str):
+                value = value.encode("utf-8")
+            array_push_back_char(array, ffi.new("char[]", value))
+        table_set_array(table, key, array)
+    else:
+        raise TBLiteValueError("Mixed or unsupported sequence types are not supported")
+
+
+def dict_to_table(data: Dict[str, Any]) -> Any:
+    """Convert a nested Python mapping into a tblite table object."""
+    if not isinstance(data, dict):
+        raise TBLiteValueError("Expected a dictionary for parametrization data")
+
+    table = new_table()
+
+    def _populate(target, mapping):
+        for key, value in mapping.items():
+            if isinstance(value, dict):
+                child = table_add_table(target, str(key))
+                _populate(child, value)
+            elif isinstance(value, (list, tuple, np.ndarray)):
+                _set_sequence(target, str(key), list(value))
+            elif _is_scalar(value):
+                _set_scalar(target, str(key), value)
+            else:
+                raise TBLiteValueError(f"Unsupported value type {type(value)!r}")
+
+    _populate(table, data)
+    return table
+
+
+def _table_to_python(table: Any) -> Any:
+    """Convert a tblite table object into nested Python data structures."""
+    if table is None:
+        raise TBLiteValueError("Table object is missing")
+
+    nkeys = table_get_n_keys(table)
+    data = {}
+    for index in range(1, nkeys + 1):
+        key = table_get_key(table, index)
+        kind = table_get_type(table, key)
+
+        if kind == 0:
+            raise TBLiteValueError(f"Unsupported table entry type for key {key!r}")
+        if kind == 1:
+            value = table_get_bool(table, key)
+        elif kind == 2:
+            value = table_get_int64_t(table, key)
+        elif kind == 3:
+            value = table_get_double(table, key)
+        elif kind == 4:
+            value = table_get_char(table, key)
+        elif kind == 5:
+            array = table_get_array(table, key)
+            size = array_size(array)
+            values = []
+            for entry in range(1, size + 1):
+                entry_kind = array_get_type(array, entry)
+                if entry_kind == 1:
+                    values.append(array_get_bool(array, entry))
+                elif entry_kind == 2:
+                    values.append(array_get_int64_t(array, entry))
+                elif entry_kind == 3:
+                    values.append(array_get_double(array, entry))
+                elif entry_kind == 4:
+                    values.append(array_get_char(array, entry))
+                else:
+                    raise TBLiteValueError("Only scalar array entries are supported")
+            value = values
+        elif kind == 6:
+            child = table_get_table(table, key)
+            value = _table_to_python(child)
+        else:
+            raise TBLiteValueError(f"Unsupported table entry kind {kind}")
+
+        data[key.decode("utf-8") if isinstance(key, bytes) else key] = value
+
+    return data
+
+
+def table_to_dict(table: Any) -> Dict[str, Any]:
+    """Convert a tblite table object into a nested Python mapping."""
+    return _table_to_python(table)
 
 
 def _delete_result(result) -> None:
@@ -401,9 +679,23 @@ get_orbital_coefficients = _get_ao_matrix(
 )
 get_density_matrix = _get_ao_matrix(lib.tblite_get_result_density_matrix, True)
 get_overlap_matrix = _get_ao_matrix(lib.tblite_get_result_overlap_matrix, False)
-get_hamiltonian_matrix = _get_ao_matrix(
-    lib.tblite_get_result_hamiltonian_matrix, False
+get_hamiltonian_matrix = _get_ao_matrix(lib.tblite_get_result_hamiltonian_matrix, False)
+get_localized_orbital_coefficients = _get_ao_matrix(
+    lib.tblite_get_result_localized_orbital_coefficients, True
 )
+
+
+def get_localized_orbital_centers(res) -> np.ndarray:
+    """Retrieve localized molecular orbital centers from result container."""
+    _norb = get_number_of_orbitals(res)
+    _nspin = get_number_of_spins(res)
+    _centers = np.zeros((_nspin, _norb, 3))
+    error_check(lib.tblite_get_result_localized_orbital_centers)(
+        res, ffi.cast("double*", _centers.ctypes.data)
+    )
+    if _nspin == 1:
+        return np.squeeze(_centers, axis=0)
+    return _centers
 
 
 def _delete_calculator(calc) -> None:
@@ -414,28 +706,56 @@ def _delete_calculator(calc) -> None:
 
 
 @context_check
-def new_gfn2_calculator(ctx, mol):
+def new_gfn2_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with GFN2-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_gfn2_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_gfn2_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_gfn1_calculator(ctx, mol):
+def new_gfn1_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with GFN1-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_gfn1_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_gfn1_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_ipea1_calculator(ctx, mol):
+def new_ipea1_calculator(ctx, mol, cfg=None):
     """Create new tblite calculator loaded with IPEA1-xTB parametrization data"""
-    return ffi.gc(lib.tblite_new_ipea1_calculator(ctx, mol), _delete_calculator)
+    return ffi.gc(
+        lib.tblite_new_ipea1_calculator(ctx, mol, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
 
 
 @context_check
-def new_xtb_calculator(ctx, mol, param):
+def new_xtb_calculator(ctx, mol, param, cfg=None):
     """Create new tblite calculator from parametrization records"""
     return ffi.gc(
-        lib.tblite_new_xtb_calculator(ctx, mol, param), _delete_calculator
+        lib.tblite_new_xtb_calculator(ctx, mol, param, tblite_xtb_config(cfg)),
+        _delete_calculator,
+    )
+
+
+def tblite_xtb_config(config: Optional[Dict[str, Any]] = None):
+    if config is None:
+        return ffi.NULL
+
+    SUPPORTED_KEYS = {"smooth_cutoff": 0.05}
+
+    if set(config.keys()) - set(SUPPORTED_KEYS.keys()):
+        raise TBLiteValueError(
+            f"Unsupported configuration keys: {set(config.keys()) - set(SUPPORTED_KEYS.keys())}. "
+            f"Supported keys are: {SUPPORTED_KEYS.keys()}."
+        )
+
+    return ffi.new(
+        "tblite_xtb_config *",
+        {key: config.get(key, default) for key, default in SUPPORTED_KEYS.items()},
     )
 
 
@@ -471,9 +791,7 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
         _dim1 = ffi.new("int*")
         _dim2 = ffi.new("int*")
         _dim3 = ffi.new("int*")
-        error_check(lib.tblite_get_array_size_index)(
-            _dict, _index, _dim1, _dim2, _dim3
-        )
+        error_check(lib.tblite_get_array_size_index)(_dict, _index, _dim1, _dim2, _dim3)
         if _dim3[0] == 0:
             if _dim2[0] == 0:
                 _array = np.zeros((_dim1[0],))
@@ -486,9 +804,7 @@ def get_post_processing_dict(res) -> Dict[str, np.ndarray]:
             _dict, _index, ffi.cast("double*", _array.ctypes.data)
         )
         _message = ffi.new("char[]", 512)
-        error_check(lib.tblite_get_label_entry_index)(
-            _dict, _index, _message, ffi.NULL
-        )
+        error_check(lib.tblite_get_label_entry_index)(_dict, _index, _message, ffi.NULL)
         label = ffi.string(_message).decode()
         _dict_py[label] = _array
     return _dict_py
@@ -518,22 +834,71 @@ def get_calculator_orbital_map(ctx, calc) -> np.ndarray:
 
 set_calculator_max_iter = context_check(lib.tblite_set_calculator_max_iter)
 set_calculator_accuracy = context_check(lib.tblite_set_calculator_accuracy)
-set_calculator_mixer_damping = context_check(
-    lib.tblite_set_calculator_mixer_damping
-)
+set_calculator_mixer_damping = context_check(lib.tblite_set_calculator_mixer_damping)
+set_calculator_mixer_memory = context_check(lib.tblite_set_calculator_mixer_memory)
 set_calculator_guess = context_check(lib.tblite_set_calculator_guess)
-set_calculator_temperature = context_check(
-    lib.tblite_set_calculator_temperature
-)
-set_calculator_save_integrals = context_check(
-    lib.tblite_set_calculator_save_integrals
-)
+set_calculator_temperature = context_check(lib.tblite_set_calculator_temperature)
+set_calculator_save_integrals = context_check(lib.tblite_set_calculator_save_integrals)
+
+
+def set_calculator_mixer(ctx, calc, mixer):
+    """Set the SCF mixer."""
+    if isinstance(mixer, str):
+        mixer_name = mixer
+    elif isinstance(mixer, (tuple, list)) and len(mixer) == 1:
+        mixer_name = mixer[0]
+    else:
+        raise TBLiteValueError("Expected mixer as a string")
+
+    mixer_map = {
+        "broyden": lib.TBLITE_MIXER_BROYDEN,
+    }
+    try:
+        mixer_value = mixer_map[mixer_name]
+    except KeyError as exc:
+        raise TBLiteValueError(f"Unknown SCF mixer '{mixer_name}'") from exc
+
+    context_check(lib.tblite_set_calculator_mixer)(ctx, calc, mixer_value)
+
+
+def set_calculator_temperature_annealing(ctx, calc, annealing):
+    """Set electronic-temperature annealing as start or (start, hold, cycles)."""
+    if isinstance(annealing, (tuple, list)):
+        if len(annealing) != 3:
+            raise TBLiteValueError(
+                "Expected annealing as start or (start, hold, cycles)"
+            )
+        initial_etemp, hold, cycles = annealing
+    else:
+        initial_etemp, hold, cycles = annealing, 50, 50
+
+    context_check(lib.tblite_set_calculator_temperature_annealing)(
+        ctx, calc, initial_etemp, int(hold), int(cycles)
+    )
 
 
 @context_check
-def post_processing_push_back(ctx, calc, s):
+def post_processing_push_back(ctx, calc, mol, s):
     _string = ffi.new("char[]", s.encode("ascii"))
-    lib.tblite_push_back_post_processing_str(ctx, calc, _string)
+    lib.tblite_push_back_post_processing_str(ctx, calc, mol, _string)
+
+
+LOCALIZATION_METHODS = {
+    "foster-boys": lib.TBLITE_LOCALIZATION_FOSTERBOYS,
+}
+
+
+@context_check
+def post_processing_push_back_localization(ctx, calc, mol, method: str = "foster-boys"):
+    """Add orbital localization post-processing with an explicit method choice"""
+    if method not in LOCALIZATION_METHODS:
+        raise TBLiteValueError(
+            f"Unknown orbital localization method '{method}'. "
+            f"Supported methods are: {list(LOCALIZATION_METHODS.keys())}"
+        )
+    lib.tblite_push_back_post_processing_localization(
+        ctx, calc, mol, LOCALIZATION_METHODS[method]
+    )
 
 
 @context_check
@@ -566,6 +931,12 @@ _state_enum = {
 _born_enum = {
     "still": 1,
     "p16": 2,
+}
+
+_ddx_model_enum = {
+    "cosmo": 100,
+    "cpcm": 101,
+    "pcm": 200,
 }
 
 
@@ -605,10 +976,18 @@ def new_gb_solvation(ctx, mol, calc, epsilon: float, born: str):
     )
 
 
-def new_cpcm_solvation(ctx, mol, calc, epsilon: float):
-    """Create new tblite CPCM solvation object"""
-    return error_check(lib.tblite_new_cpcm_solvation_epsilon)(
-        mol, float(epsilon)
+def new_ddx_solvation(
+    ctx, mol, calc, solvent_or_epsilon: Union[str, float], model: str
+):
+    """Create new tblite ddX (COSMO, CPCM, or PCM) solvation object"""
+    if isinstance(solvent_or_epsilon, str):
+        _solvent = ffi.new("char[]", solvent_or_epsilon.encode("ascii"))
+        return error_check(lib.tblite_new_ddx_solvation_solvent)(
+            mol, _solvent, _ddx_model_enum[model]
+        )
+
+    return error_check(lib.tblite_new_ddx_solvation_epsilon)(
+        mol, float(solvent_or_epsilon), _ddx_model_enum[model]
     )
 
 

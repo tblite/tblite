@@ -15,803 +15,305 @@
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
 !> @file tblite/integral/diat_trafo.f90
-!> Evaluation of the diatomic scaled overlap
+!> Evaluation of the diatomic scaled overlap based on projection
+!> of the sigma, pi, and delta contributions onto the bond axis.
 module tblite_integral_diat_trafo
    use mctc_env, only : wp
-   use tblite_blas, only: gemm
-
    implicit none
    private
 
-   public :: diat_trafo, diat_trafo_grad
+   public :: setup_diat_trafo, diat_trafo_cache, diat_trafo
 
-   !> Dimension of trafo matrix for highest angular momentum.
-   integer, parameter :: sdim(0:6) = [1, 4, 9, 16, 25, 36, 49]
+   integer, parameter :: max_diat_l = 2
+   integer, parameter :: max_diat_dim = 9
+   integer, parameter :: sdim(0:max_diat_l) = [1, 4, 9]
+
+   !> Thread-private reusable cache for one atom-pair scaling
+   type :: diat_trafo_cache
+      !> Maximum angular momentum on atom j
+      integer :: maxlj = 0
+      !> Maximum angular momentum on atom i
+      integer :: maxli = 0
+      !> Dimension of the block on atom j
+      integer :: dimj = 1
+      !> Dimension of the block on atom i
+      integer :: dimi = 1
+      !> Angular momentum of the smaller side used for projection
+      integer :: active_l = 0
+      !> Apply the operator from the left (atom j) or from the right (atom i)
+      logical :: left = .true.
+      !> Bond axis exists, otherwise no scaling is applied
+      logical :: active = .false.
+
+      !> Unit vector along the bond axis
+      real(wp) :: n(3) = 0.0_wp
+      !> Derivative of the unit vector, dn(:, ic) = d n / d vec(ic)
+      real(wp) :: dn(3, 3) = 0.0_wp
+      !> Scaling operator
+      real(wp) :: op(max_diat_dim, max_diat_dim) = 0.0_wp
+      !> Derivative of the scaling operator for one Cartesian component
+      real(wp) :: dop(max_diat_dim, max_diat_dim) = 0.0_wp
+      !> General temporary multiplication intermediate to avoid repeated allocation
+      real(wp) :: tmp(max_diat_dim, max_diat_dim) = 0.0_wp
+   end type diat_trafo_cache
+
+   real(wp), parameter :: sqrtthotw = sqrt(1.5_wp)
+   real(wp), parameter :: sqrttwo = sqrt(2.0_wp)
+   real(wp), parameter :: sqrtsix = sqrt(6.0_wp)
 
 contains
 
-   !> Transformation to the diatomic frame and back: 
-   pure subroutine diat_trafo(block_overlap, vec, ksig, kpi, kdel, maxlj, maxli)
-      !> Diatomic block of CGTOs to be transformed (+ scaled)
-      real(wp),intent(inout)    :: block_overlap(:,:)
-      !> Transformation vector for the diatomic frame (i.e. vector between the two centers)
-      real(wp),intent(in)       :: vec(3)
-      !> Scaling parameters for different bonding contributions
-      real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum of atom j (first index)
-      integer,intent(in)        :: maxlj
-      !> Highest angular momentum of atom i (second index)
-      integer,intent(in)        :: maxli
+!> Prepare the bond axis and its derivative once per atom pair reusing memory
+pure subroutine setup_diat_trafo(cache, vec, maxlj, maxli, grad)
+   !> Cache for intermediate scaling data
+   type(diat_trafo_cache), intent(inout) :: cache
+   !> Interatomic vector defining the bond axis
+   real(wp), intent(in) :: vec(3)
+   !> Maximum angular momentum on atom j
+   integer, intent(in) :: maxlj
+   !> Maximum angular momentum on atom i
+   integer, intent(in) :: maxli
+   !> Optional flag to prepare the derivative of the bond axis
+   logical, intent(in), optional :: grad
 
-      integer  :: dimj, dimi, maxl
-      real(wp), allocatable :: trafomat(:,:), tmp(:,:), transformed_s(:,:)
+   integer :: ic, jc
+   real(wp) :: r2, r
+   logical :: gradient
 
-      ! Select the dimensions of the transformation matrix
-      dimj = sdim(maxlj)
-      dimi = sdim(maxli)
-      maxl = max(maxlj, maxli)
+   cache%maxlj = min(max(maxlj, 0), max_diat_l)
+   cache%maxli = min(max(maxli, 0), max_diat_l)
+   cache%dimj = sdim(cache%maxlj)
+   cache%dimi = sdim(cache%maxli)
+   cache%active_l = min(cache%maxlj, cache%maxli)
+   cache%left = cache%dimj <= cache%dimi
 
-      allocate(trafomat(sdim(maxl), sdim(maxl)), transformed_s(dimj,dimi), &
-      & tmp(dimj,dimi), source=0.0_wp)
+   gradient = .false.
+   if (present(grad)) gradient = grad
 
-      ! 1. Setup the transformation matrix
-      call harmtr(maxl, vec, trafomat)
+   ! Check for vanishing bond vectors
+   r2 = sum(vec**2)
+   cache%active = r2 /= 0.0_wp
+   cache%n = 0.0_wp
+   cache%dn = 0.0_wp
+   if (.not. cache%active) return
 
-      ! 2. Transform the overlap submatrix to the diatomic frame: S' = O^T * S * O
-      if (maxl > 0) then
-         call gemm(amat=trafomat(1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
-            & cmat=tmp, transa='T', transb='N')
-         call gemm(amat=tmp, bmat=trafomat(1:dimi,1:dimi), &
-            & cmat=transformed_s, transa='N', transb='N')
-      else
-         transformed_s(1,1) = block_overlap(1,1)
-      endif
-
-      ! 3. Scale elements in the diatomic frame
-      call scale_diatomic_frame(transformed_s, ksig, kpi, kdel, maxlj, maxli) 
-
-      ! 4. Transform the overlap submatrix back to original frame: Ssc = O * Ssc' * O^T
-      block_overlap = 0.0_wp
-      if (maxl > 0) then
-         call gemm(amat=trafomat(1:dimj,1:dimj), bmat=transformed_s, &
-            & cmat=tmp, transa='N', transb='N')
-         call gemm(amat=tmp, bmat=trafomat(1:dimi,1:dimi), &
-            & cmat=block_overlap(1:dimj,1:dimi), transa='N', transb='T')
-      else
-         block_overlap(1,1) = transformed_s(1,1)
-      endif
-
-   end subroutine diat_trafo
-
-   !> Gradient of the diatomic frame scaled overlap transformation: 
-   pure subroutine diat_trafo_grad(block_overlap, block_doverlap, vec, ksig, kpi, kdel, maxlj, maxli)
-      !> Diatomic block of CGTO overlap to be transformed (+ scaled)
-      real(wp),intent(inout)    :: block_overlap(:,:)
-      !> Derivative of diatomic block of CGTO overlap to be transformed (+ scaled)
-      real(wp),intent(inout)    :: block_doverlap(:,:,:)
-      !> Transformation vector for the diatomic frame (i.e. vector between the two centers)
-      real(wp),intent(in)       :: vec(3)
-      !> Scaling parameters for different bonding contributions
-      real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum of atom j (first index)
-      integer,intent(in)        :: maxlj
-      !> Highest angular momentum of atom i (second index)
-      integer,intent(in)        :: maxli
-      
-      integer :: ic, dimj, dimi, maxl
-      real(wp), allocatable :: trafomat(:,:,:), dtrafomat(:,:,:), tmp(:,:), &
-      & interm_oso(:,:), interm_doso(:,:,:), interm_odso(:,:,:), interm_osdo(:,:,:)
-
-      ! Select the dimensions of the transformation matrix
-      dimj = sdim(maxlj)
-      dimi = sdim(maxli)
-      maxl = max(maxlj, maxli)
-
-      allocate(trafomat(3,sdim(maxl), sdim(maxl)), dtrafomat(3,sdim(maxl), sdim(maxl)), &
-      & interm_oso(dimj,dimi), interm_doso(3,dimj,dimi), interm_osdo(3,dimj, dimi), &
-      & interm_odso(3,dimj,dimi), tmp(dimj,dimi), source=0.0_wp)
-
-      ! 1. Setup the transformation matrix and its derivative for all directions.
-      ! For the case vec || z-axis, the x- and y-derivatives are ill-defined 
-      ! and have to be evaluated assuming either x or y orientation. 
-      call d_harmtr(maxl, vec, trafomat, dtrafomat)
-
-      ! 2. Transform the overlap submatrix to the diatomic frame: S' = O^T * S * O
-      if (maxl > 0) then
-         ! interm_oso = O^T * S * O
-         call gemm(amat=trafomat(3,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
-            & cmat=tmp,transa='T', transb='N')
-         call gemm(amat=tmp, bmat=trafomat(3,1:dimi,1:dimi), &
-            & cmat=interm_oso, transa='N', transb='N')
-         do ic = 1, 3
-            ! interm_doso = dO^T * S * O
-            call gemm(amat=dtrafomat(ic,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
-               & cmat=tmp, transa='T', transb='N')
-            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
-               & cmat=interm_doso(ic,:,:), transa='N', transb='N')
-            ! interm_osdo = O^T * S * dO
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=block_overlap(1:dimj,1:dimi), &
-               & cmat=tmp, transa='T', transb='N')
-            call gemm(amat=tmp, bmat=dtrafomat(ic,1:dimi,1:dimi), &
-               & cmat=interm_osdo(ic,:,:), transa='N', transb='N')
-            ! interm_odso = O^T * dS * O
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=block_doverlap(ic,1:dimj,1:dimi), &
-               & cmat=tmp, transa='T', transb='N')
-            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
-               & cmat=interm_odso(ic,:,:), transa='N', transb='N')
-         end do
-      else
-         interm_oso(1,1) = block_overlap(1,1)
-         interm_doso(:,1,1) = 0.0_wp
-         interm_odso(:,1,1) = block_doverlap(:,1,1)
-         interm_osdo(:,1,1) = 0.0_wp
-      endif
-
-      ! 3. Scale overlap and each dimension of the derivative in the diatomic frame
-      call scale_diatomic_frame(interm_oso, ksig, kpi, kdel, maxlj, maxli) 
+   ! Compute the unit vector along the bond axis and its derivative
+   r = sqrt(r2)
+   cache%n(:) = vec / r
+   if (gradient) then
       do ic = 1, 3
-         call scale_diatomic_frame(interm_doso(ic,:,:), ksig, kpi, kdel, maxlj, maxli)
-         call scale_diatomic_frame(interm_osdo(ic,:,:), ksig, kpi, kdel, maxlj, maxli) 
-         call scale_diatomic_frame(interm_odso(ic,:,:), ksig, kpi, kdel, maxlj, maxli) 
-      end do
-
-      ! 4. Transform diatomic frame quantities (S', (dOSO)', (OSdO)' and (OdSO)') back to original frame
-      if (maxl > 0) then
-         ! block_overlap = O * S' * O^T
-         call gemm(amat=trafomat(3,1:dimj,1:dimj), bmat=interm_oso, &
-            & cmat=tmp, transa='N', transb='N')
-         call gemm(amat=tmp, bmat=trafomat(3,1:dimi,1:dimi), &
-            & cmat=block_overlap(1:dimj,1:dimi), transa='N', transb='T')
-
-         do ic = 1, 3
-            ! block_doverlap = dO * S' * O^T + O * S' * dO^T
-            call gemm(amat=dtrafomat(ic,1:dimj,1:dimj), bmat=interm_oso, &
-               & cmat=tmp, transa='N', transb='N')
-            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), &
-               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
-
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_oso, &
-               & cmat=tmp, transa='N', transb='N')
-            call gemm(alpha=1.0_wp, amat=tmp, bmat=dtrafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
-               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
-            
-            ! block_doverlap += O * (dOSO)' * O^T + O * (OSdO)' * O^T 
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_doso(ic,:,:), &
-               & cmat=tmp, transa='N', transb='N')
-            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
-               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
-
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_odso(ic,:,:), &
-               & cmat=tmp, transa='N', transb='N')
-            call gemm(amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
-               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
-            
-            ! block_doverlap += O * (OdSO)' * O^T 
-            call gemm(amat=trafomat(ic,1:dimj,1:dimj), bmat=interm_osdo(ic,:,:), &
-               & cmat=tmp, transa='N', transb='N')
-            call gemm(alpha=1.0_wp, amat=tmp, bmat=trafomat(ic,1:dimi,1:dimi), beta=1.0_wp, &
-               & cmat=block_doverlap(ic,1:dimj,1:dimi), transa='N', transb='T')
+         do jc = 1, 3
+            cache%dn(jc, ic) = -cache%n(jc) * cache%n(ic) / r
          end do
-      else
-         block_overlap(1,1) = interm_oso(1,1)
-         block_doverlap(:,1,1) = interm_odso(:,1,1)
-      endif
-
-   end subroutine diat_trafo_grad
+         cache%dn(ic, ic) = cache%dn(ic, ic) + 1.0_wp / r
+      end do
+   end if
+end subroutine setup_diat_trafo
 
 
-   pure subroutine harmtr(maxl,vec,trafomat)
-      !> Maximum angular momentum
-      integer, intent(in)  :: maxl
-      !> Normalized vector from atom k to atom l
-      real(wp), intent(in) :: vec(3)
-      !> Transformation matrix
-      real(wp), intent(out) :: trafomat(sdim(maxl),sdim(maxl))
-      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp, sint, sqrt3, len
-      real(wp) :: norm_vec(3)
+!> Apply the diatomic sigma, pi and delta scaling to a shell-pair overlap block
+!> and optionally calculate the Cartesian derivatives
+pure subroutine diat_trafo(cache, ksig, kpi, kdel, block_overlap, block_doverlap)
+   !> Cache for intermediate diatomic scaling data
+   type(diat_trafo_cache), intent(inout) :: cache
+   !> Scaling parameters for sigma bonding contributions
+   real(wp), intent(in) :: ksig
+   !> Scaling parameters for pi bonding contributions
+   real(wp), intent(in) :: kpi
+   !> Scaling parameters for delta bonding contributions
+   real(wp), intent(in) :: kdel
+   !> Diatomic block of CGTO overlap to be scaled
+   real(wp), intent(inout), contiguous :: block_overlap(:, :)
+   !> Derivative of diatomic block of CGTO overlap to be scaled
+   real(wp), intent(inout), optional, contiguous :: block_doverlap(:, :, :)
 
-      trafomat = 0.0_wp
+   integer :: ic, dimj, dimi
 
-      ! -----------------------------
-      !  s functions (trafomat(1x1))
-      ! -----------------------------
-      
-      trafomat(1,1) = 1.0
+   if (.not. cache%active) return
 
-      if ( maxl == 0 ) return
+   dimj = cache%dimj
+   dimi = cache%dimi
 
-      ! Normalize the vector
-      len = sqrt(sum(vec**2))
-      norm_vec = vec / len
+   ! For spherically symmetric s functions and equal scaling for both sides,
+   ! the operator reduces to a constant factor.
+   if ((cache%active_l < 1 .or. kpi == ksig) &
+      & .and. (cache%active_l < 2 .or. kdel == ksig)) then
+      if (ksig == 1.0_wp) return
+      block_overlap(:dimj, :dimi) = ksig * block_overlap(:dimj, :dimi)
+      if (present(block_doverlap)) then
+         block_doverlap(:dimj, :dimi, :) = ksig * block_doverlap(:dimj, :dimi, :)
+      end if
+      return
+   end if
 
-      ! Prepare spherical coordinats
-      cost = norm_vec(3)
-      if ( abs(cost) .eq. 1.0_wp ) then
-         ! Here, phi is arbitrary as the vector is parallel to the z-axis.
-         ! We choose the x-axis as the arbitrary direction.
-         sint = 0.0_wp
-         cosp = 1.0_wp
-         sinp = 0.0_wp
-      else if ( abs(cost) .eq. 0.0_wp ) then
-         sint = 1.0_wp
-         cosp = norm_vec(1)
-         sinp = norm_vec(2)
-      else
-         sint = SQRT(norm_vec(1)**2 + norm_vec(2)**2)
-         cosp = norm_vec(1)/SINT
-         sinp = norm_vec(2)/SINT
-      endif
+   ! Compute block diagonal scaling operator for the current shell pair
+   call get_scale_operator(cache%active_l, cache%n, ksig, kpi, kdel, cache%op)
 
-      ! -----------------------------
-      !  p functions (trafomat(4x4))
-      ! -----------------------------
+   ! Evaluate derivatives before the overlap is overwritten.
+   if (present(block_doverlap)) then
+      do ic = 1, 3
+         ! Derivative of block diagaonal scaling operator
+         call get_scale_operator_deriv(cache%active_l, cache%n, cache%dn(:, ic), &
+            & ksig, kpi, kdel, cache%dop)
 
-      ! Adapted to tblite ordering from MSINDO
-      ! 1st index:
-      ! (2,:)_MSINDO -> (px,:) -> (4,:)_tblite
-      ! (3,:)_MSINDO -> (py,:) -> (2,:)_tblite
-      ! (4,:)_MSINDO -> (pz,:) -> (3,:)_tblite
-      trafomat(4,3) = SINT*COSP
-      trafomat(2,3) = SINT*SINP
-      trafomat(3,3) = COST
-      trafomat(4,4) = COST*COSP
-      trafomat(2,4) = COST*SINP
-      trafomat(3,4) = -SINT
-      trafomat(4,2) = -SINP
-      trafomat(2,2) = COSP
-      trafomat(3,2) = 0.0_wp
-
-      if ( maxl <= 1 ) return
-
-      ! -----------------------------
-      !  d functions (trafomat(9x9)) 
-      ! -----------------------------
-
-      COS2T = COST**2 - SINT**2
-      SIN2T = 2.0_wp * SINT*COST
-      COS2P = COSP**2 - SINP**2
-      SIN2P = 2.0_wp * SINP*COSP
-      SQRT3 = SQRT(3.0_wp)
-
-      ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
-      ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
-      ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
-      ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
-      ! (8,:)_MSINDO -> (dx2-y2,:) -> (5,:)_tblite
-      ! (9,:)_MSINDO -> (dxy,:) -> (9,:)_tblite
-      trafomat(7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(8,7) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat(6,7) = SQRT3*SIN2T*SINP*0.5_wp
-      trafomat(9,7) = SQRT3*SINT**2*COS2P*0.5_wp
-      trafomat(5,7) = SQRT3*SINT**2*SIN2P*0.5_wp
-      trafomat(7,8) = -SQRT3*SIN2T*0.5_wp
-      trafomat(8,8) = COS2T*COSP
-      trafomat(6,8) = COS2T*SINP
-      trafomat(9,8) = SIN2T*COS2P*0.5_wp
-      trafomat(5,8) = SIN2T*SIN2P*0.5_wp
-      trafomat(7,6) = 0.0_wp
-      trafomat(8,6) = -COST*SINP
-      trafomat(6,6) = COST*COSP
-      trafomat(9,6) = -SINT*SIN2P
-      trafomat(5,6) = SINT*COS2P
-      trafomat(7,9) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(8,9) = -SIN2T*COSP*0.5_wp
-      trafomat(6,9) = -SIN2T*SINP*0.5_wp
-      trafomat(9,9) = (1.0_wp + COST**2) * COS2P * 0.5_wp
-      trafomat(5,9) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
-      trafomat(7,5) = 0.0_wp
-      trafomat(8,5) = SINT*SINP
-      trafomat(6,5) = -SINT*COSP
-      trafomat(9,5) = -COST*SIN2P
-      trafomat(5,5) = COST*COS2P
-
-      if ( maxl <= 2 ) return
-
-      ! -------------------------------
-      !  f functions (trafomat(16x16)) 
-      ! -------------------------------
-
-      ! f-functions are not transformed to the diatomic frame!
-      trafomat(10,10) = 1.0_wp
-      trafomat(11,11) = 1.0_wp
-      trafomat(12,12) = 1.0_wp
-      trafomat(13,13) = 1.0_wp
-      trafomat(14,14) = 1.0_wp
-      trafomat(15,15) = 1.0_wp
-      trafomat(16,16) = 1.0_wp
-
-      if ( maxl <= 3 ) return
-
-      ! -------------------------------
-      !  g functions (trafomat(25x25)) 
-      ! -------------------------------
-
-      ! g-functions are not transformed to the diatomic frame!
-      trafomat(17,17) = 1.0_wp
-      trafomat(18,18) = 1.0_wp
-      trafomat(19,19) = 1.0_wp
-      trafomat(20,20) = 1.0_wp
-      trafomat(21,21) = 1.0_wp
-      trafomat(22,22) = 1.0_wp
-      trafomat(23,23) = 1.0_wp
-      trafomat(24,24) = 1.0_wp
-      trafomat(25,25) = 1.0_wp
-
-      if ( maxl <= 4 ) return
-
-   end subroutine harmtr
-
-   pure subroutine d_harmtr(maxl,vec,trafomat, dtrafomat)
-      !> Maximum angular momentum
-      integer, intent(in)  :: maxl
-      !> Normalized vector from atom k to atom l
-      real(wp), intent(in) :: vec(3)
-      !> Transformation matrix
-      real(wp), intent(out) :: trafomat(3,sdim(maxl),sdim(maxl))
-      !> Derivative of transformation matrix
-      real(wp), intent(out) :: dtrafomat(3,sdim(maxl),sdim(maxl))
-      
-      real(wp), parameter              :: eps = 1.0e-08_wp
-
-      !> Derivative of transformation matrix w.r.t. theta (x- or z-direction)
-      real(wp) :: trafomat_dt(sdim(maxl),sdim(maxl))
-      !> Derivative of transformation matrix w.r.t. theta (y-direction)
-      real(wp) :: trafomat_dty(sdim(maxl),sdim(maxl))
-      !> Derivative of transformation matrix w.r.t. phi (x- or z-direction)
-      real(wp) :: trafomat_dp(sdim(maxl),sdim(maxl))
-      !> Derivative of transformation matrix w.r.t. phi (y-direction)
-      real(wp) :: trafomat_dpy(sdim(maxl),sdim(maxl))
-
-      ! Intermediate variables for the trigonometric functions
-      ! Separte version for y for the case: vec || z-axis
-      real(wp) :: cos2p, cos2t, cosp, cost, sin2p, sin2t, sinp
-      real(wp) :: cos2py, cospy, sin2py, sinpy
-      real(wp) :: dcos2t, dsin2t, dcos2p, dsin2p
-      real(wp) :: dcos2py, dsin2py
-      real(wp) :: dpdx, dpdy, dpdz, dtdx, dtdy, dtdz
-      real(wp) :: norm_vec(3), sint, sqrt3, len
-
-      trafomat = 0.0_wp
-      trafomat_dt = 0.0_wp
-      trafomat_dty = 0.0_wp
-      trafomat_dp = 0.0_wp
-      trafomat_dpy = 0.0_wp
-
-      ! -----------------------------
-      !  s functions (trafomat(1x1)) 
-      ! -----------------------------
-
-      trafomat(:,1,1) = 1.0_wp
-      dtrafomat(:,1,1) = 0.0_wp
-
-      if ( maxl == 0 ) return
-
-      ! Normalize the vector
-      len = sqrt(sum(vec**2))
-      norm_vec = vec / len
-
-      ! Prepare spherical coordinats
-      cost = norm_vec(3)
-      if ( abs(cost) .eq. 1.0_wp ) then
-         sint = 0.0_wp
-         ! Here, phi is arbitrary as the vector is parallel to the z-axis.
-         ! In turn, the derivative is ill defined and has to be evaluated
-         ! assuming either x or y orientation for the infinitesimal change. 
-         ! This is only require for the p- and d-functions, which are transformed.
-         cosp = 1.0_wp
-         sinp = 0.0_wp
-         if ( maxl == 1 .or. maxl == 2 ) then 
-            cospy = 0.0_wp
-            sinpy = -1.0_wp
+         ! Scaling derivative dS' = dK S + K dS or dS' = dS K + S dK
+         if (cache%left) then
+            ! s block
+            block_doverlap(1, :dimi, ic) = ksig * block_doverlap(1, :dimi, ic)
+            ! p block, always present for a non-uniform scaling
+            cache%tmp(2:4, :dimi) = &
+               & matmul(cache%dop(2:4, 2:4), block_overlap(2:4, :dimi)) &
+               & + matmul(cache%op(2:4, 2:4), block_doverlap(2:4, :dimi, ic))
+            block_doverlap(2:4, :dimi, ic) = cache%tmp(2:4, :dimi)
+            ! d block, only possible for left side
+            if (cache%active_l >= 2) then
+               cache%tmp(5:9, :dimi) = &
+                  & matmul(cache%dop(5:9, 5:9), block_overlap(5:9, :dimi)) &
+                  & + matmul(cache%op(5:9, 5:9), block_doverlap(5:9, :dimi, ic))
+               block_doverlap(5:9, :dimi, ic) = cache%tmp(5:9, :dimi)
+            end if
          else
-            cospy = cosp
-            sinpy = sinp
+            ! s block
+            block_doverlap(:dimj, 1, ic) = ksig * block_doverlap(:dimj, 1, ic)
+            ! p block, always present for a non-uniform scaling
+            cache%tmp(:dimj, 2:4) = &
+               & matmul(block_overlap(:dimj, 2:4), cache%dop(2:4, 2:4)) &
+               & + matmul(block_doverlap(:dimj, 2:4, ic), cache%op(2:4, 2:4))
+            block_doverlap(:dimj, 2:4, ic) = cache%tmp(:dimj, 2:4)
          end if
-      else if ( abs(cost) .eq. 0.0_wp ) then
-         sint = 1.0_wp
-         cosp = norm_vec(1)
-         sinp = norm_vec(2)
-         cospy = cosp
-         sinpy = sinp
-      else
-         sint = SQRT(norm_vec(1)**2 + norm_vec(2)**2)
-         cosp = norm_vec(1)/SINT
-         sinp = norm_vec(2)/SINT
-         cospy = cosp
-         sinpy = sinp
-      endif
+      end do
+   end if
 
-      ! Prepare sperical coordinate derivative
-      ! In the case of (exactly) vec || z-axis, the phi derivative vanishes.
-      if( norm_vec(1)**2 + norm_vec(2)**2 .eq. 0.0_wp ) then
-         dpdx = 0.0_wp
-         dpdy = 0.0_wp
-      else
-         dpdx = -sinp / sqrt(vec(1)**2 + vec(2)**2) 
-         dpdy = cospy / sqrt(vec(1)**2 + vec(2)**2)
-      end if 
-      dpdz = 0.0_wp
-      dtdx = cost * cosp / len
-      dtdy = cost * sinpy / len
-      dtdz = -sint / len
-
-      ! -----------------------------
-      !  p functions (trafomat(4x4)) 
-      ! -----------------------------
-
-      ! Adapted to tblite ordering from MSINDO
-      ! 1st index:
-      ! (2,:)_MSINDO -> (px,:) -> (4,:)_tblite
-      ! (3,:)_MSINDO -> (py,:) -> (2,:)_tblite
-      ! (4,:)_MSINDO -> (pz,:) -> (3,:)_tblite
-
-      ! x-direction
-      trafomat(1,4,3) = SINT*COSP
-      trafomat(1,2,3) = SINT*SINP
-      trafomat(1,3,3) = COST
-      trafomat(1,4,4) = COST*COSP
-      trafomat(1,2,4) = COST*SINP
-      trafomat(1,3,4) = -SINT
-      trafomat(1,4,2) = -SINP
-      trafomat(1,2,2) = COSP
-      trafomat(1,3,2) = 0.0_wp
-      ! y-direction
-      trafomat(2,4,3) = SINT*COSPY
-      trafomat(2,2,3) = SINT*SINPY
-      trafomat(2,3,3) = COST
-      trafomat(2,4,4) = COST*COSPY
-      trafomat(2,2,4) = COST*SINPY
-      trafomat(2,3,4) = -SINT
-      trafomat(2,4,2) = -SINPY
-      trafomat(2,2,2) = COSPY
-      trafomat(2,3,2) = 0.0_wp
-      ! z-direction equal to x-direction
-      trafomat(3,:,:) = trafomat(1,:,:)
-
-      ! derivative w.r.t. theta (x- or z-direction)
-      trafomat_dt(4,3) = COST*COSP
-      trafomat_dt(2,3) = COST*SINP
-      trafomat_dt(3,3) = -SINT
-      trafomat_dt(4,4) = -SINT*COSP
-      trafomat_dt(2,4) = -SINT*SINP
-      trafomat_dt(3,4) = -COST
-      trafomat_dt(4,2) = 0.0_wp
-      trafomat_dt(2,2) = 0.0_wp
-      trafomat_dt(3,2) = 0.0_wp
-      ! y-direction
-      trafomat_dty(4,3) = COST*COSPY
-      trafomat_dty(2,3) = COST*SINPY
-      trafomat_dty(3,3) = -SINT
-      trafomat_dty(4,4) = -SINT*COSPY
-      trafomat_dty(2,4) = -SINT*SINPY
-      trafomat_dty(3,4) = -COST
-      trafomat_dty(4,2) = 0.0_wp
-      trafomat_dty(2,2) = 0.0_wp
-      trafomat_dty(3,2) = 0.0_wp
-
-      ! derivative w.r.t. phi (x- or z-direction)
-      trafomat_dp(4,3) = -SINT*SINP
-      trafomat_dp(2,3) = SINT*COSP
-      trafomat_dp(3,3) = 0.0_wp
-      trafomat_dp(4,4) = -COST*SINP
-      trafomat_dp(2,4) = COST*COSP
-      trafomat_dp(3,4) = 0.0_wp
-      trafomat_dp(4,2) = -COSP
-      trafomat_dp(2,2) = -SINP
-      trafomat_dp(3,2) = 0.0_wp
-      ! y-direction
-      trafomat_dpy(4,3) = -SINT*SINPY
-      trafomat_dpy(2,3) = SINT*COSPY
-      trafomat_dpy(3,3) = 0.0_wp
-      trafomat_dpy(4,4) = -COST*SINPY
-      trafomat_dpy(2,4) = COST*COSPY
-      trafomat_dpy(3,4) = 0.0_wp
-      trafomat_dpy(4,2) = -COSPY
-      trafomat_dpy(2,2) = -SINPY
-      trafomat_dpy(3,2) = 0.0_wp
-           
-
-      if ( maxl <= 1 ) then 
-         dtrafomat(1, 1:4, 1:4) = dpdx * trafomat_dp(1:4, 1:4) + dtdx * trafomat_dt(1:4, 1:4) 
-         dtrafomat(2, 1:4, 1:4) = dpdy * trafomat_dpy(1:4, 1:4) + dtdy * trafomat_dty(1:4, 1:4) 
-         dtrafomat(3, 1:4, 1:4) = dtdz * trafomat_dt(1:4, 1:4)
-         return
+   ! Scale the overlap itself as S' = K S or S' = S K
+   if (cache%left) then
+      ! s block
+      block_overlap(1, :dimi) = ksig * block_overlap(1, :dimi)
+      ! p block, always present for a non-uniform scaling
+      cache%tmp(2:4, :dimi) = &
+         matmul(cache%op(2:4, 2:4), block_overlap(2:4, :dimi))
+      block_overlap(2:4, :dimi) = cache%tmp(2:4, :dimi)
+      ! d block, only possible for left side
+      if (cache%active_l >= 2) then
+         cache%tmp(5:9, :dimi) = &
+            matmul(cache%op(5:9, 5:9), block_overlap(5:9, :dimi))
+         block_overlap(5:9, :dimi) = cache%tmp(5:9, :dimi)
       end if
+   else
+      ! s block
+      block_overlap(:dimj, 1) = ksig * block_overlap(:dimj, 1)
+      ! p block, always present for a non-uniform scaling
+      cache%tmp(:dimj, 2:4) = &
+         matmul(block_overlap(:dimj, 2:4), cache%op(2:4, 2:4))
+      block_overlap(:dimj, 2:4) = cache%tmp(:dimj, 2:4)
+   end if
 
-      ! -----------------------------
-      !  d functions (trafomat(9x9)) 
-      ! -----------------------------
-
-      SQRT3 = SQRT(3.0_wp)
-      COS2T = COST**2 - SINT**2
-      SIN2T = 2.0_wp * SINT*COST
-      COS2P = COSP**2 - SINP**2
-      SIN2P = 2.0_wp * SINP*COSP
-      COS2PY = COSPY**2 - SINPY**2
-      SIN2PY = 2.0_wp * SINPY*COSPY
-      
-      DCOS2T = -2.0_wp * SIN2T
-      DSIN2T =  2.0_wp * COS2T
-      DCOS2P = -2.0_wp * SIN2P
-      DSIN2P =  2.0_wp * COS2P
-      DCOS2PY = -2.0_wp * SIN2PY
-      DSIN2PY =  2.0_wp * COS2PY
+end subroutine diat_trafo
 
 
-      ! Changed from MSINDO ordering (0,-1,1,-2,2) to tblite ordering (-2,-1,0,1,2) of d-functions 
-      ! (5,:)_MSINDO -> (dz2,:) -> (7,:)_tblite
-      ! (6,:)_MSINDO -> (dxz,:) -> (8,:)_tblite
-      ! (7,:)_MSINDO -> (dyz,:) -> (6,:)_tblite
-      ! (8,:)_MSINDO -> (dx2-y2,:) -> (5,:)_tblite
-      ! (9,:)_MSINDO -> (dxy,:) -> (9,:)_tblite
-      ! x-direction
-      trafomat(1,7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(1,8,7) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat(1,6,7) = SQRT3*SIN2T*SINP*0.5_wp
-      trafomat(1,9,7) = SQRT3*SINT**2*COS2P*0.5_wp
-      trafomat(1,5,7) = SQRT3*SINT**2*SIN2P*0.5_wp
-      trafomat(1,7,8) = -SQRT3*SIN2T*0.5_wp
-      trafomat(1,8,8) = COS2T*COSP
-      trafomat(1,6,8) = COS2T*SINP
-      trafomat(1,9,8) = SIN2T*COS2P*0.5_wp
-      trafomat(1,5,8) = SIN2T*SIN2P*0.5_wp
-      trafomat(1,7,6) = 0.0_wp
-      trafomat(1,8,6) = -COST*SINP
-      trafomat(1,6,6) = COST*COSP
-      trafomat(1,9,6) = -SINT*SIN2P
-      trafomat(1,5,6) = SINT*COS2P
-      trafomat(1,7,9) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(1,8,9) = -SIN2T*COSP*0.5_wp
-      trafomat(1,6,9) = -SIN2T*SINP*0.5_wp
-      trafomat(1,9,9) = (1.0_wp + COST**2) * COS2P * 0.5_wp
-      trafomat(1,5,9) = (1.0_wp + COST**2) * SIN2P * 0.5_wp
-      trafomat(1,7,5) = 0.0_wp
-      trafomat(1,8,5) = SINT*SINP
-      trafomat(1,6,5) = -SINT*COSP
-      trafomat(1,9,5) = -COST*SIN2P
-      trafomat(1,5,5) = COST*COS2P
-      ! y-direction
-      trafomat(2,7,7) = (3.0_wp * COST**2 - 1.0_wp) * 0.5_wp
-      trafomat(2,8,7) = SQRT3*SIN2T*COSPY*0.5_wp
-      trafomat(2,6,7) = SQRT3*SIN2T*SINPY*0.5_wp
-      trafomat(2,9,7) = SQRT3*SINT**2*COS2PY*0.5_wp
-      trafomat(2,5,7) = SQRT3*SINT**2*SIN2PY*0.5_wp
-      trafomat(2,7,8) = -SQRT3*SIN2T*0.5_wp
-      trafomat(2,8,8) = COS2T*COSPY
-      trafomat(2,6,8) = COS2T*SINPY
-      trafomat(2,9,8) = SIN2T*COS2PY*0.5_wp
-      trafomat(2,5,8) = SIN2T*SIN2PY*0.5_wp
-      trafomat(2,7,6) = 0.0_wp
-      trafomat(2,8,6) = -COST*SINPY
-      trafomat(2,6,6) = COST*COSPY
-      trafomat(2,9,6) = -SINT*SIN2PY
-      trafomat(2,5,6) = SINT*COS2PY
-      trafomat(2,7,9) = SQRT3*SINT**2 * 0.5_wp
-      trafomat(2,8,9) = -SIN2T*COSPY*0.5_wp
-      trafomat(2,6,9) = -SIN2T*SINPY*0.5_wp
-      trafomat(2,9,9) = (1.0_wp + COST**2) * COS2PY * 0.5_wp
-      trafomat(2,5,9) = (1.0_wp + COST**2) * SIN2PY * 0.5_wp
-      trafomat(2,7,5) = 0.0_wp
-      trafomat(2,8,5) = SINT*SINPY
-      trafomat(2,6,5) = -SINT*COSPY
-      trafomat(2,9,5) = -COST*SIN2PY
-      trafomat(2,5,5) = COST*COS2PY
-      ! z-direction
-      trafomat(3,:,:) = trafomat(1,:,:)
-      
-      ! derivative w.r.t. theta (x- or z-direction)
-      trafomat_dt(7,7) = -3.0_wp*SIN2T*0.5_wp
-      trafomat_dt(8,7) = SQRT3*DSIN2T*COSP*0.5_wp
-      trafomat_dt(6,7) = SQRT3*DSIN2T*SINP*0.5_wp
-      trafomat_dt(9,7) = SQRT3*SIN2T*COS2P*0.5_wp
-      trafomat_dt(5,7) = SQRT3*SIN2T*SIN2P*0.5_wp
-      trafomat_dt(7,8) = -SQRT3*DSIN2T*0.5_wp
-      trafomat_dt(8,8) = DCOS2T*COSP
-      trafomat_dt(6,8) = DCOS2T*SINP
-      trafomat_dt(9,8) = DSIN2T*COS2P*0.5_wp
-      trafomat_dt(5,8) = DSIN2T*SIN2P*0.5_wp
-      trafomat_dt(7,6) = 0.0_wp
-      trafomat_dt(8,6) = SINT*SINP
-      trafomat_dt(6,6) = -SINT*COSP
-      trafomat_dt(9,6) = -COST*SIN2P
-      trafomat_dt(5,6) = COST*COS2P
-      trafomat_dt(7,9) = SQRT3*SIN2T*0.5_wp
-      trafomat_dt(8,9) = -DSIN2T*COSP*0.5_wp
-      trafomat_dt(6,9) = -DSIN2T*SINP*0.5_wp
-      trafomat_dt(9,9) = -SIN2T*COS2P*0.5_wp
-      trafomat_dt(5,9) = -SIN2T*SIN2P*0.5_wp
-      trafomat_dt(7,5) = 0.0_wp
-      trafomat_dt(8,5) = COST*SINP
-      trafomat_dt(6,5) = -COST*COSP
-      trafomat_dt(9,5) = SINT*SIN2P
-      trafomat_dt(5,5) = -SINT*COS2P
-      ! y-direction
-      trafomat_dty(7,7) = -3.0_wp*SIN2T*0.5_wp
-      trafomat_dty(8,7) = SQRT3*DSIN2T*COSPY*0.5_wp
-      trafomat_dty(6,7) = SQRT3*DSIN2T*SINPY*0.5_wp
-      trafomat_dty(9,7) = SQRT3*SIN2T*COS2PY*0.5_wp
-      trafomat_dty(5,7) = SQRT3*SIN2T*SIN2PY*0.5_wp
-      trafomat_dty(7,8) = -SQRT3*DSIN2T*0.5_wp
-      trafomat_dty(8,8) = DCOS2T*COSPY
-      trafomat_dty(6,8) = DCOS2T*SINPY
-      trafomat_dty(9,8) = DSIN2T*COS2PY*0.5_wp
-      trafomat_dty(5,8) = DSIN2T*SIN2PY*0.5_wp
-      trafomat_dty(7,6) = 0.0_wp
-      trafomat_dty(8,6) = SINT*SINPY
-      trafomat_dty(6,6) = -SINT*COSPY
-      trafomat_dty(9,6) = -COST*SIN2PY
-      trafomat_dty(5,6) = COST*COS2PY
-      trafomat_dty(7,9) = SQRT3*SIN2T*0.5_wp
-      trafomat_dty(8,9) = -DSIN2T*COSPY*0.5_wp
-      trafomat_dty(6,9) = -DSIN2T*SINPY*0.5_wp
-      trafomat_dty(9,9) = -SIN2T*COS2PY*0.5_wp
-      trafomat_dty(5,9) = -SIN2T*SIN2PY*0.5_wp
-      trafomat_dty(7,5) = 0.0_wp
-      trafomat_dty(8,5) = COST*SINPY
-      trafomat_dty(6,5) = -COST*COSPY
-      trafomat_dty(9,5) = SINT*SIN2PY
-      trafomat_dty(5,5) = -SINT*COS2PY
+!> Scaling operator of the sigma, pi, and delta channels for all shells up to maxl
+pure subroutine get_scale_operator(maxl, n, ksig, kpi, kdel, op)
+   !> Maximum angular momentum at least one
+   integer, intent(in) :: maxl
+   !> Unit vector along the bond axis
+   real(wp), intent(in) :: n(3)
+   !> Scaling parameters for sigma contributions
+   real(wp), intent(in) :: ksig
+   !> Scaling parameters for pi contributions
+   real(wp), intent(in) :: kpi
+   !> Scaling parameters for delta contributions
+   real(wp), intent(in) :: kdel
+   !> Block diagonal scaling operator in the order s, p, d
+   real(wp), intent(out) :: op(:, :)
 
-      ! derivative w.r.t. phi (x- or z-direction)
-      trafomat_dp(7,7) = 0.0_wp
-      trafomat_dp(8,7) = -SQRT3*SIN2T*SINP*0.5_wp
-      trafomat_dp(6,7) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat_dp(9,7) = SQRT3*SINT**2*DCOS2P*0.5_wp
-      trafomat_dp(5,7) = SQRT3*SINT**2*DSIN2P*0.5_wp
-      trafomat_dp(7,8) = 0.0_wp
-      trafomat_dp(8,8) = -COS2T*SINP
-      trafomat_dp(6,8) = COS2T*COSP
-      trafomat_dp(9,8) = SIN2T*DCOS2P*0.5_wp
-      trafomat_dp(5,8) = SIN2T*DSIN2P*0.5_wp
-      trafomat_dp(7,6) = 0.0_wp
-      trafomat_dp(8,6) = -COST*COSP
-      trafomat_dp(6,6) = -COST*SINP
-      trafomat_dp(9,6) = -SINT*DSIN2P
-      trafomat_dp(5,6) = SINT*DCOS2P
-      trafomat_dp(7,9) = 0.0_wp
-      trafomat_dp(8,9) = SIN2T*SINP*0.5_wp
-      trafomat_dp(6,9) = -SIN2T*COSP*0.5_wp
-      trafomat_dp(9,9) = (1.0+COST**2)*DCOS2P*0.5_wp
-      trafomat_dp(5,9) = (1.0+COST**2)*DSIN2P*0.5_wp
-      trafomat_dp(7,5) = 0.0_wp
-      trafomat_dp(8,5) = SINT*COSP
-      trafomat_dp(6,5) = SINT*SINP
-      trafomat_dp(9,5) = -COST*DSIN2P
-      trafomat_dp(5,5) = COST*DCOS2P
-      ! y-direction
-      trafomat_dpy(7,7) = 0.0_wp
-      trafomat_dpy(8,7) = -SQRT3*SIN2T*SINP*0.5_wp
-      trafomat_dpy(6,7) = SQRT3*SIN2T*COSP*0.5_wp
-      trafomat_dpy(9,7) = SQRT3*SINT**2*DCOS2P*0.5_wp
-      trafomat_dpy(5,7) = SQRT3*SINT**2*DSIN2P*0.5_wp
-      trafomat_dpy(7,8) = 0.0_wp
-      trafomat_dpy(8,8) = -COS2T*SINP
-      trafomat_dpy(6,8) = COS2T*COSP
-      trafomat_dpy(9,8) = SIN2T*DCOS2P*0.5_wp
-      trafomat_dpy(5,8) = SIN2T*DSIN2P*0.5_wp
-      trafomat_dpy(7,6) = 0.0_wp
-      trafomat_dpy(8,6) = -COST*COSP
-      trafomat_dpy(6,6) = -COST*SINP
-      trafomat_dpy(9,6) = -SINT*DSIN2P
-      trafomat_dpy(5,6) = SINT*DCOS2P
-      trafomat_dpy(7,9) = 0.0_wp
-      trafomat_dpy(8,9) = SIN2T*SINP*0.5_wp
-      trafomat_dpy(6,9) = -SIN2T*COSP*0.5_wp
-      trafomat_dpy(9,9) = (1.0+COST**2)*DCOS2P*0.5_wp
-      trafomat_dpy(5,9) = (1.0+COST**2)*DSIN2P*0.5_wp
-      trafomat_dpy(7,5) = 0.0_wp
-      trafomat_dpy(8,5) = SINT*COSP
-      trafomat_dpy(6,5) = SINT*SINP
-      trafomat_dpy(9,5) = -COST*DSIN2P
-      trafomat_dpy(5,5) = COST*DCOS2P
+   integer :: ic
+   real(wp) :: q(5), b(3, 5), btb(5, 5), wsig, wpi
 
-      if ( maxl <= 2 ) then 
-         ! Transform to cartesian coordinates
-         dtrafomat(1, 1:9, 1:9) = dpdx * trafomat_dp(1:9, 1:9) + dtdx * trafomat_dt(1:9, 1:9)
-         dtrafomat(2, 1:9, 1:9) = dpdy * trafomat_dpy(1:9, 1:9) + dtdy * trafomat_dty(1:9, 1:9)
-         dtrafomat(3, 1:9, 1:9) = dtdz * trafomat_dt(1:9, 1:9)
-         return
-      end if
+   op = 0.0_wp
 
-      ! -------------------------------
-      !  f functions (trafomat(16x16)) 
-      ! -------------------------------
+   ! s functions: only sigma character
+   op(1, 1) = ksig
 
-      ! f-functions are not transformed to the diatomic frame!
-      ! Hence, the derivative remains 0!
-      trafomat(:,10,10) = 1.0_wp
-      trafomat(:,11,11) = 1.0_wp
-      trafomat(:,12,12) = 1.0_wp
-      trafomat(:,13,13) = 1.0_wp
-      trafomat(:,14,14) = 1.0_wp
-      trafomat(:,15,15) = 1.0_wp
-      trafomat(:,16,16) = 1.0_wp
+   ! p functions: q is the orbital components pointing along the bond axis.
+   ! Projectors: P_sig = q q^T and P_pi = 1 - q q^T
+   q(:3) = n([2, 3, 1])
+   do ic = 1, 3
+      op(2:4, 1+ic) = (ksig - kpi) * q(:3) * q(ic)
+      op(1+ic, 1+ic) = op(1+ic, 1+ic) + kpi
+   end do
 
-      if ( maxl <= 3 ) then 
-         ! Transform to cartesian coordinates
-         dtrafomat(1, 1:16, 1:16) = dpdx * trafomat_dp(1:16, 1:16) + dtdx * trafomat_dt(1:16, 1:16)
-         dtrafomat(2, 1:16, 1:16) = dpdy * trafomat_dpy(1:16, 1:16) + dtdy * trafomat_dty(1:16, 1:16)
-         dtrafomat(3, 1:16, 1:16) = dtdz * trafomat_dt(1:16, 1:16)
-         return
-      end if
+   if (maxl < 2) return
 
-      ! -------------------------------
-      !  g functions (trafomat(25x25)) 
-      ! -------------------------------
+   ! d functions: B are vectors coupling via the d orbitals to the bond axis direction.
+   ! Projectors: P_sig = q q^T, P_pi = 2 B^T B - 4/3 P_sig, and P_del = 1 - P_sig - P_pi
+   call get_d_tensor_vector(n, b)
+   btb = matmul(transpose(b), b)
+   q = sqrtthotw * matmul(n, b)
+   wsig = (ksig - kdel) - (4.0_wp / 3.0_wp) * (kpi - kdel)
+   wpi = 2.0_wp * (kpi - kdel)
+   do ic = 1, 5
+      op(5:9, 4+ic) = wsig * q * q(ic) + wpi * btb(:, ic)
+      op(4+ic, 4+ic) = op(4+ic, 4+ic) + kdel
+   end do
 
-      ! g-functions are not transformed to the diatomic frame!
-      ! Hence, the derivative remains 0!
-      trafomat(:,17,17) = 1.0_wp
-      trafomat(:,18,18) = 1.0_wp
-      trafomat(:,19,19) = 1.0_wp
-      trafomat(:,20,20) = 1.0_wp
-      trafomat(:,21,21) = 1.0_wp
-      trafomat(:,22,22) = 1.0_wp
-      trafomat(:,23,23) = 1.0_wp
-      trafomat(:,24,24) = 1.0_wp
-      trafomat(:,25,25) = 1.0_wp
+end subroutine get_scale_operator
 
-      if ( maxl <= 4 ) then 
-         ! Transform to cartesian coordinates
-         dtrafomat(1, 1:25, 1:25) = dpdx * trafomat_dp(1:25, 1:25) + dtdx * trafomat_dt(1:25, 1:25)
-         dtrafomat(2, 1:25, 1:25) = dpdy * trafomat_dpy(1:25, 1:25) + dtdy * trafomat_dty(1:25, 1:25)
-         dtrafomat(3, 1:25, 1:25) = dtdz * trafomat_dt(1:25, 1:25)
-         return
-      end if
+!> Derivative of the scaling operator along a change of the unit vector
+pure subroutine get_scale_operator_deriv(maxl, n, dn, ksig, kpi, kdel, dop)
+   !> Maximum angular momentum at least one
+   integer, intent(in) :: maxl
+   !> Unit vector along the bond axis
+   real(wp), intent(in) :: n(3)
+   !> Change of the unit vector
+   real(wp), intent(in) :: dn(3)
+   !> Scaling parameters for sigma contributions
+   real(wp), intent(in) :: ksig
+   !> Scaling parameters for pi contributions
+   real(wp), intent(in) :: kpi
+   !> Scaling parameters for delta contributions
+   real(wp), intent(in) :: kdel
+   !> Derivative of the block diagonal scaling operator
+   real(wp), intent(out) :: dop(:, :)
 
-   end subroutine d_harmtr
+   integer :: ic
+   real(wp) :: q(5), dq(5), b(3, 5), db(3, 5), dbtb(5, 5), wsig, wpi
 
-   pure subroutine scale_diatomic_frame(diat_mat, ksig, kpi, kdel, maxlj, maxli)
-      !> Block matrix in the diatomic frame to be scaled
-      real(wp),intent(inout)    :: diat_mat(:,:)
-      !> Scaling parameters for different bonding contributions
-      real(wp),intent(in)       :: ksig, kpi, kdel
-      !> Highest angular momentum of atom j (first index)
-      integer,intent(in)        :: maxlj
-      !> Highest angular momentum of atom i (second index)
-      integer,intent(in)        :: maxli
+   dop = 0.0_wp
 
-      integer :: maxl
+   q(:3) = n([2, 3, 1])
+   dq(:3) = dn([2, 3, 1])
+   do ic = 1, 3
+      dop(2:4, 1+ic) = (ksig - kpi) * (dq(:3) * q(ic) + q(:3) * dq(ic))
+   end do
 
-      maxl = max(maxlj, maxli)
+   if (maxl < 2) return
 
-      diat_mat(1,1) = diat_mat(1,1)*ksig ! Sigma bond s   <-> s
-      if(maxlj > 0) then
-         diat_mat(3,1) = diat_mat(3,1)*ksig ! Sigma bond pz  <-> s 
-      end if
-      if(maxli > 0)  then
-         diat_mat(1,3) = diat_mat(1,3)*ksig ! Sigma bond s   <-> pz
-      end if
-      if(maxlj > 0 .and. maxli > 0) then 
-         diat_mat(3,3) = diat_mat(3,3)*ksig ! Sigma bond pz  <-> pz
-         diat_mat(4,4) = diat_mat(4,4)*kpi  ! Pi    bond px  <-> px
-         diat_mat(2,2) = diat_mat(2,2)*kpi  ! Pi    bond py  <-> py
-         if(maxlj > 1) then
-            diat_mat(7,3) = diat_mat(7,3)*ksig ! Sigma bond dz2 <-> pz
-            diat_mat(8,4) = diat_mat(8,4)*kpi  ! Pi    bond dxz <-> px
-            diat_mat(6,2) = diat_mat(6,2)*kpi  ! Pi    bond dyz <-> py
-         end if
-         if(maxli > 1) then         
-            diat_mat(3,7) = diat_mat(3,7)*ksig ! Sigma bond pz  <-> dz2
-            diat_mat(4,8) = diat_mat(4,8)*kpi  ! Pi    bond px  <-> dxz
-            diat_mat(2,6) = diat_mat(2,6)*kpi  ! Pi    bond py  <-> dyz
-         end if
-      end if
-      if (maxlj > 1) then
-         diat_mat(7,1) = diat_mat(7,1)*ksig ! Sigma bond dz2 <-> s
-      end if
-      if (maxli > 1) then
-         diat_mat(1,7) = diat_mat(1,7)*ksig ! Sigma bond s   <-> dz2   
-      end if
-      if (maxlj > 1 .and. maxli > 1) then
-         diat_mat(7,7) = diat_mat(7,7)*ksig ! Sigma bond dz2 <-> dz2
-         diat_mat(8,8) = diat_mat(8,8)*kpi  ! Pi    bond dxz <-> dxz
-         diat_mat(6,6) = diat_mat(6,6)*kpi  ! Pi    bond dyz <-> dyz
-         diat_mat(9,9) = diat_mat(9,9)*kdel ! Delta bond dx2-y2 <-> dx2-y2
-         diat_mat(5,5) = diat_mat(5,5)*kdel ! Delta bond dxy <-> dxy
-      endif
-      ! f- and g-functions remain unscaled
+   ! B is linear in n and q quadratic in n
+   call get_d_tensor_vector(n, b)
+   call get_d_tensor_vector(dn, db)
+   dbtb = matmul(transpose(db), b) + matmul(transpose(b), db)
+   q = sqrtthotw * matmul(n, b)
+   dq = sqrtsix * matmul(dn, b)
+   wsig = (ksig - kdel) - (4.0_wp / 3.0_wp) * (kpi - kdel)
+   wpi = 2.0_wp * (kpi - kdel)
+   do ic = 1, 5
+      dop(5:9, 4+ic) = wsig * (dq * q(ic) + q * dq(ic)) + wpi * dbtb(:, ic)
+   end do
 
-   end subroutine scale_diatomic_frame
+end subroutine get_scale_operator_deriv
+
+!> Apply the normalized traceless tensors of the d functions to a vector
+pure subroutine get_d_tensor_vector(n, b)
+   !> Vector the tensors are applied to
+   real(wp), intent(in) :: n(3)
+   !> Tensors for (xy, yz, z2, xz, x2-y2) applied to the vector
+   real(wp), intent(out) :: b(3, 5)
+
+   b(:, 1) = [n(2), n(1), 0.0_wp] / sqrttwo
+   b(:, 2) = [0.0_wp, n(3), n(2)] / sqrttwo
+   b(:, 3) = [-n(1), -n(2), 2.0_wp*n(3)] / sqrtsix
+   b(:, 4) = [n(3), 0.0_wp, n(1)] / sqrttwo
+   b(:, 5) = [n(1), -n(2), 0.0_wp] / sqrttwo
+
+end subroutine get_d_tensor_vector
 
 end module tblite_integral_diat_trafo

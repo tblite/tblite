@@ -112,6 +112,8 @@ pure subroutine get_angular_grid(nang, grid, weights, stat)
    case(30); call ld4802(grid, weights, np)
    case(31); call ld5294(grid, weights, np)
    case(32); call ld5810(grid, weights, np)
+   case default
+      continue
    end select
 
    if (np == grid_size(nang)) then
@@ -171,7 +173,7 @@ pure subroutine gen_oh3(num, x, w, v)
    real(wp),intent(inout) :: w(*)
    real(wp),intent(in) :: v
    real(wp) :: a
-   a  =  sqrt(1._wp/3._wp)
+   a  =  sqrt(1.0_wp/3.0_wp)
    x(:,1) = [ a,  a,  a]
    x(:,2) = [-a,  a,  a]
    x(:,3) = [ a, -a,  a]
@@ -191,7 +193,7 @@ pure subroutine gen_oh4(num, x, w, a, v)
    real(wp),intent(inout) :: w(*)
    real(wp),intent(in) :: a, v
    real(wp) :: b
-   b  =  sqrt(1._wp - 2._wp*a*a)
+   b  =  sqrt(1.0_wp - 2.0_wp*a*a)
    x(:, 1) = [ a,  a,  b]
    x(:, 2) = [-a,  a,  b]
    x(:, 3) = [ a, -a,  b]
@@ -263,7 +265,7 @@ pure subroutine gen_oh6(num, x, w, a, b, v)
    real(wp),intent(inout) :: w(*)
    real(wp),intent(in) :: a, b, v
    real(wp) :: c
-   c = sqrt(1._wp - a*a - b*b)
+   c = sqrt(1.0_wp - a*a - b*b)
    x(:, 1) = [ a,  b,  c]
    x(:, 2) = [-a,  b,  c]
    x(:, 3) = [ a, -b,  c]

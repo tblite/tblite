@@ -19,12 +19,12 @@
 
 !> API export for managing parametrization records.
 module tblite_api_param
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_associated, c_f_pointer, c_loc, c_null_ptr, c_ptr
    use mctc_env, only : fatal_error
    use tblite_api_error, only : vp_error
    use tblite_api_table, only : vp_table
-   use tblite_api_version, only : namespace
    use tblite_api_utils, only : f_c_character
+   use tblite_api_version, only : namespace
    use tblite_param, only : param_record
    use tblite_toml, only : toml_table
    use tblite_xtb_gfn1, only : export_gfn1_param

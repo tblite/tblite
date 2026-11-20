@@ -23,8 +23,8 @@
 !> Declaration of options for the optimization driver
 module tblite_fit_settings
    use mctc_env, only : wp, error_type, fatal_error
-   use tblite_param_serde, only : serde_record
    use tblite_param, only : param_record, param_mask
+   use tblite_param_serde, only : serde_record
    use tblite_toml, only : toml_table, get_value, set_value, add_table
    implicit none
    private

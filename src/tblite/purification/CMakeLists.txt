@@ -19,7 +19,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
-  "${dir}/gambits-purification.f90"
+  "${dir}/gambits-purification.F90"
   "${dir}/type.f90"
 )
 

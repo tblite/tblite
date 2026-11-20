@@ -18,9 +18,9 @@ module test_wavefunction_restart
    use mctc_env, only : wp
    use mctc_env_testing, only : new_unittest, unittest_type, error_type, check, &
       & test_failed
-   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
-   use tblite_wavefunction_restart, only : load_wavefunction, save_wavefunction
    use tblite_io_numpy, only : save_npz
+   use tblite_wavefunction_restart, only : load_wavefunction, save_wavefunction
+   use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    implicit none
    private
 

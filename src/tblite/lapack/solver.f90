@@ -20,11 +20,12 @@
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
    use mctc_env, only : wp
-   use iso_c_binding, only : c_ptr, c_null_ptr, c_associated, c_size_t
+   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_context_solver, only : context_solver
+   use tblite_lapack_scalapack, only : psygvd_solver, new_psygvd, &
+      & distribute_diagonalization
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd
    use tblite_lapack_sygvr, only : sygvr_solver, new_sygvr
-   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_scf_solver, only : solver_type
    implicit none
    private
@@ -38,9 +39,7 @@ module tblite_lapack_solver
       integer :: gvd = 1
       !> Relatively robust solver
       integer :: gvr = 2
-      !> Divide-and-conquer solver cuSolver implementation
-      integer :: gvd_cusolver = 3 
-      
+      integer :: gvd_cusolver = 3
    end type enum_lapack
 
    !> Actual enumerator of possible solvers
@@ -51,88 +50,103 @@ module tblite_lapack_solver
    type, public, extends(context_solver) :: lapack_solver
       !> Selected electronic solver algorithm
       integer :: algorithm = lapack_algorithm%gvd
-      !> Pointer to store the C++ solver instance
-      type(c_ptr) :: ptr = c_null_ptr
-      contains
+   contains
       !> Create new instance of electronic solver
       procedure :: new
       !> Delete an electronic solver instance
       procedure :: delete
+      !> Select local column storage when distributed diagonalization is suitable
+      procedure :: distributed_columns
    end type lapack_solver
 
-   interface lapack_solver
-      procedure :: new_lapack_solver
-   end interface lapack_solver
 
 contains
 
-type(lapack_solver) function new_lapack_solver(algorithm)
-   
-   !> Selected electronic solver algorithm
-   integer, intent(in), optional :: algorithm
-   if (present(algorithm)) new_lapack_solver%algorithm = algorithm
-   
-end function new_lapack_solver
+!> Whether to use local columns with the distributed ScaLAPACK solver.
+logical function distributed_columns(self, n, comm) result(distribute)
+   !> Instance of the solver factory
+   class(lapack_solver), intent(in) :: self
+   !> Global dimension of the eigenvalue problem
+   integer, intent(in) :: n
+   !> Communicator to distribute over; absent keeps full matrix storage
+   integer, intent(in), optional :: comm
+   distribute = .false.
+   ! Existing subclasses may replace new() with a solver requiring square
+   ! arrays. Such factories must explicitly opt in to the new storage layout.
+   select type(self)
+   type is (lapack_solver)
+      if (self%algorithm == lapack_algorithm%gvd_cusolver) return
+      if (present(comm)) distribute = distribute_diagonalization(n, comm)
+   end select
+end function distributed_columns
 
 
 !> Create new electronic solver
-subroutine new(self, overlap, nel, kt)
+subroutine new(self, solver, overlap, nel, kt, comm)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
+   !> New electronic solver
+   class(solver_type), allocatable, intent(out) :: solver
    !> Overlap matrix
    real(wp), intent(in) :: overlap(:, :)
    !> Number of electrons per spin channel
    real(wp), intent(in) :: nel(:)
    !> Electronic temperature
    real(wp), intent(in) :: kt
-   if (self%ndim /= size(overlap, 1)) then
-      self%ndim = size(overlap, 1)
-      if (allocated(self%solver)) call self%delete()
-      select case(self%algorithm)
-      case(lapack_algorithm%gvd)
+   !> Communicator to distribute the diagonalization over, absent keeps it local
+   integer, intent(in), optional :: comm
+
+   ! the replicated diagonalization is the bottleneck of a distributed run
+   if (present(comm)) then
+      if (self%distributed_columns(size(overlap, 1), comm)) then
          block
-            type(sygvd_solver), allocatable :: tmp
+            type(psygvd_solver), allocatable :: tmp
             allocate(tmp)
-            call new_sygvd(tmp, overlap, nel, kt)
-            call move_alloc(tmp, self%solver)
+            call new_psygvd(tmp, overlap, nel, kt, comm)
+            call move_alloc(tmp, solver)
          end block
-      case(lapack_algorithm%gvr)
-         block
-            type(sygvr_solver), allocatable :: tmp
-            allocate(tmp)
-            call new_sygvr(tmp, overlap, nel, kt)
-            call move_alloc(tmp, self%solver)
-         end block
-      case(lapack_algorithm%gvd_cusolver)
-         block
-            type(sygvd_cusolver), allocatable :: tmp
-            allocate(tmp)
-            call new_sygvd_gpu(tmp, overlap, nel, kt, self%ptr)
-            call move_alloc(tmp, self%solver)
-         end block
-      end select
+         return
+      end if
    end if
+
+   select case(self%algorithm)
+   case(lapack_algorithm%gvd)
+      block
+         type(sygvd_solver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvd(tmp, overlap, nel, kt)
+         call move_alloc(tmp, solver)
+      end block
+   case(lapack_algorithm%gvr)
+      block
+         type(sygvr_solver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvr(tmp, overlap, nel, kt)
+         call move_alloc(tmp, solver)
+      end block
+   case(lapack_algorithm%gvd_cusolver)
+      block
+         type(sygvd_cusolver), allocatable :: tmp
+         allocate(tmp)
+         call new_sygvd_gpu(tmp, overlap, nel, kt)
+         call move_alloc(tmp, solver)
+      end block
+   case default
+      continue
+   end select
 end subroutine new
 
 
 !> Delete electronic solver instance
-subroutine delete(self)
+subroutine delete(self, solver)
    !> Instance of the solver factory
    class(lapack_solver), intent(inout) :: self
-   
+   !> Electronic solver instance
+   class(solver_type), allocatable, intent(inout) :: solver
 
-   if (allocated(self%solver)) then
-      if (self%reuse .and. c_associated(self%ptr)) then
-         if (allocated(self%solver)) call self%solver%delete()
-      else
-         if (c_associated(self%ptr)) then
-            call self%solver%delete(self%ptr)
-            self%ptr = c_null_ptr
-         end if
-         if (allocated(self%solver)) deallocate(self%solver)
-         self%ndim = 0
-      end if
-      
+   if (allocated(solver)) then
+      call solver%delete()
+      deallocate(solver)
    end if
 end subroutine delete
 

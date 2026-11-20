@@ -27,7 +27,7 @@ works with QCSchema v2 due to Pydantic restrictions.
 
 The model support the following methods:
 
-- **GFN2-xTB**: 
+- **GFN2-xTB**:
   Self-consistent extended tight binding Hamiltonian with
   anisotropic second order electrostatic contributions,
   third order on-site contributions and self-consistent D4 dispersion.
@@ -55,23 +55,26 @@ Supported keywords are:
  accuracy            Numerical thresholds for SCC         float (1.0)
  guess               Initial guess for wavefunction       integer (0 == SAD)
  max-iter            Maximum number of SCC iterations     integer (250)
+ mixer               SCC mixer                            string ("broyden")
  mixer-damping       Parameter for the SCC mixer          float (0.4)
+ mixer-memory        Number of mixer history vectors      integer (0 uses max-iter)
  save-integrals      Keep integral matrices in results    0 (False)
  temperature         Electronic temperature for filling   float (9.500e-4)
+ annealing           Start or [start, hold, cycles]       float or list
  verbosity           Set verbosity of printout            integer (1)
  electric-field      Uniform electric field               Field vector
  spin-polarization   Spin polarization                    Scaling factor
- alpb-solvation      ALPB implicit solvation              Solvent name, solution state (optional)
- gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
- cpcm-solvation      CPCM implicit solvation              Epsilon
- gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
+ ddX-solvation       dd-based implicit solvation          Epsilon, Model ("COSMO", "CPCM", "PCM")
  gb-solvation        GB implicit solvation                Epsilon, Born kernel
+ gbe-solvation       GBε implicit solvation               Epsilon, Born kernel
+ gbsa-solvation      GBSA implicit solvation              Solvent name, solution state (optional)
+ alpb-solvation      ALPB implicit solvation              Solvent name, solution state (optional)
 =================== ==================================== =========================================
 """
 
 import sys
 from io import StringIO
-from typing import Any, Dict, Literal, overload, Union
+from typing import Any, Dict, Literal, Union, overload
 
 import numpy as np
 
@@ -269,9 +272,7 @@ def run_schema(input_data):
 
     if input_driver not in SUPPORTED_DRIVERS:
         driver_name = (
-            input_driver.name
-            if hasattr(input_driver, "name")
-            else str(input_driver)
+            input_driver.name if hasattr(input_driver, "name") else str(input_driver)
         )
         return get_error(
             input_data,
@@ -303,17 +304,23 @@ def run_schema(input_data):
         )
 
     keywords = {
-        key: value
-        for key, value in input_keywords.items()
-        if key in Calculator._setter
+        key: value for key, value in input_keywords.items() if key in Calculator._setter
     }
     interaction = {
         key: value
         for key, value in input_keywords.items()
         if key in Calculator._interaction
     }
+    ddx_models = {
+        "cosmo-solvation": "cosmo",
+        "cpcm-solvation": "cpcm",
+        "pcm-solvation": "pcm",
+    }
+    for key, model in ddx_models.items():
+        if key in input_keywords:
+            interaction["ddX-solvation"] = [input_keywords[key], model]
     unknown_keywords = (
-        set(input_keywords) - set(keywords) - set(interaction)
+        set(input_keywords) - set(keywords) - set(interaction) - set(ddx_models)
     )
     if unknown_keywords:
         return get_error(
@@ -359,9 +366,7 @@ def run_schema(input_data):
             calcinfo_nbasis=result["norbitals"],
             calcinfo_nmo=result["norbitals"],
             scf_dipole_moment=result["dipole"],
-            scf_quadrupole_moment=result["quadrupole"][
-                [0, 1, 3, 1, 2, 4, 3, 4, 5]
-            ],
+            scf_quadrupole_moment=result["quadrupole"][[0, 1, 3, 1, 2, 4, 3, 4, 5]],
             scf_total_energy=result["energy"],
             scf_total_gradient=result["gradient"],
         )
@@ -379,7 +384,7 @@ def run_schema(input_data):
     except (TBLiteTypeError, TBLiteValueError) as e:
         return get_error(
             input_data,
-            error = dict(
+            error=dict(
                 error_type="input_error",
                 error_message=str(e),
             ),
@@ -389,7 +394,7 @@ def run_schema(input_data):
     except TBLiteRuntimeError as e:
         return get_error(
             input_data,
-            error = dict(
+            error=dict(
                 error_type="execution_error",
                 error_message=str(e),
             ),

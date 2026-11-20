@@ -24,6 +24,7 @@
 module tblite_data
    use tblite_data_spin, only : get_spin_constant
    implicit none
+   private
 
    public :: get_spin_constant
 end module tblite_data

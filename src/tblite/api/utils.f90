@@ -19,7 +19,7 @@
 
 !> Provides utilities used for all API export modules
 module tblite_api_utils
-   use, intrinsic :: iso_c_binding
+   use, intrinsic :: iso_c_binding, only : c_char, c_int, c_null_char, c_ptr
    implicit none
    private
 

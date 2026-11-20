@@ -182,7 +182,7 @@ recursive subroutine get_response_file(self, resp, stat)
       return
    end if
 
-   open(file=resp, unit=unit, iostat=info, status='old', action='read')
+   open(file=resp, unit=unit, iostat=info, status="old", action="read")
    do while(info == 0)
       call getline(unit, arg, info)
       if (info /= 0) exit
@@ -193,7 +193,7 @@ recursive subroutine get_response_file(self, resp, stat)
       call push_back(self, arg)
    end do
    close(unit, iostat=stat)
-   if (info /= 0) then
+   if (stat == 0 .and. info /= 0) then
       stat = merge(0, info, is_iostat_end(info))
    end if
 end subroutine get_response_file
@@ -207,7 +207,7 @@ subroutine getline(unit, line, iostat, iomsg)
    !> Status of operation
    integer, intent(out) :: iostat
    !> Error message
-   character(len=:), allocatable, optional :: iomsg
+   character(len=:), allocatable, intent(out), optional :: iomsg
 
    integer, parameter :: bufsize = 512
    character(len=bufsize) :: buffer, msg
@@ -216,7 +216,7 @@ subroutine getline(unit, line, iostat, iomsg)
 
    allocate(character(len=0) :: line)
    do
-      read(unit, '(a)', advance='no', iostat=stat, iomsg=msg, size=size) &
+      read(unit, "(a)", advance="no", iostat=stat, iomsg=msg, size=size) &
          & buffer
       if (stat > 0) exit
       line = line // buffer(:size)
@@ -330,12 +330,12 @@ subroutine get_default_argument(idx, arg)
    call get_command_argument(idx, length=length, status=stat)
    if (stat /= 0) then
       return
-   endif
+   end if
 
    allocate(character(len=length) :: arg, stat=stat)
    if (stat /= 0) then
       return
-   endif
+   end if
 
    if (length > 0) then
       call get_command_argument(idx, arg, status=stat)

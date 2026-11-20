@@ -85,7 +85,7 @@ pure subroutine wrap_ssygst(amat, bmat, info, itype, uplo)
 
    ita = 1
    if(present(itype)) ita = itype
-   ula = 'u'
+   ula = "u"
    if(present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))
@@ -104,7 +104,7 @@ pure subroutine wrap_dsygst(amat, bmat, info, itype, uplo)
 
    ita = 1
    if(present(itype)) ita = itype
-   ula = 'u'
+   ula = "u"
    if(present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    ldb = max(1, size(bmat, 1))

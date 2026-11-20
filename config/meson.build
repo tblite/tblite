@@ -36,6 +36,10 @@ if fc_id == 'gcc'
   # - _gfortran_os_error_at (from libfortran.so)
   if os == 'linux'
     lib_deps += cc.find_library('gfortran')
+    quadmath_dep = cc.find_library('quadmath', required: false)
+    if quadmath_dep.found()
+        lib_deps += quadmath_dep
+    endif
     mvec_dep = cc.find_library('mvec', required: false)
     if mvec_dep.found()
         lib_deps += mvec_dep
@@ -132,6 +136,24 @@ else
   lib_deps += blas_dep
 endif
 
+hdf5_dep = dependency('hdf5', language: 'fortran', required: get_option('hdf5'))
+if hdf5_dep.found()
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_HDF5=1'],
+    dependencies: [hdf5_dep],
+  )
+endif
+
+trexio_dep = cc.find_library('trexio', required: get_option('trexio'))
+if trexio_dep.found()
+  lib_deps += declare_dependency(
+    compile_args: [
+      '-DTBLITE_HAS_TREXIO=1',
+    ],
+    dependencies: [trexio_dep],
+  )
+endif
+
 # Create TOML Fortran as subproject
 tomlf_dep = dependency(
   'toml-f',
@@ -144,7 +166,7 @@ lib_deps += tomlf_dep
 # Create the tool chain library as subproject
 mctc_dep = dependency(
   'mctc-lib',
-  version: '>=0.5.1',
+  version: '>=0.6.1',
   fallback: ['mctc-lib', 'mctc_dep'],
   default_options: ['default_library=static'],
 )
@@ -162,7 +184,7 @@ lib_deps += multicharge_dep
 # Create DFT-D4 library as subproject
 dftd4_dep = dependency(
   'dftd4',
-  version: '>=4.0.0',
+  version: '>=4.3.0',
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static', 'api=false', 'python=false'],
 )
@@ -180,21 +202,62 @@ lib_deps += multicharge_dep
 # Create DFT-D3 library as subproject
 sdftd3_dep = dependency(
   's-dftd3',
-  version: '>=0.6.0',
+  version: '>=1.6.0',
   fallback: ['s-dftd3', 'sdftd3_dep'],
-  default_options: ['default_library=static', 'api=false', 'python=false'],
+  default_options: [
+    'default_library=static',
+    'api=false',
+    'python=false',
+  ],
 )
 lib_deps += sdftd3_dep
 
-has_nvcc = add_languages('cuda', native: false, required: gpu)
-if has_nvcc
-  add_project_arguments(['-DUSE_CUDA'], language: 'fortran')
+if get_option('mpi')
+  mpi_dep = dependency('mpi', language: 'fortran', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_MPI=1'],
+    dependencies: [mpi_dep],
+  )
 endif
 
-gambits_dep = dependency(
-  'gambits',
-  version: '>=0.0.0',
-  fallback: ['gambits','gambits_dep'],
-  default_options: ['default_library=static','api_fortran=true'],
-)
-lib_deps += gambits_dep
+if get_option('scalapack')
+  if not get_option('mpi')
+    error('scalapack option requires the mpi option')
+  endif
+  scalapack_dep = dependency('scalapack', required: true)
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_SCALAPACK=1'],
+    dependencies: [scalapack_dep],
+  )
+endif
+
+# Create ddX library as subproject
+if get_option('ddx')
+  ddx_dep = dependency(
+    'ddX',
+    version: '>=1.0.2',
+    fallback: ['ddx', 'ddx_dep'],
+    default_options: ['default_library=static'],
+  )
+  lib_deps += declare_dependency(
+    compile_args: ['-DTBLITE_HAS_DDX=1'],
+    dependencies: [ddx_dep],
+  )
+endif
+
+has_gpu = false
+if has_cc and not gpu.disabled()
+  cuda_dep = dependency('cuda', language: 'c', modules: ['cudart', 'cusolver', 'cublas'], required: gpu)
+  has_gpu = cuda_dep.found()
+  if has_gpu
+    lib_deps += cuda_dep
+    add_project_arguments('-DUSE_CUDA', language: ['c', 'fortran'])
+  endif
+endif
+if get_option('gambits')
+  # The v0.2.0 source tag identifies itself as version 0.1.0.
+  gambits_dep = dependency('gambits', fallback: ['gambits', 'gambits_dep'],
+    default_options: ['default_library=static', 'api_fortran=true', 'gpu=' + (has_gpu ? 'enabled' : 'disabled')])
+  lib_deps += gambits_dep
+  add_project_arguments('-DTBLITE_HAS_GAMBITS=1', language: 'fortran')
+endif

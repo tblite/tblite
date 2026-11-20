@@ -31,6 +31,7 @@ module tblite_xtb
    use tblite_xtb_ipea1, only : new_ipea1_calculator, ipea1_h0spec, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    implicit none
+   private
 
    public :: xtb_calculator, new_xtb_calculator, param_h0spec
    public :: new_gfn1_calculator, gfn1_h0spec, export_gfn1_param

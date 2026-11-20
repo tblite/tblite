@@ -109,6 +109,7 @@ Detailed installation instruction are available in the project documentation und
 Optional dependencies are
 - asciidoctor to build the manual page
 - C compiler to test the C-API and compile the Python extension module
+- C++ compiler to build the ddX solvation models
 - Python 3.6 or newer with the CFFI package installed to build the Python API
 
 Setup a build with

@@ -74,7 +74,7 @@ subroutine wrap_spotrf(amat, info, uplo)
    integer :: n, lda
    character(len=1) :: ula
 
-   ula = 'u'
+   ula = "u"
    if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    n = size(amat, 2)
@@ -88,7 +88,7 @@ subroutine wrap_dpotrf(amat, info, uplo)
    integer :: n, lda
    character(len=1) :: ula
 
-   ula = 'u'
+   ula = "u"
    if (present(uplo)) ula = uplo
    lda = max(1, size(amat, 1))
    n = size(amat, 2)

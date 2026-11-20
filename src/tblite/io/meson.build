@@ -14,9 +14,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+subdir('data')
 subdir('numpy')
 
 srcs += files(
+  'data.f90',
+  'hdf5.F90',
+  'molden.f90',
   'numpy.f90',
   'tag.f90',
+  'trexio.F90',
 )

@@ -27,14 +27,21 @@ module tblite_xtb_singlepoint
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
    use tblite_container, only : container_cache
+   use tblite_container_list, only : cache_list
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
    use tblite_lapack_sygvr, only : sygvr_solver
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error, &
+      & mpi_expand_matrix, mpi_expand_integrals
    use tblite_output_format, only : format_string
+   use tblite_post_processing_list, only : post_processing_list
+   use tblite_post_processing_type, only : collect_containers_caches
    use tblite_results, only : results_type
    use tblite_scf, only : mixer_type, new_mixer, scf_info, next_scf, &
       & get_mixer_dimension, potential_type, new_potential
+   use tblite_scf_mixer_input, only : scf_version_to_string
+   use tblite_scf_solver, only : solver_type
    use tblite_timer, only : timer_type, format_time
    use tblite_wavefunction, only : wavefunction_type, &
       & get_alpha_beta_occupation, &
@@ -42,8 +49,6 @@ module tblite_xtb_singlepoint
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_h0, only : get_selfenergy, get_hamiltonian, get_occupation, &
       & get_hamiltonian_gradient
-   use tblite_post_processing_type, only : collect_containers_caches
-   use tblite_post_processing_list, only : post_processing_list
    implicit none
    private
 
@@ -68,7 +73,7 @@ contains
 
 !> Entry point for performing single point calculation using the xTB calculator
 subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigma, &
-      & verbosity, results, post_process)
+   & verbosity, results, post_process)
    !> Calculation context
    type(context_type), intent(inout) :: ctx
    !> Molecular structure data
@@ -89,11 +94,16 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    integer, intent(in), optional :: verbosity
    !> Container for storing additional results
    type(results_type), intent(out), optional :: results
+   !> List of post-processing methods
    type(post_processing_list), intent(inout), optional :: post_process
-   
-   logical :: grad, converged, econverged, pconverged
+
+   logical :: grad, converged, econverged, pconverged, tconverged
    integer :: prlevel
-   real(wp) :: econv, pconv, cutoff, elast, nel
+   real(wp) :: econv, pconv, cutoff, elast, nel, target_kt, elevated_kt, anneal_fraction
+   real(wp) :: pnorm
+   real(wp) :: energy_parts(4)
+   integer :: anneal_hold, anneal_steps
+   integer, parameter :: default_anneal_hold = 50, default_anneal_steps = 50
    real(wp), allocatable :: energies(:), edisp(:), erep(:), exbond(:), eint(:), eelec(:)
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :), dEdcn(:)
    real(wp), allocatable :: selfenergy(:), dsedcn(:), lattr(:, :), wdensity(:, :, :)
@@ -104,10 +114,12 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    type(timer_type) :: timer
    type(error_type), allocatable :: error
    type(scf_info) :: info
+   class(solver_type), allocatable :: solver
    type(adjacency_list) :: list
-   type(container_cache), allocatable :: cache_list(:)
-   
+   type(cache_list), allocatable :: caches
+
    integer :: iscf, spin
+   integer, allocatable :: columns(:)
 
    call timer%push("total")
 
@@ -117,8 +129,24 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       prlevel = ctx%verbosity
    end if
 
-   econv = 1.e-6_wp*accuracy
-   pconv = 2.e-5_wp*accuracy
+   econv = 1.0e-6_wp*accuracy
+   pconv = 2.0e-5_wp*accuracy
+
+   ! reducing unpartitioned contributions would multiply them by the rank count
+   call ctx%check_partition(calc%partition, error)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
+   if (ctx%distributed_columns(calc%bas%nao)) then
+      columns = ctx%partition%get_columns(calc%bas%nao)
+      ! The initial guess is carried by shell charges and atomic multipoles;
+      ! neither of these two overwritten AO matrices is needed before SCF.
+      deallocate(wfn%coeff, wfn%density)
+      allocate(wfn%coeff(calc%bas%nao, columns(2)-columns(1)+1, wfn%nspin), &
+         & wfn%density(calc%bas%nao, columns(2)-columns(1)+1, wfn%nspin), source=0.0_wp)
+   end if
 
    grad = present(gradient) .and. present(sigma)
 
@@ -152,8 +180,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(hcache)
       call calc%halogen%update(mol, hcache)
       call calc%halogen%get_engrad(mol, hcache, exbond, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_halogen // format_string(sum(exbond), real_format) // " Eh")
       energies(:) = energies + exbond
       call timer%pop
    end if
@@ -163,8 +189,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(rcache)
       call calc%repulsion%update(mol, rcache)
       call calc%repulsion%get_engrad(mol, rcache, erep, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_repulsion // format_string(sum(erep), real_format) // " Eh")
       energies(:) = energies + erep
       call timer%pop
    end if
@@ -174,8 +198,6 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(dcache)
       call calc%dispersion%update(mol, dcache)
       call calc%dispersion%get_engrad(mol, dcache, edisp, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_dispersion // format_string(sum(edisp), real_format) // " Eh")
       energies(:) = energies + edisp
       call timer%pop
    end if
@@ -185,10 +207,34 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       allocate(icache)
       call calc%interactions%update(mol, icache)
       call calc%interactions%get_engrad(mol, icache, eint, gradient, sigma)
-      if (prlevel > 1) &
-         call ctx%message(label_other // format_string(sum(eint), real_format) // " Eh")
       energies(:) = energies + eint
       call timer%pop
+   end if
+
+   ! the non-selfconsistent contributions above are the partitioned ones
+   call mpi_allreduce_sum(error, energies, ctx%comm)
+   ! Verbosity may differ between ranks, so reduce the diagnostic totals on
+   ! every rank before entering the output branch.
+   energy_parts = [sum(exbond), sum(erep), sum(edisp), sum(eint)]
+   call mpi_allreduce_sum(error, energy_parts, ctx%comm)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
+   if (prlevel > 1) then
+      if (allocated(calc%halogen)) then
+        call ctx%message(label_halogen // format_string(energy_parts(1), real_format) // " Eh")
+      end if
+      if (allocated(calc%repulsion)) then
+        call ctx%message(label_repulsion // format_string(energy_parts(2), real_format) // " Eh")
+      end if
+      if (allocated(calc%dispersion)) then
+        call ctx%message(label_dispersion // format_string(energy_parts(3), real_format) // " Eh")
+      end if
+      if (allocated(calc%interactions)) then
+        call ctx%message(label_other // format_string(energy_parts(4), real_format) // " Eh")
+      end if
    end if
 
    call new_potential(pot, mol, calc%bas, wfn%nspin)
@@ -199,8 +245,9 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%pop
    end if
 
-   if (prlevel > 1) &
-      call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
+   if (prlevel > 1) then
+     call ctx%message(label_electrons // format_string(wfn%nocc, real_format) // " e")
+   end if
 
    call timer%push("hamiltonian")
    if (allocated(calc%ncoord)) then
@@ -224,11 +271,26 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
-   call new_integral(ints, calc%bas%nao)
+   call new_integral(ints, calc%bas%nao, columns)
    call get_hamiltonian(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian)
+      & ints%overlap, ints%dipole, ints%quadrupole, ints%hamiltonian, calc%partition, columns)
 
-   call ctx%new_solver(ints%overlap, wfn%nel, wfn%kt)
+   if (.not.ints%local) call mpi_allreduce_sum(error, ints, ctx%comm)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
+   call ctx%new_solver(solver, ints%overlap, wfn%nel, wfn%kt)
+   target_kt = wfn%kt
+   elevated_kt = target_kt
+   anneal_hold = default_anneal_hold
+   anneal_steps = default_anneal_steps
+   if (allocated(calc%mixer_input%anneal)) then
+      elevated_kt = calc%mixer_input%anneal%initial_kt
+      anneal_hold = max(0, calc%mixer_input%anneal%hold)
+      anneal_steps = max(0, calc%mixer_input%anneal%cycles)
+   end if
    call timer%pop
 
    call timer%push("scc")
@@ -236,8 +298,24 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    iscf = 0
    converged = .false.
    info = calc%variable_info()
-   call new_mixer(mixer, calc%max_iter, wfn%nspin*get_mixer_dimension(mol, calc%bas, info), &
-      & calc%mixer_damping)
+
+   if (prlevel > 1) then
+      call ctx%message(scf_version_to_string(calc%mixer_input%scf))
+      call ctx%message("Mixer memory             " // format_string(calc%mixer_input%memory, "(i16)"))
+      call ctx%message("Mixer damping            " // format_string(calc%mixer_input%damping, real_format))
+      if (allocated(calc%mixer_input%anneal)) then
+      call ctx%message("Annealing initial kt     " // format_string(elevated_kt, real_format) // " Eh")
+      call ctx%message("Annealing hold cycles    " // format_string(anneal_hold, "(i16)"))
+      call ctx%message("Annealing cycles         " // format_string(anneal_steps, "(i16)"))
+      end if
+   end if
+   call new_mixer(mixer, calc%mixer_input, &
+      & wfn%nspin*get_mixer_dimension(mol, calc%bas, info), error)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      return
+   end if
+
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("  cycle        total energy    energy error   density error")
@@ -245,19 +323,32 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
    end if
    do while(.not.converged .and. iscf < calc%max_iter)
       elast = sum(eelec)
-      call next_scf(iscf, mol, calc%bas, wfn, ctx%solver%solver, mixer, info, &
+      if (elevated_kt > target_kt) then
+         if (iscf < anneal_hold) then
+            wfn%kt = elevated_kt
+         else if (anneal_steps > 0 .and. iscf < anneal_hold + anneal_steps) then
+            anneal_fraction = real(iscf - anneal_hold + 1, wp)/real(anneal_steps, wp)
+            wfn%kt = elevated_kt + anneal_fraction*(target_kt - elevated_kt)
+         else
+            wfn%kt = target_kt
+         end if
+         solver%kt = wfn%kt
+      end if
+      call next_scf(iscf, mol, calc%bas, wfn, solver, mixer, info, &
          & calc%coulomb, calc%dispersion, calc%interactions, ints, pot, &
-         & ccache, dcache, icache, eelec, error)
+         & ccache, dcache, icache, eelec, error, comm=ctx%comm)
       econverged = abs(sum(eelec) - elast) < econv
-      pconverged = mixer%get_error() < pconv
-      converged = econverged .and. pconverged
+      pnorm = mixer%get_error()
+      pconverged = pnorm < pconv
+      tconverged = wfn%kt <= target_kt
+      converged = econverged .and. pconverged .and. tconverged
       if (prlevel > 0) then
          call ctx%message(format_string(iscf, "(i7)") // &
             & format_string(sum(eelec + energies), "(g24.13)") // &
             & escape(merge(ctx%terminal%green, ctx%terminal%red, econverged)) // &
             & format_string(sum(eelec) - elast, "(es16.7)") // &
             & escape(merge(ctx%terminal%green, ctx%terminal%red, pconverged)) // &
-            & format_string(mixer%get_error(), "(es16.7)") // &
+            & format_string(pnorm, "(es16.7)") // &
             & escape(ctx%terminal%reset))
       end if
       if (allocated(error)) then
@@ -265,6 +356,8 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          exit
       end if
    end do
+   wfn%kt = target_kt
+   solver%kt = target_kt
    if (prlevel > 0) then
       call ctx%message(repeat("-", 60))
       call ctx%message("")
@@ -282,8 +375,19 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call ctx%message("")
    end if
 
+   ! a rank skipping the gradient on its own would deadlock the remaining ones
+   call ctx%sync_error()
+
    if (ctx%failed()) then
-      call ctx%delete_solver()
+      call ctx%delete_solver(solver)
+      return
+   end if
+
+   call solver%finish_wavefunction(wfn, ints%overlap, error)
+   call mpi_sync_error(error, ctx%comm)
+   if (allocated(error)) then
+      call ctx%set_error(error)
+      call ctx%delete_solver(solver)
       return
    end if
 
@@ -309,13 +413,21 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
-      allocate(wdensity(calc%bas%nao, calc%bas%nao, wfn%nspin), source=wfn%density)
-      call ctx%solver%solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
+
+      allocate(wdensity, mold=wfn%density)
+      call solver%get_wdensity(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wdensity, error)
+      call mpi_sync_error(error, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         call ctx%delete_solver(solver)
+         return
+      end if
       call updown_to_magnet(wfn%density)
       call updown_to_magnet(wdensity)
       call get_hamiltonian_gradient(mol, lattr, list, calc%bas, calc%h0, selfenergy, &
-         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma)
+         & dsedcn, pot, wfn%density, wdensity, dEdcn, gradient, sigma, calc%partition, columns)
       call magnet_to_updown(wfn%density)
+      deallocate(wdensity)
 
       if (allocated(dcndr)) then
          call gemv(dcndr, dEdcn, gradient, beta=1.0_wp)
@@ -324,32 +436,78 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call gemv(dcndL, dEdcn, sigma, beta=1.0_wp)
       end if
       call timer%pop
-   end if
 
-   call ctx%delete_solver()
-   if (ctx%failed()) return
-
-   if (present(post_process)) then
-      call timer%push("post processing")
-      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, cache_list)
-      call post_process%compute(mol, wfn, ints, calc, cache_list, ctx, prlevel)
-      call post_process%print_csv(mol)
-      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
-      call post_process%print_timer(prlevel, ctx)
-      deallocate(cache_list)
-      call timer%pop()
-   end if
-   if (present(results)) then
-      if (allocated(results%dict)) deallocate(results%dict)
-      allocate(results%dict)
-      if (present(post_process)) then 
-         call post_process%pack_res(mol, results)
+      call mpi_allreduce_sum(error, gradient, ctx%comm)
+      call mpi_allreduce_sum(error, sigma, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         call ctx%delete_solver(solver)
+         return
       end if
    end if
 
+   call ctx%delete_solver(solver)
+   if (ctx%failed()) return
+
+   if (present(post_process) .and. allocated(columns)) then
+      ! Localization and other dense-matrix consumers opt into materializing
+      ! full matrices. WBO and molecular moments operate directly on columns.
+      if (post_process%requires_full_matrices()) then
+         call mpi_expand_matrix(error, wfn%coeff, ctx%comm)
+         call mpi_expand_matrix(error, wfn%density, ctx%comm)
+         call mpi_expand_integrals(error, ints, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+         deallocate(columns)
+      end if
+   end if
+
+   if (present(post_process) .and. present(results)) then
+      call timer%push("post processing")
+      allocate(caches)
+      call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
+      allocate(results%dict)
+      call post_process%compute(mol, wfn, ints, calc, caches, accuracy, ctx, &
+         & timer, prlevel, results)
+      deallocate(caches)
+      call timer%pop()
+      call ctx%sync_error()
+      if (ctx%failed()) return
+
+      if (prlevel > 1) call ctx%message(post_process%info(prlevel, " | "))
+      call post_process%print_timer(timer, prlevel, ctx)
+   else if (present(post_process)) then
+      call fatal_error(error, "Post-processing list provided without results container")
+      call ctx%set_error(error)
+   end if
+
    if (calc%save_integrals .and. present(results)) then
+      if (ints%local) then
+         call mpi_expand_matrix(error, ints%overlap, ctx%comm)
+         call mpi_expand_matrix(error, ints%hamiltonian, ctx%comm)
+         if (allocated(error)) then
+            call ctx%set_error(error)
+            return
+         end if
+      end if
       call move_alloc(ints%overlap, results%overlap)
       call move_alloc(ints%hamiltonian, results%hamiltonian)
+   end if
+
+   ! Preserve the library's full-wavefunction return contract, but only after
+   ! releasing all integral storage and the distributed solver workspaces.
+   ints = integral_type()
+   if (allocated(columns) .and. calc%retain_matrices) then
+      call mpi_expand_matrix(error, wfn%coeff, ctx%comm)
+      call mpi_expand_matrix(error, wfn%density, ctx%comm)
+      if (allocated(error)) then
+         call ctx%set_error(error)
+         return
+      end if
+   else if (.not.calc%retain_matrices) then
+      deallocate(wfn%coeff, wfn%density)
    end if
 
    block
@@ -367,14 +525,14 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
             stime = timer%get(label(it))
             if (stime <= epsilon(0.0_wp)) cycle
             call ctx%message(" - "//label(it)//format_time(stime) &
-               & //" ("//format_string(int(stime/ttime*100), '(i3)')//"%)")
+               & //" ("//format_string(int(stime/ttime*100), "(i3)")//"%)")
          end do
          call ctx%message("")
       end if
    end block
 
    if (.not.converged) then
-      call fatal_error(error, "SCF not converged in "//format_string(iscf, '(i0)')//" cycles")
+      call fatal_error(error, "SCF not converged in "//format_string(iscf, "(i0)")//" cycles")
       call ctx%set_error(error)
    end if
 

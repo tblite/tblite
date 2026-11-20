@@ -143,7 +143,7 @@ subroutine wrap_sgemv422(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)*size(amat, 4)) => amat
    xptr(1:size(xvec, 1)*size(xvec, 2)) => xvec
@@ -164,9 +164,9 @@ subroutine wrap_sgemv312(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
       yptr(1:size(yvec, 1)*size(yvec, 2)) => yvec
    else
@@ -189,9 +189,9 @@ subroutine wrap_sgemv321(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
       xptr(1:size(xvec, 1)*size(xvec, 2)) => xvec
    else
@@ -214,7 +214,7 @@ subroutine wrap_dgemv422(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)*size(amat, 4)) => amat
    xptr(1:size(xvec, 1)*size(xvec, 2)) => xvec
@@ -235,9 +235,9 @@ subroutine wrap_dgemv312(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1)*size(amat, 2), 1:size(amat, 3)) => amat
       yptr(1:size(yvec, 1)*size(yvec, 2)) => yvec
    else
@@ -260,9 +260,9 @@ subroutine wrap_dgemv321(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
-   if (any(tra == ['n', 'N'])) then
+   if (any(tra == ["n", "N"])) then
       aptr(1:size(amat, 1), 1:size(amat, 2)*size(amat, 3)) => amat
       xptr(1:size(xvec, 1)*size(xvec, 2)) => xvec
    else
@@ -296,7 +296,7 @@ pure subroutine wrap_sgemv(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    incx = 1
    incy = 1
@@ -330,7 +330,7 @@ pure subroutine wrap_dgemv(amat, xvec, yvec, alpha, beta, trans)
    if (present(trans)) then
       tra = trans
    else
-      tra = 'n'
+      tra = "n"
    end if
    incx = 1
    incy = 1
@@ -364,7 +364,7 @@ pure subroutine wrap_ssymv(amat, xvec, yvec, uplo, alpha, beta)
    if (present(uplo)) then
       ula = uplo
    else
-      ula = 'u'
+      ula = "u"
    end if
    incx = 1
    incy = 1
@@ -397,7 +397,7 @@ pure subroutine wrap_dsymv(amat, xvec, yvec, uplo, alpha, beta)
    if (present(uplo)) then
       ula = uplo
    else
-      ula = 'u'
+      ula = "u"
    end if
    incx = 1
    incy = 1

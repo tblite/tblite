@@ -1,0 +1,301 @@
+! This file is part of tblite.
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+!> @file tblite/partition.f90
+!> Provides a work partition for externally distributed calculations
+
+!> Work partitioning for externally distributed calculations
+module tblite_partition
+   use dftd3_partition, only : d3_work_partition => work_partition, &
+      & new_d3_work_partition => new_work_partition, d3_serial => serial_work_partition
+   use dftd4_partition, only : d4_work_partition => work_partition, &
+      & new_d4_work_partition => new_work_partition, d4_serial => serial_work_partition
+   use mctc_env, only : error_type, i8
+   implicit none
+   private
+
+   public :: work_partition, new_work_partition, serial_work_partition
+   public :: owns_index, owns_pair, operator(==), pair_list, column_range
+
+
+   !> Cyclic partition of the work of an interaction loop.
+   !>
+   !> Parts are zero based. Every unit of work is assigned to exactly one part,
+   !> summing the contributions of all parts reproduces the complete result.
+   !> An absent or default-initialized partition owns all of the work.
+   !>
+   !> Construction validates all representations once. Private components keep
+   !> the library partitions consistent with the local ownership rules.
+   type :: work_partition
+      private
+
+      !> Zero-based index of this part
+      integer :: part = 0
+
+      !> Total number of parts
+      integer :: nparts = 1
+      type(d3_work_partition) :: d3 = d3_serial
+      type(d4_work_partition) :: d4 = d4_serial
+   contains
+      procedure :: get_part
+      procedure :: get_nparts
+      procedure :: get_d3
+      procedure :: get_d4
+      !> Inclusive global range of contiguous columns owned by this part
+      procedure :: get_columns
+   end type work_partition
+
+   !> Complete work of an ordinary serial calculation
+   type(work_partition), parameter :: serial_work_partition = work_partition()
+
+   !> Row-wise neighbours of locally owned pairs, including both symmetric blocks.
+   !> Reused across geometry and SCF updates; ownership depends only on atom count.
+   type :: pair_list
+      !> Cumulative row offsets, indexed from zero through the atom count
+      integer, allocatable :: offset(:)
+      !> Neighbour atom indices, sorted within each row
+      integer, allocatable :: neighbour(:)
+      !> Work partition used to construct the cached rows
+      type(work_partition), private :: partition
+   contains
+      !> Rebuild the rows if the atom count or work partition changes
+      procedure :: update => update_pair_list
+      !> Find the storage index of an oriented atom pair
+      procedure :: find => find_pair
+   end type pair_list
+
+   interface operator(==)
+      module procedure :: same_partition
+   end interface
+
+contains
+
+!> Contiguous column blocks, also representable by a one-row BLACS grid.
+!> Empty parts have first > last. This layout is independent of MPI.
+pure function column_range(n, part, nparts) result(columns)
+   !> Global number of columns
+   integer, intent(in) :: n
+   !> Zero-based index of this part
+   integer, intent(in) :: part
+   !> Total number of parts
+   integer, intent(in) :: nparts
+   !> Inclusive first and last global column indices; first > last for empty parts
+   integer :: columns(2)
+   integer :: block_size
+   block_size = (n + nparts - 1)/nparts
+   columns = [min(n, part*block_size) + 1, min(n, (part+1)*block_size)]
+end function column_range
+
+!> Contiguous columns assigned to this work partition.
+pure function get_columns(self, n) result(columns)
+   !> Work partition
+   class(work_partition), intent(in) :: self
+   !> Global number of columns
+   integer, intent(in) :: n
+   !> Inclusive first and last global column indices
+   integer :: columns(2)
+   columns = column_range(n, self%part, self%nparts)
+end function get_columns
+
+!> Position of an oriented pair in the sorted local CSR rows, or zero.
+pure integer function find_pair(self, iat, jat) result(pos)
+   !> Cached row-wise pair list
+   class(pair_list), intent(in) :: self
+   !> Row atom index
+   integer, intent(in) :: iat
+   !> Neighbour atom index
+   integer, intent(in) :: jat
+   integer :: first, last, mid
+   first = self%offset(iat-1) + 1
+   last = self%offset(iat)
+   pos = 0
+   do while (first <= last)
+      mid = first + (last-first)/2
+      if (self%neighbour(mid) == jat) then
+         pos = mid
+         return
+      else if (self%neighbour(mid) < jat) then
+         first = mid + 1
+      else
+         last = mid - 1
+      end if
+   end do
+end function find_pair
+
+
+!> Cache both orientations of each owned pair for atom-wise contractions.
+subroutine update_pair_list(self, partition, nat)
+   !> Pair list to update
+   class(pair_list), intent(inout) :: self
+   !> Ownership of atom pairs
+   type(work_partition), intent(in) :: partition
+   !> Number of atoms
+   integer, intent(in) :: nat
+
+   integer :: iat, jat, first, count(nat)
+   integer(i8) :: base
+
+   if (allocated(self%offset)) then
+      if (size(self%offset) == nat+1 .and. self%partition == partition) return
+      deallocate(self%offset, self%neighbour)
+   end if
+   self%partition = partition
+   allocate(self%offset(0:nat))
+   count = 0
+   do iat = 1, nat
+      base = int(iat-1, i8)*int(iat, i8)/2_i8
+      first = 1 + int(modulo(int(partition%part, i8)-base, int(partition%nparts, i8)))
+      do jat = first, iat, partition%nparts
+         count(iat) = count(iat) + 1
+         if (iat /= jat) count(jat) = count(jat) + 1
+      end do
+   end do
+   self%offset(0) = 0
+   do iat = 1, nat
+      self%offset(iat) = self%offset(iat-1) + count(iat)
+   end do
+   allocate(self%neighbour(self%offset(nat)))
+   count = self%offset(:nat-1)
+   do iat = 1, nat
+      base = int(iat-1, i8)*int(iat, i8)/2_i8
+      first = 1 + int(modulo(int(partition%part, i8)-base, int(partition%nparts, i8)))
+      do jat = first, iat, partition%nparts
+         count(iat) = count(iat) + 1
+         self%neighbour(count(iat)) = jat
+         if (iat == jat) cycle
+         count(jat) = count(jat) + 1
+         self%neighbour(count(jat)) = iat
+      end do
+   end do
+end subroutine update_pair_list
+
+
+!> Create a work partition
+subroutine new_work_partition(error, partition, part, nparts)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> New work partition, unchanged on failure
+   type(work_partition), intent(inout) :: partition
+
+   !> Zero-based index of this part
+   integer, intent(in) :: part
+
+   !> Total number of parts
+   integer, intent(in) :: nparts
+
+   type(work_partition) :: new
+
+   call new_d3_work_partition(error, new%d3, part, nparts)
+   if (allocated(error)) return
+   call new_d4_work_partition(error, new%d4, part, nparts)
+   if (allocated(error)) return
+
+   new%part = part
+   new%nparts = nparts
+   partition = new
+
+end subroutine new_work_partition
+
+
+!> Zero-based part index
+elemental function get_part(self) result(part)
+   class(work_partition), intent(in) :: self
+   integer :: part
+   part = self%part
+end function get_part
+
+
+!> Number of parts
+elemental function get_nparts(self) result(nparts)
+   class(work_partition), intent(in) :: self
+   integer :: nparts
+   nparts = self%nparts
+end function get_nparts
+
+
+!> Validated partition for the D3 kernels
+pure function get_d3(self) result(partition)
+   class(work_partition), intent(in) :: self
+   type(d3_work_partition) :: partition
+   partition = self%d3
+end function get_d3
+
+
+!> Validated partition for the D4 kernels
+pure function get_d4(self) result(partition)
+   class(work_partition), intent(in) :: self
+   type(d4_work_partition) :: partition
+   partition = self%d4
+end function get_d4
+
+
+!> Whether two partitions select the same work
+elemental function same_partition(lhs, rhs) result(same)
+   type(work_partition), intent(in) :: lhs, rhs
+   logical :: same
+   same = lhs%part == rhs%part .and. lhs%nparts == rhs%nparts
+end function same_partition
+
+
+!> Whether this part owns a one-dimensional unit of work
+elemental function owns_index(partition, idx) result(owned)
+
+   !> Work partition, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
+
+   !> One-based index of the unit of work
+   integer, intent(in) :: idx
+
+   !> Whether this part owns the unit of work
+   logical :: owned
+
+   owned = .true.
+   if (.not.present(partition)) return
+   if (partition%nparts == 1) return
+
+   owned = modulo(idx - 1, partition%nparts) == partition%part
+
+end function owns_index
+
+
+!> Whether this part owns a symmetry-reduced atom pair
+elemental function owns_pair(partition, iat, jat) result(owned)
+
+   !> Work partition, absent selects the complete work
+   type(work_partition), intent(in), optional :: partition
+
+   !> Atom indices of the pair, with jat <= iat
+   integer, intent(in) :: iat, jat
+
+   !> Whether this part owns the pair
+   logical :: owned
+
+   integer(i8) :: pair_index
+
+   owned = .true.
+   if (.not.present(partition)) return
+   if (partition%nparts == 1) return
+
+   ! zero-based index in the lower-triangular sequence (1,1), (2,1), (2,2), ...
+   pair_index = int(iat - 1, i8)*int(iat, i8)/2_i8 + int(jat - 1, i8)
+   owned = modulo(pair_index, int(partition%nparts, i8)) == int(partition%part, i8)
+
+end function owns_pair
+
+
+end module tblite_partition

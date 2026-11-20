@@ -122,7 +122,7 @@ subroutine newuoa(n, npt, x, rhobeg, rhoend, iprint, maxfun, calfun, handle, err
    np = n + 1
    nptm = npt - np
    if (npt < n+2 .or. npt > ((n+2)*np)/2) then
-      write(*, *) 'Return from NEWUOA because NPT is not in the required interval'
+      write(*, *) "Return from NEWUOA because NPT is not in the required interval"
       return
    end if
 
@@ -286,7 +286,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
    do j = 1, n
       x(j) = xpt(nf, j) + xbase(j)
    end do
-   go to 310
+   goto 310
    70 continue
    fval(nf) = f
    if (nf == 1) then
@@ -334,7 +334,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       zmat(jpt+1, nfmm) = - recip
       hq(ih) = (fbeg-fval(ipt+1)-fval(jpt+1)+f) / (xipt*xjpt)
    end if
-   if (nf < npt) go to 50
+   if (nf < npt) goto 50
    !
    !     Begin the iterative procedure, because the initial model is complete.
    !
@@ -369,10 +369,10 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       delta = tenth * delta
       ratio = - 1.0_wp
       if (delta <= 1.5_wp*rho) delta = rho
-      if (nf <= nfsav+2) go to 460
+      if (nf <= nfsav+2) goto 460
       temp = 0.125_wp * crvmin * rho * rho
-      if (temp <= max(diffa, diffb, diffc)) go to 460
-      go to 490
+      if (temp <= max(diffa, diffb, diffc)) goto 460
+      goto 490
    end if
    !
    !     Shift XBASE if XOPT may be too far from XBASE. First make the changes
@@ -539,7 +539,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       nf = nf - 1
       if (iprint > 0) print '(/, 4x, "Return from NEWUOA because CALFUN has been", &
          &" called MAXFUN times.")'
-      go to 530
+      goto 530
    end if
    f = calfun(n, x, handle, error)
    if (allocated(error)) goto 530
@@ -547,8 +547,8 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       print '(/, 4x, "Function number", i6, "    F =", 1 es18.10, &
          &"    The corresponding X is:" / (2 x, 5es15.6))', nf, f, (x(i), i=1, n)
    end if
-   if (nf <= npt) go to 70
-   if (knew ==-1) go to 530
+   if (nf <= npt) goto 70
+   if (knew ==-1) goto 530
    !
    !     Use the quadratic model to predict the change in F due to the step D,
    !     and set DIFF to the error of this prediction.
@@ -587,14 +587,14 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       end do
    end if
    ksave = knew
-   if (knew > 0) go to 410
+   if (knew > 0) goto 410
    !
    !     Pick the next value of DELTA after a trust region step.
    !
    if (vquad >= zero) then
       if (iprint > 0) print '(/, 4x, "Return from NEWUOA because a trust", &
          &" region step has failed to reduce Q.")'
-      go to 530
+      goto 530
    end if
    ratio = (f-fsave) / vquad
    if (ratio <= tenth) then
@@ -633,7 +633,7 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
          knew = k
       end if
    end do
-   if (knew == 0) go to 460
+   if (knew == 0) goto 460
    !
    !     Update BMAT, ZMAT and IDZ, so that the KNEW-th interpolation point
    !     can be moved. Begin the updating of the quadratic model, starting
@@ -725,8 +725,8 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
    !     branch for another trust region calculation. The case KSAVE>0 occurs
    !     when the new function value was calculated by a model step.
    !
-   if (f <= fsave+tenth*vquad) go to 100
-   if (ksave > 0) go to 100
+   if (f <= fsave+tenth*vquad) goto 100
+   if (ksave > 0) goto 100
    !
    !     Alternatively, find out if the interpolation points are close enough
    !     to the best point so far.
@@ -751,10 +751,10 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
    if (knew > 0) then
       dstep = max(min(tenth*sqrt(distsq), half*delta), rho)
       dsq = dstep * dstep
-      go to 120
+      goto 120
    end if
-   if (ratio > zero) go to 100
-   if (max(delta, dnorm) > rho) go to 100
+   if (ratio > zero) goto 100
+   if (max(delta, dnorm) > rho) goto 100
    !
    !     The calculations with the current value of RHO are complete. Pick the
    !     next values of RHO and DELTA.
@@ -772,19 +772,19 @@ subroutine newuob(n, npt, x, rhobeg, rhoend, iprint, maxfun, xbase, xopt, xnew, 
       end if
       delta = max(delta, rho)
       if (iprint >= 2) then
-         if (iprint >= 3) print '(5 x)'
+         if (iprint >= 3) print "(5 x)"
          print '(/ 4 x, "New RHO =", 1 es11.4, 5 x, "Number of", &
             &" function values =", i6)', rho, nf
          print '(4 x, "Least value of F =", 1 es23.15, 9 x, &
             &"The corresponding X is:"/(2 x, 5es15.6))', fopt, (xbase(i)+xopt(i), i=1, n)
       end if
-      go to 90
+      goto 90
    end if
    !
    !     Return from the calculation, after another Newton-Raphson step, if
    !     it is too short to have been tried before.
    !
-   if (knew ==-1) go to 290
+   if (knew ==-1) goto 290
    530 if (fopt <= f) then
       do i = 1, n
          x(i) = xbase(i) + xopt(i)
@@ -1122,9 +1122,9 @@ pure subroutine bigden(n, npt, xopt, xpt, bmat, zmat, idz, ndim, kopt, knew, d, 
       tempa = tempa + d(i) * w(i)
       tempb = tempb + w(i) * w(i)
    end do
-   if(iterc >= n) go to 340
+   if(iterc >= n) goto 340
    if(iterc > 1) densav = max(densav, denold)
-   if(abs(denmax) <= 1.1_wp*abs(densav)) go to 340
+   if(abs(denmax) <= 1.1_wp*abs(densav)) goto 340
    densav = denmax
    !
    !     Set S to half the gradient of the denominator with respect to D.
@@ -1151,7 +1151,7 @@ pure subroutine bigden(n, npt, xopt, xpt, bmat, zmat, idz, ndim, kopt, knew, d, 
       ds = ds + d(i) * s(i)
    end do
    ssden = dd * ss - ds * ds
-   if (ssden >= 1.0e-8_wp*dd*ss) go to 70
+   if (ssden >= 1.0e-8_wp*dd*ss) goto 70
    !
    !     Set the vector W before the RETURN from the subroutine.
    !
@@ -1287,7 +1287,7 @@ pure subroutine biglag(n, npt, xopt, xpt, bmat, zmat, idz, ndim, knew, delta, d,
       ss = ss + s(i) ** 2
    end do
    temp = dd * ss - sp * sp
-   if (temp <= 1.0e-8_wp*dd*ss) go to 160
+   if (temp <= 1.0e-8_wp*dd*ss) goto 160
    denom = sqrt(temp)
    do i = 1, n
       s(i) = (dd*s(i)-sp*d(i)) / denom
@@ -1364,8 +1364,8 @@ pure subroutine biglag(n, npt, xopt, xpt, bmat, zmat, idz, ndim, knew, delta, d,
       gd(i) = cth * gd(i) + sth * w(i)
       s(i) = gc(i) + gd(i)
    end do
-   if (abs(tau) <= 1.1_wp*abs(taubeg)) go to 160
-   if (iterc < n) go to 80
+   if (abs(tau) <= 1.1_wp*abs(taubeg)) goto 160
+   if (iterc < n) goto 80
    160 return
 end subroutine biglag
 
@@ -1411,7 +1411,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    do i = 1, n
       d(i) = xopt(i)
    end do
-   go to 170
+   goto 170
    !
    !     Prepare for the first line search.
    !
@@ -1426,7 +1426,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
       dd = dd + d(i) ** 2
    end do
    crvmin = zero
-   if (dd == zero) go to 160
+   if (dd == zero) goto 160
    ds = zero
    ss = zero
    gg = dd
@@ -1438,7 +1438,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    iterc = iterc + 1
    temp = delsq - ss
    bstep = temp / (ds+sqrt(ds*ds+dd*temp))
-   go to 170
+   goto 170
    50 continue
    dhd = zero
    do j = 1, n
@@ -1470,9 +1470,9 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    !     Begin another conjugate direction iteration if required.
    !
    if (alpha < bstep) then
-      if (qadd <= 0.01_wp*qred) go to 160
-      if (gg <= 1.0e-4_wp*ggbeg) go to 160
-      if (iterc == itermax) go to 160
+      if (qadd <= 0.01_wp*qred) goto 160
+      if (gg <= 1.0e-4_wp*ggbeg) goto 160
+      if (iterc == itermax) goto 160
       temp = gg / ggsav
       dd = zero
       ds = zero
@@ -1483,8 +1483,8 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
          ds = ds + d(i) * step(i)
          ss = ss + step(i) ** 2
       end do
-      if (ds <= zero) go to 160
-      if (ss < delsq) go to 40
+      if (ds <= zero) goto 160
+      if (ss < delsq) goto 40
    end if
    crvmin = zero
    itersw = iterc
@@ -1492,7 +1492,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    !     Test whether an alternative iteration is required.
    !
    90 continue
-   if (gg <= 1.0e-4_wp*ggbeg) go to 160
+   if (gg <= 1.0e-4_wp*ggbeg) goto 160
    sg = zero
    shs = zero
    do i = 1, n
@@ -1501,7 +1501,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    end do
    sgk = sg + shs
    angtest = sgk / sqrt(gg*delsq)
-   if (angtest <=-0.99_wp) go to 160
+   if (angtest <=-0.99_wp) goto 160
    !
    !     Begin the alternative iteration by calculating D and HD and some
    !     scalar products.
@@ -1513,7 +1513,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    do i = 1, n
       d(i) = tempa * (g(i)+hs(i)) - tempb * step(i)
    end do
-   go to 170
+   goto 170
    120 continue
    dg = zero
    dhd = zero
@@ -1570,7 +1570,7 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
    end do
    qred = qred + reduc
    ratio = reduc / qred
-   if (iterc < itermax .and. ratio > 0.01_wp) go to 90
+   if (iterc < itermax .and. ratio > 0.01_wp) goto 90
    160 return
    !
    !     The following instructions act as a subroutine for setting the vector
@@ -1600,9 +1600,9 @@ pure subroutine trsapp(n, npt, xopt, xpt, gq, hq, pq, delta, step, d, g, hd, hs,
          hd(i) = hd(i) + hq(ih) * d(j)
       end do
    end do
-   if (iterc == 0) go to 20
-   if (iterc <= itersw) go to 50
-   go to 120
+   if (iterc == 0) goto 20
+   if (iterc <= itersw) goto 50
+   goto 120
 end subroutine trsapp
 
 !> The arrays BMAT and ZMAT with IDZ are updated, in order to shift the

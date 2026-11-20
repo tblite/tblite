@@ -16,11 +16,53 @@
 
 option(BUILD_SHARED_LIBS "Whether the libraries built should be shared" FALSE)
 
-option(WITH_API "Enable export of C-API" TRUE)
-option(WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" TRUE)
-option(WITH_TESTS "Enable compilation of unit tests" TRUE)
-option(GPU "Compile with GPU capability" FALSE)
-
+if(NOT DEFINED WITH_API)
+  set(WITH_API TRUE)
+endif()
+if(NOT DEFINED WITH_PYTHON)
+  set(WITH_PYTHON FALSE)
+endif()
+if(NOT DEFINED WITH_OpenMP)
+  set(WITH_OpenMP TRUE)
+endif()
+if(NOT DEFINED WITH_API)
+  set(WITH_API TRUE)
+endif()
+if(NOT DEFINED WITH_DDX)
+  set(WITH_DDX FALSE)
+endif()
+if(NOT DEFINED WITH_HDF5)
+  set(WITH_HDF5 FALSE)
+endif()
+if(NOT DEFINED WITH_MPI)
+  set(WITH_MPI FALSE)
+endif()
+if(NOT DEFINED WITH_SCALAPACK)
+  set(WITH_SCALAPACK FALSE)
+endif()
+if(NOT DEFINED WITH_TREXIO)
+  set(WITH_TREXIO FALSE)
+endif()
+if(NOT DEFINED WITH_TESTS)
+  set(WITH_TESTS TRUE)
+endif()
+option(TBLITE_WITH_API "Enable export of C-API" ${WITH_API})
+option(TBLITE_WITH_PYTHON "Enable Python extension module" ${WITH_PYTHON})
+option(TBLITE_WITH_OpenMP "Enable support for shared memory parallelisation with OpenMP" ${WITH_OpenMP})
+option(TBLITE_WITH_DDX "Enable support for DDX" ${WITH_DDX})
+option(TBLITE_WITH_HDF5 "Enable support for HDF5" ${WITH_HDF5})
+option(TBLITE_WITH_MPI "Enable distributing partitioned calculations over MPI ranks" ${WITH_MPI})
+option(TBLITE_WITH_SCALAPACK "Enable distributing the diagonalization over MPI ranks" ${WITH_SCALAPACK})
+option(TBLITE_WITH_TREXIO "Enable support for TREXIO output" ${WITH_TREXIO})
+option(TBLITE_WITH_TESTS "Enable compilation of unit tests" ${WITH_TESTS})
+option(GPU "Enable the NVIDIA cuSOLVER eigensolver" OFF)
+option(TBLITE_WITH_GAMBITS "Enable GAMBITS density matrix purification" OFF)
+set(TBLITE_USE_MCTCLIB TRUE)
+set(TBLITE_USE_MULTICHARGE TRUE)
+set(TBLITE_USE_TOMLF TRUE)
+set(TBLITE_USE_SDFTD3 TRUE)
+set(TBLITE_USE_DFTD4 TRUE)
+set(TBLITE_USE_DDX ${TBLITE_WITH_DDX})
 if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
   set(
     "${PROJECT_NAME}-dependency-method"
@@ -29,16 +71,10 @@ if(NOT DEFINED "${PROJECT_NAME}-dependency-method")
 endif()
 
 set(
-  "${PROJECT_NAME}-module-dir"
-  "${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
-  CACHE STRING
-  "Subdirectory to install generated module files to"
+  TBLITE_INSTALL_FMODDIR
+  "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}-${CMAKE_Fortran_COMPILER_VERSION}"
+  CACHE STRING "Installation directory for Fortran modules"
 )
-set(
-  module-dir
-  "${${PROJECT_NAME}-module-dir}"
-)
-set(module-dir "${module-dir}" PARENT_SCOPE)
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 10.0)
@@ -74,7 +110,7 @@ install(
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/template.cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/template-config.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
   INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
 )
@@ -89,6 +125,12 @@ install(
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
 )
+
+if(IS_ABSOLUTE "${TBLITE_INSTALL_FMODDIR}")
+  set(pkgconfig_fmoddir "${TBLITE_INSTALL_FMODDIR}")
+else()
+  set(pkgconfig_fmoddir "\${prefix}/${TBLITE_INSTALL_FMODDIR}")
+endif()
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/template.pc"

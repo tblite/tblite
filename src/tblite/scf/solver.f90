@@ -20,8 +20,7 @@
 !> Declaration of the abstract base class for electronic solvers
 module tblite_scf_solver
    use mctc_env, only : sp, dp, wp, error_type
-   use iso_c_binding, only : c_ptr
-   use tblite_blas, only : gemm
+   use tblite_wavefunction_type, only : wavefunction_type
    implicit none
    private
 
@@ -34,6 +33,7 @@ module tblite_scf_solver
    contains
       procedure(get_density), deferred :: get_density
       procedure(get_density), deferred :: get_wdensity
+      procedure :: finish_wavefunction
       procedure(delete), deferred :: delete
    end type solver_type
 
@@ -56,13 +56,21 @@ module tblite_scf_solver
          type(error_type), allocatable, intent(out) :: error
       end subroutine get_density
 
-      subroutine delete(self, ptr)
-         import :: solver_type, c_ptr
+      subroutine delete(self)
+         import :: solver_type
          !> Solver for the general eigenvalue problem
          class(solver_type), intent(inout) :: self
-         !> Pointer to the C++ solver instance
-         type(c_ptr), intent(inout), optional :: ptr
       end subroutine delete
    end interface
+
+contains
+
+!> Diagonalization already returns orbitals on every SCF iteration.
+subroutine finish_wavefunction(self, wfn, smat, error)
+   class(solver_type), intent(inout) :: self
+   type(wavefunction_type), intent(inout) :: wfn
+   real(wp), contiguous, intent(in) :: smat(:, :)
+   type(error_type), allocatable, intent(out) :: error
+end subroutine finish_wavefunction
 
 end module tblite_scf_solver

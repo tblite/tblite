@@ -1,6 +1,16 @@
 fixes:
   - "/home/runner/work/tblite/tblite::"
+  - "tblite/::python/tblite/"
 
+# Exclude tests, dependencies, and non-source directories
 ignore:
-  - "python/**/test_*.py"
-  - "test/**"
+  - "assets/"
+  - "build/"
+  - "config/"
+  - "doc/"
+  - "include/"
+  - "man/"
+  - "subprojects/"
+  - "test/"
+  - "**/test_*.py"
+

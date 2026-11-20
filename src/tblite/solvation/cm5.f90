@@ -22,10 +22,10 @@
 !> See: J. Chem. Theory Comput. 2012, 8, 2, 527–541
 !> https://doi.org/10.1021/ct200866d
 module tblite_solvation_cm5
+   use mctc_data_atomicrad, only: get_atomic_rad
    use mctc_env, only: error_type, fatal_error
    use mctc_env, only: wp
    use mctc_io,only: structure_type
-   use mctc_data_atomicrad, only: get_atomic_rad
    use mctc_io_convert, only: aatoau, kcaltoau
    implicit none
    private
@@ -35,7 +35,7 @@ module tblite_solvation_cm5
    integer,parameter :: max_elements = 118
 
    !> CM5 model atomic parameters
-   real(wp), parameter :: cm5_a0(max_elements) = (/ &
+   real(wp), parameter :: cm5_a0(max_elements) = [ &
       & 0.0056_wp,-0.1543_wp, 0.0000_wp, 0.0333_wp,-0.1030_wp,-0.0446_wp, &
       &-0.1072_wp,-0.0802_wp,-0.0629_wp,-0.1088_wp, 0.0184_wp, 0.0000_wp, &
       &-0.0726_wp,-0.0790_wp,-0.0756_wp,-0.0565_wp,-0.0444_wp,-0.0767_wp, &
@@ -55,7 +55,7 @@ module tblite_solvation_cm5
       & 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, &
       & 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp, &
       & 0.0000_wp, 0.0000_wp, 0.0000_wp, 0.0000_wp,-0.0179_wp,-0.0195_wp, &
-      &-0.0187_wp,-0.0140_wp,-0.0110_wp,-0.0189_wp /)
+      &-0.0187_wp,-0.0140_wp,-0.0110_wp,-0.0189_wp ]
 
   !> CM5 alpha parameter
   real(wp), parameter :: cm5_alpha = 2.4740_wp/aatoau

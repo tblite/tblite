@@ -20,17 +20,19 @@ module test_integral_multipole
       & test_failed
    use mctc_io, only : structure_type
    use mstore, only : get_structure
-   use tblite_basis_type
    use tblite_basis_slater, only : slater_to_gauss
+   use tblite_basis_type, only : basis_type, new_basis, cgto_type, get_cutoff
    use tblite_cutoff, only : get_lattice_points
-   use tblite_integral_dipole
-   use tblite_integral_multipole
+   use tblite_integral_native_integrals, only : dipole_cgto, dipole_grad_cgto, &
+      & get_dipole_integrals, multipole_cgto, multipole_grad_cgto, &
+      & get_multipole_integrals, msao
    implicit none
    private
 
    public :: collect_integral_multipole
 
-   real(wp), parameter :: thr = 5e+6_wp*epsilon(1.0_wp)
+   real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: thr1 = 1e5*epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 
 contains
@@ -43,12 +45,15 @@ subroutine collect_integral_multipole(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
 
    testsuite = [ &
-      new_unittest("overlap-dipole-diat-alh3", test_overlap_dipole_diat_alh3), &
-      new_unittest("overlap-multipole-diat-alh3", test_overlap_multipole_diat_alh3), &
       new_unittest("dipole-trans-ss", test_dipole_ss), &
       new_unittest("dipole-trans-pp", test_dipole_pp), &
       new_unittest("dipole-trans-dd", test_dipole_dd), &
-      new_unittest("dipole-grad-ss", test_dipole_grad_ss) &
+      new_unittest("dipole-grad-ss", test_dipole_grad_ss), &
+      new_unittest("dipole-grad-cgto", test_dipole_grad_cgto), &
+      new_unittest("multipole-grad-cgto", test_multipole_grad_cgto), &
+      new_unittest("multipole-ref-df", test_multipole_ref_df), &
+      new_unittest("overlap-dipole-diat-alh3", test_overlap_dipole_diat_alh3), &
+      new_unittest("overlap-multipole-diat-alh3", test_overlap_multipole_diat_alh3) &
       ]
 
 end subroutine collect_integral_multipole
@@ -222,7 +227,7 @@ subroutine test_dipole_grad_ss(error)
    real(wp) :: dipole(3, 1, 1), ddipolei(3, 3, 1, 1), ddipolej(3, 3, 1, 1)
    real(wp) :: quadrupole(6, 1, 1), dquadrupolei(3, 6, 1, 1), dquadrupolej(3, 6, 1, 1)
    real(wp) :: sr(1, 1), sl(1, 1), dr(3, 1, 1), dl(3, 1, 1), qr(6, 1, 1), ql(6, 1, 1)
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 1.0e-5_wp
 
    call slater_to_gauss(ng, 2, 0, 1.0_wp, cgtoi, .true., stat)
    call slater_to_gauss(ng, 1, 0, 1.0_wp, cgtoj, .true., stat)
@@ -249,11 +254,11 @@ subroutine test_dipole_grad_ss(error)
 
    num: do i = 1, 3
       do j = 1, 3
-         call check(error, ddipolei(i, j, 1, 1), ddipolej(i, j, 1, 1), thr=thr)
+         call check(error, ddipolei(i, j, 1, 1), ddipolej(i, j, 1, 1), thr=thr1*10)
          if (allocated(error)) exit num
       end do
       do j = 1, 6
-         call check(error, dquadrupolei(i, j, 1, 1), dquadrupolej(i, j, 1, 1), thr=thr)
+         call check(error, dquadrupolei(i, j, 1, 1), dquadrupolej(i, j, 1, 1), thr=thr1*10)
          if (allocated(error)) exit num
       end do
    end do num
@@ -261,12 +266,15 @@ subroutine test_dipole_grad_ss(error)
 
 end subroutine test_dipole_grad_ss
 
-subroutine test_overlap_dipole_diat_mol(error, mol, ref)
+subroutine test_overlap_dipole_mol(error, mol, diat_scale, ref)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Flag whether the diatomic scaling is applied
+   logical, intent(in) :: diat_scale
+   !> Reference value to check against
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
@@ -274,9 +282,12 @@ subroutine test_overlap_dipole_diat_mol(error, mol, ref)
    real(wp), allocatable :: dipole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
-   real(wp) :: scalfac(3,86)
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:)
 
-   scalfac = 1.2_wp
+   allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
+   ksig = 1.2_wp
+   kpi = 1.2_wp
+   kdel = 1.2_wp
 
    call make_basis(bas, mol, 6)
    call check(error, bas%nao, size(ref, 1))
@@ -287,17 +298,28 @@ subroutine test_overlap_dipole_diat_mol(error, mol, ref)
 
    allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
    allocate(dipole(3, bas%nao, bas%nao))
-   call get_dipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat, dipole)
+   if (diat_scale) then
+      call get_dipole_integrals(mol, lattr, cutoff, bas, ksig, kpi, kdel, &
+         & overlap, overlap_diat, dipole)
 
-   do ii = 1, size(overlap_diat, 2)
-      do jj = 1, size(overlap_diat, 1)
-         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
-         if (allocated(error)) return
+      do ii = 1, size(overlap_diat, 2)
+         do jj = 1, size(overlap_diat, 1)
+            call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
+            if (allocated(error)) return
+         end do
       end do
-   end do
+   else
+      call get_dipole_integrals(mol, lattr, cutoff, bas, overlap, dipole)
 
+      do ii = 1, size(overlap, 2)
+         do jj = 1, size(overlap, 1)
+            call check(error, overlap(jj, ii), ref(jj, ii), thr=thr)
+            if (allocated(error)) return
+         end do
+      end do
+   end if
 
-end subroutine test_overlap_dipole_diat_mol
+end subroutine test_overlap_dipole_mol
 
 subroutine test_overlap_dipole_diat_alh3(error)
 
@@ -358,16 +380,20 @@ subroutine test_overlap_dipole_diat_alh3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_dipole_diat_mol(error, mol, overlap_diat)
+   call test_overlap_dipole_mol(error, mol, .true., overlap_diat)
 
 end subroutine test_overlap_dipole_diat_alh3
 
-subroutine test_overlap_multipole_diat_mol(error, mol, ref)
+
+subroutine test_overlap_multipole_mol(error, mol, diat_scale, ref)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-
+   !> Molecular structure data
    type(structure_type), intent(in) :: mol
+   !> Flag whether the diatomic scaling is applied
+   logical, intent(in) :: diat_scale
+   !> Reference value to check against
    real(wp), intent(in) :: ref(:, :)
 
    type(basis_type) :: bas
@@ -375,9 +401,12 @@ subroutine test_overlap_multipole_diat_mol(error, mol, ref)
    real(wp), allocatable :: dipole(:, :, :), quadrupole(:, :, :)
    real(wp) :: cutoff
    integer :: ii, jj
-   real(wp) :: scalfac(3,86)
+   real(wp), allocatable :: ksig(:,:), kpi(:,:), kdel(:,:)
 
-   scalfac = 1.2_wp
+   allocate(ksig(mol%nid, mol%nid), kpi(mol%nid, mol%nid), kdel(mol%nid, mol%nid))
+   ksig = 1.2_wp
+   kpi = 1.2_wp
+   kdel = 1.2_wp
 
    call make_basis(bas, mol, 6)
    call check(error, bas%nao, size(ref, 1))
@@ -388,18 +417,29 @@ subroutine test_overlap_multipole_diat_mol(error, mol, ref)
 
    allocate(overlap(bas%nao, bas%nao), overlap_diat(bas%nao, bas%nao))
    allocate(dipole(3, bas%nao, bas%nao), quadrupole(6, bas%nao, bas%nao))
-   call get_multipole_integrals(mol, lattr, cutoff, bas, scalfac, overlap, overlap_diat, &
-      & dipole, quadrupole)
+   if(diat_scale) then
+      call get_multipole_integrals(mol, lattr, cutoff, bas, &
+         & ksig, kpi, kdel, overlap, overlap_diat, dipole, quadrupole)
 
-   do ii = 1, size(overlap_diat, 2)
-      do jj = 1, size(overlap_diat, 1)
-         call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
-         if (allocated(error)) return
+      do ii = 1, size(overlap_diat, 2)
+         do jj = 1, size(overlap_diat, 1)
+            call check(error, overlap_diat(jj, ii), ref(jj, ii), thr=thr)
+            if (allocated(error)) return
+         end do
       end do
-   end do
+   else
+      call get_multipole_integrals(mol, lattr, cutoff, bas, &
+         & overlap, dipole, quadrupole)
 
+      do ii = 1, size(overlap, 2)
+         do jj = 1, size(overlap, 1)
+            call check(error, overlap(jj, ii), ref(jj, ii), thr=thr)
+            if (allocated(error)) return
+         end do
+      end do
+   end if
 
-end subroutine test_overlap_multipole_diat_mol
+end subroutine test_overlap_multipole_mol
 
 subroutine test_overlap_multipole_diat_alh3(error)
 
@@ -460,8 +500,161 @@ subroutine test_overlap_multipole_diat_alh3(error)
    type(structure_type) :: mol
 
    call get_structure(mol, "MB16-43", "AlH3")
-   call test_overlap_multipole_diat_mol(error, mol, overlap)
+   call test_overlap_multipole_mol(error, mol, .true., overlap)
 
 end subroutine test_overlap_multipole_diat_alh3
+
+subroutine test_dipole_grad_cgto(error)
+   type(error_type), allocatable, intent(out) :: error
+   integer, parameter :: pqni(5) = [2, 2, 3, 3, 4], li(5) = [1, 1, 2, 2, 3]
+   integer, parameter :: pqnj(5) = [3, 3, 2, 4, 3], lj(5) = [1, 2, 1, 3, 2]
+   integer :: k
+
+   do k = 1, size(li)
+      call check_dipole_grad_cgto(error, pqni(k), li(k), pqnj(k), lj(k))
+      if (allocated(error)) return
+   end do
+end subroutine test_dipole_grad_cgto
+
+subroutine check_dipole_grad_cgto(error, pqni, li, pqnj, lj)
+   type(error_type), allocatable, intent(out) :: error
+   integer, intent(in) :: pqni, li, pqnj, lj
+
+   real(wp), parameter :: step = 1.0e-5_wp
+   type(cgto_type) :: cgtoi, cgtoj
+   integer :: stat, i, j, mli, mlj
+   real(wp) :: vec(3), fd_s, fd_d
+   real(wp) :: overlap(msao(lj), msao(li)), doverlap(3, msao(lj), msao(li))
+   real(wp) :: dpint(3, msao(lj), msao(li)), ddpint(3, 3, msao(lj), msao(li))
+   real(wp) :: sr(msao(lj), msao(li)), sl(msao(lj), msao(li))
+   real(wp) :: dr(3, msao(lj), msao(li)), dl(3, msao(lj), msao(li))
+
+   call slater_to_gauss(6, pqni, li, 1.3_wp, cgtoi, .true., stat)
+   call slater_to_gauss(6, pqnj, lj, 1.1_wp, cgtoj, .true., stat)
+   vec = [0.7_wp, -1.1_wp, 0.4_wp]
+   call dipole_grad_cgto(cgtoj, cgtoi, sum(vec**2), vec, 100.0_wp, overlap, dpint, doverlap, ddpint)
+
+   do i = 1, 3
+      vec(i) = vec(i) + step
+      call dipole_cgto(cgtoj, cgtoi, sum(vec**2), vec, 100.0_wp, sr, dr)
+      vec(i) = vec(i) - 2*step
+      call dipole_cgto(cgtoj, cgtoi, sum(vec**2), vec, 100.0_wp, sl, dl)
+      vec(i) = vec(i) + step
+      do mli = 1, msao(li)
+         do mlj = 1, msao(lj)
+            fd_s = 0.5_wp * (sr(mlj, mli) - sl(mlj, mli)) / step
+            call check(error, doverlap(i, mlj, mli), fd_s, thr=thr1*10)
+            if (allocated(error)) return
+            do j = 1, 3
+               fd_d = 0.5_wp * (dr(j, mlj, mli) - dl(j, mlj, mli)) / step
+               call check(error, ddpint(i, j, mlj, mli) - merge(overlap(mlj, mli), 0.0_wp, i == j), &
+                  & fd_d, thr=thr1*10)
+               if (allocated(error)) return
+            end do
+         end do
+      end do
+   end do
+end subroutine check_dipole_grad_cgto
+
+subroutine test_multipole_grad_cgto(error)
+   type(error_type), allocatable, intent(out) :: error
+   integer, parameter :: pqni(7) = [2, 2, 3, 3, 4, 5, 3], li(7) = [1, 1, 2, 2, 3, 4, 2]
+   integer, parameter :: pqnj(7) = [3, 3, 2, 4, 3, 3, 5], lj(7) = [1, 2, 1, 3, 2, 2, 4]
+   integer :: k
+
+   do k = 1, size(li)
+      call check_multipole_grad_cgto(error, pqni(k), li(k), pqnj(k), lj(k))
+      if (allocated(error)) return
+   end do
+end subroutine test_multipole_grad_cgto
+
+subroutine check_multipole_grad_cgto(error, pqni, li, pqnj, lj)
+   type(error_type), allocatable, intent(out) :: error
+   integer, intent(in) :: pqni, li, pqnj, lj
+
+   real(wp), parameter :: step = 1.0e-3_wp, inv12h = 1.0_wp / (12.0_wp * step)
+   real(wp), parameter :: offsets(4) = [-2.0_wp, -1.0_wp, 1.0_wp, 2.0_wp]
+   real(wp), parameter :: weights(4) = [1.0_wp, -8.0_wp, 8.0_wp, -1.0_wp]
+   type(cgto_type) :: cgtoi, cgtoj
+   integer :: stat, i, j, ist, mli, mlj
+   real(wp) :: vec(3), pvec(3), r2, w
+   real(wp) :: overlap(msao(lj), msao(li)), doverlap(3, msao(lj), msao(li))
+   real(wp) :: dpint(3, msao(lj), msao(li)), qpint(6, msao(lj), msao(li))
+   real(wp) :: ddpinti(3, 3, msao(lj), msao(li)), ddpintj(3, 3, msao(lj), msao(li))
+   real(wp) :: dqpinti(3, 6, msao(lj), msao(li)), dqpintj(3, 6, msao(lj), msao(li))
+   real(wp) :: si(msao(lj), msao(li)), sj(msao(li), msao(lj))
+   real(wp) :: di(3, msao(lj), msao(li)), dj(3, msao(li), msao(lj))
+   real(wp) :: qi(6, msao(lj), msao(li)), qj(6, msao(li), msao(lj))
+   real(wp) :: fd_s(msao(lj), msao(li)), fd_di(3, msao(lj), msao(li)), fd_dj(3, msao(li), msao(lj))
+   real(wp) :: fd_qi(6, msao(lj), msao(li)), fd_qj(6, msao(li), msao(lj))
+
+   call slater_to_gauss(6, pqni, li, 1.3_wp, cgtoi, .true., stat)
+   call slater_to_gauss(6, pqnj, lj, 1.1_wp, cgtoj, .true., stat)
+   vec = [0.7_wp, -1.1_wp, 0.4_wp]
+   call multipole_grad_cgto(cgtoj, cgtoi, sum(vec**2), vec, 100.0_wp, overlap, dpint, qpint, &
+      & doverlap, ddpintj, dqpintj, ddpinti, dqpinti)
+
+   do i = 1, 3
+      fd_s = 0.0_wp; fd_di = 0.0_wp; fd_dj = 0.0_wp; fd_qi = 0.0_wp; fd_qj = 0.0_wp
+      do ist = 1, 4
+         pvec = vec
+         pvec(i) = vec(i) + offsets(ist) * step
+         r2 = sum(pvec**2)
+         call multipole_cgto(cgtoj, cgtoi, r2, pvec, 100.0_wp, si, di, qi)
+         call multipole_cgto(cgtoi, cgtoj, r2, -pvec, 100.0_wp, sj, dj, qj)
+         w = weights(ist) * inv12h
+         fd_s = fd_s + w * si
+         fd_di = fd_di + w * di; fd_dj = fd_dj + w * dj
+         fd_qi = fd_qi + w * qi; fd_qj = fd_qj + w * qj
+      end do
+      do mli = 1, msao(li)
+         do mlj = 1, msao(lj)
+            call check(error, doverlap(i, mlj, mli), fd_s(mlj, mli), thr=thr1*10)
+            if (allocated(error)) return
+            do j = 1, 3
+               call check(error, ddpinti(i, j, mlj, mli), fd_di(j, mlj, mli), thr=thr1*10)
+               if (allocated(error)) return
+               call check(error, ddpintj(i, j, mlj, mli), fd_dj(j, mli, mlj), thr=thr1*10)
+               if (allocated(error)) return
+            end do
+            do j = 1, 6
+               call check(error, dqpinti(i, j, mlj, mli), fd_qi(j, mlj, mli), thr=thr1*10)
+               if (allocated(error)) return
+               call check(error, dqpintj(i, j, mlj, mli), fd_qj(j, mli, mlj), thr=thr1*10)
+               if (allocated(error)) return
+            end do
+         end do
+      end do
+   end do
+end subroutine check_multipole_grad_cgto
+
+subroutine test_multipole_ref_df(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(cgto_type) :: cgtoi, cgtoj
+   integer :: stat
+   real(wp), parameter :: vec(3) = [0.7_wp, -1.1_wp, 0.4_wp]
+   real(wp) :: s(7, 5), d(3, 7, 5), q(6, 7, 5)
+
+   call slater_to_gauss(6, 3, 2, 1.3_wp, cgtoi, .true., stat)
+   call slater_to_gauss(6, 4, 3, 1.1_wp, cgtoj, .true., stat)
+   call multipole_cgto(cgtoj, cgtoi, sum(vec**2), vec, 100.0_wp, s, d, q)
+   call check(error, s(1, 1), 2.47908171939545896E-01_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, s(7, 5), 2.49783850502338090E-01_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, sum(abs(s)), 4.57832758149086949E+00_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, d(1, 3, 2), -3.21586649040266070E-02_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, d(3, 6, 4), -2.12097954634298883E-02_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, sum(abs(d)), 1.88462878047441507E+01_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, q(1, 2, 3), -7.95133852949719139E-02_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, q(5, 7, 5), 9.69395041987891268E-03_wp, thr=thr1)
+   if (allocated(error)) return
+   call check(error, sum(abs(q)), 9.10365399236215609E+01_wp, thr=thr1)
+end subroutine test_multipole_ref_df
 
 end module test_integral_multipole

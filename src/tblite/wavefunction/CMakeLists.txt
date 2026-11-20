@@ -14,12 +14,15 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
+add_subdirectory("localization")
+
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(
   APPEND srcs
   "${dir}/fermi.f90"
   "${dir}/guess.f90"
+  "${dir}/localization.f90"
   "${dir}/mulliken.f90"
   "${dir}/restart.f90"
   "${dir}/spin.f90"

@@ -25,15 +25,16 @@ module tblite_scf_iterator
    use tblite_container, only : container_cache, container_list
    use tblite_disp, only : dispersion_type
    use tblite_integral_type, only : integral_type
-   use tblite_purification_solver, only : purification_solver 
-   use tblite_scf_mixer, only : mixer_type
+   use tblite_mpi_utils, only : mpi_allreduce_sum, mpi_sync_error, new_mpi_work_partition
+   use tblite_partition, only : work_partition, owns_index
    use tblite_scf_info, only : scf_info
-   use tblite_scf_potential, only : potential_type, add_pot_to_h1
+   use tblite_scf_mixer, only : mixer_type
+   use tblite_scf_potential, only : potential_type, mpi_add_pot_to_h1, reduce_potential
    use tblite_scf_solver, only : solver_type
-   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_wavefunction_fermi, only : get_fermi_filling
    use tblite_wavefunction_mulliken, only : get_mulliken_shell_charges, &
       & get_mulliken_atomic_multipoles
+   use tblite_wavefunction_type, only : wavefunction_type
    use tblite_xtb_coulomb, only : tb_coulomb
    implicit none
    private
@@ -46,7 +47,7 @@ contains
 !> Evaluate self-consistent iteration for the density-dependent Hamiltonian
 subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersion, &
       & interactions, ints, pot, ccache, dcache, icache, &
-      & energies, error)
+      & energies, error, comm)
    !> Current iteration count
    integer, intent(inout) :: iscf
    !> Molecular structure data
@@ -85,11 +86,22 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Communicator to reduce the partitioned contributions over
+   integer, intent(in), optional :: comm
+
    real(wp), allocatable :: eao(:)
+   integer, allocatable :: columns(:)
    real(wp) :: ts
+   type(work_partition) :: partition
+
+   if (present(comm)) then
+      call new_mpi_work_partition(error, partition, comm)
+      if (allocated(error)) return
+   end if
 
    if (iscf > 0) then
       call mixer%next(error)
+      call mpi_sync_error(error, comm)
       if (allocated(error)) return
 
       call get_mixer(mixer, bas, wfn, info)
@@ -107,30 +119,32 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
       call interactions%get_potential(mol, icache, wfn, pot)
    end if
 
-   call add_pot_to_h1(bas, ints, pot, wfn%coeff)
+   call reduce_potential(error, pot, comm)
+   if (allocated(error)) return
+
+   call mpi_add_pot_to_h1(error, bas, ints, pot, wfn%coeff, comm)
+   if (allocated(error)) return
 
    call set_mixer(mixer, wfn, info)
 
    call next_density(wfn, solver, ints, ts, error)
+   call mpi_sync_error(error, comm)
    if (allocated(error)) return
 
-   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, &
-      & wfn%qsh)
+   if (ints%local) columns = ints%columns
+   call get_mulliken_shell_charges(bas, ints%overlap, wfn%density, wfn%n0sh, wfn%qsh, partition, columns)
+   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, wfn%dpat, partition, columns)
+   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, wfn%qpat, partition, columns)
+   if (partition%get_nparts() > 1) then
+      call reduce_mulliken(wfn, pot%reduction_buffer, error, comm)
+      if (allocated(error)) return
+   end if
    call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
-
-   call get_mulliken_atomic_multipoles(bas, ints%dipole, wfn%density, &
-      & wfn%dpat)
-   call get_mulliken_atomic_multipoles(bas, ints%quadrupole, wfn%density, &
-      & wfn%qpat)
 
    call diff_mixer(mixer, wfn, info)
 
-   allocate(eao(bas%nao), source=0.0_wp)
-   call get_electronic_energy(ints%hamiltonian, wfn%density, eao)
-
-   energies(:) = ts / size(energies)
-   call reduce(energies, eao, bas%ao2at)
-
+   ! Assemble partitioned container and one-electron energies together.
+   energies(:) = 0.0_wp
    if (present(coulomb) .and. present(ccache)) then
       call coulomb%get_energy(mol, ccache, wfn, energies)
    end if
@@ -140,27 +154,76 @@ subroutine next_scf(iscf, mol, bas, wfn, solver, mixer, info, coulomb, dispersio
    if (present(interactions) .and. present(icache)) then
       call interactions%get_energy(mol, icache, wfn, energies)
    end if
+   ! Preserve serial summation order; the entropy is replicated, not additive.
+   if (partition%get_nparts() == 1) energies(:) = energies + ts / size(energies)
+   allocate(eao(bas%nao), source=0.0_wp)
+   call get_electronic_energy(ints%hamiltonian, wfn%density, eao, partition, columns)
+   call reduce(energies, eao, bas%ao2at)
+   call mpi_allreduce_sum(error, energies, comm)
+   if (allocated(error)) return
+   if (partition%get_nparts() > 1) energies(:) = energies + ts / size(energies)
 end subroutine next_scf
 
 
-subroutine get_electronic_energy(h0, density, energies)
-   real(wp), intent(in) :: h0(:, :)
-   real(wp), intent(in) :: density(:, :, :)
-   real(wp), intent(inout) :: energies(:)
+!> Assemble all population components in one small collective, for either
+!> column-distributed matrices or owner-computed contractions of full matrices.
+subroutine reduce_mulliken(wfn, buffer, error, comm)
+   !> Partial shell charges and atomic multipoles, replaced by their global sum
+   type(wavefunction_type), intent(inout) :: wfn
+   !> Workspace reused after reduce_potential; only the population-sized prefix is needed
+   real(wp), intent(out) :: buffer(size(wfn%qsh) + size(wfn%dpat) + size(wfn%qpat))
+   !> Error handling
+   type(error_type), allocatable, intent(inout) :: error
+   !> Communicator to reduce over
+   integer, intent(in) :: comm
+   integer :: nq, nd, nt
 
-   integer :: iao, jao, spin
+   nq = size(wfn%qsh)
+   nd = size(wfn%dpat)
+   nt = size(wfn%qpat)
+   buffer(:nq) = reshape(wfn%qsh, [nq])
+   buffer(nq+1:nq+nd) = reshape(wfn%dpat, [nd])
+   buffer(nq+nd+1:) = reshape(wfn%qpat, [nt])
+   call mpi_allreduce_sum(error, buffer, comm)
+   if (allocated(error)) return
+   wfn%qsh(:, :) = reshape(buffer(:nq), shape(wfn%qsh))
+   wfn%dpat(:, :, :) = reshape(buffer(nq+1:nq+nd), shape(wfn%dpat))
+   wfn%qpat(:, :, :) = reshape(buffer(nq+nd+1:), shape(wfn%qpat))
+end subroutine reduce_mulliken
+
+
+!> Accumulate one-electron energies over the owned orbital columns.
+subroutine get_electronic_energy(h0, density, energies, partition, columns)
+   !> Core Hamiltonian in full or local-column storage
+   real(wp), intent(in) :: h0(:, :)
+   !> Density matrices in the same column layout as h0
+   real(wp), intent(in) :: density(:, :, :)
+   !> Orbital-resolved energies to accumulate into
+   real(wp), intent(inout) :: energies(:)
+   !> Ownership of columns in replicated storage; absent selects all columns
+   type(work_partition), intent(in), optional :: partition
+   !> Inclusive global column range for local storage
+   integer, intent(in), optional :: columns(2)
+
+   integer :: iao, jao, spin, offset
    real(wp) :: eiao
 
+   offset = 0
+   if (present(columns)) offset = columns(1) - 1
+
    !$omp parallel do schedule(runtime) default(none) &
-   !$omp shared(h0, density, energies) private(spin, iao, jao, eiao)
+   !$omp shared(h0, density, energies, partition, columns, offset) private(spin, iao, jao, eiao)
    do iao = 1, size(density, 2)
+      if (.not.present(columns)) then
+         if (.not.owns_index(partition, iao)) cycle
+      end if
       eiao = 0.0_wp
       do spin = 1, size(density, 3)
          do jao = 1, size(density, 1)
             eiao = eiao + h0(jao, iao) * density(jao, iao, spin)
          end do
       end do
-      energies(iao) = energies(iao) + eiao
+      energies(iao+offset) = energies(iao+offset) + eiao
    end do
 end subroutine get_electronic_energy
 
@@ -210,23 +273,29 @@ function get_mixer_dimension(mol, bas, info) result(ndim)
       ndim = ndim + mol%nat
    case(shell_resolved)
       ndim = ndim + bas%nsh
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       ndim = ndim + 3*mol%nat
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       ndim = ndim + 6*mol%nat
+   case default
+      continue
    end select
 end function get_mixer_dimension
 
 subroutine set_mixer(mixer, wfn, info)
    use tblite_scf_info, only : atom_resolved, shell_resolved
    class(mixer_type), intent(inout) :: mixer
-   type(wavefunction_type), intent(in) :: wfn
+   type(wavefunction_type), intent(inout) :: wfn
    type(scf_info), intent(in) :: info
 
    select case(info%charge)
@@ -234,23 +303,33 @@ subroutine set_mixer(mixer, wfn, info)
       call mixer%set(wfn%qat)
    case(shell_resolved)
       call mixer%set(wfn%qsh)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%set(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
+      ! Scale off-diagonal elements of packed quadrupole tensor in place, since
+      ! they appear twice in the full tensor and enter the residual norm as such
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) * sqrt(2.0_wp)
       call mixer%set(wfn%qpat)
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) / sqrt(2.0_wp)
+   case default
+      continue
    end select
 end subroutine set_mixer
 
 subroutine diff_mixer(mixer, wfn, info)
    use tblite_scf_info, only : atom_resolved, shell_resolved
    class(mixer_type), intent(inout) :: mixer
-   type(wavefunction_type), intent(in) :: wfn
+   type(wavefunction_type), intent(inout) :: wfn
    type(scf_info), intent(in) :: info
 
    select case(info%charge)
@@ -258,16 +337,26 @@ subroutine diff_mixer(mixer, wfn, info)
       call mixer%diff(wfn%qat)
    case(shell_resolved)
       call mixer%diff(wfn%qsh)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%diff(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
+      ! Scale off-diagonal elements of packed quadrupole tensor in place, since
+      ! they appear twice in the full tensor and enter the residual norm as such
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) * sqrt(2.0_wp)
       call mixer%diff(wfn%qpat)
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) / sqrt(2.0_wp)
+   case default
+      continue
    end select
 end subroutine diff_mixer
 
@@ -284,16 +373,25 @@ subroutine get_mixer(mixer, bas, wfn, info)
    case(shell_resolved)
       call mixer%get(wfn%qsh)
       call get_qat_from_qsh(bas, wfn%qsh, wfn%qat)
+   case default
+      continue
    end select
 
    select case(info%dipole)
    case(atom_resolved)
       call mixer%get(wfn%dpat)
+   case default
+      continue
    end select
 
    select case(info%quadrupole)
    case(atom_resolved)
       call mixer%get(wfn%qpat)
+      ! Remove scaling of off-diagonal elements of packed quadrupole tensor
+      wfn%qpat([2, 4, 5], :, :) = wfn%qpat([2, 4, 5], :, :) &
+         & / sqrt(2.0_wp)
+   case default
+      continue
    end select
 end subroutine get_mixer
 
@@ -309,36 +407,21 @@ subroutine next_density(wfn, solver, ints, ts, error)
    real(wp), intent(out) :: ts
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
-   integer :: spin
-   ts = 0.0_wp
-   
-   call get_density_from_coeff(wfn, solver, ints, ts, error)
-   
 
-end subroutine next_density
-
-subroutine get_density_from_coeff(wfn, solver, ints, ts, error)
-   !> Tight-binding wavefunction data
-   type(wavefunction_type), intent(inout) :: wfn
-   !> Solver for the general eigenvalue problem
-   class(solver_type), intent(inout) :: solver
-   !> Integral container
-   type(integral_type), intent(in) :: ints
-   !> Electronic entropy
-   real(wp), intent(inout) :: ts
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   real(wp) :: stmp(2)
+   real(wp) :: e_fermi, stmp(2)
    real(wp), allocatable :: focc(:)
    integer :: spin
-   stmp = 0.0_wp
+
    call solver%get_density(wfn%coeff, ints%overlap, wfn%emo, wfn%focc, wfn%density, error)
+   if (allocated(error)) then
+      ts = 0.0_wp
+      return
+   end if
    do spin = 1, 2
       call get_electronic_entropy(wfn%focc(:, spin), wfn%kt, stmp(spin))
    end do
    ts = sum(stmp)
-end subroutine get_density_from_coeff
+end subroutine next_density
 
 subroutine get_electronic_entropy(occ, kt, s)
    real(wp), intent(in) :: occ(:)

@@ -14,11 +14,17 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
 
-module tblite_features
+
+module tblite_cli_features
+   use tblite_features, only : get_tblite_lib_feature => get_tblite_feature, &
+   & tblite_use_ddx, tblite_use_hdf5, tblite_use_trexio
    implicit none
    private
 
    public :: get_tblite_feature
+   public :: tblite_use_ddx
+   public :: tblite_use_hdf5
+   public :: tblite_use_trexio
 
 
 contains
@@ -33,7 +39,7 @@ function get_tblite_feature(feature) result(has_feature)
    case("color")
       has_feature = color_support()
    case default
-      has_feature = .false.
+      has_feature = get_tblite_lib_feature(feature)
    end select
 end function get_tblite_feature
 
@@ -52,4 +58,4 @@ function color_support() result(color)
 #endif
 end function color_support
 
-end module tblite_features
+end module tblite_cli_features
