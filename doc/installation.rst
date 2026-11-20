@@ -97,7 +97,6 @@ For the full feature-complete build it is highly recommended to perform the buil
 To setup a build the following software is required
 
 - A Fortran 2008 compliant compiler, like GCC Fortran and Intel Fortran classic
-- a CXX compliant C compiler, like GCC and Intel C compiler (classic or LLVM-based)
 - `meson`_, version 0.57.2 or newer
 - `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
@@ -105,8 +104,8 @@ To setup a build the following software is required
 Optional dependencies are
 
 - `asciidoctor`_, to build the manual pages
-- A C compiler to test the C API and compile the Python extension module
-- A C++ compiler to build ddX solvation support
+- A C compiler to build the C API, Python extension or CUDA eigensolver
+- A C++ compiler to build ddX or GAMBITS from source
 - Python 3.6 or newer with the `CFFI`_ package installed to build the Python API
 
 Optional dependencies for GPU support are
@@ -176,7 +175,7 @@ The CMake build files usually do not provide a feature-complete build, but contr
 To setup a build the following software is required
 
 - A Fortran 2008 compliant compiler, like GCC Fortran and Intel Fortran classic
-- a CXX compliant C compiler, like GCC and Intel C compiler (classic or LLVM-based)
+- A C compiler, such as GCC or Clang
 - `cmake`_, version 3.14 or newer
 - `ninja`_, version 1.10 or newer
 - a linear algebra backend, like MKL or OpenBLAS
@@ -196,7 +195,7 @@ CMake will automatically fetch the required Fortran modules, you can provide spe
 .. note::
 
    Enable the cuSOLVER eigensolver with ``-DGPU=ON`` (CMake 3.17 or newer).
-   For density matrix purification add ``-DTBLITE_WITH_GAMBITS=ON``.
+   For density matrix purification add ``-DTBLITE_WITH_GAMBITS=ON`` and provide a C++ compiler.
    Set ``CMAKE_PREFIX_PATH`` to the prefix containing GAMBITS and LAHVA when using installed packages.
 
 

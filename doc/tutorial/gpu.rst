@@ -1,40 +1,53 @@
 Running GPU-accelerated ``tblite`` calculations
-================================================ 
+===============================================
 
-If `tblite` has been compiled with GPU support (see :ref:`Installation <install>`), you can run GPU-accelerated calculations.
-Currently, only the density building step is offloaded to the GPU, while other parts of the calculation (e.g., Hamiltonian construction, energy evaluation, etc.) are still performed on the CPU.
+For a single-GPU GFN2-xTB calculation, enable the NVIDIA eigensolver at build time
+(see :ref:`Installation <install>`) and select ``gvd-gpu`` on the command line.
+For example, to compute an energy and gradient for an XYZ structure, run
 
-The `GAMBITS`_ library implements a number of alterntive density build algorithms, based on density matrix purification (DMP) techniques mainly by Niklasson and co-workers \ :footcite:`niklasson2002,niklasson2003,rubensson2014`.
+.. code-block:: console
+
+   $ tblite run --method gfn2 --solver gvd-gpu --grad gradient.txt structure.xyz
+
+cuSOLVER diagonalizes the generalized eigenproblem and cuBLAS constructs the density
+and energy-weighted density. Hamiltonian construction and the remaining GFN2-xTB
+terms run on the CPU. This solver supports finite electronic temperatures and
+retains eigenvectors for properties and restart files.
+
+The optional `GAMBITS`_ library implements density matrix purification (DMP) algorithms
+developed by Niklasson and co-workers :footcite:`niklasson2002,niklasson2003,rubensson2014`.
 These algorithms are particularly well suited for GPU acceleration, as they mainly involve matrix-matrix multiplications, which can be efficiently performed on GPUs.
-In addition to these purification-based methods, a standard diagonalization-based density build method is also available based on NVIDIA's cuSOLVER library.
 
-.. note::
-   The implemented density matrix purification methods only support calculations with an electronic temperature of 0 K.
-   If you need to perform calculations at finite electronic temperature, please use the diagonalization-based density build methods.
-   The ``gvd-gpu`` solver supports finite temperatures and uses NVIDIA cuSOLVER
-   for diagonalization and cuBLAS to construct the density and energy-weighted density.
-   Eigenvectors remain available for properties and restart files.
+Purification requires an electronic temperature of 0 K. To select SP2 explicitly
+on the GPU, build with CUDA and GAMBITS support and run
 
-.. tip::
-    The ``sp2`` algorithm is recommended for most applications due to its numerical stability and efficiency.
-    By default, systems with less than 750 basis functions are computed on the CPU if a DMP methods have been chosen.
-    For larger systems, the GPU is used automatically.
-    When using the GPU, by default, the `mixed-precision` mode presented in \ :footcite:`steinbach2025` is used.
+.. code-block:: console
 
-More details on the implemented methods and numerical accuracy considerations can be found in the original publications \ :footcite:`steinbach2025`.
+   $ tblite run --method gfn2 --solver sp2 --etemp 0 --purification-runmode gpu structure.xyz
 
-The following table gives an overview on the available solvers, which can be requested using the ``--solver <solver_type>`` command line option.
+With automatic device selection, purification runs on the CPU below 750 basis functions
+and on the GPU from 750 basis functions in a CUDA-enabled build.
+The default GPU precision is mixed :footcite:`steinbach2025`.
 
-=========== ================================================= ==========================
- Keyword(s)     Description                                     Reference
-=========== ================================================= ==========================
- ``sp2``        2nd order spectral projection algorithm           :footcite:`niklasson2002`
- ``sp2-accel``   accelerated-version of SP2 (less stable)          :footcite:`rubensson2014`
- ``trs4``        trace-resetting 4th order algorithm               :footcite:`niklasson2003`
- ``gvd``         generalized eigenvalue equation solver (DSYGVD)    LAPACK `SYGVD`_
- ``gvd-gpu``     GPU-accelerated GVD solver using cuSOLVER          cuSOLVER `DSYGVD`_
- ``gvr``         eigenvalue equation solver (DSYGVR)                LAPACK `SYEVR`_
-=========== ================================================= ==========================
+.. list-table:: Solver selection with ``--solver``
+   :header-rows: 1
+
+   * - Keyword
+     - Algorithm
+   * - ``sp2``
+     - Second-order spectral projection :footcite:`niklasson2002`
+   * - ``sp2-accel``
+     - Accelerated SP2 :footcite:`rubensson2014`
+   * - ``trs4``
+     - Fourth-order trace-resetting purification :footcite:`niklasson2003`
+   * - ``gvd``
+     - CPU divide-and-conquer diagonalization, LAPACK `SYGVD`_
+   * - ``gvd-gpu``
+     - Single-GPU divide-and-conquer diagonalization, cuSOLVER `DSYGVD`_
+   * - ``gvr``
+     - CPU diagonalization using LAPACK `SYEVR`_
+
+.. footbibliography::
 
 .. _SYGVD: https://netlib.org/lapack/explore-html/d5/d0e/group__hegvd_ga1ed76f7825e99ff52abc815b4bf80e41.html
 .. _SYEVR: https://netlib.org/lapack/explore-html/d1/d56/group__heevr_gaa2c43f6fba2353962ff981b759e4acab.html
