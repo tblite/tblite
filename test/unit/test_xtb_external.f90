@@ -151,6 +151,26 @@ subroutine test_point_charge_analytic(error)
       call check(error, pc_gradient(1, 1), -force, thr=thr2)
       if (allocated(error)) return
    end do
+
+   call new_point_charges(pc, [1.0_wp], reshape([0.0_wp, 0.0_wp, 0.0_wp], [3, 1]), &
+      & [2.0_wp], [1.0_wp], [1], 1.0_wp, .false.)
+   pot%vsh = 0.0_wp
+   call pc%get_potential(mol, cache, wfn, pot)
+   call check(error, pot%vsh(1, 1), 1.5_wp, thr=thr2)
+   if (allocated(error)) return
+
+   energies = 0.0_wp
+   call pc%get_energy(mol, cache, wfn, energies)
+   call check(error, energies(1), 0.75_wp, thr=thr2)
+   if (allocated(error)) return
+
+   gradient = 0.0_wp
+   call pc%get_gradient(mol, cache, wfn, gradient, sigma)
+   call check(error, maxval(abs(gradient)), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   call pc%point_gradient(mol, wfn, pc_gradient)
+   call check(error, maxval(abs(pc_gradient)), 0.0_wp, thr=thr)
 end subroutine test_point_charge_analytic
 
 

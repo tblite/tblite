@@ -242,6 +242,33 @@ def test_external_point_charge_gradient(method):
     assert res.get("gradient")[0, 0] == approx(numeric_qm, abs=2.0e-5)
 
 
+def test_ipea1_point_charge_coincident_with_qm_atom():
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    point = np.array([[0.0, 0.0, -0.7]])
+    charge = np.array([0.5])
+
+    def energy(point_xyz):
+        calc = Calculator("IPEA1-xTB", numbers, positions)
+        calc.set("verbosity", 0)
+        calc.add("point-charges", charge, point_xyz, 1000.0)
+        return calc.singlepoint()
+
+    result = energy(point)
+    analytic = result.get("point-charge-gradient")
+    assert np.all(np.isfinite(result.get("gradient")))
+    assert np.all(np.isfinite(analytic))
+
+    step = 1.0e-5
+    for axis in range(3):
+        plus = point.copy()
+        minus = point.copy()
+        plus[0, axis] += step
+        minus[0, axis] -= step
+        numeric = (energy(plus).get("energy") - energy(minus).get("energy")) / (2.0 * step)
+        assert analytic[0, axis] == approx(numeric, abs=2.0e-5)
+
+
 @pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB", "IPEA1-xTB"])
 def test_point_charges_preserve_default_properties(method):
     numbers = np.array([1, 1])

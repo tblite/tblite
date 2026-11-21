@@ -121,6 +121,7 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
          do ipc = 1, size(self%charge)
             dr = mol%xyz(:, iat) - self%xyz(:, ipc)
             r = norm2(dr)
+            if (r == 0.0_wp) cycle
             gam = pair_hardness(self, ish, ipc)
             fac = -wfn%qsh(ish, 1)*self%charge(ipc)*r**(self%gexp-2.0_wp) &
                & /(r**self%gexp + gam**(-self%gexp))**(1.0_wp/self%gexp+1.0_wp)
@@ -145,6 +146,7 @@ subroutine point_gradient(self, mol, wfn, gradient)
          do ipc = 1, size(self%charge)
             dr = mol%xyz(:, iat) - self%xyz(:, ipc)
             r = norm2(dr)
+            if (r == 0.0_wp) cycle
             gam = pair_hardness(self, ish, ipc)
             fac = wfn%qsh(ish, 1)*self%charge(ipc)*r**(self%gexp-2.0_wp) &
                & /(r**self%gexp + gam**(-self%gexp))**(1.0_wp/self%gexp+1.0_wp)
