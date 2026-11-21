@@ -23,6 +23,9 @@ module test_xtb_external
    use tblite_container, only : container_type, container_cache
    use tblite_context_type, only : context_type
    use tblite_external_field, only : electric_field
+   use tblite_external_point_charges, only : point_charges, new_point_charges
+   use tblite_partition, only : work_partition, new_work_partition
+   use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type, new_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
@@ -64,10 +67,91 @@ subroutine collect_xtb_external(testsuite)
       new_unittest("gfn1-empty", test_g_mb05), &
       new_unittest("gfn2-empty", test_g_mb06), &
       new_unittest("gfn1-efield-numgrad-il144b", test_g_efield_il144b), &
-      new_unittest("gfn2-efield-numgrad-mb08", test_g_efield_mb08) &
+      new_unittest("gfn2-efield-numgrad-mb08", test_g_efield_mb08), &
+      new_unittest("point-charge-partition", test_point_charge_partition), &
+      new_unittest("point-charge-analytic", test_point_charge_analytic) &
       ]
 
 end subroutine collect_xtb_external
+
+
+subroutine test_point_charge_partition(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(wavefunction_type) :: wfn
+   type(point_charges) :: pc
+   type(work_partition) :: partition
+   real(wp) :: gradient(3, 1)
+
+   call new(mol, [1], reshape([0.0_wp, 0.0_wp, 0.0_wp], [3, 1]))
+   call new_wavefunction(wfn, mol%nat, 1, 1, 1, kt)
+   wfn%qsh(1, 1) = 1.0_wp
+   call new_point_charges(pc, [1.0_wp], reshape([2.0_wp, 0.0_wp, 0.0_wp], [3, 1]), &
+      & [1.0_wp], [1.0_wp], [1], 2.0_wp, .false.)
+
+   call new_work_partition(error, partition, 1, 2)
+   if (allocated(error)) return
+   call pc%set_partition(partition)
+   call pc%point_gradient(mol, wfn, gradient)
+   call check(error, maxval(abs(gradient)), 0.0_wp, thr=thr)
+   if (allocated(error)) return
+
+   call new_work_partition(error, partition, 0, 2)
+   if (allocated(error)) return
+   call pc%set_partition(partition)
+   call pc%point_gradient(mol, wfn, gradient)
+   call check(error, maxval(abs(gradient)) > thr)
+end subroutine test_point_charge_partition
+
+
+subroutine test_point_charge_analytic(error)
+   type(error_type), allocatable, intent(out) :: error
+   type(structure_type) :: mol
+   type(wavefunction_type) :: wfn
+   type(point_charges) :: pc
+   type(container_cache) :: cache
+   type(potential_type) :: pot
+   real(wp) :: energies(1), gradient(3, 1), sigma(3, 3), pc_gradient(3, 1)
+   real(wp) :: gam, radius, value, force
+   logical :: harmonic
+   integer :: imode
+
+   call new(mol, [1], reshape([0.0_wp, 0.0_wp, 0.0_wp], [3, 1]))
+   call new_wavefunction(wfn, mol%nat, 1, 1, 1, kt)
+   wfn%qsh(1, 1) = 0.5_wp
+   allocate(pot%vsh(1, 1), source=0.0_wp)
+   sigma = 0.0_wp
+
+   do imode = 1, 2
+      harmonic = imode == 2
+      call new_point_charges(pc, [1.0_wp], reshape([2.0_wp, 0.0_wp, 0.0_wp], [3, 1]), &
+         & [2.0_wp], [1.0_wp], [1], 2.0_wp, harmonic)
+      gam = 1.5_wp
+      if (harmonic) gam = 4.0_wp/3.0_wp
+      radius = sqrt(4.0_wp + gam**(-2.0_wp))
+      value = 1.0_wp/radius
+      force = 1.0_wp/radius**3
+
+      pot%vsh = 0.0_wp
+      call pc%get_potential(mol, cache, wfn, pot)
+      call check(error, pot%vsh(1, 1), value, thr=thr2)
+      if (allocated(error)) return
+
+      energies = 0.0_wp
+      call pc%get_energy(mol, cache, wfn, energies)
+      call check(error, energies(1), 0.5_wp*value, thr=thr2)
+      if (allocated(error)) return
+
+      gradient = 0.0_wp
+      call pc%get_gradient(mol, cache, wfn, gradient, sigma)
+      call check(error, gradient(1, 1), force, thr=thr2)
+      if (allocated(error)) return
+
+      call pc%point_gradient(mol, wfn, pc_gradient)
+      call check(error, pc_gradient(1, 1), -force, thr=thr2)
+      if (allocated(error)) return
+   end do
+end subroutine test_point_charge_analytic
 
 
 subroutine test_e_mb01(error)

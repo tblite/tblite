@@ -4367,9 +4367,69 @@ err:
     return 1;
 }
 
+int test_point_charge_api(void)
+{
+    printf("Test native point-charge API\n");
+    tblite_error error = tblite_new_error();
+    tblite_context ctx = tblite_new_context();
+    tblite_structure mol = NULL;
+    tblite_calculator calc = NULL;
+    tblite_container cont = NULL;
+    tblite_result res = NULL;
+    int numbers[2] = {1, 1};
+    double xyz[6] = {0.0, 0.0, -0.7, 0.0, 0.0, 0.7};
+    double charge = 0.5;
+    double pcxyz[3] = {2.0, 0.4, -0.3};
+    double hardness = 1000.0;
+    double invalid_hardness = NAN;
+    int pcnumber = 8;
+    int npc = 0;
+    double pcgradient[3] = {0.0, 0.0, 0.0};
+
+    mol = tblite_new_structure(error, 2, numbers, xyz, NULL, NULL, NULL, NULL);
+    if (tblite_check(error)) goto err;
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
+    if (tblite_check(ctx)) goto err;
+    cont = tblite_new_point_charges(ctx, mol, calc, 1, &charge, pcxyz, &hardness, &pcnumber);
+    if (tblite_check(ctx)) goto err;
+    tblite_calculator_push_back(ctx, calc, &cont);
+    if (tblite_check(ctx)) goto err;
+    res = tblite_new_result();
+    tblite_get_singlepoint(ctx, mol, calc, res);
+    if (tblite_check(ctx)) goto err;
+    tblite_get_result_number_of_point_charges(error, res, &npc);
+    if (tblite_check(error) || !check_int(npc, 1, "Point-charge count")) goto err;
+    tblite_get_result_point_charge_gradient(error, res, pcgradient);
+    if (tblite_check(error)) goto err;
+    if (!isfinite(pcgradient[0]) || !isfinite(pcgradient[1]) || !isfinite(pcgradient[2])) goto err;
+
+    cont = tblite_new_point_charges(ctx, mol, calc, 1, &charge, pcxyz, &invalid_hardness, &pcnumber);
+    if (!tblite_check(ctx) || cont != NULL) goto err;
+
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(res);
+    return 0;
+
+err:
+    if (tblite_check(ctx)) show(ctx);
+    if (tblite_check(error)) show(error);
+    tblite_delete(error);
+    tblite_delete(ctx);
+    tblite_delete(mol);
+    tblite_delete(calc);
+    tblite_delete(cont);
+    tblite_delete(res);
+    return 1;
+}
+
+
 int main(void)
 {
     int stat = 0;
+    stat += test_point_charge_api();
     stat += test_version();
     stat += test_uninitialized_error();
     stat += test_uninitialized_context();

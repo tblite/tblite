@@ -41,7 +41,7 @@ module tblite_xtb_ipea1
    implicit none
    private
 
-   public :: new_ipea1_calculator
+   public :: new_ipea1_calculator, get_ipea1_point_charge_hardness
    public :: export_ipea1_param
 
    integer, parameter :: max_elem = 86
@@ -524,6 +524,12 @@ module tblite_xtb_ipea1
    end interface ipea1_h0spec
 
 contains
+
+pure real(wp) function get_ipea1_point_charge_hardness(number) result(hardness)
+   integer, intent(in) :: number
+   hardness = 0.0_wp
+   if (number >= 1 .and. number <= max_elem) hardness = chemical_hardness(number)
+end function get_ipea1_point_charge_hardness
 
 
 subroutine new_ipea1_calculator(calc, mol, error, config)

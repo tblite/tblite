@@ -8,6 +8,7 @@ module tblite_external_point_charges
    use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
    use tblite_partition, only : owns_index
+   use tblite_scf_info, only : scf_info, shell_resolved
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
    implicit none
@@ -21,12 +22,20 @@ module tblite_external_point_charges
       logical :: harmonic = .false.
    contains
       procedure :: get_potential
+      procedure :: variable_info
       procedure :: get_energy
       procedure :: get_gradient
       procedure :: point_gradient
    end type point_charges
 
 contains
+
+pure function variable_info(self) result(info)
+   class(point_charges), intent(in) :: self
+   type(scf_info) :: info
+
+   info = scf_info(charge=shell_resolved)
+end function variable_info
 
 subroutine new_point_charges(self, charge, xyz, hardness, shell_hardness, shell_atom, gexp, harmonic)
    type(point_charges), intent(out) :: self
@@ -129,6 +138,7 @@ subroutine point_gradient(self, mol, wfn, gradient)
    integer :: iat, ish, ipc
    real(wp) :: dr(3), r, gam, fac
    gradient = 0.0_wp
+   if (.not.owns_index(self%partition, 1)) return
    do iat = 1, mol%nat
       do ish = 1, size(self%shell_hardness)
          if (self%shell_atom(ish) /= iat) cycle

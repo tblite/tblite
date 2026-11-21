@@ -20,6 +20,7 @@
 !> API export for managing interaction containers
 module tblite_api_container
    use, intrinsic :: iso_c_binding, only : c_associated, c_double, c_f_pointer, c_loc, c_null_ptr, c_ptr, c_int
+   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type
    use tblite_api_calculator, only : vp_calculator
@@ -36,6 +37,7 @@ module tblite_api_container
    use tblite_coulomb_charge_effective, only : effective_coulomb
    use tblite_xtb_gfn1, only : get_gfn1_point_charge_hardness
    use tblite_xtb_gfn2, only : get_gfn2_point_charge_hardness
+   use tblite_xtb_ipea1, only : get_ipea1_point_charge_hardness
    use tblite_spin, only : spin_polarization, new_spin_polarization
    implicit none
    private
@@ -158,11 +160,23 @@ function new_point_charges_api(vctx, vmol, vcalc, npc, charge, xyz, hardness, nu
       call ctx%ptr%set_error(error)
       return
    end if
+   if (index(calc%ptr%method, "gfn1") == 0 .and. index(calc%ptr%method, "gfn2") == 0 &
+         & .and. index(calc%ptr%method, "ipea1") == 0) then
+      call fatal_error(error, "Point charges require a GFN1-xTB, GFN2-xTB, or IPEA1-xTB calculator")
+      call ctx%ptr%set_error(error)
+      return
+   end if
    allocate(pc_charge(npc), pc_xyz(3, npc), pc_hardness(npc), &
       & shell_hardness(calc%ptr%bas%nsh), shell_atom(calc%ptr%bas%nsh))
    pc_charge = charge(:npc)
    pc_xyz = reshape(xyz(:3*npc), [3, npc])
    pc_hardness = hardness(:npc)
+   if (.not.all(ieee_is_finite(pc_charge)) .or. .not.all(ieee_is_finite(pc_xyz)) &
+         & .or. .not.all(ieee_is_finite(pc_hardness))) then
+      call fatal_error(error, "Point-charge inputs must be finite")
+      call ctx%ptr%set_error(error)
+      return
+   end if
    do ipc = 1, npc
       if (pc_hardness(ipc) > 0.0_wp) cycle
       if (numbers(ipc) < 1) then
@@ -172,6 +186,8 @@ function new_point_charges_api(vctx, vmol, vcalc, npc, charge, xyz, hardness, nu
       end if
       if (index(calc%ptr%method, "gfn2") > 0) then
          pc_hardness(ipc) = get_gfn2_point_charge_hardness(numbers(ipc))
+      else if (index(calc%ptr%method, "ipea1") > 0) then
+         pc_hardness(ipc) = get_ipea1_point_charge_hardness(numbers(ipc))
       else
          pc_hardness(ipc) = get_gfn1_point_charge_hardness(numbers(ipc))
       end if

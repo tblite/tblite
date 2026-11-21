@@ -28,6 +28,7 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
+   use tblite_mpi_utils, only : mpi_allreduce_sum
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_post_processing_localization, only : new_orbital_localization, &
       & orbital_localization
@@ -674,7 +675,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
    call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
       & calc%nspin, calc%guess, error)
-   if (calc%post_proc%npp == 0 .and. .not.allocated(calc%ptr%interactions)) then
+   if (calc%post_proc%npp == 0) then
       f_char = "bond-orders"
       call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
@@ -691,6 +692,10 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    if (allocated(calc%ptr%interactions) .and. allocated(res%wfn)) then
       call calc%ptr%interactions%get_point_charge_gradient(mol%ptr, res%wfn, &
          & res%point_charge_gradient)
+      if (allocated(res%point_charge_gradient)) then
+         call mpi_allreduce_sum(error, res%point_charge_gradient, ctx%ptr%comm)
+         if (allocated(error)) call ctx%ptr%set_error(error)
+      end if
    end if
 
 end subroutine get_singlepoint_api

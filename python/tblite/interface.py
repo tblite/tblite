@@ -274,6 +274,7 @@ class Result:
          energy                      scalar                            Hartree
          energies                    nat                               Hartree
          gradient                    nat, 3                            Hartree/Bohr
+         point-charge-gradient       npc, 3                            Hartree/Bohr
          virial                      3, 3                              Hartree
          charges                     nat                               e
          bond-orders                 nat, nat                          e
@@ -606,7 +607,7 @@ class Calculator(Structure):
          name                   description                    Arguments
         ====================== ============================== =========================================
          electric-field         Uniform electric field         Field vector (3,)
-         point-charges          External xTB point charges     Charges, coordinates, hardness, atomic numbers
+         point-charges          External point charges         Charges, Bohr coordinates, hardness, atomic numbers
          spin-polarization      Spin polarization              Scaling factor
          alpb-solvation         ALPB implicit solvation        Solvent name, solution state (optional)
          gbsa-solvation         GBSA implicit solvation        Solvent name, solution state (optional)

@@ -919,24 +919,51 @@ def new_electric_field(ctx, mol, calc, efield):
     return lib.tblite_new_electric_field(efield)
 
 
+@context_check
 def new_point_charges(ctx, mol, calc, charges, positions, hardness=1000.0, numbers=None):
-    """Create xTB point-charge embedding; positions are in Bohr."""
-    if isinstance(ctx, tuple):
-        ctx = ctx[0]
+    """Create an external point-charge interaction.
+
+    Parameters
+    ----------
+    charges : array_like, shape (npc,)
+        External charges in elementary-charge units.
+    positions : array_like, shape (npc, 3)
+        Cartesian point-charge coordinates in Bohr.
+    hardness : float, array_like, or "elements", optional
+        Point-charge hardness in Hartree. Defaults to 1000.0. Use "elements"
+        to select the method's atomic hardness values from ``numbers``.
+    numbers : array_like, shape (npc,), optional
+        Atomic numbers used when ``hardness="elements"``.
+
+    The interaction includes QM-to-point-charge coupling. Any energy or
+    interaction between external charges remains the responsibility of the
+    embedding or MM driver.
+    """
     charges = np.ascontiguousarray(charges, dtype=np.float64)
-    positions = np.asfortranarray(np.asarray(positions, dtype=np.float64).T)
+    if charges.ndim != 1:
+        raise TBLiteValueError("Point charges must be a one-dimensional array")
+    if not np.all(np.isfinite(charges)):
+        raise TBLiteValueError("Point charges must be finite")
+    positions = np.asarray(positions, dtype=np.float64)
+    if positions.shape != (charges.size, 3):
+        raise TBLiteValueError("Point-charge coordinates must have shape (ncharges, 3)")
+    if not np.all(np.isfinite(positions)):
+        raise TBLiteValueError("Point-charge coordinates must be finite")
+    positions = np.asfortranarray(positions.T)
     if isinstance(hardness, str):
         if hardness != "elements":
             raise TBLiteValueError("Point-charge hardness must be numeric or 'elements'")
         hardness = np.zeros(charges.shape, dtype=np.float64)
     else:
         hardness = np.broadcast_to(np.asarray(hardness, dtype=np.float64), charges.shape).copy()
+        if not np.all(np.isfinite(hardness)):
+            raise TBLiteValueError("Point-charge hardness must be finite")
+        if np.any(hardness < 0.0):
+            raise TBLiteValueError("Point-charge hardness must be non-negative")
     if numbers is None:
         numbers = np.zeros(charges.shape, dtype=np.int32)
     else:
         numbers = np.broadcast_to(np.asarray(numbers, dtype=np.int32), charges.shape).copy()
-    if positions.shape != (3, charges.size):
-        raise TBLiteValueError("Point-charge coordinates must have shape (ncharges, 3)")
     return lib.tblite_new_point_charges(
         ctx, mol, calc, charges.size,
         ffi.cast("double*", charges.ctypes.data),

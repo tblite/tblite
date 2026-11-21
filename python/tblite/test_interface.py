@@ -202,9 +202,9 @@ def test_gfn1():
     assert "hamiltonian-matrix" in res
 
 
-@pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB"])
+@pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB", "IPEA1-xTB"])
 def test_external_point_charge_gradient(method):
-    """Point-charge forces are the energy derivatives for both xTB methods."""
+    """Point-charge forces are the energy derivatives for all built-in methods."""
     numbers = np.array([1, 1])
     positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
     pc = np.array([[2.0, 0.4, -0.3]])
@@ -219,13 +219,19 @@ def test_external_point_charge_gradient(method):
     res = energy(pc)
     analytic = res.get("point-charge-gradient")
     step = 1.0e-4
+    assert analytic.shape == (1, 3)
+    for axis in (1, 2):
+        plus = pc.copy()
+        minus = pc.copy()
+        plus[0, axis] += step
+        minus[0, axis] -= step
+        numeric = (energy(plus).get("energy") - energy(minus).get("energy")) / (2.0 * step)
+        assert analytic[0, axis] == approx(numeric, abs=2.0e-5)
     plus = pc.copy()
     minus = pc.copy()
     plus[0, 0] += step
     minus[0, 0] -= step
     numeric = (energy(plus).get("energy") - energy(minus).get("energy")) / (2.0 * step)
-
-    assert analytic.shape == (1, 3)
     assert analytic[0, 0] == approx(numeric, abs=2.0e-5)
 
     qm_plus = positions.copy()
@@ -234,6 +240,101 @@ def test_external_point_charge_gradient(method):
     qm_minus[0, 0] -= step
     numeric_qm = (energy(pc, qm_plus).get("energy") - energy(pc, qm_minus).get("energy")) / (2.0 * step)
     assert res.get("gradient")[0, 0] == approx(numeric_qm, abs=2.0e-5)
+
+
+@pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB", "IPEA1-xTB"])
+def test_point_charges_preserve_default_properties(method):
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    calc = Calculator(method, numbers, positions)
+    calc.set("verbosity", 0)
+    calc.add("point-charges", np.array([0.5]), np.array([[2.0, 0.4, -0.3]]), 1000.0)
+
+    result = calc.singlepoint().dict()
+    assert "bond-orders" in result
+    assert "dipole" in result
+    assert "quadrupole" in result
+
+
+@pytest.mark.parametrize(
+    ("method", "element_hardness"),
+    [
+        ("GFN1-xTB", 0.583349),
+        ("GFN2-xTB", 0.451896),
+        ("IPEA1-xTB", 0.717333),
+    ],
+)
+def test_point_charge_element_hardness(method, element_hardness):
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    charges = np.array([0.5])
+    pc = np.array([[2.0, 0.4, -0.3]])
+
+    def energy(hardness):
+        calc = Calculator(method, numbers, positions)
+        calc.set("verbosity", 0)
+        calc.add("point-charges", charges, pc, hardness, np.array([8]))
+        return calc.singlepoint()
+
+    automatic = energy("elements")
+    explicit = energy(element_hardness)
+    assert automatic.get("energy") == approx(explicit.get("energy"), abs=1.0e-12)
+    assert automatic.get("point-charge-gradient") == approx(
+        explicit.get("point-charge-gradient"), abs=1.0e-12
+    )
+
+
+def test_point_charge_rejects_negative_hardness():
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    calc = Calculator("GFN2-xTB", numbers, positions)
+    with pytest.raises(ValueError, match="hardness must be non-negative"):
+        calc.add("point-charges", np.array([0.5]), np.array([[2.0, 0.4, -0.3]]), -1.0)
+
+
+@pytest.mark.parametrize(
+    ("charges", "positions", "hardness", "message"),
+    [
+        ([np.nan], [[2.0, 0.4, -0.3]], 1000.0, "Point charges must be finite"),
+        ([0.5], [[np.inf, 0.4, -0.3]], 1000.0, "Point-charge coordinates must be finite"),
+        ([0.5], [[2.0, 0.4, -0.3]], np.nan, "Point-charge hardness must be finite"),
+    ],
+)
+def test_point_charge_rejects_nonfinite_inputs(charges, positions, hardness, message):
+    numbers = np.array([1, 1])
+    qm_positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    calc = Calculator("GFN2-xTB", numbers, qm_positions)
+    with pytest.raises(ValueError, match=message):
+        calc.add("point-charges", charges, positions, hardness)
+
+
+@pytest.mark.parametrize("method", ["GFN1-xTB", "GFN2-xTB", "IPEA1-xTB"])
+def test_multiple_point_charge_containers(method):
+    numbers = np.array([1, 1])
+    positions = np.array([[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+    points = np.array([[2.0, 0.4, -0.3], [-1.2, 0.8, 1.5]])
+    charges = [0.5, -0.25]
+    hardness = [1000.0, 80.0]
+
+    def energy(pc):
+        calc = Calculator(method, numbers, positions)
+        calc.set("verbosity", 0)
+        for i in range(2):
+            calc.add("point-charges", np.array([charges[i]]), pc[i:i + 1], hardness[i])
+        return calc.singlepoint()
+
+    result = energy(points)
+    analytic = result.get("point-charge-gradient")
+    assert analytic.shape == (2, 3)
+    step = 1.0e-4
+    for point in range(2):
+        for axis in range(3):
+            plus = points.copy()
+            minus = points.copy()
+            plus[point, axis] += step
+            minus[point, axis] -= step
+            numeric = (energy(plus).get("energy") - energy(minus).get("energy")) / (2.0 * step)
+            assert analytic[point, axis] == approx(numeric, abs=2.0e-5)
 
 
 def test_gfn2():

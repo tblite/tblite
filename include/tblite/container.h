@@ -40,10 +40,12 @@ tblite_new_electric_field(double* efield);
 /// Create a new external point-charge embedding container.
 /// Coordinates are Cartesian in Bohr, charges in elementary charge, and
 /// hardness in Hartree. The hardness is combined with each xTB shell value
-/// using the GFN1 harmonic or GFN2 arithmetic average.
+/// using harmonic averaging for GFN1/IPEA1 and arithmetic averaging for GFN2.
+/// Only QM-to-point-charge coupling is included; external-charge interactions
+/// are handled by the embedding or MM driver.
 /// @param ctx Context handle
 /// @param mol Molecular structure
-/// @param calc GFN-xTB calculator
+/// @param calc GFN1-xTB, GFN2-xTB, or IPEA1-xTB calculator
 /// @param npc Number of point charges
 /// @param charge Point charges, shape [npc]
 /// @param xyz Point-charge coordinates, Fortran order shape [3, npc]
