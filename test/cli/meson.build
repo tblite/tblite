@@ -27,12 +27,9 @@ foreach subprog: ['fit', 'param', 'run', 'guess', 'tagdiff']
 endforeach
 
 # Test that the program fails when no arguments are given
-python = find_program('python3')
-expected_failure = files('expect_failure.py')
-test('noargs', python, args: [expected_failure, tblite_exe], suite: 'cli')
+test('noargs', tblite_exe, should_fail: true, suite: 'cli')
 foreach subprog: ['fit', 'param', 'run', 'guess', 'tagdiff']
-  test('@0@-noargs'.format(subprog), python,
-    args: [expected_failure, tblite_exe, subprog], suite: 'cli')
+  test('@0@-noargs'.format(subprog), tblite_exe, args: subprog, should_fail: true, suite: 'cli')
 endforeach
 
 app_tester = find_program(files('tester.py'))
@@ -188,10 +185,9 @@ test(
 
 test(
   'post-processing-other-file', 
-  python,
+  tblite_exe, 
+  should_fail:true, 
   args: [
-    expected_failure,
-    tblite_exe,
     'run', 
     '--no-restart',
     '--post-processing', 
@@ -219,13 +215,11 @@ test(
   'xtbml-xyz-cli-arg', 
   tblite_exe, 
   should_fail:false, 
-  workdir: meson.current_build_dir(),
   args: [
     'run', 
     '--no-restart',
     '--post-processing', 
     'xtbml-xyz', 
-    '--post-processing-output', 'xtbml-xyz-cli-arg.npz',
     files('07-mb33.xyz')
   ], 
   suite: 'cli',
@@ -235,13 +229,11 @@ test(
   'xtbml-xyz-cli-toml', 
   tblite_exe, 
   should_fail:false, 
-  workdir: meson.current_build_dir(),
   args: [
     'run', 
     '--no-restart',
     '--post-processing', 
     files('test'/'xtbml.toml'), 
-    '--post-processing-output', 'xtbml-xyz-cli-toml.npz',
     files('07-mb33.xyz')
   ], 
   suite: 'cli',

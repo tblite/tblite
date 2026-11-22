@@ -990,7 +990,7 @@ int test_table_builder(void)
     double dval;
     double darr[2];
     char cval[4];
-    char carr[3][3];
+    char carr[3][2];
     int64_t iarr[2];
 
     error = tblite_new_error();
@@ -2432,28 +2432,25 @@ int test_uninitialized_dict()
         goto unexpected;
 
     dict = tblite_get_post_processing_dict(error, res);
-    if (tblite_check(error) != 1)
+    if (!tblite_check(error))
         goto unexpected;
-    tblite_clear_error(error);
 
     res = tblite_new_result();
     dict = tblite_get_post_processing_dict(error, res);
-    if (tblite_check(error) != 1)
+    if (!tblite_check(error))
         goto unexpected;
-    tblite_clear_error(error);
 
     tblite_get_singlepoint(ctx, mol, calc, res);
-    if (tblite_check(ctx) || tblite_check(error))
-        goto unexpected;
 
-    tblite_delete_double_dictionary(&dict);
+    error = NULL;
     dict = tblite_get_post_processing_dict(error, res);
-    if (tblite_check(error))
+    if (!tblite_check(error))
         goto unexpected;
+    error = tblite_new_error();
 
     int n_entries = 0;
     n_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check(3, n_entries, "Number of entries of result dictionary unequal to 3"))
+    if (!check(0, n_entries, "Number of entries of empty dictionary unequal to 0"))
         goto unexpected;
     int dim1 = 0;
     int dim2 = 0;
@@ -2461,9 +2458,66 @@ int test_uninitialized_dict()
     const int index = 1;
 
     tblite_get_array_size_index(error, dict, &index, &dim1, &dim2, &dim3);
-    if (tblite_check(error))
+    if (!check_int(dim1, 0, "Check dimension of empty dict")) {
         goto unexpected;
-    if (!check_int(dim1 > 0, 1, "Check first dimension of result entry")) {
+    }
+    if (!check_int(dim2, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+    if (!check_int(dim3, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+
+    double array[10];
+
+    tblite_get_array_entry_index(error, dict, &index, array);
+
+    error = tblite_new_error();
+    dict = tblite_get_post_processing_dict(error, res);
+
+    error = NULL;
+    n_entries = 0;
+    n_entries = tblite_get_n_entries_dict(error, dict);
+    if (!check(0, n_entries, "Number of entries of empty dictionary unequal to 0"))
+        goto unexpected;
+    dim1 = 0;
+    dim2 = 0;
+    dim3 = 0;
+
+    tblite_get_array_size_index(error, dict, &index, &dim1, &dim2, &dim3);
+    if (!tblite_check(error)){
+        goto unexpected;
+    }
+    if (!check_int(dim1, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+    if (!check_int(dim2, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+    if (!check_int(dim3, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+
+    tblite_get_array_entry_index(error, dict, &index, array);
+    if (!tblite_check(error)){
+        goto unexpected;
+    }
+    tblite_get_array_size_label(error, dict, "wbo", &dim1, &dim2, &dim3);
+    if (!tblite_check(error)){
+        goto unexpected;
+    }
+    if (!check_int(dim1, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+    if (!check_int(dim2, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+    if (!check_int(dim3, 0, "Check dimension of empty dict")) {
+        goto unexpected;
+    }
+
+    tblite_get_array_entry_label(error, dict, "wbo", array);
+    if (!tblite_check(error)){
         goto unexpected;
     }
 
@@ -2473,7 +2527,6 @@ int test_uninitialized_dict()
     tblite_delete(calc);
     tblite_delete(cont);
     tblite_delete(res);
-    tblite_delete_double_dictionary(&dict);
 
     return 0;
 
