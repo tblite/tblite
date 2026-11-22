@@ -5,6 +5,7 @@
 module tblite_external_point_charges
    use mctc_env, only : wp
    use mctc_io, only : structure_type
+   use tblite_coulomb, only : harmonic_average, arithmetic_average
    use tblite_container_cache, only : container_cache
    use tblite_container_type, only : container_type
    use tblite_partition, only : owns_index
@@ -56,9 +57,9 @@ pure real(wp) function pair_hardness(self, ish, ipc) result(gam)
    class(point_charges), intent(in) :: self
    integer, intent(in) :: ish, ipc
    if (self%harmonic) then
-      gam = 2.0_wp/(1.0_wp/self%shell_hardness(ish) + 1.0_wp/self%hardness(ipc))
+      gam = harmonic_average(self%shell_hardness(ish), self%hardness(ipc))
    else
-      gam = 0.5_wp*(self%shell_hardness(ish) + self%hardness(ipc))
+      gam = arithmetic_average(self%shell_hardness(ish), self%hardness(ipc))
    end if
 end function pair_hardness
 
