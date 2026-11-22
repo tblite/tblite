@@ -35,6 +35,8 @@ module tblite_results
       real(wp), allocatable :: hamiltonian(:, :)
       !> Dictionary for storing additional results from post-processing
       type(double_dictionary_type), allocatable :: dict
+      !> Gradient with respect to external point-charge coordinates (3, npc)
+      real(wp), allocatable :: point_charge_gradient(:, :)
    end type results_type
 
 

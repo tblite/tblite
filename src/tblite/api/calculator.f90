@@ -689,13 +689,11 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
       & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
       & post_process=calc%post_proc)
-   if (allocated(calc%ptr%interactions) .and. allocated(res%wfn)) then
-      call calc%ptr%interactions%get_point_charge_gradient(mol%ptr, res%wfn, &
+   if (allocated(res%results%point_charge_gradient)) then
+      call move_alloc(res%results%point_charge_gradient, &
          & res%point_charge_gradient)
-      if (allocated(res%point_charge_gradient)) then
-         call mpi_allreduce_sum(error, res%point_charge_gradient, ctx%ptr%comm)
-         if (allocated(error)) call ctx%ptr%set_error(error)
-      end if
+      call mpi_allreduce_sum(error, res%point_charge_gradient, ctx%ptr%comm)
+      if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
 end subroutine get_singlepoint_api
@@ -704,6 +702,8 @@ subroutine check_results(res)
    type(results_type), allocatable, intent(inout) :: res
    if (allocated(res)) then
       if (allocated(res%dict)) deallocate(res%dict)
+      if (allocated(res%point_charge_gradient)) &
+         & deallocate(res%point_charge_gradient)
    end if
 
    if (.not.allocated(res)) then

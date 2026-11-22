@@ -28,7 +28,6 @@ module tblite_container_list
    use tblite_scf_info, only : scf_info
    use tblite_scf_potential, only : potential_type
    use tblite_wavefunction_type, only : wavefunction_type
-   use tblite_external_point_charges, only : point_charges
    implicit none
    private
 
@@ -67,9 +66,12 @@ module tblite_container_list
       procedure :: push_back
       !> Remove a container
       procedure :: pop
-      procedure :: get_point_charge_gradient
       !> Information about the container list
       procedure :: info
+      !> Return the number of stored containers
+      procedure :: get_ncontainers
+      !> Return the container at the given index
+      procedure :: get_container
    end type container_list
 
 
@@ -87,34 +89,6 @@ module tblite_container_list
 
 
 contains
-
-subroutine get_point_charge_gradient(self, mol, wfn, gradient)
-   class(container_list), intent(in) :: self
-   type(structure_type), intent(in) :: mol
-   type(wavefunction_type), intent(in) :: wfn
-   real(wp), allocatable, intent(out) :: gradient(:, :)
-   integer :: ic
-   real(wp), allocatable :: tmp(:, :)
-   real(wp), allocatable :: combined(:, :)
-   do ic = 1, self%nc
-      if (.not.allocated(self%list(ic)%raw)) cycle
-      select type(cont => self%list(ic)%raw)
-      type is(point_charges)
-         allocate(tmp(3, size(cont%charge)))
-         call cont%point_gradient(mol, wfn, tmp)
-         if (allocated(gradient)) then
-            allocate(combined(3, size(gradient, 2) + size(tmp, 2)))
-            combined(:, :size(gradient, 2)) = gradient
-            combined(:, size(gradient, 2)+1:) = tmp
-            call move_alloc(combined, gradient)
-         else
-            call move_alloc(tmp, gradient)
-         end if
-      end select
-      if (allocated(tmp)) deallocate(tmp)
-   end do
-end subroutine get_point_charge_gradient
-
 
 !> Assign an externally managed share of the interaction loops to every container
 subroutine set_partition(self, partition)
@@ -473,4 +447,27 @@ subroutine view(cache, ptr)
 end subroutine view
 
 
+
+!> Return the number of stored containers
+!> @param[in] self Interaction container list
+!> @return Number of containers
+pure integer function get_ncontainers(self) result(n)
+   class(container_list), intent(in) :: self
+   n = self%nc
+end function get_ncontainers
+
+!> Return the container at the given index, or an unallocated handle
+!> @param[in] self Interaction container list
+!> @param[in] idx  Index of the container to retrieve (1-based)
+!> @return Copy of the container at that index
+function get_container(self, idx) result(cont)
+   class(container_list), intent(in) :: self
+   integer, intent(in) :: idx
+   class(container_type), allocatable :: cont
+   if (idx >= 1 .and. idx <= self%nc) then
+      if (allocated(self%list(idx)%raw)) then
+         allocate(cont, source=self%list(idx)%raw)
+      end if
+   end if
+end function get_container
 end module tblite_container_list

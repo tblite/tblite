@@ -21,12 +21,16 @@ module tblite_external_point_charges
       integer, allocatable :: shell_atom(:)
       real(wp) :: gexp = 2.0_wp
       logical :: harmonic = .false.
+      !> Cache of the point-charge gradient, filled by compute_pc_gradient
+      !> and read out by the collector in xtb_singlepoint
+      real(wp), allocatable :: cache_pc_gradient(:, :)
    contains
       procedure :: get_potential
       procedure :: variable_info
       procedure :: get_energy
       procedure :: get_gradient
       procedure :: point_gradient
+      procedure :: compute_pc_gradient
    end type point_charges
 
 contains
@@ -136,9 +140,10 @@ subroutine point_gradient(self, mol, wfn, gradient)
    class(point_charges), intent(in) :: self
    type(structure_type), intent(in) :: mol
    type(wavefunction_type), intent(in) :: wfn
-   real(wp), intent(out) :: gradient(:, :)
+   real(wp), allocatable, intent(out) :: gradient(:, :)
    integer :: iat, ish, ipc
    real(wp) :: dr(3), r, gam, fac
+   allocate(gradient(3, size(self%charge)))
    gradient = 0.0_wp
    if (.not.owns_index(self%partition, 1)) return
    do iat = 1, mol%nat
@@ -157,4 +162,15 @@ subroutine point_gradient(self, mol, wfn, gradient)
    end do
 end subroutine point_gradient
 
+
+!> Compute and cache the point-charge gradient for the current wavefunction.
+!> @param[inout] self Point-charge container
+!> @param[in]    mol  Molecular structure
+!> @param[in]    wfn  Wavefunction
+subroutine compute_pc_gradient(self, mol, wfn)
+   class(point_charges), intent(inout) :: self
+   type(structure_type), intent(in) :: mol
+   type(wavefunction_type), intent(in) :: wfn
+   call self%point_gradient(mol, wfn, self%cache_pc_gradient)
+end subroutine compute_pc_gradient
 end module tblite_external_point_charges

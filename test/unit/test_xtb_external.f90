@@ -81,7 +81,7 @@ subroutine test_point_charge_partition(error)
    type(wavefunction_type) :: wfn
    type(point_charges) :: pc
    type(work_partition) :: partition
-   real(wp) :: gradient(3, 1)
+   real(wp), allocatable :: gradient(:, :)
 
    call new(mol, [1], reshape([0.0_wp, 0.0_wp, 0.0_wp], [3, 1]))
    call new_wavefunction(wfn, mol%nat, 1, 1, 1, kt)
@@ -111,7 +111,8 @@ subroutine test_point_charge_analytic(error)
    type(point_charges) :: pc
    type(container_cache) :: cache
    type(potential_type) :: pot
-   real(wp) :: energies(1), gradient(3, 1), sigma(3, 3), pc_gradient(3, 1)
+   real(wp) :: energies(1), gradient(3, 1), sigma(3, 3)
+   real(wp), allocatable :: pc_gradient(:, :)
    real(wp) :: gam, radius, value, force
    logical :: harmonic
    integer :: imode
