@@ -53,9 +53,14 @@ tblite_new_electric_field(double* efield);
 /// @param numbers Atomic numbers used when hardness is zero
 /// @return New interaction container
 TBLITE_API_ENTRY tblite_container TBLITE_API_CALL
-tblite_new_point_charges(tblite_context ctx, tblite_structure mol,
-                         tblite_calculator calc, int npc, double* charge,
-                         double* xyz, double* hardness, int* numbers);
+tblite_new_point_charges(tblite_context ctx,
+                         tblite_structure mol,
+                         tblite_calculator calc,
+                         int npc,
+                         double* charge,
+                         double* xyz,
+                         double* hardness,
+                         int* numbers);
 
 /// Create new spin polarization container using internal parameters
 ///
