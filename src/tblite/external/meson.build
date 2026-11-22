@@ -16,4 +16,5 @@
 
 srcs += files(
   'field.f90',
+  'point_charges.f90',
 )

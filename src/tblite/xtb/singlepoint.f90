@@ -26,8 +26,9 @@ module tblite_xtb_singlepoint
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_basis_type, only : get_cutoff, basis_type
    use tblite_blas, only : gemv
-   use tblite_container, only : container_cache
-   use tblite_container_list, only : cache_list
+   use tblite_container, only : container_cache, container_type
+   use tblite_container_list, only : cache_list, container_list
+   use tblite_external_point_charges, only : point_charges
    use tblite_context, only : context_type, escape
    use tblite_cutoff, only : get_lattice_points
    use tblite_integral_type, only : integral_type, new_integral
@@ -402,6 +403,10 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
          call timer%pop
       end if
 
+      if (present(results)) then
+         call collect_point_charge_gradient(calc%interactions, mol, wfn, results)
+      end if
+
       call timer%push("hamiltonian")
       allocate(dEdcn(mol%nat))
       dEdcn(:) = 0.0_wp
@@ -460,7 +465,7 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
       call timer%push("post processing")
       allocate(caches)
       call collect_containers_caches(rcache, ccache, hcache, dcache, icache, calc, caches)
-      allocate(results%dict)
+      if (.not.allocated(results%dict)) allocate(results%dict)
       call post_process%compute(mol, wfn, ints, calc, caches, accuracy, ctx, &
          & timer, prlevel, results)
       deallocate(caches)
@@ -530,5 +535,46 @@ subroutine xtb_singlepoint(ctx, mol, calc, wfn, accuracy, energy, gradient, sigm
 
 
 end subroutine xtb_singlepoint
+
+!> Copy point-charge gradients from the interaction list into the results object.
+!> Called from xtb_singlepoint so that both Fortran and C-API callers receive
+!> the gradient.
+!> @param[in]    interactions Interaction container list (may be unallocated)
+!> @param[in]    mol          Molecular structure
+!> @param[in]    wfn          Wavefunction
+!> @param[inout] results      Results object (point_charge_gradient populated)
+subroutine collect_point_charge_gradient(interactions, mol, wfn, results)
+   type(container_list), allocatable, intent(in) :: interactions
+   type(structure_type), intent(in) :: mol
+   type(wavefunction_type), intent(in) :: wfn
+   type(results_type), intent(inout) :: results
+
+   integer :: ic
+   class(container_type), allocatable :: cont
+   real(wp), allocatable :: tmp(:, :), combined(:, :)
+
+   if (.not. allocated(interactions)) return
+
+   do ic = 1, interactions%get_ncontainers()
+      cont = interactions%get_container(ic)
+      if (.not. allocated(cont)) cycle
+
+      select type(cont)
+      type is(point_charges)
+         call cont%compute_pc_gradient(mol, wfn)
+         tmp = cont%cache_pc_gradient
+         if (allocated(results%point_charge_gradient)) then
+            allocate(combined(3, size(results%point_charge_gradient, 2) &
+               & + size(tmp, 2)))
+            combined(:, :size(results%point_charge_gradient, 2)) = &
+               & results%point_charge_gradient
+            combined(:, size(results%point_charge_gradient, 2)+1:) = tmp
+            call move_alloc(combined, results%point_charge_gradient)
+         else
+            call move_alloc(tmp, results%point_charge_gradient)
+         end if
+      end select
+   end do
+end subroutine collect_point_charge_gradient
 
 end module tblite_xtb_singlepoint

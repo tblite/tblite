@@ -19,10 +19,12 @@
 
 !> API export for managing interaction containers
 module tblite_api_container
-   use, intrinsic :: iso_c_binding, only : c_associated, c_double, c_f_pointer, c_loc, c_null_ptr, c_ptr
+   use, intrinsic :: iso_c_binding, only : c_associated, c_double, c_f_pointer, c_loc, c_null_ptr, c_ptr, c_int
+   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
    use mctc_env, only : error_type, fatal_error, wp
    use mctc_io, only : structure_type
    use tblite_api_calculator, only : vp_calculator
+   use tblite_api_double_dictionary, only : delete_post_processing_api
    use tblite_api_context, only : vp_context
    use tblite_api_structure, only : vp_structure
    use tblite_api_utils, only: c_f_character
@@ -31,11 +33,17 @@ module tblite_api_container
    use tblite_container, only : container_type
    use tblite_data_spin, only : get_spin_constant
    use tblite_external_field, only : electric_field
+   use tblite_external_point_charges, only : point_charges, new_point_charges
+   use tblite_coulomb_charge_effective, only : effective_coulomb
+   use tblite_xtb_gfn1, only : get_gfn1_point_charge_hardness
+   use tblite_xtb_gfn2, only : get_gfn2_point_charge_hardness
+   use tblite_xtb_ipea1, only : get_ipea1_point_charge_hardness
    use tblite_spin, only : spin_polarization, new_spin_polarization
    implicit none
    private
 
-   public :: vp_container, delete_container_api
+   public :: vp_container, delete_container_api, new_point_charges_api, push_back_api, &
+      & new_spin_polarization_api, new_electric_field_api
 
 
    !> Void pointer to a container instance
@@ -102,6 +110,119 @@ function new_electric_field_api(efield) result(vcont) &
    cont%ptr = electric_field(efield)
    vcont = c_loc(cont)
 end function new_electric_field_api
+
+
+function new_point_charges_api(vctx, vmol, vcalc, npc, charge, xyz, hardness, numbers) result(vcont) &
+      & bind(C, name=namespace//"new_point_charges")
+   type(c_ptr), value :: vctx, vmol, vcalc
+   integer(c_int), value :: npc
+   real(c_double), intent(in) :: charge(*), xyz(*), hardness(*)
+   integer(c_int), intent(in) :: numbers(*)
+   type(c_ptr) :: vcont
+   type(vp_context), pointer :: ctx
+   type(vp_structure), pointer :: mol
+   type(vp_calculator), pointer :: calc
+   type(vp_container), pointer :: cont
+   type(error_type), allocatable :: error
+   real(wp), allocatable :: pc_charge(:), pc_xyz(:, :), pc_hardness(:), shell_hardness(:)
+   integer, allocatable :: shell_atom(:)
+   integer :: iat, ish, local_shell, z, ipc
+   real(wp) :: gexp
+   logical :: harmonic
+
+   vcont = c_null_ptr
+   if (.not.c_associated(vctx)) return
+   call c_f_pointer(vctx, ctx)
+   if (.not.c_associated(vmol) .or. .not.c_associated(vcalc)) then
+      call fatal_error(error, "Molecular structure or calculator is missing")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   call c_f_pointer(vmol, mol)
+   call c_f_pointer(vcalc, calc)
+   if (npc < 1 .or. any(hardness(:npc) < 0.0_wp)) then
+      call fatal_error(error, "Point-charge count must be positive and hardness non-negative")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   if (any(mol%ptr%periodic)) then
+      call fatal_error(error, "External point charges are not supported for periodic structures")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   if (.not.allocated(calc%ptr%coulomb)) then
+      call fatal_error(error, "Point charges require a GFN-xTB calculator")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   if (.not.allocated(calc%ptr%coulomb%es2)) then
+      call fatal_error(error, "Point charges require an isotropic xTB Coulomb model")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   if (index(calc%ptr%method, "gfn1") == 0 .and. index(calc%ptr%method, "gfn2") == 0 &
+         & .and. index(calc%ptr%method, "ipea1") == 0) then
+      call fatal_error(error, "Point charges require a GFN1-xTB, GFN2-xTB, or IPEA1-xTB calculator")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   allocate(pc_charge(npc), pc_xyz(3, npc), pc_hardness(npc), &
+      & shell_hardness(calc%ptr%bas%nsh), shell_atom(calc%ptr%bas%nsh))
+   pc_charge = charge(:npc)
+   pc_xyz = reshape(xyz(:3*npc), [3, npc])
+   pc_hardness = hardness(:npc)
+   if (.not.all(ieee_is_finite(pc_charge)) .or. .not.all(ieee_is_finite(pc_xyz)) &
+         & .or. .not.all(ieee_is_finite(pc_hardness))) then
+      call fatal_error(error, "Point-charge inputs must be finite")
+      call ctx%ptr%set_error(error)
+      return
+   end if
+   do ipc = 1, npc
+      if (pc_hardness(ipc) > 0.0_wp) cycle
+      if (numbers(ipc) < 1) then
+         call fatal_error(error, "Element-based point-charge hardness requires atomic numbers")
+         call ctx%ptr%set_error(error)
+         return
+      end if
+      if (index(calc%ptr%method, "gfn2") > 0) then
+         pc_hardness(ipc) = get_gfn2_point_charge_hardness(numbers(ipc))
+      else if (index(calc%ptr%method, "ipea1") > 0) then
+         pc_hardness(ipc) = get_ipea1_point_charge_hardness(numbers(ipc))
+      else
+         pc_hardness(ipc) = get_gfn1_point_charge_hardness(numbers(ipc))
+      end if
+      if (pc_hardness(ipc) <= 0.0_wp) then
+         call fatal_error(error, "No xTB point-charge hardness is available for this element")
+         call ctx%ptr%set_error(error)
+         return
+      end if
+   end do
+   select type(es2 => calc%ptr%coulomb%es2)
+   type is(effective_coulomb)
+      gexp = es2%gexp
+      harmonic = index(calc%ptr%method, "gfn2") == 0
+      do iat = 1, mol%ptr%nat
+         z = mol%ptr%id(iat)
+         do ish = calc%ptr%bas%ish_at(iat)+1, calc%ptr%bas%ish_at(iat)+calc%ptr%bas%nsh_at(iat)
+            local_shell = ish-calc%ptr%bas%ish_at(iat)
+            shell_atom(ish) = iat
+            shell_hardness(ish) = es2%hubbard(local_shell, local_shell, z, z)
+         end do
+      end do
+   class default
+      call fatal_error(error, "Unsupported Coulomb model for point-charge embedding")
+      call ctx%ptr%set_error(error)
+      return
+   end select
+   allocate(cont)
+   allocate(point_charges :: cont%ptr)
+   select type(pc => cont%ptr)
+   type is(point_charges)
+      call new_point_charges(pc, pc_charge, pc_xyz, pc_hardness, shell_hardness, &
+         & shell_atom, gexp, harmonic)
+   end select
+   vcont = c_loc(cont)
+end function new_point_charges_api
 
 
 function new_spin_polarization_api(vctx, vmol, vcalc, wscale) result(vcont) &

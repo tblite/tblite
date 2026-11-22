@@ -28,6 +28,7 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_utils, only : f_c_character, c_f_character
    use tblite_api_version, only : namespace
+   use tblite_mpi_utils, only : mpi_allreduce_sum
    use tblite_post_processing_list, only : post_processing_list, add_post_processing
    use tblite_post_processing_localization, only : new_orbital_localization, &
       & orbital_localization
@@ -53,6 +54,9 @@ module tblite_api_calculator
       & set_calculator_temperature_annealing_api, &
       & set_calculator_accuracy_api, set_calculator_temperature_api, &
       & set_calculator_save_integrals_api
+   public :: set_calculator_guess_api, get_calculator_shell_count, &
+      & get_calculator_shell_map, get_calculator_angular_momenta, &
+      & get_calculator_orbital_count, get_calculator_orbital_map
    public :: get_singlepoint_api
    public :: push_back_post_processing_param_api, push_back_post_processing_str_api, &
       & push_back_post_processing_localization_api
@@ -665,6 +669,7 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    res%energy = 0.0_wp
    res%gradient = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, mol%ptr%nat)
    res%sigma = spread([0.0_wp, 0.0_wp, 0.0_wp], 2, 3)
+   if (allocated(res%point_charge_gradient)) deallocate(res%point_charge_gradient)
 
    call check_results(res%results)
 
@@ -684,13 +689,21 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
    call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
       & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
       & post_process=calc%post_proc)
+   if (allocated(res%results%point_charge_gradient)) then
+      call move_alloc(res%results%point_charge_gradient, &
+         & res%point_charge_gradient)
+      call mpi_allreduce_sum(error, res%point_charge_gradient, ctx%ptr%comm)
+      if (allocated(error)) call ctx%ptr%set_error(error)
+   end if
 
 end subroutine get_singlepoint_api
 
 subroutine check_results(res)
    type(results_type), allocatable, intent(inout) :: res
    if (allocated(res)) then
-      deallocate(res%dict)
+      if (allocated(res%dict)) deallocate(res%dict)
+      if (allocated(res%point_charge_gradient)) &
+         & deallocate(res%point_charge_gradient)
    end if
 
    if (.not.allocated(res)) then

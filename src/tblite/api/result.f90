@@ -34,6 +34,7 @@ module tblite_api_result
    public :: vp_result, new_result_api, copy_result_api, delete_result_api
    public :: get_result_number_of_atoms_api, get_result_number_of_shells_api, &
       & get_result_number_of_spins_api, get_result_number_of_orbitals_api, &
+      & get_result_number_of_point_charges_api, &
       & get_result_energy_api, get_result_gradient_api, get_result_virial_api, &
       & get_result_charges_api, get_result_dipole_api, get_result_quadrupole_api, &
       & get_result_orbital_energies_api, get_result_orbital_occupations_api, &
@@ -42,6 +43,8 @@ module tblite_api_result
       & get_result_hamiltonian_matrix_api, get_result_bond_orders_api, &
       & get_result_localized_orbital_coefficients_api, &
       & get_result_localized_orbital_centers_api, &
+      & get_result_point_charge_gradient_api, &
+      & save_result_wavefunction_api, load_result_wavefunction_api, &
       & get_post_processing_dict_api
 
 
@@ -51,6 +54,8 @@ module tblite_api_result
       real(wp), allocatable :: energy
       !> Molecular gradient
       real(wp), allocatable :: gradient(:, :)
+      !> Gradient with respect to external point-charge coordinates
+      real(wp), allocatable :: point_charge_gradient(:, :)
       !> Virial
       real(wp), allocatable :: sigma(:, :)
       !> Wavefunction
@@ -64,6 +69,19 @@ module tblite_api_result
 
 
 contains
+
+subroutine get_result_number_of_point_charges_api(verror, vres, npc) &
+      & bind(C, name=namespace//"get_result_number_of_point_charges")
+   type(c_ptr), value :: verror, vres
+   type(vp_error), pointer :: error
+   type(vp_result), pointer :: res
+   integer(c_int), intent(out) :: npc
+   logical :: ok
+   npc = 0
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+   if (allocated(res%point_charge_gradient)) npc = size(res%point_charge_gradient, 2)
+end subroutine get_result_number_of_point_charges_api
 
 
 !> Create new result container
@@ -281,6 +299,23 @@ subroutine get_result_gradient_api(verror, vres, gradient) &
 
    gradient(:size(res%gradient)) = reshape(res%gradient, [size(res%gradient)])
 end subroutine get_result_gradient_api
+
+subroutine get_result_point_charge_gradient_api(verror, vres, gradient) &
+      & bind(C, name=namespace//"get_result_point_charge_gradient")
+   type(c_ptr), value :: verror, vres
+   type(vp_error), pointer :: error
+   type(vp_result), pointer :: res
+   real(c_double), intent(out) :: gradient(*)
+   logical :: ok
+   call get_result(verror, vres, error, res, ok)
+   if (.not.ok) return
+   if (.not.allocated(res%point_charge_gradient)) then
+      call fatal_error(error%ptr, "Result does not contain point-charge gradients")
+      return
+   end if
+   gradient(:size(res%point_charge_gradient)) = &
+      & reshape(res%point_charge_gradient, [size(res%point_charge_gradient)])
+end subroutine get_result_point_charge_gradient_api
 
 
 subroutine get_result_virial_api(verror, vres, sigma) &
