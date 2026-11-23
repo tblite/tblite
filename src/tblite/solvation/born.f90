@@ -23,6 +23,7 @@ module tblite_solvation_born
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use mctc_io_convert, only : aatoau
+   use mctc_io_math, only : outerprod
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    implicit none
    private
@@ -107,7 +108,7 @@ subroutine new_born_integrator(self, mol, vdwrad, descreening, born_scale, born_
 end subroutine new_born_integrator
 
 !> Calculate Born radii
-subroutine get_rad(self, mol, rad, draddr)
+subroutine get_rad(self, mol, rad, draddr, draddL)
    !> Instance of the Born integrator
    class(born_integrator), intent(in) :: self
    !> Molecular structure data
@@ -116,24 +117,28 @@ subroutine get_rad(self, mol, rad, draddr)
    real(wp), intent(out) :: rad(:)
    !> Derivative of Born radii w.r.t. cartesian displacements
    real(wp), intent(out), optional :: draddr(:, :, :)
+   !> Derivative of Born radii w.r.t. strain deformations
+   real(wp), intent(out), optional :: draddL(:, :, :)
 
    type(adjacency_list) :: list
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), allocatable :: brdr(:, :, :)
+   real(wp), allocatable :: brdr(:, :, :), brdL(:, :, :)
 
    call new_adjacency_list(list, mol, trans, self%lrcut)
-   allocate(brdr(3, mol%nat, mol%nat))
 
-   call compute_bornr(mol%nat, mol%xyz, list, &
-      & self%vdwr, self%rho, self%svdw, self%born_scale, self%obc, rad, brdr)
-
-   if (present(draddr)) then
-      draddr(:, :, :) = brdr
+   ! compute Born radii and their derivatives
+   if (present(draddr) .and. present(draddL)) then
+      call compute_bornr(mol%nat, mol%xyz, list, &
+         & self%vdwr, self%rho, self%svdw, self%born_scale, self%obc, rad, draddr, draddL)
+   else
+      allocate(brdr(3, mol%nat, mol%nat), brdL(3, 3, mol%nat))
+      call compute_bornr(mol%nat, mol%xyz, list, &
+         & self%vdwr, self%rho, self%svdw, self%born_scale, self%obc, rad, brdr, brdL)
    end if
 end subroutine get_rad
 
 subroutine compute_bornr(nat, xyz, list, vdwr, rho, svdw, c1, obc, &
-      & brad, brdr)
+      & brad, brdr, brdL)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -155,12 +160,14 @@ subroutine compute_bornr(nat, xyz, list, vdwr, rho, svdw, c1, obc, &
 
    !> Derivative of Born radii w.r.t. cartesian coordinates
    real(wp), intent(out) :: brdr(:, :, :)
+   !> Derivative of Born radii w.r.t. strain deformations
+   real(wp), intent(out) :: brdL(:, :, :)
 
    integer :: iat
    real(wp) :: br, dpsi, svdwi, vdwri, s1, v1, s2, arg, arg2
    real(wp) :: th, ch
 
-   call compute_psi(nat, xyz, list, vdwr, rho, brad, brdr)
+   call compute_psi(nat, xyz, list, vdwr, rho, brad, brdr, brdL)
 
    do iat = 1, nat
 
@@ -191,13 +198,14 @@ subroutine compute_bornr(nat, xyz, list, vdwr, rho, svdw, c1, obc, &
 
       brad(iat) = br
       brdr(:, :, iat) = brdr(:, :, iat) * dpsi
+      brdL(:, :, iat) = brdL(:, :, iat) * dpsi
 
    end do
 
 end subroutine compute_bornr
 
 
-pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
+pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr, dpsidL)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -212,6 +220,8 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
    real(wp), intent(out) :: psi(:)
    !> Derivative of Psi w.r.t. cartesian coordinates
    real(wp), intent(out) :: dpsidr(:, :, :)
+   !> Derivative of Psi w.r.t. strain deformations
+   real(wp), intent(out) :: dpsidL(:, :, :)
    real(wp), allocatable :: dpsitr(:, :)
 
    integer  :: iat, jat, img, inl
@@ -225,6 +235,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
    allocate(dpsitr(3, nat))
    psi(:) = 0.0_wp
    dpsidr(:, :, :) = 0.0_wp
+   dpsidL(:, :, :) = 0.0_wp
    dpsitr(:, :) = 0.0_wp
 
    do iat = 1, nat
@@ -262,8 +273,10 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgi*vec(:)
                dpsitr(:, iat) = dpsitr(:, iat)+drjj(:)
                dpsidr(:, jat, iat) = dpsidr(:, jat, iat)-drjj(:)
+               dpsidL(:, :, iat) = dpsidL(:, :, iat)+outerprod(drjj, vec)
                dpsitr(:, jat) = dpsitr(:, jat)-drjj(:)
                dpsidr(:, iat, jat) = dpsidr(:, iat, jat)+drjj(:)
+               dpsidL(:, :, jat) = dpsidL(:, :, jat)+outerprod(drjj, vec)
             else
                ! unequal reduced radii
                ! ij contribution
@@ -289,10 +302,12 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgi*vec(:)
                dpsitr(:, iat) = dpsitr(:, iat)+drjj(:)
                dpsidr(:, jat, iat) = dpsidr(:, jat, iat)-drjj(:)
+               dpsidL(:, :, iat) = dpsidL(:, :, iat)+outerprod(drjj, vec)
 
                drjj(:) = dgj*vec(:)
                dpsitr(:, jat) = dpsitr(:, jat)-drjj(:)
                dpsidr(:, iat, jat) = dpsidr(:, iat, jat)+drjj(:)
+               dpsidL(:, :, jat) = dpsidL(:, :, jat)+outerprod(drjj, vec)
             end if
 
          else if (.not.ijov .and. jiov) then
@@ -311,6 +326,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
             drjj(:) = dgi*vec(:)
             dpsitr(:, iat) = dpsitr(:, iat)+drjj(:)
             dpsidr(:, jat, iat) = dpsidr(:, jat, iat)-drjj(:)
+            dpsidL(:, :, iat) = dpsidL(:, :, iat)+outerprod(drjj, vec)
 
             if((r+rhoi) > rvdwj) then
                ! ji contribution
@@ -336,6 +352,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgj*vec(:)
                dpsitr(:, jat) = dpsitr(:, jat)-drjj(:)
                dpsidr(:, iat, jat) = dpsidr(:, iat, jat)+drjj(:)
+               dpsidL(:, :, jat) = dpsidL(:, :, jat)+outerprod(drjj, vec)
             end if
 
          else if (ijov .and. .not.jiov) then
@@ -364,6 +381,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgi*vec(:)
                dpsitr(:, iat) = dpsitr(:, iat)+drjj(:)
                dpsidr(:, jat, iat) = dpsidr(:, jat, iat)-drjj(:)
+               dpsidL(:, :, iat) = dpsidL(:, :, iat)+outerprod(drjj, vec)
             end if
 
             ! ji contribution
@@ -380,6 +398,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
             drjj(:) = dgj*vec(:)
             dpsitr(:, jat) = dpsitr(:, jat)-drjj(:)
             dpsidr(:, iat, jat) = dpsidr(:, iat, jat)+drjj(:)
+            dpsidL(:, :, jat) = dpsidL(:, :, jat)+outerprod(drjj, vec)
 
          else if (ijov .and. jiov) then
             ! overlaping spheres
@@ -407,6 +426,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgi*vec(:)
                dpsitr(:, iat) = dpsitr(:, iat)+drjj(:)
                dpsidr(:, jat, iat) = dpsidr(:, jat, iat)-drjj(:)
+               dpsidL(:, :, iat) = dpsidL(:, :, iat)+outerprod(drjj, vec)
             end if
 
             if((r+rhoi) > rvdwj) then
@@ -433,6 +453,7 @@ pure subroutine compute_psi(nat, xyz, list, vdwr, rho, psi, dpsidr)
                drjj(:) = dgj*vec(:)
                dpsitr(:, jat) = dpsitr(:, jat)-drjj(:)
                dpsidr(:, iat, jat) = dpsidr(:, iat, jat)+drjj(:)
+               dpsidL(:, :, jat) = dpsidL(:, :, jat)+outerprod(drjj, vec)
             end if
 
          end if

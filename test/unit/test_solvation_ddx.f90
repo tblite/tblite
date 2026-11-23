@@ -60,6 +60,9 @@ subroutine collect_solvation_ddx(testsuite)
          new_unittest("gradient-mol-num-cosmo", test_g_cosmo_m02), &
          new_unittest("gradient-mol-num-cpcm", test_g_cpcm_m02), &
          new_unittest("gradient-mol-num-pcm", test_g_pcm_m02), &
+         new_unittest("sigma-mol-num-cosmo", test_s_cosmo_m02), &
+         new_unittest("sigma-mol-num-cpcm", test_s_cpcm_m02), &
+         new_unittest("sigma-mol-num-pcm", test_s_pcm_m02), &
          new_unittest("potential-mol-cosmo", test_p_cosmo_m03), &
          new_unittest("potential-mol-cpcm", test_p_cpcm_m03), &
          new_unittest("potential-mol-pcm", test_p_pcm_m03) &
@@ -152,10 +155,7 @@ subroutine test_g(error, model, mol, qat)
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   real(wp) :: trans(3, 3), numsigma(3, 3)
-   real(wp), allocatable :: xyz(:, :)
-   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
-   integer :: ii, ic, jc
+   integer :: ii, ic
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -183,31 +183,6 @@ subroutine test_g(error, model, mol, qat)
       end do
    end do
 
-   allocate(xyz(3, mol%nat))
-   trans(:, :) = unity
-   xyz(:, :) = mol%xyz
-   do ic = 1, 3
-      do jc = 1, 3
-         er = 0.0_wp
-         el = 0.0_wp
-         trans(jc, ic) = trans(jc, ic) + step
-         mol%xyz(:, :) = matmul(trans, xyz)
-         call solv%update(mol, cache)
-         call solv%get_potential(mol, cache, wfn, pot)
-         call solv%get_energy(mol, cache, wfn, er)
-
-         trans(jc, ic) = trans(jc, ic) - 2*step
-         mol%xyz(:, :) = matmul(trans, xyz)
-         call solv%update(mol, cache)
-         call solv%get_potential(mol, cache, wfn, pot)
-         call solv%get_energy(mol, cache, wfn, el)
-
-         trans(jc, ic) = trans(jc, ic) + step
-         mol%xyz(:, :) = xyz
-         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
-      end do
-   end do
-
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
    sigma(:, :) = 0.0_wp
@@ -225,11 +200,88 @@ subroutine test_g(error, model, mol, qat)
       print "(a)", "---"
       print "(3es20.13)", gradient - numg
    end if
+end subroutine test_g
+
+subroutine test_s(error, model, mol, qat)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Solvation model (COSMO=100, CPCM=101, PCM=200)
+   integer, intent(in) :: model
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   type(ddx_solvation) :: solv
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache) :: cache
+   real(wp), parameter :: eps = 80.0_wp
+   integer, parameter :: nang = 302
+   real(wp), parameter :: step = 1.0e-4_wp
+   real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), allocatable :: gradient(:, :), xyz(:, :)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: strain(3, 3), numsigma(3, 3)
+   integer :: ic, jc
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1))
+
+   call new_ddx(solv, mol, ddx_input(ddx_model=model, dielectric_const=eps, nang=nang), error)
+   if (allocated(error)) return
+
+   allocate(gradient(3, mol%nat), xyz(3, mol%nat))
+   strain(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         strain(jc, ic) = strain(jc, ic) + step
+         mol%xyz(:, :) = matmul(strain, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         strain(jc, ic) = strain(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(strain, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         strain(jc, ic) = strain(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         ! the angular grid is not rotationally invariant, therefore the strain
+         ! derivative is not symmetric
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call solv%update(mol, cache)
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+   call solv%get_gradient(mol, cache, wfn, gradient, sigma)
+
    if (any(abs(sigma - numsigma) > thr)) then
       call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma
+      print "(a)", "---"
+      print "(3es20.13)", numsigma
+      print "(a)", "---"
       print "(3es20.13)", sigma - numsigma
    end if
-end subroutine test_g
+end subroutine test_s
 
 subroutine test_p(error, model, mol, qat)
 
@@ -402,6 +454,51 @@ subroutine test_g_pcm_m02(error)
    call test_g(error, ddx_solvation_model%pcm, mol, qat)
 
 end subroutine test_g_pcm_m02
+
+subroutine test_s_cosmo_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_s(error, ddx_solvation_model%cosmo, mol, qat)
+
+end subroutine test_s_cosmo_m02
+
+subroutine test_s_cpcm_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_s(error, ddx_solvation_model%cpcm, mol, qat)
+
+end subroutine test_s_cpcm_m02
+
+subroutine test_s_pcm_m02(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   real(wp), parameter :: qat(*) = [&
+      & 2.50000000000000E-1_wp,-2.50000000000000E-1_wp, 5.00000000000000E-1_wp,&
+      &-5.00000000000000E-1_wp]
+
+   call get_structure(mol, "Heavy28", "bih3")
+   call test_s(error, ddx_solvation_model%pcm, mol, qat)
+
+end subroutine test_s_pcm_m02
 
 subroutine test_p_cosmo_m03(error)
 

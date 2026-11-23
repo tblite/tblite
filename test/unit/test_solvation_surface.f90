@@ -48,7 +48,11 @@ subroutine collect_solvation_surface(testsuite)
       new_unittest("surface-1", test_mb01), &
       new_unittest("surface-2", test_mb02), &
       new_unittest("surface-3", test_mb03), &
-      new_unittest("surface-4", test_mb04) &
+      new_unittest("surface-4", test_mb04), &
+      new_unittest("sigma-surface-1", test_s_mb01), &
+      new_unittest("sigma-surface-2", test_s_mb02), &
+      new_unittest("sigma-surface-3", test_s_mb03), &
+      new_unittest("sigma-surface-asymmetry", test_s_asymmetry) &
       ]
 
 end subroutine collect_solvation_surface
@@ -63,13 +67,15 @@ subroutine test_numg(error, sasa, mol)
    type(structure_type), intent(inout) :: mol
 
    integer :: iat, ic
-   real(wp), allocatable :: surface(:), sr(:), sl(:), dsdr(:, :, :), numg(:, :, :)
+   real(wp), allocatable :: surface(:), sr(:), sl(:), dsdr(:, :, :), dsdL(:, :, :)
+   real(wp), allocatable :: numg(:, :, :)
    real(wp), parameter :: step = 1.0e-5_wp
 
    allocate(surface(mol%nat), sr(mol%nat), sl(mol%nat))
    allocate(dsdr(3, mol%nat, mol%nat), numg(3, mol%nat, mol%nat))
+   allocate(dsdL(3, 3, mol%nat))
 
-   call sasa%get_surface(mol, surface, dsdr)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
 
    do iat = 1, mol%nat
       do ic = 1, 3
@@ -91,13 +97,64 @@ subroutine test_numg(error, sasa, mol)
 end subroutine test_numg
 
 
+subroutine test_nums(error, sasa, mol)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Surface integrator
+   type(surface_integrator), intent(inout) :: sasa
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   integer :: ic, jc
+   real(wp), allocatable :: surface(:), sr(:), sl(:), dsdr(:, :, :), dsdL(:, :, :)
+   real(wp), allocatable :: nums(:, :, :), xyz(:, :)
+   real(wp) :: eps(3, 3)
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), parameter :: step = 1.0e-6_wp
+
+   allocate(surface(mol%nat), sr(mol%nat), sl(mol%nat))
+   allocate(dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
+   allocate(nums(3, 3, mol%nat), xyz(3, mol%nat))
+
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
+
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call sasa%get_surface(mol, sr)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call sasa%get_surface(mol, sl)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+
+         ! the angular grid is not rotationally invariant, therefore the strain
+         ! derivative is not symmetric
+         nums(jc, ic, :) = 0.5_wp * (sr - sl) / step
+      end do
+   end do
+
+   ! the smoothed surface is only once continuously differentiable and the
+   ! atomic surfaces are large, which limits the finite difference accuracy
+   if (any(abs(nums - dsdL) > 10*thr2)) then
+      call test_failed(error, "Surface strain derivative does not match")
+   end if
+end subroutine test_nums
+
+
 subroutine test_mb01(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
    type(surface_integrator) :: sasa
-   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :)
+   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :), dsdL(:, :, :)
    real(wp), parameter :: probe = 1.4_wp * aatoau
    integer, parameter :: nang = 110
    real(wp), parameter :: ref(16) = [&
@@ -110,11 +167,11 @@ subroutine test_mb01(error)
 
    call get_structure(mol, "MB16-43", "01")
 
-   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat))
+   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
    rad = get_vdw_rad_d3(mol%num)
 
    call new_surface_integrator(sasa, mol%id, rad, probe, nang)
-   call sasa%get_surface(mol, surface, dsdr)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
@@ -133,7 +190,7 @@ subroutine test_mb02(error)
 
    type(structure_type) :: mol
    type(surface_integrator) :: sasa
-   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :)
+   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :), dsdL(:, :, :)
    real(wp), parameter :: probe = 1.2_wp * aatoau
    integer, parameter :: nang = 230
    real(wp), parameter :: ref(16) = [&
@@ -146,11 +203,11 @@ subroutine test_mb02(error)
 
    call get_structure(mol, "MB16-43", "02")
 
-   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat))
+   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
    rad = get_vdw_rad_bondi(mol%num)
 
    call new_surface_integrator(sasa, mol%id, rad, probe, nang)
-   call sasa%get_surface(mol, surface, dsdr)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
@@ -169,7 +226,7 @@ subroutine test_mb03(error)
 
    type(structure_type) :: mol
    type(surface_integrator) :: sasa
-   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :)
+   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :), dsdL(:, :, :)
    real(wp), parameter :: probe = 0.2_wp * aatoau
    integer, parameter :: nang = 111
    real(wp), parameter :: ref(16) = [&
@@ -182,11 +239,11 @@ subroutine test_mb03(error)
 
    call get_structure(mol, "MB16-43", "03")
 
-   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat))
+   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
    rad = get_vdw_rad_cosmo(mol%num)
 
    call new_surface_integrator(sasa, mol%id, rad, probe, nang)
-   call sasa%get_surface(mol, surface, dsdr)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
 
    if (any(abs(surface - ref) > thr2)) then
       call test_failed(error, "Surface area values do not match")
@@ -207,7 +264,7 @@ subroutine test_mb04(error)
    type(surface_integrator) :: sasa
    integer :: iang
    real(wp) :: this_thr
-   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :)
+   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :), dsdL(:, :, :)
    real(wp), parameter :: probe = 1.4_wp * aatoau
    real(wp), parameter :: ref(16) = [&
       & 3.17888247611432E+1_wp, 1.10843192696983E+2_wp, 6.88322052202638E+1_wp, &
@@ -219,12 +276,12 @@ subroutine test_mb04(error)
 
    call get_structure(mol, "MB16-43", "04")
 
-   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat))
+   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
    rad = get_vdw_rad_bondi(mol%num)
 
    do iang = 1, size(grid_size)
       call new_surface_integrator(sasa, mol%id, rad, probe, grid_size(iang))
-      call sasa%get_surface(mol, surface, dsdr)
+      call sasa%get_surface(mol, surface, dsdr, dsdL)
 
       if (grid_size(iang) > 1000) then
          this_thr = 0.1_wp
@@ -246,5 +303,107 @@ subroutine test_mb04(error)
    end if
 
 end subroutine test_mb04
+
+
+subroutine test_s_mb01(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(surface_integrator) :: sasa
+   real(wp), allocatable :: rad(:)
+   real(wp), parameter :: probe = 1.4_wp * aatoau
+   integer, parameter :: nang = 110
+
+   call get_structure(mol, "MB16-43", "01")
+   rad = get_vdw_rad_d3(mol%num)
+
+   call new_surface_integrator(sasa, mol%id, rad, probe, nang)
+
+   call test_nums(error, sasa, mol)
+
+end subroutine test_s_mb01
+
+
+subroutine test_s_mb02(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(surface_integrator) :: sasa
+   real(wp), allocatable :: rad(:)
+   real(wp), parameter :: probe = 1.2_wp * aatoau
+   integer, parameter :: nang = 230
+
+   call get_structure(mol, "MB16-43", "02")
+   rad = get_vdw_rad_bondi(mol%num)
+
+   call new_surface_integrator(sasa, mol%id, rad, probe, nang)
+
+   call test_nums(error, sasa, mol)
+
+end subroutine test_s_mb02
+
+
+subroutine test_s_mb03(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(surface_integrator) :: sasa
+   real(wp), allocatable :: rad(:)
+   real(wp), parameter :: probe = 0.2_wp * aatoau
+   integer, parameter :: nang = 111
+
+   call get_structure(mol, "MB16-43", "03")
+   rad = get_vdw_rad_cosmo(mol%num)
+
+   call new_surface_integrator(sasa, mol%id, rad, probe, nang)
+
+   call test_nums(error, sasa, mol)
+
+end subroutine test_s_mb03
+
+
+subroutine test_s_asymmetry(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(surface_integrator) :: sasa
+   real(wp), allocatable :: rad(:), surface(:), dsdr(:, :, :), dsdL(:, :, :)
+   real(wp) :: sigma(3, 3), asym_small, asym_large
+   real(wp), parameter :: probe = 1.4_wp * aatoau
+
+   call get_structure(mol, "MB16-43", "04")
+
+   allocate(surface(mol%nat), dsdr(3, mol%nat, mol%nat), dsdL(3, 3, mol%nat))
+   rad = get_vdw_rad_bondi(mol%num)
+
+   ! the antisymmetric strain is the torque of the fixed angular grid
+   call new_surface_integrator(sasa, mol%id, rad, probe, 110)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
+   sigma(:, :) = sum(dsdL, 3)
+   asym_small = norm2(0.5_wp * (sigma - transpose(sigma))) / norm2(sigma)
+
+   call new_surface_integrator(sasa, mol%id, rad, probe, 5810)
+   call sasa%get_surface(mol, surface, dsdr, dsdL)
+   sigma(:, :) = sum(dsdL, 3)
+   asym_large = norm2(0.5_wp * (sigma - transpose(sigma))) / norm2(sigma)
+
+   if (asym_small < 1.0e-2_wp) then
+      call test_failed(error, &
+         & "Surface strain derivative is not asymmetric for small grid")
+      print '(es20.13)', asym_small
+      return
+   end if
+
+   if (asym_large > 1.0e-3_wp) then
+      call test_failed(error, "Surface strain asymmetry does not decrease for large grid")
+      print '(es20.13)', asym_large
+      return
+   end if
+
+end subroutine test_s_asymmetry
 
 end module test_solvation_surface

@@ -23,6 +23,7 @@ module tblite_solvation_surface
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
    use mctc_io_convert, only : aatoau
+   use mctc_io_math, only : outerprod
    use tblite_adjlist, only : adjacency_list, new_adjacency_list
    use tblite_mesh_lebedev, only : get_angular_grid, grid_size, list_bisection
    use tblite_partition, only : work_partition, owns_index
@@ -120,7 +121,7 @@ subroutine new_surface_integrator(self, num, rad, probe, nang, offset, smoothing
 
 end subroutine new_surface_integrator
 
-subroutine get_surface(self, mol, surface, dsdr, partition)
+subroutine get_surface(self, mol, surface, dsdr, dsdL, partition)
    !> Instance of the surface integrator
    class(surface_integrator), intent(in) :: self
    !> Molecular structure data
@@ -129,6 +130,8 @@ subroutine get_surface(self, mol, surface, dsdr, partition)
    real(wp), intent(out) :: surface(:)
    !> Derivative of surface area w.r.t. to coordinate displacements
    real(wp), intent(out), optional :: dsdr(:, :, :)
+   !> Derivative of surface area w.r.t. to strain deformations
+   real(wp), intent(out), optional :: dsdL(:, :, :)
    !> Share of the atoms evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
@@ -138,10 +141,10 @@ subroutine get_surface(self, mol, surface, dsdr, partition)
    call new_adjacency_list(list, mol, trans, self%srcut, .true.)
 
    ! compute solvent accessible surface and its derivatives
-   if (present(dsdr)) then
+   if (present(dsdr) .and. present(dsdL)) then
       call compute_numsa(mol%nat, mol%xyz, list, self%vdwsa, &
          & self%wrp, self%trj2, self%ah0, self%ah1, self%ah3, self%ang_weight, self%ang_grid, &
-         & surface, dsdr, partition)
+         & surface, dsdr, dsdL, partition)
    else
       call compute_surface(mol%nat, mol%xyz, list, self%vdwsa, &
          & self%wrp, self%trj2, self%ah0, self%ah1, self%ah3, self%ang_weight, self%ang_grid, &
@@ -218,8 +221,8 @@ subroutine compute_surface(nat, xyz, list, vdwsa, &
 
 end subroutine compute_surface
 
-subroutine compute_numsa(nat, xyz, list, vdwsa, &
-      & wrp, trj2, ah0, ah1, ah3, ang_weight, ang_grid, surface, dsdrt, partition)
+subroutine compute_numsa(nat, xyz, list, vdwsa, wrp, trj2,&
+      & ah0, ah1, ah3, ang_weight, ang_grid, surface, dsdrt, dsdLt, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -241,26 +244,30 @@ subroutine compute_numsa(nat, xyz, list, vdwsa, &
    real(wp), intent(out) :: surface(:)
    !> Derivative of surface area w.r.t. cartesian coordinates
    real(wp), intent(out) :: dsdrt(:, :, :)
+   !> Derivative of surface area w.r.t. strain deformations
+   real(wp), intent(out) :: dsdLt(:, :, :)
    !> Share of the atoms evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
    integer :: iat, jat, ip, jj, nni, nno, ino
    real(wp) :: rsas, sasai, xyza(3), xyzp(3), sasap, wr, wsa, drjj(3)
+   real(wp) :: vec(3), gradsL(3, 3)
    real(wp), allocatable :: grds(:, :), grads(:, :)
    integer, allocatable :: grdi(:)
 
    surface(:) = 0.0_wp
    dsdrt(:, :, :) = 0.0_wp
+   dsdLt(:, :, :) = 0.0_wp
 
    ! allocate space for the gradient storage
    allocate (grads(3, nat), source=0.0_wp)
    allocate (grds(3, maxval(list%nnl)))
    allocate (grdi(maxval(list%nnl)))
 
-   !$omp parallel do default(none) shared(surface, dsdrt, ah0, ah1, ah3) &
+   !$omp parallel do default(none) shared(surface, dsdrt, dsdLt, ah0, ah1, ah3) &
    !$omp shared(nat, vdwsa, list, xyz, wrp, ang_grid, ang_weight, trj2, partition) &
-   !$omp private(iat, jat, rsas, nno, grads, sasai, xyza, wr, ip, xyzp, wsa, &
-   !$omp& sasap, jj, nni, grdi, grds, drjj, ino)
+   !$omp private(iat, jat, rsas, nno, grads, gradsL, sasai, xyza, wr, ip, xyzp, wsa, &
+   !$omp& sasap, jj, nni, grdi, grds, drjj, vec, ino)
    do iat = 1, nat
       if (.not.owns_index(partition, iat)) cycle
 
@@ -270,6 +277,7 @@ subroutine compute_numsa(nat, xyz, list, vdwsa, &
 
       ! initialize storage
       grads = 0.0_wp
+      gradsL = 0.0_wp
       sasai = 0.0_wp
 
       ! atomic position
@@ -300,8 +308,16 @@ subroutine compute_numsa(nat, xyz, list, vdwsa, &
          end if
       end do
 
+      ! the grid is attached to the sphere so only the atom distances are strained
+      do jj = 1, nno
+         jat = list%nlat(ino+jj)
+         vec(:) = xyza(:) - xyz(:, jat)
+         gradsL(:, :) = gradsL - outerprod(grads(:, jat), vec)
+      end do
+
       surface(iat) = sasai
       dsdrt(:, :, iat) = grads
+      dsdLt(:, :, iat) = gradsL
    end do
 
 end subroutine compute_numsa

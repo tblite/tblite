@@ -23,6 +23,7 @@ module test_solvation_born
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
+   use tblite_solvation, only : new_solvation, solvation_input, solvation_type
    use tblite_solvation_alpb, only : alpb_input, alpb_solvation, born_kernel
    use tblite_solvation_born, only : born_integrator, new_born_integrator
    use tblite_solvation_data, only : solvent_data, get_solvent_data, &
@@ -52,6 +53,9 @@ subroutine collect_solvation_born(testsuite)
       new_unittest("born-2", test_mb02), &
       new_unittest("born-3", test_mb03), &
       new_unittest("born-asymmetric-overlap", test_asymmetric_overlap), &
+      new_unittest("sigma-born-1", test_s_mb01), &
+      new_unittest("sigma-born-2", test_s_mb02), &
+      new_unittest("sigma-born-3", test_s_mb03), &
       new_unittest("energy-p16", test_e_p16), &
       new_unittest("energy-alpb-gfn1", test_e_alpb_gfn1_all_solvents), &
       new_unittest("energy-alpb-gfn2", test_e_alpb_gfn2_all_solvents), &
@@ -66,14 +70,22 @@ subroutine collect_solvation_born(testsuite)
       new_unittest("energy-charged-gbsa-gfn2", test_e_charged_gbsa_gfn2), &
       new_unittest("gradient-p16", test_g_p16), &
       new_unittest("gradient-alpb", test_g_alpb), &
-      new_unittest("gradient-alpb-gfn1", test_g_alpb_gfn1), &
       new_unittest("gradient-still", test_g_still), &
       new_unittest("gradient-gbsa", test_g_gbsa), &
+      new_unittest("gradient-alpb-gfn1", test_g_alpb_gfn1), &
+      new_unittest("gradient-gbsa-gfn1", test_g_gbsa_gfn1), &
+      new_unittest("sigma-p16", test_s_p16), &
+      new_unittest("sigma-alpb", test_s_alpb), &
+      new_unittest("sigma-still", test_s_still), &
+      new_unittest("sigma-gbsa", test_s_gbsa), &
+      new_unittest("sigma-alpb-gfn1", test_s_alpb_gfn1), &
+      new_unittest("sigma-gbsa-gfn1", test_s_gbsa_gfn1), &
       new_unittest("potential-p16", test_p_p16), &
       new_unittest("potential-alpb", test_p_alpb), &
       new_unittest("potential-still", test_p_still), &
       new_unittest("potential-gbsa", test_p_gbsa), &
-      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.) &
+      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.), &
+      new_unittest("unsupported-periodic", test_unsupported_periodic, should_fail=.true.) &
       ]
 
 end subroutine collect_solvation_born
@@ -88,13 +100,15 @@ subroutine test_numg(error, gbobc, mol)
    type(structure_type), intent(inout) :: mol
 
    integer :: iat, ic
-   real(wp), allocatable :: rad(:), sr(:), sl(:), draddr(:, :, :), numg(:, :, :)
+   real(wp), allocatable :: rad(:), sr(:), sl(:), draddr(:, :, :), draddL(:, :, :)
+   real(wp), allocatable :: numg(:, :, :)
    real(wp), parameter :: step = 1.0e-5_wp
 
    allocate(rad(mol%nat), sr(mol%nat), sl(mol%nat))
    allocate(draddr(3, mol%nat, mol%nat), numg(3, mol%nat, mol%nat))
+   allocate(draddL(3, 3, mol%nat))
 
-   call gbobc%get_rad(mol, rad, draddr)
+   call gbobc%get_rad(mol, rad, draddr, draddL)
 
    do iat = 1, mol%nat
       do ic = 1, 3
@@ -116,13 +130,60 @@ subroutine test_numg(error, gbobc, mol)
 end subroutine test_numg
 
 
+subroutine test_nums(error, gbobc, mol)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+   !> Born radii integrator
+   type(born_integrator), intent(inout) :: gbobc
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   integer :: ic, jc
+   real(wp), allocatable :: rad(:), sr(:), sl(:), draddr(:, :, :), draddL(:, :, :)
+   real(wp), allocatable :: nums(:, :, :), xyz(:, :)
+   real(wp) :: eps(3, 3)
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), parameter :: step = 1.0e-6_wp
+
+   allocate(rad(mol%nat), sr(mol%nat), sl(mol%nat))
+   allocate(draddr(3, mol%nat, mol%nat), draddL(3, 3, mol%nat))
+   allocate(nums(3, 3, mol%nat), xyz(3, mol%nat))
+
+   call gbobc%get_rad(mol, rad, draddr, draddL)
+
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call gbobc%get_rad(mol, sr)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call gbobc%get_rad(mol, sl)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+
+         nums(jc, ic, :) = 0.5_wp * (sr - sl) / step
+      end do
+   end do
+
+   if (any(abs(nums - draddL) > thr2)) then
+      call test_failed(error, "Born radii strain derivative does not match")
+   end if
+end subroutine test_nums
+
+
 subroutine test_mb01(error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
    type(structure_type) :: mol
    type(born_integrator) :: gbobc
-   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :)
+   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :), draddL(:, :, :)
    real(wp), parameter :: ref(16) = [&
       & 4.07331798531438E+0_wp, 2.56451650429167E+0_wp, 2.97676954448882E+0_wp, &
       & 2.88833112759592E+0_wp, 2.59127476011008E+0_wp, 2.63750279425510E+0_wp, &
@@ -133,11 +194,11 @@ subroutine test_mb01(error)
 
    call get_structure(mol, "MB16-43", "01")
 
-   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat))
+   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat), draddL(3, 3, mol%nat))
    rvdw = get_vdw_rad_d3(mol%num)
 
    call new_born_integrator(gbobc, mol, rvdw)
-   call gbobc%get_rad(mol, rad, draddr)
+   call gbobc%get_rad(mol, rad, draddr, draddL)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
@@ -156,7 +217,7 @@ subroutine test_mb02(error)
 
    type(structure_type) :: mol
    type(born_integrator) :: gbobc
-   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :)
+   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :), draddL(:, :, :)
    real(wp), parameter :: ref(16) = [&
       & 3.43501192886252E+0_wp, 5.02404916999371E+0_wp, 4.72253865039692E+0_wp, &
       & 3.52096661104217E+0_wp, 4.76023330956437E+0_wp, 3.46119195863261E+0_wp, &
@@ -167,11 +228,11 @@ subroutine test_mb02(error)
 
    call get_structure(mol, "MB16-43", "02")
 
-   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat))
+   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat), draddL(3, 3, mol%nat))
    rvdw = get_vdw_rad_bondi(mol%num)
 
    call new_born_integrator(gbobc, mol, rvdw)
-   call gbobc%get_rad(mol, rad, draddr)
+   call gbobc%get_rad(mol, rad, draddr, draddL)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
@@ -190,7 +251,7 @@ subroutine test_mb03(error)
 
    type(structure_type) :: mol
    type(born_integrator) :: gbobc
-   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :)
+   real(wp), allocatable :: rvdw(:), rad(:), draddr(:, :, :), draddL(:, :, :)
    real(wp), parameter :: ref(16) = [&
       & 4.94764986698701E+0_wp, 3.95122747438791E+0_wp, 4.57075556245289E+0_wp, &
       & 5.46368225070994E+0_wp, 8.24269261139398E+0_wp, 5.68405471762112E+0_wp, &
@@ -201,11 +262,11 @@ subroutine test_mb03(error)
 
    call get_structure(mol, "MB16-43", "03")
 
-   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat))
+   allocate(rad(mol%nat), draddr(3, mol%nat, mol%nat), draddL(3, 3, mol%nat))
    rvdw = get_vdw_rad_cosmo(mol%num)
 
    call new_born_integrator(gbobc, mol, rvdw)
-   call gbobc%get_rad(mol, rad, draddr)
+   call gbobc%get_rad(mol, rad, draddr, draddL)
 
    if (any(abs(rad - ref) > thr2)) then
       call test_failed(error, "Born radii area values do not match")
@@ -232,6 +293,7 @@ subroutine test_asymmetric_overlap(error)
       & 0.0_wp, 0.0_wp,  2.08_wp], [3, nat]) * aatoau
    real(wp) :: rad(nat), reversed_rad(nat)
    real(wp) :: draddr(3, nat, nat), reversed_draddr(3, nat, nat)
+   real(wp) :: draddL(3, 3, nat), reversed_draddL(3, 3, nat)
 
    call new(mol, num, xyz)
    call new(reversed, num(order), xyz(:, order))
@@ -247,8 +309,8 @@ subroutine test_asymmetric_overlap(error)
    call new_born_integrator(reversed_gbobc, reversed, input%rvdw, input%descreening, &
       & input%born_scale, input%born_offset)
 
-   call gbobc%get_rad(mol, rad, draddr)
-   call reversed_gbobc%get_rad(reversed, reversed_rad, reversed_draddr)
+   call gbobc%get_rad(mol, rad, draddr, draddL)
+   call reversed_gbobc%get_rad(reversed, reversed_rad, reversed_draddr, reversed_draddL)
 
    if (any(abs(rad - reversed_rad(order)) > thr2)) then
       call test_failed(error, "Born radii depend on atom order")
@@ -258,11 +320,69 @@ subroutine test_asymmetric_overlap(error)
       call test_failed(error, "Born radii derivatives depend on atom order")
       return
    end if
+   if (any(abs(draddL - reversed_draddL(:, :, order)) > thr2)) then
+      call test_failed(error, "Born radii strain derivatives depend on atom order")
+      return
+   end if
 
    call test_numg(error, gbobc, mol)
    if (allocated(error)) return
    call test_numg(error, reversed_gbobc, reversed)
 end subroutine test_asymmetric_overlap
+
+
+subroutine test_s_mb01(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(born_integrator) :: gbobc
+   real(wp), allocatable :: rvdw(:)
+
+   call get_structure(mol, "MB16-43", "01")
+   rvdw = get_vdw_rad_d3(mol%num)
+
+   call new_born_integrator(gbobc, mol, rvdw)
+
+   call test_nums(error, gbobc, mol)
+
+end subroutine test_s_mb01
+
+
+subroutine test_s_mb02(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(born_integrator) :: gbobc
+   real(wp), allocatable :: rvdw(:)
+
+   call get_structure(mol, "MB16-43", "02")
+   rvdw = get_vdw_rad_bondi(mol%num)
+
+   call new_born_integrator(gbobc, mol, rvdw)
+
+   call test_nums(error, gbobc, mol)
+
+end subroutine test_s_mb02
+
+
+subroutine test_s_mb03(error)
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(born_integrator) :: gbobc
+   real(wp), allocatable :: rvdw(:)
+
+   call get_structure(mol, "MB16-43", "03")
+   rvdw = get_vdw_rad_cosmo(mol%num)
+
+   call new_born_integrator(gbobc, mol, rvdw)
+
+   call test_nums(error, gbobc, mol)
+
+end subroutine test_s_mb03
 
 
 subroutine test_e(error, mol, input, qat, ref, method)
@@ -344,10 +464,7 @@ subroutine test_g(error, mol, input, qat, method)
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   real(wp) :: eps(3, 3), numsigma(3, 3)
-   real(wp), allocatable :: xyz(:, :)
-   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
-   integer :: ii, ic, jc
+   integer :: ii, ic
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -384,7 +501,72 @@ subroutine test_g(error, mol, input, qat, method)
       end do
    end do
 
-   allocate(xyz(3, mol%nat))
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call solv%update(mol, cache)
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+   call solv%get_gradient(mol, cache, wfn, gradient, sigma)
+
+   if (any(abs(gradient - numg) > thr2)) then
+      call test_failed(error, "Gradient does not match")
+      print "(3es20.13)", gradient
+      print "(a)", "---"
+      print "(3es20.13)", numg
+      print "(a)", "---"
+      print "(3es20.13)", gradient - numg
+   end if
+end subroutine test_g
+
+
+subroutine test_s(error, mol, input, qat, method)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Solvation model input
+   type(alpb_input), intent(in) :: input
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
+   type(alpb_solvation) :: solv
+   type(alpb_input), allocatable :: scratch_input
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache) :: cache
+   real(wp), parameter :: step = 1.0e-5_wp
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), allocatable :: gradient(:, :), xyz(:, :)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   integer :: ic, jc
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1))
+
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then
+      call get_alpb_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No ALPB/GBSA parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = alpb_solvation(mol, scratch_input, method)
+
+   allocate(gradient(3, mol%nat), xyz(3, mol%nat))
    eps(:, :) = unity
    xyz(:, :) = mol%xyz
    do ic = 1, 3
@@ -418,19 +600,15 @@ subroutine test_g(error, mol, input, qat, method)
    call solv%get_energy(mol, cache, wfn, energy)
    call solv%get_gradient(mol, cache, wfn, gradient, sigma)
 
-   if (any(abs(gradient - numg) > thr2)) then
-      call test_failed(error, "Gradient does not match")
-      print "(3es20.13)", gradient
-      print "(a)", "---"
-      print "(3es20.13)", numg
-      print "(a)", "---"
-      print "(3es20.13)", gradient - numg
-   end if
    if (any(abs(sigma - numsigma) > thr2)) then
       call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma
+      print "(a)", "---"
+      print "(3es20.13)", numsigma
+      print "(a)", "---"
       print "(3es20.13)", sigma - numsigma
    end if
-end subroutine test_g
+end subroutine test_s
 
 
 subroutine test_p(error, mol, input, qat, method)
@@ -999,31 +1177,6 @@ subroutine test_g_alpb(error)
 end subroutine test_g_alpb
 
 
-subroutine test_g_alpb_gfn1(error)
-
-   !> Error handling
-   type(error_type), allocatable, intent(out) :: error
-
-   type(structure_type) :: mol
-   type(solvent_data) :: solvent
-   type(alpb_input) :: input
-   real(wp), parameter :: qat(*) = [&
-      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
-      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
-      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
-      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
-      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
-      &-9.54898757869102E-2_wp]
-
-   call get_structure(mol, "MB16-43", "06")
-   solvent = get_solvent_data("water")
-   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
-      & kernel=born_kernel%p16, alpb=.true.)
-   call test_g(error, mol, input, qat, method="gfn1")
-
-end subroutine test_g_alpb_gfn1
-
-
 subroutine test_g_still(error)
 
    !> Error handling
@@ -1069,6 +1222,194 @@ subroutine test_g_gbsa(error)
    call test_g(error, mol, input, qat, method="gfn2")
 
 end subroutine test_g_gbsa
+
+subroutine test_g_alpb_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%p16, alpb=.true.)
+   call test_g(error, mol, input, qat, method="gfn1")
+
+end subroutine test_g_alpb_gfn1
+
+subroutine test_g_gbsa_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-1.57321098180703E-1_wp, 1.65233008998668E-1_wp, 3.22320267782066E-1_wp, &
+      & 3.63564544135336E-2_wp, 4.85639267214320E-2_wp,-3.59203277893926E-1_wp, &
+      &-1.93841260011383E-1_wp,-3.86495230324447E-1_wp, 3.10104147485353E-1_wp, &
+      & 8.34907519580185E-2_wp,-3.62672063405622E-1_wp, 3.64143595819311E-1_wp, &
+      & 3.34640678947868E-1_wp,-4.69881543486815E-1_wp,-1.89222615863620E-1_wp, &
+      & 4.53784257040286E-1_wp]
+
+   call get_structure(mol, "MB16-43", "07")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%still, alpb=.false.)
+   call test_g(error, mol, input, qat, method="gfn1")
+
+end subroutine test_g_gbsa_gfn1
+
+subroutine test_s_p16(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+   real(wp), parameter :: feps = 80.0_wp
+
+   call get_structure(mol, "MB16-43", "06")
+   input = alpb_input(feps, kernel=born_kernel%p16, alpb = .true.)
+   call test_s(error, mol, input, qat)
+
+end subroutine test_s_p16
+
+subroutine test_s_alpb(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%p16, alpb=.true.)
+   call test_s(error, mol, input, qat, method="gfn2")
+
+end subroutine test_s_alpb
+
+subroutine test_s_still(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-1.57321098180703E-1_wp, 1.65233008998668E-1_wp, 3.22320267782066E-1_wp, &
+      & 3.63564544135336E-2_wp, 4.85639267214320E-2_wp,-3.59203277893926E-1_wp, &
+      &-1.93841260011383E-1_wp,-3.86495230324447E-1_wp, 3.10104147485353E-1_wp, &
+      & 8.34907519580185E-2_wp,-3.62672063405622E-1_wp, 3.64143595819311E-1_wp, &
+      & 3.34640678947868E-1_wp,-4.69881543486815E-1_wp,-1.89222615863620E-1_wp, &
+      & 4.53784257040286E-1_wp]
+   real(wp), parameter :: feps = 80.0_wp
+
+   call get_structure(mol, "MB16-43", "07")
+   input = alpb_input(feps, kernel=born_kernel%still, alpb=.true.)
+   call test_s(error, mol, input, qat)
+
+end subroutine test_s_still
+
+subroutine test_s_gbsa(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-1.57321098180703E-1_wp, 1.65233008998668E-1_wp, 3.22320267782066E-1_wp, &
+      & 3.63564544135336E-2_wp, 4.85639267214320E-2_wp,-3.59203277893926E-1_wp, &
+      &-1.93841260011383E-1_wp,-3.86495230324447E-1_wp, 3.10104147485353E-1_wp, &
+      & 8.34907519580185E-2_wp,-3.62672063405622E-1_wp, 3.64143595819311E-1_wp, &
+      & 3.34640678947868E-1_wp,-4.69881543486815E-1_wp,-1.89222615863620E-1_wp, &
+      & 4.53784257040286E-1_wp]
+
+   call get_structure(mol, "MB16-43", "07")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%still, alpb=.false.)
+   call test_s(error, mol, input, qat, method="gfn2")
+
+end subroutine test_s_gbsa
+
+subroutine test_s_alpb_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%p16, alpb=.true.)
+   call test_s(error, mol, input, qat, method="gfn1")
+
+end subroutine test_s_alpb_gfn1
+
+subroutine test_s_gbsa_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      &-1.57321098180703E-1_wp, 1.65233008998668E-1_wp, 3.22320267782066E-1_wp, &
+      & 3.63564544135336E-2_wp, 4.85639267214320E-2_wp,-3.59203277893926E-1_wp, &
+      &-1.93841260011383E-1_wp,-3.86495230324447E-1_wp, 3.10104147485353E-1_wp, &
+      & 8.34907519580185E-2_wp,-3.62672063405622E-1_wp, 3.64143595819311E-1_wp, &
+      & 3.34640678947868E-1_wp,-4.69881543486815E-1_wp,-1.89222615863620E-1_wp, &
+      & 4.53784257040286E-1_wp]
+
+   call get_structure(mol, "MB16-43", "07")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%still, alpb=.false.)
+   call test_s(error, mol, input, qat, method="gfn1")
+
+end subroutine test_s_gbsa_gfn1
 
 
 subroutine test_p_p16(error)
@@ -1190,6 +1531,24 @@ subroutine test_unsupported_solvent(error)
    call get_alpb_param(input, mol, "gfn1", error)
 
 end subroutine test_unsupported_solvent
+
+
+subroutine test_unsupported_periodic(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvation_input) :: input
+   class(solvation_type), allocatable :: solv
+
+   call get_structure(mol, "X23", "urea")
+
+   ! Check solvation model is rejected for periodic systems
+   input%alpb = alpb_input(80.0_wp)
+   call new_solvation(solv, mol, input, error)
+
+end subroutine test_unsupported_periodic
 
 
 end module test_solvation_born

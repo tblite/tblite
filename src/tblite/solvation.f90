@@ -65,6 +65,11 @@ subroutine new_solvation(solv, mol, input, error, method)
    type(alpb_input), allocatable :: scratch_input
    type(ddx_solvation), allocatable :: ddx_solv
 
+   if (any(mol%periodic)) then
+      call fatal_error(error, "Solvation models are only available for molecular systems")
+      return
+   end if
+
    if (allocated(input%alpb)) then
       scratch_input = input%alpb
       ! ALPB/GBSA with empirical parameters
@@ -108,6 +113,11 @@ subroutine new_solvation_cds(solv, mol, input, error, method)
    character(len=*), optional, intent(in) :: method
    !> scratch input
    type(cds_input), allocatable :: scratch_input
+
+   if (any(mol%periodic)) then
+      call fatal_error(error, "Solvation models are only available for molecular systems")
+      return
+   end if
 
    if (allocated(input%cds) .and. &
       & allocated(input%cds%solvent) .and. present(method)) then
