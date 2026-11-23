@@ -352,9 +352,11 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    type(alpb_cache), pointer :: ptr
    real(wp) :: energy
+   real(wp), allocatable :: gsolv(:, :)
 
    energy = 0.0_wp
    call view(cache, ptr)
+   allocate(gsolv(3, mol%nat), source=0.0_wp)
 
    if(self%useCM5)then
       ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
@@ -365,10 +367,10 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    select case(self%kernel)
    case(born_kernel%p16)
       call add_born_deriv_p16(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gsolv, self%partition)
    case(born_kernel%still)
       call add_born_deriv_still(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
+         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gsolv, self%partition)
    case default
       continue
    end select
@@ -376,13 +378,18 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    ! the determinant of the inertia tensor couples all atoms
    if (self%alpbet > 0.0_wp .and. owns_index(self%partition, 1)) then
       call get_adet_deriv(mol%nat, mol%xyz, self%gbobc%vdwr, self%kEps*self%alpbet, &
-         & ptr%qscratch(:), gradient)
+         & ptr%qscratch(:), gsolv)
    end if
 
    if(self%useCM5)then
       call gemv(ptr%jmat, ptr%qscratch, ptr%scratch)
-      call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+      call gemv(ptr%dcm5dr, ptr%scratch, gsolv, beta=1.0_wp)
    end if
+
+   ! all terms depend only on relative positions, so the strain derivative
+   ! is the sum over atoms of position times gradient
+   gradient(:, :) = gradient + gsolv
+   sigma(:, :) = sigma + matmul(gsolv, transpose(mol%xyz))
 
 end subroutine get_gradient
 

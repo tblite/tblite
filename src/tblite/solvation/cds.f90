@@ -278,18 +278,23 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
    real(wp), contiguous, intent(inout), optional :: sigma(:, :)
 
    type(cds_cache), pointer :: ptr
+   real(wp), allocatable :: gsolv(:, :)
 
    call view(cache, ptr)
 
    energies(:) = energies + ptr%surface * ptr%tension
 
    if (present(gradient)) then
+      allocate(gsolv(3, mol%nat), source=0.0_wp)
       if (allocated(ptr%dsdr)) then
-        call gemv(ptr%dsdr, ptr%tension, gradient, beta=1.0_wp)
+        call gemv(ptr%dsdr, ptr%tension, gsolv, beta=1.0_wp)
       end if
       if (allocated(ptr%dtdr)) then
-        call gemv(ptr%dtdr, ptr%surface, gradient, beta=1.0_wp)
+        call gemv(ptr%dtdr, ptr%surface, gsolv, beta=1.0_wp)
       end if
+      gradient(:, :) = gradient + gsolv
+      ! surface and tension depend only on relative positions
+      if (present(sigma)) sigma(:, :) = sigma + matmul(gsolv, transpose(mol%xyz))
    end if
 end subroutine get_engrad
 
@@ -368,10 +373,12 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    real(wp), contiguous, intent(inout) :: sigma(:, :)
 
    type(cds_cache), pointer :: ptr
+   real(wp), allocatable :: gsolv(:, :)
 
    call view(cache, ptr)
 
    if (allocated(self%hbond)) then
+      allocate(gsolv(3, mol%nat), source=0.0_wp)
       if(self%useCM5)then
          ptr%qscratch(:) = wfn%qat(:, 1) + ptr%cm5(:)
       else
@@ -379,12 +386,15 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
       end if
       ptr%scratch(:) = ptr%hbond * ptr%qscratch(:)**2
       if (allocated(ptr%dsdr)) then
-        call gemv(ptr%dsdr, ptr%scratch, gradient, beta=1.0_wp)
+        call gemv(ptr%dsdr, ptr%scratch, gsolv, beta=1.0_wp)
       end if
       if(self%useCM5)then
         ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)
-        call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+        call gemv(ptr%dcm5dr, ptr%scratch, gsolv, beta=1.0_wp)
       end if
+      gradient(:, :) = gradient + gsolv
+      ! surface and CM5 charges depend only on relative positions
+      sigma(:, :) = sigma + matmul(gsolv, transpose(mol%xyz))
    end if
 end subroutine get_gradient
 

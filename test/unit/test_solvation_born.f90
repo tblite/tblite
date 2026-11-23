@@ -66,6 +66,7 @@ subroutine collect_solvation_born(testsuite)
       new_unittest("energy-charged-gbsa-gfn2", test_e_charged_gbsa_gfn2), &
       new_unittest("gradient-p16", test_g_p16), &
       new_unittest("gradient-alpb", test_g_alpb), &
+      new_unittest("gradient-alpb-gfn1", test_g_alpb_gfn1), &
       new_unittest("gradient-still", test_g_still), &
       new_unittest("gradient-gbsa", test_g_gbsa), &
       new_unittest("potential-p16", test_p_p16), &
@@ -343,7 +344,10 @@ subroutine test_g(error, mol, input, qat, method)
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   integer :: ii, ic
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   real(wp), allocatable :: xyz(:, :)
+   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
+   integer :: ii, ic, jc
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -380,8 +384,34 @@ subroutine test_g(error, mol, input, qat, method)
       end do
    end do
 
+   allocate(xyz(3, mol%nat))
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -395,6 +425,10 @@ subroutine test_g(error, mol, input, qat, method)
       print "(3es20.13)", numg
       print "(a)", "---"
       print "(3es20.13)", gradient - numg
+   end if
+   if (any(abs(sigma - numsigma) > thr2)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma - numsigma
    end if
 end subroutine test_g
 
@@ -963,6 +997,31 @@ subroutine test_g_alpb(error)
    call test_g(error, mol, input, qat, method="gfn2")
 
 end subroutine test_g_alpb
+
+
+subroutine test_g_alpb_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(alpb_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = alpb_input(solvent%eps, solvent=solvent%solvent, &
+      & kernel=born_kernel%p16, alpb=.true.)
+   call test_g(error, mol, input, qat, method="gfn1")
+
+end subroutine test_g_alpb_gfn1
 
 
 subroutine test_g_still(error)

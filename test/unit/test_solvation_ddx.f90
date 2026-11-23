@@ -152,7 +152,10 @@ subroutine test_g(error, model, mol, qat)
    real(wp), parameter :: thr = sqrt(epsilon(1.0_wp))
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   integer :: ii, ic
+   real(wp) :: trans(3, 3), numsigma(3, 3)
+   real(wp), allocatable :: xyz(:, :)
+   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
+   integer :: ii, ic, jc
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -180,8 +183,34 @@ subroutine test_g(error, model, mol, qat)
       end do
    end do
 
+   allocate(xyz(3, mol%nat))
+   trans(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         trans(jc, ic) = trans(jc, ic) + step
+         mol%xyz(:, :) = matmul(trans, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         trans(jc, ic) = trans(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(trans, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         trans(jc, ic) = trans(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -195,6 +224,10 @@ subroutine test_g(error, model, mol, qat)
       print "(3es20.13)", numg
       print "(a)", "---"
       print "(3es20.13)", gradient - numg
+   end if
+   if (any(abs(sigma - numsigma) > thr)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma - numsigma
    end if
 end subroutine test_g
 

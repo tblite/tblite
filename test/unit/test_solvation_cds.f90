@@ -160,7 +160,10 @@ subroutine test_g(error, mol, input, qat, method)
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
    real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
-   integer :: ii, ic
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   real(wp), allocatable :: xyz(:, :)
+   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
+   integer :: ii, ic, jc
 
    wfn%qat = reshape(qat, [size(qat), 1])
    allocate(pot%vat(size(qat, 1), 1))
@@ -197,8 +200,34 @@ subroutine test_g(error, mol, input, qat, method)
       end do
    end do
 
+   allocate(xyz(3, mol%nat))
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -212,6 +241,10 @@ subroutine test_g(error, mol, input, qat, method)
       print "(3es20.13)", numg
       print "(a)", "---"
       print "(3es20.13)", gradient - numg
+   end if
+   if (any(abs(sigma - numsigma) > thr2)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma - numsigma
    end if
 end subroutine test_g
 
@@ -235,8 +268,11 @@ subroutine test_g_nonscf(error, mol, input, method)
    type(container_cache) :: cache
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
-   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
-   integer :: ii, ic
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   real(wp), allocatable :: xyz(:, :)
+   real(wp), parameter :: unity(3, 3) = reshape([1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
+   integer :: ii, ic, jc
 
    scratch_input = input
 
@@ -268,11 +304,35 @@ subroutine test_g_nonscf(error, mol, input, method)
       end do
    end do
 
+   allocate(xyz(3, mol%nat))
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_engrad(mol, cache, er)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_engrad(mol, cache, el)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
-   call solv%get_engrad(mol, cache, energy, gradient)
+   call solv%get_engrad(mol, cache, energy, gradient, sigma)
 
    if (any(abs(gradient - numg) > thr2)) then
       call test_failed(error, "Gradient does not match")
@@ -281,6 +341,10 @@ subroutine test_g_nonscf(error, mol, input, method)
       print "(3es20.13)", numg
       print "(a)", "---"
       print "(3es20.13)", gradient - numg
+   end if
+   if (any(abs(sigma - numsigma) > thr2)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma - numsigma
    end if
 end subroutine test_g_nonscf
 

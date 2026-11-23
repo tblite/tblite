@@ -555,6 +555,9 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    ! Add the gradient of the solvation energy to the total gradient
    gradient =  gradient + force
+
+   ! the cavity moves with the atoms, so the energy depends only on relative positions
+   sigma(:, :) = sigma + matmul(force, transpose(mol%xyz))
 #endif
 
 end subroutine get_gradient
