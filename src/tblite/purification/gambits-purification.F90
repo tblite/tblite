@@ -17,17 +17,16 @@
 !> @file tblite/purification/gambits-purification.f90
 !> Wrapper for the Gambits purification library
 module tblite_purification_solver
-    use mctc_env, only : sp, dp, error_type, wp, fatal_error
-    use tblite_scf_solver, only : solver_type
+    use, intrinsic :: iso_c_binding, only : c_associated, c_double, c_int, c_null_ptr, c_ptr, c_size_t
+    use mctc_env, only : error_type, wp, fatal_error
     use tblite_cusolver_sygvd, only : new_sygvd_gpu, sygvd_cusolver
     use tblite_lapack_sygvd, only : new_sygvd, sygvd_solver
-    use tblite_timer, only : timer_type, format_time
+    use tblite_scf_solver, only : solver_type
     use tblite_wavefunction_type, only : wavefunction_type
 #if TBLITE_HAS_GAMBITS
     use gambits, only : gambits_context_type
 #endif
     use tblite_features, only : tblite_has_cuda
-    use iso_c_binding
     implicit none
     private
 
@@ -46,7 +45,7 @@ module tblite_purification_solver
         integer(c_size_t) :: mcweeney = 3
         !> TRS4 purification
         integer(c_size_t) :: trs4 = 4
-    end type
+    end type enum_purification_type
 
     type enum_precision
         !> mixed precision
@@ -57,7 +56,7 @@ module tblite_purification_solver
         integer(c_size_t) :: single = 2
         !> mixed precision with Ozaki-type FP16 splits
         integer(c_size_t) :: mixed_fp16 = 3
-    end type
+    end type enum_precision
 
     type enum_runmode
         !> default switching CPU and GPU
@@ -66,20 +65,20 @@ module tblite_purification_solver
         integer(c_size_t) :: cpu = 1
         !> all GPU
         integer(c_size_t) :: gpu = 2
-    end type
-    
+    end type enum_runmode
+
    type(enum_precision), parameter :: purification_precision = enum_precision()
    type(enum_purification_type), parameter :: purification_type = enum_purification_type()
    type(enum_runmode), parameter :: purification_runmode = enum_runmode()
 
    type, public :: dmp_input
       !> Type/Algorithm of purification
-      integer(c_size_t) :: type = purification_type%tc2 
+      integer(c_size_t) :: type = purification_type%tc2
       !> Numerical precision of the DMP solver
       integer(c_size_t) :: precision = purification_precision%mixed
       !> Run mode of the solver, default is to switch to GPU for ndim > 750
       integer(c_size_t) :: runmode = purification_runmode%default
-   end type
+   end type dmp_input
 
    type, public, extends(solver_type) :: purification_solver
       type(dmp_input) :: input
@@ -103,56 +102,59 @@ module tblite_purification_solver
       procedure :: delete
       procedure :: reset
       final :: finalize
-   end type
+   end type purification_solver
 
    interface
       type(c_ptr) function SetupPurification(ctx, nmo, type, run, prec) bind(C, name="SetupPurification")
-         use iso_c_binding
+         import :: c_int, c_ptr, c_size_t
          type(c_ptr), value :: ctx
          integer(c_size_t), value, intent(in) :: nmo
          integer(c_int), value, intent(in) :: type, run, prec
-      end function
+      end function SetupPurification
       subroutine SetTransformationMatrix(ctx, ptr, X) bind(C, name="SetTransformationMatrix")
-         use iso_c_binding
+         import :: c_double, c_ptr
          type(c_ptr), value :: ctx
          type(c_ptr), value :: ptr
-         real(c_double),  intent(in) :: X(*)
-      end subroutine
+         ! allow(C071): GAMBITS gets the matrix size from the solver handle.
+         real(c_double), intent(in) :: X(*)
+      end subroutine SetTransformationMatrix
       subroutine GetDensityAO(ctx, ptr, Fock, Dens, elnum) bind(C, name="GetDensityAO")
-         use iso_c_binding
+         import :: c_double, c_ptr
          type(c_ptr), value :: ctx
          type(c_ptr), value :: ptr
-         real(c_double) :: Fock(*)
-         real(c_double) :: Dens(*)
+         ! allow(C071): GAMBITS gets the matrix size from the solver handle.
+         real(c_double), intent(in) :: Fock(*)
+         ! allow(C071): The C caller interface uses a raw output buffer.
+         real(c_double), intent(out) :: Dens(*)
          real(c_double), value :: elnum
-      end subroutine
+      end subroutine GetDensityAO
       subroutine DeletePurification(ptr) bind(C, name="DeletePurification")
-         use iso_c_binding
+         import :: c_ptr
          type(c_ptr), value :: ptr
-      end subroutine
+      end subroutine DeletePurification
       subroutine ResetLib(ptr) bind(C, name="Reset")
-         use iso_c_binding
+         import :: c_ptr
          type(c_ptr), value :: ptr
-      end subroutine
+      end subroutine ResetLib
    end interface
 
    contains
 
 subroutine reset(self)
-   class(purification_solver) :: self
+   class(purification_solver), intent(inout) :: self
    self%transform = .false.
    self%purification_success = .true.
 #if TBLITE_HAS_GAMBITS
    call ResetLib(self%solver_ptr)
 #endif
-end subroutine
-   
+end subroutine reset
+
 
 function got_transform(self) result(trans)
-   class(purification_solver) :: self
+   class(purification_solver), intent(in) :: self
    logical :: trans
-   trans = self%transform;
-end function
+   trans = self%transform
+end function got_transform
 
 subroutine new_purification(self, overlap, nel, kt, dmp_inp)
    type(purification_solver), intent(inout) :: self
@@ -196,7 +198,7 @@ subroutine new_purification(self, overlap, nel, kt, dmp_inp)
          & int(dmp_inp%type,c_int), runmode, int(dmp_inp%precision,c_int))
    end if
 #endif
-end subroutine
+end subroutine new_purification
 
 subroutine get_density(self, hmat, smat, eval, focc, density, error)
    class(purification_solver), intent(inout) :: self
@@ -252,14 +254,17 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
             density = density + tmp
          else
             call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat, density(:, :, 1), nel/2)
-            density = 2 * density 
+            density = 2 * density
          end if
       case(2)
          do spin = 1, nspin
             nel = self%nel(spin)
             call GetDensityAO(self%ctx%ptr, self%solver_ptr, hmat(:, :, spin), density(:, :, spin), nel)
          end do
-      end select   
+      case default
+         call fatal_error(error, "Density matrix purification requires one or two spin channels")
+         return
+      end select
    end if
 
    if (self%ctx%failed()) then
@@ -272,7 +277,7 @@ subroutine get_density(self, hmat, smat, eval, focc, density, error)
 #else
    call fatal_error(error, "Density matrix purification requires a build with GAMBITS")
 #endif
-end subroutine
+end subroutine get_density
 
 !> Recover eigenvectors and occupations once from the final SCF Hamiltonian.
 subroutine finish_wavefunction(self, wfn, smat, error)
@@ -299,12 +304,12 @@ subroutine delete(self)
    end if
 #endif
    if (allocated(self%lapack_solv)) deallocate(self%lapack_solv)
-end subroutine
+end subroutine delete
 
 subroutine finalize(self)
    type(purification_solver), intent(inout) :: self
    call self%delete()
-end subroutine
+end subroutine finalize
 
 subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
    class(purification_solver), intent(inout) :: self
@@ -322,7 +327,7 @@ subroutine get_wdensity(self, hmat, smat, eval, focc, density, error)
    type(error_type), allocatable, intent(out) :: error
 
    call self%lapack_solv%get_wdensity(hmat, smat, eval, focc, density, error)
-end subroutine
+end subroutine get_wdensity
 
 
-end module
+end module tblite_purification_solver

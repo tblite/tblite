@@ -988,6 +988,7 @@ def test_spin_polarized_restart():
     # Ideally 1 or 2 if restart is perfect
     assert iterations <= 3, f"Restart took {iterations} iterations, expected <= 3"
 
+
 @pytest.mark.parametrize("solver", ["sp2", "sp2-accel", "trs4"])
 @pytest.mark.skipif(not library.get_feature("gambits"), reason="requires GAMBITS")
 def test_context_solver_api(solver):

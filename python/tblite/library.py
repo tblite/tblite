@@ -123,9 +123,10 @@ def context_check(func):
 
     return handle_context_error
 
-def set_context_solver(ctx, calc, solver : str):
+
+def set_context_solver(ctx, calc, solver: str):
     """Set the solver for the context"""
-    #solver enumerator
+    # solver enumerator
     solver_dict = {
         "gvd": 1,
         "gvr": 2,
@@ -133,16 +134,15 @@ def set_context_solver(ctx, calc, solver : str):
         "sp2": 12,
         "tc2": 12,
         "sp2-accel": 22,
-        "trs4" : 14
+        "trs4": 14,
     }
     try:
         _solver = solver_dict[solver]
     except KeyError:
-        raise TBLiteValueError(
-            f"Unknown solver {solver}."
-        )
-    
+        raise TBLiteValueError(f"Unknown solver {solver}.")
+
     context_check(lib.tblite_set_context_solver)(ctx, _solver)
+
 
 def _delete_context(context) -> None:
     """Delete a tblite context handler object"""

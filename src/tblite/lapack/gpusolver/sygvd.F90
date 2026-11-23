@@ -19,10 +19,10 @@
 
 !> Wrapper to symmetric divide-and-conquer solver for general eigenvalue problems cuSOLVER implementation
 module tblite_cusolver_sygvd
+   use, intrinsic :: iso_c_binding, only : c_associated, c_double, c_int, c_null_ptr, c_ptr
    use mctc_env, only : sp, dp, error_type, fatal_error, wp
    use tblite_output_format, only : format_string
    use tblite_scf_diag, only : diag_solver_type
-   use iso_c_binding
    implicit none
    private
 
@@ -31,23 +31,23 @@ module tblite_cusolver_sygvd
 #ifdef USE_CUDA
    interface
       integer(c_int) function cuda_sygvd(ptr, n, single, hmat, smat, eval) bind(C, name="tblite_cuda_sygvd")
-         use iso_c_binding
+         import :: c_int, c_ptr
          type(c_ptr), intent(inout) :: ptr
          integer(c_int), value :: n, single
-         type(*) :: hmat(*), eval(*)
+         type(*), intent(inout) :: hmat(*), eval(*)
          type(*), intent(in) :: smat(*)
-      end function
+      end function cuda_sygvd
       integer(c_int) function cuda_density(ptr, coeff, focc, density) bind(C, name="tblite_cuda_density")
-         use iso_c_binding
+         import :: c_double, c_int, c_ptr
          type(c_ptr), value :: ptr
          real(c_double), intent(in) :: coeff(*), focc(*)
          real(c_double), intent(out) :: density(*)
-      end function
+      end function cuda_density
       subroutine delete_cusolver_ptr(ptr) bind(C, name="tblite_cuda_delete")
-         use iso_c_binding
+         import :: c_ptr
          type(c_ptr), value :: ptr
-      end subroutine
-   end interface 
+      end subroutine delete_cusolver_ptr
+   end interface
 
 
 #endif
@@ -64,7 +64,7 @@ module tblite_cusolver_sygvd
 #endif
       procedure :: delete
       final :: finalize
-   end type
+   end type sygvd_cusolver
 
 contains
 
@@ -74,7 +74,7 @@ subroutine new_sygvd_gpu(self, overlap, nel, kt)
 
    self%nel = nel
    self%kt = kt
-end subroutine
+end subroutine new_sygvd_gpu
 
 subroutine solve_sp(self, hmat, smat, eval, error)
    class(sygvd_cusolver), intent(inout) :: self
@@ -85,11 +85,11 @@ subroutine solve_sp(self, hmat, smat, eval, error)
    integer(c_int) :: info
 
    info = cuda_sygvd(self%single_solver, size(hmat, 1, kind=c_int), 1_c_int, hmat, smat, eval)
-   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, '(i0)'))
+   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, "(i0)"))
 #else
    call fatal_error(error, "This tblite build does not support GPU acceleration.")
 #endif
-end subroutine
+end subroutine solve_sp
 
 subroutine solve_dp(self, hmat, smat, eval, error)
    class(sygvd_cusolver), intent(inout) :: self
@@ -100,11 +100,11 @@ subroutine solve_dp(self, hmat, smat, eval, error)
    integer(c_int) :: info
 
    info = cuda_sygvd(self%double_solver, size(hmat, 1, kind=c_int), 0_c_int, hmat, smat, eval)
-   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, '(i0)'))
+   if (info /= 0) call fatal_error(error, "cuSOLVER generalized diagonalization failed, info="//format_string(info, "(i0)"))
 #else
    call fatal_error(error, "This tblite build does not support GPU acceleration.")
 #endif
-end subroutine
+end subroutine solve_dp
 
 #ifdef USE_CUDA
 subroutine get_density_matrix(self, focc, coeff, pmat, error)
@@ -116,8 +116,8 @@ subroutine get_density_matrix(self, focc, coeff, pmat, error)
    integer(c_int) :: info
 
    info = cuda_density(self%double_solver, coeff, focc, pmat)
-   if (info /= 0) call fatal_error(error, "GPU density construction failed, info="//format_string(info, '(i0)'))
-end subroutine
+   if (info /= 0) call fatal_error(error, "GPU density construction failed, info="//format_string(info, "(i0)"))
+end subroutine get_density_matrix
 #endif
 
 subroutine delete(self)
@@ -128,11 +128,11 @@ subroutine delete(self)
 #endif
    self%double_solver = c_null_ptr
    self%single_solver = c_null_ptr
-end subroutine
+end subroutine delete
 
 subroutine finalize(self)
    type(sygvd_cusolver), intent(inout) :: self
    call self%delete()
-end subroutine
+end subroutine finalize
 
 end module tblite_cusolver_sygvd

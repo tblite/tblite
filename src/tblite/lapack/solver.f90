@@ -20,8 +20,8 @@
 !> LAPACK based eigenvalue solvers
 module tblite_lapack_solver
    use mctc_env, only : wp
-   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_context_solver, only : context_solver
+   use tblite_cusolver_sygvd, only : sygvd_cusolver, new_sygvd_gpu
    use tblite_lapack_scalapack, only : psygvd_solver, new_psygvd, &
       & distribute_diagonalization
    use tblite_lapack_sygvd, only : sygvd_solver, new_sygvd

@@ -13,7 +13,7 @@ contains
 subroutine collect_gpu_solver(testsuite)
    type(unittest_type), allocatable, intent(out) :: testsuite(:)
    testsuite = [new_unittest("generalized-eigensystem", test_sygvd)]
-end subroutine
+end subroutine collect_gpu_solver
 
 subroutine test_sygvd(error)
    type(error_type), allocatable, intent(out) :: error
@@ -35,25 +35,25 @@ subroutine test_sygvd(error)
       call move_alloc(solver_error, error)
       return
    end if
-   call check(error, maxval(abs(matmul(h, coeff) - matmul(s, coeff)*spread(eval, 1, 2))) < 1.e-12_dp)
+   call check(error, maxval(abs(matmul(h, coeff) - matmul(s, coeff)*spread(eval, 1, 2))) < 1.0e-12_dp)
    if (allocated(error)) return
    ! A different host coefficient matrix catches reuse of a previous spin channel.
    coeff(:, 1) = [0.4_dp, 0.6_dp]
    expected = matmul(coeff*spread(weight, 1, 2), transpose(coeff))
    call solver%get_density_matrix(weight, coeff, density, error)
    if (allocated(error)) return
-   call check(error, maxval(abs(density - expected)) < 1.e-12_dp)
+   call check(error, maxval(abs(density - expected)) < 1.0e-12_dp)
    if (allocated(error)) return
 
    cs = real(h, sp)
    call solver%solve(cs, real(s, sp), es, error)
    if (allocated(error)) return
-   call check(error, maxval(abs(real(es,dp) - eval)) < 2.e-6_dp)
+   call check(error, maxval(abs(real(es,dp) - eval)) < 2.0e-6_dp)
    if (allocated(error)) return
 
    s(1,1) = -1.0_dp
    coeff = h
    call solver%solve(coeff, s, eval, solver_error)
    call check(error, allocated(solver_error), "Expected a non-positive-definite overlap error")
-end subroutine
+end subroutine test_sygvd
 end module test_gpu_solver

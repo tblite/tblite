@@ -1,10 +1,9 @@
 module tblite_purification_solver_context
-   use mctc_env, only : sp, dp, error_type, fatal_error, wp
+    use mctc_env, only : wp
     use tblite_context_solver, only: context_solver
-    use tblite_scf_solver, only: solver_type
     use tblite_purification_solver, only: purification_solver, new_purification
     use tblite_purification_solver, only: dmp_input, purification_precision, purification_type, purification_runmode
-    use iso_c_binding
+    use tblite_scf_solver, only: solver_type
     implicit none
     private
 
@@ -33,7 +32,7 @@ type(purification_solver_context) function new_purification_solver_context(dmp_i
 
    new_purification_solver_context%dmp_input = dmp_inp
    if (present(reuse)) new_purification_solver_context%reuse = reuse
-end function
+end function new_purification_solver_context
 
 subroutine new(self, solver, overlap, nel, kt, comm)
    class(purification_solver_context), intent(inout) :: self
@@ -56,7 +55,7 @@ subroutine new(self, solver, overlap, nel, kt, comm)
    type is (purification_solver)
       call new_purification(solver, overlap, nel, kt, self%dmp_input)
    end select
-end subroutine
+end subroutine new
 
 subroutine delete(self, solver)
    class(purification_solver_context), intent(inout) :: self
@@ -67,6 +66,6 @@ subroutine delete(self, solver)
    else if (allocated(solver)) then
       deallocate(solver)
    end if
-end subroutine
+end subroutine delete
 
 end module tblite_purification_solver_context

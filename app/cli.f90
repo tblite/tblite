@@ -24,12 +24,12 @@ module tblite_cli
    use tblite_cli_help, only : prog_name, help_text, help_text_run, help_text_param, &
       & help_text_fit, help_text_tagdiff, help_text_guess
    use tblite_lapack_solver, only : lapack_algorithm
+   use tblite_purification_solver_context, only : dmp_input, purification_type, &
+      & purification_runmode, purification_precision
    use tblite_scf_mixer_input, only : mixer_input, anneal_input, scf_version
    use tblite_solvation, only: alpb_input, born_kernel, cds_input, ddx_input, &
       & ddx_solvation_model, get_solvent_data, shift_input, solution_state, &
       & solvation_input, solvent_data
-   use tblite_purification_solver_context, only : dmp_input, purification_type, &
-      & purification_runmode, purification_precision
    use tblite_version, only : get_tblite_version
    use tblite_xtb_calculator, only : xtb_config
    implicit none

@@ -37,6 +37,7 @@ module tblite_driver_run
       & ascii_quadrupole_moments, tagged_result, json_results
    use tblite_param, only : param_record
    use tblite_post_processing_list, only : add_post_processing, post_processing_list
+   use tblite_purification_solver_context, only : purification_solver_context
    use tblite_results, only : results_type
    use tblite_scf_mixer_input, only : anneal_input
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
@@ -49,7 +50,6 @@ module tblite_driver_run
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_ipea1, only : new_ipea1_calculator, export_ipea1_param
    use tblite_xtb_singlepoint, only : xtb_singlepoint
-   use tblite_purification_solver_context, only : purification_solver_context
 
    implicit none
    private

@@ -26,9 +26,9 @@ module tblite_api_context
    use tblite_api_utils, only : f_c_character
    use tblite_api_version, only : namespace
    use tblite_context, only : context_type, context_logger, context_terminal
+   use tblite_features, only : tblite_has_gambits, tblite_has_cuda
    use tblite_lapack_solver, only : lapack_solver
    use tblite_purification_solver_context, only : purification_solver_context, dmp_input
-   use tblite_features, only : tblite_has_gambits, tblite_has_cuda
    implicit none
    private
 
@@ -204,7 +204,7 @@ subroutine set_context_solver_api(vctx, solver) &
             call ctx%ptr%set_error(error)
             return
          end if
-         dmp_inp%type = solver - 10 
+         dmp_inp%type = solver - 10
          ctx%ptr%solver = purification_solver_context(dmp_inp)
       case default
          allocate(error)
@@ -212,7 +212,7 @@ subroutine set_context_solver_api(vctx, solver) &
          call ctx%ptr%set_error(error)
          return
       end select
-   
+
    end if
    end subroutine set_context_solver_api
 
