@@ -103,6 +103,8 @@ module tblite_solvation_cds
       real(wp), allocatable :: surface(:)
       !> Derivative of the solvent accessible surface area w.r.t. cartesian displacements
       real(wp), allocatable :: dsdr(:, :, :)
+      !> Derivative of the solvent accessible surface area w.r.t. strain deformations
+      real(wp), allocatable :: dsdL(:, :, :)
       !> Scratch array to store potential shift
       real(wp), allocatable :: scratch(:)
       !> Hydrogen bonding correction
@@ -113,6 +115,8 @@ module tblite_solvation_cds
       real(wp), allocatable :: cm5(:)
       !> CM5 charge derivatives
       real(wp), allocatable :: dcm5dr(:,:,:)
+      !> CM5 charge strain derivatives
+      real(wp), allocatable :: dcm5dL(:,:,:)
    end type cds_cache
 
    !> Identifier for container
@@ -237,6 +241,9 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%dsdr)) then
       allocate(ptr%dsdr(3, mol%nat, mol%nat))
    end if
+   if (.not.allocated(ptr%dsdL)) then
+      allocate(ptr%dsdL(3, 3, mol%nat))
+   end if
    if (.not.allocated(ptr%scratch)) then
       allocate(ptr%scratch(mol%nat))
    end if
@@ -250,10 +257,13 @@ subroutine update(self, mol, cache)
       if (.not.allocated(ptr%dcm5dr))then
          allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
       end if
-      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
+      if (.not.allocated(ptr%dcm5dL))then
+         allocate(ptr%dcm5dL(3, 3, mol%nat))
+      end if
+      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr, ptr%dcm5dL)
    end if
 
-   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr, self%partition)
+   call self%sasa%get_surface(mol, ptr%surface, ptr%dsdr, ptr%dsdL, self%partition)
 
    ptr%tension = self%tension(mol%id)
    if (allocated(self%hbond)) then
@@ -283,9 +293,12 @@ subroutine get_engrad(self, mol, cache, energies, gradient, sigma)
 
    energies(:) = energies + ptr%surface * ptr%tension
 
-   if (present(gradient)) then
+   if (present(gradient) .and. present(sigma)) then
       if (allocated(ptr%dsdr)) then
         call gemv(ptr%dsdr, ptr%tension, gradient, beta=1.0_wp)
+      end if
+      if (allocated(ptr%dsdL)) then
+        call gemv(ptr%dsdL, ptr%tension, sigma, beta=1.0_wp)
       end if
       if (allocated(ptr%dtdr)) then
         call gemv(ptr%dtdr, ptr%surface, gradient, beta=1.0_wp)
@@ -381,9 +394,13 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
       if (allocated(ptr%dsdr)) then
         call gemv(ptr%dsdr, ptr%scratch, gradient, beta=1.0_wp)
       end if
+      if (allocated(ptr%dsdL)) then
+        call gemv(ptr%dsdL, ptr%scratch, sigma, beta=1.0_wp)
+      end if
       if(self%useCM5)then
         ptr%scratch(:) = 2*ptr%hbond * ptr%surface * ptr%qscratch(:)
         call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+        call gemv(ptr%dcm5dL, ptr%scratch, sigma, beta=1.0_wp)
       end if
    end if
 end subroutine get_gradient

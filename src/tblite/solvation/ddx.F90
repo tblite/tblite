@@ -35,7 +35,7 @@ module tblite_solvation_ddx
    use mctc_io, only: structure_type
    use mctc_io_constants, only: pi
 !$ use omp_lib, only: omp_get_max_threads
-   use tblite_blas, only: dot, gemv
+   use tblite_blas, only: dot, gemm, gemv
    use tblite_container_cache, only: container_cache
    use tblite_mesh_lebedev, only: grid_size
    use tblite_partition, only: owns_index
@@ -555,6 +555,10 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    ! Add the gradient of the solvation energy to the total gradient
    gradient =  gradient + force
+
+   ! ddX provides only atomic forces, the strain derivative of the molecular
+   ! system is obtained from forces times positions
+   call gemm(force, mol%xyz, sigma, transb="T", beta=1.0_wp)
 #endif
 
 end subroutine get_gradient

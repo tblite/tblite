@@ -24,7 +24,7 @@ module tblite_solvation_alpb
    use mctc_env, only : wp, error_type, fatal_error
    use mctc_io, only : structure_type
    use mctc_io_constants, only : pi
-   use mctc_io_math, only : matdet_3x3
+   use mctc_io_math, only : matdet_3x3, outerprod
    use tblite_blas, only : dot, gemv, symv
    use tblite_container_cache, only : container_cache
    use tblite_mesh_lebedev, only : grid_size, get_angular_grid, list_bisection
@@ -121,6 +121,8 @@ module tblite_solvation_alpb
       real(wp), allocatable :: rad(:)
       !> Derivatives of Born radii w.r.t. cartesian displacements
       real(wp), allocatable :: draddr(:, :, :)
+      !> Derivatives of Born radii w.r.t. strain deformations
+      real(wp), allocatable :: draddL(:, :, :)
       !> Scratch workspace for gradient construction
       real(wp), allocatable :: scratch(:)
       !> Workspace for atomic charges
@@ -129,6 +131,8 @@ module tblite_solvation_alpb
       real(wp), allocatable :: cm5(:)
       !> CM5 charge derivatives
       real(wp), allocatable :: dcm5dr(:,:,:)
+      !> CM5 charge strain derivatives
+      real(wp), allocatable :: dcm5dL(:,:,:)
    end type alpb_cache
 
 
@@ -246,6 +250,9 @@ subroutine update(self, mol, cache)
    if (.not.allocated(ptr%draddr)) then
       allocate(ptr%draddr(3, mol%nat, mol%nat))
    end if
+   if (.not.allocated(ptr%draddL)) then
+      allocate(ptr%draddL(3, 3, mol%nat))
+   end if
    if (.not.allocated(ptr%qscratch))then
       allocate(ptr%qscratch(mol%nat))
    end if
@@ -256,13 +263,16 @@ subroutine update(self, mol, cache)
       if (.not.allocated(ptr%dcm5dr))then
          allocate(ptr%dcm5dr(3, mol%nat, mol%nat))
       end if
-      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr)
+      if (.not.allocated(ptr%dcm5dL))then
+         allocate(ptr%dcm5dL(3, 3, mol%nat))
+      end if
+      call get_cm5_charges(mol, ptr%cm5, ptr%dcm5dr, ptr%dcm5dL)
    end if
    if (self%useCM5.and..not.allocated(ptr%scratch))then
       allocate(ptr%scratch(mol%nat))
    end if
 
-   call self%gbobc%get_rad(mol, ptr%rad, ptr%draddr)
+   call self%gbobc%get_rad(mol, ptr%rad, ptr%draddr, ptr%draddL)
    ptr%jmat(:, :) = 0.0_wp
    select case(self%kernel)
    case(born_kernel%p16)
@@ -364,11 +374,11 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
 
    select case(self%kernel)
    case(born_kernel%p16)
-      call add_born_deriv_p16(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
+      call add_born_deriv_p16(mol%nat, mol%xyz, ptr%qscratch(:), self%keps, &
+         & ptr%rad, ptr%draddr, ptr%draddL, energy, gradient, sigma, self%partition)
    case(born_kernel%still)
-      call add_born_deriv_still(mol%nat, mol%xyz, &
-         & ptr%qscratch(:), self%keps, ptr%rad, ptr%draddr, energy, gradient, self%partition)
+      call add_born_deriv_still(mol%nat, mol%xyz, ptr%qscratch(:), self%keps, &
+         & ptr%rad, ptr%draddr, ptr%draddL, energy, gradient, sigma, self%partition)
    case default
       continue
    end select
@@ -376,12 +386,13 @@ subroutine get_gradient(self, mol, cache, wfn, gradient, sigma)
    ! the determinant of the inertia tensor couples all atoms
    if (self%alpbet > 0.0_wp .and. owns_index(self%partition, 1)) then
       call get_adet_deriv(mol%nat, mol%xyz, self%gbobc%vdwr, self%kEps*self%alpbet, &
-         & ptr%qscratch(:), gradient)
+         & ptr%qscratch(:), gradient, sigma)
    end if
 
    if(self%useCM5)then
       call gemv(ptr%jmat, ptr%qscratch, ptr%scratch)
       call gemv(ptr%dcm5dr, ptr%scratch, gradient, beta=1.0_wp)
+      call gemv(ptr%dcm5dL, ptr%scratch, sigma, beta=1.0_wp)
    end if
 
 end subroutine get_gradient
@@ -502,7 +513,7 @@ end subroutine add_born_shift
 
 
 subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
-      & brad, brdr, energy, gradient, partition)
+      & brad, brdr, brdL, energy, gradient, sigma, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -515,10 +526,14 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
    real(wp), intent(in) :: brad(:)
    !> Derivative of Born radii w.r.t. cartesian coordinates
    real(wp), contiguous, intent(in) :: brdr(:, :, :)
+   !> Derivative of Born radii w.r.t. strain deformations
+   real(wp), contiguous, intent(in) :: brdL(:, :, :)
    !> Total Born solvation energy
    real(wp), intent(out) :: energy
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
+   !> Strain derivatives of Born solvation energy
+   real(wp), contiguous, intent(inout) :: sigma(:, :)
    !> Share of the atom pairs evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
@@ -562,8 +577,10 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
          ! (1 - ζ/(1 + Rζ/(16 ab))^17)/(R + ab/(1 + Rζ/(16 ab))¹⁶)²
          ap = (1.0_wp - zetaP16 * arg1 * arg16) * dfgb2
          dG(:) = ap * vec * keps / r1 * qq
+         dS(:, :) = outerprod(dG, vec)
          gradient(:, iat) = gradient(:, iat) - dG
          gradient(:, jat) = gradient(:, jat) + dG
+         sigma(:, :) = sigma - dS
 
          ! -(Rζ/(2·ab²·(1 + Rζ/(16·ab))¹⁷) + 1/(2·ab·(1 + Rζ/(16·ab))¹⁶))/(R + ab/(1 + Rζ/(16·ab))¹⁶)²
          bp = -0.5_wp*(r1 * zetaP16 / ab * arg1 + 1.0_wp) / ab * arg16 * dfgb2
@@ -581,11 +598,11 @@ subroutine add_born_deriv_p16(nat, xyz, qat, keps, &
       egb = egb + 0.5_wp*qat(iat)*qq*keps
       dEdbri = -0.5_wp*keps*qq*bp
       dEdbr(iat) = dEdbr(iat) + dEdbri*qat(iat)
-      !gradient = gradient + brdr(:, :, i) * dEdbri*qat(i)
    end do
 
    ! contract with the Born radii derivatives
    call gemv(brdr, dEdbr, gradient, beta=1.0_wp)
+   call gemv(brdL, dEdbr, sigma, beta=1.0_wp)
 
    energy = egb
 
@@ -639,7 +656,7 @@ end subroutine add_born_mat_still
 
 
 subroutine add_born_deriv_still(nat, xyz, qat, keps, &
-      & brad, brdr, energy, gradient, partition)
+      & brad, brdr, brdL, energy, gradient, sigma, partition)
    !> Number of atoms
    integer, intent(in) :: nat
    !> Cartesian coordinates
@@ -652,10 +669,14 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    real(wp), intent(in) :: brad(:)
    !> Derivative of Born radii w.r.t. cartesian coordinates
    real(wp), contiguous, intent(in) :: brdr(:, :, :)
+   !> Derivative of Born radii w.r.t. strain deformations
+   real(wp), contiguous, intent(in) :: brdL(:, :, :)
    !> Total Born solvation energy
    real(wp), intent(out) :: energy
    !> Deriatives of Born solvation energy
    real(wp), contiguous, intent(inout) :: gradient(:, :)
+   !> Strain derivatives of Born solvation energy
+   real(wp), contiguous, intent(inout) :: sigma(:, :)
    !> Share of the atom pairs evaluated here, absent selects the complete work
    type(work_partition), intent(in), optional :: partition
 
@@ -665,7 +686,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
    real(wp) :: aa, r2, fgb2
    real(wp) :: qq, dd, expd, dfgb, dfgb2, dfgb3, egb, ap, bp
    real(wp) :: grddbi, grddbj
-   real(wp) :: dr(3), r1, vec(3)
+   real(wp) :: dr(3), r1, vec(3), dS(3, 3)
    real(wp), allocatable :: grddb(:)
 
    allocate(grddb(nat), source = 0.0_wp )
@@ -697,8 +718,10 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
 
          ap = (1.0_wp-a4*expd)*dfgb3
          dr = ap*vec
+         dS = outerprod(dr, vec)
          gradient(:, i) = gradient(:, i) - dr*qq
          gradient(:, j) = gradient(:, j) + dr*qq
+         sigma(:, :) = sigma - dS*qq
 
          bp = -0.5_wp*expd*(1.0_wp+dd)*dfgb3
          grddbi = brad(j)*bp
@@ -719,6 +742,7 @@ subroutine add_born_deriv_still(nat, xyz, qat, keps, &
 
    ! contract with the Born radii derivatives
    call gemv(brdr, grddb, gradient, beta=1.0_wp)
+   call gemv(brdL, grddb, sigma, beta=1.0_wp)
 
    energy = egb
 
@@ -758,7 +782,7 @@ subroutine get_adet(nat, xyz, rad, aDet)
       vec(:) = xyz(:, iat) - center
       r2 = sum(vec**2)
       inertia(:, :) = inertia + rad3 * ((r2 + tof*rad2) * unity &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3))
+         & - outerprod(vec, vec))
    end do
 
    aDet = sqrt(matdet_3x3(inertia)**(1.0_wp/3.0_wp)/(tof*vol))
@@ -766,7 +790,7 @@ subroutine get_adet(nat, xyz, rad, aDet)
 end subroutine get_adet
 
 
-subroutine get_adet_deriv(nAtom, xyz, rad, kEps, qvec, gradient)
+subroutine get_adet_deriv(nAtom, xyz, rad, kEps, qvec, gradient, sigma)
    !> Number of atoms
    integer, intent(in) :: nAtom
    !> Cartesian coordinates
@@ -777,10 +801,12 @@ subroutine get_adet_deriv(nAtom, xyz, rad, kEps, qvec, gradient)
    real(wp), intent(in) :: qvec(:)
    !> Molecular gradient
    real(wp), intent(inout) :: gradient(:, :)
+   !> Strain derivatives
+   real(wp), intent(inout) :: sigma(:, :)
 
    integer :: iat
    real(wp) :: r2, rad2, rad3, vol, vec(3), center(3), inertia(3, 3), aDet
-   real(wp) :: aDeriv(3, 3), qtotal
+   real(wp) :: aDeriv(3, 3), qtotal, dG(3)
    real(wp), parameter :: tof = 2.0_wp/5.0_wp, unity(3, 3) = reshape(&
       & [1.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 1.0_wp], &
       & [3, 3])
@@ -804,7 +830,7 @@ subroutine get_adet_deriv(nAtom, xyz, rad, kEps, qvec, gradient)
       vec(:) = xyz(:, iat) - center
       r2 = sum(vec**2)
       inertia(:, :) = inertia + rad3 * ((r2 + tof*rad2) * unity &
-         & - spread(vec, 1, 3) * spread(vec, 2, 3))
+         & - outerprod(vec, vec))
    end do
    aDet = sqrt(matdet_3x3(inertia)**(1.0_wp/3.0_wp)/(tof*vol))
 
@@ -825,7 +851,10 @@ subroutine get_adet_deriv(nAtom, xyz, rad, kEps, qvec, gradient)
       rad2 = rad(iat) * rad(iat)
       rad3 = rad2 * rad(iat)
       vec(:) = xyz(:, iat) - center
-      gradient(:, iat) = gradient(:, iat) + rad3 * matmul(aderiv, vec)
+      dG(:) = rad3 * matmul(aderiv, vec)
+      gradient(:, iat) = gradient(:, iat) + dG
+      ! Center of the inertia tensor deforms with the structure
+      sigma(:, :) = sigma + outerprod(dG, vec)
    end do
 
 end subroutine get_adet_deriv

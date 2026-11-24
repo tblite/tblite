@@ -23,6 +23,7 @@ module test_solvation_cds
    use mstore, only : get_structure
    use tblite_container, only : container_cache
    use tblite_scf_potential, only : potential_type
+   use tblite_solvation, only : new_solvation_cds, solvation_input, solvation_type
    use tblite_solvation_cds, only : cds_solvation, cds_input
    use tblite_solvation_data, only : solvent_data, get_solvent_data, &
       & get_vdw_rad_cosmo, get_vdw_rad_bondi, get_vdw_rad_d3
@@ -69,9 +70,15 @@ subroutine collect_solvation_cds(testsuite)
       new_unittest("energy-charged-gbsa-gfn1", test_e_charged_gbsa_gfn1), &
       new_unittest("energy-charged-gbsa-gfn2", test_e_charged_gbsa_gfn2), &
       new_unittest("gradient-scf", test_g_cds), &
+      new_unittest("gradient-scf-gfn1", test_g_cds_gfn1), &
       new_unittest("gradient-nonscf", test_g_cds_nonscf), &
+      new_unittest("sigma-sasa", test_s_sasa), &
+      new_unittest("sigma-scf", test_s_cds), &
+      new_unittest("sigma-scf-gfn1", test_s_cds_gfn1), &
+      new_unittest("sigma-nonscf", test_s_cds_nonscf), &
       new_unittest("potential", test_p_cds), &
-      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.) &
+      new_unittest("unsupported-solvent", test_unsupported_solvent, should_fail=.true.), &
+      new_unittest("unsupported-periodic", test_unsupported_periodic, should_fail=.true.) &
       ]
 
 end subroutine collect_solvation_cds
@@ -199,6 +206,7 @@ subroutine test_g(error, mol, input, qat, method)
 
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
    call solv%get_potential(mol, cache, wfn, pot)
@@ -235,7 +243,7 @@ subroutine test_g_nonscf(error, mol, input, method)
    type(container_cache) :: cache
    real(wp), parameter :: step = 1.0e-4_wp
    real(wp), allocatable :: gradient(:, :), numg(:, :)
-   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
    integer :: ii, ic
 
    scratch_input = input
@@ -270,9 +278,10 @@ subroutine test_g_nonscf(error, mol, input, method)
 
    energy = 0.0_wp
    gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
 
    call solv%update(mol, cache)
-   call solv%get_engrad(mol, cache, energy, gradient)
+   call solv%get_engrad(mol, cache, energy, gradient, sigma)
 
    if (any(abs(gradient - numg) > thr2)) then
       call test_failed(error, "Gradient does not match")
@@ -283,6 +292,178 @@ subroutine test_g_nonscf(error, mol, input, method)
       print "(3es20.13)", gradient - numg
    end if
 end subroutine test_g_nonscf
+
+
+subroutine test_s(error, mol, input, qat, method)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Solvation model input
+   type(cds_input), intent(in) :: input
+
+   !> Atomic partial charges
+   real(wp), intent(in) :: qat(:)
+
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
+   type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
+   type(wavefunction_type) :: wfn
+   type(potential_type) :: pot
+   type(container_cache) :: cache
+   real(wp), parameter :: step = 1.0e-5_wp
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), allocatable :: gradient(:, :), xyz(:, :)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   integer :: ic, jc
+
+   wfn%qat = reshape(qat, [size(qat), 1])
+   allocate(pot%vat(size(qat, 1), 1))
+
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
+
+   allocate(gradient(3, mol%nat), xyz(3, mol%nat))
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, er)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_potential(mol, cache, wfn, pot)
+         call solv%get_energy(mol, cache, wfn, el)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         ! the angular grid is not rotationally invariant, therefore the strain
+         ! derivative is not symmetric
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call solv%update(mol, cache)
+   call solv%get_potential(mol, cache, wfn, pot)
+   call solv%get_energy(mol, cache, wfn, energy)
+   call solv%get_gradient(mol, cache, wfn, gradient, sigma)
+
+   if (any(abs(sigma - numsigma) > thr2)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma
+      print "(a)", "---"
+      print "(3es20.13)", numsigma
+      print "(a)", "---"
+      print "(3es20.13)", sigma - numsigma
+   end if
+end subroutine test_s
+
+
+subroutine test_s_nonscf(error, mol, input, method)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   !> Molecular structure data
+   type(structure_type), intent(inout) :: mol
+
+   !> Solvation model input
+   type(cds_input), intent(in) :: input
+
+   !> Method for parameter selection
+   character(len=*), intent(in), optional :: method
+
+   type(cds_solvation) :: solv
+   type(cds_input), allocatable :: scratch_input
+   type(container_cache) :: cache
+   real(wp), parameter :: step = 1.0e-5_wp
+   real(wp), parameter :: unity(3, 3) = reshape(&
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   real(wp), allocatable :: gradient(:, :), xyz(:, :)
+   real(wp) :: energy(mol%nat), er(mol%nat), el(mol%nat), sigma(3, 3)
+   real(wp) :: eps(3, 3), numsigma(3, 3)
+   integer :: ic, jc
+
+   scratch_input = input
+
+   if (allocated(input%solvent) .and. present(method)) then
+      call get_cds_param(scratch_input, mol, method, error)
+      if(allocated(error)) then
+         call test_failed(error, "No CDS parameters found for the method/solvent")
+         return
+      end if
+   end if
+
+   solv = cds_solvation(mol, scratch_input, method)
+
+   allocate(gradient(3, mol%nat), xyz(3, mol%nat))
+   eps(:, :) = unity
+   xyz(:, :) = mol%xyz
+   do ic = 1, 3
+      do jc = 1, 3
+         er = 0.0_wp
+         el = 0.0_wp
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_engrad(mol, cache, er)
+
+         eps(jc, ic) = eps(jc, ic) - 2*step
+         mol%xyz(:, :) = matmul(eps, xyz)
+         call solv%update(mol, cache)
+         call solv%get_engrad(mol, cache, el)
+
+         eps(jc, ic) = eps(jc, ic) + step
+         mol%xyz(:, :) = xyz
+         ! the angular grid is not rotationally invariant, therefore the strain
+         ! derivative is not symmetric
+         numsigma(jc, ic) = 0.5_wp*(sum(er) - sum(el))/step
+      end do
+   end do
+
+   energy = 0.0_wp
+   gradient(:, :) = 0.0_wp
+   sigma(:, :) = 0.0_wp
+
+   call solv%update(mol, cache)
+   call solv%get_engrad(mol, cache, energy, gradient, sigma)
+
+   if (any(abs(sigma - numsigma) > thr2)) then
+      call test_failed(error, "Strain derivatives do not match")
+      print "(3es20.13)", sigma
+      print "(a)", "---"
+      print "(3es20.13)", numsigma
+      print "(a)", "---"
+      print "(3es20.13)", sigma - numsigma
+   end if
+end subroutine test_s_nonscf
 
 subroutine test_p(error, mol, input, qat, method)
 
@@ -421,6 +602,37 @@ subroutine test_g_sasa(error)
    call test_g_nonscf(error, mol, input)
 
 end subroutine test_g_sasa
+
+
+subroutine test_s_sasa(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+   real(wp), allocatable :: rad(:), tension(:), hbond(:)
+
+   call get_structure(mol, "MB16-43", "06")
+   rad = get_vdw_rad_bondi(mol%num)
+   tension = tension_water(mol%num)
+   hbond = hbond_water(mol%num)
+
+   input = cds_input(probe=0.3_wp, nang=110, rad=rad, tension=tension, hbond=hbond)
+   call test_s(error, mol, input, qat)
+
+   if (allocated(error)) return
+
+   call test_s_nonscf(error, mol, input)
+
+end subroutine test_s_sasa
 
 
 subroutine test_p_sasa(error)
@@ -793,6 +1005,29 @@ subroutine test_g_cds(error)
 
 end subroutine test_g_cds
 
+subroutine test_g_cds_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_g(error, mol, input, qat, method="gfn1")
+
+end subroutine test_g_cds_gfn1
+
 
 subroutine test_g_cds_nonscf(error)
 
@@ -809,6 +1044,68 @@ subroutine test_g_cds_nonscf(error)
    call test_g_nonscf(error, mol, input, method="gfn2")
 
 end subroutine test_g_cds_nonscf
+
+subroutine test_s_cds(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_s(error, mol, input, qat, method="gfn2")
+
+end subroutine test_s_cds
+
+subroutine test_s_cds_gfn1(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(cds_input) :: input
+   real(wp), parameter :: qat(*) = [&
+      & 2.08159387594211E-1_wp,-3.78010519998818E-1_wp, 3.36498247356244E-2_wp, &
+      &-4.11556158912895E-1_wp, 8.14928196660512E-2_wp,-2.00886649303053E-1_wp, &
+      & 2.44756994282684E-1_wp, 2.54580499189089E-2_wp, 2.59835128092562E-1_wp, &
+      & 4.21683321877209E-1_wp, 1.37097163086023E-1_wp, 4.06951664942900E-2_wp, &
+      &-1.10955378625897E-1_wp,-6.44033540918074E-2_wp,-1.91525919028143E-1_wp, &
+      &-9.54898757869102E-2_wp]
+
+   call get_structure(mol, "MB16-43", "06")
+   solvent = get_solvent_data("water")
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_s(error, mol, input, qat, method="gfn1")
+
+end subroutine test_s_cds_gfn1
+
+subroutine test_s_cds_nonscf(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvent_data) :: solvent
+   type(cds_input) :: input
+
+   call get_structure(mol, "MB16-43", "07")
+   solvent = get_solvent_data("water")
+   input = cds_input(solvent=solvent%solvent, alpb=.true.)
+   call test_s_nonscf(error, mol, input, method="gfn2")
+
+end subroutine test_s_cds_nonscf
 
 
 subroutine test_p_cds(error)
@@ -859,6 +1156,24 @@ subroutine test_unsupported_solvent(error)
    call get_cds_param(input, mol, "gfn1", error)
 
 end subroutine test_unsupported_solvent
+
+
+subroutine test_unsupported_periodic(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   type(solvation_input) :: input
+   class(solvation_type), allocatable :: solv
+
+   call get_structure(mol, "X23", "urea")
+
+   ! Check CDS model is rejected for periodic systems
+   input%cds = cds_input(solvent="water", alpb=.true.)
+   call new_solvation_cds(solv, mol, input, error, "gfn2")
+
+end subroutine test_unsupported_periodic
 
 
 end module test_solvation_cds

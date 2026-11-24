@@ -27,6 +27,7 @@ module tblite_solvation_cm5
    use mctc_env, only: wp
    use mctc_io,only: structure_type
    use mctc_io_convert, only: aatoau, kcaltoau
+   use mctc_io_math, only: outerprod
    implicit none
    private
 
@@ -63,21 +64,24 @@ module tblite_solvation_cm5
 contains
 
 !> Get CM5 charges and derivatives
-subroutine get_cm5_charges(mol, cm5, dcm5dr)
+subroutine get_cm5_charges(mol, cm5, dcm5dr, dcm5dL)
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> CM5 charges
    real(wp), intent(out) :: cm5(mol%nat)
    !> CM5 charge derivatives
    real(wp), intent(out) :: dcm5dr(3, mol%nat, mol%nat)
+   !> CM5 charge strain derivatives
+   real(wp), intent(out) :: dcm5dL(3, 3, mol%nat)
 
    ! Pair parameters set up from cm5_a0
    real(wp), allocatable :: pairpar(:,:)
    integer :: iat, jat, nati, natj
-   real(wp) :: pij, pji, rab(3), dist, bkk, bkkda, radi, radj
+   real(wp) :: pij, pji, rab(3), dist, bkk, bkkda, radi, radj, dS(3, 3)
 
    cm5(:) = 0.0_wp
    dcm5dr(:,:,:) = 0.0_wp
+   dcm5dL(:,:,:) = 0.0_wp
 
    ! Set up pair parameters
    allocate (pairpar(max_elements,max_elements),source=0.0_wp)
@@ -118,6 +122,9 @@ subroutine get_cm5_charges(mol, cm5, dcm5dr)
          dcm5dr(:,jat,jat) = dcm5dr(:,jat,jat)+bkkda*rab*pji
          dcm5dr(:,iat,jat) = dcm5dr(:,iat,jat)-bkkda*rab*pji
          dcm5dr(:,jat,iat) = dcm5dr(:,jat,iat)+bkkda*rab*pij
+         dS = outerprod(bkkda*rab, rab)
+         dcm5dL(:,:,iat) = dcm5dL(:,:,iat)-dS*pij
+         dcm5dL(:,:,jat) = dcm5dL(:,:,jat)-dS*pji
       end do
    end do
 
