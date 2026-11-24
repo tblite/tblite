@@ -394,13 +394,13 @@ subroutine test_s_asymmetry(error)
    if (asym_small < 1.0e-2_wp) then
       call test_failed(error, &
          & "Surface strain derivative is not asymmetric for small grid")
-      print '(es20.13)', asym_small
+      print "(es20.13)", asym_small
       return
    end if
 
    if (asym_large > 1.0e-3_wp) then
       call test_failed(error, "Surface strain asymmetry does not decrease for large grid")
-      print '(es20.13)', asym_large
+      print "(es20.13)", asym_large
       return
    end if
 
